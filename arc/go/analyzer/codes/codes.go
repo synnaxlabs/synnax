@@ -70,6 +70,13 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "unit conversion from %s to %s truncates an integer toward zero",
 	}
+	// UnitDropped indicates a cast with no unit that removes the unit of a value which
+	// goes to a target in another unit of the same dimension.
+	UnitDropped = diagnostics.Kind{
+		Code:     "ARC2009",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "the cast to %s removes the unit %s, so %s takes the number in %s",
+	}
 
 	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
@@ -130,6 +137,7 @@ var All = []diagnostics.Kind{
 	BoolCast,
 	UnitMissing,
 	UnitTruncation,
+	UnitDropped,
 	FuncArgMissing,
 	FuncArgType,
 	FuncArgExtra,

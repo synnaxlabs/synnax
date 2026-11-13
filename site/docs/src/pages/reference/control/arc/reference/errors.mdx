@@ -85,6 +85,14 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Use the same unit on the two sides, or a float.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item {...Arc.diagnostic("ARC2009", ["<T>", "<unit>", "'<v>'", "<unit>"])}>
+  <Problem.Cause>
+    A cast with no unit, such as `i64(5s)`, removes the unit of a value that goes to a
+    target in another unit of the same dimension.
+  </Problem.Cause>
+  <Problem.Fix>To convert the value, give the cast the unit: `i64 ms(5s)`.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>
   <Problem.Cause>The call has no argument for a required parameter.</Problem.Cause>
   <Problem.Fix>Add the argument. The note shows the signature.</Problem.Fix>

@@ -365,6 +365,8 @@ sequence unit_main {
     src_mv := 2500.0mV
     src_live := 60s
     held i64 s := 1500ms
+    fold_bare i64 ms := i64(5s)
+    fold_unit i64 ms := i64 s(5)
     stage convert {
         120s -> lit
         src_s -> flow_up
@@ -391,6 +393,8 @@ sequence unit_main {
         volts -> unit_volts
         live -> unit_live
         calc -> unit_calc
+        fold_bare -> unit_fold_bare
+        fold_unit -> unit_fold_unit
         flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
         5000ms -> held
         flow_trigger -> unit_to_ms(x=held) -> unit_fn_written
@@ -487,6 +491,7 @@ func body(x i64 s) i64 {
     a i64 s := 5psi                               // error, dimension, declaration
     m i64 min := 90s                              // [2 fix] truncation, declaration
     q i64 Pa := 5psi                              // [2 fix] warning, factor not whole
+    g i64 ms := i64(5s)                           // [2 fix] warning, unit removed
     total i64 := 0
     total += 5ms                                  // [2 fix] error, no unit, compound
     acc i64 min := 0min
@@ -557,6 +562,7 @@ UNIT_ERRORS = [
     "incompatible dimensions: cannot write psi to 'a' (s)",
     "hint: change `m i64 min := 90s` to `m f64 min := 90s`",
     "unit conversion from psi to Pa truncates an integer toward zero",
+    "the cast to i64 removes the unit s, so 'g' takes the number in ms",
     "'total' has no unit and cannot take a value in ms",
     "'ys' is a series in ms and cannot take a series in s",
     "series element 2 has incompatible type",
@@ -1075,6 +1081,8 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_fn_held", sy.DataType.INT64),
     ("unit_fn_cast", sy.DataType.INT64),
     ("unit_fn_bare", sy.DataType.INT64),
+    ("unit_fold_bare", sy.DataType.INT64),
+    ("unit_fold_unit", sy.DataType.INT64),
     ("unit_log", sy.DataType.STRING),
     # Narrow integer types, widened to i64 in Arc
     *(
@@ -1264,6 +1272,8 @@ class Conversion(ArcCase):
         self.wait_for_near("unit_volts", 2.5, tolerance=1e-9)
         self.wait_for_eq("unit_live", 1)
         self.wait_for_eq("unit_calc", 4)
+        self.wait_for_eq("unit_fold_bare", 5)
+        self.wait_for_eq("unit_fold_unit", 5000)
         self.log("Writing 180 s to the source variable")
         self.writer.write("unit_live_in", 180)
         self.wait_for_eq("unit_live", 3)

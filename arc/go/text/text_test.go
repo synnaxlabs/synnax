@@ -753,6 +753,59 @@ var _ = Describe("Text", func() {
 				"func f() {\nys series i64 s := [1500ms]\n}"),
 		)
 
+		DescribeTable(
+			"Should warn when a cast with no unit removes a unit that converts",
+			func(ctx SpecContext, source string, warnings int) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitDropped.Code
+					},
+				)).To(HaveLen(warnings), diagnostics.String())
+			},
+			Entry(
+				"a declaration in a function",
+				"func f() {\nd i64 ms := i64(5s)\n}",
+				1,
+			),
+			Entry(
+				"a declaration in a sequence",
+				"sequence main {\nd i64 ms := i64(5s)\nstage s1 {\nd -> count_ch\n}\n}",
+				1,
+			),
+			Entry("an assignment of a variable",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}", 1),
+			Entry("an assignment in a stage",
+				"sequence main {\nd i64 ms := 0ms\nstage s1 {\nd = i64(5s)\n}\n}", 1),
+			Entry("a result", "func f(x i64 s) i64 ms {\nreturn i64(x)\n}", 1),
+			Entry("an argument",
+				"func g(m i64 ms) {\n}\nfunc f(x i64 s) {\ng(i64(x))\n}", 1),
+			Entry("an input", "import time\nsequence main {\nt := 5s\nstage s1 {\n"+
+				"count_ch -> time.wait(i64(t)) -> flag_ch\n}\n}", 1),
+			Entry("the same unit", "func f() {\nd i64 s := i64(5s)\n}", 0),
+			Entry("another dimension", "func f() {\nd i64 psi := i64(5s)\n}", 0),
+			Entry("a target with no unit", "func f() {\nd i64 := i64(5s)\n}", 0),
+			Entry("a cast with a unit", "func f() {\nd i64 ms := i64 s(5)\n}", 0),
+		)
+
+		DescribeTable("Should fix a cast that removes a unit",
+			func(ctx SpecContext, source string, fixed ...string) {
+				expectFixes(ctx, source, codes.UnitDropped.Code, fixed)
+			},
+			Entry("a literal",
+				"func f() {\nd i64 ms := i64(5s)\n}",
+				"func f() {\nd i64 ms := 5s\n}",
+				"func f() {\nd i64 ms := 5ms\n}"),
+			Entry("a float literal into an integer",
+				"func f() {\nd i64 ms := i64(1.5s)\n}",
+				"func f() {\nd i64 ms := i64 ms(1.5s)\n}"),
+			Entry("a variable",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64 ms(x)\n}"),
+		)
+
 		DescribeTable("Should reject a value with a unit for a name with no unit",
 			func(ctx SpecContext, source, message string, fixed ...string) {
 				found := expectFixes(ctx, source, codes.UnitMissing.Code, fixed)

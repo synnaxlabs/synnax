@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // AnalyzeBlock validates a block of statements in a new scope.
@@ -399,12 +400,32 @@ func CastConstValue[T antlr.ParserRuleContext](
 	}
 	if p := parser.GetPrimaryExpression(expr); p != nil {
 		if cast := p.TypeCast(); cast != nil && cast.Expression() != nil {
-			if parsed, err := literal.ParseConst(cast.Expression(), t); err == nil {
-				return parsed.Value
-			}
+			return castValue(cast, t)
 		}
 	}
 	return nil
+}
+
+// castValue returns the value that cast of a literal gives a target of type t, or nil
+// when cast is not a constant.
+func castValue(cast parser.ITypeCastContext, t types.Type) any {
+	castType, err := atypes.InferFromTypeContext(cast.Type_())
+	if err != nil {
+		return nil
+	}
+	parsed, err := literal.ParseConst(cast.Expression(), castType)
+	if err != nil {
+		return nil
+	}
+	if types.UnitsConvertible(castType.Unit, t.Unit) {
+		parsed, err = literal.Convert(
+			telem.CastNumeric[float64](parsed.Value), castType.Unit, t,
+		)
+		if err != nil {
+			return nil
+		}
+	}
+	return parsed.Value
 }
 
 func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {

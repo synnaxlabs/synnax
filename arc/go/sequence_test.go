@@ -5965,6 +5965,75 @@ var _ = Describe("Sequence", func() {
 				`p = p_kpa`, "d=1 other=120 typed=120000 p=2.5"),
 		)
 
+		casts := []TableEntry{
+			Entry("a cast with no unit of a unit literal", `i64 ms := i64(5s)`, "d=5"),
+			Entry("a cast with a unit of a number", `i64 ms := i64 s(5)`, "d=5000"),
+			Entry("a cast that truncates", `i64 ms := i64 s(1500ms)`, "d=1000"),
+			Entry("a cast in the unit of the variable", `:= i64 ms(5s)`, "d=5000"),
+			Entry(
+				"a float cast with a unit of a number",
+				`f64 ms := f64 s(1.5)`,
+				"d=1500",
+			),
+		}
+
+		DescribeTable("Gives a sequence variable the value of a cast of a literal",
+			func(ctx SpecContext, entry, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d `+entry+`
+				    stage write {
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			casts,
+		)
+
+		DescribeTable("Gives a function variable the value of a cast of a literal",
+			func(ctx SpecContext, entry, expected string) {
+				kind := strings.Fields(strings.TrimPrefix(entry, ":= "))[0]
+				h := newRuntimeHarness(ctx, `
+				func body() `+kind+` ms {
+				    d `+entry+`
+				    return d
+				}
+				sequence main {
+				    d `+kind+` ms := 0ms
+				    stage write {
+				        raw -> body() -> d
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			casts,
+		)
+
+		DescribeTable("Gives a variable the value of an assigned cast of a literal",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d i64 ms := 0ms
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a cast with no unit of a unit literal", `d = i64(5s)`, "d=5"),
+			Entry("a cast with a unit of a number", `d = i64 s(5)`, "d=5000"),
+			Entry("a cast that truncates", `d = i64 s(1500ms)`, "d=1000"),
+		)
+
 		DescribeTable(
 			"Keeps an integer exact for a factor that is not exact in a float",
 			func(ctx SpecContext, write, expected string) {

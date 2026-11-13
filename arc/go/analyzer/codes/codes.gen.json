@@ -19,6 +19,10 @@
     "severity": "warning",
     "message": "unit conversion from %s to %s truncates an integer toward zero"
   },
+  "ARC2009": {
+    "severity": "warning",
+    "message": "the cast to %s removes the unit %s, so %s takes the number in %s"
+  },
   "ARC3001": {
     "severity": "error",
     "message": "missing required argument for parameter '%s' of func '%s'"

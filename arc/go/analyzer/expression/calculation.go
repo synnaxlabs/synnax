@@ -13,10 +13,12 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -75,6 +77,9 @@ func CheckUnits[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(d)
 		return false, false
 	}
+	if from == nil && to != nil && w.Expr != nil {
+		warnDroppedUnit(ctx, w, to)
+	}
 	if !types.UnitsConvertible(from, to) {
 		return false, true
 	}
@@ -123,6 +128,47 @@ func CheckUnits[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(d)
 	}
 	return !isLiteral, true
+}
+
+// warnDroppedUnit warns when the value of w is a cast with no unit of a value in
+// another unit of the dimension of to.
+func warnDroppedUnit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	w Write,
+	to *types.Unit,
+) {
+	primary := parser.GetPrimaryExpression(w.Expr)
+	if primary == nil || primary.TypeCast() == nil {
+		return
+	}
+	cast := primary.TypeCast()
+	value := cast.Expression()
+	castType, err := atypes.InferFromTypeContext(cast.Type_())
+	if value == nil || err != nil {
+		return
+	}
+	from := ctx.Constraints.ApplySubstitutions(
+		atypes.InferFromExpression(ctx.Child(value)),
+	).Unwrap().Unit
+	if !types.UnitsConvertible(from, to) {
+		return
+	}
+	d := codes.UnitDropped.At(w.AST, castType, from.Name, w.Subject, to.Name)
+	castType.Unit = to
+	var number parser.INumericLiteralContext
+	if parser.IsLiteral(value) {
+		number = parser.GetLiteral(value).NumericLiteral()
+	}
+	// A float literal does not go to an integer without a cast.
+	if number == nil || number.INTEGER_LITERAL() == nil && !castType.IsFloat() {
+		d = d.WithFix(w.Expr, castType.String()+"("+sourceText(value)+")")
+		ctx.Diagnostics.Add(d)
+		return
+	}
+	unit := number.IDENTIFIER().GetText()
+	ctx.Diagnostics.Add(d.
+		WithFix(w.Expr, sourceText(value)).
+		WithFix(w.Expr, strings.TrimSuffix(sourceText(value), unit)+to.Name))
 }
 
 type declaration interface {
