@@ -427,7 +427,7 @@ var _ = Describe("TS Types Plugin", func() {
 			`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(
-					"rate: z.number().min(0).gt(0).default(10)",
+					"rate: z.number().gt(0).default(10)",
 					"fallback: z.number().min(0)",
 				)
 			},
