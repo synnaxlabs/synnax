@@ -296,6 +296,11 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      - name: Mark the start of the build
+        id: start
+        shell: bash
+        run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Download the Go modules
         shell: bash
         env:
@@ -368,25 +373,20 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go refreshes an entry's mtime when it uses it, so
-      # deleting the oldest files first keeps the ones this run read. One compile of
-      # the Core tests reads or writes about 16 GB.
+      # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
+      # that mtime is less than an hour old, so an entry older than an hour before the
+      # build did not serve this run. A size budget is not safe: it deletes the first
+      # entries of the run, which are the standard library and the modules.
       - name: Trim the Go build cache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         shell: bash
         env:
-          BUDGET: 20000000000
           BUILD: ${{ steps.key.outputs.build }}
+          START: ${{ steps.start.outputs.seconds }}
         run: |
           cd "$BUILD"
           du -sh .
-          if [ "$RUNNER_OS" = macOS ]; then
-            find . -type f -exec stat -f '%m %z %N' {} +
-          else
-            find . -type f -printf '%T@ %s %p\n'
-          fi |
-            sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
-            xargs -r rm -f
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
           du -sh .
 
       # The shards restore the same cache and save under one key, so only the first
