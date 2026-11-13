@@ -1016,8 +1016,8 @@ class TestMain:
 
     @staticmethod
     def side(head: Path, base: str, files: dict[str, str]) -> str:
-        """Commits files on a new branch from the base, returns to the branch before, and
-        returns the commit, which is not in that branch's history."""
+        """Commits files on a branch from the base, and returns the commit. The checkout
+        goes back to the branch before, whose history does not hold the commit."""
         git(head, "checkout", "-qb", "side", base)
         for name, text in files.items():
             (head / name).write_text(text)
