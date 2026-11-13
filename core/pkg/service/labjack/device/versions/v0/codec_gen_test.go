@@ -39,16 +39,18 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack:       rack.Key(3),
 				Name:       "test_3",
-				Serial:     "test_4",
+				Serial:     5,
 				Model:      v0.Model("LJM_dtT4"),
-				Identifier: "test_6",
+				Connection: v0.Connection("LJM_ctUSB"),
+				Identifier: "test_7",
 			}),
 			Entry("zero values", v0.Device{
 				Key:        uuid.Nil(),
 				Rack:       rack.Key(0),
 				Name:       "",
-				Serial:     "",
+				Serial:     0,
 				Model:      v0.Model(""),
+				Connection: v0.Connection(""),
 				Identifier: "",
 			}),
 		)
@@ -60,9 +62,10 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Rack:       rack.Key(3),
 		Name:       "test_3",
-		Serial:     "test_4",
+		Serial:     5,
 		Model:      v0.Model("LJM_dtT4"),
-		Identifier: "test_6",
+		Connection: v0.Connection("LJM_ctUSB"),
+		Identifier: "test_7",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -85,9 +88,10 @@ func FuzzDecodeDevice(f *testing.F) {
 			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Rack:       rack.Key(3),
 			Name:       "test_3",
-			Serial:     "test_4",
+			Serial:     5,
 			Model:      v0.Model("LJM_dtT4"),
-			Identifier: "test_6",
+			Connection: v0.Connection("LJM_ctUSB"),
+			Identifier: "test_7",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -100,8 +104,9 @@ func FuzzDecodeDevice(f *testing.F) {
 			Key:        uuid.Nil(),
 			Rack:       rack.Key(0),
 			Name:       "",
-			Serial:     "",
+			Serial:     0,
 			Model:      v0.Model(""),
+			Connection: v0.Connection(""),
 			Identifier: "",
 		}
 		w := orc.NewWriter(0)

@@ -21,8 +21,9 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.Write(d.Key[:])
 	w.Uint32(uint32(d.Rack))
 	w.String(d.Name)
-	w.String(d.Serial)
+	w.Uint32(uint32(d.Serial))
 	w.String(string(d.Model))
+	w.String(string(d.Connection))
 	w.String(d.Identifier)
 	return nil
 }
@@ -43,7 +44,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 	if d.Name, err = r.String(); err != nil {
 		return err
 	}
-	if d.Serial, err = r.String(); err != nil {
+	if d.Serial, err = r.Uint32(); err != nil {
 		return err
 	}
 	{
@@ -52,6 +53,13 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		d.Model = Model(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		d.Connection = Connection(rawV)
 	}
 	if d.Identifier, err = r.String(); err != nil {
 		return err
