@@ -181,6 +181,27 @@ describe("range/next/Explorer", () => {
       expect(screen.getByRole("button", { name: "Remove Stage filter" })).toBeTruthy();
     });
 
+    it("should drop a range from its stage filter once the range ends", async () => {
+      const token = uniqueToken();
+      const start = TimeStamp.now();
+      const ending = await createRange(`${token} ending`, {
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(3))),
+      });
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(start, TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await search(token);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await findItem(ending.name);
+      await waitFor(
+        () => expect(screen.queryByRole("listitem", { name: ending.name })).toBeNull(),
+        { timeout: 10_000 },
+      );
+      expect(itemOf(running.name)).toBeTruthy();
+    });
+
     it("should keep the ranges in a time preset and name the preset in its chip", async () => {
       const token = uniqueToken();
       const recent = await createRange(`${token} recent`);
