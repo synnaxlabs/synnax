@@ -21,7 +21,6 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { channel } from "@/channel";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { query } from "@/query";
@@ -33,8 +32,6 @@ import {
   scopedActionZ,
   set,
 } from "@/ranger/actions.gen";
-import { alias } from "@/ranger/alias";
-import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
@@ -69,15 +66,12 @@ const kvDeleteZ = z
   .transform((val) => val.split("<--->"))
   .transform(([range, key]) => ({ key, range }));
 
-const aliasDeleteZ = z.string().transform((val) => alias.decodeDeleteChange(val));
-
 interface Stores {
   ranges: query.Table<Key, Range>;
   kvPairs: query.Table<string, kv.Pair>;
-  aliases: query.Table<string, alias.Alias>;
 }
 
-/** Creates the range, range KV, and range alias tables on the given cache. */
+/** Creates the range and range KV tables on the given cache. */
 const createTables = (
   cache: query.Cache,
   fetch: (keys: Key[]) => Promise<Range[]>,
@@ -100,34 +94,19 @@ const createTables = (
       }),
     ],
   });
-
-  const aliases = cache.createTable<string, alias.Alias>({
-    name: "range_aliases",
-    revivable: true,
-    listen: [
-      query.createSetListener(alias.SET_CHANNEL_NAME, alias.aliasZ, {
-        key: (changed) => alias.createKey(changed),
-      }),
-      query.createDeleteListener(alias.DELETE_CHANNEL_NAME, aliasDeleteZ, {
-        key: (changed) => alias.createKey(changed),
-      }),
-    ],
-  });
-  return { ranges, kvPairs, aliases };
+  return { ranges, kvPairs };
 };
 
 interface RangeConstructionOptions {
   frameClient: framer.Client;
   kv: KVClient;
-  aliaser: AliasClient;
-  channels: framer.ChannelRetriever;
   labelClient: label.Client;
   rangeClient: Client;
 }
 
 /**
- * A named window of time, with the labels, metadata, and channel aliases attached to
- * it. Its `read` and `kv` members scope those operations to its own time range.
+ * A named window of time, with the labels and metadata attached to it. Its `read` and
+ * `kv` members scope those operations to its own time range.
  */
 export class Range {
   key: string;
@@ -139,22 +118,13 @@ export class Range {
   readonly parent?: Key;
   /** The keys of the labels attached to the range. */
   readonly labels: label.Key[];
-  readonly channels: framer.ChannelRetriever;
-  private readonly aliaser: AliasClient;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
   private readonly rangeClient: Client;
 
   constructor(
     { name, timeRange = TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
-    {
-      frameClient,
-      kv,
-      aliaser,
-      channels,
-      labelClient,
-      rangeClient,
-    }: RangeConstructionOptions,
+    { frameClient, kv, labelClient, rangeClient }: RangeConstructionOptions,
   ) {
     this.key = key;
     this.name = name;
@@ -164,8 +134,6 @@ export class Range {
     this.frameClient = frameClient;
     this.color = color_;
     this.kv = kv;
-    this.aliaser = aliaser;
-    this.channels = channels;
     this.labelClient = labelClient;
     this.rangeClient = rangeClient;
   }
@@ -184,38 +152,6 @@ export class Range {
     };
     if (this.parent != null) r.parent = this.parent;
     return r;
-  }
-
-  /**
-   * Sets the alias of a channel in the range.
-   * @throws {NotFoundError} if no channel has the given key or name.
-   * @throws {MultipleFoundError} if more than one channel has the given name.
-   */
-  async setAlias(ch: channel.Key | Name, alias: string): Promise<void> {
-    const found = await this.channels(ch);
-    checkForMultipleOrNoResults(
-      "channel",
-      { where: channel.singleWhere(ch) },
-      found,
-      true,
-    );
-    await this.rangeClient.setAlias(this.key, found[0].key, alias);
-  }
-
-  async deleteAlias(...channels: channel.Key[]): Promise<void> {
-    await this.rangeClient.deleteAlias(this.key, channels);
-  }
-
-  async listAliases(): Promise<Record<channel.Key, string>> {
-    return await this.aliaser.list();
-  }
-
-  /**
-   * @returns the key of the channel with the given alias in the range.
-   * @throws {NotFoundError} if no channel has the alias.
-   */
-  async resolveAlias(alias: string): Promise<channel.Key> {
-    return await this.aliaser.resolve(alias);
   }
 
   async retrieveParent(): Promise<Range | null> {
@@ -277,7 +213,6 @@ const isOneParams = (params: object): params is OneParams => query.addressesOne(
 export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
-  channels: framer.ChannelRetriever;
   labels: label.Client;
   cache: query.Cache;
 }
@@ -294,8 +229,6 @@ export class Client extends query.Retriever<
   { key: Key }
 > {
   readonly type: string = "range";
-  /** The range alias table; injected into sibling clients at wiring. */
-  readonly aliases: query.Table<string, alias.Alias>;
   /** Cached queries for the parent of a range, keyed by the child's key. */
   readonly parent: query.Retrieves<Key, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
@@ -308,7 +241,7 @@ export class Client extends query.Retriever<
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
-    const { ranges, kvPairs, aliases } = createTables(
+    const { ranges, kvPairs } = createTables(
       cache,
       async (keys) => await this.execRetrieve(query.keysRequest(keys)),
     );
@@ -371,7 +304,6 @@ export class Client extends query.Retriever<
     this.store = ranges;
     this.dispatcher = dispatcher;
     this.kvPairs = kvPairs;
-    this.aliases = aliases;
     this.parent = cache.queries<Key, Range | null, Key, Range>({
       name: "parent range",
       table: ranges,
@@ -512,10 +444,6 @@ export class Client extends query.Retriever<
     });
   }
 
-  private createAliasClient(key: Key): AliasClient {
-    return new AliasClient(key, this.cfg.unary);
-  }
-
   private createKVClient(key: Key): KVClient {
     return new KVClient(key, this.cfg.unary, this.kvPairs);
   }
@@ -560,64 +488,10 @@ export class Client extends query.Retriever<
     return await this.parent.retrieve(range);
   }
 
-  async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
-    const aliaser = this.createAliasClient(range);
-    return await aliaser.retrieve(channel);
-  }
-
-  async retrieveAliases(
-    range: Key,
-    channels: channel.Key[],
-  ): Promise<Record<channel.Key, string>> {
-    return await this.createAliasClient(range).retrieve(channels);
-  }
-
-  async listAliases(range: Key): Promise<Record<channel.Key, string>> {
-    return await this.createAliasClient(range).list();
-  }
-
-  async setAlias(
-    range: Key,
-    channel: channel.Key,
-    aliasName: string,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const entry: alias.Alias = { range, channel, alias: aliasName };
-    const set = () => [this.aliases.set(alias.createKey(entry), entry)];
-    await query.optimistic({
-      rollbacks: set(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.createAliasClient(range).set({ [channel]: aliasName }),
-    });
-    set();
-  }
-
-  async deleteAlias(
-    range: Key,
-    channels: channel.Key | channel.Key[],
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const channelsArr = array.toArray(channels);
-    const drop = () => [
-      this.aliases.delete(
-        channelsArr.map((channel) => alias.createKey({ range, channel })),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: drop(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.createAliasClient(range).delete(channelsArr),
-    });
-    drop();
-  }
-
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
       frameClient: this.cfg.framer,
       kv: this.createKVClient(payload.key),
-      aliaser: this.createAliasClient(payload.key),
-      channels: this.cfg.channels,
       labelClient: this.cfg.labels,
       rangeClient: this,
     });
@@ -627,9 +501,3 @@ export class Client extends query.Retriever<
     return payloads.map((payload) => this.sugarOne(payload));
   }
 }
-
-/** @returns the resource ID of a range's alias set. */
-export const aliasResourceID = (key: Key): resource.ID => ({
-  type: "range-alias",
-  key,
-});

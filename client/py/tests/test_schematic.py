@@ -38,7 +38,6 @@ class TestSchematic:
     def test_defaults(self) -> None:
         """Should create an empty, editable schematic from only a name."""
         s = schematic.Schematic(name="Tank")
-        assert s.snapshot is False
         assert s.nodes == []
         assert s.edges == []
         assert s.configs == {}
@@ -220,7 +219,6 @@ class TestClient:
         s = client.schematics.create(name="Test Schematic", project=project.key)
         assert s.name == "Test Schematic"
         assert s.project == project.key
-        assert s.range is None
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create a schematic from a Schematic object."""
@@ -292,17 +290,6 @@ class TestClient:
         retrieved = client.schematics.retrieve(projects=[project.key])
         assert {s.key for s in retrieved} == {a.key, b.key}
 
-    def test_retrieve_by_range(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should retrieve only the schematics the range owns."""
-        s = client.schematics.create(name="Original", project=project.key)
-        rng = client.ranges.create(
-            name="Snapshot Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        c = client.schematics.copy(s.key, name="Snapshot", snapshot=True, range=rng.key)
-        retrieved = client.schematics.retrieve(ranges=[rng.key])
-        assert [r.key for r in retrieved] == [c.key]
-
     def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should filter the schematics by group."""
         made = client.schematics.create(name="Ungrouped", project=project.key)
@@ -361,34 +348,8 @@ class TestClient:
         c = client.schematics.copy(s.key, name="Copy")
         assert c.key != s.key
         assert c.name == "Copy"
-        assert not c.snapshot
         assert c.project == project.key
         assert client.schematics.retrieve(key=c.key).name == "Copy"
-
-    def test_copy_snapshot(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should copy a schematic as an immutable snapshot."""
-        s = client.schematics.create(name="Original", project=project.key)
-        c = client.schematics.copy(s.key, name="Snapshot", snapshot=True)
-        assert c.snapshot
-
-    def test_copy_into_range(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should give a copy into a range to the range instead of the project."""
-        s = client.schematics.create(name="Original", project=project.key)
-        rng = client.ranges.create(
-            name="Snapshot Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        c = client.schematics.copy(s.key, name="Snapshot", snapshot=True, range=rng.key)
-        assert c.range == rng.key
-        assert c.project is None
-
-    def test_copy_into_missing_range(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should raise ValidationError when no range exists for the range key."""
-        s = client.schematics.create(name="Original", project=project.key)
-        with pytest.raises(sy.ValidationError, match="does not exist"):
-            client.schematics.copy(s.key, name="Snapshot", snapshot=True, range=uuid4())
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a schematic."""

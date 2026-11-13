@@ -442,7 +442,7 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/channel/retrieve",
 				withCookie("localhost:9090", cookie),
-				channel.RetrieveRequest{},
+				map[string]int{"unknown": 1},
 			)
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(res.Cookies()).To(BeEmpty())

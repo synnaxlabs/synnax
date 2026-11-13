@@ -279,36 +279,6 @@ var _ = Describe("Service", func() {
 			)
 
 			It(
-				"Should bubble up validate.ErrValidation when dispatching to a snapshot",
-				func(ctx SpecContext) {
-					s := createSchematic(ctx, "snap-source")
-					var snap schematic.Schematic
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return schematicSvc.NewWriter(tx).
-							Copy(ctx, s.Key, "snap", true, nil, &snap)
-					})).To(Succeed())
-					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
-					Expect(
-						dispatch(
-							AuthedCtx(ctx, author),
-							apischematic.DispatchRequest{
-								Key:         snap.Key,
-								DispatchKey: "sess-1",
-								Actions: []schematic.Action{
-									schematic.NewRemoveNodeAction(
-										schematic.RemoveNodePayload{
-											Key: "n1",
-										},
-									),
-								},
-							},
-						),
-					).Error().
-						To(MatchError(validate.ErrValidation))
-				},
-			)
-
-			It(
 				"Should bubble up query.ErrNotFound when the target schematic does not exist",
 				func(ctx SpecContext) {
 					missing := uuid.New()

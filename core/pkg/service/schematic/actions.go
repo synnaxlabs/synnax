@@ -292,24 +292,6 @@ type document struct {
 	Project *project.Key `json:"project,omitzero"`
 }
 
-// editsSnapshot reports whether the action can edit a snapshot: a set of the name, or a
-// set or remove of the group or project.
-func editsSnapshot(a Action) bool {
-	switch {
-	case a.Type == ActionTypeSet && a.Set != nil:
-		return slices.Contains(
-			[]string{"name", "group", "project"},
-			patch.Field(patch.Set(*a.Set)),
-		)
-	case a.Type == ActionTypeRemove && a.Remove != nil:
-		return slices.Contains(
-			[]string{"group", "project"},
-			patch.Field(patch.Remove(*a.Remove)),
-		)
-	}
-	return false
-}
-
 // edit applies a path action to the schematic's name, group, or project, or to the
 // element config that its path names. An action on the config of a node or edge that
 // does not exist does nothing. A config that names no variant or fails its schema is
