@@ -312,6 +312,22 @@ var _ = Describe("Channel fields", func() {
 			},
 		)
 
+		It(
+			"Should import a v1 boolean timestamp field whose channel is gone as a boolean",
+			func(ctx SpecContext) {
+				old := map[string]any{
+					"channel":     999999,
+					"json_type":   "boolean",
+					"time_format": "unix_ms",
+				}
+				f := firstField(
+					MustSucceed(svc.Write.Normalize(ctx, db, 1, config(old))),
+				)
+				Expect(f).To(HaveKeyWithValue("channel", BeNumerically("==", 0)))
+				Expect(f).To(HaveKeyWithValue("type", "boolean"))
+			},
+		)
+
 		It("Should import v1 string fields as strings, and on a JSON channel as JSON",
 			func(ctx SpecContext) {
 				data := MustSucceed(svc.Write.Normalize(ctx, db, 1, config(
