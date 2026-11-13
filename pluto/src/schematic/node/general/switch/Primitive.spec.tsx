@@ -47,7 +47,7 @@ describe("switch symbol", () => {
 
     // An unset color must leave the switch on the input theme it draws itself from.
     it("should pass a fully transparent color through as a choice", () => {
-      const { container } = render(<Switch strokeColor={color.ZERO} />);
+      const { container } = render(<Switch strokeColor={color.TRANSPARENT} />);
       const root = getRoot(container);
       expect(root.getAttribute("class") ?? "").toContain("lyra-symbol-colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");

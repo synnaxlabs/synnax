@@ -24,13 +24,16 @@ var functionPattern = regexp.MustCompile(`^(rgba?|hsla?)\((.*)\)$`)
 
 var argSeparator = regexp.MustCompile(`[\s,/]+`)
 
-// Parse parses a color string. It accepts a hex value of 3, 4, 6, or 8 digits with or
-// without a leading '#', an rgb() or rgba() function, and an hsl() or hsla() function,
-// in comma or space syntax with an optional alpha. The alpha of a color without one is
-// 255. Parse returns an error wrapping validate.ErrValidation for any other string or
-// for a value out of range.
+// Parse parses a color string. It accepts a CSS color name or the transparent keyword,
+// a hex value of 3, 4, 6, or 8 digits with or without a leading '#', an rgb() or rgba()
+// function, and an hsl() or hsla() function, in comma or space syntax with an optional
+// alpha. The alpha of a color without one is 255. Parse returns an error wrapping
+// validate.ErrValidation for any other string or for a value out of range.
 func Parse(s string) (Color, error) {
 	t := strings.ToLower(strings.TrimSpace(s))
+	if c, ok := names[t]; ok {
+		return c, nil
+	}
 	if m := functionPattern.FindStringSubmatch(t); m != nil {
 		c, err := parseFunction(m[1][:3], m[2])
 		if err != nil {

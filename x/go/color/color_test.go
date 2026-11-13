@@ -23,6 +23,10 @@ var _ = Describe("Color", func() {
 			func(input string, expected color.Color) {
 				Expect(color.Parse(input)).To(Equal(expected))
 			},
+			Entry("a name", "red", color.Color{R: 255, A: 255}),
+			Entry("a mixed case name", " RebeccaPurple ",
+				color.Color{R: 102, G: 51, B: 153, A: 255}),
+			Entry("the transparent keyword", "transparent", color.Color{}),
 			Entry("6 digit hex", "#ff8000", color.Color{R: 255, G: 128, A: 255}),
 			Entry("6 digit hex without a hash", "00ff00", color.Color{G: 255, A: 255}),
 			Entry("8 digit hex", "#ff000080", color.Color{R: 255, A: 128}),
@@ -75,7 +79,7 @@ var _ = Describe("Color", func() {
 					To(MatchError(validate.ErrValidation))
 			},
 			Entry("an empty string", ""),
-			Entry("a named color", "red"),
+			Entry("an unknown name", "reddish"),
 			Entry("a 5 digit hex", "#12345"),
 			Entry("a non-hex digit", "#xyzxyz"),
 			Entry("too few values", "rgb(1, 2)"),

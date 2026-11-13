@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "x/cpp/color/color.h"
+#include "x/cpp/color/names.h"
 
 namespace x::color {
 namespace {
@@ -243,6 +244,12 @@ std::pair<Color, x::errors::Error> parse(const std::string &input) {
         return static_cast<char>(std::tolower(c));
     });
     if (s.empty()) return {Color{}, invalid(input, "the string is empty")};
+    const auto *const named = std::ranges::lower_bound(NAMES, s, {}, &NamedColor::name);
+    if (named != NAMES.end() && named->name == s)
+        return {
+            Color{.r = named->r, .g = named->g, .b = named->b, .a = named->a},
+            x::errors::NIL
+        };
     if (const auto open = s.find('('); open != std::string::npos) {
         const std::string name = s.substr(0, open);
         if (s.back() != ')' ||

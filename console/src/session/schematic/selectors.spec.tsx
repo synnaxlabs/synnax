@@ -35,7 +35,11 @@ const KEY = "schematic-1";
 const customState: Schematic.State = {
   control: { authority: 250, status: "acquired" },
   selected: ["a", "b"],
-  legend: { ...Schematic.ZERO_STATE.legend, visible: false, colors: { a: color.ZERO } },
+  legend: {
+    ...Schematic.ZERO_STATE.legend,
+    visible: false,
+    colors: { a: color.TRANSPARENT },
+  },
   toolbar: {
     ...Schematic.ZERO_STATE.toolbar,
     selectedTab: "properties",

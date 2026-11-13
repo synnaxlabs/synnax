@@ -155,7 +155,7 @@ describe("Primitive.SVG", () => {
       const { container } = render(
         <Primitive.SVG
           dimensions={{ width: 10, height: 10 }}
-          strokeColor={color.ZERO}
+          strokeColor={color.TRANSPARENT}
         />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;

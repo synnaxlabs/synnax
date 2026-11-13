@@ -55,7 +55,7 @@ describe("color.Color", () => {
 
     test.each<[string, unknown]>([
       ["the empty string", ""],
-      ["a named color", "red"],
+      ["an unknown name", "reddish"],
       ["the empty object", {}],
       ["a struct", { r: 122, g: 44, b: 38, a: 0.5 }],
       ["an rgba255 object", { rgba255: [122, 44, 38, 128] }],
@@ -72,7 +72,7 @@ describe("color.Color", () => {
       expect(color.hex(color.construct("#7a2c2680"))).toEqual("#7a2c2680");
     });
     test("with a zero alpha", () => {
-      expect(color.hex(color.ZERO)).toEqual("#00000000");
+      expect(color.hex(color.TRANSPARENT)).toEqual("#00000000");
     });
   });
 
@@ -344,7 +344,7 @@ describe("color.Color", () => {
       expect(color.rgbaString([255, 0, 0, 51])).toEqual("255, 0, 0, 0.2");
     });
     test("carries a fully transparent color", () => {
-      expect(color.rgbaString(color.ZERO)).toEqual("0, 0, 0, 0");
+      expect(color.rgbaString(color.TRANSPARENT)).toEqual("0, 0, 0, 0");
     });
     test("is undefined for no color", () => {
       expect(color.rgbaString(undefined)).toBeUndefined();
@@ -506,6 +506,9 @@ describe("color.Color", () => {
 
   describe("construct from a string", () => {
     test.each<[string, color.Color]>([
+      ["red", [255, 0, 0, 255]],
+      [" RebeccaPurple ", [102, 51, 153, 255]],
+      ["transparent", [0, 0, 0, 0]],
       ["#ff0000", [255, 0, 0, 255]],
       ["00ff00", [0, 255, 0, 255]],
       ["#FF000080", [255, 0, 0, 128]],
@@ -531,8 +534,8 @@ describe("color.Color", () => {
 
     test.each([
       "",
-      "red",
-      "transparent",
+      "reddish",
+      "constructor",
       "#gggggg",
       "#12345",
       "rgb(1, 2)",

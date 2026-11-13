@@ -52,7 +52,7 @@ describe("button symbol", () => {
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(<Button fillColor={color.ZERO} />);
+    const { container } = render(<Button fillColor={color.TRANSPARENT} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );

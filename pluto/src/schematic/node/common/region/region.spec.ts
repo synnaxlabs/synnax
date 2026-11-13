@@ -67,12 +67,12 @@ describe("Region.extract", () => {
     const greenFillRegion = regions.find((r) => color.equals(r.fillColor, "#00ff00"));
     expect(greenFillRegion).toBeDefined();
     expect(greenFillRegion?.selectors).toHaveLength(2);
-    expect(color.equals(greenFillRegion?.strokeColor, color.ZERO)).toBe(true);
+    expect(color.equals(greenFillRegion?.strokeColor, color.TRANSPARENT)).toBe(true);
 
     const noColorRegion = regions.find(
       (r) =>
-        color.equals(r.strokeColor, color.ZERO) &&
-        color.equals(r.fillColor, color.ZERO),
+        color.equals(r.strokeColor, color.TRANSPARENT) &&
+        color.equals(r.fillColor, color.TRANSPARENT),
     );
     expect(noColorRegion).toBeDefined();
     expect(noColorRegion?.selectors).toHaveLength(2);
@@ -178,7 +178,9 @@ describe("Region.extract", () => {
     const mainRegion = regions.find((r) => color.equals(r.fillColor, "#00ff00"));
     expect(mainRegion?.selectors).toHaveLength(7);
 
-    const lineRegion = regions.find((r) => color.equals(r.fillColor, color.ZERO));
+    const lineRegion = regions.find((r) =>
+      color.equals(r.fillColor, color.TRANSPARENT),
+    );
     expect(lineRegion?.selectors).toHaveLength(1);
     expect(color.hex(lineRegion?.strokeColor)).toBe("#ff0000");
   });
@@ -294,14 +296,14 @@ describe("Region.paint", () => {
   it("should read a fill of none as transparent", () => {
     expect(Region.paint(SVG, ["#b"])).toEqual({
       stroke: color.construct("#0000ff"),
-      fill: color.ZERO,
+      fill: color.TRANSPARENT,
     });
   });
 
   it("should return transparent when no selector matches", () => {
     expect(Region.paint(SVG, ["#missing"])).toEqual({
-      stroke: color.ZERO,
-      fill: color.ZERO,
+      stroke: color.TRANSPARENT,
+      fill: color.TRANSPARENT,
     });
   });
 });

@@ -25,6 +25,9 @@ struct ParseCase {
 /// @brief it should parse every form of the color string grammar.
 TEST(Parse, ParsesEveryForm) {
     const std::vector<ParseCase> cases = {
+        {"red", {255, 0, 0, 255}},
+        {" RebeccaPurple ", {102, 51, 153, 255}},
+        {"transparent", {0, 0, 0, 0}},
         {"#ff8000", {255, 128, 0, 255}},
         {"ff8000", {255, 128, 0, 255}},
         {"#FF8000", {255, 128, 0, 255}},
@@ -63,8 +66,7 @@ TEST(Parse, RejectsInvalidStrings) {
     for (const std::string input:
          {"",
           "   ",
-          "red",
-          "transparent",
+          "reddish",
           "#",
           "#12345",
           "#1234567",

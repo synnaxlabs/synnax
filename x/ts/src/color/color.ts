@@ -10,11 +10,13 @@
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { NAMES } from "@/color/names";
 import { zod } from "@/zod";
 
 /**
- * A zod schema for a color string: a hex value of 3, 4, 6, or 8 digits with or without
- * a leading '#', an rgb() or rgba() function, or an hsl() or hsla() function.
+ * A zod schema for a color string: a CSS color name or the transparent keyword, a hex
+ * value of 3, 4, 6, or 8 digits with or without a leading '#', an rgb() or rgba()
+ * function, or an hsl() or hsla() function.
  */
 const stringZ = z.string().transform((s, ctx): RGBA => {
   const c = parseString(s);
@@ -252,8 +254,8 @@ export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
 /** @returns true if the color is light i.e. the luminance is greater than 0.5. */
 export const isLight = (color: Crude): boolean => luminance(color) > 0.5;
 
-/** A totally zero color with no alpha. */
-export const ZERO: Color = [0, 0, 0, 0];
+/** Transparent black, the color with every component 0. */
+export const TRANSPARENT: Color = [0, 0, 0, 0];
 
 const byteToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
 
@@ -261,12 +263,14 @@ const FUNCTION_PATTERN = /^(rgb|hsl)a?\((.*)\)$/;
 const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/;
 
 /**
- * Parses a color string: a hex value of 3, 4, 6, or 8 digits with or without a leading
- * '#', or an rgb(), rgba(), hsl(), or hsla() function in comma or space syntax with an
- * optional alpha. Out-of-range values do not parse.
+ * Parses a color string: a CSS color name or the transparent keyword, a hex value of 3,
+ * 4, 6, or 8 digits with or without a leading '#', or an rgb(), rgba(), hsl(), or
+ * hsla() function in comma or space syntax with an optional alpha. Out-of-range values
+ * do not parse.
  */
 const parseString = (input: string): RGBA | undefined => {
   const s = input.trim().toLowerCase();
+  if (Object.hasOwn(NAMES, s)) return [...NAMES[s]];
   const fn = s.match(FUNCTION_PATTERN);
   if (fn != null) return parseFunction(fn[1], fn[2]);
   return parseHex(s.startsWith("#") ? s.slice(1) : s);

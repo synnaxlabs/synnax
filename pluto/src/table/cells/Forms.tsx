@@ -29,7 +29,7 @@ const textPath = deep.path<table.TextCellConfig>();
 /** The colors a cell paints while one of its colors is absent. */
 export const colorFallbacks = {
   textColor: (theme: Theming.Theme): color.Color => theme.colors.gray.l11,
-  fillColor: (): color.Color => color.ZERO,
+  fillColor: (): color.Color => color.TRANSPARENT,
 };
 
 /** Props for a cell variant's form. */

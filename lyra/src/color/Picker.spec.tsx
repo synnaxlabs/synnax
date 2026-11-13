@@ -84,7 +84,11 @@ describe("Picker", () => {
 
     it("should make a typed hex opaque when the color is transparent", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: undefined, fallback: color.ZERO, onChange });
+      const c = renderPicker({
+        value: undefined,
+        fallback: color.TRANSPARENT,
+        onChange,
+      });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
       expect(color.opacity(onChange.mock.calls[0][0])).toEqual(1);
     });
@@ -180,7 +184,7 @@ describe("Picker", () => {
 
     it("should make a transparent color opaque when the plane moves", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: color.ZERO, onChange });
+      const c = renderPicker({ value: color.TRANSPARENT, onChange });
       fireEvent.keyDown(c.getByRole("slider", { name: "Saturation and brightness" }), {
         key: "ArrowUp",
       });

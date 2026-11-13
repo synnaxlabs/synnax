@@ -179,7 +179,7 @@ var _ = Describe("Color", func() {
 					To(MatchError(validate.ErrValidation))
 			},
 			Entry("an empty string", ""),
-			Entry("a string that is not hex", "red"),
+			Entry("an unknown name", "reddish"),
 			Entry("a tuple", []any{1, 2, 3, 0.5}),
 			Entry("a map", map[string]any{"r": 1, "g": 2, "b": 3, "a": 1}),
 		)

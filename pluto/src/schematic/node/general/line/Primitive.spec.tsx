@@ -41,7 +41,7 @@ describe("line symbol", () => {
     });
 
     it("should pass a fully transparent color through as a choice", () => {
-      const { container } = render(<Line strokeColor={color.ZERO} />);
+      const { container } = render(<Line strokeColor={color.TRANSPARENT} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
         "0, 0, 0, 0",
       );

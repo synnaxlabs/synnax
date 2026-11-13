@@ -18,6 +18,9 @@ class TestColor:
     @pytest.mark.parametrize(
         ("value", "expected"),
         [
+            ("red", (255, 0, 0, 255)),
+            (" RebeccaPurple ", (102, 51, 153, 255)),
+            ("transparent", (0, 0, 0, 0)),
             ("#ff0000", (255, 0, 0, 255)),
             ("00ff00", (0, 255, 0, 255)),
             ("#FF000080", (255, 0, 0, 128)),
@@ -61,8 +64,7 @@ class TestColor:
             "#12345",
             "#1234567",
             "#gggggg",
-            "red",
-            "transparent",
+            "reddish",
             "rgb(1, 2)",
             "rgb(1, 2, 3, 4, 5)",
             "rgb(256, 0, 0)",

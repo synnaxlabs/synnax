@@ -22,6 +22,8 @@ from pydantic import (
     model_validator,
 )
 
+from x.color.names import NAMES
+
 
 class Color(BaseModel):
     """An RGBA color with every channel an integer from 0 to 255. A color serializes
@@ -107,6 +109,9 @@ _NUMBER = re.compile(r"[+-]?(\d+\.?\d*|\.\d+)")
 
 def _from_string(s: str) -> dict[str, int]:
     t = s.strip().lower()
+    if (named := NAMES.get(t)) is not None:
+        r, g, b, a = named
+        return {"r": r, "g": g, "b": b, "a": a}
     if m := _HEX.fullmatch(t):
         return _from_hex(m.group(1), s)
     if m := _FUNCTION.fullmatch(t):

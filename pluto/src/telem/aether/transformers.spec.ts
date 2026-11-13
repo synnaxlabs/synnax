@@ -207,7 +207,7 @@ describe("BandColor", () => {
     });
 
     it("should paint no color below every threshold without a background", () => {
-      expect(create({ bands: BANDS }, 10)[0].value().data).toEqual(color.ZERO);
+      expect(create({ bands: BANDS }, 10)[0].value().data).toEqual(color.TRANSPARENT);
     });
 
     it("should paint the background for a value that is not a number", () => {

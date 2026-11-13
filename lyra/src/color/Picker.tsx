@@ -51,7 +51,7 @@ export const Picker = ({
   className,
   ...rest
 }: PickerProps): ReactElement => {
-  const shown = value ?? fallback ?? color.ZERO;
+  const shown = value ?? fallback ?? color.TRANSPARENT;
   const hsva = useHSVA(shown);
   const [h, s, v, a] = hsva.value;
   const updateFrequent = useFrequentUpdater();

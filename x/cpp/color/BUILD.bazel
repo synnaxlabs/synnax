@@ -16,6 +16,7 @@ cc_library(
     hdrs = [
         "color.h",
         "json.gen.h",
+        "names.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],

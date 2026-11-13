@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { type Color, construct, crudeZ, ZERO } from "@/color/color";
+import { type Color, construct, crudeZ, TRANSPARENT } from "@/color/color";
 
 export const stopZ = z.object({
   key: z.string(),
@@ -25,7 +25,7 @@ export const gradientZ = z.array(stopZ);
 export type Gradient = Stop[];
 
 export const fromGradient = (gradient: Gradient, position: number): Color => {
-  if (gradient.length === 0) return ZERO;
+  if (gradient.length === 0) return TRANSPARENT;
 
   gradient = gradient.slice().sort((a, b) => a.position - b.position);
   if (position <= gradient[0].position) return construct(gradient[0].color);

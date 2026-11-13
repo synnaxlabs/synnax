@@ -122,9 +122,9 @@ interface FloorItemProps {
 // item mirrors a band's columns so the two line up.
 const FloorItem = ({ background, threshold, units }: FloorItemProps): ReactElement => (
   <Flex.Box x align="center" gap="small" className={CSS.BE("redline-form", "floor")}>
-    <Bar on={color.cssString(background ?? color.ZERO)} />
+    <Bar on={color.cssString(background ?? color.TRANSPARENT)} />
     <Color.Swatch
-      value={background ?? color.ZERO}
+      value={background ?? color.TRANSPARENT}
       size="small"
       bordered
       tooltip="Set the background in the style tab"
@@ -187,7 +187,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);
-  const backgroundCSS = color.cssString(background ?? color.ZERO);
+  const backgroundCSS = color.cssString(background ?? color.TRANSPARENT);
   const items = new Map(
     sorted.map(({ key, threshold, color: c, flashing }, i) => {
       const css = color.cssString(c);

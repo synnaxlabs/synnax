@@ -54,7 +54,7 @@ describe("OffPageReference", () => {
     it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference fillColor={color.ZERO} />
+          <OffPageReference fillColor={color.TRANSPARENT} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");

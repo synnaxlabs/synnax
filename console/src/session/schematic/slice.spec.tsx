@@ -184,7 +184,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should set the legend colors", () => {
-      const colors = { a: color.ZERO };
+      const colors = { a: color.TRANSPARENT };
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendColors({ key: KEY, colors }));
       expect(read(Schematic.useGet).legend.colors).toEqual(colors);

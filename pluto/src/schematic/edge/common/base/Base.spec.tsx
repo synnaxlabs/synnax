@@ -41,7 +41,7 @@ describe("edge Base", () => {
 
   it("should pass a fully transparent color through as a choice", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={color.ZERO} />,
+      <Base.Base path="M0 0 L10 10" color={color.TRANSPARENT} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
