@@ -165,6 +165,16 @@ describe("Sift stream form", () => {
     expect(messages).not.toContain("Failed to list Sift assets");
   });
 
+  it("should not say Sift has no assets when the list fails", async () => {
+    const dev = await createSiftDevice(client);
+    await renderStream({
+      task: { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+    });
+    fireEvent.click(await findDialogTriggerByText("Select asset"));
+    expect(await screen.findByText("Failed to list assets")).toBeTruthy();
+    expect(screen.queryByText("No assets in Sift")).toBeNull();
+  });
+
   it("should keep the asset when another client changes the device", async () => {
     const rack = await createRunningRack(client, "sift");
     const scan = await rack.createTask({
