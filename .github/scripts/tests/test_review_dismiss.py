@@ -177,14 +177,14 @@ class TestDismiss:
             "conclusion": "success",
             "output": {
                 "title": "Confidence Score: 5/5",
-                "summary": "A member dismissed every finding of the review.\n\n"
-                "Fix one thing.\n\nFindings: 1 P2.",
+                "summary": "A member dismissed every finding of the review that blocks "
+                "merge.\n\nFix one thing.\n\nFindings: 1 P2.",
                 "text": gh.runs[0]["output"]["text"],
             },
         }
         [(_, body)] = gh.replies
         assert body.endswith(
-            "will not report it. Every finding of the review of the head is "
+            "will not report it. Every blocking finding of the review of the head is "
             "dismissed, so the head scores 5/5."
         )
 

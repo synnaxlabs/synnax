@@ -28,16 +28,17 @@ review in a record. `carry` gives the head the newest review of the pull request
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
 also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
 COMMENT, a reply that mentions the bot on the thread of one of its findings: a member's
-`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no finding of its
-review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
-runs in a clone with full history, and prints a Markdown comparison of the records of
-the last days with Greptile's reviews of the same commits.
+`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no blocking
+finding of its review is left. It also takes KEY. `compare` takes only GH_TOKEN and
+GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown comparison
+of the records of the last days with Greptile's reviews of the same commits.
 """
 
 import contextlib
 import dataclasses
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -49,6 +50,7 @@ from review import (
     PullRequest,
     Target,
     carry,
+    changed,
     compare,
     dismiss,
     dismissed,
@@ -60,6 +62,8 @@ from review import (
     run,
     threads,
 )
+
+_FILE = re.compile(r"diff --git a/.* b/(.*)")
 
 
 def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
@@ -107,11 +111,14 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         text=True,
         check=True,
     ).stdout
-    since = next(
-        (c for c in reviewed(target, gh) if _before(head, c, target.head)), None
-    )
+    earlier = [c for c in reviewed(target, gh) if c != target.head]
+    since = next((c for c in earlier if _before(head, c, target.head)), None)
+    # A replay cannot tell a commit that a force push dropped from a later one.
+    rewritten = since is None and bool(earlier) and not replay
     new = ""
-    if since is not None:
+    if rewritten:
+        new = _changes(target, diff, earlier[0])
+    elif since is not None:
         new = subprocess.run(
             [
                 *("git", "-C", str(head), "log", "--first-parent", "--no-merges"),
@@ -146,7 +153,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         open={(th.path, th.title) for th in found if not th.resolved},
         dismissed=dismissed(found),
         new=new,
-        reviewed=since is not None,
+        reviewed=since is not None or rewritten,
     )
     with tempfile.TemporaryDirectory() as workdir:
         result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))
@@ -163,11 +170,21 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     path.write_text(json.dumps(record))
 
 
+def _changes(target: Target, diff: str, old: str) -> str:
+    """Returns the files of a diff whose changes differ from those at an older commit,
+    or the whole diff when GitHub cannot compare every file."""
+    files = changed(target, gh, old)
+    if files is None:
+        return diff
+    chunks = re.split(r"(?m)^(?=diff --git )", diff)
+    return "".join(
+        c for c in chunks if (m := _FILE.match(c)) is not None and m[1] in files
+    )
+
+
 def _before(head: Path, commit: str, tip: str) -> bool:
     """Reports whether a commit comes before the tip in the history of a checkout. A
     commit that a force push dropped is not in the history."""
-    if commit == tip:
-        return False
     check = ("git", "-C", str(head), "merge-base", "--is-ancestor", commit, tip)
     return subprocess.run(check, capture_output=True).returncode == 0
 

@@ -57,7 +57,7 @@ THREAD_NODES = (
 COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
 MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
-DISMISSED = "A member dismissed every finding of the review."
+DISMISSED = "A member dismissed every finding of the review that blocks merge."
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
@@ -87,9 +87,9 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that a member dismissed. A review with
-    none left scores 5, and so does the head when the rest are dismissed while the
-    review posts. Findings on lines of the diff become one review of inline
+    """Posts a review, without the findings that a member dismissed. A review with no
+    blocking finding left scores 5, and so does the head when the rest are dismissed
+    while the review posts. Findings on lines of the diff become one review of inline
     threads, skipping any finding an unresolved thread of the bot already holds. The
     rest go in one comment the bot edits on each review. The summary in the pull
     request body is replaced, and the check run completes.
@@ -131,7 +131,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
-    if review.findings:
+    if any(f.blocks for f in review.findings):
         recheck(t, gh)
 
 
@@ -139,9 +139,9 @@ def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
     kept = [f for f in review.findings if (f.path, f.title) not in gone]
     if len(kept) == len(review.findings):
         return review
-    if kept:
+    if any(f.blocks for f in kept):
         return replace(review, findings=kept)
-    return replace(review, score=5, verdict=DISMISSED, findings=[])
+    return replace(review, score=5, verdict=DISMISSED, findings=kept)
 
 
 def _commentable(patch: str) -> set[int]:
@@ -340,8 +340,8 @@ def recheck(t: Target, gh: GH) -> None:
 
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review in the threads. Returns whether it did.
+    """Scores the head 5/5 in a new check run when a member dismissed every blocking
+    finding of its newest review in the threads. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """

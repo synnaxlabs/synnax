@@ -11,7 +11,7 @@
 its review as a check run, inline threads, and a summary in the pull request body."""
 
 from review import compare
-from review.carry import carry
+from review.carry import carry, changed
 from review.dismiss import dismiss
 from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
 from review.post import GH, Target, Thread, dismissed, gh, post, reviewed, threads
@@ -45,6 +45,7 @@ __all__ = [
     "Usage",
     "Window",
     "carry",
+    "changed",
     "compare",
     "dismiss",
     "dismissed",

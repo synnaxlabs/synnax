@@ -58,7 +58,8 @@ def fence(text: str, info: str = "") -> str:
 
 
 def heading(f: Finding) -> str:
-    return f"{badge(f.severity.lower(), f.severity)} **{f.title}**"
+    mark = "" if f.blocks else " (follow-up)"
+    return f"{badge(f.severity.lower(), f.severity)} **{f.title}**{mark}"
 
 
 def title(body: str) -> str | None:
@@ -162,14 +163,17 @@ def splice(body: str, block: str) -> str:
 
 
 def check(review: Review) -> dict[str, str]:
-    """Renders the output of the review's check run. Its text lists the findings, so
-    a dismissal can tell when none is left."""
-    counts = Counter(f.severity for f in review.findings)
-    found = ", ".join(f"{counts[s]} {s}" for s in SEVERITIES if counts[s])
+    """Renders the output of the review's check run. Its text lists the findings that
+    block merge, so a dismissal can tell when none is left."""
+    blocking = [f for f in review.findings if f.blocks]
+    counts = Counter(f.severity for f in blocking)
+    found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
+    if later := len(review.findings) - len(blocking):
+        found.append(f"{later} follow-up")
     return {
         "title": scored(review.score),
-        "summary": f"{review.verdict}\n\nFindings: {found or 'none'}.",
-        "text": listing(review.findings),
+        "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
+        "text": listing(blocking),
     }
 
 

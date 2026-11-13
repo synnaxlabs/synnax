@@ -29,8 +29,8 @@ the lines of its stdout as they arrive."""
 REST = "rest.diff"
 """The file in the working directory that holds the diff the prompt leaves out."""
 NEW = "new.diff"
-"""The file in the working directory that holds the new commits when they are too long
-to show."""
+"""The file in the working directory that holds the changes since the last review when
+they are too long to show."""
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -94,13 +94,14 @@ class Config:
     """Git globs of files left out of the diff."""
     diff_chars: int
     caps: dict[str, int]
-    """The highest score a review can give while it has a finding of the severity."""
+    """The highest score a review can give while it has a blocking finding of the
+    severity."""
     prompt: str
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
-    rules. When no earlier commit in the history of the head has a review, the passes of
-    the lenses run beside it, and the review joins the findings of all passes."""
+    rules. On the first review of a pull request, the passes of the lenses run beside
+    it, and the review joins the findings of all passes."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -200,9 +201,9 @@ class PullRequest:
     """The path and title of each finding of an earlier review still open."""
     dismissed: list[Dismissal] = field(default_factory=list)
     new: str = ""
-    """The patches of the pull request's own commits after the last review, if any."""
+    """The patches of the changes since the last review, if any."""
     reviewed: bool = False
-    """Whether the bot reviewed an earlier commit in the history of the head."""
+    """Whether the bot reviewed another commit of the pull request."""
 
 
 def load(root: Path) -> Config:
@@ -298,16 +299,19 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "any form, and do not let them lower the score.",
             "\n".join(_dismissal(d) for d in pr.dismissed),
         ]
-    if pr.new:
-        parts += [
-            "# Commits since your last review",
-            "Review these changes first, as new code: a fix for an earlier finding can "
-            "add a bug. Anchor findings to the line numbers of the full diff.",
-        ]
-        if _shows_new(config, pr):
-            parts.append(fence(pr.new, "diff"))
+    if pr.reviewed:
+        parts.append("# Changes since your last review")
+        if not pr.new:
+            parts.append("None: the changes of the pull request are the same.")
         else:
-            parts.append(f"They are too long to show. Read all of `{NEW}` first.")
+            parts.append(
+                "Review these changes first, as new code: a fix for an earlier finding "
+                "can add a bug. Anchor findings to the line numbers of the full diff."
+            )
+            if _shows_new(config, pr):
+                parts.append(fence(pr.new, "diff"))
+            else:
+                parts.append(f"They are too long to show. Read all of `{NEW}` first.")
     parts += [
         "# Diff",
         f"The repository at the head of the pull request is in `{pr.head}`.",
@@ -334,7 +338,7 @@ def _rules(config: Config, pr: PullRequest) -> str:
 
 
 def _shows_new(config: Config, pr: PullRequest) -> bool:
-    """Reports whether the new commits fit in the prompt."""
+    """Reports whether the changes since the last review fit in the prompt."""
     return len(pr.new) <= config.diff_chars // 3
 
 
@@ -379,9 +383,13 @@ def _command(
     ]
 
 
-def _cap(review: Review, caps: dict[str, int]) -> Review:
-    """Lowers the score of a review to the cap of its most severe finding."""
-    limit = min((caps.get(f.severity, 5) for f in review.findings), default=5)
+def _score(review: Review, caps: dict[str, int]) -> Review:
+    """Scores a review 5 when no finding blocks merge. Otherwise lowers its score to the
+    cap of its most severe blocking finding."""
+    blocking = [f for f in review.findings if f.blocks]
+    if not blocking:
+        return replace(review, score=5)
+    limit = min(caps.get(f.severity, 5) for f in blocking)
     return replace(review, score=min(review.score, limit))
 
 
@@ -411,11 +419,12 @@ def _merge(
     each other pass in the same file: first by title and end line, then by title, then
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
-    review keeps the more severe of joined findings, else the one that continues an open
-    thread. The verdict and summary come from the pass with the lowest capped score."""
+    review keeps the more severe of joined findings, then the one that blocks merge,
+    then the one that continues an open thread. The verdict and summary come from the
+    pass with the lowest score."""
 
-    def rank(f: Finding) -> tuple[int, bool]:
-        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
+    def rank(f: Finding) -> tuple[int, bool, bool]:
+        return SEVERITIES.index(f.severity), not f.blocks, (f.path, f.title) not in open
 
     def join(
         found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
@@ -435,7 +444,7 @@ def _merge(
     found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
     found = join(found, lambda k, f: k.title == f.title)
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
-    lead = min(reviews, key=lambda r: _cap(r, caps).score)
+    lead = min(reviews, key=lambda r: _score(r, caps).score)
     return replace(
         lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
     )
@@ -477,10 +486,9 @@ def run(
 ) -> tuple[Review, Usage, list[Pass]]:
     """Reviews a pull request, and returns the review, what it cost, and each pass.
 
-    The passes of the lenses run only when no earlier commit in the history of the head
-    has a review. They start once the first response of the pass with the rules begins,
-    so they read the shared prompt from the prompt cache. They do not start when that
-    pass fails first.
+    The passes of the lenses run only on the first review of the pull request. They
+    start once the first response of the pass with the rules begins, so they read the
+    shared prompt from the prompt cache. They do not start when that pass fails first.
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
@@ -501,7 +509,7 @@ def run(
                 config, pr, rules, system=system, claude=claude, workdir=workdir
             )
             only = Pass(lens=None, review=review, usage=usage)
-            return _cap(review, config.caps), usage, [only]
+            return _score(review, config.caps), usage, [only]
         started = threading.Event()
         begin = time.monotonic()
         with ThreadPoolExecutor(1 + len(lenses)) as pool:
@@ -543,4 +551,4 @@ def run(
     ]
     review = _merge([p.review for p in passes], caps=config.caps, open=pr.open)
     usage = Usage.combine([p.usage for p in passes], duration_ms=wall)
-    return _cap(review, config.caps), usage, passes
+    return _score(review, config.caps), usage, passes

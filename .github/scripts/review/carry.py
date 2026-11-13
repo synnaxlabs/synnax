@@ -25,8 +25,8 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     """Completes the check run of the target with the review of the newest commit that
     the bot reviewed, when that review succeeded for the key and the diff from the base
     to that commit is the diff to the head. The line numbers of the two diffs can
-    differ. The head scores 5/5 when a member dismissed every finding of the review.
-    Returns whether the head got the review.
+    differ. The head scores 5/5 when a member dismissed every blocking finding of the
+    review. Returns whether the head got the review.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -51,6 +51,16 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
     recheck(t, gh)
     return True
+
+
+def changed(t: Target, gh: GH, old: str) -> set[str] | None:
+    """Returns each file of the head's diff whose changes differ from those in the diff
+    from the base to an older commit, or None when GitHub cannot compare every file.
+    Line numbers do not count."""
+    before, after = _diff(t, gh, old), _diff(t, gh, t.head)
+    if before is None or after is None:
+        return None
+    return {f[0] for f in set(after) - set(before)}
 
 
 def _diff(t: Target, gh: GH, commit: str) -> list[tuple[str, ...]] | None:
