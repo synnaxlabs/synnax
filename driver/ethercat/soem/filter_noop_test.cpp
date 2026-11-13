@@ -15,19 +15,10 @@
 #include "driver/ethercat/soem/filter.h"
 
 namespace driver::ethercat::soem {
-#ifdef _WIN32
-/// @brief it should refuse an interface that is not a Windows network adapter.
-TEST(DisableDewesoftFilterTest, RefusesAnInterfaceThatIsNotAnAdapter) {
-    const auto err = disable_dewesoft_filter({"eth0"});
-    ASSERT_OCCURRED_AS(err, errors::FILTER_ERROR);
-    EXPECT_EQ(err.data, "eth0 is not a Windows network adapter.");
-}
-#else
 /// @brief it should refuse to turn off the filter outside Windows.
 TEST(DisableDewesoftFilterTest, RefusesOutsideWindows) {
     const auto err = disable_dewesoft_filter({"eth0"});
     ASSERT_OCCURRED_AS(err, errors::FILTER_ERROR);
     EXPECT_EQ(err.data, "Only a Driver on Windows can turn off the DewesoftX filter.");
 }
-#endif
 }

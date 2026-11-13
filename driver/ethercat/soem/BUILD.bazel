@@ -118,7 +118,10 @@ cc_library(
 
 cc_test(
     name = "filter_test",
-    srcs = ["filter_test.cpp"],
+    srcs = select({
+        "@platforms//os:windows": ["filter_windows_test.cpp"],
+        "//conditions:default": ["filter_noop_test.cpp"],
+    }),
     deps = [
         ":filter",
         "//driver/ethercat/errors",

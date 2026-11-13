@@ -237,8 +237,11 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief whether the scanner answered a command with a status of its own since the
     /// last scan started.
     std::atomic<bool> status_replaced = false;
-    /// @brief the scanner data that the last scan read with its result. Guarded by mu.
-    std::optional<x::json::json::object_t> scan_data;
+    /// @brief the error of a scan, with the scanner data read right after it.
+    struct ScanResult {
+        x::errors::Error err;
+        std::optional<x::json::json::object_t> data;
+    };
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
@@ -284,16 +287,11 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->send_status();
     }
 
-    [[nodiscard]] std::optional<x::json::json::object_t> last_scan_data() {
-        std::lock_guard lock(this->mu);
-        return this->scan_data;
-    }
-
     /// @brief sends a warning when the scan error changes, and a success once scans
     /// recover. replaced is whether a command answer replaced the status before the
     /// scan started, since a scan that started earlier can report stale data.
-    void report_scan(const x::errors::Error &err, const bool replaced) {
-        const auto data = this->last_scan_data();
+    void report_scan(const ScanResult &res, const bool replaced) {
+        const auto &[err, data] = res;
         if (err) {
             if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
                 this->status.description == err.data &&
@@ -602,8 +600,7 @@ public:
         this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
             const bool replaced = this->status_replaced.exchange(false);
-            const auto err = this->scan();
-            this->report_scan(err, replaced);
+            this->report_scan(this->scan(), replaced);
             this->timer.wait(this->breaker);
         }
 
@@ -641,13 +638,13 @@ public:
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
-            if (const auto err = this->scan())
+            if (const auto [err, data] = this->scan(); err)
                 this->send_status(
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
                     err.data,
-                    this->last_scan_data()
+                    data
                 );
             else
                 this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
@@ -667,8 +664,9 @@ public:
         );
     }
 
-    x::errors::Error scan() {
+    ScanResult scan() {
         x::errors::Error scan_err;
+        std::optional<x::json::json::object_t> data;
         std::vector<synnax::device::Device> to_create;
         std::vector<Update> to_update;
         std::vector<synnax::device::Status> statuses;
@@ -678,8 +676,8 @@ public:
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-            this->scan_data = this->scanner->status_data();
-            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
+            data = this->scanner->status_data();
+            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return {err, data};
             scan_err = err;
             this->scanner_ctx.count++;
 
@@ -705,7 +703,7 @@ public:
             std::unordered_map<std::string, synnax::device::Device> stored;
             if (!untracked.empty()) {
                 auto [devs, retrieve_err] = this->client->retrieve_devices(untracked);
-                if (retrieve_err) return retrieve_err;
+                if (retrieve_err) return {retrieve_err, data};
                 stored = synnax::device::map_device_keys(devs);
             }
 
@@ -769,9 +767,9 @@ public:
 
         const auto create_err = this->create(to_create);
         const auto update_err = this->update(to_update);
-        if (create_err) return create_err;
-        if (update_err) return update_err;
-        return scan_err;
+        if (create_err) return {create_err, data};
+        if (update_err) return {update_err, data};
+        return {scan_err, data};
     }
 
     std::string name() const override { return this->task.name; }

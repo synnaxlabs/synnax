@@ -422,7 +422,7 @@ TEST(TestScanTask, testSingleScan) {
         std::move(cluster_api)
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 2);
     if (created_devices->size() >= 2) {
@@ -477,7 +477,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 1);
     if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
@@ -547,7 +547,7 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched[0].first, "device1");
@@ -556,7 +556,7 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
         actions_json({synnax::device::set_rack({.rack = 2})})
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
 }
 
@@ -616,7 +616,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -682,7 +682,7 @@ TEST(TestScanTask, TestUpdateWhenModelChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -745,9 +745,9 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
@@ -755,7 +755,7 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
             {synnax::device::set({.path = {"location"}, .value = "new_location"})}
         )
     );
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_TRUE(created_devices->empty());
 }
@@ -790,12 +790,12 @@ TEST(TestScanTask, TestRetryFailedCreate) {
         std::move(cluster_api)
     );
 
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
     EXPECT_TRUE(created->empty());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).key, "device1");
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(created->size(), 1);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
@@ -841,7 +841,7 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
         std::move(cluster_api)
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created->empty());
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
@@ -858,7 +858,7 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
         })
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->retrieved.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
 }
@@ -897,8 +897,8 @@ TEST(TestScanTask, TestRetryFailedTakeOver) {
         std::move(cluster_api)
     );
 
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
         (std::vector<std::vector<std::string>>{{"device1"}, {"device1"}})
@@ -950,15 +950,15 @@ TEST(TestScanTask, TestRecreateDeviceMissingFromCore) {
 
     ASSERT_NIL(scan_task.init());
     remote->clear();
-    ASSERT_OCCURRED_AS(scan_task.scan(), x::errors::NOT_FOUND);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_OCCURRED_AS(scan_task.scan().err, x::errors::NOT_FOUND);
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
         std::vector<std::vector<std::string>>{{"device1"}}
     );
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).location, "new_location");
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(created->size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatch_attempts, 1);
 }
@@ -1151,7 +1151,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 0);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
@@ -1204,7 +1204,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
@@ -1257,7 +1257,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
@@ -1323,7 +1323,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -1393,7 +1393,7 @@ TEST(TestScanTask, TestStatePropagation) {
     );
 
     // First scan - both devices should be available
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
 
     auto &first_states = cluster_api_ptr->propagated_statuses[0];
@@ -1410,7 +1410,7 @@ TEST(TestScanTask, TestStatePropagation) {
             FAIL() << "Unexpected device status: " << status.name;
     }
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 2);
     auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
@@ -1459,7 +1459,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses[0].size(), 1);
     const auto &status = cluster_api_ptr->propagated_statuses[0][0];
@@ -1768,7 +1768,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -1834,9 +1834,9 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_TRUE(created_devices->empty());
 }
@@ -1885,7 +1885,7 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
@@ -1937,7 +1937,7 @@ TEST(TestScanTask, TestUpdateKeepsStoredParent) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
@@ -2235,7 +2235,7 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
             created
         )
     );
-    const auto err = scan_task.scan();
+    const auto err = scan_task.scan().err;
     ASSERT_OCCURRED_AS(err, PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, "eth1: cannot open");
     ASSERT_EQ(created->size(), 1);

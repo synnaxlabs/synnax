@@ -199,7 +199,7 @@ TEST(TestScanTask, testTakesOverDeviceOnOtherRack) {
     const auto scan_task = new_scan_task(client, new_rack.key, {scanned});
 
     ASSERT_NIL(scan_task->init());
-    ASSERT_NIL(scan_task->scan());
+    ASSERT_NIL(scan_task->scan().err);
     const auto got = ASSERT_NIL_P(client->devices.retrieve(dev.key));
     EXPECT_EQ(got.rack, new_rack.key);
     EXPECT_EQ(got.name, "user name");
@@ -228,7 +228,7 @@ TEST(TestScanTask, testUpdatesDeviceLocation) {
     const auto scan_task = new_scan_task(client, rack.key, {scanned});
 
     ASSERT_NIL(scan_task->init());
-    ASSERT_NIL(scan_task->scan());
+    ASSERT_NIL(scan_task->scan().err);
     const auto got = ASSERT_NIL_P(client->devices.retrieve(dev.key));
     EXPECT_EQ(got.location, "slot-2");
     EXPECT_EQ(got.name, "user name");
