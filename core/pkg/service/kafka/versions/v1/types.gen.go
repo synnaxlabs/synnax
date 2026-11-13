@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/validate"

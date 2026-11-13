@@ -181,8 +181,9 @@ func reconcileReadConfig(
 
 // reconcileField changes fld to the kind of ch and clears its data type. Between
 // numeric kinds, it keeps each entry and the fill that fits ch, and an integer must fit
-// a float channel exactly. On other kinds, it drops them. It drops a fill on an index
-// channel. It returns the changes it made.
+// a float channel exactly. From a numeric kind to boolean, a value becomes true when it
+// is not 0, as the v1 migration reads one. On other kinds, it drops them. It drops a
+// fill on an index channel. It returns the changes it made.
 func reconcileField(fld *ReadField, ch channel.Channel) []string {
 	var changes []string
 	if dataTypeOf(*fld) != nil {
@@ -219,19 +220,25 @@ func reconcileField(fld *ReadField, ch channel.Channel) []string {
 		entries []entry
 		fill    any
 	)
+	toBoolean := isNumeric(fld.Type()) && kind == payload.KindBoolean
 	for _, e := range opts.entries {
-		if fits(e.value) {
+		switch {
+		case toBoolean:
+			entries = append(entries, entry{e.label, toFloat(e.value) != 0})
+		case fits(e.value):
 			entries = append(entries, e)
-		} else {
+		default:
 			changes = append(changes, "dropped entry "+strconv.Quote(e.label))
 		}
 	}
-	if opts.fill != nil {
-		if fits(opts.fill) {
-			fill = opts.fill
-		} else {
-			changes = append(changes, "dropped fill")
-		}
+	switch {
+	case opts.fill == nil:
+	case toBoolean:
+		fill = toFloat(opts.fill) != 0
+	case fits(opts.fill):
+		fill = opts.fill
+	default:
+		changes = append(changes, "dropped fill")
 	}
 	fld.Variant = newVariant(fld.Base(), kind, entries, fill)
 	return changes
@@ -263,7 +270,7 @@ func isNumeric(k payload.Kind) bool {
 }
 
 // newVariant returns a field of kind with base, entries, and fill. The values of
-// entries and fill must be numbers that the kind holds.
+// entries and fill must be numbers that a numeric kind holds, or booleans for boolean.
 func newVariant(
 	base BaseReadField,
 	kind payload.Kind,
@@ -313,10 +320,20 @@ func newVariant(
 			EnumValues:    []payload.StringEntry{},
 		}
 	case payload.KindBoolean:
-		return BooleanReadField{
+		v := BooleanReadField{
 			BaseReadField: base,
-			EnumValues:    []payload.BooleanEntry{},
+			EnumValues:    make([]payload.BooleanEntry, 0, len(entries)),
 		}
+		for _, e := range entries {
+			v.EnumValues = append(
+				v.EnumValues,
+				payload.BooleanEntry{Label: e.label, Value: e.value.(bool)},
+			)
+		}
+		if fill != nil {
+			v.Fill = new(fill.(bool))
+		}
+		return v
 	case payload.KindTimestamp:
 		return TimestampReadField{
 			BaseReadField: base,
