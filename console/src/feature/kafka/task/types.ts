@@ -35,8 +35,12 @@ export type StartOffset = kafka.StartOffset;
 
 const readConfigZ = kafka.readConfigZ;
 
+/** Whether field reads the whole record value: a bytes field with no pointer. */
+const isRaw = ({ type, pointer }: ReadField): boolean =>
+  type === "bytes" && pointer === "";
+
 const deployReadFieldZ = kafka.readFieldZ
-  .refine(({ disabled, pointer }) => disabled || pointer !== "", {
+  .refine((f) => f.disabled || f.pointer !== "" || isRaw(f), {
     message: "Pointer is required",
     path: ["pointer"],
   })
@@ -69,8 +73,26 @@ export const withDataType = (field: ReadField, dataType: string): ReadField => {
   });
 };
 
+/** Flags a raw field that is not the only enabled field of its record. */
+const validateRawFields = (ctx: z.core.ParsePayload<ReadField[]>) => {
+  const enabled = ctx.value.filter(({ disabled }) => !disabled);
+  if (enabled.length < 2) return;
+  ctx.value.forEach((f, i) => {
+    if (f.disabled || !isRaw(f)) return;
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message: "A bytes field with no pointer must be the only enabled field",
+      path: [i, "pointer"],
+    });
+  });
+};
+
 const deployReadRecordZ = kafka.readRecordZ.extend({
-  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
+  fields: deployReadFieldZ
+    .array()
+    .check(Task.validateReadChannels)
+    .check(validateRawFields),
 });
 
 /** Flags every record whose key an earlier record already claims. */
@@ -128,21 +150,51 @@ const deployWriteChannelZ = kafka.writeChannelZ.refine(
   { message: "Channel is required", path: ["channel"] },
 );
 
-export const deployWriteConfigZ = kafka.writeConfigZ.extend({
-  device: Task.deviceKeyZ,
-  topic: topicZ,
-  record: kafka.recordZ
-    .extend({
-      valuePointer: json.pointerZ.min(1, "Value pointer is required").default("/value"),
-    })
-    .prefault({}),
-  channels: deployWriteChannelZ
-    .array()
-    .check(Task.validateChannels)
-    .refine((channels) => channels.some(({ disabled }) => !disabled), {
-      message: "At least one channel must be enabled",
-    }),
-});
+/**
+ * Flags an empty value pointer, which writes each sample as the raw record value,
+ * unless every enabled channel is bytes and the record places nothing else.
+ */
+const validateRawRecord = (
+  ctx: z.core.ParsePayload<Pick<kafka.WriteConfig, "record" | "channels">>,
+) => {
+  const { record, channels } = ctx.value;
+  if (record.valuePointer !== "") return;
+  const path = ["record", "valuePointer"];
+  if (
+    (record.channelPointer ?? "") !== "" ||
+    (record.timestampPointer ?? "") !== "" ||
+    record.fields.length > 0
+  )
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message: "An empty value pointer must be the only record field",
+      path,
+    });
+  if (channels.some(({ disabled, type }) => !disabled && type !== "bytes"))
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message: "An empty value pointer requires every enabled channel to be bytes",
+      path,
+    });
+};
+
+export const deployWriteConfigZ = kafka.writeConfigZ
+  .extend({
+    device: Task.deviceKeyZ,
+    topic: topicZ,
+    record: kafka.recordZ
+      .extend({ valuePointer: json.pointerZ.default("/value") })
+      .prefault({}),
+    channels: deployWriteChannelZ
+      .array()
+      .check(Task.validateChannels)
+      .refine((channels) => channels.some(({ disabled }) => !disabled), {
+        message: "At least one channel must be enabled",
+      }),
+  })
+  .check(validateRawRecord);
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),

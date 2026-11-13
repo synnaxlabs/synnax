@@ -120,7 +120,8 @@ const Properties = () => (
 
 const TOPIC_INPUT_PROPS = { placeholder: "synnax-samples" } as const;
 
-const VALUE_POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
+/** An empty value pointer writes each sample as the raw record value. */
+const VALUE_POINTER_INPUT_PROPS = { placeholder: "Raw bytes" } as const;
 
 const CHANNEL_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 

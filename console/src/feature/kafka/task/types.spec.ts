@@ -62,6 +62,34 @@ describe("Kafka Task Types", () => {
       expect(result.error?.issues[0].message).toBe("Pointer is required");
     });
 
+    it("should accept a bytes field with no pointer alone in its record", () => {
+      const raw = { key: "raw", pointer: "", channel: 2, type: "bytes" };
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [{ ...record, fields: [raw, { ...field, disabled: true }] }],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a bytes field with no pointer beside another enabled field", () => {
+      const raw = { key: "raw", pointer: "", channel: 2, type: "bytes" };
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [{ ...record, fields: [raw, field] }],
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0].message).toBe(
+        "A bytes field with no pointer must be the only enabled field",
+      );
+      expect(result.error?.issues[0].path).toEqual([
+        "records",
+        0,
+        "fields",
+        0,
+        "pointer",
+      ]);
+    });
+
     it("should reject a field whose pointer is not a JSON pointer", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
@@ -214,13 +242,68 @@ describe("Kafka Task Types", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should reject an empty value pointer", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
+    describe("empty value pointer", () => {
+      const raw = {
         ...valid,
         record: { valuePointer: "" },
+        channels: [
+          { type: "bytes", key: "c1", channel: 1 },
+          { type: "float", key: "c2", channel: 2, disabled: true },
+        ],
+      };
+
+      it("should accept it when every enabled channel is bytes", () => {
+        const result = Kafka.Task.deployWriteConfigZ.parse(raw);
+        expect(result.record.valuePointer).toBe("");
       });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Value pointer is required");
+
+      it("should accept cleared channel and timestamp pointers", () => {
+        const result = Kafka.Task.deployWriteConfigZ.safeParse({
+          ...raw,
+          record: { valuePointer: "", channelPointer: "", timestampPointer: "" },
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it("should reject it with an enabled channel that is not bytes", () => {
+        const result = Kafka.Task.deployWriteConfigZ.safeParse({
+          ...raw,
+          channels: [...raw.channels, { type: "float", key: "c3", channel: 3 }],
+        });
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0].message).toBe(
+          "An empty value pointer requires every enabled channel to be bytes",
+        );
+        expect(result.error?.issues[0].path).toEqual(["record", "valuePointer"]);
+      });
+
+      it.each([
+        ["a channel pointer", { channelPointer: "/channel" }],
+        ["a timestamp pointer", { timestampPointer: "/timestamp" }],
+        [
+          "a record field",
+          {
+            fields: [
+              {
+                type: "static",
+                key: "src",
+                pointer: "/src",
+                jsonType: "string",
+                value: "synnax",
+              },
+            ],
+          },
+        ],
+      ])("should reject it beside %s", (_, extra) => {
+        const result = Kafka.Task.deployWriteConfigZ.safeParse({
+          ...raw,
+          record: { valuePointer: "", ...extra },
+        });
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0].message).toBe(
+          "An empty value pointer must be the only record field",
+        );
+      });
     });
   });
 

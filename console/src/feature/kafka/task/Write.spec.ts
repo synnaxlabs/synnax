@@ -143,6 +143,39 @@ describe("Write", () => {
     expect(created.config.channels[0].channel).toBe(ch.key);
   });
 
+  it("should deploy an empty value pointer that writes raw bytes", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "bytes",
+      virtual: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      record: {
+        ...kafka.recordZ.parse({}),
+        valuePointer: "",
+        channelPointer: "",
+        timestampPointer: "",
+      },
+      channels: [
+        { ...kafka.writeChannelZ.parse({ type: "bytes" }), key: "c1", channel: ch.key },
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.record.valuePointer).toBe("");
+    expect(created.config.record.channelPointer).toBeUndefined();
+  });
+
   it("should show no channel, never a new one, before a channel is picked", async () => {
     const dev = await createKafkaDevice(client);
     const draft = await createDraft(client, {

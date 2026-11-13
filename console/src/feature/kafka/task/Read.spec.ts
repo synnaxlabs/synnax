@@ -232,6 +232,32 @@ describe("Read", () => {
     expect(motorIndex.name).toBe(`${dev.name}_motor_time`);
   });
 
+  it("should deploy a bytes field with no pointer that reads the record value", async () => {
+    const dev = await createKafkaDevice(client);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "blobs",
+      records: [
+        createRecord("any", [
+          kafka.bytesReadFieldZ.parse({ type: "bytes", key: "raw", pointer: "" }),
+        ]),
+      ],
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.READ_SCHEMAS,
+    );
+    const [raw] = created.config.records[0].fields;
+    expect(raw.pointer).toBe("");
+    const ch = await client.channels.retrieve(raw.channel);
+    expect(ch.dataType.toString()).toBe("bytes");
+  });
+
   it("should keep the channels of fields that already have them on deploy", async () => {
     const dev = await createKafkaDevice(client);
     const index = await client.channels.create({

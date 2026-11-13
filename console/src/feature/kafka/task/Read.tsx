@@ -205,7 +205,9 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           path={path.pointer}
           label="Pointer"
           padHelpText={false}
-          inputProps={POINTER_INPUT_PROPS}
+          inputProps={
+            field.type === "bytes" ? RAW_POINTER_INPUT_PROPS : POINTER_INPUT_PROPS
+          }
         />
         <Task.Payload.ReadDataTypeField
           value={Task.Payload.dataTypeOf(field)}
@@ -262,6 +264,9 @@ const EnumMapping = ({ field, path }: EnumMappingProps) => {
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
+
+/** A bytes field with no pointer reads the whole record value. */
+const RAW_POINTER_INPUT_PROPS = { placeholder: "Whole record" } as const;
 
 const recordLabel = Component.renderProp(RecordLabel);
 
