@@ -285,6 +285,9 @@ func newWriteMigration(svc *channel.Service) gorp.Migration {
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
+				if err = keepTimeFormats(ctx, svc, tx, old, &cfg); err != nil {
+					return errors.Wrapf(err, "config %s", old.GorpKey())
+				}
 				if err = reconcileWriteConfig(ctx, svc, tx, ins, &cfg); err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
@@ -293,4 +296,48 @@ func newWriteMigration(svc *channel.Service) gorp.Migration {
 			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
 		},
 	)
+}
+
+// keepTimeFormats gives each plain target of cfg whose v1 field stored a time format,
+// and whose channel holds timestamps, that time format. The lift sees no channel, so it
+// keeps the format only on the shapes v1 could have run on a timestamp channel. cfg
+// holds the targets of old, lifted in order.
+func keepTimeFormats(
+	ctx context.Context,
+	svc *channel.Service,
+	tx gorp.Tx,
+	old v1.WriteConfig,
+	cfg *WriteConfig,
+) error {
+	keys := lo.FilterMap(
+		old.Targets,
+		func(t v1.WriteTarget, _ int) (channel.Key, bool) {
+			p, ok := t.Variant.(v1.PlainWriteTarget)
+			return p.Channel.Channel, ok && p.Channel.TimeFormat != nil
+		},
+	)
+	channels, err := channelsOf(ctx, svc, tx, keys)
+	if err != nil {
+		return err
+	}
+	for i, t := range old.Targets {
+		stored, ok := t.Variant.(v1.PlainWriteTarget)
+		if !ok || stored.Channel.TimeFormat == nil {
+			continue
+		}
+		ch, ok := channels[stored.Channel.Channel]
+		if !ok || ch.DataType != telem.TimestampT {
+			continue
+		}
+		plain, ok := cfg.Targets[i].Variant.(PlainWriteTarget)
+		if !ok {
+			continue
+		}
+		plain.Channel = newChannelField(plain.Channel.Base(), payload.Channel{
+			Kind:       payload.KindTimestamp,
+			TimeFormat: *stored.Channel.TimeFormat,
+		})
+		cfg.Targets[i].Variant = plain
+	}
+	return nil
 }
