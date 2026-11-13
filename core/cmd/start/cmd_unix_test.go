@@ -15,8 +15,6 @@ import (
 	"bufio"
 	"io"
 	"net"
-	"os"
-	"os/exec"
 	"syscall"
 	"time"
 
@@ -28,31 +26,6 @@ import (
 )
 
 var _ = Describe("Start", func() {
-	// startCore starts a Core with in-memory storage and the given extra flags. It
-	// returns once the Core is running, with the writing end of the Core's stdin and
-	// the Core's address.
-	startCore := func(flags ...string) (*gexec.Session, io.WriteCloser, string) {
-		GinkgoHelper()
-		l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-		addr := l.Addr().String()
-		Expect(l.Close()).To(Succeed())
-		dir := GinkgoT().TempDir()
-		cmd := exec.Command(
-			MustSucceed(os.Executable()),
-			append([]string{
-				"start", "--mem", "--insecure", "--no-driver",
-				"--listen", addr, "--data", dir,
-			}, flags...)...,
-		)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), coreEnv+"=1")
-		stdin := MustSucceed(cmd.StdinPipe())
-		session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
-		DeferCleanup(func() { session.Kill().Wait() })
-		Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
-		return session, stdin, addr
-	}
-
 	// holdShutdown opens a request to the Core at addr and leaves its body unsent. The
 	// Core waits on the request when it shuts down, until its 5s read timeout from the
 	// request ends it, so stop signals sent in that window reach a shutting-down Core.
