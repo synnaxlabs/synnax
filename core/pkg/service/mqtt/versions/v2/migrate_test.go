@@ -327,6 +327,36 @@ var _ = Describe("MigrateReadConfig", func() {
 	})
 })
 
+var _ = Describe("ImportReadConfig", func() {
+	It("Should lift a v1 config and log each change to a field", func(ctx SpecContext) {
+		old := v1.ReadConfig{
+			Key: uuid.New(),
+			Entries: []v1.ReadEntry{{Variant: v1.PlainReadEntry{
+				Fields: []v1.ReadField{storedField(
+					telem.Uint8T,
+					payload.EnumEntry{Label: "", Value: 1},
+					payload.EnumEntry{Label: "ON", Value: 1},
+				)},
+			}}},
+		}
+		ins, logs := observe()
+		cfg := MustSucceed(v2.ImportReadConfig(ctx, old, ins))
+		plain, ok := cfg.Entries[0].Variant.(v2.PlainReadEntry)
+		Expect(ok).To(BeTrue())
+		unsigned, ok := plain.Fields[0].Variant.(v2.UnsignedReadField)
+		Expect(ok).To(BeTrue())
+		Expect(unsigned.EnumValues).To(Equal(
+			[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
+		))
+		logged := logs.FilterField(zap.String("field", "entries.0.fields.0")).All()
+		Expect(logged).To(HaveLen(1))
+		Expect(logged[0].ContextMap()).To(And(
+			HaveKeyWithValue("config", old.Key.String()),
+			HaveKeyWithValue("change", `enum label "" was dropped: it is empty`),
+		))
+	})
+})
+
 var _ = Describe("NewReadMigration", func() {
 	It("Should lift stored configs, reconcile them with channels, and log", func(
 		ctx SpecContext,
