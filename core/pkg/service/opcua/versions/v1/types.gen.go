@@ -188,6 +188,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.GreaterThanEq("stream_rate", r.StreamRate, 0)
 	v.Exec(r.ReadConfig.Validate)
 	return v.Error()
 }

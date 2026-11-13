@@ -351,7 +351,7 @@ class ReadConfig(PersistConfig):
     """
 
     sample_rate: telem.Rate = Field(default=telem.Rate(10), gt=0, allow_inf_nan=False)
-    stream_rate: telem.Rate = telem.Rate(5)
+    stream_rate: telem.Rate = Field(default=telem.Rate(5), ge=0, allow_inf_nan=False)
 
     @_override
     def __hash__(self) -> int:
