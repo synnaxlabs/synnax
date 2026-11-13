@@ -21,15 +21,18 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   findDialogTriggerByText,
+  findIconButton,
   getIconButton,
   getInputTable,
   getLabeledInput,
@@ -76,6 +79,30 @@ const renderAnalogRead = async (
 };
 
 describe("AnalogRead", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createNIDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, channel: float.key }),
+      ],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderNITaskForm(NI.Task.AnalogRead, {
+        client,
+        taskKey: draft.key,
+      });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
