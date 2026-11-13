@@ -224,11 +224,12 @@ free. A taken name never fails configure, and configure never binds by name. Eac
 picks one index: the channel of a bound index field, else the first non-zero index of
 its bound channels, on HTTP and MQTT the stored index when it still exists, else a new
 one. An unbound index field binds to it, and each new fixed-density read channel takes
-it. A command channel keeps its own `_time` index, as today. On HTTP and MQTT the device
-stores the source's index. On HTTP and MQTT, a new variable-density channel (string,
-JSON, or bytes) stays virtual, as today. On Kafka it takes the index, as today.
-`onConfigure` then saves the field as bound. An adapter keeps the atomic Phase 12 near
-400 lines, and Phase 14 deletes it.
+it. A command channel keeps its own `_time` index, as today. A new index takes the
+unbound index field's `unbound.name`, or else the generated `_time` name, under the same
+rename rule. On HTTP and MQTT the device stores the source's index. On HTTP and MQTT, a
+new variable-density channel (string, JSON, or bytes) stays virtual, as today. On Kafka
+it takes the index, as today. `onConfigure` then saves the field as bound. An adapter
+keeps the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
 
 ## 6 Field types
 
