@@ -158,9 +158,14 @@ const CustomScaleForm = ({ path }: { path: deep.Path<Scale> }) => {
           const prevType = get(path.type).value;
           if (prevType === value) return;
           const next = createScale(value);
-          const prevParent = get(path).value;
+          const prev = get(path);
+          // Several channels with different scales share no values to keep.
+          if (prev.mixed === true) {
+            set(path, next);
+            return;
+          }
           set(path, {
-            ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+            ...deep.overrideValidItems(next, prev.value, SCALE_SCHEMAS[value]),
             type: next.type,
           } as Scale);
         }}
