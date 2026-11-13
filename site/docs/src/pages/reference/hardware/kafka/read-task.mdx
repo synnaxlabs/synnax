@@ -243,8 +243,8 @@ the last one, with its partition and offset:
 
 - **Record is not JSON** -> the record value is not JSON.
 - **Record has no value at** -> a field has no value and no fill. No value is nothing at
-  the pointer, `null`, or `""` on a channel that does not hold strings, unless an entry
-  of the enum mapping has the label `""`.
+  the pointer. On a type that takes a fill, it is also `null`, or `""` on a channel that
+  does not hold strings, unless an entry of the enum mapping has the label `""`.
 - **Value at** -> the value does not fit the data type of the channel.
 - **Record stamped ... is not after the last written** -> a record value timestamp is
   older than the last one in the index channel.

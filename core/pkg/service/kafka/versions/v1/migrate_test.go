@@ -165,11 +165,14 @@ var _ = Describe("NewReadMigration", func() {
 			Topic: "readings",
 			Records: []v0.ReadRecord{{
 				Key: "r",
-				Fields: []v0.ReadField{oldField(
-					telem.Int8T,
-					payload.EnumEntry{Label: "ON", Value: 1},
-					payload.EnumEntry{Label: "HALF", Value: 0.5},
-				)},
+				Fields: []v0.ReadField{
+					oldField(
+						telem.Int8T,
+						payload.EnumEntry{Label: "ON", Value: 1},
+						payload.EnumEntry{Label: "HALF", Value: 0.5},
+					),
+					oldField(telem.JSONT, payload.EnumEntry{Label: "ON", Value: 1}),
+				},
 			}},
 		}
 		Expect(gorp.NewCreate[uuid.UUID, v0.ReadConfig]().Entry(&stored).Exec(ctx, db)).
@@ -199,6 +202,6 @@ var _ = Describe("NewReadMigration", func() {
 		Expect(reconciled).To(Equal([]uuid.UUID{stored.Key}))
 		Expect(logs.FilterMessage(
 			"changed a Kafka read field while lifting it to v1",
-		).Len()).To(Equal(1))
+		).Len()).To(Equal(2))
 	})
 })
