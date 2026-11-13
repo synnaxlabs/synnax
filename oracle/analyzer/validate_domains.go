@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // generatedLangs are the language domains whose omission rules the analyzer validates.
@@ -460,7 +461,7 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 // type chain already sets one, since one value cannot carry both patterns.
 func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
-		switch t.Form.(type) {
+		switch form := t.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
 			chain := validation.TypeChain(
 				resolution.TypeRef{Name: t.QualifiedName},
@@ -474,8 +475,21 @@ func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 				))
 			}
 		case resolution.StructForm:
+			// An inherited field is checked by its parent, unless the parent types it
+			// with a type parameter that this struct substitutes.
+			generic := set.New[string]()
+			for _, ext := range form.Extends {
+				if parent, _, ok := resolution.Dealias(ext, table); ok {
+					for _, f := range resolution.UnifiedFields(parent, table) {
+						if f.Type.IsTypeParam() {
+							generic.Add(f.Name)
+						}
+					}
+				}
+			}
 			for _, f := range resolution.UnifiedFields(t, table) {
-				if !hasPattern(f.Domains) {
+				_, declared := form.Field(f.Name)
+				if !hasPattern(f.Domains) || (!declared && !generic.Contains(f.Name)) {
 					continue
 				}
 				chain := validation.TypeChain(f.Type, table)

@@ -1094,6 +1094,21 @@ Node union on variant {
 			`, "test.Short has a pattern rule, but its type already sets one"),
 		)
 
+		It("Should report an inherited pattern conflict once", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct {
+					value Name { @validate pattern "^a" }
+				}
+				Entry struct extends Parent {}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("test.Parent.value has a pattern rule"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry.value"))
+		})
+
 		DescribeTable(
 			"Should accept one pattern on a value",
 			func(ctx SpecContext, source string) {
