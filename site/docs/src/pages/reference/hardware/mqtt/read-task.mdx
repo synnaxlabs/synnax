@@ -31,8 +31,10 @@ and recorded in one channel.
   carries a bare number or string, such as `42.7`.
 - **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
   number.
-- **All or nothing** -> the task writes all fields of a payload or none. A payload that
-  lacks a field, or holds a value that the channel cannot store, is skipped.
+- **All or nothing** -> the task writes all fields of a payload or none. When a payload
+  has no value for a field, the task writes the field's **Fill**. A payload that has no
+  value for a field with no fill, or holds a value that the channel cannot store, is
+  skipped.
 
 A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
 of one topic share one index channel, and two topics cannot write to the same channel.
