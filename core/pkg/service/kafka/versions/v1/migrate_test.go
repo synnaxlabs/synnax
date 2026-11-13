@@ -130,6 +130,19 @@ var _ = Describe("MigrateReadField", func() {
 		Entry("bytes", oldField(telem.BytesT), v1.BytesReadField{BaseReadField: base}),
 	)
 
+	It("Should lift a float64 field with a time format to a timestamp field", func(
+		ctx SpecContext,
+	) {
+		old := oldField(telem.Float64T)
+		old.TimeFormat = new(payload.TimeFormatUnixMs)
+		Expect(MustSucceed(v1.MigrateReadField(ctx, old)).Variant).To(Equal(
+			v1.TimestampReadField{
+				BaseReadField: base,
+				TimeFormat:    payload.TimeFormatUnixMs,
+			},
+		))
+	})
+
 	It(
 		"Should keep the stored time format of a timestamp field",
 		func(ctx SpecContext) {
@@ -152,6 +165,22 @@ var _ = Describe("MigrateReadField", func() {
 				EnumValues:    []payload.FloatEntry{},
 			},
 		))
+	})
+})
+
+var _ = Describe("MigrateReadRecord", func() {
+	It("Should lift the float64 index field to a timestamp field", func(
+		ctx SpecContext,
+	) {
+		rec := MustSucceed(v1.MigrateReadRecord(ctx, v0.ReadRecord{
+			Key:    "r",
+			Index:  "f",
+			Fields: []v0.ReadField{oldField(telem.Float64T)},
+		}))
+		Expect(rec.Fields[0].Variant).To(Equal(v1.TimestampReadField{
+			BaseReadField: base,
+			TimeFormat:    payload.TimeFormatISO8601,
+		}))
 	})
 })
 

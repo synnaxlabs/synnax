@@ -42,7 +42,8 @@ func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, erro
 	rec.Fields, err = lo.MapErr(
 		old.Fields,
 		func(f v0.ReadField, _ int) (ReadField, error) {
-			return MigrateReadField(ctx, f)
+			fld, _ := migrateReadField(f, old.Index != "" && f.Key == old.Index)
+			return fld, nil
 		},
 	)
 	if err != nil {
@@ -51,21 +52,30 @@ func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, erro
 	return rec, nil
 }
 
-// MigrateReadField lifts a v0 read field to the v1 variant of the kind of its stored
-// data type, or to float64 when the data type is unknown. A numeric kind keeps each
-// entry that is whole where the kind needs it and fits the data type, a boolean entry
-// becomes value != 0, a string field drops its entries, and a timestamp field with no
-// time format reads iso8601.
+// MigrateReadField lifts a v0 read field that does not index its record. A field with
+// a time format becomes a timestamp field, and any other takes the kind of its stored
+// data type, or float64 when that is unknown. A numeric kind keeps each entry that is
+// whole where the kind needs it and fits the data type, a boolean entry becomes
+// value != 0, and a string field drops its entries.
 func MigrateReadField(_ context.Context, old v0.ReadField) (ReadField, error) {
-	fld, _ := migrateReadField(old)
+	fld, _ := migrateReadField(old, false)
 	return fld, nil
 }
 
-// migrateReadField also returns each change that the lift makes beyond the shape.
-func migrateReadField(old v0.ReadField) (ReadField, []string) {
+// migrateReadField also returns each change that the lift makes beyond the shape. An
+// index field, or one with a time format, becomes a timestamp field, because v0 stored
+// the float64 default as the data type of such a field.
+func migrateReadField(old v0.ReadField, index bool) (ReadField, []string) {
 	var changes []string
 	dt := old.DataType
 	kind, ok := payload.KindOf(dt)
+	if (index || old.TimeFormat != nil) && kind != payload.KindTimestamp {
+		changes = append(
+			changes,
+			fmt.Sprintf("data type %q became timestamp", dt),
+		)
+		dt, kind, ok = telem.TimestampT, payload.KindTimestamp, true
+	}
 	if !ok {
 		changes = append(
 			changes,
@@ -220,7 +230,8 @@ func NewReadMigration(
 func logChanges(ins alamos.Instrumentation, old v0.ReadConfig) {
 	for _, rec := range old.Records {
 		for _, fld := range rec.Fields {
-			if _, changes := migrateReadField(fld); len(changes) > 0 {
+			index := rec.Index != "" && fld.Key == rec.Index
+			if _, changes := migrateReadField(fld, index); len(changes) > 0 {
 				ins.L.Warn(
 					"changed a Kafka read field while lifting it to v1",
 					zap.Stringer("config", old.Key),
