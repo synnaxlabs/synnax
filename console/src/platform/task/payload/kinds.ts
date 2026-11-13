@@ -55,3 +55,19 @@ const KIND_NAMES: Record<payload.Kind, string> = {
 
 /** Returns the name of the kind in a select. */
 export const kindName = (kind: payload.Kind): string => KIND_NAMES[kind];
+
+const NEW_CHANNEL_DATA_TYPES: Record<payload.Kind, string> = {
+  float: "float64",
+  integer: "int64",
+  unsigned: "uint64",
+  string: "string",
+  boolean: "uint8",
+  timestamp: "timestamp",
+  json: "json",
+  uuid: "uuid",
+  bytes: "bytes",
+};
+
+/** Returns the data type of a new channel that a field of the kind writes. */
+export const newChannelDataType = (kind: payload.Kind): string =>
+  NEW_CHANNEL_DATA_TYPES[kind];
