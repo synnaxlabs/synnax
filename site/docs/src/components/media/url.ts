@@ -10,7 +10,8 @@
 // The CI media check (src/util/checks/media.ts) imports this file in Node. Keep it
 // dependency-free.
 
-export const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
+// LOCAL-PREVIEW-ONLY: revert before commit.
+export const CDN_ROOT = import.meta.env.PUBLIC_DOCS_MEDIA_ROOT ?? "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
 export const mediaURL = (id: string, extension: string, theme?: string): string =>
   `${CDN_ROOT}/${id}${theme != null ? `-${theme}` : ""}.${extension}`;

@@ -25,8 +25,14 @@ export const integrations = ["labjack"];
 const NAME = "Lab T7";
 const IDENTIFIER = "t7";
 const CHANNEL = `${IDENTIFIER}_AIN0`;
-/** How far above its first reading the thermocouple must warm before the plot holds. */
-const RISE = 4;
+/** How far above its steady reading the thermocouple reads once a hand warms it. */
+const ONSET = 0.6;
+/** How long the plot climbs after the onset, so its 30 s window shows the whole climb. */
+const CLIMB_MS = 24_000;
+/** How far apart, at most, the means of two windows of a steady thermocouple are. */
+const STEADY = 0.05;
+const STEADY_WINDOW_MS = 3_000;
+const STEADY_TIMEOUT_MS = 90_000;
 const WARM_TIMEOUT_MS = 180_000;
 /** Set LABJACK_WARM=1 to wait for a person to warm the thermocouple. Drafts skip it. */
 const WARM = process.env.LABJACK_WARM === "1";
@@ -36,7 +42,7 @@ const WARM = process.env.LABJACK_WARM === "1";
  * K-type thermocouple on `AIN0` and `GND`. The script takes the post's steps in order:
  * it configures the T7, starts a read task with the thermocouple, plots it while a
  * person warms the thermocouple by hand, and selects the warm-up for export. Fails when
- * no T7 is on USB, or when the reading does not rise within three minutes.
+ * no T7 is on USB, or when the reading does not start to rise within three minutes.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
@@ -105,6 +111,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await selectWarmUp(session, plot);
     await session.still("export", { menu: page.locator(".lyra-menu-context").first() });
+    if (WARM) console.log(">>> Let go of the thermocouple.");
   } finally {
     await client.close();
   }
@@ -141,8 +148,8 @@ const openProject = async (session: capture.CaptureSession): Promise<void> => {
 };
 
 /**
- * warmUp asks the person at the T7 to warm the thermocouple, then returns once the
- * reading has risen by RISE and held for a few seconds, so the plot shows the climb.
+ * warmUp waits for the thermocouple to read steady, asks the person at the T7 to warm
+ * it, and returns CLIMB_MS after the reading starts to rise, so the plot shows the climb.
  */
 const warmUp = async (
   client: ReturnType<typeof fixtures.connect>,
@@ -154,36 +161,51 @@ const warmUp = async (
   }
   const { key } = await client.channels.retrieve(CHANNEL);
   const streamer = await client.openStreamer([key]);
-  let first: number | undefined;
-  let last = Number.NaN;
-  let peak = -Infinity;
+  const samples: { at: number; value: number }[] = [];
   const loop = (async () => {
     for await (const frame of streamer)
-      for (const sample of frame.get(key)) {
-        last = Number(sample);
-        first ??= last;
-        peak = Math.max(peak, last);
-      }
+      for (const sample of frame.get(key))
+        samples.push({ at: Date.now(), value: Number(sample) });
   })();
-  // The client logs out on close, which ends an open stream, so the stream closes first.
-  try {
-    console.log(`>>> Hold the thermocouple in your hand now (${CHANNEL}).`);
-    const deadline = Date.now() + WARM_TIMEOUT_MS;
-    let report = Date.now();
-    while (first == null || peak - first < RISE) {
-      if (Date.now() > deadline)
-        throw new Error(
-          `${CHANNEL} did not rise ${RISE} °C within three minutes: it read ` +
-            `${first?.toFixed(2) ?? "no samples"} first and ${peak.toFixed(2)} at most`,
-        );
+  /** The mean of the samples from `from` ms ago to `to` ms ago, or NaN for none. */
+  const mean = (from: number, to: number = 0): number => {
+    const now = Date.now();
+    const values = samples
+      .filter(({ at }) => at > now - from && at <= now - to)
+      .map(({ value }) => value);
+    return values.reduce((sum, v) => sum + v, 0) / values.length;
+  };
+  let report = Date.now();
+  const wait = async (until: () => boolean, ms: number): Promise<boolean> => {
+    const deadline = Date.now() + ms;
+    while (!until()) {
+      if (Date.now() > deadline) return false;
       if (Date.now() >= report) {
-        console.log(`${CHANNEL}: ${last.toFixed(2)} °C`);
+        console.log(`${CHANNEL}: ${mean(1000).toFixed(2)} °C`);
         report += 5000;
       }
-      await session.settleWall(500);
+      await session.settleWall(250);
     }
-    console.log(">>> Warm enough. Let go of the thermocouple.");
-    await session.settleWall(8000);
+    return true;
+  };
+  // The client logs out on close, which ends an open stream, so the stream closes first.
+  try {
+    // A thermocouple still warm from the last theme's capture would climb downhill.
+    await wait(
+      () =>
+        Math.abs(
+          mean(STEADY_WINDOW_MS) - mean(2 * STEADY_WINDOW_MS, STEADY_WINDOW_MS),
+        ) < STEADY,
+      STEADY_TIMEOUT_MS,
+    );
+    const steady = mean(STEADY_WINDOW_MS);
+    console.log(`>>> Hold the thermocouple in your hand now (${CHANNEL}).`);
+    if (!(await wait(() => mean(1000) - steady >= ONSET, WARM_TIMEOUT_MS)))
+      throw new Error(
+        `${CHANNEL} did not rise ${ONSET} °C above ${steady.toFixed(2)} °C within ` +
+          "three minutes",
+      );
+    await wait(() => false, CLIMB_MS);
   } finally {
     streamer.close();
     await loop;
