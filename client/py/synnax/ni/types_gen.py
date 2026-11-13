@@ -1464,7 +1464,7 @@ class AOFuncGenChannel(BaseAOChannel):
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
-    frequency: float = 0
+    frequency: float = Field(gt=0, allow_inf_nan=False)
     amplitude: float = 0
     offset: float = 0
 

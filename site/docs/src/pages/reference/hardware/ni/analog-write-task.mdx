@@ -202,12 +202,12 @@ Few NI devices support this channel type. On other devices, NI-DAQmx rejects the
 when the task starts. NI-DAQmx can also reject a task that has this channel type and
 other channel types. If it does, use a task for each type.
 
-| Setting                              | Default | Notes                                     |
-| ------------------------------------ | ------- | ----------------------------------------- |
-| Wave <small>`wave_type`</small>      | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`. |
-| Frequency <small>`frequency`</small> | `0`     | In hertz.                                 |
-| Amplitude <small>`amplitude`</small> | `0`     | From zero to peak, in volts.              |
-| Offset <small>`offset`</small>       | `0`     | In volts.                                 |
+| Setting                              | Default | Notes                                                        |
+| ------------------------------------ | ------- | ------------------------------------------------------------ |
+| Wave <small>`wave_type`</small>      | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`.                    |
+| Frequency <small>`frequency`</small> | None    | Required. In hertz, greater than 0. The Console starts at 1. |
+| Amplitude <small>`amplitude`</small> | `0`     | From zero to peak, in volts.                                 |
+| Offset <small>`offset`</small>       | `0`     | In volts.                                                    |
 
 </Channel.Type>
 
