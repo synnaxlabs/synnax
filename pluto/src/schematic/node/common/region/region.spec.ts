@@ -67,7 +67,7 @@ describe("Region.extract", () => {
     const greenFillRegion = regions.find((r) => color.equals(r.fillColor, "#00ff00"));
     expect(greenFillRegion).toBeDefined();
     expect(greenFillRegion?.selectors).toHaveLength(2);
-    expect(color.isZero(greenFillRegion?.strokeColor)).toBe(true);
+    expect(color.equals(greenFillRegion?.strokeColor, color.ZERO)).toBe(true);
 
     const noColorRegion = regions.find(
       (r) =>

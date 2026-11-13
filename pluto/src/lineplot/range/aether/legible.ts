@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type theme } from "@synnaxlabs/lyra/theme";
-import { color } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
 
 const toLinear = (c: number): number => {
   const v = c / 255;
@@ -62,7 +62,7 @@ export const legible = (c: color.Color, t: theme.Theme): color.Color => {
   const o = toOKLCH(c);
   const gray = Math.min(1, Math.max(0, (cThresh - o.c) / cThresh));
   const l = Math.min(lMax, Math.max(lMin, o.l)) * (1 - gray) + lExtreme * gray;
-  return fromOKLCH({ ...o, l }, color.aValue(c));
+  return fromOKLCH({ ...o, l }, c[3]);
 };
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */

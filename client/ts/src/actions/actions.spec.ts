@@ -140,7 +140,7 @@ describe("applyPath", () => {
     });
     expect(next.fillColor).toEqual([255, 0, 0, 128]);
     expect(inverse).toEqual([
-      { type: "set", set: { path: ["fill_color"], value: "#000000ff", guards: [] } },
+      { type: "set", set: { path: ["fill_color"], value: "#000000", guards: [] } },
     ]);
   });
 

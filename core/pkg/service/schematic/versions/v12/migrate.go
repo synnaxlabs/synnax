@@ -11,15 +11,66 @@ package v12
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateSchematic lifts a v11 schematic to v12, which stores every color alpha as a
-// 0-255 byte.
+// 0-255 byte. An optional color that holds the zero color becomes absent, as v11 stored
+// the zero color to mean that the theme picks the color.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
-	return autoMigrateSchematic(ctx, old)
+	s, err := autoMigrateSchematic(ctx, old)
+	if err != nil {
+		return Schematic{}, err
+	}
+	for k, cfg := range s.Configs {
+		v := reflect.ValueOf(&cfg).Elem()
+		clearZeroColors(v)
+		s.Configs[k] = cfg
+	}
+	return s, nil
+}
+
+var colorPtrType = reflect.TypeFor[*color.Color]()
+
+// clearZeroColors sets every optional color under v that holds the zero color to nil.
+// v must be settable.
+func clearZeroColors(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if v.IsNil() {
+			return
+		}
+		if v.Type() == colorPtrType {
+			if *v.Interface().(*color.Color) == (color.Color{}) {
+				v.SetZero()
+			}
+			return
+		}
+		clearZeroColors(v.Elem())
+	case reflect.Interface:
+		if v.IsNil() {
+			return
+		}
+		c := reflect.New(v.Elem().Type()).Elem()
+		c.Set(v.Elem())
+		clearZeroColors(c)
+		v.Set(c)
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if f := v.Field(i); f.CanSet() {
+				clearZeroColors(f)
+			}
+		}
+	case reflect.Slice:
+		for i := range v.Len() {
+			clearZeroColors(v.Index(i))
+		}
+	default:
+	}
 }
 
 // Migration lifts stored schematics from v11 to v12.

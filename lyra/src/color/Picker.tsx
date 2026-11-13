@@ -74,7 +74,7 @@ export const Picker = ({
   // Moving the plane or the hue of a fully transparent color would change nothing
   // visible, so those moves make it opaque.
   const visibleAlpha = a === 0 ? 1 : a;
-  const opaqueCSS = color.rgbaCSS(color.fromHSVA([h, s, v, 1]));
+  const opaqueCSS = color.cssString(color.fromHSVA([h, s, v, 1]));
 
   return (
     <Flex.Box
@@ -95,7 +95,7 @@ export const Picker = ({
           value={h / 360}
           valueText={`${Math.round(h)} degrees`}
           track={HUE_TRACK}
-          thumb={color.rgbaCSS(color.fromHSVA([h, 100, 100, 1]))}
+          thumb={color.cssString(color.fromHSVA([h, 100, 100, 1]))}
           onChange={(nextH) => handleHSVAChange([nextH * 360, s, v, visibleAlpha])}
         />
         <Slider
@@ -104,7 +104,7 @@ export const Picker = ({
           value={a}
           valueText={`${Math.round(a * 100)}%`}
           track={`linear-gradient(to right, transparent, ${opaqueCSS})`}
-          thumb={color.rgbaCSS(color.fromHSVA(hsva.value))}
+          thumb={color.cssString(color.fromHSVA(hsva.value))}
           onChange={(nextA) => handleHSVAChange([h, s, v, nextA])}
         />
       </Flex.Box>

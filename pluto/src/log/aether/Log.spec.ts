@@ -414,12 +414,12 @@ describe("log/aether/Log", () => {
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { log } = setup([makeEntry(0)]);
-      expect(color.isZero(log.state.color)).toBe(true);
+      expect(log.state.color).toBeUndefined();
     });
 
     it("should accept a custom text color", () => {
       const { log } = setup([], REGION_500, { color: "#ff0000" });
-      expect(color.isZero(log.state.color)).toBe(false);
+      expect(log.state.color).toEqual(color.construct("#ff0000"));
     });
   });
 

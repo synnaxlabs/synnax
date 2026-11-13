@@ -9,16 +9,7 @@
 
 import { z } from "zod";
 
-import {
-  aValue,
-  bValue,
-  type Color,
-  construct,
-  crudeZ,
-  gValue,
-  rValue,
-  ZERO,
-} from "@/color/color";
+import { type Color, construct, crudeZ, ZERO } from "@/color/color";
 
 export const stopZ = z.object({
   key: z.string(),
@@ -52,20 +43,9 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
     const startColor = construct(start.color);
     const endColor = construct(end.color);
 
-    const r = Math.round(
-      rValue(startColor) + t * (rValue(endColor) - rValue(startColor)),
-    );
-    const g = Math.round(
-      gValue(startColor) + t * (gValue(endColor) - gValue(startColor)),
-    );
-    const b = Math.round(
-      bValue(startColor) + t * (bValue(endColor) - bValue(startColor)),
-    );
-    const a = Math.round(
-      aValue(startColor) + t * (aValue(endColor) - aValue(startColor)),
-    );
-
-    return construct([r, g, b, a]);
+    const mix = (i: number): number =>
+      Math.round(startColor[i] + t * (endColor[i] - startColor[i]));
+    return [mix(0), mix(1), mix(2), mix(3)];
   }
 
   return construct(gradient[gradient.length - 1].color);

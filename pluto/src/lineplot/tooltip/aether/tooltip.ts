@@ -32,10 +32,10 @@ const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
-  textColor: color.colorZ.default(color.ZERO),
-  backgroundColor: color.colorZ.default(color.ZERO),
-  borderColor: color.colorZ.default(color.ZERO),
-  ruleColor: color.colorZ.default(color.ZERO),
+  textColor: color.colorZ.optional(),
+  backgroundColor: color.colorZ.optional(),
+  borderColor: color.colorZ.optional(),
+  ruleColor: color.colorZ.optional(),
   ruleStrokeWidth: z.number().default(1),
   ruleStrokeDash: z.number().default(0),
 });
@@ -61,10 +61,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
     const { textColor, ruleColor } = this.state;
-    this.internal.textColor = color.isZero(textColor) ? theme.colors.text : textColor;
-    this.internal.ruleColor = color.isZero(ruleColor)
-      ? theme.colors.gray.l7
-      : ruleColor;
+    this.internal.textColor = textColor ?? theme.colors.text;
+    this.internal.ruleColor = ruleColor ?? theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 

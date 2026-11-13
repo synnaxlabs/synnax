@@ -38,13 +38,12 @@ export const measureStateZ = z.object({
     .union([
       color.colorZ,
       z.object({
-        verticalLine: color.colorZ.default(color.ZERO),
-        horizontalLine: color.colorZ.default(color.ZERO),
-        obliqueLine: color.colorZ.default(color.ZERO),
+        verticalLine: color.colorZ.optional(),
+        horizontalLine: color.colorZ.optional(),
+        obliqueLine: color.colorZ.optional(),
       }),
     ])
-    .optional()
-    .default(color.ZERO),
+    .optional(),
   strokeWidth: z.number().default(1),
   strokeDash: z.number().default(2),
 });
@@ -156,35 +155,24 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     render.request(ctx, "layout");
   }
 
-  private get verticalLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
+  private lineColor(
+    line: "verticalLine" | "horizontalLine" | "obliqueLine",
+  ): color.Color {
+    const c = this.state.color;
+    const lineColor = c == null || color.isColor(c) ? c : c[line];
+    return lineColor ?? this.internal.theme.colors.gray.l9;
+  }
 
-    if (color.isZero(this.state.color.verticalLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.verticalLine;
+  private get verticalLineColor(): color.Color {
+    return this.lineColor("verticalLine");
   }
 
   private get horizontalLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
-    if (color.isZero(this.state.color.horizontalLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.horizontalLine;
+    return this.lineColor("horizontalLine");
   }
 
   private get obliqueLineColor(): color.Color {
-    if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
-      return this.state.color;
-    }
-    if (color.isZero(this.state.color.obliqueLine))
-      return this.internal.theme.colors.gray.l9;
-    return this.state.color.obliqueLine;
+    return this.lineColor("obliqueLine");
   }
 
   private findPoint(

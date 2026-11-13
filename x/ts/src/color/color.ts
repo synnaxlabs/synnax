@@ -12,11 +12,16 @@ import { z } from "zod";
 import { caseconv } from "@/caseconv";
 import { zod } from "@/zod";
 
-/** A regex to match hex colors. */
-const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
-
-/** A zod schema for a hex color. */
-const hexZ = z.string().regex(hexRegex);
+/**
+ * A zod schema for a color string: a hex value of 3, 4, 6, or 8 digits with or without
+ * a leading '#', an rgb() or rgba() function, or an hsl() or hsla() function.
+ */
+const stringZ = z.string().transform((s, ctx): RGBA => {
+  const c = parseString(s);
+  if (c != null) return c;
+  ctx.addIssue({ code: "custom", message: `invalid color: ${s}` });
+  return z.NEVER;
+});
 /** A zod schema for an RGB value. */
 const rgbValueZ = zod.uint8;
 /** A zod schema for an alpha value between 0 and 255. */
@@ -58,29 +63,23 @@ export type HSVA = z.infer<typeof hsvaZ>;
 /** A color in RGB format. See https://en.wikipedia.org/wiki/RGB_color_model */
 export type RGB = z.infer<typeof rgbZ>;
 /** A color in hex format. See https://en.wikipedia.org/wiki/Web_colors */
-export type Hex = z.infer<typeof hexZ>;
+export type Hex = string;
 
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([hexZ, rgbZ, rgbaZ]);
+export const crudeZ = z.union([stringZ, rgbZ, rgbaZ]);
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
 export type Crude = z.input<typeof crudeZ>;
 
-/** @returns the color as the 8 digit "#rrggbbaa" hex string sent over the wire. */
-const wireHex = (color: Crude): string => {
-  const [r, g, b, a] = construct(color);
-  return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}${byteToHex(a)}`;
-};
-
 /**
  * A zod schema to parse color values from various crude representations. The JSON
- * codec writes a parsed color as an 8 digit "#rrggbbaa" hex string.
+ * codec writes a parsed color as its hex string.
  */
 export const colorZ = caseconv.encodeWith(
   crudeZ.transform((v) => fromCrude(v)),
-  wireHex,
+  (c: Crude) => hex(c),
 );
 
 /**
@@ -89,9 +88,6 @@ export const colorZ = caseconv.encodeWith(
  * https://en.wikipedia.org/wiki/RGBA_color_model
  */
 export type Color = RGBA;
-
-/** @returns true if the given color can be parsed into a valid color object. */
-export const isCrude = (color: unknown): color is Crude => z.validate(colorZ, color);
 
 /** @returns true if the color is a true Color type. */
 export const isColor = (color: unknown): color is Color => z.validate(rgbaZ, color);
@@ -112,7 +108,10 @@ export interface CSSString {
 export const cssString = ((color?: Crude): string | undefined => {
   if (color == null) return undefined;
   const res = colorZ.safeParse(color);
-  if (res.success) return rgbaCSS(res.data);
+  if (res.success) {
+    const [r, g, b, a] = res.data;
+    return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+  }
   if (typeof color === "string") return color;
   throw new zod.ParseError({
     issues: res.error.issues,
@@ -123,26 +122,15 @@ export const cssString = ((color?: Crude): string | undefined => {
 }) as CSSString;
 
 /**
- * @constructor Creates a new color from the given color value. The color value can be
- * a hex string, an array of RGB or RGBA values, or another color.
- *
- * @param color - The color value to create the color from. If the color value is a
- * string, it must be a valid hex color (with or without the '#') with a hash-less
- * length 6 or 8. If the hex color is 8 characters long, the last two characters are
- * used as the alpha value. If the color value is an array, it must be an array of
- * length 3 or 4, with each value an integer between 0 and 255.
- *
- * @param alpha - The alpha, between 0 and 255, of a color value that carries none.
- * Defaults to 255.
- * @throws {zod.ParseError} if the color value is not a valid crude color.
+ * @constructor Creates a new color from a hex, rgb(), or hsl() string, an RGB or RGBA
+ * tuple of bytes, or another color. A value without an alpha gets an alpha of 255.
+ * @throws {zod.ParseError} if the value is not a valid crude color.
  */
-export const construct = (color: Crude, alpha: number = 255): Color =>
-  fromCrude(zod.parse(crudeZ, color, { label: "color" }), alpha);
+export const construct = (color: Crude): Color =>
+  fromCrude(zod.parse(crudeZ, color, { label: "color" }));
 
-const fromCrude = (parsed: z.output<typeof crudeZ>, alpha: number = 255): Color => {
-  if (typeof parsed === "string") return fromHex(parsed, alpha);
-  return parsed.length === 3 ? [...parsed, alpha] : parsed;
-};
+const fromCrude = (parsed: z.output<typeof crudeZ>): Color =>
+  parsed.length === 3 ? [...parsed, 255] : parsed;
 
 /**
  * @returns true if the given color is semantically equal to this color. Different
@@ -170,15 +158,6 @@ export const hex = ((color?: Crude) => {
   return `#${byteToHex(r)}${byteToHex(g)}${byteToHex(b)}${a === 255 ? "" : byteToHex(a)}`;
 }) as ToHex;
 
-/** @returns the color as a CSS RGBA string. i.e. rgba(r, g, b, a) */
-export const rgbaCSS = (color: Crude): string => {
-  const [r, g, b, a] = construct(color);
-  return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-};
-
-/** @returns the color as a CSS RGB string with no alpha value. i.e. rgb(r, g, b) */
-export const rgbCSS = (color: Crude): string => `rgb(${rgbString(color)})`;
-
 /**
  * @returns the color as an RGB string, with each color value between 0 and 255.
  * @example "255, 255, 255"
@@ -205,29 +184,13 @@ export const rgba1 = (color: Crude): [number, number, number, number] => [
 ];
 
 /** @returns the color normalized as an RGB tuple between 0 and 1. */
-const rgb1 = (color: Crude): [number, number, number] => [
-  rValue(color) / 255,
-  gValue(color) / 255,
-  bValue(color) / 255,
-];
-
-/** @returns the red value of the color, between 0 and 255. */
-export const rValue = (color: Crude): number => construct(color)[0];
-
-/** @returns the green value of the color, between 0 and 255. */
-export const gValue = (color: Crude): number => construct(color)[1];
-
-/** @returns the blue value of the color, between 0 and 255. */
-export const bValue = (color: Crude): number => construct(color)[2];
-
-/** @returns the alpha value of the color, between 0 and 255. */
-export const aValue = (color: Crude): number => construct(color)[3];
+const rgb1 = (color: Crude): [number, number, number] => {
+  const [r, g, b] = construct(color);
+  return [r / 255, g / 255, b / 255];
+};
 
 /** @returns the opacity of the color, between 0 and 1. */
-export const opacity = (color: Crude): number => aValue(color) / 255;
-
-/** @returns true if all RGBA values are 0. */
-export const isZero = (color?: Crude): boolean => equals(ZERO, color);
+export const opacity = (color: Crude): number => construct(color)[3] / 255;
 
 /** @returns the HSLA representation of the color. */
 export const hsla = (color: Crude): HSLA => rgbaToHSLA(construct(color));
@@ -247,21 +210,11 @@ export const setOpacity = (color: Crude, opacity: number): Color => {
  * @returns the luminance of the color, between 0 and 1.
  * @see https://en.wikipedia.org/wiki/Relative_luminance for more information.
  */
-export const luminance = (color: Crude): number => {
+const luminance = (color: Crude): number => {
   const [r, g, b] = rgb1(color).map((v) =>
     v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4,
   );
   return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
-};
-
-/**
- * @returns an approximation of the colors 'grayness' from 0 to 1 by measuring the
- * deviation between the RGB values of the color.
- */
-export const grayness = (color: Crude): number => {
-  const [r, g, b] = rgb1(color);
-  const deviation = Math.max(r, g, b) - Math.min(r, g, b);
-  return 1 - deviation;
 };
 
 /**
@@ -299,160 +252,82 @@ export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
 /** @returns true if the color is light i.e. the luminance is greater than 0.5. */
 export const isLight = (color: Crude): boolean => luminance(color) > 0.5;
 
-/** @returns a color parsed from a hex string with an alpha value. */
-const fromHex = (hex: string, alpha: number = 255): RGBA => {
-  hex = hexZ.parse(hex);
-  hex = stripHash(hex);
-  return [
-    hexToByte(hex, 0),
-    hexToByte(hex, 2),
-    hexToByte(hex, 4),
-    hex.length === 8 ? hexToByte(hex, 6) : alpha,
-  ];
-};
-
 /** A totally zero color with no alpha. */
 export const ZERO: Color = [0, 0, 0, 0];
 
 const byteToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
-const hexToByte = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
-const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 
-const NAMED: Record<string, string> = {
-  black: "#000000",
-  white: "#ffffff",
-  red: "#ff0000",
-  green: "#008000",
-  blue: "#0000ff",
-  yellow: "#ffff00",
-  cyan: "#00ffff",
-  magenta: "#ff00ff",
-  silver: "#c0c0c0",
-  gray: "#808080",
-  grey: "#808080",
-  maroon: "#800000",
-  olive: "#808000",
-  lime: "#00ff00",
-  aqua: "#00ffff",
-  teal: "#008080",
-  navy: "#000080",
-  fuchsia: "#ff00ff",
-  purple: "#800080",
-  orange: "#ffa500",
-  brown: "#a52a2a",
-  tan: "#d2b48c",
-  gold: "#ffd700",
-  indigo: "#4b0082",
-  violet: "#ee82ee",
-  pink: "#ffc0cb",
-  coral: "#ff7f50",
-  salmon: "#fa8072",
-  khaki: "#f0e68c",
-  crimson: "#dc143c",
-  transparent: "transparent",
-};
+const FUNCTION_PATTERN = /^(rgb|hsl)a?\((.*)\)$/;
+const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/;
 
 /**
- * Parses a CSS color string into a Color. Supports 3, 4, 6, and 8 digit hex, rgb() and
- * hsl() in comma or space syntax with an optional alpha, and named colors.
- * @param cssColor - The CSS color string to parse
- * @returns The parsed color or undefined if invalid
+ * Parses a color string: a hex value of 3, 4, 6, or 8 digits with or without a leading
+ * '#', or an rgb(), rgba(), hsl(), or hsla() function in comma or space syntax with an
+ * optional alpha. Out-of-range values do not parse.
  */
-export const fromCSS = (cssColor: string): Color | undefined => {
-  if (!cssColor) return undefined;
-  const trimmed = cssColor.trim().toLowerCase();
-  if (trimmed === "transparent" || trimmed === "none") return undefined;
-  if (trimmed.startsWith("#")) return fromCSSHex(trimmed.slice(1));
-  const fn = trimmed.match(/^(rgba?|hsla?)\((.*)\)$/);
-  if (fn != null) return fromCSSFunction(fn[1], fn[2]);
-  if (NAMED[trimmed]) return fromHex(NAMED[trimmed]);
-  return undefined;
+const parseString = (input: string): RGBA | undefined => {
+  const s = input.trim().toLowerCase();
+  const fn = s.match(FUNCTION_PATTERN);
+  if (fn != null) return parseFunction(fn[1], fn[2]);
+  return parseHex(s.startsWith("#") ? s.slice(1) : s);
 };
 
-const fromCSSHex = (digits: string): Color | undefined => {
+const parseHex = (digits: string): RGBA | undefined => {
   if (!/^[0-9a-f]+$/.test(digits)) return undefined;
   if (digits.length === 3 || digits.length === 4)
     digits = [...digits].map((d) => d + d).join("");
   if (digits.length !== 6 && digits.length !== 8) return undefined;
-  return fromHex(digits);
+  const byte = (i: number): number => parseInt(digits.slice(i, i + 2), 16);
+  return [byte(0), byte(2), byte(4), digits.length === 8 ? byte(6) : 255];
 };
 
-const fromCSSFunction = (name: string, body: string): Color | undefined => {
+const parseFunction = (name: string, body: string): RGBA | undefined => {
   const args = body.split(/[\s,/]+/).filter((a) => a.length > 0);
   if (args.length !== 3 && args.length !== 4) return undefined;
-  const alpha = args.length === 4 ? parseCSSNumber(args[3], 1) : 1;
-  if (alpha == null) return undefined;
-  if (name.startsWith("rgb")) {
-    const channels = args.slice(0, 3).map((a) => parseCSSNumber(a, 255));
-    if (channels.some((c) => c == null)) return undefined;
-    const [r, g, b] = channels.map((c) => clampRound(c as number, 255));
-    return [r, g, b, Math.round(Math.min(Math.max(alpha, 0), 1) * 255)];
+  const alpha = args.length === 4 ? parseNumber(args[3], 1) : 1;
+  if (alpha == null || alpha < 0 || alpha > 1) return undefined;
+  const a = Math.round(alpha * 255);
+  if (name === "rgb") {
+    const channels = args.slice(0, 3).map((arg) => parseNumber(arg, 255));
+    if (channels.some((c) => c == null || c < 0 || c > 255)) return undefined;
+    const [r, g, b] = channels.map((c) => Math.round(c ?? 0));
+    return [r, g, b, a];
   }
-  const h = parseCSSHue(args[0]);
-  const sat = parseCSSNumber(args[1], 100);
-  const light = parseCSSNumber(args[2], 100);
+  const h = parseNumber(args[0].replace(/deg$/, ""), 1);
+  const sat = parseNumber(args[1].replace(/%$/, ""), 100);
+  const light = parseNumber(args[2].replace(/%$/, ""), 100);
   if (h == null || sat == null || light == null) return undefined;
-  return fromHSLA([
-    ((h % 360) + 360) % 360,
-    Math.min(Math.max(sat, 0), 100),
-    Math.min(Math.max(light, 0), 100),
-    Math.min(Math.max(alpha, 0), 1),
-  ]);
+  if (sat < 0 || sat > 100 || light < 0 || light > 100) return undefined;
+  return hslToRGBA((((h % 360) + 360) % 360) / 360, sat / 100, light / 100, a);
 };
 
-const DEGREES_PER_HUE_UNIT: Record<string, number> = {
-  "": 1,
-  deg: 1,
-  turn: 360,
-  rad: 180 / Math.PI,
-  grad: 0.9,
+/** Parses a number, reading a percentage as a fraction of scale. */
+const parseNumber = (arg: string, scale: number): number | undefined => {
+  const percent = arg.endsWith("%");
+  const n = percent ? arg.slice(0, -1) : arg;
+  if (!NUMBER_PATTERN.test(n)) return undefined;
+  return percent ? (parseFloat(n) * scale) / 100 : parseFloat(n);
 };
 
-/** Parses a CSS hue angle into degrees. A bare number is in degrees. */
-const parseCSSHue = (arg: string): number | undefined => {
-  const match = arg.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([a-z]*)$/);
-  if (match == null) return undefined;
-  const factor = DEGREES_PER_HUE_UNIT[match[2]];
-  if (factor == null) return undefined;
-  const hue = parseFloat(match[1]) * factor;
-  return Number.isFinite(hue) ? hue : undefined;
-};
-
-/** Parses a CSS number, reading a percentage as a fraction of `scale`. */
-const parseCSSNumber = (arg: string, scale: number): number | undefined => {
-  const n = parseFloat(arg);
-  if (Number.isNaN(n)) return undefined;
-  return arg.endsWith("%") ? (n / 100) * scale : n;
-};
-
-const clampRound = (n: number, max: number): number =>
-  Math.min(Math.max(Math.round(n), 0), max);
-
-/** @returns parse a color from an HSLA tuple. */
+/** @returns the color for an HSLA tuple. */
 export const fromHSLA = (hsla: HSLA): RGBA => {
-  hsla = hslaZ.parse(hsla);
-  let [h, s, l] = hsla;
-  const a = hsla[3];
-  h /= 360;
-  s /= 100;
-  l /= 100;
-  let r, g, b;
+  const [h, s, l, a] = zod.parse(hslaZ, hsla, { label: "hsla" });
+  return hslToRGBA(h / 360, s / 100, l / 100, Math.round(a * 255));
+};
 
-  if (s === 0)
-    r = g = b = l; // achromatic
-  else {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hueToRGB(p, q, h + 1 / 3);
-    g = hueToRGB(p, q, h);
-    b = hueToRGB(p, q, h - 1 / 3);
+/** Converts 0-1 hue, saturation, and lightness and a byte alpha to an RGBA color. */
+const hslToRGBA = (h: number, s: number, l: number, a: number): RGBA => {
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v, a];
   }
-
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
   return [
-    Math.round(r * 255),
-    Math.round(g * 255),
-    Math.round(b * 255),
-    Math.round(a * 255),
+    Math.round(hueToRGB(p, q, h + 1 / 3) * 255),
+    Math.round(hueToRGB(p, q, h) * 255),
+    Math.round(hueToRGB(p, q, h - 1 / 3) * 255),
+    a,
   ];
 };
 

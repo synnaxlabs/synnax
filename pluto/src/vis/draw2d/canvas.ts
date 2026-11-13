@@ -42,9 +42,9 @@ const fadeGradient = (
   ctx: OffscreenCanvasRenderingContext2D,
   { end, width }: TextFade,
 ): CanvasGradient => {
-  const fill =
-    typeof ctx.fillStyle === "string" ? color.fromCSS(ctx.fillStyle) : undefined;
-  if (fill == null) throw new Error("Text can fade only from a solid fill color");
+  if (typeof ctx.fillStyle !== "string")
+    throw new Error("Text can fade only from a solid fill color");
+  const fill = color.construct(ctx.fillStyle);
   const gradient = ctx.createLinearGradient(end - width, 0, end, 0);
   gradient.addColorStop(0, color.hex(fill));
   gradient.addColorStop(1, color.hex(color.setOpacity(fill, 0)));

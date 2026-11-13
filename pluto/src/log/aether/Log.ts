@@ -58,7 +58,7 @@ export const logStateZ = log.logZ
     channelDataTypes: z.record(z.string(), z.string()).default({}),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
-    color: color.colorZ.default(color.ZERO),
+    color: color.colorZ.optional(),
     overshoot: xy.xyZ.default({ x: 0, y: 0 }),
     // position is the time of the entry at the bottom of a paused view: a decimal count
     // of nanoseconds, since a number cannot hold it exactly. Empty while live.
@@ -315,8 +315,7 @@ export class Log
         this.seeking = BigInt(this.state.position);
     }
 
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
-    else i.textColor = this.state.color;
+    i.textColor = this.state.color ?? i.theme.colors.gray.l11;
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);

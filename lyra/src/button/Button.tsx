@@ -217,7 +217,7 @@ export const Button = <E extends ElementType = "button">(
     pStyle = {
       ...pStyle,
       [COLOR_VARIABLE]: color.rgbString(res.data),
-      [TEXT_COLOR_VARIABLE]: color.rgbCSS(
+      [TEXT_COLOR_VARIABLE]: color.cssString(
         color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
       ),
     };

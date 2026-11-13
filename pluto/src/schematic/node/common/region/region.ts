@@ -96,13 +96,54 @@ interface ElementGroup {
   colorPair: ColorPair;
 }
 
+// SVG paint attributes may name a color, which the color string grammar does not read.
+const NAMED_COLORS: Record<string, string> = {
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ff0000",
+  green: "#008000",
+  blue: "#0000ff",
+  yellow: "#ffff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  silver: "#c0c0c0",
+  gray: "#808080",
+  grey: "#808080",
+  maroon: "#800000",
+  olive: "#808000",
+  lime: "#00ff00",
+  aqua: "#00ffff",
+  teal: "#008080",
+  navy: "#000080",
+  fuchsia: "#ff00ff",
+  purple: "#800080",
+  orange: "#ffa500",
+  brown: "#a52a2a",
+  tan: "#d2b48c",
+  gold: "#ffd700",
+  indigo: "#4b0082",
+  violet: "#ee82ee",
+  pink: "#ffc0cb",
+  coral: "#ff7f50",
+  salmon: "#fa8072",
+  khaki: "#f0e68c",
+  crimson: "#dc143c",
+};
+
+/** Parses an SVG paint value, or returns undefined when it names no single color. */
+const parsePaint = (paint: string): color.Color | undefined => {
+  const trimmed = paint.trim().toLowerCase();
+  const res = color.colorZ.safeParse(NAMED_COLORS[trimmed] ?? trimmed);
+  return res.success ? res.data : undefined;
+};
+
 /**
  * Resolves an SVG paint value to a Color. A missing or unparseable paint reads as
  * fully transparent, which is how an unpainted element renders.
  */
 const normalizeColor = (colorStr: string | null | undefined): color.Color => {
   if (colorStr == null || colorStr === "") return color.ZERO;
-  return color.fromCSS(colorStr) ?? color.ZERO;
+  return parsePaint(colorStr) ?? color.ZERO;
 };
 
 const getElementColors = (element: SVGElement): ColorPair => {
@@ -247,7 +288,7 @@ const paintToAttribute = (computed: string): string | null => {
   // the reference verbatim.
   if (trimmed.startsWith("url(")) return trimmed;
   if (trimmed === "none") return "none";
-  const parsed = color.fromCSS(trimmed);
+  const parsed = parsePaint(trimmed);
   // Fall back to the raw computed value for anything unparseable (e.g. context-fill);
   // it remains a valid presentation-attribute value.
   return parsed == null ? trimmed : color.hex(parsed);

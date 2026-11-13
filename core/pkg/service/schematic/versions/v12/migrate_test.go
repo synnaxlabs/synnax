@@ -175,4 +175,26 @@ var _ = Describe("Migrate functions", func() {
 			)).StrokeColor
 		}),
 	)
+	It("Should make an optional zero color absent", func(ctx SpecContext) {
+		zero := &color.Color{}
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Configs: map[string]v11.ElementConfig{
+				"zero": {Variant: v11.CapElementConfig{
+					StaticSymbolConfig: v11.StaticSymbolConfig{StrokeColor: zero},
+				}},
+				"set": {Variant: v11.CapElementConfig{
+					StaticSymbolConfig: v11.StaticSymbolConfig{StrokeColor: half()},
+				}},
+				"e": {Variant: v11.PipeElementConfig{
+					SegmentedEdgeConfig: v11.SegmentedEdgeConfig{StrokeColor: zero},
+				}},
+			},
+		}))
+		Expect(
+			out.Configs["zero"].Variant.(v12.CapElementConfig).StrokeColor,
+		).To(BeNil())
+		Expect(out.Configs["set"].Variant.(v12.CapElementConfig).StrokeColor).
+			To(Equal(want))
+		Expect(out.Configs["e"].Variant.(v12.PipeElementConfig).StrokeColor).To(BeNil())
+	})
 })
