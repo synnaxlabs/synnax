@@ -85,7 +85,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the panels in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the panels owned by any of the given projects. */
+  /** projects matches the panels in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -207,7 +207,7 @@ export const NODE_SCHEMAS: {
   split: splitNodeZ,
 };
 
-/** Panel is a project-owned tree of visualization tabs. */
+/** Panel is a tree of visualization tabs in a project. */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
   key: keyZ.default(uuid.create),
@@ -224,7 +224,7 @@ export const panelZ = z.object({
   color: color.colorZ.optional(),
   /** group is the group the panel sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the panel. */
+  /** project is the project that holds the panel. */
   project: project.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}

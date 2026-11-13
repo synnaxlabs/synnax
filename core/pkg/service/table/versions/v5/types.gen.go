@@ -84,7 +84,7 @@ type Table struct {
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 	// Group is the group the table sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the table.
+	// Project is the project that holds the table.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 
