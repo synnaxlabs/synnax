@@ -27,7 +27,13 @@ interface TextEntries {
   defaultValue: string;
 }
 
-export type EnumMappingSectionProps = (NumberEntries | TextEntries) & {
+interface BooleanEntries {
+  /** The path of the enum values. */
+  path: deep.Target<PlatformForm.Entry<"label", boolean>[]>;
+  valueType: "boolean";
+}
+
+export type EnumMappingSectionProps = (NumberEntries | TextEntries | BooleanEntries) & {
   /** Puts the channel value before its label, for a write that sends the label. */
   valueFirst?: boolean;
 };
@@ -47,7 +53,17 @@ export const EnumMappingSection = ({
   ...rest
 }: EnumMappingSectionProps): ReactElement => (
   <Form.Section title="Enum mapping">
-    {rest.valueType === "string" ? (
+    {rest.valueType === "boolean" ? (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="boolean"
+        valueFirst={valueFirst}
+        createEntry={createEntry(false)}
+      />
+    ) : rest.valueType === "string" ? (
       <PlatformForm.KeyValueEditor
         path={rest.path}
         resourceName="mapping"
