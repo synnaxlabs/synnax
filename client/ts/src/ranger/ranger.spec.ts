@@ -523,6 +523,17 @@ describe("range", () => {
         .toBe(true);
     });
 
+    it("should mark a range that its create batch nests a range in", async () => {
+      const local = createTestClient();
+      const key = uuid.create();
+      const [parent, child] = await local.ranges.create([
+        { key, name: "Parent", timeRange },
+        { name: "Child", timeRange, parent: key },
+      ]);
+      expect([parent.hasChildren, child.hasChildren]).toEqual([true, false]);
+      expect(expectLive(local.ranges.watch(key).getCached()).hasChildren).toBe(true);
+    });
+
     it("should keep the mark when a fetch that predates the child lands", async () => {
       const remote = createTestClient();
       const parent = await client.ranges.create({ name: id.create(), timeRange });
