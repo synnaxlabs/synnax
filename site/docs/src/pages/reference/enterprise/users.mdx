@@ -19,15 +19,15 @@ Each person who uses a Synnax Core logs in as a user. Each user holds one role, 
 role sets what the user can see and change. Only users with the **Owner** role can
 register, change, or delete users.
 
-Owners manage users in the **Users** toolbar. To open it, click <Icon.User /> in the
-left navigation bar, or press **U**. Synnax Desktop has one user and no **Users**
-toolbar.
+Owners manage users on the **Users** page of Settings. Click <Icon.Settings /> in the
+top bar to open Settings, then select **Users**. Synnax Desktop has one user and no
+**Users** page.
 
 <Divider.Divider x />
 
 ## Register a user
 
-1. Run the "Register user" command, or click <Icon.Add /> in the **Users** toolbar.
+1. Run the "Register user" command, or click **Create user** on the **Users** page.
 2. Enter the **Name**, **Username**, and **Password**.
 3. Select a **Role**.
 4. Click **Register**.
@@ -40,11 +40,9 @@ Give the username and password to the person. They can log in at once.
 
 ## Change a role
 
-1. In the **Users** toolbar, right-click the user and select **Change role**.
-2. Select a **Role**, then click **Assign**.
-
-The new role replaces the user's role. You can also drag a user onto a role in the
-**Users** toolbar. You cannot change your own role or the role of the root user.
+On the **Users** page, select a new role in the **Role** column of the user. The new
+role replaces the user's role at once. You cannot change your own role or the role of
+the root user.
 
 <Video id="console/users/modal-change-role" />
 
@@ -52,36 +50,36 @@ The new role replaces the user's role. You can also drag a user onto a role in t
 
 ## Rename a user
 
-In the **Users** toolbar, right-click the user and select **Rename**. Rename changes the
-name that the Console shows, not the username. You cannot rename yourself. To change a
-username, see [manage users from code](#manage-users-from-code).
+On the **Users** page, right-click the user and select **Rename**. Rename changes the
+name that the Console shows, not the username. To rename yourself, go to the **Profile**
+page of Settings. To change a username, see
+[manage users from code](#manage-users-from-code).
 
 <Divider.Divider x />
 
 ## Delete users
 
-1. In the **Users** toolbar, select one or more users.
+1. On the **Users** page, select one or more users.
 2. Right-click and select **Delete**, then click **Delete** to confirm.
 
-The root user cannot be deleted. Deleting a user ends all of that user's sessions at
-once.
+You cannot delete yourself or the root user. Deleting a user ends all of that user's
+sessions at once.
 
 <Divider.Divider x />
 
-## Manage credentials
+## Manage sign-in
 
-The **Credentials** dialog sets the password of a user and holds the API keys of the
-user. Each user can open it for their own user. An Owner can open it for any user.
-
-To open it, right-click the user in the **Users** toolbar and select **Manage
-credentials**.
+The **Sign-in** dialog sets the password of a user and holds the API keys of the user.
+An Owner can open it for any user: on the **Users** page, right-click the user and
+select **Manage sign-in**. To set your own password or API keys, go to the **Profile**
+or **API keys** page of Settings.
 
 <Video id="console/users/manage-credentials" />
 
 ### Set a password
 
-1. In the **Credentials** dialog, under **Password**, enter the **New password**. For
-   your own user, also enter the **Current password**.
+1. In the **Sign-in** dialog, under **Password**, enter the **New password**. For your
+   own user, also enter the **Current password**.
 2. Click **Set password**.
 
 A new password ends every session that the old password opened. A password cannot be
@@ -92,7 +90,7 @@ one.
 
 A script or a Driver can log in with an API key instead of a password.
 
-1. In the **Credentials** dialog, under **API keys**, enter a **Key name**.
+1. In the **Sign-in** dialog, under **API keys**, enter a **Key name**.
 2. Click **Create key**.
 3. Copy the key. The Core does not show it again.
 

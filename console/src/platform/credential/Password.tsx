@@ -13,7 +13,7 @@ import { type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { Credential, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -30,8 +30,8 @@ export interface PasswordProps {
  * change their own.
  */
 export const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
-  const client = Synnax.use();
-  const own = client?.auth.subject?.key === subject.key;
+  const { data: currentKey } = User.useResultKey({});
+  const own = currentKey === subject.key;
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const set = Credential.useSetPassword({

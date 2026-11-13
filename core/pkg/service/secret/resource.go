@@ -10,7 +10,10 @@
 package secret
 
 import (
+	"context"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -23,6 +26,15 @@ func (s *Service) Resources() *resource.TableProvider[Key, Secret] {
 		Key:    resource.ParseUUIDKey,
 		Name:   func(s *Secret) string { return s.Base().Name },
 	})
+}
+
+// Uses returns the ID of every record in snap that references the secret with key.
+func (s *Service) Uses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 // ResourceID returns the resource ID of the secret with the given key.

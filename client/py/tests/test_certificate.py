@@ -67,6 +67,16 @@ class TestCertificate:
         key = client.secrets.retrieve(key=c.private_key)
         assert isinstance(key, secret.StoredSecret)
 
+    def test_private_key_use(self, client: sy.Synnax) -> None:
+        """Should be a use of its private key secret."""
+        c = client.certificates.set(
+            certificate.NewStored(name="Used key", pem=PEM, private_key_pem=PRIVATE_KEY)
+        )
+        assert isinstance(c, certificate.StoredCertificate)
+        assert c.private_key is not None
+        key = client.secrets.retrieve(key=c.private_key, include_uses=True)
+        assert key.uses == [certificate.resource_id(c.key)]
+
     def test_create_mismatched_key(self, client: sy.Synnax) -> None:
         """Should reject a private key that does not match the certificate."""
         with pytest.raises(

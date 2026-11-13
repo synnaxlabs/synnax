@@ -269,29 +269,48 @@ var _ = Describe("Validate", func() {
 			})
 		})
 
-		Describe("NaN", func() {
-			nan := math.NaN()
-			DescribeTable("Should reject NaN in every numeric comparison",
-				func(check func() bool) {
-					Expect(check()).To(BeTrue())
+		Describe("Non-finite values", func() {
+			positive := func(value float64) bool { return v.Positive("field", value) }
+			inBounds := func(value float64) bool {
+				return v.InBounds("field", value, math.Inf(-1), math.Inf(1))
+			}
+			greaterThan := func(value float64) bool {
+				return v.GreaterThan("field", value, math.Inf(-1))
+			}
+			greaterThanEq := func(value float64) bool {
+				return v.GreaterThanEq("field", value, math.Inf(-1))
+			}
+			lessThanEq := func(value float64) bool {
+				return v.LessThanEq("field", value, math.Inf(1))
+			}
+			DescribeTable("Should reject non-finite values in every numeric comparison",
+				func(check func(value float64) bool, value float64) {
+					Expect(check(value)).To(BeTrue())
 					Expect(v.Error()).To(MatchError(ContainSubstring("field: must")))
 				},
-				Entry("Positive", func() bool {
-					return v.Positive("field", nan)
-				}),
-				Entry("InBounds", func() bool {
-					return v.InBounds("field", nan, 0, 1)
-				}),
-				Entry("GreaterThan", func() bool {
-					return v.GreaterThan("field", nan, 0)
-				}),
-				Entry("GreaterThanEq", func() bool {
-					return v.GreaterThanEq("field", nan, 0)
-				}),
-				Entry("LessThanEq", func() bool {
-					return v.LessThanEq("field", nan, 0)
-				}),
+				Entry("Positive with NaN", positive, math.NaN()),
+				Entry("Positive with +Inf", positive, math.Inf(1)),
+				Entry("Positive with -Inf", positive, math.Inf(-1)),
+				Entry("InBounds with NaN", inBounds, math.NaN()),
+				Entry("InBounds with +Inf", inBounds, math.Inf(1)),
+				Entry("InBounds with -Inf", inBounds, math.Inf(-1)),
+				Entry("GreaterThan with NaN", greaterThan, math.NaN()),
+				Entry("GreaterThan with +Inf", greaterThan, math.Inf(1)),
+				Entry("GreaterThan with -Inf", greaterThan, math.Inf(-1)),
+				Entry("GreaterThanEq with NaN", greaterThanEq, math.NaN()),
+				Entry("GreaterThanEq with +Inf", greaterThanEq, math.Inf(1)),
+				Entry("GreaterThanEq with -Inf", greaterThanEq, math.Inf(-1)),
+				Entry("LessThanEq with NaN", lessThanEq, math.NaN()),
+				Entry("LessThanEq with +Inf", lessThanEq, math.Inf(1)),
+				Entry("LessThanEq with -Inf", lessThanEq, math.Inf(-1)),
 			)
+
+			It("Should accept the integer extremes", func() {
+				Expect(v.GreaterThanEq("field", int64(math.MaxInt64), 0)).To(BeFalse())
+				Expect(v.LessThanEq("field", uint64(math.MaxUint64), math.MaxUint64)).
+					To(BeFalse())
+				Expect(v.Error()).ToNot(HaveOccurred())
+			})
 		})
 
 		Describe("Collection Validations", func() {
