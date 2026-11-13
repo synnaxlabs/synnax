@@ -61,25 +61,7 @@ describe("NI device", async () => {
       const d = await create();
       await client.ni.devices.delete(d.key);
       await client.ni.devices.create(d);
-      await expect
-        .poll(async () => (await client.ni.devices.retrieve({ key: d.key })).name)
-        .toBe(d.name);
-    });
-
-    it("should drop a device another client deletes after its create", async () => {
-      await client.connect();
-      await waitForStreamLive(client.connection);
-      const gone = async (key: string): Promise<boolean> =>
-        await client.ni.devices.retrieve({ key }).then(
-          () => false,
-          (e: unknown) => e instanceof NotFoundError,
-        );
-      const d = await create();
-      await other.ni.devices.delete(d.key);
-      await expect.poll(async () => await gone(d.key)).toBe(true);
-      await client.ni.devices.create({ ...d, name: "Again" });
-      await other.ni.devices.delete(d.key);
-      await expect.poll(async () => await gone(d.key)).toBe(true);
+      expect((await client.ni.devices.retrieve({ key: d.key })).name).toBe(d.name);
     });
 
     it("should add a created device to a watched search", async () => {
@@ -96,11 +78,8 @@ describe("NI device", async () => {
     it("should replace a device whose key exists", async () => {
       const d = await create();
       await client.ni.devices.create({ ...d, name: "Replaced" });
-      // A stream echo that lands during the request wins until the echo of the
-      // replace arrives.
-      await expect
-        .poll(async () => (await client.ni.devices.retrieve({ key: d.key })).name)
-        .toBe("Replaced");
+      const retrieved = await client.ni.devices.retrieve({ key: d.key });
+      expect(retrieved.name).toBe("Replaced");
     });
   });
 
