@@ -475,6 +475,37 @@ describe("range/next/Explorer", () => {
     });
   });
 
+  describe("layout", () => {
+    it("should keep the children of an expanded range in sort order in a list", async () => {
+      // Ranges that start later than the others sort first, so the spec deletes them.
+      const start = TimeStamp.now().add(TimeSpan.days(30));
+      const at = (days: number) => ({
+        timeRange: new TimeRange(start.sub(TimeSpan.days(days)), start),
+      });
+      const parent = await createRange(uniqueRangeName("parent"), at(0));
+      const other = await createRange(uniqueRangeName("other"), at(1));
+      const child = await createRange(uniqueRangeName("child"), {
+        ...at(2),
+        parent: parent.key,
+      });
+      onTestFinished(async () => await client.ranges.delete([parent.key, other.key]));
+      const names = [parent.name, other.name, child.name];
+      const listed = () =>
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .filter((name) => name != null && names.includes(name));
+      await renderExplorer();
+      await findItem(parent.name);
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
+      );
+      await findItem(child.name);
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(() => expect(listed()).toEqual(names));
+    });
+  });
+
   describe("stored view", () => {
     it("should save the sort and the layout to the view", async () => {
       const stored = await client.views.create({

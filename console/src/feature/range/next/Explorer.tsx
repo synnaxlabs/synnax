@@ -210,6 +210,8 @@ const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
 
 const NO_MORE = (): void => {};
 
+const NO_KEYS: ranger.Key[] = [];
+
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
  * saves a change to it. A static view holds it here.
@@ -284,7 +286,7 @@ const Internal = (): ReactElement => {
           fixed: search.fixed,
           order: ORDERS[sort],
         }
-      : { roots: root.data, expanded, order: ORDERS[sort] },
+      : { roots: root.data, expanded: flat ? NO_KEYS : expanded, order: ORDERS[sort] },
   );
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
