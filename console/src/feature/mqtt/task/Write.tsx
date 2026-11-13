@@ -327,8 +327,9 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
 
   // The Core clears the data type of a target with a channel, so a copy, which gets a
   // new channel, reads the data type of the channel it copies. A copy of a target whose
-  // channel is gone keeps no data type. The read sets the data type only while the copy
-  // still holds the one it started with, so it does not replace a type the user picked.
+  // channel is gone, or deployed before the read ends, takes the data type of its kind.
+  // The read sets the data type only while the copy still holds the one it started
+  // with, so it does not replace a type the user picked.
   const handleDuplicate = (all: WriteTarget[], keys: string[]): WriteTarget[] => {
     const copies = duplicateTargets(all, keys);
     const sources = all.filter(({ key }) => keys.includes(key));

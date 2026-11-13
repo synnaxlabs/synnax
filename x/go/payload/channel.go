@@ -272,15 +272,15 @@ func (c Channel) convert(kind Kind, changes *[]string) Channel {
 	out := Channel{Kind: kind}
 	drop := func(n number) {
 		*changes = append(*changes, fmt.Sprintf(
-			"dropped enum entry %q, whose value %v is not exact as %s",
-			n.label, n.value, kind,
+			"dropped enum entry %q, whose value %s is not exact as %s",
+			n.label, n, kind,
 		))
 	}
 	from := c.numbers()
 	switch kind {
 	case KindFloat:
 		for _, n := range from {
-			if f, ok := toFloat64(n.value); ok {
+			if f, ok := n.asFloat(); ok {
 				out.Float = append(
 					out.Float,
 					FloatEntry{Label: n.label, Value: Float(f)},
@@ -291,7 +291,7 @@ func (c Channel) convert(kind Kind, changes *[]string) Channel {
 		}
 	case KindInteger:
 		for _, n := range from {
-			if i, ok := toInt64(n.value); ok {
+			if i, ok := n.asInt(); ok {
 				out.Integer = append(
 					out.Integer,
 					IntegerEntry{Label: n.label, Value: Integer(i)},
@@ -302,7 +302,7 @@ func (c Channel) convert(kind Kind, changes *[]string) Channel {
 		}
 	case KindUnsigned:
 		for _, n := range from {
-			if u, ok := toUint64(n.value); ok {
+			if u, ok := n.asUint(); ok {
 				out.Unsigned = append(
 					out.Unsigned,
 					UnsignedEntry{Label: n.label, Value: Unsigned(u)},
@@ -322,60 +322,78 @@ func (c Channel) convert(kind Kind, changes *[]string) Channel {
 	return out
 }
 
+// number is one entry of a numeric field. kind names the field that holds its value.
 type number struct {
 	label string
-	// value is a float64, int64, or uint64.
-	value any
+	kind  Kind
+	f     float64
+	i     int64
+	u     uint64
 }
 
 func (c Channel) numbers() []number {
 	var out []number
 	for _, e := range c.Float {
-		out = append(out, number{label: e.Label, value: float64(e.Value)})
+		out = append(out, number{label: e.Label, kind: KindFloat, f: float64(e.Value)})
 	}
 	for _, e := range c.Integer {
-		out = append(out, number{label: e.Label, value: int64(e.Value)})
+		out = append(out, number{label: e.Label, kind: KindInteger, i: int64(e.Value)})
 	}
 	for _, e := range c.Unsigned {
-		out = append(out, number{label: e.Label, value: uint64(e.Value)})
+		out = append(
+			out,
+			number{label: e.Label, kind: KindUnsigned, u: uint64(e.Value)},
+		)
 	}
 	return out
+}
+
+func (n number) String() string {
+	switch n.kind {
+	case KindInteger:
+		return strconv.FormatInt(n.i, 10)
+	case KindUnsigned:
+		return strconv.FormatUint(n.u, 10)
+	default:
+		return strconv.FormatFloat(n.f, 'g', -1, 64)
+	}
 }
 
 // maxExactFloat is the largest magnitude up to which a float64 holds every integer.
 const maxExactFloat = 1 << 53
 
-func toFloat64(v any) (float64, bool) {
-	switch x := v.(type) {
-	case int64:
-		return float64(x), x >= -maxExactFloat && x <= maxExactFloat
-	case uint64:
-		return float64(x), x <= maxExactFloat
+func (n number) asFloat() (float64, bool) {
+	switch n.kind {
+	case KindInteger:
+		return float64(n.i), n.i >= -maxExactFloat && n.i <= maxExactFloat
+	case KindUnsigned:
+		return float64(n.u), n.u <= maxExactFloat
 	default:
-		return v.(float64), true
+		return n.f, true
 	}
 }
 
-func toInt64(v any) (int64, bool) {
-	switch x := v.(type) {
-	case float64:
-		ok := x == math.Trunc(x) && x >= math.MinInt64 && x < math.MaxInt64
-		return int64(x), ok
-	case uint64:
-		return int64(x), x <= math.MaxInt64
+func (n number) asInt() (int64, bool) {
+	switch n.kind {
+	case KindFloat:
+		ok := n.f == math.Trunc(n.f) && n.f >= math.MinInt64 && n.f < math.MaxInt64
+		return int64(n.f), ok
+	case KindUnsigned:
+		return int64(n.u), n.u <= math.MaxInt64
 	default:
-		return v.(int64), true
+		return n.i, true
 	}
 }
 
-func toUint64(v any) (uint64, bool) {
-	switch x := v.(type) {
-	case float64:
-		return uint64(x), x == math.Trunc(x) && x >= 0 && x < math.MaxUint64
-	case int64:
-		return uint64(x), x >= 0
+func (n number) asUint() (uint64, bool) {
+	switch n.kind {
+	case KindFloat:
+		ok := n.f == math.Trunc(n.f) && n.f >= 0 && n.f < math.MaxUint64
+		return uint64(n.f), ok
+	case KindInteger:
+		return uint64(n.i), n.i >= 0
 	default:
-		return v.(uint64), true
+		return n.u, true
 	}
 }
 

@@ -199,6 +199,42 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish a timestamp in a unix time format",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.TimestampT)
+				target := plainTarget("plant/clock2/set", ch, "/t", "timestamp")
+				target["channel"].(map[string]any)["time_format"] = "unix_ms"
+				start(ctx, writeConfig(dev, target))
+				command(ctx, ch, telem.NewSeriesSecondsTSV(1), func(g Gomega) {
+					g.Expect(payloads("plant/clock2/set")).
+						To(ContainElement(`{"t":1000}`))
+				})
+			},
+		)
+
+		It("Should publish a JSON value as it is", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.JSONT)
+			start(ctx, writeConfig(dev, plainTarget("plant/recipe", ch, "/r", "json")))
+			value := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/recipe")).To(ContainElement(`{"r":{"a":1}}`))
+			})
+		})
+
+		It("Should publish the label of a boolean enum value", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Uint8T)
+			target := plainTarget("plant/valve5/set", ch, "/state", "boolean")
+			target["channel"].(map[string]any)["enum_values"] = []any{
+				map[string]any{"label": "closed", "value": false},
+				map[string]any{"label": "open", "value": true},
+			}
+			start(ctx, writeConfig(dev, target))
+			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
+				g.Expect(payloads("plant/valve5/set")).
+					To(ContainElement(`{"state":"open"}`))
+			})
+		})
+
 		It("Should publish the label of an enum value", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve3/set", ch, "/state", "unsigned")

@@ -275,6 +275,28 @@ var _ = Describe("Migrate", func() {
 			}),
 	)
 
+	It("Should lift the channel field of a plain write target", func(
+		ctx SpecContext,
+	) {
+		old := v1.PlainWriteTarget{
+			Key:   "p1",
+			Topic: "plant/valve/set",
+			Channel: stored(v1.ChannelField{
+				JSONType: payload.JSONTypeString,
+				DataType: telem.StringT,
+			}),
+		}
+		Expect(v2.MigrateWriteTarget(ctx, v1.WriteTarget{Variant: old})).
+			To(Equal(v2.WriteTarget{Variant: v2.PlainWriteTarget{
+				BaseWriteTarget: old.BaseWriteTarget,
+				Topic:           "plant/valve/set",
+				Channel: v2.ChannelField{Variant: v2.StringChannelField{
+					BaseChannelField: base(telem.StringT),
+					EnumValues:       []payload.StringEntry{},
+				}},
+			}}))
+	})
+
 	It("Should lift every target and keep the rest of a write config", func(
 		ctx SpecContext,
 	) {
