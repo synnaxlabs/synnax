@@ -6,6 +6,8 @@ senior engineer on the team would raise.
 
 - Bugs that a real deployment can hit: wrong results, crashes, races, leaks, broken
   error handling, and security holes.
+- Breaks that fail CI, such as a test, a script, or a check that still expects the old
+  behavior.
 - Breaks of the rules in the documents below. Put the document's path in `rule`.
 - New behavior without tests, where the testing rules ask for them and a test can reach
   the behavior through the public surface. Report missing tests once per pull request,
@@ -52,8 +54,8 @@ step, and read the code it names:
    document states it.
 
 Report a bug when you can name the input or the interleaving that breaks it, and the
-path in a real deployment that makes it. Leave out what you cannot trace. Before you
-call a check redundant or suggest that it go, trace what it guards.
+path in a real deployment or in CI that makes it. Leave out what you cannot trace.
+Before you call a check redundant or suggest that it go, trace what it guards.
 
 ## How likely it is
 
