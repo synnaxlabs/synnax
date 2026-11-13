@@ -222,8 +222,9 @@ takes the name when it is free, else the name with its data type as a suffix, su
 `temp_int32`, else that name with a counter, such as `temp_int32_2`, until a name is
 free. Each name is checked against the channels that the same configure already created,
 and a taken-name error from the Core retries with the next name. Phase 27 gives that
-error its own type in `core/pkg/service/channel` and in the TS, Python, and C++ clients,
-which find it inside the path error, so no other validation error retries. A command
+error its own type in `core/pkg/service/channel` and in the TS and Python clients, which
+find it inside the path error, and the C++ client keeps it as a plain path error,
+because it never configures channels, so no other validation error retries. A command
 channel retry keeps the `_time` index it already created and retries only the channel. A
 taken name never fails configure, and configure never binds by name. Each source picks
 one index: the channel of a bound index field, else the first non-zero index of its
