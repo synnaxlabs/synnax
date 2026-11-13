@@ -53,16 +53,13 @@ export const useOpen = (): ((key: ranger.Key) => void) => {
   return (key) => openTab({ variant: "resource", resource: ranger.resourceID(key) });
 };
 
-/** Starts a planned range now, with no end until it stops. */
+/** Starts a planned range now. It keeps an end that is still ahead. */
 export const useStart = (): ((range: ranger.Range) => void) => {
   const { update } = Ranger.useSetTimeRange();
   return (range) =>
     update({
       key: range.key,
-      timeRange: {
-        start: TimeStamp.now().nanoseconds,
-        end: TimeStamp.MAX.nanoseconds,
-      },
+      timeRange: Ranger.moveToStage(range.timeRange.numeric, "in_progress"),
     });
 };
 

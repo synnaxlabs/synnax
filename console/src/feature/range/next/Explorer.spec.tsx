@@ -547,6 +547,22 @@ describe("range/next/Explorer", () => {
       });
     });
 
+    it("should start a planned range now and keep its end", async () => {
+      // A whole second reads the same as a float, as the stage moves read time.
+      const end = TimeStamp.seconds(Math.floor(TimeStamp.now().seconds) + 7200);
+      const planned = await createShown("planned", {
+        timeRange: new TimeRange(end.sub(TimeSpan.HOUR), end),
+      });
+      onTestFinished(async () => await client.ranges.delete(planned.key));
+      await openMenu(planned.name);
+      fireEvent.click(await screen.findByText("Start"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(planned.key);
+        expect(timeRange.start.before(TimeStamp.now())).toBe(true);
+        expect(timeRange.end).toEqual(end);
+      });
+    });
+
     it("should stop a running range", async () => {
       const running = await createShown("running", {
         timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
