@@ -437,6 +437,31 @@ class TestScore:
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
 
+    def test_should_raise_the_last_message_when_claude_exits_with_an_error(
+        self,
+    ) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield json.dumps({"type": "result", "result": "Usage limit reached."})
+            raise subprocess.CalledProcessError(1, args)
+
+        with pytest.raises(
+            RuntimeError,
+            match=r"claude exited with status 1 after .*Usage limit reached\.",
+        ):
+            run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_when_claude_exits_with_an_error_and_no_message(
+        self,
+    ) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield from ()
+            raise subprocess.CalledProcessError(2, args)
+
+        with pytest.raises(
+            RuntimeError, match=r"claude exited with status 2 after no message"
+        ):
+            run(config(), pull(), claude=claude, workdir=WORK)
+
 
 class TestLenses:
     """Tests a review that takes one parallel pass for each lens."""
@@ -529,7 +554,7 @@ class TestLenses:
             yield '{"type": "system"}\n'
             raise subprocess.CalledProcessError(1, args)
 
-        with pytest.raises(subprocess.CalledProcessError):
+        with pytest.raises(RuntimeError, match=r"after .*system"):
             run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
         assert lenses == []
 

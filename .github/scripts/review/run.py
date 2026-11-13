@@ -9,6 +9,7 @@
 
 import json
 import re
+import subprocess
 import tempfile
 import threading
 import time
@@ -482,14 +483,21 @@ def _pass(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
     messages: list[dict[str, Any]] = []
-    for line in claude(command, text, workdir):
-        if not line.strip():
-            continue
-        m = json.loads(line)
-        if m["type"] != "stream_event":
-            messages.append(m)
-        elif started and m["event"]["type"] == "message_start":
-            started.set()
+    try:
+        for line in claude(command, text, workdir):
+            if not line.strip():
+                continue
+            m = json.loads(line)
+            if m["type"] != "stream_event":
+                messages.append(m)
+            elif started and m["event"]["type"] == "message_start":
+                started.set()
+    except subprocess.CalledProcessError as e:
+        # The last message tells why Claude Code exited: a usage limit, an API error.
+        last = json.dumps(messages[-1]) if messages else "no message"
+        raise RuntimeError(
+            f"claude exited with status {e.returncode} after {last}"
+        ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
