@@ -27,6 +27,12 @@ export interface SaveParams {
   identifier: string;
 }
 
+/** A change of the identifier of a configured device. */
+export interface ChangeIdentifierParams {
+  key: string;
+  identifier: string;
+}
+
 /** Binds the configure form and menu items to the table that stores a device. */
 export interface Adapter {
   /** The make that analytics records when the user configures a device. */
@@ -36,6 +42,8 @@ export interface Adapter {
   use: (key: string) => Configurable;
   /** Saves the name and identifier and marks the device configured. */
   useSave: Flux.UseUpdate<SaveParams>;
+  /** Writes only the identifier, so concurrent writes to other fields survive. */
+  useChangeIdentifier: Flux.UseUpdate<ChangeIdentifierParams>;
 }
 
 export interface CreateLegacyAdapterArgs {
@@ -81,6 +89,18 @@ export const createLegacyAdapter = ({
           "properties",
         ]);
         if (edits.length > 0) await client.devices.dispatch(key, edits);
+        return data;
+      },
+    }).useUpdate,
+    useChangeIdentifier: Flux.createUpdate<ChangeIdentifierParams>({
+      name: "device identifier",
+      verbs: { present: "change", past: "changed", participle: "changing" },
+      update: async ({ client, data }) => {
+        const { key, identifier } = data;
+        await client.devices.dispatch(
+          key,
+          device.set({ path: ["properties", "identifier"], value: identifier }),
+        );
         return data;
       },
     }).useUpdate,
