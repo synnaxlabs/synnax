@@ -157,6 +157,14 @@ describe("adapter", () => {
       },
     );
 
+    it("should make a non-finite float fill held as text true on a boolean kind", () => {
+      const field = {
+        ...createField({ type: "float" }),
+        fill: "Infinity",
+      } as unknown as ReadField;
+      expect(retype(field, DataType.BOOLEAN)).toMatchObject({ fill: true });
+    });
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({
