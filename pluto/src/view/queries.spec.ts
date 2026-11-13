@@ -194,6 +194,26 @@ describe("View queries", () => {
       expect(status.variant).toEqual("error");
       expect(status.message).toEqual("Name is required");
     });
+    it("should trim the name of a new view before it saves", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "  trimmed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const { key } = result.current.form.value();
+      if (key == null) throw new Error("the view has no key");
+      const stored = await createTestClient().views.retrieve(key);
+      expect(stored.name).toEqual("trimmed-view");
+    });
+    it("should trim the name of an existing view before it saves", async () => {
+      const view = await client.views.create({ name: "existing-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "  renamed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().views.retrieve(view.key);
+      expect(stored.name).toEqual("renamed-view");
+    });
     it("should save a view it starts from without a query", async () => {
       const view = await client.views.create({ name: "existing-view", type: "range" });
       const { result } = renderHook(
