@@ -24,9 +24,9 @@ import (
 // Synnax channel. v1 encoded a timestamp channel in its time format whatever the
 // shape, so a field with no entries and a timestamp data type, or with a channel and a
 // time format, becomes a timestamp field in that format, ISO 8601 when it has none. A
-// timestamp data type stays. Otherwise, a bound field's data type names the kind its
-// JSON type writes, for the caller to fall back to when the channel holds no
-// timestamps. Any other field with a boolean JSON type makes a boolean field, and a
+// bound string or boolean one takes the data type of the kind its JSON type writes,
+// for the caller to fall back to when the channel holds no timestamps. Any other keeps
+// its data type. Any other field with a boolean JSON type makes a boolean field, and a
 // number a float field that keeps its entries. A string makes a string field whose
 // entries take the decimal text of their values, so a numeric sample writes the same
 // JSON string as in v1. An entry whose value repeats an earlier one's drops, because
@@ -47,8 +47,7 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 	switch {
 	case len(old.EnumValues) == 0 &&
 		(dt == telem.TimestampT || (old.Channel != 0 && old.TimeFormat != nil)):
-		if old.Channel != 0 && dt != telem.TimestampT &&
-			old.JSONType != payload.JSONTypeNumber {
+		if old.Channel != 0 && old.JSONType != payload.JSONTypeNumber {
 			dt = fallbackDataTypes[old.JSONType]
 		}
 		c = xpayload.Channel{

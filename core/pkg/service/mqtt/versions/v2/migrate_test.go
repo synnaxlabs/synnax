@@ -36,7 +36,8 @@ var _ = Describe("Migrate", func() {
 	unixMs := payload.TimeFormatUnixMs
 	onOff := []payload.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 
-	DescribeTable("MigrateChannelField",
+	DescribeTable(
+		"MigrateChannelField",
 		func(ctx SpecContext, old v1.ChannelField, expected v2.ChannelFieldVariant) {
 			Expect(v2.MigrateChannelField(ctx, stored(old))).
 				To(Equal(v2.ChannelField{Variant: expected}))
@@ -223,6 +224,21 @@ var _ = Describe("Migrate", func() {
 				DataType:   new(telem.TimestampT),
 				TimeFormat: payload.TimeFormatUnixMs,
 			}),
+		Entry(
+			"a bound string with a stale timestamp data type as a timestamp that falls back to it",
+			v1.ChannelField{
+				Channel:  7,
+				JSONType: payload.JSONTypeString,
+				DataType: telem.TimestampT,
+			},
+			v2.TimestampChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.StringT),
+				TimeFormat: payload.TimeFormatISO8601,
+			},
+		),
 		Entry("a bound string with entries and a stale timestamp data type as a string",
 			v1.ChannelField{
 				Channel:    7,
