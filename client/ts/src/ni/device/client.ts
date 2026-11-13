@@ -170,33 +170,39 @@ export class Client extends query.Retriever<
   /**
    * Creates the devices, or replaces the devices whose keys exist. The Core gives each
    * new device an unknown status.
+   * @throws {ValidationError} if a device is invalid or its rack does not exist.
    */
   async create(device: New): Promise<Device>;
   async create(devices: New[]): Promise<Device[]>;
   async create(devices: New | New[]): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
     const { store: statuses } = this.cfg.statuses;
-    // A status streamed during the request is newer than the reply.
-    const res = await statuses.track(async (since) => {
-      const res = await this.cfg.unary.send(
-        "/ni/device/create",
-        { devices: array.toArray(devices).map((d) => deviceZ.parse(d)) },
-        createReqZ,
-        createResZ,
-      );
-      res.devices.forEach(({ status: st }) => {
-        if (st != null) statuses.ingest(st, { since });
-      });
-      return res;
-    });
-    this.store.set(res.devices.map(stripStatus));
+    // A device or status streamed during the request is newer than the reply.
+    const res = await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const res = await this.cfg.unary.send(
+            "/ni/device/create",
+            { devices: array.toArray(devices).map((d) => deviceZ.parse(d)) },
+            createReqZ,
+            createResZ,
+          );
+          this.store.ingest(res.devices.map(stripStatus), { since, mode: "set" });
+          res.devices.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return res;
+        }),
+    );
     return isSingle ? res.devices[0] : res.devices;
   }
 
   /**
-   * Writes one field group to the device and keeps the other as stored. A configuration
-   * update replaces the whole group, so a field it leaves out is cleared.
+   * Writes one field group to the device and keeps the other as stored. The update
+   * replaces the whole group, so a field it leaves out is cleared, such as the chassis
+   * of an identity update.
    * @throws {NotFoundError} if the device does not exist.
+   * @throws {ValidationError} if the update is invalid.
    */
   async update(key: Key, update: Update): Promise<void> {
     await this.cfg.unary.send(
