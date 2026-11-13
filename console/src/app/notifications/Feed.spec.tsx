@@ -9,13 +9,14 @@
 
 import { device, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
+import { Sift } from "@/feature/sift";
 import { createTestDevice } from "@/platform/device/testutil";
 import {
   settleWrites,
@@ -80,5 +81,24 @@ describe("Notifications.useForward", () => {
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it("should notify the Sift stream progress only on an error", async () => {
+    await renderForward();
+    const key = `${Sift.Task.PROGRESS_KEY_PREFIX}${uniqueName("task")}`;
+    const write = async (variant: "info" | "error"): Promise<string> => {
+      const { message } = await client.statuses.set({
+        key,
+        name: "",
+        variant,
+        message: uniqueName("progress"),
+        time: TimeStamp.now(),
+      });
+      return message;
+    };
+    const progress = await write("info");
+    await settleWrites(client);
+    expect(screen.queryByText(progress)).toBeNull();
+    expect(await screen.findByText(await write("error"))).toBeTruthy();
   });
 });

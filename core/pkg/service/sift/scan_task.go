@@ -64,7 +64,7 @@ type listUploadsArgs struct {
 	Range ranger.Key `json:"range"`
 }
 
-// validate rejects a zero range, which would match every upload of a time range.
+// validate rejects a zero range, which names no range.
 func (a listUploadsArgs) validate() error {
 	v := validate.New("sift.list_uploads")
 	v.Ternary("range", a.Range == uuid.Nil(), "required")
