@@ -177,29 +177,37 @@ func parseNumericWithUnit(
 	}
 
 	targetType = types.Concrete(targetType)
-
-	// A target with no unit takes the number as written.
-	value, valueUnit := numericValue, unit
-	truncated := false
-	if targetType.Unit != nil {
-		factor, err := units.ScaleFactor(unit, targetType.Unit)
-		if err != nil {
-			return ParsedValue{}, err
-		}
-		value, valueUnit = numericValue*factor, targetType.Unit
-		// An integer does not hold a part of a unit.
-		if targetType.IsInteger() && factor != math.Trunc(factor) &&
-			!IsExactInteger(value) {
-			value, truncated = math.Trunc(value), true
-		}
-	}
 	if !targetType.IsValid() {
 		targetType.Kind = types.KindF64
 		if isIntLiteral {
 			targetType.Kind = types.KindI64
 		}
 	}
-	parsed, err := convertToTargetKind(value, targetType, valueUnit)
+	// A target with no unit takes the number as written.
+	if targetType.Unit == nil {
+		return convertToTargetKind(numericValue, targetType, unit)
+	}
+	return Convert(numericValue, unit, targetType)
+}
+
+// Convert returns value, a number in the unit from, as a value of targetType in its
+// unit. An integer does not hold a part of a unit, so it truncates toward zero.
+func Convert(
+	value float64,
+	from *types.Unit,
+	targetType types.Type,
+) (ParsedValue, error) {
+	factor, err := units.ScaleFactor(from, targetType.Unit)
+	if err != nil {
+		return ParsedValue{}, err
+	}
+	value *= factor
+	truncated := targetType.IsInteger() && factor != math.Trunc(factor) &&
+		!IsExactInteger(value)
+	if truncated {
+		value = math.Trunc(value)
+	}
+	parsed, err := convertToTargetKind(value, targetType, targetType.Unit)
 	parsed.Truncated = truncated
 	return parsed, err
 }
@@ -245,6 +253,9 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		}
 		return ParsedValue{Value: int32(intValue), Type: types.I32()}, nil
 	case types.KindI64:
+		if isTime(targetType.Unit) {
+			return ParsedValue{Value: telem.TimeSpan(intValue), Type: types.I64()}, nil
+		}
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
 	case types.KindU8:
 		if intValue < 0 || intValue > math.MaxUint8 {
@@ -448,7 +459,7 @@ func convertToTargetKind(
 		}
 		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
 	case types.KindI64:
-		if resultType.Unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions) {
+		if isTime(resultType.Unit) {
 			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
 		}
 		return ParsedValue{Value: int64(value), Type: resultType}, nil
@@ -489,6 +500,10 @@ func convertToTargetKind(
 		resultType.Kind = types.KindF64
 		return ParsedValue{Value: value, Type: resultType}, nil
 	}
+}
+
+func isTime(unit *types.Unit) bool {
+	return unit != nil && unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions)
 }
 
 // IsExactInteger checks if a float64 value is very close to an integer.

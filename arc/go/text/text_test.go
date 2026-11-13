@@ -558,7 +558,7 @@ var _ = Describe("Text", func() {
 			Entry("minutes into seconds", `d := 30s`, `2min`, telem.TimeSpan(120)),
 			Entry("the same unit", `d := 1min`, `2min`, telem.TimeSpan(2)),
 			Entry("a typed variable", `d i64 min := 1min`, `120s`, telem.TimeSpan(2)),
-			Entry("no unit on the literal", `d := 1min`, `5`, int64(5)),
+			Entry("no unit on the literal", `d := 1min`, `5`, telem.TimeSpan(5)),
 			Entry("a pressure", `d := 1.0bar`, `200.0kPa`, 2.0),
 		)
 
@@ -658,6 +658,17 @@ var _ = Describe("Text", func() {
 			Entry("a constant with a remainder as an input",
 				"d := 1500us\nfunc hold(x i64 ms) i64 ms {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d) -> count_ch", 1),
+			Entry("a typed declaration at the top level", "d i64 s := 1500ms", 1),
+			Entry(
+				"a typed declaration in a sequence",
+				"sequence main {\nd i64 s := 1500ms\nstage s1 {\nd -> count_ch\n}\n}",
+				1,
+			),
+			Entry(
+				"a typed declaration that an input reads",
+				"import time\nd i64 s := 1500ms\ncount_ch -> time.wait(d) -> flag_ch",
+				1,
+			),
 			Entry("a calculation as an input",
 				"d := 90s\nfunc hold(x i64 min) i64 min {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d * 2) -> count_ch", 1),
@@ -913,7 +924,17 @@ var _ = Describe("Text", func() {
 				`count_ch -> time.wait(c * 2) -> flag_ch`),
 			Entry("a typed declaration",
 				"x i64 ns := t + t\ncount_ch -> time.wait(x) -> flag_ch"),
+			Entry("a variable that is set from a cast",
+				"x := i64 ms(5s)\ncount_ch -> time.wait(x) -> flag_ch"),
 		)
+
+		It("Should accept a variable that is not finite as an input in another unit",
+			func(ctx SpecContext) {
+				_, diagnostics := analyzeText(ctx, "import math\nx f64 s := math.inf\n"+
+					"func hold(v f64 ms) i64 {\nreturn 1\n}\n"+
+					"count_ch -> hold(v=x) -> out_ch")
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			})
 
 		DescribeTable("Should accept a calculation in the unit of its target",
 			func(ctx SpecContext, statement string) {

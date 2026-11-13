@@ -364,6 +364,7 @@ sequence unit_main {
     src_psi i64 psi := 100psi
     src_mv := 2500.0mV
     src_live := 60s
+    held i64 s := 1500ms
     stage convert {
         120s -> lit
         src_s -> flow_up
@@ -391,6 +392,8 @@ sequence unit_main {
         live -> unit_live
         calc -> unit_calc
         flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
+        5000ms -> held
+        flow_trigger -> unit_to_ms(x=held) -> unit_fn_written
         1 -> unit_ready
     }
 }
@@ -410,6 +413,13 @@ func unit_five() i64 ms {
     return 5ms
 }
 flow_trigger -> unit_five() -> unit_fn_ret
+// An input takes the value that a variable holds, not the text of its declaration.
+unit_held i64 s := 1500ms
+flow_trigger -> unit_to_ms(x=unit_held) -> unit_fn_held
+unit_cast := i64 s(5000ms)
+flow_trigger -> unit_to_ms(x=unit_cast) -> unit_fn_cast
+unit_bare i64 s := 2
+flow_trigger -> unit_to_ms(x=unit_bare) -> unit_fn_bare
 """
 
 # Every line with a comment is an error or a warning that the compiler gives in one
@@ -1061,6 +1071,10 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_fn_live", sy.DataType.INT64),
     ("unit_calc", sy.DataType.INT64),
     ("unit_fn_ret", sy.DataType.INT64),
+    ("unit_fn_written", sy.DataType.INT64),
+    ("unit_fn_held", sy.DataType.INT64),
+    ("unit_fn_cast", sy.DataType.INT64),
+    ("unit_fn_bare", sy.DataType.INT64),
     ("unit_log", sy.DataType.STRING),
     # Narrow integer types, widened to i64 in Arc
     *(
@@ -1257,6 +1271,10 @@ class Conversion(ArcCase):
         self.wait_for_near("unit_fn_psi", 14.5038, tolerance=1e-3)
         self.wait_for_eq("unit_fn_live", 180_000)
         self.wait_for_eq("unit_fn_ret", 5)
+        self.wait_for_eq("unit_fn_written", 5000)
+        self.wait_for_eq("unit_fn_held", 1000)
+        self.wait_for_eq("unit_fn_cast", 5000)
+        self.wait_for_eq("unit_fn_bare", 2000)
 
     def _test_unit_errors(self) -> None:
         self.log("=== Unit conversion errors ===")

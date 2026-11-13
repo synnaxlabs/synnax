@@ -5739,6 +5739,17 @@ var _ = Describe("Sequence", func() {
 			Entry("typed nanoseconds", `i64 ns := 2s`, 2*telem.Second),
 			Entry("typed seconds", `i64 s := 2s`, 2*telem.Second),
 			Entry("typed seconds from milliseconds", `i64 s := 2000ms`, 2*telem.Second),
+			Entry(
+				"typed seconds from a number with no unit",
+				`i64 s := 2`,
+				2*telem.Second,
+			),
+			Entry(
+				"typed nanoseconds from a number with no unit",
+				`i64 ns := 2000000000`,
+				2*telem.Second,
+			),
+			Entry("a cast", `:= i64 ms(2s)`, 2*telem.Second),
 		}
 		// declare builds the declaration of d from a literal or a type with a literal.
 		declare := func(entry string) string {
@@ -5866,6 +5877,51 @@ var _ = Describe("Sequence", func() {
 			advance(h, ctx, telem.Millisecond)
 			advance(h, ctx, 2*telem.Millisecond)
 			expectWaitOf(ctx, h, 20*telem.Millisecond)
+		})
+
+		pause := "sequence pause {\ntime.wait(duration=d)\n}\n\"done\" -> log"
+		DescribeTable("Waits for the 1 s that a variable of 1500 ms typed in s holds",
+			func(ctx SpecContext, top, body string) {
+				h := newRuntimeHarness(ctx, "import time\n"+top+
+					"\nsequence main {\n"+body+"\n}\n1 => main", resolver, digests...)
+				defer h.Close(ctx)
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, 2*telem.Millisecond)
+				advance(h, ctx, 900*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(BeEmpty(), "short of 1 s")
+				advance(h, ctx, 1300*telem.Millisecond)
+				advance(h, ctx, 1300*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+			},
+			Entry("at the top level", "d i64 s := 1500ms", pause),
+			Entry("in a sequence", "", "d i64 s := 1500ms\n"+pause),
+			Entry("that a later stage writes", "",
+				"d i64 s := 1500ms\n"+pause+"\nstage later {\n5000ms -> d\n}"),
+		)
+
+		It("Waits for a duration written to a variable typed in another unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    d i64 s := 1500ms
+				    stage lengthen {
+				        d = 5000ms
+				        d > 1 => next
+				    }
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 2*telem.Millisecond)
+			expectWaitOf(ctx, h, 5*telem.Second)
 		})
 
 		DescribeTable("Converts a variable written to a variable of another unit",

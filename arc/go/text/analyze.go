@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -2271,8 +2272,14 @@ func extractInputValues(
 					t, value := sym.Type.UnwrapChan(), varValue(sym)
 					convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
 					check := convertible && rn != nil
-					if convertible && sym.DefaultValue != nil {
-						parsed, err := literal.ParseConst(sym.Initializer(), paramType)
+					// A value that is not finite is text, the same in each unit.
+					_, nonFinite := sym.DefaultValue.(string)
+					if convertible && sym.DefaultValue != nil && !nonFinite {
+						parsed, err := literal.Convert(
+							telem.CastNumeric[float64](sym.DefaultValue),
+							t.Unit,
+							paramType,
+						)
 						if err != nil {
 							ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 							return nil, paramType, false
