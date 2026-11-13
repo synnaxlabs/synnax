@@ -27,9 +27,12 @@ GENERIC = {"self-hosted", "linux", "x64"}
 def seat_labels(tags: dict[str, str]) -> set[str]:
     """The labels the runners of a seat register with, empty when the tags name no
     seat of the agent pool."""
+    agent, seat = tags.get("agent"), tags.get("seat")
     if tags.get("project") != PROJECT or tags.get("pool") != POOL:
         return set()
-    return {"agent", f"agent-{tags['agent']}", f"seat-{tags['seat']}"}
+    if not agent or not seat:
+        return set()
+    return {"agent", f"agent-{agent}", f"seat-{seat}"}
 
 
 class Seats:

@@ -64,6 +64,11 @@ class TestSeatLabels:
         assert seat_labels(seat("stopped", pool="review")["tags"]) == set()
         assert seat_labels({"RunnerOS": "ubuntu"}) == set()
 
+    def test_should_map_an_agent_instance_without_seat_tags_to_no_labels(
+        self,
+    ) -> None:
+        assert seat_labels({"project": "synnax-agents", "pool": "agent"}) == set()
+
 
 class TestSeats:
     """Tests for starting agent seats to meet queued jobs."""
