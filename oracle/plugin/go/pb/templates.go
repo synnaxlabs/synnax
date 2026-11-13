@@ -99,9 +99,9 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 			if err != nil {
 				return nil, err
 			}
-			pb.{{.PBName}}[k] = converted
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = converted
 {{- else}}
-			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = {{.MapValueConversion.ForwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -213,9 +213,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[k] = converted
+			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = converted
 {{- else}}
-			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -484,9 +484,9 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 			if err != nil {
 				return nil, err
 			}
-			pb.{{.PBName}}[k] = converted
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = converted
 {{- else}}
-			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = {{.MapValueConversion.ForwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -595,9 +595,9 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[k] = converted
+			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = converted
 {{- else}}
-			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}

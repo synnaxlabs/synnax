@@ -1848,6 +1848,52 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		Context("map with narrow key conversion", func() {
+			It(
+				"Should widen a narrow key and copy a direct value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						counts map<uint16, uint32>
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain("pb.Counts = make(map[uint32]uint32").
+						ToContain("pb.Counts[uint32(k)] = v").
+						ToContain("r.Counts = make(map[uint16]uint32").
+						ToContain("r.Counts[uint16(k)] = v")
+				},
+			)
+
+			It(
+				"Should widen a narrow key and cast a distinct value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Key uint32
+
+					Test struct {
+						lines map<uint8, Key>
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain("pb.Lines = make(map[uint32]uint32").
+						ToContain("pb.Lines[uint32(k)] = uint32(v)").
+						ToContain("r.Lines = make(map[uint8]test.Key").
+						ToContain("r.Lines[uint8(k)] = test.Key(v)")
+				},
+			)
+		})
+
 		Context("any field conversion", func() {
 			It("Should handle any fields with json.Marshal", func(ctx SpecContext) {
 				source := `

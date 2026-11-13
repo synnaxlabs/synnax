@@ -814,6 +814,44 @@ func (p *Plugin) setPtrConversion(
 func (p *Plugin) buildMapValueConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
+	mvc := p.buildMapElementConversion(typeRef, data)
+	keyName := typeRef.TypeArgs[0].Name
+	if !resolution.IsPrimitive(keyName) || !primitiveNeedsConversion(keyName) {
+		return mvc
+	}
+	keyType := primitiveToProtoType(keyName)
+	goKeyType := p.goTypeName(resolution.Type{
+		Name: keyName, Form: resolution.PrimitiveForm{},
+	}, data)
+	if mvc == nil {
+		valName := typeRef.TypeArgs[1].Name
+		if !resolution.IsPrimitive(valName) {
+			return nil
+		}
+		goValType := p.goTypeName(resolution.Type{
+			Name: valName, Form: resolution.PrimitiveForm{},
+		}, data)
+		mvc = &mapValueConversionData{
+			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+			PBMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+			ForwardValueExpr:  "v",
+			BackwardValueExpr: "v",
+		}
+	}
+	mvc.GoMapType = "map[" + goKeyType + strings.TrimPrefix(
+		mvc.GoMapType,
+		"map["+keyType,
+	)
+	mvc.ForwardKeyExpr = keyType + "(k)"
+	mvc.BackwardKeyExpr = goKeyType + "(k)"
+	return mvc
+}
+
+// buildMapElementConversion returns the per-value conversion data of a Map field, with
+// the proto key type on both sides. Returns nil when the values copy directly.
+func (p *Plugin) buildMapElementConversion(
+	typeRef resolution.TypeRef, data *templateData,
+) *mapValueConversionData {
 	keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
 	valArg := typeRef.TypeArgs[1]
 
@@ -871,6 +909,23 @@ func (p *Plugin) buildMapValueConversion(
 	resolved, _, ok := resolution.Dealias(valArg, data.table)
 	if !ok {
 		return nil
+	}
+	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+		base := dealiasPrimitive(form.Base, data.table)
+		if !resolution.IsPrimitive(base.Name) || base.Name == "uuid" {
+			return nil
+		}
+		goValType, ok := p.qualifiedDistinctGoName(resolved, data)
+		if !ok {
+			return nil
+		}
+		protoType := primitiveToProtoType(base.Name)
+		return &mapValueConversionData{
+			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+			PBMapType:         fmt.Sprintf("map[%s]%s", keyType, protoType),
+			ForwardValueExpr:  protoType + "(v)",
+			BackwardValueExpr: goValType + "(v)",
+		}
 	}
 	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
 		goValType := p.resolveGoTypeLiteral(valArg, data)
@@ -2361,6 +2416,11 @@ type fieldTranslatorData struct {
 type mapValueConversionData struct {
 	GoMapType string // e.g., "map[uint32]uint8"
 	PBMapType string // e.g., "map[uint32]uint32"
+	// ForwardKeyExpr converts a Go key to a proto key, using "k" as placeholder. Empty
+	// when the key types match.
+	ForwardKeyExpr string // e.g., "uint32(k)"
+	// BackwardKeyExpr converts a proto key to a Go key. Empty when the key types match.
+	BackwardKeyExpr string // e.g., "uint16(k)"
 	// ForwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
