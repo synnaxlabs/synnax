@@ -170,33 +170,39 @@ export class Client extends query.Retriever<
   /**
    * Creates the chassis, or replaces the chassis whose keys exist. The Core gives each
    * new chassis an unknown status.
+   * @throws {ValidationError} if a chassis is invalid or its rack does not exist.
    */
   async create(chassis: New): Promise<Chassis>;
   async create(chassis: New[]): Promise<Chassis[]>;
   async create(chassis: New | New[]): Promise<Chassis | Chassis[]> {
     const isSingle = !Array.isArray(chassis);
     const { store: statuses } = this.cfg.statuses;
-    // A status streamed during the request is newer than the reply.
-    const res = await statuses.track(async (since) => {
-      const res = await this.cfg.unary.send(
-        "/ni/chassis/create",
-        { chassis: array.toArray(chassis).map((c) => chassisZ.parse(c)) },
-        createReqZ,
-        createResZ,
-      );
-      res.chassis.forEach(({ status: st }) => {
-        if (st != null) statuses.ingest(st, { since });
-      });
-      return res;
-    });
-    this.store.set(res.chassis.map(stripStatus));
+    // A chassis or status streamed during the request is newer than the reply.
+    const res = await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const res = await this.cfg.unary.send(
+            "/ni/chassis/create",
+            { chassis: array.toArray(chassis).map((c) => chassisZ.parse(c)) },
+            createReqZ,
+            createResZ,
+          );
+          this.store.ingest(res.chassis.map(stripStatus), { since, mode: "set" });
+          res.chassis.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return res;
+        }),
+    );
     return isSingle ? res.chassis[0] : res.chassis;
   }
 
   /**
-   * Writes one field group to the chassis and keeps the other as stored. A
-   * configuration update replaces the whole group, so a field it leaves out is cleared.
+   * Writes one field group to the chassis and keeps the other as stored. The update
+   * replaces the whole group, so a field it leaves out is cleared, such as the serial
+   * of an identity update.
    * @throws {NotFoundError} if the chassis does not exist.
+   * @throws {ValidationError} if the update is invalid.
    */
   async update(key: Key, update: Update): Promise<void> {
     await this.cfg.unary.send(
