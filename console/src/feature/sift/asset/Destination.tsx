@@ -68,12 +68,11 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
   useAsyncEffect(
     async (signal) => {
       setAssets([]);
-      if (client == null || deviceKey === "") return;
+      if (client == null || deviceKey === "" || mode === "preview") return;
       handleError(async () => {
         const res = await list(client, deviceKey);
         if (signal.aborted) return;
         setAssets(res.assets);
-        if (mode === "preview") return;
         const fill = !listed.current || picked.current;
         listed.current = true;
         picked.current = false;
