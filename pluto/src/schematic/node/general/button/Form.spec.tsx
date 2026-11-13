@@ -52,6 +52,38 @@ describe("ButtonForm", () => {
   });
 });
 
+describe("ButtonForm size", () => {
+  const renderStyle = (config: schematic.ButtonNodeConfig): RenderFormResult =>
+    renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      config,
+      schematic.buttonNodeConfigZ,
+    );
+
+  const SAVED = schematic.buttonNodeConfigZ.parse({
+    variant: "button",
+    label: { label: "Saved" },
+    size: "large",
+    level: "h5",
+  });
+
+  it.each([
+    ["XS", "tiny", "small"],
+    ["S", "small", "h5"],
+    ["M", "medium", "h4"],
+    ["L", "large", "h3"],
+    ["XL", "huge", "h2"],
+  ])("should give %s the text level labels use", async (option, size, level) => {
+    const start = size === "huge" ? "tiny" : "huge";
+    const { getByText, value } = renderStyle({ ...SAVED, size: start });
+    fireEvent.click(getByText(option));
+    await waitFor(() => {
+      expect(value(path.size)).toBe(size);
+      expect(value(path.level)).toBe(level);
+    });
+  });
+});
+
 describe("ButtonForm label", () => {
   const renderStyleTab = (): RenderFormResult =>
     renderForm(
@@ -78,6 +110,40 @@ describe("ButtonForm label", () => {
     await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(80));
   });
 
+  it("should show the default wrap width until a user sets one", () => {
+    const { getByText } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    expect(field?.value).toBe("150");
+  });
+
+  it("should keep the wrap width when the input is cleared", async () => {
+    const { getByText, value } = renderForm(
+      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
+      schematic.buttonNodeConfigZ,
+      createSynnaxWrapper({ client: null }),
+    );
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: "" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(field.value).toBe("80"));
+    expect(value(path.label.maxInlineSize)).toBe(80);
+  });
+
+  it.each([
+    ["0", 1],
+    ["80.6", 81],
+    ["70000", 65535],
+  ])("should store a wrap width of %s as %i", async (input, stored) => {
+    const { getByText, value } = renderStyleTab();
+    const field = getByText("Wrap width").parentElement?.querySelector("input");
+    if (field == null) throw new Error("expected a wrap width input");
+    fireEvent.change(field, { target: { value: input } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(value(path.label.maxInlineSize)).toBe(stored));
+  });
+
   it("should set the alignment", async () => {
     const { container, value } = renderStyleTab();
     const start = container.querySelector("button#start");
@@ -85,38 +151,4 @@ describe("ButtonForm label", () => {
     fireEvent.click(start);
     await waitFor(() => expect(value(path.label.align)).toBe("start"));
   });
-});
-
-describe("ButtonForm size", () => {
-  const renderStyle = (config: schematic.ButtonNodeConfig): RenderFormResult =>
-    renderForm(
-      <ButtonForm tab="style" onTabChange={vi.fn()} />,
-      config,
-      schematic.buttonNodeConfigZ,
-    );
-
-  const SAVED = schematic.buttonNodeConfigZ.parse({
-    variant: "button",
-    label: { label: "Saved" },
-    size: "large",
-  });
-
-  it.each([
-    ["XS", "tiny", "small"],
-    ["S", "small", "h5"],
-    ["M", "medium", "h4"],
-    ["L", "large", "h3"],
-    ["XL", "huge", "h2"],
-  ])("should give %s the text level labels use", async (option, size, level) => {
-    const start = size === "huge" ? "tiny" : "huge";
-    const { getByText, value } = renderStyle({ ...SAVED, size: start });
-    fireEvent.click(getByText(option));
-    await waitFor(() => {
-      expect(value(path.size)).toBe(size);
-      expect(value(path.level)).toBe(level);
-    });
-  });
-
-  it("should leave a saved button without a level until a size is picked", () =>
-    expect(renderStyle(SAVED).value(path.level)).toBeUndefined());
 });

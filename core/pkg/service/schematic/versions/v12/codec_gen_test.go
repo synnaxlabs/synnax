@@ -39,7 +39,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v12.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
@@ -57,7 +57,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v12.FlexAlignment("start"),
 		},
 		Orientation:      spatial.OuterLocation("top"),
@@ -92,7 +92,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v12.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
@@ -158,7 +158,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v12.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
@@ -178,7 +178,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v12.FlexAlignment("start"),
 		},
 		Orientation:      spatial.OuterLocation("top"),
@@ -204,6 +204,35 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("DummyToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.DummyToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.DummyToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedDummyToggleSymbolConfig),
+			Entry("zero values", v12.DummyToggleSymbolConfig{
+				Label: v12.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v12.FlexAlignment(""),
+				},
+				Orientation: spatial.OuterLocation(""),
+				Scale:       0,
+				Enabled:     false,
+				Clickable:   false,
+				StrokeColor: nil,
+			}),
+		)
+	})
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v12.Edge) {
@@ -251,6 +280,60 @@ var _ = Describe("Codec", func() {
 				}),
 				StrokeWidth: 15,
 				Segments:    []v12.Segment{},
+			}),
+		)
+	})
+	Describe("LabelConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.LabelConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.LabelConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v12.LabelConfig{
+				Label:         "test_1",
+				Level:         text.Level("h1"),
+				Orientation:   spatial.Location("top"),
+				Direction:     spatial.Direction("x"),
+				MaxInlineSize: 6,
+				Align:         v12.FlexAlignment("start"),
+			}),
+			Entry("zero values", v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			}),
+		)
+	})
+	Describe("LabeledConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.LabeledConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.LabeledConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedLabeledConfig),
+			Entry("zero values", v12.LabeledConfig{
+				Label: v12.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v12.FlexAlignment(""),
+				},
+				Orientation: spatial.OuterLocation(""),
 			}),
 		)
 	})
@@ -339,7 +422,7 @@ var _ = Describe("Codec", func() {
 			Entry("button variant", v12.NodeConfig{Variant: v12.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v12.ComponentSize("tiny"),
-				Level:          new(text.Level("h1")),
+				Level:          text.Level("h1"),
 				OnClickDelay:   3.5,
 				CommandChannel: new(channel.Key(5)),
 				Mode:           v12.ButtonMode("fire"),
@@ -398,23 +481,24 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v12.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				Level:           text.Level("h1"),
+				CommandChannel:  new(channel.Key(4)),
+				StateChannel:    new(channel.Key(5)),
+				Dimensions:      new(spatial.Dimensions{Width: 6.5, Height: 7.5}),
 				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 11.5,
+					R: 10,
+					G: 11,
+					B: 12,
+					A: 12.5,
 				}),
-				Disabled:     false,
-				InlineSize:   13.5,
-				OnClickDelay: 14.5,
+				Disabled:     true,
+				InlineSize:   14.5,
+				OnClickDelay: 15.5,
 				Control: new(v12.ControlStateConfig{
-					Authority:       new(uint8(17)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(18)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				}),
 			}}),
@@ -483,35 +567,36 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v12.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
+				Level:           text.Level("h1"),
+				CommandChannel:  new(channel.Key(4)),
+				StateChannel:    new(channel.Key(5)),
 				FillColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 8.5,
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 9.5,
 				}),
-				InlineSize: 9.5,
+				InlineSize: 10.5,
 				Options: []v12.StateMapping{
 					{
-						Key:   "test_11",
-						Name:  "test_12",
-						Value: 13.5,
+						Key:   "test_12",
+						Name:  "test_13",
+						Value: 14.5,
 						Color: new(color.Color{
-							R: 16,
-							G: 17,
-							B: 18,
-							A: 18.5,
+							R: 17,
+							G: 18,
+							B: 19,
+							A: 19.5,
 						}),
 					},
 				},
-				Disabled:     true,
-				OnClickDelay: 20.5,
+				Disabled:     false,
+				OnClickDelay: 21.5,
 				Control: new(v12.ControlStateConfig{
-					Authority:       new(uint8(23)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(24)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				}),
 			}}),
@@ -525,24 +610,25 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v12.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				Level:           text.Level("h1"),
+				CommandChannel:  new(channel.Key(4)),
+				StateChannel:    new(channel.Key(5)),
+				Dimensions:      new(spatial.Dimensions{Width: 6.5, Height: 7.5}),
 				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 11.5,
+					R: 10,
+					G: 11,
+					B: 12,
+					A: 12.5,
 				}),
-				Units:        "test_12",
-				Disabled:     true,
-				InlineSize:   14.5,
-				OnClickDelay: 15.5,
+				Units:        "test_13",
+				Disabled:     false,
+				InlineSize:   15.5,
+				OnClickDelay: 16.5,
 				Control: new(v12.ControlStateConfig{
-					Authority:       new(uint8(18)),
-					Hidden:          false,
-					ChipHidden:      true,
-					IndicatorHidden: false,
+					Authority:       new(uint8(19)),
+					Hidden:          true,
+					ChipHidden:      false,
+					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
 				}),
 			}}),
@@ -570,7 +656,8 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
-				Size: v12.ComponentSize("tiny"),
+				Size:  v12.ComponentSize("tiny"),
+				Level: text.Level("h1"),
 			}}),
 			Entry("string_display variant", v12.NodeConfig{Variant: v12.StringDisplayNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -1021,7 +1108,116 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("StaticSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.StaticSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.StaticSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedStaticSymbolConfig),
+			Entry("zero values", v12.StaticSymbolConfig{
+				Label: v12.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v12.FlexAlignment(""),
+				},
+				Orientation: spatial.OuterLocation(""),
+				Scale:       0,
+				StrokeColor: nil,
+			}),
+		)
+	})
+	Describe("ToggleConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.ToggleConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.ToggleConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleConfig),
+			Entry("zero values", v12.ToggleConfig{
+				Label: v12.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v12.FlexAlignment(""),
+				},
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
+				StalenessTimeout: 0,
+				StalenessColor:   nil,
+				StateChannel:     nil,
+				CommandChannel:   nil,
+				Control:          nil,
+				OnClickDelay:     0,
+			}),
+		)
+	})
+	Describe("ToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.ToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.ToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
+			Entry("zero values", v12.ToggleSymbolConfig{
+				Label: v12.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v12.FlexAlignment(""),
+				},
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
+				StalenessTimeout: 0,
+				StalenessColor:   nil,
+				StateChannel:     nil,
+				CommandChannel:   nil,
+				Control:          nil,
+				OnClickDelay:     0,
+				StrokeColor:      nil,
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
+	seed := fullyPopulatedDummyToggleSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.DummyToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	seed := v12.Edge{
@@ -1046,6 +1242,47 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v12.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
+	seed := v12.LabelConfig{
+		Label:         "test_1",
+		Level:         text.Level("h1"),
+		Orientation:   spatial.Location("top"),
+		Direction:     spatial.Direction("x"),
+		MaxInlineSize: 6,
+		Align:         v12.FlexAlignment("start"),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.LabelConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
+	seed := fullyPopulatedLabeledConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.LabeledConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1150,6 +1387,110 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
+	seed := fullyPopulatedStaticSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.StaticSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
+	seed := fullyPopulatedToggleConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.ToggleConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
+	seed := fullyPopulatedToggleSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.ToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedDummyToggleSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.DummyToggleSymbolConfig{
+			Label: v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			},
+			Orientation: spatial.OuterLocation(""),
+			Scale:       0,
+			Enabled:     false,
+			Clickable:   false,
+			StrokeColor: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.DummyToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.DummyToggleSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeEdge(f *testing.F) {
 	{
 		seed := v12.Edge{
@@ -1221,6 +1562,108 @@ func FuzzDecodeEdge(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v12.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabelConfig(f *testing.F) {
+	{
+		seed := v12.LabelConfig{
+			Label:         "test_1",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6,
+			Align:         v12.FlexAlignment("start"),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.LabelConfig{
+			Label:         "",
+			Level:         text.Level(""),
+			Orientation:   spatial.Location(""),
+			Direction:     spatial.Direction(""),
+			MaxInlineSize: 0,
+			Align:         v12.FlexAlignment(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.LabelConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.LabelConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabeledConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedLabeledConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.LabeledConfig{
+			Label: v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			},
+			Orientation: spatial.OuterLocation(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.LabeledConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.LabeledConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1489,7 +1932,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v12.NodeConfig{Variant: v12.ButtonNodeConfig{
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v12.ComponentSize("tiny"),
-			Level:          new(text.Level("h1")),
+			Level:          text.Level("h1"),
 			OnClickDelay:   3.5,
 			CommandChannel: new(channel.Key(5)),
 			Mode:           v12.ButtonMode("fire"),
@@ -1569,23 +2012,24 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v12.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			Level:           text.Level("h1"),
+			CommandChannel:  new(channel.Key(4)),
+			StateChannel:    new(channel.Key(5)),
+			Dimensions:      new(spatial.Dimensions{Width: 6.5, Height: 7.5}),
 			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 11.5,
+				R: 10,
+				G: 11,
+				B: 12,
+				A: 12.5,
 			}),
-			Disabled:     false,
-			InlineSize:   13.5,
-			OnClickDelay: 14.5,
+			Disabled:     true,
+			InlineSize:   14.5,
+			OnClickDelay: 15.5,
 			Control: new(v12.ControlStateConfig{
-				Authority:       new(uint8(17)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(18)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			}),
 		}}
@@ -1689,35 +2133,36 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v12.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
+			Level:           text.Level("h1"),
+			CommandChannel:  new(channel.Key(4)),
+			StateChannel:    new(channel.Key(5)),
 			FillColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 8.5,
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 9.5,
 			}),
-			InlineSize: 9.5,
+			InlineSize: 10.5,
 			Options: []v12.StateMapping{
 				{
-					Key:   "test_11",
-					Name:  "test_12",
-					Value: 13.5,
+					Key:   "test_12",
+					Name:  "test_13",
+					Value: 14.5,
 					Color: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 18.5,
+						R: 17,
+						G: 18,
+						B: 19,
+						A: 19.5,
 					}),
 				},
 			},
-			Disabled:     true,
-			OnClickDelay: 20.5,
+			Disabled:     false,
+			OnClickDelay: 21.5,
 			Control: new(v12.ControlStateConfig{
-				Authority:       new(uint8(23)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(24)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			}),
 		}}
@@ -1745,24 +2190,25 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v12.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			Level:           text.Level("h1"),
+			CommandChannel:  new(channel.Key(4)),
+			StateChannel:    new(channel.Key(5)),
+			Dimensions:      new(spatial.Dimensions{Width: 6.5, Height: 7.5}),
 			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 11.5,
+				R: 10,
+				G: 11,
+				B: 12,
+				A: 12.5,
 			}),
-			Units:        "test_12",
-			Disabled:     true,
-			InlineSize:   14.5,
-			OnClickDelay: 15.5,
+			Units:        "test_13",
+			Disabled:     false,
+			InlineSize:   15.5,
+			OnClickDelay: 16.5,
 			Control: new(v12.ControlStateConfig{
-				Authority:       new(uint8(18)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
+				Authority:       new(uint8(19)),
+				Hidden:          true,
+				ChipHidden:      false,
+				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
 			}),
 		}}
@@ -1797,7 +2243,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					}),
 				},
 			},
-			Size: v12.ComponentSize("tiny"),
+			Size:  v12.ComponentSize("tiny"),
+			Level: text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2805,6 +3252,170 @@ func FuzzDecodeSchematic(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v12.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStaticSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedStaticSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.StaticSymbolConfig{
+			Label: v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			},
+			Orientation: spatial.OuterLocation(""),
+			Scale:       0,
+			StrokeColor: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.StaticSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.StaticSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.ToggleConfig{
+			Label: v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			},
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
+			StalenessTimeout: 0,
+			StalenessColor:   nil,
+			StateChannel:     nil,
+			CommandChannel:   nil,
+			Control:          nil,
+			OnClickDelay:     0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.ToggleConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.ToggleConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.ToggleSymbolConfig{
+			Label: v12.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v12.FlexAlignment(""),
+			},
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
+			StalenessTimeout: 0,
+			StalenessColor:   nil,
+			StateChannel:     nil,
+			CommandChannel:   nil,
+			Control:          nil,
+			OnClickDelay:     0,
+			StrokeColor:      nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.ToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.ToggleSymbolConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

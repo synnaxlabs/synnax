@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type dimensions } from "@synnaxlabs/x";
+import { type bounds, type dimensions } from "@synnaxlabs/x";
 import { type CSSProperties, type FC, memo, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -19,6 +19,16 @@ import { type NodeProps } from "@/schematic/node/spec";
 
 export const configZ = schematic.labelConfigZ;
 export type Config = schematic.LabelConfig;
+
+/** The bounds of a stored wrap width in pixels. */
+export const WRAP_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 65535 };
+
+/** The drag scale of a wrap width input. The scale from the bounds is too fast. */
+export const WRAP_WIDTH_DRAG_SCALE = { x: 1, y: 0.5 };
+
+/** The CSS text-align of each label alignment. Stretch sets none. */
+export const TEXT_ALIGNS: Record<schematic.FlexAlignment, CSSProperties["textAlign"]> =
+  { start: "start", center: "center", end: "end", stretch: undefined };
 
 export interface LabelProps {
   config: Config;
@@ -35,7 +45,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
   const handleLabelChange = (value: string) =>
     onChange?.({ label: { ...config, label: value } });
   const style = {
-    textAlign: align as CSSProperties["textAlign"],
+    textAlign: TEXT_ALIGNS[align],
     maxInlineSize,
     ...baseStyle,
   };

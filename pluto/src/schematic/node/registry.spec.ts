@@ -10,6 +10,7 @@
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { GroupBox } from "@/schematic/node/groupBox";
 import {
   changeConfig,
@@ -128,6 +129,16 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.stateOverrides).toEqual([]);
   });
 
+  it.each(["button", "input", "setpoint", "state_indicator"] as const)(
+    "should start a new %s on the medium text level",
+    (variant) => expect(createConfig({ variant }).level).toBe(SIZE_LEVELS.medium),
+  );
+
+  it("should start a new select on the medium text level", () =>
+    expect(createConfig({ variant: "select", options: [] }).level).toBe(
+      SIZE_LEVELS.medium,
+    ));
+
   it("should reject an unknown variant", () => {
     expect(() => createConfig({ variant: "not-a-symbol" } as never)).toThrow();
   });
@@ -160,6 +171,41 @@ describe("Schematic.Node.symbolKey", () => {
 });
 
 describe("Schematic.Node.changeConfig", () => {
+  it("should keep the wrap width of a symbol that changes to a button", () => {
+    const tank = createConfig({ variant: "tank", label: { maxInlineSize: 80 } });
+    const changed = changeConfig(tank, { variant: "button" });
+    expect(changed.label.maxInlineSize).toBe(80);
+  });
+
+  it("should keep the size and level of a field that changes", () => {
+    const input = createConfig({ variant: "input", size: "large", level: "h5" });
+    const changed = changeConfig(input, { variant: "button" });
+    expect(changed.size).toBe("large");
+    expect(changed.level).toBe("h5");
+  });
+
+  it("should keep the level of a value that changes to a button", () => {
+    const value = createConfig({ variant: "value", level: "h2" });
+    const changed = changeConfig(value, { variant: "button" });
+    expect(changed.size).toBe("medium");
+    expect(changed.level).toBe("h2");
+  });
+
+  it("should carry a tank's scale level onto a button", () => {
+    const changed = changeConfig(createConfig({ variant: "tank" }), {
+      variant: "button",
+    });
+    expect(changed.size).toBe("medium");
+    expect(changed.level).toBe("small");
+  });
+
+  it("should give a symbol with no level the medium text level", () => {
+    const changed = changeConfig(createConfig({ variant: "valve" }), {
+      variant: "button",
+    });
+    expect(changed.level).toBe(SIZE_LEVELS.medium);
+  });
+
   it("should keep each field the new variant accepts", () => {
     const valve = createConfig({
       variant: "valve",

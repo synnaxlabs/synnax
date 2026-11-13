@@ -9,13 +9,17 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { type Config } from "@/schematic/node/common/label/Label";
+import {
+  type Config,
+  WRAP_WIDTH_BOUNDS,
+  WRAP_WIDTH_DRAG_SCALE,
+} from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
@@ -30,6 +34,23 @@ interface FormProps {
   multiline?: boolean;
 }
 
+const WrapWidthField = ({ path }: { path: deep.Target<number> }): ReactElement => {
+  const value = Base.useFieldValue(path);
+  const { set } = Base.useContext();
+  return (
+    <Input.Item label="Wrap width" padHelpText={false}>
+      <Input.Numeric
+        value={value}
+        onChange={(v) => set(path, v)}
+        endContent="px"
+        bounds={WRAP_WIDTH_BOUNDS}
+        integer
+        dragScale={WRAP_WIDTH_DRAG_SCALE}
+      />
+    </Input.Item>
+  );
+};
+
 export const Form = ({ path, omit = [], multiline }: FormProps): ReactElement => (
   <Flex.Box x align="stretch">
     <Base.TextField
@@ -39,13 +60,7 @@ export const Form = ({ path, omit = [], multiline }: FormProps): ReactElement =>
       grow
       inputProps={multiline ? MULTILINE_INPUT_FIELD_PROPS : LABEL_INPUT_FIELD_PROPS}
     />
-    <Base.NumericField
-      visible={!omit.includes("maxInlineSize")}
-      path={path.maxInlineSize}
-      label="Wrap width"
-      inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
-      padHelpText={false}
-    />
+    {!omit.includes("maxInlineSize") && <WrapWidthField path={path.maxInlineSize} />}
     <Base.Field
       visible={!omit.includes("level")}
       path={path.level}

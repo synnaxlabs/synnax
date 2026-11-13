@@ -185,10 +185,110 @@ const (
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig = v11.LabelConfig
+type LabelConfig struct {
+	// Label is the text content of the label.
+	Label string `json:"label" msgpack:"label"`
+	// Level is the typography level of the label text.
+	Level text.Level `json:"level" msgpack:"level"`
+	// Orientation is the placement of the label relative to the symbol.
+	Orientation spatial.Location `json:"orientation" msgpack:"orientation"`
+	// Direction is the axis along which the label text flows.
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
+	MaxInlineSize uint16 `json:"max_inline_size" msgpack:"max_inline_size"`
+	// Align is the alignment of the label text within its box.
+	Align FlexAlignment `json:"align" msgpack:"align"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (l *LabelConfig) ApplyDefaults() {
+	if l.Level == "" {
+		l.Level = text.LevelH5
+	}
+	if l.Orientation == "" {
+		l.Orientation = spatial.LocationTop
+	}
+	if l.Direction == "" {
+		l.Direction = spatial.DirectionX
+	}
+	if l.MaxInlineSize == 0 {
+		l.MaxInlineSize = 150
+	}
+	if l.Align == "" {
+		l.Align = FlexAlignmentCenter
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabelConfig) SetDefaults() {
+	l.Level = text.LevelH5
+	l.Orientation = spatial.LocationTop
+	l.Direction = spatial.DirectionX
+	l.MaxInlineSize = 150
+	l.Align = FlexAlignmentCenter
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LabelConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LabelConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LabelConfig
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LabelConfig) Validate() error {
+	v := validate.New("LabelConfig")
+	v.Ternaryf("level", !l.Level.IsValid(), "invalid level: %v", l.Level)
+	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
+	v.Ternaryf("direction", !l.Direction.IsValid(), "invalid direction: %v", l.Direction)
+	v.Ternaryf("align", !l.Align.IsValid(), "invalid align: %v", l.Align)
+	v.GreaterThanEq("max_inline_size", l.MaxInlineSize, 1)
+	return v.Error()
+}
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig = v11.LabeledConfig
+type LabeledConfig struct {
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (l *LabeledConfig) ApplyDefaults() {
+	if l.Orientation == "" {
+		l.Orientation = spatial.OuterLocationLeft
+	}
+	l.Label.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LabeledConfig) SetDefaults() {
+	l.Label.SetDefaults()
+	l.Orientation = spatial.OuterLocationLeft
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LabeledConfig) Validate() error {
+	v := validate.New("LabeledConfig")
+	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
+	v.Exec(func() error { return validate.PathedError(l.Label.Validate(), "label") })
+	return v.Error()
+}
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
 type ScaledConfig = v11.ScaledConfig
@@ -239,17 +339,135 @@ type ControlStateConfig = v11.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig = v11.ToggleConfig
+type ToggleConfig struct {
+	LabeledConfig
+	ScaledConfig
+	StalenessConfig
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (t *ToggleConfig) ApplyDefaults() {
+	t.LabeledConfig.ApplyDefaults()
+	t.ScaledConfig.ApplyDefaults()
+	t.StalenessConfig.ApplyDefaults()
+	if t.Control != nil {
+		t.Control.ApplyDefaults()
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.ScaledConfig.SetDefaults()
+	t.StalenessConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleConfig) Validate() error {
+	v := validate.New("ToggleConfig")
+	v.Exec(t.LabeledConfig.Validate)
+	if t.Control != nil {
+		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
+	}
+	return v.Error()
+}
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
-type StaticSymbolConfig = v11.StaticSymbolConfig
+type StaticSymbolConfig struct {
+	LabeledConfig
+	ScaledConfig
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StaticSymbolConfig) ApplyDefaults() {
+	s.LabeledConfig.ApplyDefaults()
+	s.ScaledConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticSymbolConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaledConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StaticSymbolConfig) Validate() error {
+	v := validate.New("StaticSymbolConfig")
+	v.Exec(s.LabeledConfig.Validate)
+	return v.Error()
+}
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig = v11.ToggleSymbolConfig
+type ToggleSymbolConfig struct {
+	ToggleConfig
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (t *ToggleSymbolConfig) ApplyDefaults() {
+	t.ToggleConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleSymbolConfig) SetDefaults() {
+	t.ToggleConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleSymbolConfig) Validate() error {
+	v := validate.New("ToggleSymbolConfig")
+	v.Exec(t.ToggleConfig.Validate)
+	return v.Error()
+}
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
-type DummyToggleSymbolConfig = v11.DummyToggleSymbolConfig
+type DummyToggleSymbolConfig struct {
+	LabeledConfig
+	ScaledConfig
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled bool `json:"enabled" msgpack:"enabled"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable bool `json:"clickable" msgpack:"clickable"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DummyToggleSymbolConfig) ApplyDefaults() {
+	d.LabeledConfig.ApplyDefaults()
+	d.ScaledConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DummyToggleSymbolConfig) SetDefaults() {
+	d.LabeledConfig.SetDefaults()
+	d.ScaledConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DummyToggleSymbolConfig) Validate() error {
+	v := validate.New("DummyToggleSymbolConfig")
+	v.Exec(d.LabeledConfig.Validate)
+	return v.Error()
+}
 
 // ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
@@ -1238,7 +1456,7 @@ type ButtonNodeConfig struct {
 	// Size is the rendered size preset of the button.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	Level text.Level `json:"level" msgpack:"level"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// CommandChannel is the channel button presses are written to.
@@ -1257,6 +1475,7 @@ func (ButtonNodeConfig) isNodeConfigVariant() {}
 func (b *ButtonNodeConfig) SetDefaults() {
 	b.LabeledConfig.SetDefaults()
 	b.Size = ComponentSizeMedium
+	b.Level = text.LevelH4
 	b.Mode = ButtonModeFire
 }
 
@@ -1264,6 +1483,9 @@ func (b *ButtonNodeConfig) SetDefaults() {
 func (b *ButtonNodeConfig) ApplyDefaults() {
 	if b.Size == "" {
 		b.Size = ComponentSizeMedium
+	}
+	if b.Level == "" {
+		b.Level = text.LevelH4
 	}
 	if b.Mode == "" {
 		b.Mode = ButtonModeFire
@@ -1279,6 +1501,7 @@ func (b *ButtonNodeConfig) ApplyDefaults() {
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", b.Level)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -1402,6 +1625,8 @@ type InputNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the input.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the input text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel submitted values are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the value the device holds.
@@ -1427,6 +1652,7 @@ func (i *InputNodeConfig) SetDefaults() {
 	i.LabeledConfig.SetDefaults()
 	i.StalenessConfig.SetDefaults()
 	i.Size = ComponentSizeMedium
+	i.Level = text.LevelH4
 	i.InlineSize = 150
 }
 
@@ -1434,6 +1660,9 @@ func (i *InputNodeConfig) SetDefaults() {
 func (i *InputNodeConfig) ApplyDefaults() {
 	if i.Size == "" {
 		i.Size = ComponentSizeMedium
+	}
+	if i.Level == "" {
+		i.Level = text.LevelH4
 	}
 	if i.InlineSize == 0 {
 		i.InlineSize = 150
@@ -1450,6 +1679,7 @@ func (i *InputNodeConfig) ApplyDefaults() {
 func (i InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
 	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
+	v.Ternaryf("level", !i.Level.IsValid(), "invalid level: %v", i.Level)
 	v.Exec(i.LabeledConfig.Validate)
 	if i.Control != nil {
 		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
@@ -1623,6 +1853,8 @@ type SelectNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the select.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the select text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the state the device holds.
@@ -1648,6 +1880,7 @@ func (s *SelectNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
 	s.Size = ComponentSizeMedium
+	s.Level = text.LevelH4
 	s.InlineSize = 100
 }
 
@@ -1655,6 +1888,9 @@ func (s *SelectNodeConfig) SetDefaults() {
 func (s *SelectNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
+	}
+	if s.Level == "" {
+		s.Level = text.LevelH4
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1671,6 +1907,7 @@ func (s *SelectNodeConfig) ApplyDefaults() {
 func (s SelectNodeConfig) Validate() error {
 	v := validate.New("SelectNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
@@ -1731,6 +1968,8 @@ type SetpointNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the setpoint.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the setpoint text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel submitted setpoints are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the value the device holds.
@@ -1758,6 +1997,7 @@ func (s *SetpointNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
 	s.Size = ComponentSizeMedium
+	s.Level = text.LevelH4
 	s.InlineSize = 100
 }
 
@@ -1765,6 +2005,9 @@ func (s *SetpointNodeConfig) SetDefaults() {
 func (s *SetpointNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
+	}
+	if s.Level == "" {
+		s.Level = text.LevelH4
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1781,6 +2024,7 @@ func (s *SetpointNodeConfig) ApplyDefaults() {
 func (s SetpointNodeConfig) Validate() error {
 	v := validate.New("SetpointNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
@@ -1802,6 +2046,8 @@ type StateIndicatorNodeConfig struct {
 	Options []StateMapping `json:"options" msgpack:"options"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the indicator text.
+	Level text.Level `json:"level" msgpack:"level"`
 }
 
 func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
@@ -1812,6 +2058,7 @@ func (s *StateIndicatorNodeConfig) SetDefaults() {
 	s.StalenessConfig.SetDefaults()
 	s.InlineSize = 100
 	s.Size = ComponentSizeMedium
+	s.Level = text.LevelH4
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -1822,6 +2069,9 @@ func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
 	}
+	if s.Level == "" {
+		s.Level = text.LevelH4
+	}
 	s.LabeledConfig.ApplyDefaults()
 	s.StalenessConfig.ApplyDefaults()
 }
@@ -1831,6 +2081,7 @@ func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 func (s StateIndicatorNodeConfig) Validate() error {
 	v := validate.New("StateIndicatorNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
 	return v.Error()
 }

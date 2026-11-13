@@ -668,7 +668,12 @@ describe("schematic reducer", () => {
     });
 
     it("should return a wire-form inverse that restores the config", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)], configs: { n1: tank("Pump") } });
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: {
+          n1: cfg({ variant: "tank", label: { label: "Pump", maxInlineSize: 150 } }),
+        },
+      });
       const { next, inverse } = schematic.reduceAll(state, [
         set(["configs", "n1", "label", "max_inline_size"], 200),
       ]);

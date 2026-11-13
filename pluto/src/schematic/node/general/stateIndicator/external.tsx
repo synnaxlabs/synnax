@@ -18,12 +18,14 @@ import { type Spec } from "@/schematic/node/spec";
 const Preview = ({
   strokeColor,
   size,
+  level,
 }: schematic.StateIndicatorNodeConfig): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     strokeColor={strokeColor}
     size={size}
+    level={level}
   />
 );
 

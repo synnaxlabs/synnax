@@ -286,6 +286,16 @@ describe("Schematic toolbar Properties", () => {
       });
     });
 
+    it("hides the label section when every labeled symbol is locked", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: ["g1", "n1", "n2"] },
+      });
+      await screen.findByText("Align");
+      expect(screen.queryByText("Wrap width")).toBeNull();
+    });
+
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,
@@ -669,6 +679,37 @@ describe("Schematic toolbar Properties", () => {
       await expect
         .poll(async () => (await retrieveConfig(key, "n1")).label)
         .toMatchObject({ maxInlineSize: 200 });
+    });
+
+    it("shows the default wrap width until a symbol has one", async () => {
+      const { result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
+      });
+      await screen.findByText("Align");
+      expect(getInputByItemLabel(result.container, "Wrap width").value).toBe("150");
+    });
+
+    it("keeps the wrap width of every selected symbol when cleared", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "tank",
+            label: { maxInlineSize: 80 },
+          }),
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Wrap width");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      await expect.poll(() => input.value).toBe("80");
+      expect((await retrieveConfig(key, "n1")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
+      expect((await retrieveConfig(key, "n2")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
     });
 
     it("rotates the whole selection, still rotating orientations when layout fails", async () => {
