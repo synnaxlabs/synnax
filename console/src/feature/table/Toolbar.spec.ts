@@ -309,6 +309,33 @@ describe("table/Toolbar", () => {
     expect(t.cells.a).not.toHaveProperty("precision");
   });
 
+  it("stores a multi-cell staleness timeout in seconds", async () => {
+    const { key } = await renderTable(Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        rows: [{ size: 36, cells: ["a", "b"] }],
+        columns: [{ size: 72 }, { size: 72 }],
+        cells: { a: { variant: "value" }, b: { variant: "value" } },
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    const input = (await screen.findByText("Timeout"))
+      .closest(".lyra-input__item")
+      ?.querySelector("input");
+    assertDefined(input);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "7s" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect([t.cells.a, t.cells.b]).toMatchObject([
+        { stalenessTimeout: 7 },
+        { stalenessTimeout: 7 },
+      ]);
+    });
+  });
+
   it("hides the value groups when only text cells are selected", async () => {
     await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
