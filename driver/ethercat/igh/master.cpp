@@ -246,7 +246,8 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
         ) >= 0)
         return x::errors::NIL;
     return x::errors::Error(
-        errors::STARTUP_PARAMETER_ERROR,
+        abort_code == 0 ? errors::STARTUP_PARAMETER_ERROR
+                        : errors::STARTUP_PARAMETER_REJECTED,
         "slave " + std::to_string(slave.position) + " (" + slave.name +
             ") rejected startup parameter " + param.to_string() + ": " +
             errors::sdo_abort_reason(abort_code)
@@ -284,7 +285,8 @@ x::errors::Error Master::write(
                 &abort_code
             ) < 0)
             return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
+                abort_code == 0 ? errors::STARTUP_PARAMETER_ERROR
+                                : errors::STARTUP_PARAMETER_REJECTED,
                 "slave " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     errors::sdo_abort_reason(abort_code)

@@ -923,6 +923,21 @@ describe("Read", () => {
     expect(created.config.startupParameters).toEqual([]);
   });
 
+  it("should mark in the list a channel whose setting breaks a rule of the catalog", async () => {
+    const slave = await createStrainSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
+    });
+    const option = await screen.findByRole("option", { name: /0x6030:01/ });
+    await waitFor(() =>
+      expect(option.classList.contains("lyra--status-error")).toBe(true),
+    );
+  });
+
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {
     const slave = await createStrainSlave();
     const { container, statuses } = await renderRead({

@@ -459,11 +459,11 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         longest_try = std::max(longest_try, x::telem::TimeSpan(now - try_started));
         const auto next_try_end = x::telem::TimeSpan(now - started) +
                                   this->config.start_retry.max_interval + longest_try;
-        // A retry cannot clear a refused state, a rejected setting, or a slave config
-        // that cannot run. A try that ends after start_timeout hides its error behind
-        // the task timeout.
+        // A retry cannot clear a refused state, a setting a slave aborts, or a slave
+        // config that cannot run. A try that ends after start_timeout hides its error
+        // behind the task timeout.
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
-            err.matches(errors::STARTUP_PARAMETER_ERROR) ||
+            err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
             next_try_end > this->config.start_timeout || !retry.wait(err)) {
             retry.stop();

@@ -2773,7 +2773,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER, RANGE}}}};
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     const auto err = this->activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -2790,6 +2790,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"

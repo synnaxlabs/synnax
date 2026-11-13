@@ -839,6 +839,43 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
     );
 }
 
+/// @brief it should give a bus start three quarters of the task operation timeout, so
+/// the start returns its own error before the operation times out.
+TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    // One more try needs up to the 5 s longest retry wait, which fits in 6 s but not in
+    // 4.5 s.
+    Factory factory(
+        std::move(manager),
+        this->client,
+        this->rack.key,
+        nullptr,
+        x::telem::SECOND * 6
+    );
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    this->mock_master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "s1"};
+    read_task->exec(start);
+    EXPECT_EQ(this->mock_master->call_count("activate"), 1);
+    read_task->stop(false);
+}
+
 /// @brief it should apply the settings saved for each slave on the task's network when
 /// the bus starts, including a setting saved after configure and a slave the task does
 /// not read, and ignore an invalid slave on another network.

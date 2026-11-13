@@ -10,9 +10,9 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -109,8 +109,16 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
-    /// @brief each interface on which a rediscovery found a slave with no identity.
-    std::unordered_set<std::string> unidentified;
+    /// @brief the positions of the slaves with no identity on one interface.
+    struct Unidentified {
+        /// @brief the slaves with no identity at the last rediscovery.
+        std::set<uint16_t> seen;
+        /// @brief the slaves with no identity at each of the last two rediscoveries.
+        /// A restart clears by the next rediscovery, so only these are reported.
+        std::set<uint16_t> reported;
+    };
+    /// @brief the slaves with no identity on each interface.
+    std::unordered_map<std::string, Unidentified> unidentified;
 
     /// @brief creates a slave device for the given slave, and returns whether its saved
     /// config enables it. The status names any invalid property, and otherwise reflects

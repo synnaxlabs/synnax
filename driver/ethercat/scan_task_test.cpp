@@ -485,31 +485,48 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
 }
 
 /// @brief it should save no device for a slave with no vendor and product, discover the
-/// slaves again every sixth scan, and report the slave once a rediscovery finds no
-/// identity.
+/// slaves again every sixth scan, and report the slave once two rediscoveries in a row
+/// find no identity.
 TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
     this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
-    for (size_t i = 0; i < 13; ++i) {
+    for (size_t i = 0; i < 19; ++i) {
         const auto [devices, err] = this->scanner->scan({.count = i});
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
-        if (i < 6) {
+        if (i < 12) {
             ASSERT_NIL(err);
             continue;
         }
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
         EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
     }
-    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+}
+
+/// @brief it should not report a slave that first has no identity at a rediscovery,
+/// while it reports a slave that had none at the rediscovery before.
+TEST_F(EtherCATScanStatusTest, ReportsOnlyASlaveWithNoIdentityAtTwoRediscoveries) {
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
+    for (size_t i = 0; i < 12; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 3});
+    for (size_t i = 12; i < 18; ++i) {
+        const auto [devices, err] = this->scanner->scan({.count = i});
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
+    }
 }
 
 /// @brief it should stop reporting a slave with no identity once a rediscovery finds
 /// its identity.
 TEST_F(EtherCATScanStatusTest, StopsReportingASlaveOnceItHasAnIdentity) {
     this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
-    for (size_t i = 0; i < 6; ++i)
+    for (size_t i = 0; i < 12; ++i)
         ASSERT_NIL_P(this->scanner->scan({.count = i}));
-    ASSERT_OCCURRED_AS_P(this->scanner->scan({.count = 6}), common::PARTIAL_SCAN_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 12}),
+        common::PARTIAL_SCAN_ERROR
+    );
     this->master->replace_slave(
         2,
         slave::Properties{
@@ -521,7 +538,7 @@ TEST_F(EtherCATScanStatusTest, StopsReportingASlaveOnceItHasAnIdentity) {
             .name = "Restarted Slave",
         }
     );
-    const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = 12}));
+    const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = 18}));
     EXPECT_EQ(devices.size(), 2);
 }
 

@@ -97,8 +97,12 @@ export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
 
-/** How long a switch waits for the Driver. Writes to several slaves can be slow. */
-const SWITCH_TIMEOUT = TimeSpan.seconds(60);
+/**
+ * How long a switch waits for the Driver. Writes to several slaves can be slow. It ends
+ * before the default 60 s operation timeout of the Driver, whose error reply would read
+ * as a refusal while the switch still runs.
+ */
+const SWITCH_TIMEOUT = TimeSpan.seconds(50);
 
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the

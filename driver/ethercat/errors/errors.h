@@ -44,6 +44,12 @@ const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
+/// @brief error returned when a slave aborts a startup parameter write with an abort
+/// code. The same value gets the same abort, so retrying does not help. A write with no
+/// response is a plain STARTUP_PARAMETER_ERROR.
+const x::errors::Error STARTUP_PARAMETER_REJECTED = STARTUP_PARAMETER_ERROR.sub(
+    "rejected"
+);
 /// @brief error returned when two open tasks set one object of a slave to different
 /// values.
 const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
