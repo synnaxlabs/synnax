@@ -12,7 +12,3 @@ package v4
 // CustomTypeName gives AnalogWriteConfig records a table prefix that cannot collide
 // with the identically named config types of other integrations.
 func (AnalogWriteConfig) CustomTypeName() string { return "ni_analog_write_config" }
-
-// CustomTypeName gives CounterReadConfig records a table prefix that cannot collide
-// with the identically named config types of other integrations.
-func (CounterReadConfig) CustomTypeName() string { return "ni_counter_read_config" }
