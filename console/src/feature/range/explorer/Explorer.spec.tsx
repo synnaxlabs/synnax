@@ -162,6 +162,28 @@ describe("range/explorer/Explorer", () => {
       await findItem(other.name);
     });
 
+    it("should keep the ranges in a picked stage and name the stage in its chip", async () => {
+      const token = uniqueToken();
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const end = TimeStamp.now().sub(TimeSpan.days(1));
+      const done = await createRange(`${token} done`, {
+        timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+      });
+      await renderExplorer();
+      await search(token);
+      await findItem(done.name);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: done.name })).toBeNull();
+        expect(itemOf(running.name)).toBeTruthy();
+      });
+      expect(screen.getByRole("button", { name: /In progress$/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Remove Stage filter" })).toBeTruthy();
+    });
+
     it("should keep the ranges in a time preset and name the preset in its chip", async () => {
       const token = uniqueToken();
       const recent = await createRange(`${token} recent`);
@@ -265,6 +287,25 @@ describe("range/explorer/Explorer", () => {
       // The list reads no page for the tree until it reads the term.
       within(itemOf(parent.name)).getByRole("button", { name: "Collapse" });
       expect(screen.queryByText(sibling.name)).toBeNull();
+    });
+
+    it("should hide the matches of a range that collapses and show them on expand", async () => {
+      const token = uniqueToken();
+      const parent = await createRange(uniqueRangeName("parent"));
+      const match = await createRange(`${token} match`, { parent: parent.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(match.name);
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Collapse" }),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: match.name })).toBeNull(),
+      );
+      fireEvent.click(
+        within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
+      );
+      await findItem(match.name);
     });
 
     it("should drop a deleted range that holds matches", async () => {
@@ -553,6 +594,17 @@ describe("range/explorer/Explorer", () => {
       );
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
+    });
+
+    it("should zoom to a range on a click of its bar", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} zoomed`);
+      await renderExplorer();
+      await search(token);
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(await screen.findByLabelText(`Zoom to ${rng.name}`));
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
     });
 
     it("should pan the window on a drag of the axis", async () => {

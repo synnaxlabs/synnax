@@ -13,7 +13,7 @@ import pytest
 
 import synnax as sy
 from synnax import ranger, status, view
-from synnax.view import RangeView, StatusView, actions_gen
+from synnax.view import RangeView, StatusView
 from x.testutil import assert_eventually
 
 
@@ -80,7 +80,7 @@ class TestView:
         assert retrieved.sort == "oldest"
         assert retrieved.layout == "timeline"
         client.views.dispatch(
-            v.key, actions_gen.set(actions_gen.SetPayload(path=["sort"], value="name"))
+            v.key, view.set(view.SetPayload(path=["sort"], value="name"))
         )
         updated = client.views.retrieve(key=v.key)
         assert isinstance(updated, RangeView)
