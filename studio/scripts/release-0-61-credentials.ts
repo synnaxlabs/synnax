@@ -23,14 +23,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await capture.openToolbar(session, "user");
-    await capture.resizeToolbar(session, 320);
-    const drawer = page.locator(".console-nav__drawer").first();
-    await session.click(drawer.getByText("Owner", { exact: true }).first(), {
-      text: true,
-      zoom: false,
-    });
-    const item = capture.treeItem(page, "user:", "synnax");
+    await capture.openSettings(session, "Users");
+    const item = page.getByRole("option", { name: "synnax", exact: true });
     await session.waitFor(item);
     await capture.contextMenu(session, item, "Manage credentials");
     session.endZoom();

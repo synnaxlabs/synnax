@@ -29,7 +29,6 @@ their capital ("Core selector", "Arcs toolbar"):
 - ranges toolbar
 - search and command palette
 - tasks toolbar
-- users toolbar
 - project selector
 - projects toolbar
 
