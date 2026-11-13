@@ -74,6 +74,23 @@ var _ = Describe("Migrate", func() {
 					{Label: "HIGH", Value: "+Inf"},
 				},
 			}),
+		Entry("a repeated entry value as the first entry alone",
+			v0.WriteChannel{
+				JSONType: payload.JSONTypeString,
+				EnumValues: []payload.EnumEntry{
+					{Label: "A", Value: 1},
+					{Label: "B", Value: 1},
+					{Label: "C", Value: math.NaN()},
+					{Label: "D", Value: math.NaN()},
+				},
+			},
+			v1.StringWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues: []payload.StringEntry{
+					{Label: "A", Value: "1"},
+					{Label: "C", Value: "NaN"},
+				},
+			}),
 		Entry("a number with entries as a float that keeps them",
 			v0.WriteChannel{JSONType: payload.JSONTypeNumber, EnumValues: onOff},
 			v1.FloatWriteChannel{
