@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -101,6 +102,9 @@ func validateWriteConfig(cfg *WriteConfig) error {
 		return err
 	}
 	return plainTargets(cfg, func(path string, t *PlainWriteTarget) error {
+		if t.Channel.Variant == nil {
+			return errors.Wrapf(validate.ErrValidation, "%s.type: required", path)
+		}
 		return errors.Wrap(channelOf(t.Channel).Validate(), path)
 	})
 }
@@ -194,6 +198,9 @@ func reconcileWriteConfig(
 		return err
 	}
 	return plainTargets(cfg, func(path string, t *PlainWriteTarget) error {
+		if t.Channel.Variant == nil {
+			return errors.Wrapf(validate.ErrValidation, "%s.type: required", path)
+		}
 		base := t.Channel.Base()
 		ch, ok := channels[base.Channel]
 		var dt telem.DataType
@@ -218,7 +225,8 @@ func reconcileWriteConfig(
 		var changes []string
 		if ok && c.Kind == payload.KindTimestamp && dt != telem.TimestampT &&
 			base.DataType != nil {
-			if k, known := payload.KindOf(*base.DataType); known {
+			if k, known := payload.KindOf(*base.DataType); known &&
+				k != payload.KindTimestamp {
 				c = payload.Channel{Kind: k}
 				changes = append(
 					changes,

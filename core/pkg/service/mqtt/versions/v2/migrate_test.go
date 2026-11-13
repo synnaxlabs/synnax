@@ -91,6 +91,23 @@ var _ = Describe("Migrate", func() {
 					{Label: "ZERO", Value: "0"},
 				},
 			}),
+		Entry("a repeated entry value as the first entry alone",
+			v1.ChannelField{
+				JSONType: payload.JSONTypeString,
+				EnumValues: []payload.EnumEntry{
+					{Label: "A", Value: 1},
+					{Label: "B", Value: 1},
+					{Label: "C", Value: math.NaN()},
+					{Label: "D", Value: math.NaN()},
+				},
+			},
+			v2.StringChannelField{
+				BaseChannelField: base(telem.Float64T),
+				EnumValues: []payload.StringEntry{
+					{Label: "A", Value: "1"},
+					{Label: "C", Value: "NaN"},
+				},
+			}),
 		Entry("a number with entries as a float that keeps them",
 			v1.ChannelField{
 				JSONType:   payload.JSONTypeNumber,

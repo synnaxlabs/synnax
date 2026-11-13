@@ -345,6 +345,14 @@ var _ = Describe("Channel", func() {
 			}))
 		})
 
+		It("should make a timestamp on a boolean channel unsigned", func() {
+			c, _ := payload.Channel{
+				Kind:       payload.KindTimestamp,
+				TimeFormat: payload.TimeFormatUnixMs,
+			}.Reconcile(telem.BooleanT)
+			Expect(c.Kind).To(Equal(payload.KindUnsigned))
+		})
+
 		It("should keep a channel of an unknown data type", func() {
 			c := payload.Channel{Kind: payload.KindFloat}
 			Expect(c.Reconcile(telem.UnknownT)).To(Equal(c))

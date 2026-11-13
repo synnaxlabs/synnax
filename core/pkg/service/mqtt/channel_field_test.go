@@ -225,6 +225,20 @@ var _ = Describe("Channel fields", func() {
 	})
 
 	Describe("Validate", func() {
+		It("Should reject a channel field with no kind", func(ctx SpecContext) {
+			cfg := msgpack.EncodedJSON{"targets": []any{map[string]any{
+				"key":     "t0",
+				"type":    "plain",
+				"topic":   "plant/x",
+				"channel": nil,
+			}}}
+			Expect(svc.Write.Normalize(ctx, db, svc.Write.Version(), cfg)).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("targets.0.channel.type: required")),
+				))
+		})
+
 		It("Should reject two entries with one stored value", func(ctx SpecContext) {
 			Expect(prepare(ctx, config(
 				field("float", 0, entry("A", "NaN"), entry("B", "NaN")),
@@ -379,6 +393,7 @@ var _ = Describe("Stored write configs", func() {
 				Status:  statuses,
 			}))
 			create := func(dt telem.DataType) channel.Key {
+				GinkgoHelper()
 				ch := channel.Channel{
 					Name:     "ch_" + uuid.New().String()[:8],
 					DataType: dt,

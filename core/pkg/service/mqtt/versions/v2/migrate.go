@@ -28,7 +28,8 @@ import (
 // caller to fall back to when the channel does not hold timestamps. Otherwise, a
 // boolean JSON type makes a boolean field, and a number a float field that keeps its
 // entries. A string makes a string field whose entries take the decimal text of their
-// values, so a numeric sample writes the same JSON string as in v1. The caller
+// values, so a numeric sample writes the same JSON string as in v1. An entry whose
+// value repeats an earlier one's drops, because v1 wrote the first label. The caller
 // reconciles the field against its channel, or against its data type when it has none.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
@@ -39,6 +40,9 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		Name:     old.Name,
 		DataType: &dt,
 	}
+	entries := lo.UniqBy(old.EnumValues, func(e payload.EnumEntry) string {
+		return valueText(e.Value)
+	})
 	var c xpayload.Channel
 	switch {
 	case dt == telem.TimestampT:
@@ -58,16 +62,11 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		c = xpayload.Channel{
 			Kind: xpayload.KindString,
 			String: lo.Map(
-				old.EnumValues,
+				entries,
 				func(e payload.EnumEntry, _ int) payload.StringEntry {
-					v := e.Value
-					// -0 would format as "-0", which no unsigned channel parses.
-					if v == 0 {
-						v = 0
-					}
 					return payload.StringEntry{
 						Label: e.Label,
-						Value: strconv.FormatFloat(v, 'f', -1, 64),
+						Value: valueText(e.Value),
 					}
 				},
 			),
@@ -76,7 +75,7 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		c = xpayload.Channel{
 			Kind: xpayload.KindFloat,
 			Float: lo.Map(
-				old.EnumValues,
+				entries,
 				func(e payload.EnumEntry, _ int) payload.FloatEntry {
 					return payload.FloatEntry{
 						Label: e.Label,
@@ -87,6 +86,14 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		}
 	}
 	return channelField(base, c), nil
+}
+
+func valueText(v float64) string {
+	// -0 would format as "-0", which no unsigned channel parses.
+	if v == 0 {
+		v = 0
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // fallbackDataTypes holds the data type whose kind writes each v1 JSON type.
