@@ -60,7 +60,10 @@ func parseProperties(raw msgpack.EncodedJSON) (Properties, error) {
 		return Properties{}, err
 	}
 	props.ApplyDefaults()
-	return props, validateProperties(props)
+	if err := validateProperties(props); err != nil {
+		return Properties{}, err
+	}
+	return props, nil
 }
 
 // validateProperties checks that props can open a client.
