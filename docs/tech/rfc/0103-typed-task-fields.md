@@ -328,24 +328,27 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
 - **Dangling keys**: Export adds a `$channels` object, with the exporting Core's
   `cluster` key and a `keys` map from each bound key to its channel's `name` and
   `data_type`, next to `type` and `name` in the envelope body (`task/imex.go`). A new
-  `Store.BoundKeys(config)` gives export the keys. No config field can hold `$channels`,
-  and import removes it and passes it to `Store.Decode`. For any version before
-  `Binding`, legacy input included, each integration's store builds the map from the raw
-  body after the legacy rewrite and before the ladder runs, with the timestamp rule of
-  **Binding**. `Decoded` carries the map to `ReconcileEntry`, which now runs before
-  `DropDangling` and turns each bound key into `unbound` from the map when no local
-  channel has that key, or when `cluster` is another Core's, because two Cores hand out
-  the same channel keys. From another Core, a Sparkplug write target's `channel` and an
-  edge tag's `command_channel` become 0, so configure creates them again. Each takes its
-  channel name from `$channels`, whose keys include these channels, or else the name
-  that the Console derives today, such as `<tag>_cmd`. A Kafka write channel or an edge
-  tag's published `channel` becomes disabled, because configure cannot create it. The
-  import logs each one, with any name it set. A map built from a version before
-  `Binding` holds no real channel values, so it unbinds only a missing key. With no map
-  entry for a missing key, `ReconcileEntry` removes the field, or for a channel field
-  its target or endpoint, and logs what it removed. `ReconcileEntry` skips a missing key
+  `Store.ChannelKeys(config)` gives export the bound keys, and also the Sparkplug write
+  target and edge command channel keys. No config field can hold `$channels`, and import
+  removes it and passes it to `Store.Decode`. For any version before `Binding`, legacy
+  input included, each integration's store builds the map from the raw body after the
+  legacy rewrite and before the ladder runs, with the timestamp rule of **Binding**.
+  `Decoded` carries the map to `ReconcileEntry`, which now runs before `DropDangling`
+  and turns each bound key into `unbound` from the map when no local channel has that
+  key, or when `cluster` is another Core's, because two Cores hand out the same channel
+  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's
+  `command_channel` become 0. Configure then binds the device's stored channel for the
+  tag, or else creates one under the §5 rename rule, which Phase 30 also applies to
+  `configureCommandChannel`. Each takes its channel name from `$channels`, or else the
+  name that the Console derives today, such as `<tag>_cmd`. A Kafka write channel or an
+  edge tag's published `channel` becomes disabled, because configure cannot create it.
+  The import logs each one, with any name it set. A map built from a version before
+  `Binding` holds no real channel values, so it unbinds only a missing key, and it skips
+  command channels, whose raw body already holds their names. With no map entry for a
+  missing `Binding` key, `ReconcileEntry` removes the field, or for a channel field its
+  target or endpoint, and logs what it removed. `ReconcileEntry` skips a missing key
   that is not a `Binding`, such as a Kafka write channel, and `DropDangling` removes it
-  as today. `bound.key` 0 is invalid. Phase 27 adds `BoundKeys`, the `Decode` and hook
+  as today. `bound.key` 0 is invalid. Phase 27 adds `ChannelKeys`, the `Decode` and hook
   arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
   31 apply the rule.
 
