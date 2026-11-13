@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
@@ -1310,6 +1310,17 @@ describe("toString", () => {
     });
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
+    );
+  });
+
+  it("should render bigint-backed details as strings", () => {
+    const s = status.create<z.ZodType<{ clockSkew: TimeSpan }>>({
+      variant: "success",
+      message: "connected",
+      details: { clockSkew: TimeSpan.seconds(2) },
+    });
+    expect(status.toString(s)).toBe(
+      'SUCCESS: connected\n\nDetails:\n{\n  "clockSkew": "2000000000"\n}',
     );
   });
 });

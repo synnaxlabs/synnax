@@ -346,6 +346,9 @@ const renderDescription = (description: string): string => {
   }
 };
 
+const encodeBigInt = (_: string, v: unknown): unknown =>
+  typeof v === "bigint" ? v.toString() : v;
+
 /** Renders a status as readable text, pretty-printing a JSON description. */
 export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
@@ -368,7 +371,7 @@ export const toString = <Details extends z.ZodType = z.ZodNever>(
       Object.entries(details).filter(([k]) => k !== "stack" && k !== "error"),
     );
     if (Object.keys(extraDetails).length > 0)
-      parts.push(`Details:\n${JSON.stringify(extraDetails, null, 2)}`);
+      parts.push(`Details:\n${JSON.stringify(extraDetails, encodeBigInt, 2)}`);
   }
   return parts.join("\n\n");
 };
