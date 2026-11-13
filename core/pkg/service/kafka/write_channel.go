@@ -298,6 +298,9 @@ func newWriteMigration(svc *channel.Service) gorp.Migration {
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
+				if err = keepTimeFormats(ctx, tx, svc, old, &cfg); err != nil {
+					return errors.Wrapf(err, "config %s", old.GorpKey())
+				}
 				if err = reconcileWriteConfig(ctx, tx, svc, ins, &cfg); err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
@@ -306,6 +309,38 @@ func newWriteMigration(svc *channel.Service) gorp.Migration {
 			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
 		},
 	)
+}
+
+// keepTimeFormats gives each channel of cfg whose v0 row stored a time format, and
+// whose Synnax channel holds timestamps, that time format. The lift sees no channel,
+// so it keeps the format only on the one timestamp shape v0 ran.
+func keepTimeFormats(
+	ctx context.Context,
+	tx gorp.Tx,
+	svc *channel.Service,
+	old v0.WriteConfig,
+	cfg *WriteConfig,
+) error {
+	channels, err := readChannels(ctx, tx, svc, lo.FilterMap(
+		old.Channels,
+		func(c v0.WriteChannel, _ int) (channel.Key, bool) {
+			return c.Channel, c.TimeFormat != nil && c.Channel != 0
+		},
+	))
+	if err != nil {
+		return err
+	}
+	for i, c := range old.Channels {
+		ch, ok := channels[c.Channel]
+		if !ok || c.TimeFormat == nil || ch.DataType != telem.TimestampT {
+			continue
+		}
+		cfg.Channels[i].Variant = TimestampWriteChannel{
+			BaseWriteChannel: cfg.Channels[i].Base(),
+			TimeFormat:       *c.TimeFormat,
+		}
+	}
+	return nil
 }
 
 type warnFunc func(msg string, fields ...zap.Field)
