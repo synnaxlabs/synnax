@@ -225,10 +225,10 @@ picks one index: the channel of a bound index field, else the first non-zero ind
 its bound channels, on HTTP and MQTT the stored index when it still exists, else a new
 one. An unbound index field binds to it, and each new fixed-density read channel takes
 it. A command channel keeps its own `_time` index, as today. On HTTP and MQTT the device
-stores it. On HTTP and MQTT, a new variable-density channel (string, JSON, or bytes)
-stays virtual, as today. On Kafka it takes the index, as today. `onConfigure` then saves
-the field as bound. An adapter keeps the atomic Phase 12 near 400 lines, and Phase 14
-deletes it.
+stores the source's index. On HTTP and MQTT, a new variable-density channel (string,
+JSON, or bytes) stays virtual, as today. On Kafka it takes the index, as today.
+`onConfigure` then saves the field as bound. An adapter keeps the atomic Phase 12 near
+400 lines, and Phase 14 deletes it.
 
 ## 6 Field types
 
