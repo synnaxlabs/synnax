@@ -20,8 +20,8 @@ const LABELS = [
 
 /**
  * Docs `client/ranges/create-child`: right-click a range in the range explorer, select
- * Create child range, name the child, and save it to the Core. The dialog fills in the
- * parent, and the child appears in the range explorer.
+ * Start child range, name the child, and save it to the Core. The dialog fills in the
+ * parent, and the child appears under it in the range explorer.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -36,11 +36,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
   await page.getByText("Open range explorer", { exact: true }).first().click();
-  const explorer = page.locator(".console-range__explorer-list").first();
+  const explorer = page.locator(".console-range-tree__list").first();
   await session.waitFor(explorer);
-  const parent = page
-    .locator(".console-range__list-item")
-    .filter({ hasText: PARENT })
+  const parent = explorer
+    .locator(`.console-range-item[aria-label="${PARENT}"]`)
     .first();
   await session.waitFor(parent);
   await session.settle(500);
@@ -49,7 +48,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  await capture.contextMenu(session, parent, "Create child range");
+  await capture.contextMenu(session, parent, "Start child range");
   const modal = page.locator(capture.MODAL).first();
   const name = modal.getByPlaceholder("Name").first();
   await session.waitFor(name);
@@ -82,6 +81,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.clickButton(session, "Save to Core");
   session.endZoom();
   await session.waitForHidden(name);
-  await session.waitFor(explorer.getByText(CHILD, { exact: true }).first());
+  // The tree shows a child once its parent opens.
+  await session.click(parent.getByRole("button", { name: "Expand" }));
+  await session.waitFor(
+    explorer.locator(`.console-range-item[aria-label="${CHILD}"]`).first(),
+  );
   await session.hold(3000);
 };

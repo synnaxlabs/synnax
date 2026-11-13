@@ -58,9 +58,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "project");
   await projectItem.click();
   await session.waitFor(item);
-  const snapshots = page.getByText("Snapshots", { exact: true }).first();
-  await session.waitFor(snapshots);
-  await snapshots.scrollIntoViewIfNeeded();
+  await session.waitFor(page.locator(".console-range-overview").first());
   await session.settle(400);
   await session.moveTo({ x: 800, y: 450 });
 
@@ -69,8 +67,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.contextMenu(session, item, `Snapshot to ${RANGE}`);
   session.endZoom();
+  // The overview lists the snapshot under Attached.
   const snapshot = page
-    .locator(".console-snapshots__list-item")
+    .locator(".console-range-overview__document")
     .filter({ hasText: NAME })
     .first();
   await session.waitFor(snapshot);

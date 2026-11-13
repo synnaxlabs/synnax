@@ -57,13 +57,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.waitFor(trigger);
 
-  // Script-local override: drop the sections unrelated to labels so the shot
-  // stays on the Details block.
+  // Script-local override: drop the lines that add other parts, so the shot stays on
+  // the header.
   await page.evaluate(() => {
-    const hide = ["Child ranges", "Metadata", "Snapshots"];
-    for (const el of document.querySelectorAll(".lyra-header"))
-      if (hide.includes(el.textContent?.trim() ?? ""))
-        el.parentElement?.style.setProperty("display", "none");
+    for (const el of document.querySelectorAll<HTMLElement>(
+      ".console-range-overview__add",
+    ))
+      el.style.setProperty("display", "none");
   });
 
   await session.moveTo({ x: 800, y: 450 });
@@ -124,8 +124,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(300);
 
   // Open the selector once and add both labels; multi-select stays open.
-  // The Details block of the range overview holds the label selector.
-  await session.zoom(page.locator(".console-range__overview > div > *").first());
+  // The header of the range overview holds the label selector.
+  await session.zoom(page.locator(".console-range-overview__header").first());
   await openSelector();
   await pick(NEW_LABEL);
   await pick("Nominal");

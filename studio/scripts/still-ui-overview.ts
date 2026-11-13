@@ -65,14 +65,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     await openProject(session, world.project);
 
-    await favorite(session, "Open range explorer", [
+    await addToToolbar(session, "Open range explorer", "Pin", [
       "Coldflow 9",
       "Coldflow 10",
       "Coldflow 11",
     ]);
-    await favorite(
+    await addToToolbar(
       session,
       "Open status explorer",
+      "Favorite",
       ALARMS.map((a) => a.name),
     );
 
@@ -175,12 +176,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 };
 
 /**
- * favorite opens an explorer from the palette, favorites each named item in it, and
- * closes the explorer's tab.
+ * addToToolbar opens an explorer from the palette, selects the menu option on each
+ * named item in it, and closes the explorer's tab.
  */
-const favorite = async (
+const addToToolbar = async (
   session: capture.CaptureSession,
   command: string,
+  option: string,
   names: readonly string[],
 ): Promise<void> => {
   const { page } = session;
@@ -191,7 +193,7 @@ const favorite = async (
     await capture.contextMenu(
       session,
       item.getByText(name, { exact: true }).first(),
-      "Favorite",
+      option,
     );
     session.endZoom();
     await session.settle(300);
