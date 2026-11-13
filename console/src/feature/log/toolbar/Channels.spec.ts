@@ -97,6 +97,28 @@ describe("log/toolbar/Channels", () => {
     );
   });
 
+  it("rounds a typed fractional precision to a whole number", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "4.6" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).channels[0].precision).toBe(5),
+    );
+  });
+
+  it("clamps a typed precision to 17", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "40" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).channels[0].precision).toBe(17),
+    );
+  });
+
   it("clears the precision when its field is emptied", async () => {
     const ch = await createChannel();
     const { key } = await renderChannels([entry(ch, { precision: 3 })]);

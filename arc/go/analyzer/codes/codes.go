@@ -50,6 +50,12 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "non-boolean conditions are deprecated, use an explicit comparison like x != 0",
 	}
+	// BoolCast is a cast of a bool to a number type other than u8.
+	BoolCast = diagnostics.Kind{
+		Code:     "ARC2006",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "bool to %s is experimental; a future release may only allow bool to u8",
+	}
 
 	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
@@ -107,6 +113,7 @@ var (
 var All = []diagnostics.Kind{
 	NaNComparison,
 	TruthyCondition,
+	BoolCast,
 	FuncArgMissing,
 	FuncArgType,
 	FuncArgExtra,
