@@ -104,7 +104,7 @@ var _ = Describe("Read field migration", func() {
 					Method: v4.MethodPost,
 					Path:   "/values",
 					Body:   "{}",
-					Index:  "f",
+					Index:  "time",
 					Fields: []v4.ReadField{{
 						Key:      "f",
 						Name:     "pressure",
@@ -123,7 +123,7 @@ var _ = Describe("Read field migration", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPost))
 			Expect(ep.Path).To(Equal("/values"))
 			Expect(ep.Body).To(Equal("{}"))
-			Expect(ep.Index).To(Equal("f"))
+			Expect(ep.Index).To(Equal("time"))
 			f := ep.Fields[0]
 			Expect(f.Base()).To(Equal(v5.BaseReadField{
 				Key:      "f",
@@ -151,6 +151,17 @@ var _ = Describe("Read field migration", func() {
 				Expect(timestamp.TimeFormat).To(Equal(payload.TimeFormatUnixSec))
 			},
 		)
+
+		It("Should make the index field a timestamp field in ISO 8601", func(
+			ctx SpecContext,
+		) {
+			ep := MustSucceed(v5.MigrateReadEndpoint(ctx, v4.ReadEndpoint{
+				Index:  "f",
+				Fields: []v4.ReadField{untypedField(telem.Float64T)},
+			}))
+			timestamp := ep.Fields[0].Variant.(v5.TimestampReadField)
+			Expect(timestamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+		})
 	})
 
 	Describe("MigrateReadField", func() {
@@ -196,17 +207,15 @@ var _ = Describe("Read field migration", func() {
 				To(Equal(payload.TimeFormatUnixSec))
 		})
 
-		It("Should keep the stored data type of a field with a time format", func() {
-			old := optionalField(
-				telem.Float64T, nil, payload.EnumEntry{Label: "ON", Value: 1},
-			)
-			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			float := v5.MigrateReadField(old).Variant.(v5.FloatReadField)
-			Expect(math.IsNaN(float64(*float.Fill))).To(BeTrue())
-			Expect(float.EnumValues).To(Equal(
-				[]payload.FloatEntry{{Label: "ON", Value: 1}},
-			))
-		})
+		It("Should read an optional field with a time format as a timestamp field",
+			func() {
+				old := optionalField(telem.Float64T, nil)
+				old.TimeFormat = new(payload.TimeFormatUnixSec)
+				f := v5.MigrateReadField(old)
+				Expect(f.Variant.(v5.TimestampReadField).TimeFormat).
+					To(Equal(payload.TimeFormatUnixSec))
+			},
+		)
 
 		It("Should give a timestamp field with no time format ISO 8601", func(
 			ctx SpecContext,
