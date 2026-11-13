@@ -3328,6 +3328,53 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 
 	It(
+		"Should bound sized integer list elements to the range of their type",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Key uint32
+
+			Keys Key[]
+
+			KeyList = Key[]
+
+			Quad uint8[4]
+
+			Elements struct {
+				small  uint8[]
+				port   uint16[]
+				wide   int64[]
+				keys   Key[]
+				opt    uint16[]?
+				names  string[]
+				pair   uint8[2]
+			}
+		`
+			resp := MustGenerate(ctx, source, "elements", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"Keys: TypeAlias = list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"KeyList: TypeAlias = list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"Quad: TypeAlias = Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]",
+				"Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]",
+				"small: list[Annotated[int, Field(ge=0, le=255)]]",
+				"port: list[Annotated[int, Field(ge=0, le=65535)]]",
+				"wide: list[Annotated[int, Field(ge=-9223372036854775808, "+
+					"le=9223372036854775807)]]",
+				"keys: list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"opt: list[Annotated[int, Field(ge=0, le=65535)]] | None = None",
+				"names: list[str]",
+			)
+		},
+	)
+
+	It(
 		"Should bound sized integer map values to the range of their type",
 		func(ctx SpecContext) {
 			loader := NewMockFileLoader()
