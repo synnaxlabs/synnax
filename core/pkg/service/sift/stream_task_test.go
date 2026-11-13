@@ -76,7 +76,7 @@ var _ = Describe("Stream task", func() {
 		t.Config = toJSON(cfg)
 		dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-		Eventually(func() task.Status { return taskStatus(ctx, t) }).
+		Eventually(taskStatus).WithArguments(ctx, t).
 			Should(HaveField("Message", "Started task"))
 	}
 
@@ -473,9 +473,7 @@ var _ = Describe("Stream task", func() {
 				server.FailRuns(grpcstatus.Error(codes.Unauthenticated, "expired"))
 				start(ctx, streamConfig(l.Key))
 				endedRange(ctx, l.Key)
-				Eventually(func() task.Status {
-					return taskStatus(ctx, t)
-				}).Should(SatisfyAll(
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
 					HaveField("Variant", status.VariantError),
 					HaveField("Message", "Failed to run task"),
 					HaveField(
@@ -491,9 +489,7 @@ var _ = Describe("Stream task", func() {
 				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
 				start(ctx, streamConfig(l.Key))
 				rng := endedRange(ctx, l.Key)
-				Eventually(func() task.Status {
-					return taskStatus(ctx, t)
-				}).Should(SatisfyAll(
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
 					HaveField("Variant", status.VariantWarning),
 					HaveField("Message", "Failed to set Sift run"),
 					HaveField("Description", "Sift rejected the run of "+rng.Name+
@@ -517,9 +513,7 @@ var _ = Describe("Stream task", func() {
 				Eventually(server.Runs).Should(HaveExactElements(
 					HaveField("Name", "renamed"),
 				))
-				Eventually(func() task.Status {
-					return taskStatus(ctx, t)
-				}).Should(SatisfyAll(
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
 					HaveField("Variant", status.VariantSuccess),
 					HaveField("Message", "Started task"),
 				))
@@ -560,7 +554,7 @@ var _ = Describe("Stream task", func() {
 				[]telem.Series{telem.NewSeriesV(10.0, 20.0)},
 			)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				Should(HaveField("Message", "Failed to send data to Sift"))
 			Expect(dt.Stop(false)).To(Succeed())
 			Expect(progressOf(ctx)).To(HaveField(
@@ -581,14 +575,12 @@ var _ = Describe("Stream task", func() {
 			Eventually(values).Should(ConsistOf(1.0))
 			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
 			send(ctx, 2)
-			Eventually(
-				func() task.Status { return taskStatus(ctx, t) },
-			).Should(SatisfyAll(
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
 				HaveField("Variant", status.VariantWarning),
 				HaveField("Message", "Failed to send data to Sift"),
 				HaveField("Description", ContainSubstring("Sift is down")),
 			))
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				WithTimeout(5 * time.Second).
 				Should(HaveField("Variant", status.VariantSuccess))
 			Expect(values()).To(ConsistOf(1.0, 2.0))
@@ -610,7 +602,7 @@ var _ = Describe("Stream task", func() {
 				Should(HaveExactElements(1.0))
 			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
 			send(ctx, 2)
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				WithTimeout(2 * time.Second).
 				Should(HaveField("Message", "Failed to send data to Sift"))
 			server.Pause()
@@ -643,7 +635,7 @@ var _ = Describe("Stream task", func() {
 				HaveField("Message", "Failed to send data to Sift"),
 			))
 			server.Resume()
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				WithTimeout(2 * time.Second).
 				Should(HaveField("Variant", status.VariantSuccess))
 			Eventually(values).WithTimeout(2 * time.Second).
@@ -656,9 +648,9 @@ var _ = Describe("Stream task", func() {
 			t.Config = toJSON(streamConfig())
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				Should(HaveField("Message", "Failed to send data to Sift"))
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+			Eventually(taskStatus).WithArguments(ctx, t).
 				WithTimeout(5 * time.Second).
 				Should(HaveField("Variant", status.VariantSuccess))
 			Expect(server.Streams()).To(BeZero())
@@ -672,7 +664,7 @@ var _ = Describe("Stream task", func() {
 		t.Config = toJSON(streamConfig())
 		dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-		Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(SatisfyAll(
+		Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
 			HaveField("Variant", status.VariantError),
 			HaveField("Message", "Failed to run task"),
 			HaveField("Description", ContainSubstring("Sift rejected the API key")),

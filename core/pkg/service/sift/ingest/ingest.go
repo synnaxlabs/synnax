@@ -223,7 +223,7 @@ func New(ctx context.Context, cfgs ...Config) (*Engine, error) {
 }
 
 // Validate returns the validation error that New returns when Sift cannot take one of
-// the channels of keys, or nil.
+// the channels of keys, query.ErrNotFound when a key has no channel, or nil.
 func Validate(
 	ctx context.Context,
 	db *gorp.DB,
