@@ -23,12 +23,15 @@ constexpr int NO_SCANS_RETURNED = 1309;
 /// @brief LJME_NO_RESPONSE_BYTES_RECEIVED, a lost connection.
 constexpr int NO_RESPONSE_BYTES_RECEIVED = 1263;
 using StreamCallback = void (*)(void *);
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): LJM is a C library,
+// so its callers reach its state only through global functions.
 std::atomic<StreamCallback> stream_callback = nullptr;
 std::atomic<void *> stream_callback_arg = nullptr;
 std::atomic<bool> late_scans_sent = false;
 std::atomic<bool> late_scans_arrived = false;
 std::atomic<int> lost_stream_reads = 0;
 std::atomic<int> last_stopped_handle = -1;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
 #pragma GCC visibility push(default)
