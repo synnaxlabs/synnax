@@ -21,6 +21,5 @@ var _ = Describe("CustomTypeName", func() {
 			Expect(cfg.CustomTypeName()).To(Equal(want))
 		},
 		Entry("analog write", v4.AnalogWriteConfig{}, "ni_analog_write_config"),
-		Entry("counter read", v4.CounterReadConfig{}, "ni_counter_read_config"),
 	)
 })

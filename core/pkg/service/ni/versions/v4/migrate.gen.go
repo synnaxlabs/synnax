@@ -39,16 +39,10 @@ func autoMigrateAnalogWriteConfig(ctx context.Context, old v3.AnalogWriteConfig)
 	}, nil
 }
 
-func autoMigrateCounterReadConfig(ctx context.Context, old v3.CounterReadConfig) (CounterReadConfig, error) {
-	channels, err := lo.MapErr(old.Channels, func(v v3.CIChannel, _ int) (CIChannel, error) {
-		return autoMigrateCIChannel(ctx, v)
-	})
-	if err != nil {
-		return CounterReadConfig{}, err
-	}
+func autoMigrateCounterReadConfig(_ context.Context, old v3.CounterReadConfig) (CounterReadConfig, error) {
 	return CounterReadConfig{
 		ReadConfig: old.ReadConfig,
-		Channels:   channels,
+		Channels:   old.Channels,
 	}, nil
 }
 
@@ -95,128 +89,5 @@ func autoMigrateAOChannel(_ context.Context, old v3.AOChannel) (AOChannel, error
 		}}, nil
 	default:
 		return AOChannel{}, errors.Newf("unknown AOChannel variant %T", variant)
-	}
-}
-
-func autoMigrateCIChannel(_ context.Context, old v3.CIChannel) (CIChannel, error) {
-	switch variant := old.Variant.(type) {
-	case nil:
-		return CIChannel{}, nil
-	case v3.CIFrequencyChannel:
-		return CIChannel{Variant: CIFrequencyChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			Edge:          variant.Edge,
-			MeasMethod:    variant.MeasMethod,
-			MeasTime:      variant.MeasTime,
-			Divisor:       variant.Divisor,
-			Terminal:      variant.Terminal,
-		}}, nil
-	case v3.CIEdgeCountChannel:
-		return CIChannel{Variant: CIEdgeCountChannel{
-			BaseCIChannel:  variant.BaseCIChannel,
-			ActiveEdge:     variant.ActiveEdge,
-			CountDirection: variant.CountDirection,
-			InitialCount:   variant.InitialCount,
-			Terminal:       variant.Terminal,
-		}}, nil
-	case v3.CIPeriodChannel:
-		return CIChannel{Variant: CIPeriodChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			StartingEdge:  variant.StartingEdge,
-			MeasMethod:    variant.MeasMethod,
-			MeasTime:      variant.MeasTime,
-			Divisor:       variant.Divisor,
-			Terminal:      variant.Terminal,
-		}}, nil
-	case v3.CIPulseWidthChannel:
-		return CIChannel{Variant: CIPulseWidthChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			StartingEdge:  variant.StartingEdge,
-			Terminal:      variant.Terminal,
-		}}, nil
-	case v3.CISemiPeriodChannel:
-		return CIChannel{Variant: CISemiPeriodChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			Terminal:      variant.Terminal,
-		}}, nil
-	case v3.CITwoEdgeSepChannel:
-		return CIChannel{Variant: CITwoEdgeSepChannel{
-			BaseCIChannel:  variant.BaseCIChannel,
-			CustomScale:    variant.CustomScale,
-			MinMaxVal:      variant.MinMaxVal,
-			Units:          variant.Units,
-			FirstEdge:      variant.FirstEdge,
-			SecondEdge:     variant.SecondEdge,
-			FirstTerminal:  variant.FirstTerminal,
-			SecondTerminal: variant.SecondTerminal,
-		}}, nil
-	case v3.CIVelocityLinearChannel:
-		return CIChannel{Variant: CIVelocityLinearChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			DecodingType:  variant.DecodingType,
-			DistPerPulse:  variant.DistPerPulse,
-			TerminalA:     variant.TerminalA,
-			TerminalB:     variant.TerminalB,
-		}}, nil
-	case v3.CIVelocityAngularChannel:
-		return CIChannel{Variant: CIVelocityAngularChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			Units:         variant.Units,
-			DecodingType:  variant.DecodingType,
-			PulsesPerRev:  variant.PulsesPerRev,
-			TerminalA:     variant.TerminalA,
-			TerminalB:     variant.TerminalB,
-		}}, nil
-	case v3.CIPositionLinearChannel:
-		return CIChannel{Variant: CIPositionLinearChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			ZIndex:        variant.ZIndex,
-			Units:         variant.Units,
-			DecodingType:  variant.DecodingType,
-			DistPerPulse:  variant.DistPerPulse,
-			InitialPos:    variant.InitialPos,
-			TerminalA:     variant.TerminalA,
-			TerminalB:     variant.TerminalB,
-		}}, nil
-	case v3.CIPositionAngularChannel:
-		return CIChannel{Variant: CIPositionAngularChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			ZIndex:        variant.ZIndex,
-			Units:         variant.Units,
-			DecodingType:  variant.DecodingType,
-			PulsesPerRev:  variant.PulsesPerRev,
-			InitialAngle:  variant.InitialAngle,
-			TerminalA:     variant.TerminalA,
-			TerminalB:     variant.TerminalB,
-		}}, nil
-	case v3.CIDutyCycleChannel:
-		return CIChannel{Variant: CIDutyCycleChannel{
-			BaseCIChannel: variant.BaseCIChannel,
-			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
-			ActiveEdge:    variant.ActiveEdge,
-			Terminal:      variant.Terminal,
-		}}, nil
-	default:
-		return CIChannel{}, errors.Newf("unknown CIChannel variant %T", variant)
 	}
 }

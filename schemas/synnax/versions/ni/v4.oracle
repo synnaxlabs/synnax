@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/task/v2"
-
 Units = v2.Units
 
 AccelSensitivityUnits = v2.AccelSensitivityUnits
@@ -107,32 +105,7 @@ ZIndex = v2.ZIndex
 
 BaseCIChannel = v3.BaseCIChannel
 
-CIChannel union on type extends v3.CIChannel {
-    ci_frequency {
-        divisor uint32 = 4 {
-            @doc value    "is the counter divisor for large-range measurement."
-            @validate min 1
-        }
-    }
-    ci_period {
-        divisor uint32 = 4 {
-            @doc value    "is the counter divisor for large-range measurement."
-            @validate min 1
-        }
-    }
-    ci_velocity_angular {
-        pulses_per_rev uint32 = 24 {
-            @doc value    "is the number of encoder pulses per revolution."
-            @validate min 1
-        }
-    }
-    ci_position_angular {
-        pulses_per_rev uint32 = 24 {
-            @doc value    "is the number of encoder pulses per revolution."
-            @validate min 1
-        }
-    }
-}
+CIChannel = v3.CIChannel
 
 WaveType = v2.WaveType
 
@@ -180,7 +153,7 @@ DOChannel = v3.DOChannel
 
 AnalogReadConfig = v3.AnalogReadConfig
 
-CounterReadConfig struct extends v3.CounterReadConfig {}
+CounterReadConfig = v3.CounterReadConfig
 
 WriteConfig = v2.WriteConfig
 
