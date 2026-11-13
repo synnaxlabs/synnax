@@ -15,6 +15,7 @@ import "schemas/x/filter"
 
 @cpp output "client/cpp/ni/device"
 @go output  "core/pkg/service/ni/device"
+@pb
 @py output  "client/py/synnax/ni/device"
 @ts output  "client/ts/src/ni/device"
 
