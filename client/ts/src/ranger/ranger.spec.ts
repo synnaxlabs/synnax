@@ -505,6 +505,27 @@ describe("range", () => {
         .poll(() => expectLive(client.ranges.watch(parent.key).getCached()).hasChildren)
         .toBe(true);
     });
+
+    it("should keep the mark when a fetch that predates the child lands", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: id.create(), timeRange });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(parent.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = local.ranges.retrieve({ name: [parent.name] });
+      await responded;
+      await remote.ranges.create({ name: "Created", timeRange, parent: parent.key });
+      await expect
+        .poll(() => expectLive(local.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+      release();
+      await fetching;
+      expect(expectLive(local.ranges.watch(parent.key).getCached()).hasChildren).toBe(
+        true,
+      );
+    });
   });
 
   describe("Alias", () => {
