@@ -47,17 +47,14 @@ describe("NI chassis", async () => {
       const c = await create();
       await client.ni.chassis.delete(c.key);
       await client.ni.chassis.create(c);
-      await expect
-        .poll(async () => (await client.ni.chassis.retrieve({ key: c.key })).name)
-        .toBe(c.name);
+      expect((await client.ni.chassis.retrieve({ key: c.key })).name).toBe(c.name);
     });
 
     it("should replace a chassis whose key exists", async () => {
       const c = await create();
       await client.ni.chassis.create({ ...c, name: "Replaced" });
-      await expect
-        .poll(async () => (await client.ni.chassis.retrieve({ key: c.key })).name)
-        .toBe("Replaced");
+      const retrieved = await client.ni.chassis.retrieve({ key: c.key });
+      expect(retrieved.name).toBe("Replaced");
     });
 
     it("should create several chassis", async () => {
