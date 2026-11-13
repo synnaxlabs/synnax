@@ -1031,7 +1031,7 @@ var _ = Describe("Engine", func() {
 			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
 			run.Tags = []string{"cold"}
 			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
