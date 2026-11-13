@@ -52,10 +52,11 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 	return w.status.Set(ctx, &s)
 }
 
-// validateDevice rejects a device with no model, which the generated Validate accepts.
+// validateDevice rejects a device with no known model, which the generated Validate
+// accepts.
 func validateDevice(d Device) error {
 	v := validate.New("device")
-	v.Ternary("model", d.Variant == nil, "required")
+	v.Ternary("model", d.Model() == "", "required")
 	if err := v.Error(); err != nil {
 		return err
 	}

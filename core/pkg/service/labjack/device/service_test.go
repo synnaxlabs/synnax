@@ -171,6 +171,13 @@ var _ = Describe("Service", func() {
 				"model: required",
 			),
 			Entry(
+				"a pointer variant",
+				func(d *device.Device) {
+					d.Variant = &device.T7Device{Base: d.Base()}
+				},
+				"model: required",
+			),
+			Entry(
 				"unknown connection",
 				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Connection = "LJM_ctWIFI" }) },
 				"invalid connection",
