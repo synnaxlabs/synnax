@@ -39,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -206,6 +207,12 @@ type Transport struct {
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
 	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
+
+	// LABJACK DEVICE
+	LabJackDeviceCreate   freighter.UnaryServer[labjackdevice.CreateRequest, labjackdevice.CreateResponse]
+	LabJackDeviceRetrieve freighter.UnaryServer[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse]
+	LabJackDeviceUpdate   freighter.UnaryServer[labjackdevice.UpdateRequest, struct{}]
+	LabJackDeviceDelete   freighter.UnaryServer[labjackdevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -265,41 +272,42 @@ type Transport struct {
 // Layer wraps all implemented API services into a single container. Protocol-specific
 // Layer implementations should use this struct during instantiation.
 type Layer struct {
-	Project      *project.Service
-	LinePlot     *lineplot.Service
-	User         *user.Service
-	Framer       *framer.Service
-	Channel      *channel.Service
-	Control      *control.Service
-	Connectivity *connectivity.Service
-	License      *license.Service
-	Resource     *apiresource.Service
-	Range        *ranger.Service
-	KV           *kv.Service
-	Group        *group.Service
-	Log          *log.Service
-	Auth         *auth.Service
-	Schematic    *schematic.Service
-	Symbol       *symbol.Service
-	View         *view.Service
-	Secret       *secret.Service
-	Certificate  *certificate.Service
-	Table        *table.Service
-	Panel        *panel.Service
-	Label        *label.Service
-	Rack         *rack.Service
-	Task         *task.Service
-	Device       *device.Service
-	NIDevice     *nidevice.Service
-	NIChassis    *nichassis.Service
-	Policy       *policy.Service
-	Role         *role.Service
-	Arc          *arc.Service
-	Status       *status.Service
-	ImEx         *imex.Service
-	Batch        *batch.Service
-	binder       *bind.Service
-	config       config.LayerConfig
+	Project       *project.Service
+	LinePlot      *lineplot.Service
+	User          *user.Service
+	Framer        *framer.Service
+	Channel       *channel.Service
+	Control       *control.Service
+	Connectivity  *connectivity.Service
+	License       *license.Service
+	Resource      *apiresource.Service
+	Range         *ranger.Service
+	KV            *kv.Service
+	Group         *group.Service
+	Log           *log.Service
+	Auth          *auth.Service
+	Schematic     *schematic.Service
+	Symbol        *symbol.Service
+	View          *view.Service
+	Secret        *secret.Service
+	Certificate   *certificate.Service
+	Table         *table.Service
+	Panel         *panel.Service
+	Label         *label.Service
+	Rack          *rack.Service
+	Task          *task.Service
+	Device        *device.Service
+	NIDevice      *nidevice.Service
+	NIChassis     *nichassis.Service
+	LabJackDevice *labjackdevice.Service
+	Policy        *policy.Service
+	Role          *role.Service
+	Arc           *arc.Service
+	Status        *status.Service
+	ImEx          *imex.Service
+	Batch         *batch.Service
+	binder        *bind.Service
+	config        config.LayerConfig
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -486,6 +494,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisRetrieve,
 		t.NIChassisUpdate,
 		t.NIChassisDelete,
+
+		// LABJACK DEVICE
+		t.LabJackDeviceCreate,
+		t.LabJackDeviceRetrieve,
+		t.LabJackDeviceUpdate,
+		t.LabJackDeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -732,6 +746,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
+	// LABJACK DEVICE
+	t.LabJackDeviceCreate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Create))
+	t.LabJackDeviceRetrieve.BindHandler(bind.Read(l.binder, l.LabJackDevice.Retrieve))
+	t.LabJackDeviceUpdate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Update))
+	t.LabJackDeviceDelete.BindHandler(bind.Write(l.binder, l.LabJackDevice.Delete))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -946,6 +966,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.LabJackDevice, err = labjackdevice.NewService(labjackdevice.ServiceConfig{
+		Device: cfg.Service.LabJack.Devices,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

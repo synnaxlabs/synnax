@@ -2320,5 +2320,202 @@
         "expected": []
       }
     ]
+  },
+  "labjack_devices": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000020a",
+        "rack": 65538,
+        "name": "T7 bench",
+        "serial": 470010001,
+        "connection": "LJM_ctUSB",
+        "model": "t7"
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000020b",
+        "rack": 65538,
+        "name": "T4 bench",
+        "serial": 440010002,
+        "connection": "LJM_ctTCP",
+        "model": "t4"
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000020c",
+        "rack": 131073,
+        "name": "T8 cart",
+        "serial": 480010003,
+        "connection": "LJM_ctUSB",
+        "model": "t8"
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every device",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000020a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000020a",
+              "00000000-0000-4000-8000-00000000020c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-0000000002ff"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "T4 bench"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name contains",
+        "where": {
+          "name": {
+            "contains": "bench"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "cart$"
+          }
+        },
+        "expected": ["c"],
+        "server_computed": true
+      },
+      {
+        "name": "serial eq",
+        "where": {
+          "serial": {
+            "eq": 440010002
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "serial in",
+        "where": {
+          "serial": {
+            "in": [470010001, 480010003]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "serial gt",
+        "where": {
+          "serial": {
+            "gt": 440010002
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "serial lte",
+        "where": {
+          "serial": {
+            "lte": 470010001
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "model eq",
+        "where": {
+          "model": {
+            "eq": "t7"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "model in",
+        "where": {
+          "model": {
+            "in": ["t4", "t8"]
+          }
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 131073
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "rack": {
+            "eq": 65538
+          },
+          "model": {
+            "eq": "t4"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "model": {
+                "eq": "t8"
+              }
+            },
+            {
+              "serial": {
+                "eq": 470010001
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "rack": {
+              "eq": 65538
+            }
+          }
+        },
+        "expected": ["c"]
+      }
+    ]
   }
 }
