@@ -8,16 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
+import { resource } from "@/resource";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();
 
+const gone = async (read: () => Promise<unknown>): Promise<boolean> =>
+  await read().then(
+    () => false,
+    (e: unknown) => e instanceof NotFoundError,
+  );
+
 describe("NI chassis", async () => {
+  await client.connect();
   await other.connect();
   const rack = await client.racks.create({ name: "ni-chassis-test" });
   const create = async (name = "PXI1"): Promise<ni.chassis.Chassis> =>
@@ -39,7 +47,17 @@ describe("NI chassis", async () => {
       const c = await create();
       await client.ni.chassis.delete(c.key);
       await client.ni.chassis.create(c);
-      expect((await client.ni.chassis.retrieve({ key: c.key })).name).toBe(c.name);
+      await expect
+        .poll(async () => (await client.ni.chassis.retrieve({ key: c.key })).name)
+        .toBe(c.name);
+    });
+
+    it("should replace a chassis whose key exists", async () => {
+      const c = await create();
+      await client.ni.chassis.create({ ...c, name: "Replaced" });
+      await expect
+        .poll(async () => (await client.ni.chassis.retrieve({ key: c.key })).name)
+        .toBe("Replaced");
     });
 
     it("should create several chassis", async () => {
@@ -55,6 +73,21 @@ describe("NI chassis", async () => {
     it("should include the status of the chassis", async () => {
       const c = await create();
       const retrieved = await client.ni.chassis.retrieve({
+        key: c.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status?.owner).toEqual(ni.chassis.resourceID(c.key));
+    });
+
+    it("should include the status of a chassis the stream cached", async () => {
+      const c = await create();
+      await other.ni.chassis.retrieve({ key: c.key });
+      await waitForStreamLive(other.connection);
+      await client.ni.chassis.update(c.key, { group: "configuration", name: "Cached" });
+      await expect
+        .poll(async () => (await other.ni.chassis.retrieve({ key: c.key })).name)
+        .toBe("Cached");
+      const retrieved = await other.ni.chassis.retrieve({
         key: c.key,
         includeStatus: true,
       });
@@ -101,9 +134,21 @@ describe("NI chassis", async () => {
     });
   });
 
+  describe("update errors", () => {
+    it("should throw a NotFoundError for a missing chassis", async () => {
+      await expect(
+        client.ni.chassis.update(uuid.create(), {
+          group: "configuration",
+          name: "Missing",
+        }),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
   describe("delete", () => {
     it("should delete the chassis and the devices it holds", async () => {
       const c = await create();
+      await waitForStreamLive(client.connection);
       const module = await client.ni.devices.create({
         rack: rack.key,
         name: "Module",
@@ -115,16 +160,28 @@ describe("NI chassis", async () => {
       await expect(client.ni.chassis.retrieve({ key: c.key })).rejects.toThrow(
         NotFoundError,
       );
+      await waitForStreamLive(client.connection);
       await expect
         .poll(
           async () =>
-            await client.ni.devices.retrieve({ where: { key: { eq: module.key } } }),
+            await gone(
+              async () => await client.ni.devices.retrieve({ key: module.key }),
+            ),
         )
-        .toEqual([]);
+        .toBe(true);
     });
   });
 
   describe("cache", () => {
+    it("should receive a chassis another client creates", async () => {
+      await waitForStreamLive(other.connection);
+      const seen: string[] = [];
+      const stop = other.ni.chassis.onSet((chassis) => seen.push(chassis.key));
+      const c = await create();
+      await expect.poll(() => seen).toContain(c.key);
+      stop();
+    });
+
     it("should receive a chassis another client updates", async () => {
       const c = await create();
       await other.ni.chassis.retrieve({ key: c.key });
@@ -148,6 +205,35 @@ describe("NI chassis", async () => {
       await client.ni.chassis.delete(c.key);
       await expect.poll(() => deleted).toContain(c.key);
       stop();
+    });
+  });
+
+  describe("resource search", () => {
+    it("should rename a chassis in a subscribed search", async () => {
+      const token = `nichassis${Math.random().toString(36).slice(2)}`;
+      const c = await create(token);
+      await expect
+        .poll(
+          async () =>
+            (
+              await client.resources.search({
+                searchTerm: token,
+                types: ["ni_chassis"],
+              })
+            ).length,
+        )
+        .toBe(1);
+      const list = client.resources.watch({ searchTerm: token, types: ["ni_chassis"] });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      await client.ni.chassis.update(c.key, {
+        group: "configuration",
+        name: `${token} renamed`,
+      });
+      const key = resource.idToString(ni.chassis.resourceID(c.key));
+      await expect
+        .poll(() => list.getCached()?.records.find((r) => r.key === key)?.name)
+        .toBe(`${token} renamed`);
     });
   });
 });
