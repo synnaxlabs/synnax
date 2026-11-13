@@ -857,6 +857,34 @@ describe("MQTT Write form", () => {
       expect(channels).toEqual([cmdKey, virtualKey]);
     });
 
+    it("should create a channel of the kind's data type for a target with no data type", async () => {
+      const dev = await createBroker(client);
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createWriteTarget("t1", "plant/valve/set", {
+            type: "boolean",
+            dataType: undefined,
+          }),
+        ]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
+        client,
+        taskKey: draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      const [target] = created.config.targets;
+      if (target.type !== "plain") throw new Error("expected a plain target");
+      expect(target.channel.type).toBe("boolean");
+      const ch = await client.channels.retrieve(target.channel.channel);
+      expect(ch.dataType.toString()).toBe("uint8");
+    });
+
     it("should fit the kind to a channel the device already stores for the topic", async () => {
       const dev = await createBroker(client);
       const storedCh = await client.channels.create({
