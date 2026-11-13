@@ -101,4 +101,42 @@ describe("Notifications.useForward", () => {
     expect(screen.queryByText(progress)).toBeNull();
     expect(await screen.findByText(await write("error"))).toBeTruthy();
   });
+
+  it("should notify a Sift upload only on an error", async () => {
+    await renderForward();
+    const key = `${Sift.Range.KEY_PREFIX}${uniqueName("upload")}`;
+    const write = async (variant: "success" | "error"): Promise<string> => {
+      const { message } = await client.statuses.set({
+        key,
+        name: "",
+        variant,
+        message: uniqueName("upload"),
+        time: TimeStamp.now(),
+      });
+      return message;
+    };
+    const success = await write("success");
+    await settleWrites(client);
+    expect(screen.queryByText(success)).toBeNull();
+    expect(await screen.findByText(await write("error"))).toBeTruthy();
+  });
+
+  it("should notify a Sift retry warning only after 5 s", async () => {
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout"],
+      shouldAdvanceTime: true,
+    });
+    await renderForward();
+    const { message } = await client.statuses.set({
+      key: `${Sift.Task.PROGRESS_KEY_PREFIX}${uniqueName("task")}`,
+      name: "",
+      variant: "warning",
+      message: uniqueName("retrying"),
+      time: TimeStamp.now(),
+    });
+    await settleWrites(client);
+    expect(screen.queryByText(message)).toBeNull();
+    act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
 });
