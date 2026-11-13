@@ -18,8 +18,8 @@ import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
-import { CaptureStatuses, uniqueName } from "@/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
+import { CaptureStatuses, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -29,8 +29,27 @@ const createRange = async () =>
     timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2)),
   });
 
+// The device list pages, so a search finds the device however many the Core holds.
+const selectDevice = async (name: string) => {
+  fireEvent.click(await findDialogTriggerByText("Select device"));
+  fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+    target: { value: name },
+  });
+  fireEvent.click(await screen.findByText(name));
+};
+
 const clickUpload = () =>
   fireEvent.click(screen.getByRole("button", { name: /Upload/ }));
+
+const createScanTask = async () => {
+  const rack = await createRunningRack(client, "sift");
+  const scan = await rack.createTask({
+    name: uniqueName("sift_scan"),
+    type: Sift.Task.SCAN_TYPE,
+    config: {},
+  });
+  return { rack, scan };
+};
 
 describe("Sift.Range.useUploadModal", () => {
   it("should require a device, an asset, and channels", async () => {
@@ -48,12 +67,7 @@ describe("Sift.Range.useUploadModal", () => {
   });
 
   it("should queue an upload on the scan task of the device's rack", async () => {
-    const rack = await createRunningRack(client, "sift");
-    const scan = await rack.createTask({
-      name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
-      config: {},
-    });
+    const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });
     const [, data] = await newIndexedPair(client);
     const rng = await createRange();
@@ -66,29 +80,151 @@ describe("Sift.Range.useUploadModal", () => {
         extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
       },
     );
-    await selectFromDropdown("Select device", dev.name);
-    fireEvent.change(await screen.findByPlaceholderText("Test stand 1"), {
-      target: { value: "Test stand 1" },
+    const { answered: listed } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["pad", "stand"], last: "stand" },
     });
+    await selectDevice(dev.name);
+    await listed;
+    expect(await screen.findByText("stand")).toBeTruthy();
     fireEvent.click(screen.getByText("Select channels to upload"));
     fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
       target: { value: data.name },
     });
     fireEvent.click(await screen.findByText(data.name));
-    const { answered } = await answerNextCommand(client, scan);
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    });
     clickUpload();
     const cmd = await answered;
-    expect(cmd.type).toBe(Sift.Task.UPLOAD_COMMAND_TYPE);
     expect(cmd.args).toEqual({
       device: dev.key,
       range: rng.key,
       channels: [data.key],
-      asset: "Test stand 1",
+      asset: "stand",
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Queued upload to Sift"),
     );
+  });
+
+  it("should start again at the last asset of a new device", async () => {
+    const { rack, scan } = await createScanTask();
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      { client },
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(first.name);
+    await listedFirst;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["pad"], last: "pad" },
+    });
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: second.name },
+    });
+    fireEvent.click(await screen.findByText(second.name));
+    await listedSecond;
+    expect(await findDialogTriggerByText("pad")).toBeTruthy();
+    expect(screen.queryByText("stand")).toBeNull();
+  });
+
+  it("should leave the asset empty when the assets of a new device fail to list", async () => {
+    const { rack, scan } = await createScanTask();
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(first.name);
+    await listedFirst;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      variant: "error",
+      message: "Sift is unreachable",
+    });
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: second.name },
+    });
+    fireEvent.click(await screen.findByText(second.name));
+    await listedSecond;
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to list Sift assets"),
+    );
+    expect(screen.queryByText("stand")).toBeNull();
+  });
+
+  it("should name a new asset only through New asset", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      { client },
+    );
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: [], last: "" },
+    });
+    await selectDevice(dev.name);
+    await answered;
+    fireEvent.click(screen.getByRole("button", { name: /New asset/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Asset name"), {
+      target: { value: " Rig 2 " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+    const trigger = await findDialogTriggerByText("Rig 2");
+    expect(trigger.textContent).not.toContain(" Rig 2 ");
+  });
+
+  it("should keep the asset when a new asset name is only spaces", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      { client },
+    );
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(dev.name);
+    await answered;
+    await findDialogTriggerByText("stand");
+    fireEvent.click(screen.getByRole("button", { name: /New asset/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Asset name"), {
+      target: { value: "   " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(screen.queryByPlaceholderText("Asset name")).toBeNull());
+    expect(await findDialogTriggerByText("stand")).toBeTruthy();
   });
 
   it("should not list calculated channels, which the Core does not store", async () => {
@@ -115,12 +251,7 @@ describe("Sift.Range.useUploadModal", () => {
   });
 
   it("should disable Upload while the scan task queues the upload", async () => {
-    const rack = await createRunningRack(client, "sift");
-    const scan = await rack.createTask({
-      name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
-      config: {},
-    });
+    const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });
     const [, data] = await newIndexedPair(client);
     const rng = await createRange();
@@ -129,16 +260,21 @@ describe("Sift.Range.useUploadModal", () => {
       [{ rangeKey: rng.key, rangeName: rng.name }],
       { client },
     );
-    await selectFromDropdown("Select device", dev.name);
-    fireEvent.change(await screen.findByPlaceholderText("Test stand 1"), {
-      target: { value: "Test stand 1" },
+    const { answered: listed } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
     });
+    await selectDevice(dev.name);
+    await listed;
+    expect(await screen.findByText("stand")).toBeTruthy();
     fireEvent.click(screen.getByText("Select channels to upload"));
     fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
       target: { value: data.name },
     });
     fireEvent.click(await screen.findByText(data.name));
-    const { answered } = await answerNextCommand(client, scan);
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    });
     clickUpload();
     expect(
       screen.getByRole("button", { name: /Upload/ }).getAttribute("aria-disabled"),
@@ -148,12 +284,7 @@ describe("Sift.Range.useUploadModal", () => {
   });
 
   it("should stay open and show why the scan task rejected an upload", async () => {
-    const rack = await createRunningRack(client, "sift");
-    const scan = await rack.createTask({
-      name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
-      config: {},
-    });
+    const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });
     const [, data] = await newIndexedPair(client);
     const rng = await createRange();
@@ -166,16 +297,20 @@ describe("Sift.Range.useUploadModal", () => {
         extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
       },
     );
-    await selectFromDropdown("Select device", dev.name);
-    fireEvent.change(await screen.findByPlaceholderText("Test stand 1"), {
-      target: { value: "Test stand 1" },
+    const { answered: listed } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
     });
+    await selectDevice(dev.name);
+    await listed;
+    expect(await screen.findByText("stand")).toBeTruthy();
     fireEvent.click(screen.getByText("Select channels to upload"));
     fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
       target: { value: data.name },
     });
     fireEvent.click(await screen.findByText(data.name));
     const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.UPLOAD_COMMAND_TYPE,
       variant: "error",
       message: "Failed to upload to Sift",
       description: "range has no data",

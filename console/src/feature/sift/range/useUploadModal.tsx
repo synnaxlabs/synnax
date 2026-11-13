@@ -30,7 +30,7 @@ import { deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
 
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
+import { Asset } from "@/feature/sift/asset";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -71,8 +71,6 @@ const isStored = (ch: channel.Channel): boolean => !ch.isCalculated;
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
 };
-
-const ASSET_INPUT_PROPS = { placeholder: "Test stand 1" } as const;
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
@@ -155,12 +153,9 @@ const Upload = ({
             Upload {rangeName} to Sift
           </Text.Text>
           <Flex.Box x gap="large">
-            <SelectDevice />
-            <Form.TextField
+            <Asset.Destination
               path={path.config.asset}
-              label="Asset"
-              required
-              inputProps={ASSET_INPUT_PROPS}
+              devicePath={path.config.device}
               grow
             />
           </Flex.Box>

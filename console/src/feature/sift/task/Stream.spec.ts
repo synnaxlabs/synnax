@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type task } from "@synnaxlabs/client";
+import { DataType, task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
-import { TimeStamp } from "@synnaxlabs/x";
+import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import {
+  answerNextCommand,
   awaitEditableForm,
+  createTaskReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -44,7 +47,7 @@ const renderStream = async (options: RenderTaskFormTabOptions = {}) => {
 describe("Sift stream form", () => {
   it("should show the asset, channel, and label fields", async () => {
     await renderStream();
-    expect(await screen.findByPlaceholderText("Test stand 1")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /New asset/ })).toBeTruthy();
     expect(screen.getByText("Select channels to send")).toBeTruthy();
     expect(
       screen.getByText("A range with one of these labels becomes a Sift run."),
@@ -80,6 +83,137 @@ describe("Sift stream form", () => {
       asset: "Test stand 1",
       channels: [data.key],
     });
+  });
+
+  it("should start a new task at the last asset of its device", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({
+      task: { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+    });
+    await answered;
+    expect(await findDialogTriggerByText("stand")).toBeTruthy();
+  });
+
+  it("should keep the saved asset of a task", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "rig" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({ taskKey: t.key });
+    await answered;
+    fireEvent.click(await findDialogTriggerByText("rig"));
+    expect(await screen.findByText("stand")).toBeTruthy();
+    expect(await findDialogTriggerByText("rig")).toBeTruthy();
+  });
+
+  it("should show the saved asset without New asset to a user who cannot edit", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "Test stand 1" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    await renderTaskFormTab(Sift.Task.Stream, {
+      client,
+      taskKey: t.key,
+      as: await createTaskReadOnlyClient(client),
+    });
+    expect(await screen.findByText("Test stand 1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
+  });
+
+  it("should not list the assets for a user who cannot edit", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const messages: string[] = [];
+    await renderTaskFormTab(Sift.Task.Stream, {
+      client,
+      taskKey: t.key,
+      as: await createTaskReadOnlyClient(client),
+      onStatuses: (next) => messages.push(...next.map((s) => s.message)),
+    });
+    await sleep.sleep(TimeSpan.seconds(1));
+    expect(messages).not.toContain("Failed to list Sift assets");
+  });
+
+  it("should not say Sift has no assets when the list fails", async () => {
+    const dev = await createSiftDevice(client);
+    await renderStream({
+      task: { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+    });
+    fireEvent.click(await findDialogTriggerByText("Select asset"));
+    expect(await screen.findByText("Failed to list assets")).toBeTruthy();
+    expect(screen.queryByText("No assets in Sift")).toBeNull();
+  });
+
+  it("should keep the asset when another client changes the device", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: first.key, asset: "rig" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({ taskKey: t.key });
+    await listedFirst;
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["pad"], last: "pad" },
+    });
+    const other = createTestClient();
+    await other.tasks.retrieve({ key: t.key });
+    expect(
+      await other.tasks.dispatch(
+        t.key,
+        task.set({ path: ["config", "device"], value: second.key }),
+      ),
+    ).toBe(true);
+    await listedSecond;
+    fireEvent.click(await findDialogTriggerByText("rig"));
+    // The option shows once the field reads the assets of the new device.
+    expect(await screen.findByText("pad")).toBeTruthy();
+    expect(await findDialogTriggerByText("rig")).toBeTruthy();
   });
 
   it("should save the labels that the user picks", async () => {
