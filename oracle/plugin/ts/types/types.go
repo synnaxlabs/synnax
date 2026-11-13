@@ -1845,10 +1845,16 @@ func (p *Plugin) processField(
 			table,
 			data,
 		)
+		record, keySchemaType := recordFunc(
+			&field.Type.TypeArgs[0],
+			keySchemaType,
+			table,
+		)
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
 			fd.ZodType = fmt.Sprintf(
-				"zod.nullToUndefined(z.record(%s, %s))",
+				"zod.nullToUndefined(z.%s(%s, %s))",
+				record,
 				keyZ,
 				valueZ,
 			)
@@ -1859,7 +1865,8 @@ func (p *Plugin) processField(
 			)
 		} else {
 			fd.ZodType = fmt.Sprintf(
-				"z.record(%s, %s).default(() => ({}))",
+				"z.%s(%s, %s).default(() => ({}))",
+				record,
 				keyZ,
 				valueZ,
 			)
@@ -2038,7 +2045,8 @@ func (p *Plugin) typeRefToZodInternal(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		keyZ := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, false)
 		valueZ := p.typeRefToZodInternal(&typeRef.TypeArgs[1], table, data, false)
-		return fmt.Sprintf("z.record(%s, %s)", keyZ, valueZ)
+		record, _ := recordFunc(&typeRef.TypeArgs[0], "", table)
+		return fmt.Sprintf("z.%s(%s, %s)", record, keyZ, valueZ)
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -2510,6 +2518,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		keyType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[0], table, data)
 		valueType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[1], table, data)
+		_, keyType = recordFunc(&typeRef.TypeArgs[0], keyType, table)
 		return fmt.Sprintf("z.ZodRecord<%s, %s>", keyType, valueType)
 	}
 	resolved, ok := typeRef.Resolve(table)
@@ -3687,3 +3696,21 @@ export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )
+
+// recordFunc returns the Zod record function for key and the key schema type that the
+// record carries. z.record requires every member of an enum key, so an enum key takes
+// z.partialRecord.
+func recordFunc(
+	key *resolution.TypeRef,
+	keySchemaType string,
+	table *resolution.Table,
+) (string, string) {
+	target, _, ok := resolution.Dealias(*key, table)
+	if !ok {
+		return "record", keySchemaType
+	}
+	if _, isEnum := target.Form.(resolution.EnumForm); !isEnum {
+		return "record", keySchemaType
+	}
+	return "partialRecord", keySchemaType + " & z.core.$partial"
+}

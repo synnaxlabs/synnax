@@ -49,8 +49,8 @@ var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Utc", "Utf", "Uuid", "Vm", "Xml", "Xmpp",
-	"Xss", "Xy",
+	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xml",
+	"Xmpp", "Xss", "Xy",
 }
 
 // pascalWord matches one word of a PascalCase identifier.
