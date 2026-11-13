@@ -159,15 +159,17 @@ describe("Form.Fanout", () => {
 
     it("should set a status on every subtree", () => {
       const { fanout, root } = renderContext({ a: LIST, b: LIST }, [lists.a, lists.b]);
-      act(() => fanout().setStatus(lists.a.range, { variant: "error", message: "Bad" }));
+      act(() =>
+        fanout().setStatus(lists.a.range, { variant: "error", message: "Bad" }),
+      );
       expect(root().get(lists.b.range).status).toMatchObject({ variant: "error" });
     });
 
     it("should validate every subtree", () => {
-      const { fanout, root } = renderContext(
-        { a: LIST, b: { ...LIST, range: 500 } },
-        [lists.a, lists.b],
-      );
+      const { fanout, root } = renderContext({ a: LIST, b: { ...LIST, range: 500 } }, [
+        lists.a,
+        lists.b,
+      ]);
       expect(root().validate(lists.a)).toBe(true);
       let valid = true;
       act(() => {

@@ -480,7 +480,9 @@ describe("GroupTree", () => {
 
       it("should tare from the one button, which a float field shows", async () => {
         const { args, float } = await tareThrough(async (container) => {
-          await waitFor(() => expect(getIconButtons(container, "tare")).toHaveLength(1));
+          await waitFor(() =>
+            expect(getIconButtons(container, "tare")).toHaveLength(1),
+          );
           fireEvent.click(getIconButtons(container, "tare")[0]);
         });
         expect(args).toEqual({ keys: [float] });

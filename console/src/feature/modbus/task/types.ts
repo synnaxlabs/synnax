@@ -211,8 +211,8 @@ const nextChannel = <C extends Channel>(channel: C): C => {
 
 /**
  * @returns the channel to add after the channel with the given key, or after the last
- * channel: the first slot after it that overlaps no channel. Returns null when there are
- * no channels.
+ * channel: the first slot after it that overlaps no channel. Returns null when there
+ * are no channels.
  */
 export const nextOpenChannel = <C extends Channel>(
   channels: C[],

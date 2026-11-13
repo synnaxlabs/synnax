@@ -32,7 +32,6 @@ import {
 import {
   deployWriteConfigZ,
   nextOpenChannel,
-  writesOverlap,
   UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
@@ -40,6 +39,7 @@ import {
   type WriteChannel,
   type WriteChannelType,
   type WriteSchemas,
+  writesOverlap,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";

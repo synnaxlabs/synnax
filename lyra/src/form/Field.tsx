@@ -26,10 +26,9 @@ import { Select } from "@/select";
 interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
 
-/** Props for {@link Field}. */
 /**
- * @returns the text under a field: its status message, or "Mixed" when the subtrees that
- * `Form.Fanout` edits differ there and the field has no problem.
+ * @returns the text under a field: its status message, or "Mixed" when the subtrees
+ * that `Form.Fanout` edits differ there and the field has no problem.
  */
 export const helpTextOf = ({
   mixed,
@@ -37,6 +36,7 @@ export const helpTextOf = ({
 }: Pick<FieldState, "mixed" | "status">): string | undefined =>
   mixed === true && status.variant === "success" ? "Mixed" : status.message;
 
+/** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     /** The path into the form values. */

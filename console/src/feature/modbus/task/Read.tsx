@@ -35,7 +35,6 @@ import {
   isStringReadChannel,
   isVariableDensityReadChannel,
   nextOpenChannel,
-  readsOverlap,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -44,6 +43,7 @@ import {
   readDataType,
   readMapKey,
   type ReadSchemas,
+  readsOverlap,
   UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
