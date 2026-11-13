@@ -30,11 +30,10 @@ and recorded in one channel.
 - **Bare values** -> an empty pointer, shown as **Whole payload**, reads a topic that
   carries a bare number or string, such as `42.7`.
 - **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
-  number.
-- **All or nothing** -> the task writes all fields of a payload or none. When a payload
-  has no value for a field, the task writes the field's **Fill**. A payload that has no
-  value for a field with no fill, or holds a value that the channel cannot store, is
-  skipped.
+  channel value.
+- **All or nothing** -> the task writes all fields of a payload or none. A payload that
+  lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
+  field's `fill` is written in place of a missing value.
 
 A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
 of one topic share one index channel, and two topics cannot write to the same channel.
@@ -169,14 +168,14 @@ In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 
 A field has these settings:
 
-| Setting                                   | Default | Notes                                              |
-| ----------------------------------------- | ------- | -------------------------------------------------- |
-| Pointer <small>`pointer`</small>          | Empty   | Empty reads the whole payload.                     |
-| Kind <small>`type`</small>                |         | Must match the data type of the channel.           |
-| Format <small>`time_format`</small>       |         | Required for a `timestamp` field.                  |
-| Channel <small>`channel`</small>          |         | The channel that records the value.                |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels in the payload to channel values. |
-| Fill <small>`fill`</small>                | None    | Written when the payload has no value.             |
+| Setting                                   | Default | Notes                                                 |
+| ----------------------------------------- | ------- | ----------------------------------------------------- |
+| Pointer <small>`pointer`</small>          | Empty   | Empty reads the whole payload.                        |
+| Data type <small>`type`</small>           |         | In code, the kind that the channel's data type takes. |
+| Format <small>`time_format`</small>       |         | Required for a `timestamp` field.                     |
+| Channel <small>`channel`</small>          |         | The channel that records the value.                   |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels in the payload to channel values.    |
+| Fill <small>`fill`</small>                | None    | Code only. Written when the payload has no value.     |
 
 In code, a field is the class of its kind, such as `mqtt.FloatReadField`,
 `mqtt.UnsignedReadField`, or `mqtt.TimestampReadField`. A float channel takes `float`, a
