@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ni } from "@synnaxlabs/client";
+import { type device, type ni } from "@synnaxlabs/client";
 import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
 import { primitive, verbs } from "@synnaxlabs/x";
 
@@ -58,23 +58,23 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<ListQuery, ni.device.Device>,
-  "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<ni.device.Key, ni.device.Device> =>
   Flux.useList((client) => client.ni.devices, {
     ...rest,
     name: PLURAL_RESOURCE_NAME,
     query: query === null ? null : { ...BASE_QUERY, ...query },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
   });
 
 export interface UpdateConfigurationParams {
   key: ni.device.Key;
-  /** The fields to change. The rest keep their stored values. */
-  configuration: Partial<ni.device.Configuration>;
+  configuration: ni.device.Configuration;
 }
 
 /**
- * Writes the configuration group of an NI device. It reads the stored group first,
- * because the Core clears each field that the update leaves out.
+ * Replaces the configuration group of an NI device. The Core clears each field that
+ * the group leaves out, so a caller sends the whole group.
  */
 export const { useUpdate: useUpdateConfiguration } =
   Flux.createUpdate<UpdateConfigurationParams>({
@@ -82,14 +82,7 @@ export const { useUpdate: useUpdateConfiguration } =
     verbs: verbs.UPDATE,
     update: async ({ client, data }) => {
       const { key, configuration } = data;
-      const stored = ni.device.configurationZ.parse(
-        await client.ni.devices.retrieve({ key }),
-      );
-      await client.ni.devices.update(key, {
-        ...stored,
-        ...configuration,
-        group: "configuration",
-      });
+      await client.ni.devices.update(key, { ...configuration, group: "configuration" });
       return data;
     },
   });
