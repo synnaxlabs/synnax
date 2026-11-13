@@ -383,7 +383,7 @@ export class Client extends query.Retriever<
         : this.sugarOne({
             ...r.payload,
             labels: cached.labels,
-            hasChildren: cached.hasChildren,
+            hasChildren: r.hasChildren || cached.hasChildren,
           });
     });
     this.store.set(res);
