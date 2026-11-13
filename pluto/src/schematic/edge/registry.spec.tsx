@@ -63,7 +63,7 @@ const renderEdge = (
             targetNode="b"
             selected={false}
             edge={edge}
-            onChange={vi.fn()}
+            onSegmentsChange={vi.fn()}
           />
         </svg>
       </Edge.Jumps.Context>

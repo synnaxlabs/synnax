@@ -14,7 +14,7 @@ import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
 export interface EdgeProps extends Diagram.EdgeProps {
-  onChange: (p: Partial<schematic.Edge>) => void;
+  onSegmentsChange: (segments: schematic.Segment[]) => void;
   edge: schematic.Edge;
 }
 

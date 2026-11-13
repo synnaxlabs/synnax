@@ -719,7 +719,7 @@ describe("schematic queries", () => {
       );
     });
 
-    it("writes a connected edge through set_edge", async () => {
+    it("writes only the segments of a connected edge", async () => {
       await styleE1({ segments: SEGMENTS });
       await waitFor(() => expect(getEdge()?.segments).toEqual(SEGMENTS));
       const send = spyOnSend(client);
@@ -731,7 +731,7 @@ describe("schematic queries", () => {
       expect(req).toMatchObject({
         actions: [
           { type: "set_node_position" },
-          { type: "set_edge", setEdge: { edge: { key: "e1" } } },
+          { type: "set_edge_segments", setEdgeSegments: { key: "e1" } },
         ],
       });
     });
@@ -1117,7 +1117,7 @@ describe("schematic queries", () => {
       });
     });
 
-    it("should send an edit as a set_edge action", async () => {
+    it("should send an edit as a set_edge_style action", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderEdgeForm(schem.key);
       const send = spyOnSend(client);
@@ -1126,7 +1126,9 @@ describe("schematic queries", () => {
         const [, req] =
           send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
         expect(req).toMatchObject({
-          actions: [{ type: "set_edge", setEdge: { edge: { strokeWidth: 6 } } }],
+          actions: [
+            { type: "set_edge_style", setEdgeStyle: { key: "e1", strokeWidth: 6 } },
+          ],
         });
       });
       await waitFor(async () =>

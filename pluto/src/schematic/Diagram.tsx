@@ -72,17 +72,13 @@ const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | nul
 
 const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
   const edge = useEdge({ elKey: props.edgeKey });
-  const edgeRef = useSyncedRef(edge);
   const dispatch = useSingleDispatch();
-  const handleChange = (partial: Partial<schematic.Edge>) => {
-    const current = edgeRef.current;
-    if (current == null) return;
-    dispatch(schematic.setEdge({ edge: { ...current, ...partial } }));
-  };
+  const handleSegmentsChange = (segments: schematic.Segment[]) =>
+    dispatch(schematic.setEdgeSegments({ key: props.edgeKey, segments }));
   // React flow takes time to unmount, so the edge can be temporarily undefined.
   if (edge == null) return null;
   const Spec = Edge.resolveSpec(edge.variant);
-  return <Spec.Edge edge={edge} onChange={handleChange} {...props} />;
+  return <Spec.Edge edge={edge} onSegmentsChange={handleSegmentsChange} {...props} />;
 };
 
 const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {

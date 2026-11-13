@@ -75,7 +75,7 @@ const renderEdge = (config: { strokeWidth?: number } = {}) => {
               targetNode="b"
               selected={false}
               edge={{ ...EDGE, ...config }}
-              onChange={vi.fn()}
+              onSegmentsChange={vi.fn()}
             />
           </Profiler>
         </svg>

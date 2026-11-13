@@ -60,7 +60,7 @@ const create = (Path: FC<PathProps>): Edge => {
     targetNode,
     selected = false,
     edge: { segments: middleSegments, strokeColor, strokeWidth },
-    onChange,
+    onSegmentsChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
     const zoom = useStore(selectZoom);
@@ -76,9 +76,7 @@ const create = (Path: FC<PathProps>): Edge => {
     });
 
     const persistMiddle = (segs: Segment[]) => {
-      onChange({
-        segments: extractMiddle(segs, source.orientation, target.orientation),
-      });
+      onSegmentsChange(extractMiddle(segs, source.orientation, target.orientation));
     };
 
     const [dragOverride, setDragOverride] = useState<Segment[] | null>(null);

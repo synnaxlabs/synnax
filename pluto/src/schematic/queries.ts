@@ -9,6 +9,7 @@
 
 import { type project, query, schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { array, compare, deep, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
@@ -115,13 +116,17 @@ const useEdgeFormBase = (
   query: ConfigParams,
 ): Form.UseReturn<typeof schematic.edgeZ> => {
   const edge = useEdgeBase(query);
+  const edgeRef = useSyncedRef(edge);
   const dispatch = useSingleDispatchBase({ key: query.key });
   const form = Form.use({
     values: edge ?? EMPTY_EDGE,
     schema: schematic.edgeZ,
     onChange: ({ values, valid, path }) => {
+      const base = edgeRef.current;
       // A reset reports an empty path. Dispatching on it would echo the stored edge.
-      if (valid && path !== "") dispatch(schematic.setEdge({ edge: values }));
+      if (!valid || path === "" || base == null) return;
+      const actions = schematic.setEdgeChanged({ base, next: values });
+      if (actions.length > 0) dispatch(actions);
     },
   });
   useEffect(() => {
@@ -131,8 +136,8 @@ const useEdgeFormBase = (
 };
 
 /**
- * A form over one edge in the cached schematic. Each edit replaces the whole edge
- * through a set_edge action.
+ * A form over one edge in the cached schematic. Each edit writes only the edge fields
+ * that it changes.
  */
 export const useEdgeForm = Scope.bindHook(useEdgeFormBase);
 
@@ -237,7 +242,7 @@ const augmentWithEdgeSegments = (
   const extra = updates.flatMap((u) => {
     const existing = edges.get(u.key);
     if (existing == null) return [];
-    return [schematic.setEdge({ edge: { ...existing, segments: u.segments } })];
+    return [schematic.setEdgeSegments({ key: u.key, segments: u.segments })];
   });
   return [...actions, ...extra];
 };

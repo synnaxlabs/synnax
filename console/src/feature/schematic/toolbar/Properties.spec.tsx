@@ -594,7 +594,7 @@ describe("Schematic toolbar Properties", () => {
     const retrieveEdge = async (key: string): Promise<schematic.Edge | undefined> =>
       (await client.schematics.retrieve(key)).edges.find((e) => e.key === "e1");
 
-    it("writes a stroke width edit to the edge through set_edge", async () => {
+    it("writes a stroke width edit to the edge through set_edge_style", async () => {
       const { key } = await renderWithEdge(["e1"]);
       const width = await screen.findByLabelText("Stroke width");
       const send = spyOnSend(client);
@@ -604,7 +604,9 @@ describe("Schematic toolbar Properties", () => {
         expect(
           send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
         ).toMatchObject({
-          actions: [{ type: "set_edge", setEdge: { edge: { key: "e1" } } }],
+          actions: [
+            { type: "set_edge_style", setEdgeStyle: { key: "e1", strokeWidth: 6 } },
+          ],
         }),
       );
       await expect.poll(async () => (await retrieveEdge(key))?.strokeWidth).toBe(6);

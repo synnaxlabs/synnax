@@ -241,8 +241,7 @@ const MultiConfig = ({
   const edges = MultiEdit.selection({
     configs: edgeByKey,
     fields: EDGE_FIELDS,
-    onChange: (updates) =>
-      dispatch(updates.map(({ next }) => schematic.setEdge({ edge: next }))),
+    onChange: (updates) => dispatch(updates.flatMap(schematic.setEdgeChanged)),
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
