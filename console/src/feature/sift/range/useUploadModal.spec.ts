@@ -138,10 +138,14 @@ describe("Sift.Range.useUploadModal", () => {
     const dev = await createSiftDevice(client, { rack: rack.key });
     const [, data] = await newIndexedPair(client);
     const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
     await renderModalOpener(
       Sift.Range.useUploadModal,
       [{ name: rng.name, source: rng.key }],
-      { client },
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
     );
     const cmd = await fillAndUpload(scan, dev, data);
     expect(cmd.args).toEqual({
@@ -151,6 +155,9 @@ describe("Sift.Range.useUploadModal", () => {
       asset: "stand",
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Queued upload to Sift"),
+    );
   });
 
   it("should start again at the last asset of a new device", async () => {
@@ -277,7 +284,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
