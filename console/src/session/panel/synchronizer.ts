@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type project, query } from "@synnaxlabs/client";
+import { panel, type project, query, type user } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -86,7 +86,10 @@ const repairMembership = async (params: Params): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
-  const { records } = await client.panels.watch({ projects: [projectKey] }).retrieve();
+  const { key: user } = await client.users.current.retrieve();
+  const { records } = await client.panels
+    .watch({ where: panel.visibleTo(projectKey, user) })
+    .retrieve();
   if (store.getState().project.selected !== projectKey) return;
   applyMembership(params, records);
 };
@@ -105,18 +108,27 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
     // The client maintains the by-project answer itself, tracking optimistic creates
     // and project changes a manual retrieve would race.
     let removeQuery: destructor.Destructor | undefined;
+    let viewer: user.Key | undefined;
+    let stopped = false;
     const subscribeProject = (projectKey: project.Key | undefined): void => {
       removeQuery?.();
       removeQuery = undefined;
-      if (projectKey == null) return;
+      if (projectKey == null || viewer == null) return;
       removeQuery = client.panels
-        .watch({ projects: [projectKey] })
+        .watch({ where: panel.visibleTo(projectKey, viewer) })
         .onChange((window) => {
           if (window == null) return repair();
           applyMembership(params, window.records);
         });
     };
-    subscribeProject(store.getState().project.selected);
+    client.users.current
+      .retrieve()
+      .then(({ key }) => {
+        if (stopped) return;
+        viewer = key;
+        subscribeProject(store.getState().project.selected);
+      })
+      .catch(console.error);
     const unwatchProject = Synchronizer.watch(
       store,
       (state) => state.project.selected,
@@ -128,7 +140,10 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
     const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
       if (selected == null) repair();
     });
-    return () => destructor.unwind(removeQuery, unwatchProject, unwatchSelected);
+    return () => {
+      stopped = true;
+      destructor.unwind(removeQuery, unwatchProject, unwatchSelected);
+    };
   },
 };
 

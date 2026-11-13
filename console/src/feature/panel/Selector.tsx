@@ -171,6 +171,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   const name = Panel.useName({ key: tabKey });
   const icon = Panel.useIcon({ key: tabKey });
   const color = Panel.useColor({ key: tabKey });
+  const draft = Panel.useDraft({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = (name: string) => rename({ key: tabKey, name });
@@ -209,6 +210,11 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
         onChange={handleChange}
         disabled={!canEdit}
       />
+      {draft && (
+        <Text.Text level="small" color={9}>
+          Draft
+        </Text.Text>
+      )}
     </Tabs.Tab>
   );
 };

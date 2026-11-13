@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type panel } from "@/panel";
+import { panel } from "@/panel";
 import { type project } from "@/project";
 import {
   createEmptyRole,
@@ -74,13 +74,10 @@ describe("Panel Client", () => {
       return u.key;
     };
 
-    it("should match the shared panels and the drafts of one user", async () => {
+    it("should match the panels visible to one user", async () => {
       const scope = await createPanelProject(client);
       const [mine, theirs] = await Promise.all([createOwner(), createOwner()]);
-      const where: panel.Where = {
-        projects: [scope],
-        or: [{ owned: false }, { owners: [mine] }],
-      };
+      const where = panel.visibleTo(scope, mine);
       const list = client.panels.watch({ where });
       const off = list.onChange(vi.fn());
       expect((await list.retrieve()).records).toEqual([]);
