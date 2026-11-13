@@ -36,16 +36,14 @@ var _ = Describe("Migration", func() {
 			}))
 			c := func(r uint8) *color.Color { return &color.Color{R: r, A: a} }
 			old := v12.Schematic{
-				Key:  uuid.New(),
-				Name: "s",
-				Configs: map[string]v12.ElementConfig{
-					"cap": {Variant: v12.CapElementConfig{
+				Key:   uuid.New(),
+				Name:  "s",
+				Edges: []v12.Edge{{Key: "pipe", StrokeColor: c(2)}},
+				Configs: map[string]v12.NodeConfig{
+					"cap": {Variant: v12.CapNodeConfig{
 						StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: c(1)},
 					}},
-					"pipe": {Variant: v12.PipeElementConfig{
-						SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: c(2)},
-					}},
-					"value": {Variant: v12.ValueElementConfig{
+					"value": {Variant: v12.ValueNodeConfig{
 						StrokeColor: c(3),
 						TextColor:   c(4),
 						FillColor:   c(5),
@@ -53,7 +51,7 @@ var _ = Describe("Migration", func() {
 							{Key: "b", Color: *c(6)},
 						}},
 					}},
-					"custom": {Variant: v12.CustomStaticElementConfig{
+					"custom": {Variant: v12.CustomStaticNodeConfig{
 						StateOverrides: []symbolv2.State{
 							{Key: "on", Regions: []symbolv2.Region{
 								{Key: "r", FillColor: c(7)},
@@ -72,18 +70,17 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
-			Expect(got.Configs["cap"].Variant.(v13.CapElementConfig).StrokeColor).
+			Expect(got.Configs["cap"].Variant.(v13.CapNodeConfig).StrokeColor).
 				To(Equal(n(1)))
-			Expect(got.Configs["pipe"].Variant.(v13.PipeElementConfig).StrokeColor).
-				To(Equal(n(2)))
-			value := got.Configs["value"].Variant.(v13.ValueElementConfig)
+			Expect(got.Edges[0].StrokeColor).To(Equal(n(2)))
+			value := got.Configs["value"].Variant.(v13.ValueNodeConfig)
 			Expect(value.StrokeColor).To(Equal(n(3)))
 			Expect(value.TextColor).To(Equal(n(4)))
 			Expect(value.FillColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
-			custom := got.Configs["custom"].Variant.(v13.CustomStaticElementConfig)
+			custom := got.Configs["custom"].Variant.(v13.CustomStaticNodeConfig)
 			Expect(custom.StateOverrides).To(Equal([]symbolv4.State{{
 				Key: "on", Regions: []symbolv4.Region{{Key: "r", FillColor: n(7)}},
 			}}))
@@ -106,22 +103,13 @@ var _ = Describe("Migrate functions", func() {
 		Entry("MigrateSchematic", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
 			out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
-				Configs: map[string]v12.ElementConfig{
-					"n": {Variant: v12.CapElementConfig{
+				Configs: map[string]v12.NodeConfig{
+					"n": {Variant: v12.CapNodeConfig{
 						StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: half()},
 					}},
 				},
 			}))
-			return out.Configs["n"].Variant.(v13.CapElementConfig).StrokeColor
-		}),
-		Entry("MigrateElementConfig", func(ctx context.Context) *colorv2.Color {
-			GinkgoHelper()
-			out := MustSucceed(v13.MigrateElementConfig(ctx, v12.ElementConfig{
-				Variant: v12.PipeElementConfig{
-					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: half()},
-				},
-			}))
-			return out.Variant.(v13.PipeElementConfig).StrokeColor
+			return out.Configs["n"].Variant.(v13.CapNodeConfig).StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -168,47 +156,47 @@ var _ = Describe("Migrate functions", func() {
 				ctx, v12.ToggleConfig{StalenessColor: half()},
 			)).StalenessColor
 		}),
-		Entry("MigrateSegmentedEdgeConfig", func(ctx context.Context) *colorv2.Color {
+		Entry("MigrateEdge", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
-			return MustSucceed(v13.MigrateSegmentedEdgeConfig(
-				ctx, v12.SegmentedEdgeConfig{StrokeColor: half()},
+			return MustSucceed(v13.MigrateEdge(
+				ctx, v12.Edge{StrokeColor: half()},
 			)).StrokeColor
 		}),
 	)
 	DescribeTable("Should make a zero color that meant the theme absent",
 		func(
 			ctx SpecContext,
-			variant v12.ElementConfigVariant,
-			cleared func(v13.ElementConfigVariant) []*colorv2.Color,
+			variant v12.NodeConfigVariant,
+			cleared func(v13.NodeConfigVariant) []*colorv2.Color,
 		) {
 			out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
-				Configs: map[string]v12.ElementConfig{"n": {Variant: variant}},
+				Configs: map[string]v12.NodeConfig{"n": {Variant: variant}},
 			}))
 			for _, c := range cleared(out.Configs["n"].Variant) {
 				Expect(c).To(BeNil())
 			}
 		},
-		Entry("a value", v12.ValueElementConfig{
+		Entry("a value", v12.ValueNodeConfig{
 			StalenessColor: &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.ValueElementConfig)
+		}, func(v v13.NodeConfigVariant) []*colorv2.Color {
+			c := v.(v13.ValueNodeConfig)
 			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
-		Entry("a gauge", v12.GaugeElementConfig{
+		Entry("a gauge", v12.GaugeNodeConfig{
 			StalenessColor: &color.Color{},
 			StrokeColor:    &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.GaugeElementConfig)
+		}, func(v v13.NodeConfigVariant) []*colorv2.Color {
+			c := v.(v13.GaugeNodeConfig)
 			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
-		Entry("a scale", v12.ScaleElementConfig{
+		Entry("a scale", v12.ScaleNodeConfig{
 			StalenessColor: &color.Color{},
 			LevelColor:     &color.Color{},
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.ScaleElementConfig)
+		}, func(v v13.NodeConfigVariant) []*colorv2.Color {
+			c := v.(v13.ScaleNodeConfig)
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -216,13 +204,13 @@ var _ = Describe("Migrate functions", func() {
 				c.TextColor,
 			}
 		}),
-		Entry("a tank", v12.TankElementConfig{
+		Entry("a tank", v12.TankNodeConfig{
 			StalenessColor: &color.Color{},
 			LevelColor:     &color.Color{},
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.TankElementConfig)
+		}, func(v v13.NodeConfigVariant) []*colorv2.Color {
+			c := v.(v13.TankNodeConfig)
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -233,34 +221,31 @@ var _ = Describe("Migrate functions", func() {
 	)
 	It("Should keep the zero stroke of a value", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
-			Configs: map[string]v12.ElementConfig{
-				"n": {Variant: v12.ValueElementConfig{StrokeColor: &color.Color{}}},
+			Configs: map[string]v12.NodeConfig{
+				"n": {Variant: v12.ValueNodeConfig{StrokeColor: &color.Color{}}},
 			},
 		}))
-		Expect(out.Configs["n"].Variant.(v13.ValueElementConfig).StrokeColor).
+		Expect(out.Configs["n"].Variant.(v13.ValueNodeConfig).StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
 		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
-			Configs: map[string]v12.ElementConfig{
-				"cap": {Variant: v12.CapElementConfig{
+			Edges: []v12.Edge{{Key: "pipe", StrokeColor: zero}},
+			Configs: map[string]v12.NodeConfig{
+				"cap": {Variant: v12.CapNodeConfig{
 					StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: zero},
-				}},
-				"pipe": {Variant: v12.PipeElementConfig{
-					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: zero},
 				}},
 			},
 		}))
-		Expect(out.Configs["cap"].Variant.(v13.CapElementConfig).StrokeColor).
+		Expect(out.Configs["cap"].Variant.(v13.CapNodeConfig).StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{})))
-		Expect(out.Configs["pipe"].Variant.(v13.PipeElementConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
+		Expect(out.Edges[0].StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
-			Configs: map[string]v12.ElementConfig{
-				"n": {Variant: v12.CustomStaticElementConfig{
+			Configs: map[string]v12.NodeConfig{
+				"n": {Variant: v12.CustomStaticNodeConfig{
 					StateOverrides: []symbolv2.State{
 						{
 							Key: "base",
@@ -272,7 +257,7 @@ var _ = Describe("Migrate functions", func() {
 				}},
 			},
 		}))
-		node := out.Configs["n"].Variant.(v13.CustomStaticElementConfig)
+		node := out.Configs["n"].Variant.(v13.CustomStaticNodeConfig)
 		Expect(node.StateOverrides[0].Regions[0].FillColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})

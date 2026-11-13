@@ -615,7 +615,7 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Edges[0].Segments).To(Equal(styled.Segments))
 		})
 		It("Should set the variant and stroke color", func() {
-			stroke := MustSucceed(color.FromHex("#ff0000"))
+			stroke := MustSucceed(color.Parse("#ff0000"))
 			variant := schematic.EdgeVariantHydraulic
 			out := MustSucceed(schematic.Reduce(
 				schematic.Schematic{
@@ -645,7 +645,7 @@ var _ = Describe("Reducer", func() {
 	Describe("ClearEdgeStrokeColor", func() {
 		It("Should remove the stroke color and keep the other fields", func() {
 			colored := edge("e1", "a", "o", "b", "i")
-			colored.StrokeColor = new(MustSucceed(color.FromHex("#ff0000")))
+			colored.StrokeColor = new(MustSucceed(color.Parse("#ff0000")))
 			colored.StrokeWidth = 6
 			out := MustSucceed(schematic.Reduce(
 				schematic.Schematic{Edges: []schematic.Edge{colored}},

@@ -135,8 +135,6 @@ func (e *Edge) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (e Edge) Validate() error {
 	v := validate.New("Edge")
 	v.Ternaryf("variant", !e.Variant.IsValid(), "invalid variant: %v", e.Variant)
-	v.GreaterThanEq("stroke_width", e.StrokeWidth, 1)
-	v.LessThanEq("stroke_width", e.StrokeWidth, 20)
 	for i := range e.Segments {
 		v.Exec(func() error { return validate.PathedError(e.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
 	}
@@ -1230,7 +1228,6 @@ func (b *BoxNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (b BoxNodeConfig) Validate() error {
 	v := validate.New("BoxNodeConfig")
-	v.LessThanEq("stroke_width", b.StrokeWidth, 20)
 	v.Exec(b.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -1327,7 +1324,6 @@ func (c *CircleNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (c CircleNodeConfig) Validate() error {
 	v := validate.New("CircleNodeConfig")
-	v.LessThanEq("stroke_width", c.StrokeWidth, 20)
 	v.Exec(c.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -1530,15 +1526,6 @@ func (l *LineNodeConfig) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (l LineNodeConfig) Validate() error {
-	v := validate.New("LineNodeConfig")
-	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
-	v.LessThanEq("stroke_width", l.StrokeWidth, 20)
-	return v.Error()
-}
-
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
 	LabeledConfig
@@ -1626,7 +1613,6 @@ func (p *PolygonNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (p PolygonNodeConfig) Validate() error {
 	v := validate.New("PolygonNodeConfig")
-	v.LessThanEq("stroke_width", p.StrokeWidth, 20)
 	v.Exec(p.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -5666,8 +5652,6 @@ func (u NodeConfig) Validate() error {
 		return variant.Validate()
 	case LightNodeConfig:
 		return variant.Validate()
-	case LineNodeConfig:
-		return variant.Validate()
 	case OffPageReferenceNodeConfig:
 		return variant.Validate()
 	case PolygonNodeConfig:
@@ -5850,7 +5834,6 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for i := range s.Edges {
 		v.Exec(func() error { return validate.PathedError(s.Edges[i].Validate(), "edges", strconv.Itoa(i)) })
 	}

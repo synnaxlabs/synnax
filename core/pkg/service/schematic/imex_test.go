@@ -258,7 +258,7 @@ var _ = Describe("ImEx", func() {
 						Source:      schematic.Handle{Node: "n1", Param: "out"},
 						Target:      schematic.Handle{Node: "n2", Param: "in"},
 						Variant:     schematic.EdgeVariantHydraulic,
-						StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
+						StrokeColor: new(MustSucceed(color.Parse("#ff0000"))),
 						StrokeWidth: 4,
 						Segments:    []schematic.Segment{{Direction: "x", Length: 40}},
 					}},

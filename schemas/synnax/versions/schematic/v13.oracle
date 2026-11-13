@@ -23,13 +23,11 @@ Node = v8.Node
 
 Handle = v7.Handle
 
-Edge = v7.Edge
-
 Segment = v9.Segment
 
-SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {}
+EdgeVariant = v12.EdgeVariant
 
-EdgeConfig union on variant extends v9.EdgeConfig {}
+Edge struct extends v12.Edge {}
 
 FlexAlignment = v9.FlexAlignment
 
@@ -65,8 +63,6 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig union on variant extends v10.NodeConfig {}
-
-ElementConfig union on variant extends v10.ElementConfig {}
+NodeConfig union on variant extends v12.NodeConfig {}
 
 Schematic struct extends v12.Schematic {}

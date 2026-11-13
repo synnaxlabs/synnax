@@ -220,7 +220,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Source:      versions.Handle{Node: "n1", Param: "out"},
 			Target:      versions.Handle{Node: "n2", Param: "in"},
 			Variant:     versions.EdgeVariantHydraulic,
-			StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
+			StrokeColor: new(MustSucceed(color.Parse("#ff0000"))),
 			StrokeWidth: 2,
 			Segments:    []versions.Segment{{Direction: "x", Length: 40}},
 		}))
