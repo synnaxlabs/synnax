@@ -353,18 +353,46 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Update", func() {
-		It("Should replace the whole device", func(ctx SpecContext) {
+		It("Should write the user's fields and keep the scanner's", func(
+			ctx SpecContext,
+		) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Base().Rack)
-			next := device.Device{Variant: device.T4Device{Base: d.Base()}}
-			next = edit(next, func(b *device.Base) { b.Name = "Renamed" })
+			other := rack.Rack{Name: "Other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			next := edit(d, func(b *device.Base) {
+				b.Name = "Renamed"
+				b.Identifier = "lj"
+				b.Rack = other.Key
+				b.Connection = device.ConnectionTCP
+				b.Serial = 999
+			})
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.UpdateRequest{Device: next},
 			)).Error().ToNot(HaveOccurred())
-			got := retrieveDevice(ctx, d.Base().Key)
-			Expect(got.Model()).To(Equal(device.ModelT4))
-			Expect(got.Base().Name).To(Equal("Renamed"))
+			got := retrieveDevice(ctx, d.Base().Key).Base()
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("lj"))
+			Expect(got.Rack).To(Equal(d.Base().Rack))
+			Expect(got.Connection).To(Equal(d.Base().Connection))
+			Expect(got.Serial).To(Equal(d.Base().Serial))
+		})
+
+		It("Should refuse a different model", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Base().Rack)
+			next := device.Device{Variant: device.T4Device{Base: d.Base()}}
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.UpdateRequest{Device: next},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("model: cannot change from t7 to t4")),
+			))
+			Expect(retrieveDevice(ctx, d.Base().Key).Model()).To(Equal(device.ModelT7))
 		})
 
 		It("Should reject a device with no model", func(ctx SpecContext) {
