@@ -170,7 +170,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 }
 
 // Delete deletes the ranges with the given keys, along with each range nested in them
-// and the aliases and key-value pairs of every deleted range. Delete is idempotent.
+// and the key-value pairs of every deleted range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil
