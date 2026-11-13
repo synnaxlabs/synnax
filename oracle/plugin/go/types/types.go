@@ -1834,9 +1834,7 @@ func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field. A
-// null or a
-// missing "{{.DiscJSONName}}" decodes to no variant, which Validate rejects.
+{{formatDoc "UnmarshalJSONFrom" (printf "decodes the variant selected by the %q field. A null or a missing %q decodes to no variant, which Validate rejects." .DiscJSONName .DiscJSONName)}}
 func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -1922,7 +1920,6 @@ func (u *{{.Name}}) ApplyDefaults() {
 	}
 }
 {{- end}}
-
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
