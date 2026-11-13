@@ -290,6 +290,12 @@ var _ = Describe("Write channels", func() {
 					"channel":   create(ctx, telem.JSONT),
 					"json_type": "string",
 				},
+				map[string]any{
+					"key":         "c3",
+					"channel":     create(ctx, telem.TimestampT),
+					"json_type":   "string",
+					"time_format": "unix_ns",
+				},
 			)))
 			Expect(data["channels"]).To(HaveExactElements(
 				SatisfyAll(
@@ -300,6 +306,10 @@ var _ = Describe("Write channels", func() {
 					))),
 				),
 				HaveKeyWithValue("type", "json"),
+				SatisfyAll(
+					HaveKeyWithValue("type", "timestamp"),
+					HaveKeyWithValue("time_format", "iso8601"),
+				),
 			))
 		})
 
@@ -481,7 +491,7 @@ var _ = Describe("Stored write configs", func() {
 				HaveKeyWithValue("type", "float"),
 				SatisfyAll(
 					HaveKeyWithValue("type", "timestamp"),
-					HaveKeyWithValue("time_format", "unix_ns"),
+					HaveKeyWithValue("time_format", "iso8601"),
 				),
 			))
 			var stored []kafka.WriteConfig
