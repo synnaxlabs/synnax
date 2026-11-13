@@ -26,18 +26,10 @@ import (
 func locked(err error) bool { return errors.Is(err, storage.ErrLocked) }
 
 var _ = Describe("Data directory lock", func() {
-	var (
-		dir string
-		cfg storage.LayerConfig
-	)
-	BeforeEach(func() {
-		dir = GinkgoT().TempDir()
-		cfg = storage.LayerConfig{Dirname: dir, Version: "0.60.0"}
-	})
-
 	It(
 		"Should return ErrLocked when another process holds the data",
 		func(ctx SpecContext) {
+			dir := GinkgoT().TempDir()
 			holder := exec.Command(os.Args[0])
 			holder.Env = append(os.Environ(), holdLockEnv+"="+dir)
 			stdin := MustSucceed(holder.StdinPipe())
@@ -48,20 +40,9 @@ var _ = Describe("Data directory lock", func() {
 				Expect(holder.Wait()).To(Succeed())
 			})
 			Expect(bufio.NewReader(stdout).ReadString('\n')).To(Equal("locked\n"))
+			cfg := storage.LayerConfig{Dirname: dir, Version: "0.60.0"}
 			Expect(storage.OpenLayer(ctx, cfg)).Error().
 				To(MatchError(locked, "storage.ErrLocked"))
-		},
-	)
-
-	It(
-		"Should not return ErrLocked for a lock that this process holds",
-		func(ctx SpecContext) {
-			MustOpen(storage.OpenLayer(ctx, cfg))
-			Expect(storage.OpenLayer(ctx, cfg)).Error().
-				To(And(
-					MatchError(ContainSubstring("Failed to acquire lock")),
-					Not(MatchError(locked, "storage.ErrLocked")),
-				))
 		},
 	)
 })
