@@ -173,12 +173,12 @@ non-string channel.
 
 **Core write**, in `ResolveEntry` (`task/config/config.go`), through a `Channels`
 function that each service builds, as `slavesOf` does. It skips disabled fields and
-missing channels, because imports hold foreign keys. It rejects a kind that §4 does not
-allow, a fill or entry that does not fit the channel's width, and a fill on an index
-channel. It also converts each channel field entry to the channel's type and rejects
-values that collide only after narrowing, such as `0.1` and `0.1000000001` on a
-`float32` channel. It checks an unbound field by the same rules, against its
-`data_type`.
+missing channels, because the reference check on write rejects a missing channel. It
+rejects a kind that §4 does not allow, a fill or entry that does not fit the channel's
+width, and a fill on an index channel. It also converts each channel field entry to the
+channel's type and rejects values that collide only after narrowing, such as `0.1` and
+`0.1000000001` on a `float32` channel. It checks an unbound field by the same rules,
+against its `data_type`.
 
 **Core config**, in `ValidateEntry`, which has no channel and checks every field: Read
 field labels are unique, channel field values are unique on the stored value, so two
@@ -320,11 +320,12 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `name` and `data_type`, next to `type` and `name` in the envelope body
   (`task/imex.go`). A new `Store.BoundKeys(config)` gives export the keys. No config
   field can hold `$channels`, and import removes it and passes it to `Store.Decode`. For
-  a shipped version, each integration's store builds the map from the raw body before
-  the ladder runs, with the timestamp rule of **Binding**. `Decoded` carries the map to
-  `ReconcileEntry`, which now runs before `DropDangling` and turns each bound key with
-  no local channel into `unbound` from the map. `DropDangling` then removes a field
-  whose key has no map entry. `bound.key` 0 is invalid. Phase 7 adds `BoundKeys`, the
+  any version before `Binding`, legacy input included, each integration's store builds
+  the map from the raw body after the legacy rewrite and before the ladder runs, with
+  the timestamp rule of **Binding**. `Decoded` carries the map to `ReconcileEntry`,
+  which now runs before `DropDangling` and turns each bound key with no local channel
+  into `unbound` from the map. `DropDangling` then removes a field whose key has no map
+  entry, and the store logs it. `bound.key` 0 is invalid. Phase 7 adds `BoundKeys`, the
   `Decode` and hook arguments, and the order, and each integration phase applies the
   rule.
 
