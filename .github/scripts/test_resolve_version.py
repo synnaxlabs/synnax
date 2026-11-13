@@ -101,7 +101,7 @@ class TestHotfixes:
     def test_should_count_patches_from_unreachable_hotfix_tags(
         self, repo: Repo
     ) -> None:
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+        repo.git("checkout", "-q", "-b", "release/0.58", "console/v0.58.2")
         repo.commit("hotfix")
         repo.tag("console/v0.58.3")
         repo.git("checkout", "-q", "main")
@@ -111,14 +111,14 @@ class TestHotfixes:
 
     def test_should_resolve_the_minor_from_the_branch(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0", "console/v0.59.0")
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+        repo.git("checkout", "-q", "-b", "release/0.58", "console/v0.58.2")
         repo.commit("hotfix")
         out = repo.resolve("console", "patch")
         assert out["version"] == "0.58.3"
         assert out["latest"] == "false"
 
     def test_should_be_latest_without_a_newer_train(self, repo: Repo) -> None:
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+        repo.git("checkout", "-q", "-b", "release/0.58", "console/v0.58.2")
         repo.commit("hotfix")
         assert repo.resolve("console", "patch")["latest"] == "true"
 
