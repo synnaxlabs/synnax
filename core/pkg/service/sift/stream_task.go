@@ -345,7 +345,10 @@ type runSync struct {
 	// rejected holds why Sift rejected the run of each range that waits until it
 	// changes.
 	rejected map[ranger.Key]string
-	mu       sync.Mutex
+	// labeled holds the ranges that had a task label at the last sync. A range in it
+	// that has none now lost its last task label.
+	labeled set.Set[ranger.Key]
+	mu      sync.Mutex
 	// changed holds the ranges that changed since the last sync, and labels holds the
 	// labels that changed since then. They are guarded by mu.
 	changed set.Set[ranger.Key]
@@ -427,14 +430,16 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			changed.Add(rng.Key)
 		}
 	}
-	var lost []ranger.Key
 	for key := range changed {
 		delete(r.rejected, key)
+	}
+	// A range that loses its last task label keeps its run, whose tags still change.
+	var lost []ranger.Key
+	for key := range r.labeled {
 		if !labeled.Contains(key) {
 			lost = append(lost, key)
 		}
 	}
-	// A range that loses its last task label keeps its run, whose tags still change.
 	var unlabeled []ranger.Range
 	if len(lost) > 0 {
 		if err = r.task.factoryCfg.Ranger.NewRetrieve().
@@ -466,18 +471,31 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			return err
 		}
 	}
+	// waiting holds the unlabeled ranges whose data Sift does not have yet, or whose
+	// update Sift rejected. They stay in labeled until their run is updated.
+	var waiting []ranger.Key
 	for _, rng := range unlabeled {
-		if !ready(rng) {
+		end := rng.TimeRange.End
+		if end <= start {
+			continue
+		}
+		if _, ok := r.rejected[rng.Key]; ok || (end > since && end > sent) {
+			waiting = append(waiting, rng.Key)
 			continue
 		}
 		if err = r.put(ctx, rng, false); err != nil {
 			return err
+		}
+		if _, ok := r.rejected[rng.Key]; ok {
+			waiting = append(waiting, rng.Key)
 		}
 	}
 	if sent > since {
 		r.progress.setRunsThrough(ctx, sent)
 	}
 	r.synced = true
+	labeled.Add(waiting...)
+	r.labeled = labeled
 	var rejection string
 	if len(r.rejected) > 0 {
 		first := slices.MinFunc(
