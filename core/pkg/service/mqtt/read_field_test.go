@@ -109,7 +109,7 @@ var _ = Describe("Read field", func() {
 			ctx context.Context,
 			cfg msgpack.EncodedJSON,
 		) (msgpack.EncodedJSON, error) {
-			rec, err := svc.Read.Prepare(ctx, db, uuid.New(), cfg)
+			rec, err := svc.Read.Prepare(ctx, db, uuid.New(), "", cfg)
 			if err != nil {
 				return nil, err
 			}
