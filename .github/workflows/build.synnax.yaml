@@ -1330,8 +1330,8 @@ jobs:
     # build.tauri.yaml uploads the bundles to the draft release.
     permissions:
       contents: write
-    # Desktop bundles the signed macOS Core. A build job skips when the run has no system
-    # for it, and a macOS signing job skips when the run has nothing for it to sign.
+    # Desktop bundles the signed macOS Core. A build job skips when the run has no
+    # system for it, and a macOS signing job skips when the run has nothing to sign.
     if: >-
       ${{ !cancelled() && inputs.desktop && needs.setup.outputs.console_tauri_matrix !=
       '[]' && !contains(needs.*.result, 'failure') && !contains(needs.*.result,
