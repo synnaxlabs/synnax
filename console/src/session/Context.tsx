@@ -34,12 +34,14 @@ import { type Action, createStore, type State } from "@/session/store";
 import { Synchronizer } from "@/session/synchronizer";
 import { Table } from "@/session/table";
 
-export interface ContextProps {
+export interface ContextProps extends Runtime.CreateDriftProps {
   children: ReactNode;
 }
 
-export const Context = ({ children }: ContextProps) => {
-  const [store] = useState(() => createStore());
+export const Context = ({ children, beforeClose }: ContextProps) => {
+  const [store] = useState(() =>
+    createStore({ runtime: Runtime.createDrift<State, Action>({ beforeClose }) }),
+  );
   return (
     <Modals.Context>
       <Provider store={store}>{children}</Provider>

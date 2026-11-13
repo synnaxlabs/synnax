@@ -697,19 +697,20 @@ type constraintCheckData struct {
 	Deref bool
 }
 
-// goConstraintChecks returns the @validate constraint assertions for a field,
-// classified against the field type's underlying primitive so a distinct numeric type
-// (e.g. a Key over uint32) validates as a number. An optional field is checked only
-// when present, and never for being required.
+// goConstraintChecks returns the @validate constraint assertions for a field and its
+// type chain, classified against the field type's underlying primitive so a distinct
+// numeric type (e.g. a Key over uint32) validates as a number. An optional field is
+// checked only when present, and never for being required. An inherited field checks
+// only its own rules, since the embedded parent's Validate checks its type's rules.
 func goConstraintChecks(
 	field resolution.Field,
+	inherited bool,
 	data *templateData,
 ) []constraintCheckData {
-	domain, ok := field.Domains["validate"]
-	if !ok {
-		return nil
+	rules := validation.FieldRules(field, data.table)
+	if inherited {
+		rules = validation.Parse(field.Domains["validate"])
 	}
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
 		return nil
 	}
@@ -732,14 +733,14 @@ func goConstraintChecks(
 		}
 	} else if resolution.IsStringPrimitive(base) {
 		switch {
-		case rules.Required && !field.Optional,
-			rules.MinLength != nil && *rules.MinLength == 1:
-			checks = append(checks, check("non_empty_string", ""))
 		case rules.MinLength != nil && *rules.MinLength > 1:
 			checks = append(
 				checks,
 				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
 			)
+		case rules.Required && !field.Optional,
+			rules.MinLength != nil && *rules.MinLength == 1:
+			checks = append(checks, check("non_empty_string", ""))
 		}
 		if rules.MaxLength != nil {
 			checks = append(
@@ -848,7 +849,7 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, probe)) > 0
+	return len(goConstraintChecks(f, false, probe)) > 0
 }
 
 // neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.

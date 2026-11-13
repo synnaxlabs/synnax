@@ -507,6 +507,57 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should merge a field's rules with the rules of its type chain",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Name = string {
+					@validate max_length 10
+				}
+
+				Range struct {
+					rate  Rate
+					fast  Rate @validate gt 5
+					size  Decimal
+					half  Decimal @validate max 0.5
+					label Name @validate min_length 2
+				}
+			`
+				table, diag := Analyze(ctx, source, "range", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(
+					&plugin.Request{Resolutions: table},
+				))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`rate: Rate = Field(ge=0, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`fast: Rate = Field(gt=5, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`size: Decimal = Field(ge=0, le=1, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`half: Decimal = Field(ge=0, le=0.500000, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`label: Name = Field(min_length=2, max_length=10)`,
+				))
+			},
+		)
+
+		It(
 			"Should emit native Field length constraints, which count code points",
 			func(ctx SpecContext) {
 				source := `

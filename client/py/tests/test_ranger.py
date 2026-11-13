@@ -59,7 +59,7 @@ class TestRangeColor:
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
             color="#00ff00",
         )
-        assert rng.color == sy.Color(r=0, g=255, b=0, a=1.0)
+        assert rng.color == sy.Color(r=0, g=255, b=0)
 
 
 class TestRangeNotCreated:
@@ -111,7 +111,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
+        assert rng.color == sy.Color(r=255, g=0, b=0)
 
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
@@ -155,9 +155,7 @@ class TestRangeClient:
             client.ranges.create(
                 key=rng.key, name=rng.name, time_range=tr, color="#0000FF"
             )
-        assert client.ranges.retrieve(key=rng.key).color == sy.Color(
-            r=255, g=0, b=0, a=1.0
-        )
+        assert client.ranges.retrieve(key=rng.key).color == sy.Color(r=255, g=0, b=0)
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
@@ -344,7 +342,7 @@ class TestRangeClient:
             name=random_name(),
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        color = sy.Color(r=0, g=255, b=0, a=0.5)
+        color = sy.Color(r=0, g=255, b=0, a=128)
         client.ranges.set_color(rng.key, color)
         assert client.ranges.retrieve(key=rng.key).color == color
 

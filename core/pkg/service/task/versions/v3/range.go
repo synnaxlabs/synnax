@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -26,7 +26,7 @@ var Migration = migrate.NewEntry("v61_task_add_range", autoMigrateTask)
 
 // RangeMigration sets the range of each stored snapshot from the parent edge that
 // points at it from a stored range. It then deletes every parent edge into a task from
-// a range or an Arc. It reads ranges in their v2 shape, so it runs after the range
+// a range or an Arc. It reads ranges in their current shape, so it runs after the range
 // migrations.
 var RangeMigration = ontology.NewFieldMigration(ontology.FieldConfig[Key, Task]{
 	Name: "v61_task_range",

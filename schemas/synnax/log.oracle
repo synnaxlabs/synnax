@@ -43,8 +43,10 @@ ChannelEntry struct {
         @ref on_delete     detach
         @validate required
     }
-    color            color.Color       {
-        @doc value "is the display color for the channel."
+    color            color.Color?      {
+        @doc value """
+            is the display color for the channel. Absent uses the text color of the log.
+        """
     }
     notation         notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
@@ -151,12 +153,11 @@ Log struct {
 
     action SetChannelColor {
         channel channel.Key
-        color   color.Color
+        color   color.Color?
 
         @doc value """
-            sets the display color of the entry identified by channel. The zero color
-            resets it to the text color of the log. No-op when no entry references the
-            channel.
+            sets the display color of the entry identified by channel. Absent resets it
+            to the text color of the log. No-op when no entry references the channel.
         """
     }
 

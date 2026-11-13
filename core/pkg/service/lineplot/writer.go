@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -51,7 +51,7 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
-	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
+	lp.Lines = v10.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
 	if err := lp.Validate(); err != nil {
 		return err
 	}

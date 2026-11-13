@@ -27,7 +27,4 @@ export const configZ = z.object({
 export interface Config extends z.infer<typeof configZ> {}
 
 /** The staleness a symbol starts with. An unset color resolves to the theme warning. */
-export const ZERO_CONFIG: Config = {
-  stalenessTimeout: DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
-};
+export const ZERO_CONFIG: Config = { stalenessTimeout: DEFAULT_TIMEOUT };

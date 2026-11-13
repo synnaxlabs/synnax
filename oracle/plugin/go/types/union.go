@@ -296,7 +296,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, fd)...,
+						goConstraintChecks(f, defaultOnly.Contains(f.Name), fd)...,
 					)
 				}
 				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
