@@ -34,6 +34,7 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
 
 /// @brief a filter switch that the tests do not use.
 const DisableFilter NO_FILTER = [](const std::vector<std::string> &) {
+    ADD_FAILURE() << "the test turned off the filter";
     return x::errors::NIL;
 };
 }
@@ -340,11 +341,12 @@ protected:
         "is on this adapter."
     );
     std::unique_ptr<Scanner> scanner;
+    /// @brief the master of the adapter with the filter.
+    std::shared_ptr<testutil::Master> filtered = std::make_shared<testutil::Master>();
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        auto filtered = std::make_shared<testutil::Master>();
-        filtered->inject_scan_error(this->blocked);
+        this->filtered->inject_scan_error(this->blocked);
         auto bus = std::make_shared<testutil::Master>();
         bus->add_slave(
             slave::Properties{
@@ -355,7 +357,7 @@ protected:
             }
         );
         auto manager = std::make_unique<testutil::Manager>();
-        manager->configure("eth0", filtered);
+        manager->configure("eth0", this->filtered);
         manager->configure("eth1", bus);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
@@ -406,6 +408,25 @@ TEST_F(EtherCATScanFilterTest, SendsTheFilteredInterfacesAsStatusData) {
         (x::json::json::object_t{{"filtered", x::json::json::array({"eth0"})}})
     );
     ASSERT_NIL_P(this->scanner->scan({}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should report no filtered interface once a scan lacks the permission to
+/// open an adapter.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterWhenAScanLacksPermission) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    ASSERT_NE(this->scanner->status_data(), std::nullopt);
+    this->filtered->inject_scan_error(
+        x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
+    );
+    // The scanner probes an adapter with no devices again on the sixth scan.
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 6, .devices = &this->saved}),
+        errors::PERMISSION_DENIED
+    );
     EXPECT_EQ(this->scanner->status_data(), std::nullopt);
 }
 

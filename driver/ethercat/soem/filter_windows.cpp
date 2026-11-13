@@ -26,8 +26,7 @@
 
 namespace driver::ethercat::soem {
 namespace {
-/// @brief how long to wait for the user to approve the change and for Windows to make
-/// it.
+/// @brief how long the user has to approve the change, and Windows to make it.
 constexpr DWORD TIMEOUT_MS = 45000;
 /// @brief the exit code of the script when Windows does not give administrator access.
 constexpr DWORD NOT_APPROVED = ERROR_CANCELLED;

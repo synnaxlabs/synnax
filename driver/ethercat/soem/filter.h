@@ -18,6 +18,7 @@ namespace driver::ethercat::soem {
 /// @brief turns off the DewesoftX "EthercatDAQ Filter" on the adapter of each Npcap
 /// interface. Asks Windows for administrator access when the process is not elevated,
 /// and blocks for at most 45 seconds.
+/// @param interfaces the Npcap names of the interfaces, such as `\Device\NPF_{...}`.
 /// @returns errors::FILTER_ERROR when the filter may still be on, with the reason and
 /// the manual fix. Always errors::FILTER_ERROR outside Windows.
 x::errors::Error disable_dewesoft_filter(const std::vector<std::string> &interfaces);

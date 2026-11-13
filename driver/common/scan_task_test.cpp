@@ -83,6 +83,9 @@ TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
     EXPECT_FALSE(result["nested"].contains("b"));
 }
 
+/// @brief the command that MockScanner answers with its own status.
+const std::string ANSWERED_CMD_TYPE = "answered";
+
 class MockScanner final : public Scanner {
 public:
     size_t scan_count = 0;
@@ -106,6 +109,22 @@ public:
         if (this->scan_count == 0 || this->scan_count > this->data.size())
             return std::nullopt;
         return this->data[this->scan_count - 1];
+    }
+
+    /// @brief answers a command of ANSWERED_CMD_TYPE with its own status.
+    bool exec(
+        synnax::task::Command &cmd,
+        const synnax::task::Task &task,
+        const std::shared_ptr<task::Context> &ctx
+    ) override {
+        if (cmd.type != ANSWERED_CMD_TYPE) return false;
+        synnax::task::Status status;
+        status.owner = synnax::task::resource_id(task.key);
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Answered";
+        status.details.cmd = cmd.key;
+        ctx->set_status(status);
+        return true;
     }
 
     MockScanner(
@@ -2274,5 +2293,32 @@ TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
     EXPECT_EQ(ctx->statuses[1].details.data, first);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(ctx->statuses[2].details.data, second);
+}
+
+/// @brief it should send the scan warning again after the scanner answers a command
+/// with its own status.
+TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const auto scan_task = new_test_task(ctx, task, {partial, partial, partial});
+    scan_task->start();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = ANSWERED_CMD_TYPE,
+        .key = "answered_cmd",
+    };
+    scan_task->exec(cmd);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        4,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[2].message, "Answered");
+    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[3].description, "eth1: cannot open");
 }
 }

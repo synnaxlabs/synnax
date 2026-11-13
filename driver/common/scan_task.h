@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -112,13 +113,14 @@ struct Scanner {
     scan(const ScannerContext &ctx) = 0;
 
     /// @brief returns the data that the status of the scan task carries, such as a
-    /// problem of the last scan that the user can fix from the Console. Safe to call
-    /// from one thread while another runs scan().
+    /// problem of the last scan that the user can fix from the Console. Implementations
+    /// must allow a call from one thread while another runs scan().
     [[nodiscard]] virtual std::optional<x::json::json::object_t> status_data() const {
         return std::nullopt;
     }
 
-    /// @brief Optional: Handle custom commands. Return true if handled.
+    /// @brief handles a command that the scan task does not know. Returns true when it
+    /// handled the command and answered it with its own status.
     virtual bool exec(
         synnax::task::Command &cmd,
         const synnax::task::Task &task,
@@ -232,6 +234,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
+    /// @brief whether the scanner answered a command with a status of its own since the
+    /// last scan.
+    std::atomic<bool> status_replaced = false;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
@@ -263,8 +268,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
-    /// @brief sets the status variant, text, and the data of the scanner, then sends
-    /// it.
+    /// @brief sets the variant, text, and scanner data of the status, then sends it.
     void send_status(
         const std::string &variant,
         const std::string &message,
@@ -280,8 +284,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief sends a warning when the scan error changes, and a success once scans
     /// recover.
     void report_scan(const x::errors::Error &err) {
+        const bool replaced = this->status_replaced.exchange(false);
         if (err) {
-            if (this->status.variant == synnax::status::VARIANT_WARNING &&
+            if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
                 this->status.description == err.data &&
                 this->status.details.data == this->scanner->status_data())
                 return;
@@ -291,7 +296,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
                 "Failed to scan for devices",
                 err.data
             );
-        } else if (this->status.variant != synnax::status::VARIANT_SUCCESS)
+        } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
             this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
     }
 
@@ -638,6 +643,7 @@ public:
         // The scanner answers the commands it handles with its own status.
         if (this->scanner->exec(cmd, this->task, this->ctx)) {
             this->status.details.cmd = driver::task::NO_COMMAND;
+            this->status_replaced = true;
             return;
         }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
