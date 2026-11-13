@@ -460,7 +460,7 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 // type chain already sets one, since one value cannot carry both patterns.
 func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
-		switch form := t.Form.(type) {
+		switch t.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
 			chain := validation.TypeChain(
 				resolution.TypeRef{Name: t.QualifiedName},
@@ -474,20 +474,11 @@ func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 				))
 			}
 		case resolution.StructForm:
-			unified := resolution.UnifiedFields(t, table)
-			for _, f := range form.Fields {
+			for _, f := range resolution.UnifiedFields(t, table) {
 				if !hasPattern(f.Domains) {
 					continue
 				}
-				typeRef := f.Type
-				if !f.HasType() {
-					if inherited, ok := lo.Find(unified, func(u resolution.Field) bool {
-						return u.Name == f.Name
-					}); ok {
-						typeRef = inherited.Type
-					}
-				}
-				chain := validation.TypeChain(typeRef, table)
+				chain := validation.TypeChain(f.Type, table)
 				if validation.TypeRules(chain).Pattern != nil {
 					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
 						"%s.%s has a pattern rule, but its type already sets one",

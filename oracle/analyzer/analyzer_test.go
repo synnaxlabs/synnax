@@ -1081,6 +1081,13 @@ Node union on variant {
 					value { @validate pattern "^[a-c]+$" }
 				}
 			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on a field inherited from a generic parent", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct<T> {
+					value T { @validate pattern "^a" }
+				}
+				Entry struct extends Parent<Name> {}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
 			Entry("on a type whose target sets one", `
 				Name = string { @validate pattern "^[a-z]+$" }
 				Short = Name { @validate pattern "^[a-c]+$" }
