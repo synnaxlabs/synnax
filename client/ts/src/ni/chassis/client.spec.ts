@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
+import { query } from "@/query";
 import { resource } from "@/resource";
 import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 
@@ -111,6 +112,14 @@ describe("NI chassis", async () => {
       expect(client.ni.chassis.watch(c.key ?? "").getCached()).toBeUndefined();
     });
 
+    it("should restore the previous chassis when a replace fails", async () => {
+      const c = await create();
+      await expect(
+        client.ni.chassis.create({ ...c, name: "Replacement" }, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(expectLive(client.ni.chassis.watch(c.key).getCached()).name).toBe(c.name);
+    });
+
     it("should restore the chassis when a delete fails", async () => {
       const c = await create();
       await expect(
@@ -149,6 +158,27 @@ describe("NI chassis", async () => {
       await expect(client.ni.chassis.retrieve({ key: uuid.create() })).rejects.toThrow(
         NotFoundError,
       );
+    });
+
+    it("should update the status of a cached chassis", async () => {
+      const c = await create();
+      const params = { key: c.key, includeStatus: true };
+      onTestFinished(client.ni.chassis.watch(params).onChange(() => {}));
+      await client.ni.chassis.retrieve(params);
+      await client.statuses.set({
+        owner: ni.chassis.resourceID(c.key),
+        name: "",
+        variant: "warning",
+        message: "Chassis degraded",
+        time: TimeStamp.now(),
+        details: { rack: rack.key, chassis: c.key },
+      });
+      await expect
+        .poll(() => {
+          const cached = client.ni.chassis.watch(params).getCached();
+          return query.isLive(cached) ? cached.status?.message : undefined;
+        })
+        .toBe("Chassis degraded");
     });
 
     it("should filter chassis by rack", async () => {
