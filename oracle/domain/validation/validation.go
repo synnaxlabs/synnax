@@ -115,8 +115,9 @@ func FieldRules(field resolution.Field, table *resolution.Table) *Rules {
 	return rules
 }
 
-// merge returns the rules that hold when both a and b hold. The analyzer rejects a
-// field pattern whose type sets one, so at most one of a and b sets a pattern.
+// merge returns the rules that hold when both a and b hold. A bound that another bound
+// implies is dropped. The analyzer rejects a field pattern whose type sets one, so at
+// most one of a and b sets a pattern.
 func merge(a, b *Rules) *Rules {
 	out := *a
 	out.Required = a.Required || b.Required
@@ -126,6 +127,13 @@ func merge(a, b *Rules) *Rules {
 	out.Min = tighterNumber(a.Min, b.Min, true)
 	out.GT = tighterNumber(a.GT, b.GT, true)
 	out.Max = tighterNumber(a.Max, b.Max, false)
+	if out.Min != nil && out.GT != nil {
+		if out.GT.value() >= out.Min.value() {
+			out.Min = nil
+		} else {
+			out.GT = nil
+		}
+	}
 	if out.Pattern == nil {
 		out.Pattern, out.PatternMessage = b.Pattern, b.PatternMessage
 	}

@@ -767,12 +767,12 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					`v.GreaterThanEq("size", c.Size, 0)`,
 					`v.GreaterThan("size", c.Size, 0)`,
 					`v.LessThanEq("size", c.Size, 1)`,
 					`v.LessThanEq("loose", c.Loose, 1)`,
 					`v.LessThanEq("tight", c.Tight, 0.5)`,
 				).ToNotContain(
+					`v.GreaterThanEq("size", c.Size, 0)`,
 					`v.LessThanEq("loose", c.Loose, 5)`,
 					`v.LessThanEq("tight", c.Tight, 1)`,
 				)
