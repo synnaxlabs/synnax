@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Skip with git commit --no-verify.
+coauthor='^co-authored-by:.*(claude|noreply@anthropic\.com)'
+footer='generated with \[?claude code'
+if grep -qiE "$coauthor|$footer" "$1"; then
+  echo "Remove the Claude co-author or Claude Code line from the message." >&2
+  exit 1
+fi
