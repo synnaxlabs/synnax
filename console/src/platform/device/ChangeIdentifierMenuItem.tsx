@@ -7,36 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
+import { type ComponentType, type ReactElement } from "react";
 
-import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
+import { type Adapter, type SaveParams } from "@/platform/device/adapter";
 import { Modals } from "@/platform/modals";
 import { type Tree } from "@/platform/tree";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Tree.ContextMenuProps,
   "selection" | "handleError"
-> {
+> {}
+
+interface InternalProps extends Pick<ChangeIdentifierMenuItemProps, "handleError"> {
   icon: string;
+  name: string;
+  deviceKey: string;
+  identifier: string;
+  save: (params: SaveParams) => Promise<boolean>;
 }
 
-interface InternalProps extends Pick<
-  ChangeIdentifierMenuItemProps,
-  "icon" | "handleError"
-> {
-  deviceKey: device.Key;
-}
-
-const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
+const Internal = ({
+  icon,
+  name,
+  deviceKey,
+  identifier,
+  save,
+  handleError,
+}: InternalProps) => {
   const rename = Modals.useRename();
-  const { updateAsync } = useChangeIdentifier();
-  const { properties } = Device.use({ key: deviceKey });
-  const identifier =
-    typeof properties?.identifier === "string" ? properties.identifier : "";
   const handleClick = () =>
     handleError(async () => {
       try {
@@ -48,7 +50,7 @@ const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
           icon: Icon.resolve(icon),
         });
         if (newIdentifier == null) return;
-        await updateAsync({ key: deviceKey, identifier: newIdentifier });
+        await save({ key: deviceKey, name, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw errors.fromUnknown(e);
@@ -62,13 +64,35 @@ const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
   );
 };
 
-export const ChangeIdentifierMenuItem = ({
+export interface CreateChangeIdentifierMenuItemArgs {
+  adapter: Adapter;
+  /** The name of the icon of the identifier modal, such as `Logo.NI`. */
+  icon: string;
+}
+
+/** Creates the menu item that changes the identifier of a configured device. */
+export const createChangeIdentifierMenuItem = ({
+  adapter: { use: useConfigurable, useSave, resourceID },
   icon,
-  selection: { ids },
-  handleError,
-}: ChangeIdentifierMenuItemProps) => {
-  const dev = Device.use({ key: ids[0].key });
-  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(ids[0].key));
-  if (ids.length !== 1 || !dev.configured || !hasUpdatePermission) return null;
-  return <Internal icon={icon} deviceKey={dev.key} handleError={handleError} />;
+}: CreateChangeIdentifierMenuItemArgs): ComponentType<ChangeIdentifierMenuItemProps> => {
+  const ChangeIdentifierMenuItem = ({
+    selection: { ids },
+    handleError,
+  }: ChangeIdentifierMenuItemProps): ReactElement | null => {
+    const dev = useConfigurable(ids[0].key);
+    const { updateAsync } = useSave();
+    const hasUpdatePermission = Access.useUpdateGranted(resourceID(ids[0].key));
+    if (ids.length !== 1 || !dev.configured || !hasUpdatePermission) return null;
+    return (
+      <Internal
+        icon={icon}
+        name={dev.name}
+        deviceKey={dev.key}
+        identifier={dev.identifier}
+        save={updateAsync}
+        handleError={handleError}
+      />
+    );
+  };
+  return ChangeIdentifierMenuItem;
 };

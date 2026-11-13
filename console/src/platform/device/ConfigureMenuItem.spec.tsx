@@ -20,6 +20,13 @@ import {
 } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
 
+const ADAPTER = Device.createLegacyAdapter({ make: "acme", zeroProperties: {} });
+const ConfigureMenuItem = Device.createConfigureMenuItem(ADAPTER);
+const ChangeIdentifierMenuItem = Device.createChangeIdentifierMenuItem({
+  adapter: ADAPTER,
+  icon: "Hardware",
+});
+
 const client = createTestClient();
 const roles = new RoleClients(client);
 
@@ -30,7 +37,7 @@ const renderItem = async (
   const onConfigure = vi.fn();
   const resources = devices.map(createDeviceResource);
   await renderMenuItem(
-    <Device.ConfigureMenuItem
+    <ConfigureMenuItem
       onConfigure={onConfigure}
       selection={createSelection({ ids: resources.map((r) => r.id) })}
     />,
@@ -52,11 +59,11 @@ describe("ConfigureMenuItem", () => {
     const resources = [a, b].map(createDeviceResource);
     await renderMenuItem(
       <>
-        <Device.ConfigureMenuItem
+        <ConfigureMenuItem
           onConfigure={vi.fn()}
           selection={createSelection({ ids: [resources[0].id] })}
         />
-        <Device.ConfigureMenuItem
+        <ConfigureMenuItem
           onConfigure={vi.fn()}
           selection={createSelection({ ids: resources.map((r) => r.id) })}
         />
@@ -73,12 +80,8 @@ describe("ConfigureMenuItem", () => {
     const selection = createSelection({ ids: [resource.id] });
     await renderMenuItem(
       <>
-        <Device.ChangeIdentifierMenuItem
-          icon="Hardware"
-          selection={selection}
-          handleError={() => {}}
-        />
-        <Device.ConfigureMenuItem onConfigure={vi.fn()} selection={selection} />
+        <ChangeIdentifierMenuItem selection={selection} handleError={() => {}} />
+        <ConfigureMenuItem onConfigure={vi.fn()} selection={selection} />
       </>,
       { client },
     );

@@ -15,6 +15,12 @@ import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.NI />;
 
+/** Binds the configure form and menu items to the generic device table. */
+export const ADAPTER = Device.createLegacyAdapter({
+  make: MAKE,
+  zeroProperties: ZERO_PROPERTIES,
+});
+
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "NI",
@@ -24,7 +30,7 @@ export const HARDWARE: Device.Hardware = {
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "plain" },
-  Configure: Device.createConfigure({ icon: ICON, zeroProperties: ZERO_PROPERTIES }),
+  Configure: Device.createConfigure({ icon: ICON, adapter: ADAPTER }),
   checks: [
     "NI-DAQmx is installed on that computer. NI hardware needs Windows or Linux.",
     "The device shows in NI MAX, and no other program reserves it.",

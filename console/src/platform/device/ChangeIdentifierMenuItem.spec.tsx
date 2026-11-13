@@ -21,6 +21,13 @@ import {
 } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
 
+const ADAPTER = Device.createLegacyAdapter({ make: "acme", zeroProperties: {} });
+const ConfigureMenuItem = Device.createConfigureMenuItem(ADAPTER);
+const ChangeIdentifierMenuItem = Device.createChangeIdentifierMenuItem({
+  adapter: ADAPTER,
+  icon: "Hardware",
+});
+
 const client = createTestClient();
 const roles = new RoleClients(client);
 
@@ -32,8 +39,7 @@ const runHandler: Status.ErrorHandler = (funcOrExc) => {
 const renderItem = async (devices: device.Device[], itemClient: Synnax) => {
   const resources = devices.map(createDeviceResource);
   return await renderMenuItem(
-    <Device.ChangeIdentifierMenuItem
-      icon="Hardware"
+    <ChangeIdentifierMenuItem
       selection={createSelection({ ids: resources.map((r) => r.id) })}
       handleError={runHandler}
     />,
@@ -54,13 +60,11 @@ describe("ChangeIdentifierMenuItem", () => {
     const resources = [a, b].map(createDeviceResource);
     await renderMenuItem(
       <>
-        <Device.ChangeIdentifierMenuItem
-          icon="Hardware"
+        <ChangeIdentifierMenuItem
           selection={createSelection({ ids: [resources[0].id] })}
           handleError={runHandler}
         />
-        <Device.ChangeIdentifierMenuItem
-          icon="Hardware"
+        <ChangeIdentifierMenuItem
           selection={createSelection({ ids: resources.map((r) => r.id) })}
           handleError={runHandler}
         />
@@ -77,12 +81,8 @@ describe("ChangeIdentifierMenuItem", () => {
     const selection = createSelection({ ids: [resource.id] });
     await renderMenuItem(
       <>
-        <Device.ConfigureMenuItem onConfigure={() => {}} selection={selection} />
-        <Device.ChangeIdentifierMenuItem
-          icon="Hardware"
-          selection={selection}
-          handleError={runHandler}
-        />
+        <ConfigureMenuItem onConfigure={() => {}} selection={selection} />
+        <ChangeIdentifierMenuItem selection={selection} handleError={runHandler} />
       </>,
       { client },
     );
