@@ -256,6 +256,13 @@ const EnumMapping = ({ field, path }: EnumMappingProps) => {
           defaultValue={field.type === "string" ? "" : "0"}
         />
       );
+    case "boolean":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", "boolean").enumValues}
+          valueType="boolean"
+        />
+      );
     default:
       return null;
   }

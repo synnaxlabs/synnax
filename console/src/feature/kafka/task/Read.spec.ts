@@ -110,6 +110,7 @@ describe("Read", () => {
     ["integer", "0"],
     ["unsigned", "0"],
     ["string", ""],
+    ["boolean", false],
   ] as const)(
     "should save each added enum mapping of a %s field under its own label",
     async (type, value) => {
@@ -151,13 +152,13 @@ describe("Read", () => {
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
 
-  it("should keep the enum mapping for a string field and hide it for a boolean", async () => {
+  it("should keep the enum mapping for a string field and a boolean field", async () => {
     await renderWithField();
     await screen.findByText("Enum mapping");
     await selectFromDropdown("float64", "String");
     await screen.findByText("Enum mapping");
     await selectFromDropdown("String", "Boolean");
-    await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
+    await screen.findByText("Enum mapping");
   });
 
   it("should stamp a record by a value it carries, hidden from the tree", async () => {
