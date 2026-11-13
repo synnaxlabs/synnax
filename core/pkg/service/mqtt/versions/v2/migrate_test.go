@@ -209,6 +209,37 @@ var _ = Describe("Migrate", func() {
 				BaseChannelField: base(telem.Float64T),
 				EnumValues:       []payload.StringEntry{},
 			}),
+		Entry("a bound timestamp as a timestamp that falls back to its JSON type",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeNumber,
+				DataType:   telem.TimestampT,
+				TimeFormat: &unixMs,
+			},
+			v2.TimestampChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.Float64T),
+				TimeFormat: payload.TimeFormatUnixMs,
+			}),
+		Entry("a bound string with entries and a stale timestamp data type as a string",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeString,
+				DataType:   telem.TimestampT,
+				EnumValues: onOff,
+			},
+			v2.StringChannelField{
+				Pointer:  "/v",
+				Channel:  7,
+				Name:     "cmd",
+				DataType: new(telem.TimestampT),
+				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
+					{Label: "ON", Value: "1"},
+				},
+			}),
 		Entry("a string with entries and a stale time format as a string",
 			v1.ChannelField{
 				Channel:    7,

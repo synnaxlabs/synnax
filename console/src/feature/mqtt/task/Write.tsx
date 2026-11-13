@@ -452,7 +452,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
           name: primitive.isNonZero(field.name)
             ? field.name
             : defaultCommandName(dev.name, target),
-          dataType: field.dataType,
+          dataType: field.dataType ?? Task.Payload.newChannelDataType(field.type),
         });
         // The device can hold a channel for the topic whose data type the field's kind
         // does not fit, so the field takes the first kind that channel allows.
