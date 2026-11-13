@@ -110,7 +110,7 @@ export const setEdgeStylePayloadZ = z.object({
   key: z.string(),
   variant: edgeVariantZ.optional(),
   strokeColor: color.colorZ.optional(),
-  strokeWidth: zod.uint8.optional(),
+  strokeWidth: zod.uint8.min(1).max(20).optional(),
 });
 
 export type SetEdgeStylePayload = z.infer<typeof setEdgeStylePayloadZ>;

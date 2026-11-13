@@ -542,6 +542,12 @@ describe("schematic reducer", () => {
         schematic.setEdgeChanged({ base, next: { ...base, strokeWidth: 6 } }),
       ).toEqual([schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 })]);
     });
+    it("should write a changed stroke color", () => {
+      const strokeColor = color.construct("#ff0000");
+      expect(
+        schematic.setEdgeChanged({ base, next: { ...base, strokeColor } }),
+      ).toEqual([schematic.setEdgeStyle({ key: "e1", strokeColor })]);
+    });
     it("should write changed segments on their own", () => {
       const segments = [{ direction: "x" as const, length: 40 }];
       expect(schematic.setEdgeChanged({ base, next: { ...base, segments } })).toEqual([

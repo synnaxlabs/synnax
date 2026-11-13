@@ -559,7 +559,7 @@ describe("Schematic toolbar Properties", () => {
   });
 
   describe("edges", () => {
-    const renderWithEdge = async (selected: string[]) => {
+    const renderWithEdge = async (selected: string[], stroke?: string) => {
       const Harness = (): ReactElement => <Toolbar />;
       return await renderSchematic(Harness, {
         schematic: {
@@ -572,10 +572,14 @@ describe("Schematic toolbar Properties", () => {
               key: "e1",
               source: { node: "n1", param: "out" },
               target: { node: "n2", param: "in" },
+              strokeColor: stroke,
             },
           ],
           configs: {
-            n1: PSchematic.Node.createConfig({ variant: "box" }),
+            n1: {
+              ...PSchematic.Node.createConfig({ variant: "box" }),
+              strokeColor: stroke,
+            },
             n2: PSchematic.Node.createConfig({ variant: "box" }),
           },
         },
@@ -622,6 +626,23 @@ describe("Schematic toolbar Properties", () => {
           hexOf((await retrieveEdge(key))?.strokeColor),
         ])
         .toEqual([RED, RED]);
+    });
+
+    it("recolors a selection color held by a symbol and an edge", async () => {
+      const { key } = await renderWithEdge(["n1", "e1"], RED);
+      await screen.findByText("Selection");
+      const [red] = selectionSwatches();
+      fireEvent.click(red);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () => [
+          hexOf((await retrieveConfig(key, "n1")).strokeColor),
+          hexOf((await retrieveEdge(key))?.strokeColor),
+        ])
+        .toEqual([BLUE, BLUE]);
     });
   });
 

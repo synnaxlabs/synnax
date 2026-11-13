@@ -10,6 +10,8 @@
 package schemadiff_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -668,6 +670,18 @@ Channel struct {
 `, retypedNew)).To(BeEmpty())
 		},
 	)
+
+	It("Should skip a field the new version removes", func() {
+		removed := strings.Replace(retypedNew, "\tshapes map<string, Small>\n", "", 1)
+		a, b := analyzeSchema(retypedOld), analyzeSchema(removed)
+		result := schemadiff.SchemaDiff(
+			typeIn(a, "Channel"), typeIn(b, "Channel"), a, b, identity,
+		)
+		Expect(result).To(HaveKeyWithValue("channel.Channel", schemadiff.TypeDiff{
+			QualifiedName: "channel.Channel", Kind: schemadiff.TypeChanged,
+		}))
+		Expect(result).ToNot(HaveKey("channel.Small"))
+	})
 
 	It("Should diff the old type of a retyped field's new name", func() {
 		a, b := analyzeSchema(retypedOld), analyzeSchema(retypedNew)

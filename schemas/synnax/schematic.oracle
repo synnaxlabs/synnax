@@ -1024,7 +1024,10 @@ Schematic struct {
         key          string
         variant      EdgeVariant?
         stroke_color color.Color?
-        stroke_width uint8?
+        stroke_width uint8?       {
+            @validate max 20
+            @validate min 1
+        }
 
         @doc value """
             sets each style field that the payload holds on the edge with the given key,

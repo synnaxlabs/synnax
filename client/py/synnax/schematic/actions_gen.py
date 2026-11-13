@@ -98,7 +98,7 @@ class SetEdgeStylePayload(BaseModel):
     key: str
     variant: EdgeVariant | None = None
     stroke_color: color.Color | None = None
-    stroke_width: int | None = Field(default=None, ge=0, le=255)
+    stroke_width: int | None = Field(default=None, ge=1, le=20)
 
 
 class ClearEdgeStrokeColorPayload(BaseModel):
