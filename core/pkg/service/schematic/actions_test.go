@@ -1098,6 +1098,23 @@ var _ = Describe("Payload decoding", func() {
 			MatchError(ContainSubstring("on_click_delay"))),
 	)
 
+	DescribeTable("Should validate a count against its lower bound",
+		func(variant, field string, count int, matcher OmegaMatcher) {
+			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
+				"n1", "config": {"variant": %q, %q: %d}}}`, variant, field, count))
+			Expect(a.SetConfig.Config.Validate()).To(matcher)
+		},
+		Entry("polygon sides below 3", "polygon", "num_sides", 2,
+			MatchError(ContainSubstring("num_sides"))),
+		Entry("polygon sides at 3", "polygon", "num_sides", 3, Succeed()),
+		Entry("value rolling average at 0", "value", "rolling_average", 0,
+			MatchError(ContainSubstring("rolling_average"))),
+		Entry("value rolling average at 1", "value", "rolling_average", 1, Succeed()),
+		Entry("tank rolling average at 0", "tank", "rolling_average", 0,
+			MatchError(ContainSubstring("rolling_average"))),
+		Entry("tank rolling average at 1", "tank", "rolling_average", 1, Succeed()),
+	)
+
 	DescribeTable("Should validate a tank staleness timeout against its bounds",
 		func(span int64, matcher OmegaMatcher) {
 			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
