@@ -88,18 +88,16 @@ const useFirst = (where: ranger.Where | null, order: ranger.Order): ranger.Range
 };
 
 /**
- * @returns the first instant after `at` when a range could enter or leave the filter
- * read at `at`, or null when the filter reads no time. It reads the held ranges, the
- * next range to start, and the next range to end, so a created or changed range
- * moves the instant too.
+ * @returns the next range to start and the next running range to end, read at `at`,
+ * or none when the filter reads no time. A created or changed range updates them, so
+ * their crossings catch a range that enters the filter after the list reads.
  */
-export const useCrossing = (
+export const useNextRanges = (
   where: ranger.Where | undefined,
-  held: ranger.Range[],
   at: TimeStamp,
-): TimeStamp | null => {
+): ranger.Range[] => {
   const timed = where != null && timeSpans(where) != null;
   const starting = useFirst(timed ? Ranger.stageWhere("to_do", at) : null, STARTS);
   const ending = useFirst(timed ? Ranger.stageWhere("in_progress", at) : null, ENDS);
-  return nextCrossing(where, [...held, ...starting, ...ending], at);
+  return [...starting, ...ending];
 };

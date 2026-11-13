@@ -29,7 +29,7 @@ import { ContextMenu } from "@/feature/range/next/ContextMenu";
 import { PROPERTIES } from "@/feature/range/next/Filter";
 import { FlatItem, HighlightContext, TreeItem } from "@/feature/range/next/Item";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/next/searchTree";
-import { pin, useCrossing } from "@/feature/range/next/time";
+import { nextCrossing, pin, useNextRanges } from "@/feature/range/next/time";
 import { Timeline } from "@/feature/range/next/Timeline";
 import {
   type Node,
@@ -270,7 +270,8 @@ const Internal = (): ReactElement => {
     subscribe: root.subscribe,
     getItem: root.getItem,
   });
-  const crossing = useCrossing(where, held, at);
+  const upcoming = useNextRanges(where, at);
+  const crossing = nextCrossing(where, [...held, ...upcoming], at);
   const now = useNow(() => crossing);
   if (crossing != null && !now.before(crossing)) setAt(now);
   const handleSearch = useDebouncedCallback(
