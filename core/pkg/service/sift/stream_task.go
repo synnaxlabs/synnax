@@ -463,9 +463,8 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		if _, ok := r.rejected[rng.Key]; ok {
 			continue
 		}
-		// Sift has no data of a range that ends by start, but an edit can move the end
-		// of
-		// a range with a run there.
+		// Sift has no data of a range that ends by start, but an edit can move a range
+		// with a run there.
 		if rng.TimeRange.End <= start {
 			if changed.Contains(rng.Key) {
 				if err = r.put(ctx, rng, false); err != nil {
