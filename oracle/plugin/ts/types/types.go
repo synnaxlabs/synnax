@@ -2675,7 +2675,8 @@ func (p *Plugin) applyValidation(
 		// hand-written schema may not be a zod number, so it keeps its own name.
 		resolved, ok := typeRef.Resolve(table)
 		handWritten := ok && omit.IsSkipped(resolved, "ts")
-		if base := resolution.PrimitiveBase(typeRef, table); base != "" && !handWritten {
+		base := resolution.PrimitiveBase(typeRef, table)
+		if base != "" && !handWritten {
 			effectiveType = base
 		}
 	}
@@ -2753,7 +2754,8 @@ func (p *Plugin) applyValidation(
 		}
 	}
 	// A hand-written number schema such as telem.numericTimeSpanZ, used directly or
-	// through a @ts type override, has no .min or .max, so its bounds go through checks.
+	// through a @ts type override, has no .min or .max, so its bounds go through
+	// checks.
 	if !isNumber && tsTypeOverride != "number" &&
 		!resolution.IsPrimitive(effectiveType) &&
 		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {
