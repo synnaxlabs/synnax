@@ -87,12 +87,9 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 }
 
 func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) {
-	existing, err := e.findRun(ctx, key)
-	if err != nil {
-		return "", err
-	}
-	if existing != nil {
-		return e.updateRun(ctx, existing, r)
+	id, err := e.updateFound(ctx, r, key)
+	if err != nil || id != "" {
+		return id, err
 	}
 	_, assetID, err := e.ingestionConfig(ctx)
 	if err != nil {
@@ -108,18 +105,34 @@ func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) 
 		ClientKey: &key,
 	})
 	if status.Code(err) == codes.AlreadyExists {
-		if existing, err = e.findRun(ctx, key); err != nil {
-			return "", err
+		if id, err = e.updateFound(ctx, r, key); err != nil || id != "" {
+			return id, err
 		}
-		if existing == nil {
-			return "", errors.New("Sift reported a run that it does not list")
-		}
-		return e.updateRun(ctx, existing, r)
+		return "", errors.New("Sift reported a run that it does not list")
 	}
 	if err != nil {
 		return "", err
 	}
 	return created.Run.RunId, nil
+}
+
+// updateFound updates the run with key to match r and returns its ID. It returns an
+// empty ID when Sift lists no such run.
+func (e *Engine) updateFound(ctx context.Context, r Run, key string) (string, error) {
+	// A run can go away between the look-up and the update, so look once more.
+	for range 2 {
+		existing, err := e.findRun(ctx, key)
+		if err != nil || existing == nil {
+			return "", err
+		}
+		switch err := e.updateRun(ctx, existing, r); {
+		case err == nil:
+			return existing.RunId, nil
+		case status.Code(err) != codes.NotFound:
+			return "", err
+		}
+	}
+	return "", errors.New("Sift could not find a run that it listed")
 }
 
 func (e *Engine) findRun(ctx context.Context, key string) (*runsv2.Run, error) {
@@ -133,11 +146,7 @@ func (e *Engine) findRun(ctx context.Context, key string) (*runsv2.Run, error) {
 	return res.Runs[0], nil
 }
 
-func (e *Engine) updateRun(
-	ctx context.Context,
-	existing *runsv2.Run,
-	r Run,
-) (string, error) {
+func (e *Engine) updateRun(ctx context.Context, existing *runsv2.Run, r Run) error {
 	start, stop := runSpan(r)
 	if existing.Name == r.Name &&
 		proto.Equal(existing.StartTime, start) &&
@@ -146,9 +155,9 @@ func (e *Engine) updateRun(
 			slices.Sorted(slices.Values(existing.Tags)),
 			slices.Sorted(slices.Values(r.Tags)),
 		) {
-		return existing.RunId, nil
+		return nil
 	}
-	if _, err := e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+	_, err := e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
 		Run: &runsv2.Run{
 			RunId:     existing.RunId,
 			Name:      r.Name,
@@ -159,10 +168,8 @@ func (e *Engine) updateRun(
 		UpdateMask: &fieldmaskpb.FieldMask{
 			Paths: []string{"name", "start_time", "stop_time", "tags"},
 		},
-	}); err != nil {
-		return "", err
-	}
-	return existing.RunId, nil
+	})
+	return err
 }
 
 func runSpan(r Run) (start, stop *timestamppb.Timestamp) {

@@ -795,6 +795,37 @@ var _ = Describe("Engine", func() {
 			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
 		})
 
+		It("Should look up a run again when it is gone at the update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(status.Error(codes.NotFound, "run not found"))
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
+
+		It("Should retry when a run it looked up twice is gone at each update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(
+					status.Error(codes.NotFound, "run not found"),
+					status.Error(codes.NotFound, "run not found"),
+				)
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.retryErrors()).To(HaveExactElements(
+					MatchError("Sift could not find a run that it listed"),
+				))
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
+
 		It("Should set a run while Upload runs", func(ctx SpecContext) {
 			idx := createIndex(ctx)
 			data := createData(ctx, idx, telem.Float64T)
