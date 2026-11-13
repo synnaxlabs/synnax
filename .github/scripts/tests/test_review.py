@@ -219,9 +219,12 @@ class TestInlineFindings:
         self, gh: FakeGH
     ) -> None:
         gh.threads = [posted(finding())]
-        post(review(finding(deferrable=True)), target=TARGET, gh=gh)
+        moved = finding(deferrable=True, body="New text.", suggestion="four")
+        post(review(moved), target=TARGET, gh=gh)
         [edit] = gh.written("PATCH", "pulls/comments/9")
-        assert "**Samples return old data** (follow-up)\n" in edit["body"]
+        first, rest = edit["body"].split("\n", 1)
+        assert first.endswith("**Samples return old data** (follow-up)")
+        assert rest == gh.threads[0]["comments"][0]["body"].split("\n", 1)[1]
         assert gh.written("POST", "pulls/7/reviews") == []
 
     def test_should_leave_an_open_thread_whose_heading_is_the_same(
@@ -276,6 +279,17 @@ class TestDismissedFindings:
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"
         assert done["output"]["summary"].endswith("Findings: 1 follow-up.")
+
+    def test_should_keep_the_verdict_when_a_follow_up_is_dismissed(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        done = finding(deferrable=True)
+        later = finding(severity="P2", title="Later", line=3, deferrable=True)
+        post(review(done, later, score=5), target=TARGET, gh=gh)
+        [check] = gh.written("PATCH", "check-runs/55")
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert "dismissed" not in check["output"]["summary"]
 
     def test_should_score_the_head_5_after_a_dismissal_while_posting(
         self, gh: FakeGH

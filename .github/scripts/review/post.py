@@ -91,7 +91,8 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     blocking finding left scores 5, and so does the head when the rest are dismissed
     while the review posts. Findings on lines of the diff become one review of inline
     threads, skipping any finding an unresolved thread of the bot already holds. Such a
-    thread gets the finding's new heading when its severity or follow-up mark changed.
+    thread gets the finding's new heading when its severity or follow-up mark changed,
+    and keeps the rest of its comment.
     The rest go in one comment the bot edits on each review. The summary in the pull
     request body is replaced, and the check run completes.
     """
@@ -106,8 +107,9 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     for f in inline:
         th = posted.get((f.path, f.title))
         if th is not None and th.heading != render.heading(f):
+            body = render.heading(f) + th.body[len(th.heading) :]
             comment = f"repos/{t.repo}/pulls/comments/{th.comment}"
-            write(gh, "PATCH", comment, {"body": render.comment(f, blob=blob)})
+            write(gh, "PATCH", comment, {"body": body})
     if fresh:
         comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
         payload = {
@@ -145,7 +147,7 @@ def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
     kept = [f for f in review.findings if (f.path, f.title) not in gone]
     if len(kept) == len(review.findings):
         return review
-    if any(f.blocks for f in kept):
+    if any(f.blocks for f in kept) or not any(f.blocks for f in review.findings):
         return replace(review, findings=kept)
     return replace(review, score=5, verdict=DISMISSED, findings=kept)
 
@@ -185,13 +187,18 @@ class Thread:
     id: str
     path: str
     title: str
-    heading: str
-    """The first line of the finding's comment."""
+    body: str
+    """The finding's comment."""
     comment: int
     """The database ID of the finding's comment."""
     resolved: bool
     replies: list[dict[str, Any]]
     """The comments after the finding, oldest first, as GraphQL serves them."""
+
+    @property
+    def heading(self) -> str:
+        """The first line of the finding's comment."""
+        return self.body.split("\n", 1)[0]
 
 
 def threads(t: Target, gh: GH) -> list[Thread]:
@@ -226,7 +233,7 @@ def threads(t: Target, gh: GH) -> list[Thread]:
                     id=node["id"],
                     path=node["path"],
                     title=title,
-                    heading=first["body"].split("\n", 1)[0],
+                    body=first["body"],
                     comment=first["databaseId"],
                     resolved=node["resolved"],
                     replies=replies,
