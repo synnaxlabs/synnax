@@ -318,6 +318,17 @@ describe("range/next/overview", () => {
       expect(tab.resource).toEqual(schematic.resourceID(doc.key));
     });
 
+    it("should show the new name of a renamed document", async () => {
+      const rng = await createTestRange(client);
+      const doc = await createDocument(rng);
+      await renderOverview(rng.key);
+      await screen.findByText(doc.name);
+      const renamed = uniqueName("renamed");
+      await client.schematics.rename(doc.key, renamed);
+      await screen.findByText(renamed);
+      expect(screen.queryByText(doc.name)).toBeNull();
+    });
+
     it("should read the documents past the first page on Show more", async () => {
       const rng = await createTestRange(client);
       const docs = await createDocuments(rng, 51);
