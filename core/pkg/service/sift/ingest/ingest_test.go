@@ -1477,17 +1477,16 @@ var _ = Describe("Engine", func() {
 					}
 				})
 
-				// sendOther waits until sift stores two values of other.
-				sendOther := func(ctx context.Context, sift *fake.Server) {
+				// sendOther returns once the engine reports that Sift confirmed other.
+				// The engine then has no open stream that closing Sift could fail.
+				sendOther := func(ctx context.Context) {
 					GinkgoHelper()
 					live()
 					write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
 						map[channel.Key]telem.Series{
 							other.Key(): telem.NewSeriesV(1.0, 2.0),
 						})
-					Eventually(func() []fake.Point {
-						return sift.Points("stand", other.Name)
-					}).Should(HaveLen(2))
+					Eventually(rec.samples).Should(BeEquivalentTo(2))
 				}
 
 				It("Should report a mark that OnCheckpoint failed to report",
@@ -1505,7 +1504,7 @@ var _ = Describe("Engine", func() {
 						}
 						e := open(ctx, channel.Keys{ch.Key(), other.Key()}, cfg)
 						stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
-						sendOther(ctx, server)
+						sendOther(ctx)
 						openWriter(
 							ctx,
 							channel.Keys{ch.Key()},
@@ -1538,7 +1537,7 @@ var _ = Describe("Engine", func() {
 							idx.Key():     at(0),
 							failing.Key(): at(0),
 						})
-						sendOther(ctx, sift)
+						sendOther(ctx)
 						Expect(sift.Close()).To(Succeed())
 						openWriter(
 							ctx,
