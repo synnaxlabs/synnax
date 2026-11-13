@@ -454,6 +454,17 @@ var _ = Describe("Server", func() {
 			})).Error().To(WithTransform(status.Code, Equal(codes.NotFound)))
 		})
 
+		It("Should reject a run with no name", func(ctx SpecContext) {
+			Expect(runs.CreateAdhocRun(ctx, &runsv2.CreateAdhocRunRequest{
+				StartTime: start,
+				StopTime:  stop,
+			})).Error().To(SatisfyAll(
+				WithTransform(status.Code, Equal(codes.InvalidArgument)),
+				MatchError(ContainSubstring("name is required")),
+			))
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
 		It("Should reject a run that stops before it starts", func(ctx SpecContext) {
 			Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{
 				StartTime: stop,

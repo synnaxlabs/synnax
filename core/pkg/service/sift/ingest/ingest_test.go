@@ -942,8 +942,7 @@ var _ = Describe("Engine", func() {
 					_, err := e.SetRun(sCtx, run)
 					set <- err
 				}()
-				// Lets SetRun reach the ingestion config before the cancel.
-				Consistently(set, 50*time.Millisecond).ShouldNot(Receive())
+				Eventually(stalled.Load).Should(BeEquivalentTo(2))
 				cancel()
 				Eventually(set).Should(Receive(MatchError(context.Canceled)))
 				close(release)
@@ -1013,6 +1012,28 @@ var _ = Describe("Engine", func() {
 			id := MustSucceed(e.SetRun(ctx, run))
 			run.Tags = []string{"cold"}
 			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			run.Key = "hotfire"
+			Expect(e.UpdateRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
 			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
 				HaveField("RunId", id),
 				HaveField("Tags", ConsistOf("cold")),
@@ -1505,17 +1526,16 @@ var _ = Describe("Engine", func() {
 					}
 				})
 
-				// sendOther waits until sift stores two values of other.
-				sendOther := func(ctx context.Context, sift *fake.Server) {
+				// sendOther returns once the engine reports that Sift confirmed other.
+				// The engine then has no open stream that closing Sift could fail.
+				sendOther := func(ctx context.Context) {
 					GinkgoHelper()
 					live()
 					write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
 						map[channel.Key]telem.Series{
 							other.Key(): telem.NewSeriesV(1.0, 2.0),
 						})
-					Eventually(func() []fake.Point {
-						return sift.Points("stand", other.Name)
-					}).Should(HaveLen(2))
+					Eventually(rec.samples).Should(BeEquivalentTo(2))
 				}
 
 				It("Should report a mark that OnCheckpoint failed to report",
@@ -1533,7 +1553,7 @@ var _ = Describe("Engine", func() {
 						}
 						e := open(ctx, channel.Keys{ch.Key(), other.Key()}, cfg)
 						stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
-						sendOther(ctx, server)
+						sendOther(ctx)
 						openWriter(
 							ctx,
 							channel.Keys{ch.Key()},
@@ -1566,7 +1586,7 @@ var _ = Describe("Engine", func() {
 							idx.Key():     at(0),
 							failing.Key(): at(0),
 						})
-						sendOther(ctx, sift)
+						sendOther(ctx)
 						Expect(sift.Close()).To(Succeed())
 						openWriter(
 							ctx,
