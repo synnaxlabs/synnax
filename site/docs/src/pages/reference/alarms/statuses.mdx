@@ -102,7 +102,7 @@ To set the status once for each change, and to clear it, see
   <Fragment slot="console">
 
 Press **S** or click <Icon.Status /> on the left side of the Console to open the
-statuses toolbar. It shows your favorite statuses with their variant, name, message,
+statuses toolbar. It shows your pinned statuses with their variant, name, message,
 labels, and the time since their last change.
 
 To see every status, run the "Open status explorer" command, or click the explore button
@@ -134,7 +134,7 @@ const tank = await client.statuses.retrieve({ searchTerm: "tank", limit: 10 });
 
 <Divider.Divider x />
 
-## Rename, favorite, or delete statuses
+## Rename, pin, or delete statuses
 
 <Client.Tabs>
 
@@ -143,7 +143,7 @@ const tank = await client.statuses.retrieve({ searchTerm: "tank", limit: 10 });
 In the status explorer, right-click one or more statuses and select:
 
 - **Rename** -> change the name of one status.
-- **Favorite** or **Unfavorite** -> add them to the statuses toolbar or remove them.
+- **Pin** or **Unpin** -> add them to the statuses toolbar or remove them.
 - **Copy diagnostics** -> copy the details to the clipboard.
 - **Delete** -> delete them, after you confirm.
 
