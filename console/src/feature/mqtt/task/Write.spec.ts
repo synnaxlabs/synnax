@@ -857,6 +857,44 @@ describe("MQTT Write form", () => {
       expect(channels).toEqual([cmdKey, virtualKey]);
     });
 
+    it("should fit the kind to a channel the device already stores for the topic", async () => {
+      const dev = await createBroker(client);
+      const storedCh = await client.channels.create({
+        name: uniqueName("mqtt_cmd"),
+        dataType: "uint8",
+        virtual: true,
+      });
+      await Device.setProperties(
+        client,
+        {
+          key: dev.key,
+          properties: {
+            ...MQTT.Device.ZERO_PROPERTIES,
+            write: { "plant/valve/set": storedCh.key },
+          },
+        },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [createWriteTarget("t1", "plant/valve/set")]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
+        client,
+        taskKey: draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      expect(created.config.targets).toMatchObject([
+        { channel: { type: "unsigned", channel: storedCh.key } },
+      ]);
+    });
+
     it("should adopt existing channels from the config and the device instead of creating new ones", async () => {
       const dev = await createBroker(client);
       const configuredCh = await client.channels.create({
