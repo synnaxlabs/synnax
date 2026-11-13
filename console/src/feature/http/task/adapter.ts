@@ -129,25 +129,9 @@ export const retype = (field: ReadField, dataType: DataType): ReadField => {
   });
 };
 
-/**
- * @returns the field, retyped to the kind of its channel's data type when they differ.
- * A numeric field of the same kind drops the fill and entries that the channel cannot
- * hold, and keeps its own data type, which the Core clears on a bound field. It returns
- * the same field when nothing changes.
- */
-export const matchKind = (field: ReadField, dataType?: DataType): ReadField => {
-  if (dataType == null) return field;
-  if (kindOf(dataType) !== field.type) return retype(field, dataType);
-  if (!isNumeric(field)) return field;
-  const kind = field.type;
-  const converted = convertValues(field, (v) => convertNumber(v, kind, dataType));
-  if (
-    Object.is(converted.fill, field.fill) &&
-    converted.enumValues.length === field.enumValues.length
-  )
-    return field;
-  return http.READ_FIELD_SCHEMAS[kind].parse({ ...field, ...converted });
-};
+/** @returns the field, retyped to the kind of the data type when they differ. */
+export const matchKind = (field: ReadField, dataType?: DataType): ReadField =>
+  dataType == null || kindOf(dataType) === field.type ? field : retype(field, dataType);
 
 /** The fields that take a fill from the form. */
 export type FillField = Extract<
@@ -179,11 +163,16 @@ const NON_FINITE = new Set(["NaN", "Infinity", "-Infinity"]);
  * fit the kind. Empty text is a NaN fill on a float and no fill on other kinds. A
  * string fill keeps its text as typed, so only empty text clears it.
  */
-export const parseFill = (field: FillField, text: string): FillField | null => {
+export const parseFill = (
+  field: FillField,
+  text: string,
+  dataType: DataType,
+): FillField | null => {
   const trimmed = text.trim();
   if (field.type === "float") {
     const fill = trimmed === "" ? NaN : Number(trimmed);
-    return Number.isFinite(fill) || trimmed === "" || NON_FINITE.has(trimmed)
+    const valid = Number.isFinite(fill) || trimmed === "" || NON_FINITE.has(trimmed);
+    return valid && convertNumber(fill, "float", dataType) != null
       ? { ...field, fill }
       : null;
   }
@@ -192,11 +181,13 @@ export const parseFill = (field: FillField, text: string): FillField | null => {
   if (trimmed === "") return { ...field, fill: undefined };
   switch (field.type) {
     case "integer":
-      return payload.integerZ.safeParse(trimmed).success
+      return payload.integerZ.safeParse(trimmed).success &&
+        convertNumber(trimmed, "integer", dataType) != null
         ? { ...field, fill: trimmed }
         : null;
     case "unsigned":
-      return payload.unsignedZ.safeParse(trimmed).success
+      return payload.unsignedZ.safeParse(trimmed).success &&
+        convertNumber(trimmed, "unsigned", dataType) != null
         ? { ...field, fill: trimmed }
         : null;
     case "boolean":
