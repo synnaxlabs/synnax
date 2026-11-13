@@ -26,6 +26,10 @@
 #include "core/pkg/transport/grpc/device/device.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
 #include "core/pkg/transport/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/ni/chassis/chassis.grpc.pb.h"
+#include "core/pkg/transport/grpc/ni/chassis/chassis.pb.h"
+#include "core/pkg/transport/grpc/ni/device/device.grpc.pb.h"
+#include "core/pkg/transport/grpc/ni/device/device.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.grpc.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 #include "core/pkg/transport/grpc/ranger/kv/kv.grpc.pb.h"
@@ -157,6 +161,38 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::device::DispatchRequest,
         google::protobuf::Empty,
         grpc::device::DeviceDispatchService>>(pool, base_target);
+    this->ni_device_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_device::CreateRequest,
+        grpc::ni_device::CreateResponse,
+        grpc::ni_device::NIDeviceCreateService>>(pool, base_target);
+    this->ni_device_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        ::api::ni_device::pb::RetrieveRequest,
+        ::api::ni_device::pb::RetrieveResponse,
+        grpc::ni_device::NIDeviceRetrieveService>>(pool, base_target);
+    this->ni_device_update = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_device::UpdateRequest,
+        google::protobuf::Empty,
+        grpc::ni_device::NIDeviceUpdateService>>(pool, base_target);
+    this->ni_device_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_device::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::ni_device::NIDeviceDeleteService>>(pool, base_target);
+    this->ni_chassis_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_chassis::CreateRequest,
+        grpc::ni_chassis::CreateResponse,
+        grpc::ni_chassis::NIChassisCreateService>>(pool, base_target);
+    this->ni_chassis_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        ::api::ni_chassis::pb::RetrieveRequest,
+        ::api::ni_chassis::pb::RetrieveResponse,
+        grpc::ni_chassis::NIChassisRetrieveService>>(pool, base_target);
+    this->ni_chassis_update = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_chassis::UpdateRequest,
+        google::protobuf::Empty,
+        grpc::ni_chassis::NIChassisUpdateService>>(pool, base_target);
+    this->ni_chassis_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ni_chassis::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::ni_chassis::NIChassisDeleteService>>(pool, base_target);
     this->control_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::control::RetrieveRequest,
         grpc::control::RetrieveResponse,
@@ -221,6 +257,14 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     device_retrieve->use(mw);
     device_delete->use(mw);
     device_dispatch->use(mw);
+    ni_device_create->use(mw);
+    ni_device_retrieve->use(mw);
+    ni_device_update->use(mw);
+    ni_device_delete->use(mw);
+    ni_chassis_create->use(mw);
+    ni_chassis_retrieve->use(mw);
+    ni_chassis_update->use(mw);
+    ni_chassis_delete->use(mw);
     control_retrieve->use(mw);
     status_retrieve->use(mw);
     status_set->use(mw);
