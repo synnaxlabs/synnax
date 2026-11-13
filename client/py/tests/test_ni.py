@@ -10,7 +10,7 @@
 from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
 import synnax.ni.chassis
@@ -903,12 +903,44 @@ class TestNIResources:
 
     def test_device_defaults(self) -> None:
         device = sy.ni.device.Device(
-            rack=1, name="PXI-6255", serial="01A", model="PXI-6255", alias="Mod1"
+            rack=1, name="PXI-6255", resource_name="Mod1", model="PXI-6255"
         )
+        assert device.serial == ""
         assert device.identifier == ""
         assert device.chassis is None
-        assert device.analog_input == sy.ni.device.InputPorts()
-        assert device.analog_output == sy.ni.device.OutputPorts()
+        assert device.analog_input == sy.ni.device.AnalogInputPorts()
+        assert device.analog_output == {}
+
+    def test_device_requires_a_resource_name(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.device.Device.model_validate(
+                {"rack": 1, "name": "PXI-6255", "model": "PXI-6255"}
+            )
+
+    def test_device_port_maps_parse_integer_keys(self) -> None:
+        device = sy.ni.device.Device.model_validate(
+            {
+                "rack": 1,
+                "name": "PXI-6255",
+                "resource_name": "Mod1",
+                "model": "PXI-6255",
+                "analog_input": {"index": 1, "channels": {"3": 2}},
+                "digital_output": {
+                    "0": {"state_index": 4, "lines": {"7": {"command": 5, "state": 6}}}
+                },
+            }
+        )
+        assert device.analog_input.channels == {3: 2}
+        assert device.digital_output[0].lines[7].state == 6
+
+    def test_update_selects_its_group(self) -> None:
+        adapter = TypeAdapter(sy.ni.device.Update)
+        update = adapter.validate_python(
+            {"group": "identity", "rack": 1, "resource_name": "Mod1", "model": "1"}
+        )
+        assert isinstance(update, sy.ni.device.IdentityUpdate)
+        update = adapter.validate_python({"group": "configuration", "name": "Module"})
+        assert isinstance(update, sy.ni.device.ConfigurationUpdate)
 
     def test_device_resource_id(self) -> None:
         assert sy.ni.device.resource_id(self.KEY).type == "ni_device"

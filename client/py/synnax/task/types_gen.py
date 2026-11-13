@@ -249,7 +249,7 @@ class ScanConfig(KeyedConfig):
         disabled: Is true when scanning is paused.
     """
 
-    rate: telem.Rate = telem.Rate(0.200000)
+    rate: telem.Rate = Field(default=telem.Rate(0.200000), gt=0, allow_inf_nan=False)
     disabled: bool = False
 
     @_override
@@ -350,7 +350,7 @@ class ReadConfig(PersistConfig):
         stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
     """
 
-    sample_rate: telem.Rate = telem.Rate(10)
+    sample_rate: telem.Rate = Field(default=telem.Rate(10), gt=0, allow_inf_nan=False)
     stream_rate: telem.Rate = telem.Rate(5)
 
     @_override

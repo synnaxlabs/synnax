@@ -3,7 +3,8 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-09-21
 - **Related**:
-  [RFC 0020 - Engineering process standardization](0020-engineering-workflow.md)
+  [RFC 0020 - Engineering process standardization](0020-engineering-workflow.md),
+  [RFC 0111 - Fast releases](0111-fast-releases.md)
 
 ## 0 Summary
 
@@ -47,7 +48,8 @@ template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main`
 `release/**` build and test only.
 
 Every release, candidates included, runs only from `main` or a release branch,
-`release/<console|core|driver>-X.Y`; Desktop also allows `release/desktop-X.Y`. Desktop
+`release/X.Y`, one per train; Desktop also allows `release/desktop-X.Y`. RFC 0111 §3.0
+changed the name from `release/<console|core|driver>-X.Y`, which now fails. Desktop
 takes a minor or major bump from `main` and only a patch bump from its release branch,
 once `X.Y` has a stable tag. Any other branch fails. The Console, Core, and Driver fail
 when any stable tag of the product names `HEAD`, so no commit ships twice. A release
@@ -58,16 +60,16 @@ The branch sets the version of the Console, Core, Driver, and packages. A releas
 Console, Core, or Driver from `main` is always the next minor: when the newest stable
 tag is `X.Y.Z`, it is `X.(Y+1).0`, and its candidates are `X.(Y+1).0-rc.N`. A patch from
 `main` is not possible. Release branches exist only for patches: when train `X.Y` needs
-one, `release/<product>-X.Y` is cut from the `X.Y.0` tag, and the fix lands on `main`
-first, then is cherry-picked by PR onto the branch. A release from the branch is always
-the next patch on `X.Y`, or `X.Y.0` when the product has no tag on a train that another
-product opened from `main`. A branch never opens a train.
+one, `release/X.Y` is cut from the `X.Y.0` tag, and the fix lands on `main` first, then
+is cherry-picked by PR onto the branch. A release from the branch is always the next
+patch on `X.Y`, or `X.Y.0` when the product has no tag on a train that another product
+opened from `main`. A branch never opens a train.
 
 Packages share the Core's minor, since the TypeScript and Python clients connect only to
 a Core with the same major.minor. From `main`, packages release only in the same run as
 the Core, at the next patch on the minor the Core releases; a packages-only run from
-`main` fails and asks for `release/core-X.Y`. From a release branch, packages release
-the next patch on `X.Y`, with or without the Core, but only once a Core is released on
+`main` fails and asks for `release/X.Y`. From a release branch, packages release the
+next patch on `X.Y`, with or without the Core, but only once a Core is released on
 `X.Y`.
 
 ### 2.1 Release workflow
@@ -83,7 +85,7 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
   this run releases, else the newest on the resolved minor (candidates included when
-  `prerelease` is set), so a hotfix from `release/core-0.59` never picks up 0.60.
+  `prerelease` is set), so a hotfix from `release/0.59` never picks up 0.60.
 
 Each selected product runs four stages:
 
@@ -94,15 +96,19 @@ Each selected product runs four stages:
    for that version, and a stable release from the same branch promotes it. The action
    also emits the previous stable product tag; a candidate uses the same baseline, so
    its notes cover every change since the last stable.
-2. **Verify**: The commit's required checks must have passed. The integration suite runs
-   as a `workflow_call` job, once per run.
+2. **Verify**: The commit needs one green run of `ci.yaml` with `full`. A nightly run or
+   an earlier release run of the commit counts. If there is none, `ci.yaml` runs as a
+   `workflow_call` job. The migration audit runs when its input is set. Both run in
+   parallel with the builds and gate only the publish (RFC 0111 §2 and §3.2).
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
-   product, then clear the draft. The release creates the tag, so a failed build leaves
-   none. Concurrency group `release` serializes releases.
+   product. One `publish` job clears the drafts of the run, the Core last, after Verify
+   and every build pass. The release creates the tag, so a failed build or a failed
+   Verify leaves only drafts and no tag. Concurrency group `release` serializes
+   releases.
 
 Assets per product:
 
@@ -111,18 +117,20 @@ Assets per product:
   files, and `latest.json`, which points at the updater artifacts. The DMG is for first
   installs only and carries no signature.
 - **Driver** (`driver/vX.Y.Z`): The four platform binaries and the NI install script.
-- **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
-  releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
+- **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries into
+  `core/pkg/console/dist/` and `core/pkg/driver/assets/`, from the drafts of the run or,
+  for a product the run does not release, from its published release. It then builds the
   binaries, Windows installer, and Docker image (`next` for a pre-release that no Core
   tag outranks, `latest` for a stable that no other stable Core tag outranks, so a
   hotfix on an old train never moves either one backwards). No workflow rebuilds another
   product. The notes name the embedded versions. The image pushes in its own job after
-  the Core publishes, and no job waits on it, so a failed push blocks only the image. It
-  reads the tags at push time, so a late rerun never moves a channel back.
+  the publish, and no job waits on it, so a failed push blocks only the image. It reads
+  the tags at push time, so a late rerun never moves a channel back.
 
-Console and Driver release in parallel. The Core embeds them, so it waits for both and
-never runs after one fails. A failed product leaves no tag and the rest stand; rerun
-with that product alone, and a Core rerun's defaults pick up the others.
+The Console and the Driver build in parallel. The Core embeds them, so its build waits
+for both builds and for the updater manifest, and never runs after one fails. A failed
+build publishes no product of the run. A rerun of the failed jobs keeps the drafts that
+the passed builds filled, and a new dispatch clears them and builds again.
 
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
@@ -130,17 +138,17 @@ ever already published.
 Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
 `py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
 each language releases alone. A language takes the Core's minor (§2.0): from `main`, the
-next patch on the minor of the run's Core; from `release/<product>-X.Y`, the next patch
-on `X.Y`. A version a registry once held is never reused, even after a yank, so the next
-patch skips it: with `ts/v0.61.0` and `py/v0.61.0` yanked, the run that ships Core
-0.61.0 publishes packages 0.61.1. The publish job waits for every product the run
-releases, then runs `stamp_versions.sh` to write the version into that language's
-manifests. It stops when the version's tag names another commit, or when the registry
-has the version without a tag, so one version never holds packages from two commits.
+next patch on the minor of the run's Core; from `release/X.Y`, the next patch on `X.Y`.
+A version a registry once held is never reused, even after a yank, so the next patch
+skips it: with `ts/v0.61.0` and `py/v0.61.0` yanked, the run that ships Core 0.61.0
+publishes packages 0.61.1. The publish job waits for every product the run releases,
+then runs `stamp_versions.sh` to write the version into that language's manifests. It
+stops when the version's tag names another commit, or when the registry has the version
+without a tag, so one version never holds packages from two commits.
 
 The Python job claims the version by pushing its tag at the run's commit, then
 publishes. To finish a partial publish, rerun the failed jobs, which keep the resolved
-versions, or dispatch the packages from `release/core-X.Y` cut at the run's commit: the
+versions, or dispatch the packages from `release/X.Y` cut at the run's commit: the
 resolve stage keeps a tag on the train that names `HEAD`, and PyPI skips what already
 went up.
 
@@ -283,7 +291,9 @@ flag and workflow file.
    tagged next-minor code on the old train once that train had moved to its release
    branch. release-please rejected because it writes version files; typed versions
    rejected because they invite skipped numbers. Desktop keeps a `bump`, since its
-   version line is apart from the train.
+   version line is apart from the train. RFC 0111 changed the release branch name from
+   one per product, `release/<console|core|driver>-X.Y`, to one per train,
+   `release/X.Y`.
 6. **Updater endpoint on the docs site**: `releases/latest/download` is repo-wide and
    breaks under per-product tags; a rolling `console/latest` release abuses tags.
 7. **Request-time docs versions**: The site is already SSR; a deploy hook fixes a race

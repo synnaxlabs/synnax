@@ -20,6 +20,7 @@
 #include "client/cpp/http/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/payload/json.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -53,20 +54,6 @@ inline x::json::json QueryParam::to_json() const {
     return j;
 }
 
-inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
-    return EnumEntry{
-        .label = parser.field<std::string>("label", ""),
-        .value = parser.field<double>("value", 0),
-    };
-}
-
-inline x::json::json EnumEntry::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["label"] = this->label;
-    j["value"] = this->value;
-    return j;
-}
-
 inline ReadField ReadField::parse(x::json::Parser parser) {
     return ReadField{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -84,9 +71,9 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
             ::x::telem::DataType("float64")
         ),
         .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<EnumEntry>>(
+        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
             "enum_values",
-            std::vector<EnumEntry>{}
+            std::vector<::x::payload::EnumEntry>{}
         ),
     };
 }
@@ -179,9 +166,9 @@ inline ChannelField ChannelField::parse(x::json::Parser parser) {
             ::x::telem::DataType("float64")
         ),
         .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<EnumEntry>>(
+        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
             "enum_values",
-            std::vector<EnumEntry>{}
+            std::vector<::x::payload::EnumEntry>{}
         ),
     };
 }

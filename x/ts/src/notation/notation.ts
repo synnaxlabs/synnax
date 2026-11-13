@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Notation } from "@/notation/types.gen";
+import { type bounds } from "@/spatial";
+
+/** The bounds of a display precision. A float64 holds about 17 significant digits. */
+export const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 17 };
 
 // Returns the digits of the value's shortest decimal form, and the exponent of the
 // first digit.

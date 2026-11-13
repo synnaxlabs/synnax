@@ -15,14 +15,21 @@ const METHODS = ["error", "warn"] as const;
  * Fails every test that writes to console.error or console.warn. A test that expects
  * output mocks the method with vi.spyOn, which replaces the recorder for that test.
  * Call it once from a setup file.
+ *
+ * @param ignore - Patterns for output that does not fail a test. The output still
+ * prints.
  */
-export const failOnConsoleOutput = (): void => {
+export const failOnConsoleOutput = ({
+  ignore = [],
+}: { ignore?: RegExp[] } = {}): void => {
   const originals = { error: console.error, warn: console.warn };
   beforeEach(() => {
     const messages: string[] = [];
     for (const method of METHODS)
       console[method] = (...args: unknown[]) => {
-        messages.push(`console.${method}: ${args.map(String).join(" ")}`);
+        const message = args.map(String).join(" ");
+        if (!ignore.some((pattern) => pattern.test(message)))
+          messages.push(`console.${method}: ${message}`);
         originals[method](...args);
       };
     // Runs after every afterEach hook, so cleanup still runs and its output counts.
