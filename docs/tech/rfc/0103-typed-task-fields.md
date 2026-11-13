@@ -321,10 +321,11 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   the MQTT reconcile takes that kind before `Reconcile` runs. A field with no channel
   keeps its `data_type`, and one with none takes the data type of its kind.
 - **Static write field**: Lift by the stored Go type, not `json_type`, because the HTTP
-  Driver sends the value as it is. A whole `float64` within 2^53 becomes `integer`, and
-  other numbers become `float`. An `int64` or `uint64` keeps its value. A string or
-  boolean keeps its kind. Others, `null` included, become `json` text. A generator
-  becomes `uuid` or `timestamp`.
+  Driver sends the value as it is. A whole `float64` becomes `integer` within `int64`
+  range, or `unsigned` within `uint64` range, so it keeps its digits, and other numbers
+  become `float`. An `int64` or `uint64` keeps its value. A string or boolean keeps its
+  kind. Others, `null` included, become `json` text. A generator becomes `uuid` or
+  `timestamp`.
 
 `Reconcile` sets the kind from §4, against the channel of a bound field or the
 `data_type` of an unbound field. A bound field holds no `data_type`, so nothing is left
