@@ -18,10 +18,8 @@ import { FLAGS } from "@/flags";
 
 export interface UploadMenuItemProps extends UploadModalParams {}
 
-/** Opens a modal that uploads the data of a range to Sift. */
-export const UploadMenuItem = (props: UploadMenuItemProps) => {
+const Item = (props: UploadMenuItemProps) => {
   const open = useUploadModal();
-  if (!FLAGS.sift) return null;
   return (
     <Menu.Item itemKey="siftUpload" onClick={() => open(props)}>
       <Icon.Logo.Sift />
@@ -29,3 +27,8 @@ export const UploadMenuItem = (props: UploadMenuItemProps) => {
     </Menu.Item>
   );
 };
+
+const Hidden = (): null => null;
+
+/** Opens a modal that uploads the data of a range to Sift. */
+export const UploadMenuItem = FLAGS.sift ? Item : Hidden;
