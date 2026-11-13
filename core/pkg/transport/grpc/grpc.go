@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	apilabjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -139,6 +140,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.NIChassisRetrieve = noop.UnaryServer[apinichassis.RetrieveRequest, apinichassis.RetrieveResponse]{}
 	t.NIChassisUpdate = noop.UnaryServer[apinichassis.UpdateRequest, struct{}]{}
 	t.NIChassisDelete = noop.UnaryServer[apinichassis.DeleteRequest, struct{}]{}
+
+	// LABJACK DEVICE
+	t.LabJackDeviceCreate = noop.UnaryServer[apilabjackdevice.CreateRequest, apilabjackdevice.CreateResponse]{}
+	t.LabJackDeviceRetrieve = noop.UnaryServer[apilabjackdevice.RetrieveRequest, apilabjackdevice.RetrieveResponse]{}
+	t.LabJackDeviceUpdate = noop.UnaryServer[apilabjackdevice.UpdateRequest, struct{}]{}
+	t.LabJackDeviceDelete = noop.UnaryServer[apilabjackdevice.DeleteRequest, struct{}]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

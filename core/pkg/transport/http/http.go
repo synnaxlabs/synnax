@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -525,6 +526,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
 			router,
 			"/api/v1/ni/chassis/delete",
+		),
+
+		// LABJACK DEVICE
+		LabJackDeviceCreate: unary[labjackdevice.CreateRequest, labjackdevice.CreateResponse](
+			router,
+			"/api/v1/labjack/device/create",
+		),
+		LabJackDeviceRetrieve: unary[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse](
+			router,
+			"/api/v1/labjack/device/retrieve",
+		),
+		LabJackDeviceUpdate: unary[labjackdevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/labjack/device/update",
+		),
+		LabJackDeviceDelete: unary[labjackdevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/labjack/device/delete",
 		),
 
 		// ACCESS

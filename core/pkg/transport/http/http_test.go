@@ -165,6 +165,26 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/ni/chassis/delete",
 			),
+			Entry(
+				"unary LabJack device create",
+				http.MethodPost,
+				"/api/v1/labjack/device/create",
+			),
+			Entry(
+				"unary LabJack device retrieve",
+				http.MethodPost,
+				"/api/v1/labjack/device/retrieve",
+			),
+			Entry(
+				"unary LabJack device update",
+				http.MethodPost,
+				"/api/v1/labjack/device/update",
+			),
+			Entry(
+				"unary LabJack device delete",
+				http.MethodPost,
+				"/api/v1/labjack/device/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
