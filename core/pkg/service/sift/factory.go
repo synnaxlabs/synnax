@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -143,7 +142,7 @@ func (c FactoryConfig) Validate() error {
 
 // Factory configures the Sift task types. It also deletes and renames the progress
 // status of each stream task as the task is deleted or renamed, whether or not the task
-// runs. Safe for concurrent use.
+// runs, and repairs the changes it missed when it opens. Safe for concurrent use.
 type Factory struct {
 	cfg FactoryConfig
 	mu  sync.Mutex
@@ -152,14 +151,7 @@ type Factory struct {
 	// stopping holds, for each rack whose scan task stops, a channel that closes when
 	// the task releases the rack.
 	stopping map[rack.Key]chan struct{}
-	// changed holds the tasks that were deleted, and the latest name of each stream
-	// task that was set, since followTasks last ran.
-	changed struct {
-		sync.Mutex
-		deleted set.Set[task.Key]
-		renamed map[task.Key]string
-	}
-	// wake signals that changed holds a task.
+	// wake signals that a task was deleted or a stream task was set.
 	wake       chan struct{}
 	disconnect observe.Disconnect
 	shutdown   io.Closer
@@ -180,12 +172,10 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		stopping:  make(map[rack.Key]chan struct{}),
 		wake:      make(chan struct{}, 1),
 	}
-	f.changed.deleted = make(set.Set[task.Key])
-	f.changed.renamed = make(map[task.Key]string)
+	f.disconnect = cfg.Task.Observe().OnChange(f.onTaskChange)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	sCtx.Go(f.followTasks, signal.RecoverWithErrOnPanic())
 	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	f.disconnect = cfg.Task.Observe().OnChange(f.onTaskChange)
 	return f, nil
 }
 
@@ -195,86 +185,84 @@ func (f *Factory) Close() error {
 	return f.shutdown.Close()
 }
 
-// onTaskChange runs in the commit of a task change, so it hands the changed stream
-// tasks to followTasks and never waits.
+// onTaskChange runs in the commit of a task change, so it wakes followTasks and never
+// waits.
 func (f *Factory) onTaskChange(
 	_ context.Context,
 	r gorp.TxReader[task.Key, task.Task],
 ) {
-	f.changed.Lock()
-	defer f.changed.Unlock()
 	for ch := range r {
-		switch {
-		case ch.Kind == gorp.ChangeDelete:
-			f.changed.deleted.Add(ch.Key)
-			delete(f.changed.renamed, ch.Key)
-		case ch.Value.Type == StreamTaskType:
-			f.changed.deleted.Remove(ch.Key)
-			f.changed.renamed[ch.Key] = ch.Value.Name
-		default:
-			continue
-		}
-		select {
-		case f.wake <- struct{}{}:
-		default:
+		if ch.Kind == gorp.ChangeDelete || ch.Value.Type == StreamTaskType {
+			select {
+			case f.wake <- struct{}{}:
+			default:
+			}
+			return
 		}
 	}
 }
 
-// followTasks deletes the progress status of each deleted task and renames the progress
-// status of each renamed stream task until ctx is cancelled.
+// followTasks repairs the progress statuses at once and after each wake until ctx is
+// cancelled.
 func (f *Factory) followTasks(ctx context.Context) error {
 	for {
+		f.repairProgress(ctx)
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-f.wake:
 		}
-		f.changed.Lock()
-		deleted, renamed := f.changed.deleted, f.changed.renamed
-		f.changed.deleted = make(set.Set[task.Key])
-		f.changed.renamed = make(map[task.Key]string)
-		f.changed.Unlock()
-		if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return f.updateProgress(ctx, tx, deleted, renamed)
-		}); err != nil {
-			f.cfg.L.Error("failed to update stream progress", zap.Error(err))
-		}
 	}
 }
 
-func (f *Factory) updateProgress(
-	ctx context.Context,
-	tx gorp.Tx,
-	deleted set.Set[task.Key],
-	renamed map[task.Key]string,
-) error {
-	w := f.cfg.Status.NewWriter(tx)
-	keys := make([]status.Key, 0, len(deleted))
-	for key := range deleted {
-		keys = append(keys, ProgressKey(key))
+// repairProgress deletes each progress status that no stream task has, and gives each
+// other one the name of its task. It logs each status it fails to repair, which the
+// next repair tries again.
+func (f *Factory) repairProgress(ctx context.Context) {
+	var (
+		statuses []status.Status[any]
+		tasks    []task.Task
+	)
+	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := f.cfg.Status.NewRetrieve[any]().
+			WherePrefix(streamKeyPrefix).
+			Entries(&statuses).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		return f.cfg.Task.NewRetrieve().
+			Where(task.MatchTypes(StreamTaskType)).
+			Entries(&tasks).
+			Exec(ctx, snap)
+	}); err != nil {
+		f.cfg.L.Error("failed to read stream progress", zap.Error(err))
+		return
 	}
-	if err := w.Delete(ctx, keys...); err != nil {
-		return err
+	names := make(map[status.Key]string, len(tasks))
+	for _, t := range tasks {
+		names[ProgressKey(t.Key)] = t.Name
 	}
-	for key, name := range renamed {
-		var s ProgressStatus
-		err := f.cfg.Status.NewRetrieve[StreamDetails]().
-			Where(status.MatchKeys[StreamDetails](ProgressKey(key))).
-			Entry(&s).
-			Exec(ctx, tx)
-		// A stream task that never started has no progress.
-		if errors.Is(err, query.ErrNotFound) || (err == nil && s.Name == name) {
+	for _, s := range statuses {
+		name, ok := names[s.Key]
+		if ok && name == s.Name {
 			continue
 		}
-		if err != nil {
-			return err
-		}
-		if err = w.Rename(ctx, s.Key, name); err != nil {
-			return err
+		err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			w := f.cfg.Status.NewWriter(tx)
+			if !ok {
+				return w.Delete(ctx, s.Key)
+			}
+			return w.Rename(ctx, s.Key, name)
+		})
+		// A user can delete the progress status of a task that still exists.
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			f.cfg.L.Error(
+				"failed to repair stream progress",
+				zap.String("key", s.Key),
+				zap.Error(err),
+			)
 		}
 	}
-	return nil
 }
 
 // Name implements driver.Factory.

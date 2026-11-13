@@ -39,7 +39,7 @@ import (
 
 var _ = Describe("Stream task", func() {
 	var (
-		f      driver.Factory
+		f      *sift.Factory
 		server *fake.Server
 		dev    device.Device
 		idx    channel.Channel
@@ -162,6 +162,76 @@ var _ = Describe("Stream task", func() {
 		Consistently(progressErr).WithTimeout(200 * time.Millisecond).
 			Should(MatchError(query.ErrNotFound))
 	})
+
+	// setProgress writes a progress status for tk with details, as an earlier version
+	// could have left it.
+	setProgress := func(ctx context.Context, tk task.Task, details any) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+				Key:     sift.ProgressKey(tk.Key),
+				Name:    tk.Name,
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: details,
+			})
+		})).To(Succeed())
+	}
+
+	// rawProgress retrieves the progress status of tk without decoding its details.
+	rawProgress := func(ctx context.Context, tk task.Task) (status.Status[any], error) {
+		var s status.Status[any]
+		err := statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](sift.ProgressKey(tk.Key))).
+			Entry(&s).
+			Exec(ctx, db)
+		return s, err
+	}
+
+	// renameAndDelete renames t to name and deletes other in one transaction.
+	renameAndDelete := func(ctx context.Context, name string, other task.Task) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := taskSvc.NewWriter(tx)
+			if _, err := w.Apply(ctx, t.Key, task.NewSetAction(
+				task.SetPayload{Path: []string{"name"}, Value: name},
+			)); err != nil {
+				return err
+			}
+			return w.Delete(ctx, other.Key, false)
+		})).To(Succeed())
+	}
+
+	It("Should repair the progress of each task when one has corrupt details",
+		func(ctx SpecContext) {
+			deleted := newTask(ctx, sift.StreamTaskType, nil)
+			setProgress(ctx, deleted, nil)
+			setProgress(ctx, t, "corrupt")
+			renameAndDelete(ctx, "renamed", deleted)
+			Eventually(func() error {
+				_, err := rawProgress(ctx, deleted)
+				return err
+			}).Should(MatchError(query.ErrNotFound))
+			Eventually(rawProgress).WithArguments(ctx, t).
+				Should(HaveField("Name", "renamed"))
+		})
+
+	It("Should repair at open the progress of the tasks changed while it was closed",
+		func(ctx SpecContext) {
+			start(ctx, streamConfig())
+			Expect(dt.Stop(false)).To(Succeed())
+			deleted := newTask(ctx, sift.StreamTaskType, nil)
+			setProgress(ctx, deleted, nil)
+			Expect(f.Close()).To(Succeed())
+			renameAndDelete(ctx, "renamed", deleted)
+			f = MustOpen(sift.OpenFactory(factoryConfig()))
+			Eventually(func() error {
+				_, err := rawProgress(ctx, deleted)
+				return err
+			}).Should(MatchError(query.ErrNotFound))
+			Eventually(progressOf).WithArguments(ctx).
+				Should(HaveField("Name", "renamed"))
+		})
 
 	It("Should rename its progress when the task is renamed", func(ctx SpecContext) {
 		rename := func(name string) {
