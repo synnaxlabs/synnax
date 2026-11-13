@@ -159,11 +159,12 @@ const Upload = ({
             <Form.TextField
               path={path.config.asset}
               label="Asset"
+              required
               inputProps={ASSET_INPUT_PROPS}
               grow
             />
           </Flex.Box>
-          <Form.Field path={path.config.channels} label="Channels">
+          <Form.Field path={path.config.channels} label="Channels" required>
             {({ value, onChange }) => (
               <Channel.SelectMultiple
                 value={value}

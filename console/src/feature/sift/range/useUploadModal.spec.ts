@@ -57,10 +57,14 @@ describe("Sift.Range.useUploadModal", () => {
     const dev = await createSiftDevice(client, { rack: rack.key });
     const [, data] = await newIndexedPair(client);
     const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
     await renderModalOpener(
       Sift.Range.useUploadModal,
       [{ rangeKey: rng.key, rangeName: rng.name }],
-      { client },
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
     );
     await selectFromDropdown("Select device", dev.name);
     fireEvent.change(await screen.findByPlaceholderText("Test stand 1"), {
@@ -82,6 +86,9 @@ describe("Sift.Range.useUploadModal", () => {
       asset: "Test stand 1",
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Queued upload to Sift"),
+    );
   });
 
   it("should not list calculated channels, which the Core does not store", async () => {
