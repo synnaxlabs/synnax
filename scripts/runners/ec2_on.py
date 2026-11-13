@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.60,<0.61"]
+# dependencies = ["boto3", "synnax>=0.61,<0.62"]
 # ///
 
 """Starts the EC2 instance behind a runner.
