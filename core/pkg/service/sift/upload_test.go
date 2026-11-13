@@ -408,6 +408,22 @@ var _ = Describe("Upload", func() {
 		))
 	})
 
+	It("Should reject upload arguments that do not decode", func(ctx SpecContext) {
+		stat := execCommand(ctx, dt, t, "upload", map[string]any{
+			"device":   dev.Key,
+			"range":    "not-a-uuid",
+			"channels": []channel.Key{ch.Key()},
+			"asset":    "stand",
+		})
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Failed to upload to Sift"))
+		// The JSON decoder words the start of its errors in more than one way.
+		Expect(stat.Description).To(SatisfyAll(
+			HavePrefix("invalid arguments: json: "),
+			HaveSuffix(`JSON string into Go uuid.UUID within "/range": invalid uuid`),
+		))
+	})
+
 	missingDevice, missingRange := uuid.New().String(), uuid.New()
 
 	DescribeTable("Should reject an invalid upload",
