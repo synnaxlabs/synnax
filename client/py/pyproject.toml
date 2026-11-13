@@ -139,6 +139,7 @@ markers = [
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
     "http: mark test as an http test",
+    "kafka: mark test as a kafka test",
     "group: mark test as a group test",
     "imex: mark test as an imex test",
     "frame_codec: mark test as a frame codec test",

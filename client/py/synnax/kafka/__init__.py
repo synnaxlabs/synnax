@@ -9,7 +9,13 @@
 
 from synnax.kafka.types_gen import (
     SASL,
+    BaseWriteChannel,
+    BooleanWriteChannel,
+    BytesWriteChannel,
     Credentials,
+    FloatWriteChannel,
+    IntegerWriteChannel,
+    JsonWriteChannel,
     NoneSASL,
     PlainSASL,
     Properties,
@@ -22,13 +28,23 @@ from synnax.kafka.types_gen import (
     ScramSha256SASL,
     ScramSha512SASL,
     StartOffset,
+    StringWriteChannel,
+    TimestampWriteChannel,
+    UnsignedWriteChannel,
+    UuidWriteChannel,
     WriteChannel,
     WriteConfig,
 )
 
 __all__ = [
     "SASL",
+    "BaseWriteChannel",
+    "BooleanWriteChannel",
+    "BytesWriteChannel",
     "Credentials",
+    "FloatWriteChannel",
+    "IntegerWriteChannel",
+    "JsonWriteChannel",
     "NoneSASL",
     "PlainSASL",
     "Properties",
@@ -41,6 +57,10 @@ __all__ = [
     "ScramSha256SASL",
     "ScramSha512SASL",
     "StartOffset",
+    "StringWriteChannel",
+    "TimestampWriteChannel",
+    "UnsignedWriteChannel",
+    "UuidWriteChannel",
     "WriteChannel",
     "WriteConfig",
 ]

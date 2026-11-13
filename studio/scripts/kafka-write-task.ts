@@ -23,14 +23,14 @@ const record = serverTaskScript(KAFKA, {
   channels: async (session, form) => {
     await addChannel(session, form);
     await choose(session, form, "Channel", "oven_temperature", { search: true });
-    await choose(session, form, "JSON type", "Number");
+    await choose(session, form, "Output type", "Number");
   },
 });
 
 /**
  * Docs `reference/hardware/kafka/write-task` (Create a Kafka write task): enter the
- * topic, add a channel, set its JSON type, and start the task, which publishes the live
- * channel to the fake broker.
+ * topic, add a channel, set its output type, and start the task, which publishes the
+ * live channel to the fake broker.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const telemetry = await fixtures.sineTelemetry({ prefix: "oven" });

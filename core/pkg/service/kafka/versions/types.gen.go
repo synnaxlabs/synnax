@@ -11,50 +11,85 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 
 // StartOffset is where a consumer group with no committed offset starts reading a
 // topic. none fails the start instead of guessing.
-type StartOffset = v0.StartOffset
+type StartOffset = v1.StartOffset
 
 const (
 	// StartOffsetLatest starts at the end of the topic and reads only new records.
-	StartOffsetLatest StartOffset = v0.StartOffsetLatest
+	StartOffsetLatest StartOffset = v1.StartOffsetLatest
 	// StartOffsetEarliest starts at the oldest record the topic retains.
-	StartOffsetEarliest StartOffset = v0.StartOffsetEarliest
+	StartOffsetEarliest StartOffset = v1.StartOffsetEarliest
 	// StartOffsetNone fails the start.
-	StartOffsetNone StartOffset = v0.StartOffsetNone
+	StartOffsetNone StartOffset = v1.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
-type RecordKey = v0.RecordKey
+type RecordKey = v1.RecordKey
 
 const (
 	// RecordKeyNone writes records with no key.
-	RecordKeyNone RecordKey = v0.RecordKeyNone
+	RecordKeyNone RecordKey = v1.RecordKeyNone
 	// RecordKeyChannelName uses the name of the source channel as the key.
-	RecordKeyChannelName RecordKey = v0.RecordKeyChannelName
+	RecordKeyChannelName RecordKey = v1.RecordKeyChannelName
 )
 
 // ScanConfig configures a Kafka scan task.
-type ScanConfig = v0.ScanConfig
+type ScanConfig = v1.ScanConfig
 
 // ReadField is a single value extracted from a record's JSON value.
-type ReadField = v0.ReadField
+type ReadField = v1.ReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
-type ReadConfig = v0.ReadConfig
+type ReadConfig = v1.ReadConfig
 
-// WriteChannel is a channel whose samples a write task produces as records.
-type WriteChannel = v0.WriteChannel
+// BaseWriteChannel carries the fields every Kafka write channel shares.
+type BaseWriteChannel = v1.BaseWriteChannel
 
 // Record is the shape of every record a write task produces.
-type Record = v0.Record
+type Record = v1.Record
 
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v1.WriteConfig
 
 // ReadRecord is a set of fields read from the records with one Kafka key.
-type ReadRecord = v0.ReadRecord
+type ReadRecord = v1.ReadRecord
+
+// WriteChannel is a channel whose samples a write task produces as records. The type
+// selects the JSON value of each sample. A sample that matches an entry of enum_values
+// is written as the entry's label.
+type WriteChannel = v1.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
+type WriteChannelVariant = v1.WriteChannelVariant
+
+// FloatWriteChannel writes each sample as a JSON number.
+type FloatWriteChannel = v1.FloatWriteChannel
+
+// IntegerWriteChannel writes each sample as a JSON number.
+type IntegerWriteChannel = v1.IntegerWriteChannel
+
+// UnsignedWriteChannel writes each sample as a JSON number.
+type UnsignedWriteChannel = v1.UnsignedWriteChannel
+
+// StringWriteChannel writes each sample as a JSON string.
+type StringWriteChannel = v1.StringWriteChannel
+
+// BooleanWriteChannel writes each sample as a JSON boolean.
+type BooleanWriteChannel = v1.BooleanWriteChannel
+
+// TimestampWriteChannel writes each sample of a timestamp channel in a time format.
+type TimestampWriteChannel = v1.TimestampWriteChannel
+
+// JsonWriteChannel writes each sample of a JSON channel as its JSON value.
+type JsonWriteChannel = v1.JsonWriteChannel
+
+// UuidWriteChannel writes each sample of a UUID channel as a JSON string.
+type UuidWriteChannel = v1.UuidWriteChannel
+
+// BytesWriteChannel writes each sample of a bytes channel as a base64 JSON string.
+type BytesWriteChannel = v1.BytesWriteChannel
