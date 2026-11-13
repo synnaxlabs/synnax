@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  channel,
   label,
   query as clientQuery,
   ranger,
@@ -35,6 +36,7 @@ const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PARENT_RESOURCE_NAME = "parent range";
 const PLURAL_PARENT_RESOURCE_NAME = "parent ranges";
+const ALIAS_RESOURCE_NAME = "channel alias";
 const PLURAL_ALIAS_RESOURCE_NAME = "channel aliases";
 
 export type RetrieveQuery = {
@@ -269,6 +271,30 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   update: async ({ client, value: getPair }) => {
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
+  },
+});
+
+export const aliasFormSchema = ranger.alias.aliasZ.extend({
+  channel: channel.keyZ.refine(primitive.isNonZero, "Channel is required"),
+  alias: z.string().trim().min(1, "Alias is required"),
+});
+
+export const aliasFormPath = deep.path<z.infer<typeof aliasFormSchema>>();
+
+const ZERO_ALIAS_FORM_VALUES: z.infer<typeof aliasFormSchema> = {
+  range: "",
+  channel: 0,
+  alias: "",
+};
+
+/** A form that sets the alias of a channel on a range when it saves. */
+export const useCreateAliasForm = Flux.createForm<null, typeof aliasFormSchema>({
+  name: ALIAS_RESOURCE_NAME,
+  schema: aliasFormSchema,
+  initialValues: ZERO_ALIAS_FORM_VALUES,
+  update: async ({ client, value: getAlias }) => {
+    const { range, channel, alias } = getAlias();
+    await client.ranges.setAlias(range, channel, alias);
   },
 });
 

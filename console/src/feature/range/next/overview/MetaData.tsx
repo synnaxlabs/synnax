@@ -96,41 +96,47 @@ const PairDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
     initialValues: { key: "", value: "", range: rangeKey },
     afterSave: onClose,
   });
-  const key = Form.useField<string>(pairPath.key, { ctx: form });
-  const value = Form.useField<string>(pairPath.value, { ctx: form });
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
     if (e.key === "Enter") save();
   };
   return (
-    <Field
-      name={
-        <Input.Text
-          autoFocus
-          variant="shadow"
-          placeholder="Key"
-          value={key.value}
-          onChange={key.onChange}
-          onKeyDown={handleKeyDown}
-          className={CSS.BE("range-overview", "field-input")}
+    <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
+      <Field
+        name={
+          <Form.TextField
+            path={pairPath.key}
+            showLabel={false}
+            showHelpText={false}
+            inputProps={{
+              autoFocus: true,
+              variant: "shadow",
+              placeholder: "Key",
+              onKeyDown: handleKeyDown,
+              className: CSS.BE("range-overview", "field-input"),
+            }}
+          />
+        }
+        actions={
+          <>
+            <SaveButton onClick={() => save()} />
+            <RemoveButton onClick={onClose} />
+          </>
+        }
+      >
+        <Form.TextField
+          path={pairPath.value}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={{
+            variant: "shadow",
+            placeholder: "Value",
+            onKeyDown: handleKeyDown,
+            className: CSS.BE("range-overview", "field-value"),
+          }}
         />
-      }
-      actions={
-        <>
-          <SaveButton onClick={() => save()} />
-          <RemoveButton onClick={onClose} />
-        </>
-      }
-    >
-      <Input.Text
-        variant="shadow"
-        placeholder="Value"
-        value={value.value}
-        onChange={value.onChange}
-        onKeyDown={handleKeyDown}
-        className={CSS.BE("range-overview", "field-value")}
-      />
-    </Field>
+      </Field>
+    </Form.Form>
   );
 };
 

@@ -115,6 +115,12 @@ const createDocuments = async (
 const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =>
   (await createDocuments(rng, 1))[0];
 
+/** @returns the text of the tooltip that a hover on the element shows. */
+const hoverTip = async (el: HTMLElement): Promise<string> => {
+  fireEvent.pointerOver(el, { pointerType: "mouse" });
+  return (await screen.findByRole("tooltip")).textContent;
+};
+
 /** Creates a range under the parent that starts at the start and runs one second. */
 const createChildAt = async (
   parent: ranger.Range,
@@ -227,6 +233,19 @@ describe("range/next/overview", () => {
       expect(await rng.kv.get("operator")).toBe("ada");
     });
 
+    it("should mark a blank key and keep the draft open on Enter", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Metadata" }));
+      const value = await screen.findByPlaceholderText("Value");
+      fireEvent.change(value, { target: { value: "ada" } });
+      fireEvent.keyDown(value, { key: "Enter" });
+      const key = screen.getByPlaceholderText("Key");
+      await waitFor(() => expect(key.getAttribute("aria-invalid")).toBe("true"));
+      expect(await hoverTip(key)).toBe("Key is required");
+      expect(await rng.kv.list()).toEqual({});
+    });
+
     it("should save an edited value", async () => {
       const rng = await createTestRange(client);
       await rng.kv.set("operator", "ada");
@@ -275,6 +294,19 @@ describe("range/next/overview", () => {
       await waitFor(async () =>
         expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" }),
       );
+    });
+
+    it("should mark a missing channel and a blank alias on Save", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Channel alias" }));
+      const alias = await screen.findByPlaceholderText("Alias");
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(alias.getAttribute("aria-invalid")).toBe("true"));
+      const channel = screen.getByRole("button", { name: "Channel" });
+      expect(channel.getAttribute("aria-invalid")).toBe("true");
+      expect(await hoverTip(channel)).toBe("Channel is required");
+      expect(await rng.listAliases()).toEqual({});
     });
 
     it("should note an alias that the parent range sets as inherited", async () => {
