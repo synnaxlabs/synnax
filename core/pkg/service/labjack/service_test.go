@@ -29,11 +29,12 @@ import (
 var _ = Describe("Service", func() {
 	var (
 		svc        *labjack.Service
+		statusSvc  *status.Service
 		channelSvc *channel.Service
 		tasks      *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
@@ -43,7 +44,8 @@ var _ = Describe("Service", func() {
 			Status:  statusSvc,
 		}))
 		svc = MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: statusSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -53,9 +55,24 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(labjack.OpenService(ctx, labjack.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
+		DescribeTable(
+			"Should reject a config missing a required field",
+			func(ctx SpecContext, field string, unset func(*labjack.ServiceConfig)) {
+				cfg := labjack.ServiceConfig{DB: db, Status: statusSvc}
+				unset(&cfg)
+				Expect(labjack.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *labjack.ServiceConfig) { c.DB = nil }),
+			Entry(
+				"status",
+				"status",
+				func(c *labjack.ServiceConfig) { c.Status = nil },
+			),
+		)
+
+		It("Should open the device service", func() {
+			Expect(svc.Devices).ToNot(BeNil())
 		})
 	})
 

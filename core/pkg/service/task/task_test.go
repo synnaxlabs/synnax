@@ -136,7 +136,10 @@ var _ = Describe("Task", Ordered, func() {
 			To(Succeed())
 		testArc = a.Base().Key
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		named := MustOpen(
 			config.OpenService(ctx, config.ServiceConfig[kafka.ReadConfig]{
 				DB:          db,
