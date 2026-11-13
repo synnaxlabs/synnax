@@ -61,6 +61,18 @@ on:
         required: false
         type: boolean
         default: false
+      first_shard_only:
+        description:
+          Whether to run only the first shard, whose build cache the other shards
+          restore
+        required: false
+        type: boolean
+        default: false
+      lint_skipped:
+        description: Whether to skip the lint jobs
+        required: false
+        type: boolean
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -80,6 +92,7 @@ jobs:
   # one GOOS, which fits the Ubuntu runner's disk.
   lint:
     name: Lint (${{ matrix.goos }})
+    if: ${{ !inputs.lint_skipped }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -214,6 +227,9 @@ jobs:
           - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
           - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
           - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
+          - shard: ${{ inputs.first_shard_only && 2 }}
+          - shard: ${{ inputs.first_shard_only && 3 }}
+          - shard: ${{ inputs.first_shard_only && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
@@ -264,12 +280,15 @@ jobs:
           cache: false
 
       # This workflow file salts the key: cache archives store absolute paths, so one
-      # saved before a cache-path move would restore to the old spot.
+      # saved before a cache-path move would restore to the old spot. A go test cache
+      # saves little of a Ginkgo compile, and a Ginkgo cache holds no test results, so
+      # the two do not share keys.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
+          PREFIX: go-${{ inputs.cached && 'test' || 'ginkgo' }}-${{ runner.os }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
@@ -277,8 +296,8 @@ jobs:
           {
             echo "build=$(go env GOCACHE)"
             echo "modules=$(go env GOMODCACHE)"
-            echo "module=go-test-${{ runner.os }}-$DIRECTORY-"
-            echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-"
+            echo "module=$PREFIX-$DIRECTORY-"
+            echo "sum=$PREFIX-$DIRECTORY-$SUM-"
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
