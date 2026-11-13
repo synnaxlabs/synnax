@@ -64,3 +64,42 @@
         border-radius: var(--pluto-border-radius-tiny);
     }
 }
+
+@keyframes lyra-menu-dialog-fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+/* A submenu meets the edge of its menu, with its first item level with its own item.
+   The dialog opens 3 px from the item, which sits inside the padding of the menu. */
+.lyra-dialog__dialog.lyra-menu-dialog.lyra-menu-dialog--sub {
+    --pluto-menu-dialog-inset: calc(1rem + var(--pluto-border-width));
+    --pluto-menu-dialog-first-item: var(--pluto-menu-dialog-inset);
+    --pluto-menu-dialog-edge: calc(var(--pluto-menu-dialog-inset) - 3px);
+
+    translate: var(--pluto-menu-dialog-edge)
+        calc(-1 * var(--pluto-menu-dialog-first-item));
+    animation: lyra-menu-dialog-fade-in 0.1s ease-in-out;
+
+    &:has(> .lyra-input) {
+        --pluto-menu-dialog-first-item: calc(
+            var(--pluto-height-large) + var(--pluto-menu-dialog-inset)
+        );
+    }
+
+    &.lyra-dialog__dialog--right {
+        translate: calc(-1 * var(--pluto-menu-dialog-edge))
+            calc(-1 * var(--pluto-menu-dialog-first-item));
+    }
+
+    /* A submenu that replaces another shows at once. */
+    &.lyra-menu-dialog--swap {
+        animation: none;
+    }
+
+    /* It stays above the context menu it opens from. */
+    &.lyra--visible {
+        z-index: 9;
+    }
+}
