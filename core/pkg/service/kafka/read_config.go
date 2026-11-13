@@ -180,9 +180,9 @@ func reconcileReadConfig(
 }
 
 // reconcileField changes fld to the kind of ch and clears its data type. Between
-// numeric kinds, it keeps each entry and the fill that ch holds exactly. On other
-// kinds, it drops them. It drops a fill on an index channel. It returns the changes it
-// made.
+// numeric kinds, it keeps each entry and the fill that fits ch, and an integer must fit
+// a float channel exactly. On other kinds, it drops them. It drops a fill on an index
+// channel. It returns the changes it made.
 func reconcileField(fld *ReadField, ch channel.Channel) []string {
 	var changes []string
 	if dataTypeOf(*fld) != nil {
@@ -237,7 +237,9 @@ func reconcileField(fld *ReadField, ch channel.Channel) []string {
 	return changes
 }
 
-// exactFloat returns true when v keeps its value as a sample of dt, a float type.
+// exactFloat returns true when v keeps its value as a sample of dt, a float type. An
+// integer must be exact. A float64 always fits, as a float channel takes its nearest
+// value.
 func exactFloat(v any, dt telem.DataType) bool {
 	f := toFloat(v)
 	switch v := v.(type) {
