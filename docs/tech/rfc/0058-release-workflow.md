@@ -192,7 +192,7 @@ package shares the train's minor; patches are independent, so a Console hotfix s
 `0.59.x`. Each language releases its packages together at one version, on the Core's
 minor. The C++ client and the C library are on no registry and ship with the Driver, so
 they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog
-pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any
+pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at pack, so any
 patch mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
 `@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
 the catalog.
