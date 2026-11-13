@@ -361,9 +361,13 @@ var _ = Describe("ReadConfig", func() {
 				"type":        "string",
 				"enum_values": BeEmpty(),
 			}),
-			Entry("boolean", telem.BooleanT, map[string]any{
-				"type":        "boolean",
-				"enum_values": BeEmpty(),
+			Entry("boolean, as value != 0", telem.BooleanT, map[string]any{
+				"type": "boolean",
+				"enum_values": []any{
+					map[string]any{"label": "OFF", "value": false},
+					map[string]any{"label": "ON", "value": true},
+				},
+				"fill": false,
 			}),
 			Entry("timestamp", telem.TimestampT, map[string]any{
 				"type":        "timestamp",
