@@ -82,7 +82,7 @@ func newIndexes() indexes {
 			Name:     "owner",
 			Table:    "user",
 			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Kind:     gorp.Use,
 			Targets: func(e *Panel) []user.Key {
 				if e.Owner == nil {
 					return nil
