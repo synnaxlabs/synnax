@@ -68,8 +68,8 @@ func clearZeroColors(v reflect.Value) {
 		clearZeroColors(c)
 		v.Set(c)
 	case reflect.Struct:
-		for i := range v.NumField() {
-			if f := v.Field(i); f.CanSet() {
+		for _, f := range v.Fields() {
+			if f.CanSet() {
 				clearZeroColors(f)
 			}
 		}
