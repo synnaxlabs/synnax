@@ -2671,8 +2671,12 @@ func (p *Plugin) applyValidation(
 		effectiveType = tsTypeOverride
 	} else if !resolution.IsPrimitive(effectiveType) {
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
-		// constraints on the underlying primitive, so classify by that base.
-		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+		// constraints on the underlying primitive, so classify by that base. A
+		// hand-written schema may not be a zod number, so it keeps its own name.
+		resolved, ok := typeRef.Resolve(table)
+		handWritten := ok && omit.IsSkipped(resolved, "ts")
+		base := resolution.PrimitiveBase(typeRef, table)
+		if base != "" && !handWritten {
 			effectiveType = base
 		}
 	}
@@ -2747,6 +2751,26 @@ func (p *Plugin) applyValidation(
 			} else {
 				zodType = fmt.Sprintf("%s.max(%f)", zodType, rules.Max.Float)
 			}
+		}
+	}
+	// A hand-written number schema such as telem.numericTimeSpanZ, used directly or
+	// through a @ts type override, has no .min or .max, so its bounds go through
+	// checks.
+	if !isNumber && tsTypeOverride != "number" &&
+		!resolution.IsPrimitive(effectiveType) &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {
+		var checks []string
+		if rules.Min != nil {
+			checks = append(checks, "z.gte("+boundLiteral(*rules.Min)+")")
+		}
+		if rules.GT != nil {
+			checks = append(checks, "z.gt("+boundLiteral(*rules.GT)+")")
+		}
+		if rules.Max != nil {
+			checks = append(checks, "z.lte("+boundLiteral(*rules.Max)+")")
+		}
+		if len(checks) > 0 {
+			zodType = fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
 		}
 	}
 	if defaultVal != nil {
@@ -3687,3 +3711,10 @@ export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )
+
+func boundLiteral(n validation.Number) string {
+	if n.IsInt {
+		return fmt.Sprintf("%d", n.Int)
+	}
+	return fmt.Sprint(n.Float)
+}

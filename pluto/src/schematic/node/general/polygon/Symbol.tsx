@@ -32,8 +32,9 @@ export const Symbol = ({
       onRotate={onConfigChange}
       onResize={({ width }) =>
         onConfigChange({
-          sideLength:
+          sideLength: Math.round(
             (width * Math.sin(Math.PI / config.numSides)) / Primitive.BASE_SCALE,
+          ),
         })
       }
     >

@@ -97,6 +97,15 @@ describe("ValueForm", () => {
       typePrecision(getByText, "40");
       expect(methods.get(path.precision).value).toBe(17);
     });
+
+    it("should write the staleness timeout to the cell config in seconds", () => {
+      const { getByLabelText } = renderTelemetryTab();
+      const input = getByLabelText("Timeout");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "7s" } });
+      fireEvent.blur(input);
+      expect(methods.get(path.stalenessTimeout).value).toBe(7);
+    });
   });
 
   describe("redline tab", () => {

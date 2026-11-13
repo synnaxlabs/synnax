@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
@@ -104,7 +105,7 @@ describe("Schematic.Node.createConfig", () => {
     const config = createConfig({ variant: "value" });
     expect(config.variant).toBe("value");
     expect(config.inlineSize).toBe(70);
-    expect(config.stalenessTimeout).toBe(5);
+    expect(config.stalenessTimeout).toBe(TimeSpan.seconds(5).nanoseconds);
   });
 
   it("should name the label after the spec when the input sets none", () => {

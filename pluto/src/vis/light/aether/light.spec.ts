@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -54,25 +55,29 @@ describe("light/aether/Light", () => {
     afterEach(() => vi.useRealTimers());
 
     it("should start out live", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       expect(h.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       vi.advanceTimersByTime(10000);
       expect(h.state.stale).toBe(false);
     });
 
     it("should turn stale when the source stops sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
     });
 
     it("should stay live while the source keeps sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 5 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         source.setValue(i % 2 === 0);
@@ -82,7 +87,10 @@ describe("light/aether/Light", () => {
 
     // A steady boolean channel still delivers samples, so it must not read as stale.
     it("should stay live while the source repeats the same value", () => {
-      const { h, source } = setup({ sourceValue: true, stalenessTimeout: 5 });
+      const { h, source } = setup({
+        sourceValue: true,
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         source.setValue(true);
@@ -91,7 +99,9 @@ describe("light/aether/Light", () => {
     });
 
     it("should turn live again when the source sends after going stale", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -100,7 +110,10 @@ describe("light/aether/Light", () => {
     });
 
     it("should keep reporting the last known enabled state while stale", () => {
-      const { h, source } = setup({ sourceValue: false, stalenessTimeout: 1 });
+      const { h, source } = setup({
+        sourceValue: false,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -108,7 +121,7 @@ describe("light/aether/Light", () => {
     });
 
     it("should release its registration on delete", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
     });
@@ -116,7 +129,9 @@ describe("light/aether/Light", () => {
     // Picking a channel builds a new source. The arrivals of the old one say nothing
     // about the new one, so the light starts over as empty.
     it("should treat a newly picked channel as never having sent", () => {
-      const { h, source } = setup({ stalenessTimeout: 5 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       source.setValue(true);
       const next = telemTest.source<boolean>(false);
       h.setState((p) => ({ ...p, source: telemTest.booleanSourceSpec(next) }));
@@ -125,7 +140,9 @@ describe("light/aether/Light", () => {
     });
 
     it("should turn live again when a stale light is pointed at a new channel", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -135,7 +152,7 @@ describe("light/aether/Light", () => {
     });
 
     it("should count arrivals from the newly picked channel", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       const next = telemTest.source<boolean>(false);
       h.setState((p) => ({ ...p, source: telemTest.booleanSourceSpec(next) }));
       next.setValue(true);

@@ -447,10 +447,10 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			fillColor = &v
 		}
 		return NodeConfig{Variant: OffPageReferenceNodeConfig{
-			LabeledConfig:       variant.LabeledConfig,
-			FillColor:           fillColor,
-			Page:                variant.Page,
-			DblClickNavDisabled: variant.DblClickNavDisabled,
+			LabeledConfig:                 variant.LabeledConfig,
+			FillColor:                     fillColor,
+			Page:                          variant.Page,
+			DoubleClickNavigationDisabled: variant.DoubleClickNavigationDisabled,
 		}}, nil
 	case v12.PolygonNodeConfig:
 		var strokeColor *color.Color
@@ -470,14 +470,14 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			fillColor = &v
 		}
 		return NodeConfig{Variant: PolygonNodeConfig{
-			LabeledConfig:  variant.LabeledConfig,
-			NumSides:       variant.NumSides,
-			SideLength:     variant.SideLength,
-			Rotation:       variant.Rotation,
-			CornerRounding: variant.CornerRounding,
-			StrokeColor:    strokeColor,
-			FillColor:      fillColor,
-			StrokeWidth:    variant.StrokeWidth,
+			LabeledConfig: variant.LabeledConfig,
+			NumSides:      variant.NumSides,
+			SideLength:    variant.SideLength,
+			Rotation:      variant.Rotation,
+			BorderRadius:  variant.BorderRadius,
+			StrokeColor:   strokeColor,
+			FillColor:     fillColor,
+			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v12.SelectNodeConfig:
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
@@ -631,7 +631,7 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: TextBoxNodeConfig{
 			LabeledConfig:   variant.LabeledConfig,
 			TextColor:       textColor,
-			Width:           variant.Width,
+			InlineSize:      variant.InlineSize,
 			Align:           variant.Align,
 			AutoFitDisabled: variant.AutoFitDisabled,
 			Level:           variant.Level,

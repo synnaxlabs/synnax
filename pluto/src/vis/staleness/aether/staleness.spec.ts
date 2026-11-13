@@ -105,6 +105,7 @@ const SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 interface SetupOptions {
   sweepInterval?: CrudeTimeSpan;
+  /** The staleness timeout of each leaf, in seconds. */
   timeouts?: number[];
 }
 
@@ -123,7 +124,13 @@ const setup = ({
   });
   const leaves = timeouts.map((stalenessTimeout, i) => {
     const path = [...stack.basePath, `leaf${i}`];
-    stack.driver.update(path, Leaf.TYPE, staleness.stateZ.parse({ stalenessTimeout }));
+    stack.driver.update(
+      path,
+      Leaf.TYPE,
+      staleness.stateZ.parse({
+        stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
+      }),
+    );
     return stack.driver.find<Leaf>(path);
   });
   return {
@@ -238,7 +245,10 @@ describe("staleness", () => {
       const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(5250);
       expect(leaf.transitions).toEqual([true]);
-      leaf.setState((p) => ({ ...p, stalenessTimeout: 30 }));
+      leaf.setState((p) => ({
+        ...p,
+        stalenessTimeout: TimeSpan.seconds(30).nanoseconds,
+      }));
       vi.advanceTimersByTime(250);
       expect(leaf.transitions).toEqual([true, false]);
     });
@@ -397,7 +407,10 @@ describe("staleness", () => {
     it("should reuse the registration while the source is unchanged", () => {
       const { leaf } = mountLive({ timeouts: [5] });
       const before = leaf.internal.registration;
-      leaf.setState((p) => ({ ...p, stalenessTimeout: 10 }));
+      leaf.setState((p) => ({
+        ...p,
+        stalenessTimeout: TimeSpan.seconds(10).nanoseconds,
+      }));
       expect(leaf.internal.registration).toBe(before);
     });
   });
@@ -576,8 +589,9 @@ describe("staleness", () => {
 
     it("should keep a positive timeout", () => {
       expect(
-        staleness.configZ.parse({ stalenessTimeout: 30 }).stalenessTimeout,
-      ).toEqual(30);
+        staleness.configZ.parse({ stalenessTimeout: TimeSpan.seconds(30).nanoseconds })
+          .stalenessTimeout,
+      ).toEqual(TimeSpan.seconds(30).nanoseconds);
     });
 
     // A non-positive timeout would pin a source stale from its first sample onward.

@@ -13,7 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -138,7 +138,7 @@ export const Setpoint = ({
               onSend(shown);
               draft.send();
             }}
-            onClickDelay={onClickDelay}
+            onClickDelay={new TimeSpan(onClickDelay ?? 0)}
             // WebKit leaves the input focused on a button press, so the typed value
             // would never commit. Blurring commits it before the click or hold sends.
             onMouseDown={() => inputRef.current?.blur()}

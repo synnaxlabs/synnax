@@ -12,7 +12,7 @@ import "@/schematic/node/general/button/button.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -88,7 +88,7 @@ export const Button = ({
         size={size}
         level={level}
         direction={label?.direction}
-        onClickDelay={mode === "momentary" ? 0 : delay}
+        onClickDelay={mode === "momentary" ? 0 : new TimeSpan(delay ?? 0)}
       >
         {label?.label ?? ""}
       </Base.Button>

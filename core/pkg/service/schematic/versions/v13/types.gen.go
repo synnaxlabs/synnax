@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -187,9 +188,8 @@ type ScaledConfig = v12.ScaledConfig
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
 type StalenessConfig struct {
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
 	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
@@ -197,13 +197,22 @@ type StalenessConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StalenessConfig) ApplyDefaults() {
 	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
+		s.StalenessTimeout = 5000000000
 	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StalenessConfig) SetDefaults() {
-	s.StalenessTimeout = 5
+	s.StalenessTimeout = 5000000000
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StalenessConfig) Validate() error {
+	v := validate.New("StalenessConfig")
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
+	return v.Error()
 }
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
@@ -226,8 +235,8 @@ type ToggleConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -251,7 +260,10 @@ func (t *ToggleConfig) SetDefaults() {
 // schema constraints.
 func (t ToggleConfig) Validate() error {
 	v := validate.New("ToggleConfig")
+	v.GreaterThanEq("on_click_delay", t.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", t.OnClickDelay, 2147483647000000)
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.StalenessConfig.Validate)
 	if t.Control != nil {
 		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
 	}
@@ -412,6 +424,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1295,7 +1308,7 @@ type BoxNodeConfig struct {
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
-	BorderRadius float64 `json:"border_radius" msgpack:"border_radius"`
+	BorderRadius uint16 `json:"border_radius" msgpack:"border_radius"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth uint8 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1344,8 +1357,8 @@ type ButtonNodeConfig struct {
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
 	Level text.Level `json:"level" msgpack:"level"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// CommandChannel is the channel button presses are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
@@ -1390,6 +1403,8 @@ func (b ButtonNodeConfig) Validate() error {
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
 	v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", b.Level)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
+	v.GreaterThanEq("on_click_delay", b.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", b.OnClickDelay, 2147483647000000)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
 		v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
@@ -1401,7 +1416,7 @@ func (b ButtonNodeConfig) Validate() error {
 type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
-	Radius float64 `json:"radius" msgpack:"radius"`
+	Radius uint16 `json:"radius" msgpack:"radius"`
 	// StrokeColor is the border color of the circle.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the circle.
@@ -1451,7 +1466,7 @@ type GaugeNodeConfig struct {
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
-	BarWidth float64 `json:"bar_width" msgpack:"bar_width"`
+	BarWidth uint16 `json:"bar_width" msgpack:"bar_width"`
 	// Location is the anchor of the value within the gauge.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 	// Units is the unit suffix displayed after the value.
@@ -1503,6 +1518,7 @@ func (g GaugeNodeConfig) Validate() error {
 	v.Ternaryf("level", !g.Level.IsValid(), "invalid level: %v", g.Level)
 	v.Exec(g.LabeledConfig.Validate)
 	v.Exec(g.NumericTelemConfig.Validate)
+	v.Exec(g.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1526,9 +1542,9 @@ type InputNodeConfig struct {
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -1568,7 +1584,10 @@ func (i InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
 	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
 	v.Ternaryf("level", !i.Level.IsValid(), "invalid level: %v", i.Level)
+	v.GreaterThanEq("on_click_delay", i.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", i.OnClickDelay, 2147483647000000)
 	v.Exec(i.LabeledConfig.Validate)
+	v.Exec(i.StalenessConfig.Validate)
 	if i.Control != nil {
 		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
 	}
@@ -1611,6 +1630,7 @@ func (l *LightNodeConfig) ApplyDefaults() {
 func (l LightNodeConfig) Validate() error {
 	v := validate.New("LightNodeConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1661,8 +1681,9 @@ type OffPageReferenceNodeConfig struct {
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to.
 	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
-	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
-	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
+	// DoubleClickNavigationDisabled stops double-clicking from navigating to the linked
+	// page.
+	DoubleClickNavigationDisabled bool `json:"double_click_navigation_disabled" msgpack:"double_click_navigation_disabled"`
 }
 
 func (OffPageReferenceNodeConfig) isNodeConfigVariant() {}
@@ -1697,13 +1718,13 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 type PolygonNodeConfig struct {
 	LabeledConfig
 	// NumSides is the number of sides of the polygon.
-	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
+	NumSides uint8 `json:"num_sides" msgpack:"num_sides"`
 	// SideLength is the length of each side in pixels.
-	SideLength float64 `json:"side_length" msgpack:"side_length"`
+	SideLength uint16 `json:"side_length" msgpack:"side_length"`
 	// Rotation is the rotation of the polygon in degrees.
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
-	// CornerRounding is the corner rounding radius in pixels.
-	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
+	// BorderRadius is the corner radius of the polygon in pixels.
+	BorderRadius uint16 `json:"border_radius" msgpack:"border_radius"`
 	// StrokeColor is the border color of the polygon.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is the fill color of the polygon.
@@ -1740,6 +1761,7 @@ func (p *PolygonNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (p PolygonNodeConfig) Validate() error {
 	v := validate.New("PolygonNodeConfig")
+	v.GreaterThanEq("num_sides", p.NumSides, 3)
 	v.LessThanEq("stroke_width", p.StrokeWidth, 20)
 	v.Exec(p.LabeledConfig.Validate)
 	return v.Error()
@@ -1760,13 +1782,13 @@ type SelectNodeConfig struct {
 	// FillColor is the fill color of the Set button, which the select border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -1806,7 +1828,10 @@ func (s SelectNodeConfig) Validate() error {
 	v := validate.New("SelectNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	}
@@ -1881,9 +1906,9 @@ type SetpointNodeConfig struct {
 	// Disabled indicates whether the setpoint rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
@@ -1923,7 +1948,10 @@ func (s SetpointNodeConfig) Validate() error {
 	v := validate.New("SetpointNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	}
@@ -1939,7 +1967,7 @@ type StateIndicatorNodeConfig struct {
 	// StrokeColor is the border color of the indicator.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
 	// Size is the rendered size preset of the indicator.
@@ -1981,6 +2009,7 @@ func (s StateIndicatorNodeConfig) Validate() error {
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1995,7 +2024,7 @@ type StringDisplayNodeConfig struct {
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Channel is the channel whose string value the symbol displays.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Level is the typography level of the displayed text.
@@ -2030,6 +2059,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	v := validate.New("StringDisplayNodeConfig")
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -2062,8 +2092,8 @@ type TextBoxNodeConfig struct {
 	LabeledConfig
 	// TextColor is the text color.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// Width is the rendered width of the text box in pixels.
-	Width float64 `json:"width" msgpack:"width"`
+	// InlineSize is the rendered inline size of the text box in pixels.
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Align is the alignment of the text within the box.
 	Align FlexAlignment `json:"align" msgpack:"align"`
 	// AutoFitDisabled stops the box from resizing to fit its content.
@@ -2079,7 +2109,7 @@ func (TextBoxNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TextBoxNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Width = 75
+	t.InlineSize = 75
 	t.Align = FlexAlignmentCenter
 	t.Level = text.LevelP
 	t.Value = "Text box"
@@ -2087,8 +2117,8 @@ func (t *TextBoxNodeConfig) SetDefaults() {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextBoxNodeConfig) ApplyDefaults() {
-	if t.Width == 0 {
-		t.Width = 75
+	if t.InlineSize == 0 {
+		t.InlineSize = 75
 	}
 	if t.Align == "" {
 		t.Align = FlexAlignmentCenter
@@ -2133,7 +2163,7 @@ type ValueNodeConfig struct {
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
-	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
+	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Location is the anchor of the value within the symbol.
@@ -2179,6 +2209,7 @@ func (va ValueNodeConfig) Validate() error {
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
+	v.Exec(va.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -3579,15 +3610,14 @@ type TankNodeConfig struct {
 	LabeledConfig
 	// Channel is the channel whose value the symbol displays.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// RollingAverage is the number of samples in the rolling average.
+	RollingAverage *uint16 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
 	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
@@ -3631,7 +3661,7 @@ func (TankNodeConfig) isNodeConfigVariant() {}
 func (t *TankNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
 	t.Notation = "standard"
-	t.StalenessTimeout = 5
+	t.StalenessTimeout = 5000000000
 	t.Bounds.Upper = 100
 	t.CaretSide = spatial.OuterLocationRight
 	t.Level = text.LevelSmall
@@ -3654,7 +3684,7 @@ func (t *TankNodeConfig) ApplyDefaults() {
 		t.Notation = "standard"
 	}
 	if t.StalenessTimeout == 0 {
-		t.StalenessTimeout = 5
+		t.StalenessTimeout = 5000000000
 	}
 	if t.Bounds.Upper == 0 {
 		t.Bounds.Upper = 100
@@ -3709,9 +3739,14 @@ func (t TankNodeConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
+	if t.RollingAverage != nil {
+		v.GreaterThanEq("rolling_average", *t.RollingAverage, 1)
+	}
 	if t.Precision != nil {
 		v.LessThanEq("precision", *t.Precision, 17)
 	}
+	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }

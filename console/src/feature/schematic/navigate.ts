@@ -54,7 +54,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
     if (config?.variant !== "off_page_reference") return;
     const { page } = config;
     if (page == null || page.key.length === 0) return;
-    const navigatesOnDblClick = !config.dblClickNavDisabled;
+    const navigatesOnDblClick = !config.doubleClickNavigationDisabled;
     if (dblClick !== navigatesOnDblClick) return;
     const target = PAGE_TARGETS[page.type];
     const { label } = config.label;

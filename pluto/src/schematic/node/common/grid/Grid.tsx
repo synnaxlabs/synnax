@@ -144,7 +144,7 @@ export const useInlineResize = (
       onChange(
         Math.max(
           MIN_INLINE_SIZE,
-          start.current.inlineSize + width - start.current.width,
+          Math.round(start.current.inlineSize + width - start.current.width),
         ),
       ),
   };

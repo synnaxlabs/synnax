@@ -14,7 +14,7 @@ import { Button as BaseButton } from "@synnaxlabs/lyra/button";
 import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
@@ -139,7 +139,7 @@ export const Select = ({
               onSend(matched.value);
               draft.send();
             }}
-            onClickDelay={onClickDelay}
+            onClickDelay={new TimeSpan(onClickDelay ?? 0)}
             disabled={disabled}
           >
             Set

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -118,10 +119,13 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 
 // MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
-// width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
-// button, input, select, setpoint, or state indicator keeps its rendered text size. A
-// button label migrates as in MigrateLabelConfig, except that a width of 150, which
-// did not wrap in v11, becomes 65535.
+// width counts as 0. Other pixel sizes round and clamp to 0 through 65535, and a NaN
+// size takes the default. A polygon keeps 3 through 255 sides. A click delay in
+// milliseconds becomes a span. A tank's numeric and staleness fields migrate as in
+// MigrateNumericTelemConfig and MigrateStalenessConfig. A button, input, select,
+// setpoint, or state indicator keeps its rendered text size. A button label migrates as
+// in MigrateLabelConfig, except that a width of 150, which did not wrap in v11, becomes
+// 65535. Renamed fields keep their values.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -131,9 +135,11 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	case v11.BoxNodeConfig:
 		n := out.Variant.(BoxNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		n.BorderRadius = migratePixels(o.BorderRadius, 3)
 		out.Variant = n
 	case v11.ButtonNodeConfig:
 		n := out.Variant.(ButtonNodeConfig)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		n.Level = renderedLevel(o.Size)
 		if o.Level != nil && o.Level.IsValid() {
 			n.Level = *o.Level
@@ -143,10 +149,13 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	case v11.CircleNodeConfig:
 		n := out.Variant.(CircleNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		n.Radius = migratePixels(o.Radius, 20)
 		out.Variant = n
 	case v11.InputNodeConfig:
 		n := out.Variant.(InputNodeConfig)
 		n.Level = renderedLevel(o.Size)
+		n.InlineSize = migratePixels(o.InlineSize, 150)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		out.Variant = n
 	case v11.LineNodeConfig:
 		n := out.Variant.(LineNodeConfig)
@@ -155,37 +164,68 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	case v11.PolygonNodeConfig:
 		n := out.Variant.(PolygonNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		n.NumSides = migrateNumSides(o.NumSides)
+		n.SideLength = migratePixels(o.SideLength, 20)
+		n.BorderRadius = migratePixels(o.CornerRounding, 0)
 		out.Variant = n
 	case v11.SelectNodeConfig:
 		n := out.Variant.(SelectNodeConfig)
 		n.Level = renderedLevel(o.Size)
+		n.InlineSize = migratePixels(o.InlineSize, 100)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		out.Variant = n
 	case v11.SetpointNodeConfig:
 		n := out.Variant.(SetpointNodeConfig)
 		n.Level = renderedLevel(o.Size)
+		n.InlineSize = migratePixels(o.InlineSize, 100)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		out.Variant = n
 	case v11.StateIndicatorNodeConfig:
 		n := out.Variant.(StateIndicatorNodeConfig)
 		n.Level = indicatorLevel(o.Size)
+		n.InlineSize = migratePixels(o.InlineSize, 100)
 		out.Variant = n
 	case v11.TankNodeConfig:
-		// A tank declares its numeric fields inline, so the generated copy skips the
-		// precision whose type changed.
+		// A tank declares its numeric and staleness fields inline, so the generated
+		// copy skips the fields whose types changed.
 		n := out.Variant.(TankNodeConfig)
 		n.Precision = migratePrecision(o.Precision)
+		n.RollingAverage = migrateRollingAverage(o.RollingAverage)
+		n.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
+		out.Variant = n
+	case v11.GaugeNodeConfig:
+		n := out.Variant.(GaugeNodeConfig)
+		n.BarWidth = migratePixels(o.BarWidth, 10)
+		out.Variant = n
+	case v11.OffPageReferenceNodeConfig:
+		n := out.Variant.(OffPageReferenceNodeConfig)
+		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
+		out.Variant = n
+	case v11.StringDisplayNodeConfig:
+		n := out.Variant.(StringDisplayNodeConfig)
+		n.InlineSize = migratePixels(o.InlineSize, 100)
+		out.Variant = n
+	case v11.TextBoxNodeConfig:
+		n := out.Variant.(TextBoxNodeConfig)
+		n.InlineSize = migratePixels(o.Width, 75)
+		out.Variant = n
+	case v11.ValueNodeConfig:
+		n := out.Variant.(ValueNodeConfig)
+		n.InlineSize = migratePixels(o.InlineSize, 70)
 		out.Variant = n
 	}
 	return out, nil
 }
 
-// Migration lifts stored schematics from v11 to v12. It stores the precision, stroke
-// widths, and label wrap widths as integers, sets the text level of each field symbol,
-// and moves the style of each edge onto the edge.
+// Migration lifts stored schematics from v11 to v12. It stores the precision, rolling
+// average, polygon sides, and pixel sizes as integers, stores delays and timeouts as
+// spans, renames three fields, sets the text level of each field symbol, and moves the
+// style of each edge onto the edge.
 var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
 // MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
 // the precision to a whole number and clamps it to 0 through 17. A NaN precision
-// becomes 0.
+// becomes 0. It clamps the rolling average to 1 through 65535.
 func MigrateNumericTelemConfig(
 	ctx context.Context,
 	old v11.NumericTelemConfig,
@@ -195,6 +235,7 @@ func MigrateNumericTelemConfig(
 		return NumericTelemConfig{}, err
 	}
 	cfg.Precision = migratePrecision(old.Precision)
+	cfg.RollingAverage = migrateRollingAverage(old.RollingAverage)
 	return cfg, nil
 }
 
@@ -206,6 +247,69 @@ func migratePrecision(p float64) *uint8 {
 		return new(uint8(0))
 	}
 	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
+}
+
+func migrateRollingAverage(n *int32) *uint16 {
+	if n == nil {
+		return nil
+	}
+	return new(uint16(min(max(*n, 1), math.MaxUint16)))
+}
+
+// MigrateStalenessConfig lifts a v11 staleness config into v12. It converts the timeout
+// from seconds to a span. A timeout under 1 second becomes 1 second. A NaN timeout, or
+// one of 0 or less, becomes 5 seconds.
+func MigrateStalenessConfig(
+	ctx context.Context,
+	old v11.StalenessConfig,
+) (StalenessConfig, error) {
+	cfg, err := autoMigrateStalenessConfig(ctx, old)
+	if err != nil {
+		return StalenessConfig{}, err
+	}
+	cfg.StalenessTimeout = migrateStalenessTimeout(old.StalenessTimeout)
+	return cfg, nil
+}
+
+const defaultStalenessTimeout = 5 * telem.Second
+
+func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
+	if math.IsNaN(seconds) || seconds <= 0 {
+		return defaultStalenessTimeout
+	}
+	return migrateSpan(max(seconds, 1), telem.Second)
+}
+
+// maxOnClickDelay is the longest delay, in milliseconds, that a browser timer waits.
+const maxOnClickDelay = math.MaxInt32
+
+func migrateOnClickDelay(ms float64) telem.TimeSpan {
+	if math.IsNaN(ms) || ms <= 0 {
+		return 0
+	}
+	return migrateSpan(min(ms, maxOnClickDelay), telem.Millisecond)
+}
+
+// maxSpan is the largest span a JavaScript number holds exactly, so a client can send
+// a migrated span back to the Core unchanged.
+const maxSpan telem.TimeSpan = 1<<53 - 1
+
+func migrateSpan(v float64, unit telem.TimeSpan) telem.TimeSpan {
+	return telem.TimeSpan(min(math.Round(v*float64(unit)), float64(maxSpan)))
+}
+
+func migratePixels(v float64, def uint16) uint16 {
+	if math.IsNaN(v) {
+		return def
+	}
+	return uint16(min(max(math.Round(v), 0), math.MaxUint16))
+}
+
+func migrateNumSides(n float64) uint8 {
+	if math.IsNaN(n) {
+		return 6
+	}
+	return uint8(min(max(math.Round(n), 3), math.MaxUint8))
 }
 
 func migrateStrokeWidth(w float64) uint8 {
@@ -223,12 +327,19 @@ func MigrateLabeledConfig(
 	return autoMigrateLabeledConfig(ctx, old)
 }
 
-// MigrateToggleConfig lifts a v11 toggle config into v12.
+// MigrateToggleConfig lifts a v11 toggle config into v12. It converts the click delay
+// from milliseconds to a span. A NaN or negative delay becomes 0. A delay longer than
+// 2^31 - 1 ms, the longest that a browser timer waits, takes that length.
 func MigrateToggleConfig(
 	ctx context.Context,
 	old v11.ToggleConfig,
 ) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
+	cfg, err := autoMigrateToggleConfig(ctx, old)
+	if err != nil {
+		return ToggleConfig{}, err
+	}
+	cfg.OnClickDelay = migrateOnClickDelay(old.OnClickDelay)
+	return cfg, nil
 }
 
 // MigrateLabelConfig lifts a v11 label config into v12 and keeps the label's v11

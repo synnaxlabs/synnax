@@ -22,6 +22,7 @@ const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2.5 },
   bounds: { lower: 0, upper: 500 },
   endContent: "px",
+  integer: true,
 };
 
 export const CircleForm = (): ReactElement => (
