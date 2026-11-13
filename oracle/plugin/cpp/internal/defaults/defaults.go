@@ -33,6 +33,9 @@ type Renderer struct {
 	TypeName func(resolution.TypeRef) string
 	// Namespace is the schema namespace of the generated file.
 	Namespace string
+	// Include, when set, receives the header of each cross-namespace enum that a
+	// default references.
+	Include func(path string)
 }
 
 // Literal renders val as a C++ brace-init literal. typeRef is the declared type of val.
@@ -107,6 +110,9 @@ func (r Renderer) EnumVariant(ev validation.EnumVariant) string {
 	if ev.Type.Namespace != r.Namespace {
 		targetOutputPath := enum.FindOutputPath(ev.Type, r.Table, "cpp")
 		if targetOutputPath != "" {
+			if r.Include != nil {
+				r.Include(targetOutputPath + "/types.gen.h")
+			}
 			ns := cppnaming.Namespace(targetOutputPath)
 			return fmt.Sprintf("::%s::%s", ns, ref)
 		}
