@@ -107,6 +107,8 @@ one shared behavior, and it stays in the status service (§4.2).
   serial, NI-MAX resource name, model, chassis, bus topology.
 - **Configuration group**: The fields a user owns: name, identifier, index channel keys,
   channel maps, enabled flags, connection settings.
+- **Scanner fields**: The fields of a LabJack device that only the scanner writes:
+  `rack`, `connection`, `serial`, and `model`. A LabJack device has no groups.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
   discovered resource with an empty identifier is unconfigured.
 - **Scanner**: An integration's scan task in the Driver. It discovers hardware, reports
@@ -127,8 +129,8 @@ one shared behavior, and it stays in the status service (§4.2).
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
 5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group. A LabJack device
-   has no groups, so its scanner writes only `rack` and `connection` (§4.3).
+   the configuration group. Neither write path touches the other group. A LabJack
+   scanner writes only the scanner fields, and the user writes the rest (§4.3).
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -214,7 +216,8 @@ Field groups per make:
 - **LabJack**: `labjack.Device` is a union on `model` (`t4`, `t7`, `t8`) with no field
   groups, because each model has different ports. Every variant carries `serial`,
   `connection` (USB or TCP), `identifier`, `read_index`, and `write_state_index`, and
-  adds channel maps keyed by its own port enums. An update replaces the whole device.
+  adds channel maps keyed by its own port enums. `rack`, `connection`, `serial`, and
+  `model` are the scanner fields; the user writes the rest.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
@@ -273,9 +276,9 @@ group from the hardware, and the configuration group with today's defaults (`nam
 scanner writes only the identity group, through `Update`. When hardware appears on
 another rack, the scanner moves it; `name` stays as the user left it. The user's write
 path is `Update` over the configuration group. A LabJack device has no groups: the
-scanner's `Update` function changes only `rack` and `connection` on the stored row, and
-the user's changes the rest. The shallow merge in `driver/common/scan_task.h:40-51` and
-the EtherCAT `enabled` guard are deleted.
+scanner's `Update` function changes only the scanner fields on the stored row, and the
+user's update keeps them as stored. The shallow merge in
+`driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
@@ -312,9 +315,10 @@ Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/update`, `/ni/device/delete`, and the same for
 `/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
 that dispatches on a union over the identity and configuration groups, so one request
-writes one group. `/labjack/device/update` takes the whole device. Retrieve filters are
-the struct's `@filter` fields plus `search_term`, `include_status`, and
-`include_parent`. The generic `/device/*` routes are deleted.
+writes one group. `/labjack/device/update` takes the whole device, keeps the stored
+scanner fields, and refuses a different `model`. Retrieve filters are the struct's
+`@filter` fields plus `search_term`, `include_status`, and `include_parent`. The generic
+`/device/*` routes are deleted.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -395,10 +399,10 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 ### 4.10 Testing
 
 Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade; LabJack gets a whole-device update in place of the two
-group updates. The migration suite seeds 0.59-shaped rows for every make, including one
-that quarantines. Driver specs build devices from generated structs. Console specs for
-each make's forms and tree items run against the typed client.
+refused delete, and cascade; LabJack gets a scanner update and a user update that keeps
+the scanner fields. The migration suite seeds 0.59-shaped rows for every make, including
+one that quarantines. Driver specs build devices from generated structs. Console specs
+for each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
