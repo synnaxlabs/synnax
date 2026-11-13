@@ -321,7 +321,7 @@ class ReadConfig(task.PersistConfig):
     """
 
     device: device_.Key = ""
-    rate: telem.Rate = telem.Rate(1)
+    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
 
