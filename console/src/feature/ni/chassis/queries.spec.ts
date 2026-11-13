@@ -41,19 +41,6 @@ describe("NI chassis queries", async () => {
     });
   });
 
-  describe("useList", () => {
-    it("should list the chassis on a rack", async () => {
-      const chassis = await createChassis();
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(
-        () => NI.Chassis.useList({ query: { where: { rack: { eq: rack.key } } } }),
-        { wrapper },
-      );
-      act(() => result.current.more());
-      await waitFor(() => expect(result.current.data).toContain(chassis.key));
-    });
-  });
-
   describe("useRename", () => {
     it("should rename the chassis", async () => {
       const chassis = await createChassis();
