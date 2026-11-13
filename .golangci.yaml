@@ -21,6 +21,7 @@ linters:
     - teardown
     - depguard
     - forbidigo
+    - testpackage
   settings:
     depguard:
       rules:
@@ -62,6 +63,11 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+    testpackage:
+      # Exempt no file and no package. "^$" matches no file name. An empty list would
+      # fall back to the default of main, so the list holds a name no package has.
+      skip-regexp: "^$"
+      allow-packages: [""]
     custom:
       must:
         type: "module"
