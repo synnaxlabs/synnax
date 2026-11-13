@@ -19,9 +19,9 @@ const HEX_WITHOUT_ALPHA = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const COMPLETE_HEX = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /**
- * Parses what the user typed or pasted into a hex box: a hex, rgb(), or hsl() color. A
- * hex with no alpha digits keeps `alpha`, or is opaque when `alpha` is 0, so a new
- * color never lands invisible.
+ * Parses what the user typed or pasted into a hex box: a color name, or a hex, rgb(),
+ * or hsl() color. A hex with no alpha digits keeps `alpha`, or is opaque when `alpha`
+ * is 0, so a new color never lands invisible.
  */
 export const parseHexInput = (text: string, alpha: number): color.Color | undefined => {
   const trimmed = text.trim();

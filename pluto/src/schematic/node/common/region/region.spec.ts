@@ -284,6 +284,7 @@ describe("Region.paint", () => {
     '<svg xmlns="http://www.w3.org/2000/svg">' +
     '<rect id="a" stroke="#ff0000" fill="#00ff00" />' +
     '<rect id="b" stroke="#0000ff" fill="none" />' +
+    '<rect id="c" stroke="transparent" fill="RebeccaPurple" />' +
     "</svg>";
 
   it("should return the paint of the first element the selectors match", () => {
@@ -297,6 +298,13 @@ describe("Region.paint", () => {
     expect(Region.paint(SVG, ["#b"])).toEqual({
       stroke: color.construct("#0000ff"),
       fill: color.TRANSPARENT,
+    });
+  });
+
+  it("should read a named paint and the transparent keyword", () => {
+    expect(Region.paint(SVG, ["#c"])).toEqual({
+      stroke: color.TRANSPARENT,
+      fill: color.construct("#663399"),
     });
   });
 

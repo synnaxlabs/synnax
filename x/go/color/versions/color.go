@@ -11,7 +11,7 @@ package versions
 
 import v2 "github.com/synnaxlabs/x/color/versions/v2"
 
-// Parse parses a hex, rgb(), or hsl() color string. See v2.Parse.
+// Parse parses a color name, hex, rgb(), or hsl() color string. See v2.Parse.
 func Parse(s string) (Color, error) { return v2.Parse(s) }
 
 // FromUint32 unpacks a color from its 0xRRGGBBAA form.

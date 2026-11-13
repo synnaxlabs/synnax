@@ -13,9 +13,9 @@ import "github.com/synnaxlabs/x/color/versions"
 
 // Parse parses a color string: a CSS color name or the transparent keyword, a hex
 // value of 3, 4, 6, or 8 digits with or without a leading '#', an rgb() or rgba()
-// function, or an hsl() or hsla() function. The alpha
-// of a color without one is 255. Parse returns an error wrapping
-// validate.ErrValidation for any other string or for a value out of range.
+// function, or an hsl() or hsla() function. The alpha of a color without one is 255.
+// Parse returns an error wrapping validate.ErrValidation for any other string or for a
+// value out of range.
 func Parse(s string) (Color, error) { return versions.Parse(s) }
 
 // FromUint32 unpacks a color from its 0xRRGGBBAA form.

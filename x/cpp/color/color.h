@@ -55,9 +55,10 @@ struct Color {
     from_proto(const ::x::color::pb::Color &pb);
 };
 
-/// @brief parses a color string. Accepts hex with an optional '#' and 3, 4, 6, or 8
-/// digits, rgb() or rgba(), and hsl() or hsla(), in comma or space syntax with an
-/// optional 0-1 or percentage alpha. A value without an alpha is opaque.
+/// @brief parses a color string. Accepts a CSS color name or the transparent keyword,
+/// hex with an optional '#' and 3, 4, 6, or 8 digits, rgb() or rgba(), and hsl() or
+/// hsla(), in comma or space syntax with an optional 0-1 or percentage alpha. A value
+/// without an alpha is opaque.
 /// @returns a validation error for any other string or an out-of-range value.
 std::pair<Color, x::errors::Error> parse(const std::string &input);
 }

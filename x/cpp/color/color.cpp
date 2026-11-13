@@ -244,12 +244,13 @@ std::pair<Color, x::errors::Error> parse(const std::string &input) {
         return static_cast<char>(std::tolower(c));
     });
     if (s.empty()) return {Color{}, invalid(input, "the string is empty")};
-    const auto *const named = std::ranges::lower_bound(NAMES, s, {}, &NamedColor::name);
-    if (named != NAMES.end() && named->name == s)
-        return {
-            Color{.r = named->r, .g = named->g, .b = named->b, .a = named->a},
-            x::errors::NIL
-        };
+    const auto i = static_cast<std::size_t>(
+        std::ranges::lower_bound(NAMES, s, {}, &NamedColor::name) - NAMES.begin()
+    );
+    if (i < NAMES.size() && NAMES[i].name == s) {
+        const auto &n = NAMES[i];
+        return {Color{.r = n.r, .g = n.g, .b = n.b, .a = n.a}, x::errors::NIL};
+    }
     if (const auto open = s.find('('); open != std::string::npos) {
         const std::string name = s.substr(0, open);
         if (s.back() != ')' ||

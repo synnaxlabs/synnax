@@ -129,8 +129,9 @@ export const cssString = ((color?: Crude): string | undefined => {
 }) as CSSString;
 
 /**
- * @constructor Creates a new color from a hex, rgb(), or hsl() string, an RGB or RGBA
- * tuple of bytes, or another color. A value without an alpha gets an alpha of 255.
+ * @constructor Creates a new color from a color name, hex, rgb(), or hsl() string, an
+ * RGB or RGBA tuple of bytes, or another color. A value without an alpha gets an alpha
+ * of 255.
  * @throws {zod.ParseError} if the value is not a valid crude color.
  */
 export const construct = (color: Crude): Color =>
