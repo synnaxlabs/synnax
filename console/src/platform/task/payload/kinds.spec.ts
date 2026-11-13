@@ -27,3 +27,19 @@ describe("channelKinds", () => {
     expect(Task.Payload.channelKinds(dt)).toEqual(kinds);
   });
 });
+
+describe("newChannelDataType", () => {
+  it.each<[payload.Kind, string]>([
+    ["float", "float64"],
+    ["integer", "int64"],
+    ["unsigned", "uint64"],
+    ["string", "string"],
+    ["boolean", "uint8"],
+    ["timestamp", "timestamp"],
+    ["json", "json"],
+    ["uuid", "uuid"],
+    ["bytes", "bytes"],
+  ])("should give a new %s channel the %s data type", (kind, dt) => {
+    expect(Task.Payload.newChannelDataType(kind)).toBe(dt);
+  });
+});
