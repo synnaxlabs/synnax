@@ -291,8 +291,13 @@ describe("View permissions", () => {
     });
 
   it("should let a subject who cannot update views search and filter a static view", async () => {
-    await renderHarness(await createSubject({}));
-    await screen.findByPlaceholderText("Search ranges...");
+    const saved = await createView();
+    await renderHarness(await createSubject({ delete: [view.TYPE_RESOURCE_ID] }));
+    await openContextMenu(saved.name);
+    // Both grants answer from one policy read, so this item shows that it landed.
+    await screen.findByText("Delete");
+    expect(selectedViewName()).toBe("All ranges");
+    expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy();
     expect(queryIconButton(document.body, "filter")).toBeTruthy();
     expect(queryIconButton(getViews(), "add")).toBeNull();
   });
@@ -323,8 +328,12 @@ describe("View permissions", () => {
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
+    const saved = await createView();
     await renderHarness(await createSubject({ update: [view.TYPE_RESOURCE_ID] }));
-    await screen.findByPlaceholderText("Search ranges...");
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    // Both grants answer from one policy read, so this button shows that it landed.
+    await waitFor(() => expect(queryIconButton(document.body, "filter")).toBeTruthy());
     expect(queryIconButton(getViews(), "add")).toBeNull();
   });
 
