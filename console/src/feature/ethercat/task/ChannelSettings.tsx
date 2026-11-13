@@ -63,12 +63,9 @@ export interface ChannelSettingsProps {
 }
 
 /**
- * Edits the settings that the read task writes to the inputs that the channels read, as
- * the catalogs of their slaves describe them. Channels that read one input share its
- * settings. With several inputs, it edits the settings that every input shows, and a
- * setting that the inputs hold different values for shows as mixed. When other software
- * sets up every input, shows the values that the inputs held at the scan, and the user
- * cannot change them. Renders nothing when the catalogs describe none of the inputs.
+ * Edits the settings that every input of the channels shows, as the catalogs describe
+ * them. A value that the inputs hold differently shows as mixed. When other software
+ * sets up every input, shows the values held at the scan, read only.
  */
 export const ChannelSettings = ({
   keys,
@@ -87,7 +84,7 @@ export const ChannelSettings = ({
     const slave = slaves?.find((s) => s.key === ch.device);
     const input = findInput(slave?.properties.settings, ch);
     if (slave == null || input == null) continue;
-    const reader = setUpBy(slave.properties);
+    const reader = setUpBy(slave.properties.settings);
     if (reader != null) readers.add(reader);
     const list = reader == null ? targets : shared;
     if (!list.some((t) => t.device === ch.device && t.input === input))
@@ -110,7 +107,10 @@ export const ChannelSettings = ({
       </Text.Text>
     ));
   const [lead, ...others] = shown;
-  const rows = visibleFields(lead.input.settings, valuesOf(lead.device)).flatMap(
+  const problems = disabled
+    ? []
+    : targets.map(({ input, device }) => check(input, parametersOf(held, device)));
+  const matched = visibleFields(lead.input.settings, valuesOf(lead.device)).flatMap(
     (field) => {
       const matches = others.map(({ input, device }) =>
         visibleFields(input.settings, valuesOf(device)).find((f) =>
@@ -123,17 +123,13 @@ export const ChannelSettings = ({
   return (
     <PForm.Section title="Settings">
       {note}
-      {rows.map((fields) => {
+      {matched.map((fields) => {
         const values = shown.map(({ input, device }, i) =>
           valueAt(input.settings, valuesOf(device), fields[i]),
         );
-        const problem = disabled
-          ? undefined
-          : targets
-              .map(({ input, device }, i) =>
-                problemAt(check(input, parametersOf(held, device)), fields[i]),
-              )
-              .find((p) => p != null);
+        const problem = problems
+          .map((found, i) => problemAt(found, fields[i]))
+          .find((p) => p != null);
         const handleChange = (value: number) => {
           let next = held;
           targets.forEach(({ input, device }, i) => {

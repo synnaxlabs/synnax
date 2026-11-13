@@ -10,7 +10,7 @@
 import { type device, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -31,7 +31,8 @@ type DeviceCrude = status.Crude<ReturnType<typeof device.deviceZ>>;
 const createCrude = (dev: device.Device): DeviceCrude => ({
   key: uniqueName("status"),
   variant: "info",
-  message: `New ${dev.name} connected`,
+  name: dev.name,
+  message: "New device connected",
   details: dev,
 });
 
@@ -64,7 +65,7 @@ describe("device/notifications", () => {
       make: NI.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.name} connected`)).toBeTruthy();
+    expect(await screen.findByText("New device connected")).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 
@@ -74,7 +75,7 @@ describe("device/notifications", () => {
       make: OPCUA.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.name} connected`)).toBeTruthy();
+    expect(await screen.findByText("New device connected")).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 
@@ -85,7 +86,8 @@ describe("device/notifications", () => {
     });
     await addStatus(createCrude(dev));
     fireEvent.click(await screen.findByText("Configure"));
-    expect(await screen.findByText(dev.name)).toBeTruthy();
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(dev.name)).toBeTruthy();
   });
 
   describe("getKeyFromStatus", () => {

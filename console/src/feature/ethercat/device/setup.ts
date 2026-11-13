@@ -32,8 +32,10 @@ interface Marked {
 }
 
 /** @returns each entry of the catalog that only one program reads. */
-const markedEntries = (props: SlaveProperties): Marked[] =>
-  (props.settings?.channels ?? []).flatMap(({ entries }) =>
+type Settings = SlaveProperties["settings"] | null;
+
+const markedEntries = (settings: Settings): Marked[] =>
+  (settings?.channels ?? []).flatMap(({ entries }) =>
     entries.flatMap((address) =>
       address.onlyReadBy == null ? [] : [{ address, reader: address.onlyReadBy }],
     ),
@@ -44,7 +46,7 @@ const markedEntries = (props: SlaveProperties): Marked[] =>
  * Synnax can read it.
  */
 export const onlyReaderOf = (props: SlaveProperties, address: Address): string | null =>
-  markedEntries(props).find((m) => sameAddress(m.address, address))?.reader ??
+  markedEntries(props.settings).find((m) => sameAddress(m.address, address))?.reader ??
   props.settings?.mode?.onlyReadBy ??
   null;
 
@@ -53,14 +55,14 @@ export const isShared = (props: SlaveProperties): boolean =>
   props.settings?.mode?.shared === true;
 
 /** @returns the software that sets up the slave, or null when Synnax does. */
-export const setUpBy = (props: SlaveProperties): string | null => {
-  const mode = props.settings?.mode;
+export const setUpBy = (settings: Settings): string | null => {
+  const mode = settings?.mode;
   if (mode?.shared !== true) return null;
   // A Driver before the bus and the software were in the mode names neither.
   return (
     mode.sharedWith ??
     mode.onlyReadBy ??
-    markedEntries(props)[0]?.reader ??
+    markedEntries(settings)[0]?.reader ??
     "other software"
   );
 };
@@ -71,19 +73,19 @@ export const canSwitch = (props: SlaveProperties): boolean =>
 
 /** @returns whether a scan can tell that a switch to Synnax took effect. */
 export const confirmsSwitch = (props: SlaveProperties): boolean =>
-  markedEntries(props).length > 0;
+  markedEntries(props.settings).length > 0;
 
 /** @returns how the scan found the slave set up. */
 export const of = (props: SlaveProperties): Setup => {
   const mode = props.settings?.mode;
-  const sent = markedEntries(props).find((m) =>
+  const sent = markedEntries(props.settings).find((m) =>
     props.pdos.inputs.some((e) => sameAddress(e, m.address)),
   );
   if (sent != null && mode?.switch.length === 0)
     return { kind: "switched", reader: sent.reader };
   const onlyReader = sent?.reader ?? mode?.onlyReadBy;
   if (onlyReader != null) return { kind: "other", reader: onlyReader };
-  const reader = setUpBy(props);
+  const reader = setUpBy(props.settings);
   if (reader != null) return { kind: "shared", reader };
   if (mode?.bus === 2) return { kind: "bus" };
   return { kind: "synnax" };

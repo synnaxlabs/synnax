@@ -365,8 +365,9 @@ describe("Read", () => {
     /** Renders a channel on each of two strain slaves and selects both channels. */
     const renderTwoSelected = async (
       startupParameters: (slaves: device.Key[]) => ethercat.SlaveStartupParameters[],
+      createSecond = createStrainSlave,
     ) => {
-      const slaves = [await createStrainSlave(), await createStrainSlave()];
+      const slaves = [await createStrainSlave(), await createSecond()];
       const rendered = await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: slaves.map((s) =>
@@ -412,6 +413,30 @@ describe("Read", () => {
       const measurement = await screen.findByRole("button", { name: /^Measurement/ });
       expect(await within(measurement).findByText("Mixed")).toBeTruthy();
       expect(screen.queryByText("Excitation voltage")).toBeNull();
+    });
+
+    it("should edit only the inputs Synnax sets up in a mixed selection", async () => {
+      const { draft, slaves } = await renderTwoSelected(() => [], createSharedSlave);
+      expect(
+        await screen.findByText(
+          "DewesoftX sets the settings of some selected devices.",
+        ),
+      ).toBeTruthy();
+      fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual([
+          {
+            device: slaves[0].key,
+            parameters: [
+              { ...MEASUREMENT, value: 6 },
+              { ...RANGE, value: 0 },
+              { ...EXCITATION, value: 0 },
+            ],
+          },
+        ]);
+      });
     });
 
     it("should save a scale picked once to each channel", async () => {

@@ -262,6 +262,10 @@ const INITIAL_VALUES: SlaveDevice = {
 const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
 
 // A check reports issues without making the form invalid, so its errors stop the save.
+/** A check never makes the form invalid, so a field with an error blocks the save. */
+const hasError = (statuses: Status.Crude[]): boolean =>
+  statuses.some(({ variant }) => variant === "error");
+
 const beforeSave = async ({
   getStatuses,
   set,
@@ -269,7 +273,7 @@ const beforeSave = async ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SLAVE_SCHEMAS>
 >): Promise<boolean> => {
-  if (getStatuses().some(({ variant }) => variant === "error")) return false;
+  if (hasError(getStatuses())) return false;
   set(path.configured, true);
   return true;
 };
@@ -356,7 +360,8 @@ export const Configure = ({
   const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
-  const running = useRunningOnNetwork(opened.rack, network);
+  // Only a configured slave can be in a task.
+  const running = useRunningOnNetwork(opened.configured ? opened.rack : null, network);
   const handleError = Status.useErrorHandler();
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =
@@ -386,12 +391,11 @@ export const Configure = ({
     if (stale || cycleError != null) return;
     // A mode that takes no cycles fails the start with any cycle.
     if (choice != null && mode == null) setChoice(choose(modes, choice.index));
-    let saved = false;
-    const write = async () => {
-      saved = await saveAsync();
-    };
-    if (restart) await Task.whileStopped({ tasks: running }, write);
-    else await write();
+    // A save that fails must not stop the tasks.
+    if (restart && (!form.validate() || hasError(form.getStatuses()))) return;
+    const saved = restart
+      ? await Task.whileStopped({ tasks: running }, saveAsync)
+      : await saveAsync();
     if (!saved) return;
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);

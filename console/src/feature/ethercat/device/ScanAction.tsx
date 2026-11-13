@@ -7,20 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { useDisableFilter } from "@/feature/ethercat/device/queries";
 import { type Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
-
-/** The scan task command that turns off the DewesoftX filter. */
-const DISABLE_DEWESOFT_FILTER_COMMAND = "disable_dewesoft_filter";
-
-/** The Driver waits up to 45 seconds for the user to approve the change in Windows. */
-const DISABLE_TIMEOUT = TimeSpan.seconds(60);
 
 const scanStatusDataZ = z
   .object({ filtered: z.array(z.string()).default(() => []) })
@@ -35,7 +30,7 @@ export const ScanAction = ({
 }: Device.ScanActionProps): ReactElement | null => {
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  const [disabling, setDisabling] = useState(false);
+  const { update, variant } = useDisableFilter();
   const filtered = scanStatusDataZ.parse(scanner.status?.details.data)?.filtered ?? [];
   if (filtered.length === 0) return null;
   const handleClick = () =>
@@ -44,23 +39,16 @@ export const ScanAction = ({
         message: "Turn off the DewesoftX filter?",
         description:
           "DewesoftX cannot use the adapter while its filter is off. Windows can ask " +
-          "for administrator access.",
+          "for administrator access on the computer that runs the Driver.",
         confirm: { label: "Turn off", variant: "warning" },
       });
-      if (confirmed !== true) return;
-      setDisabling(true);
-      await scanner
-        .executeCommandSync({
-          type: DISABLE_DEWESOFT_FILTER_COMMAND,
-          timeout: DISABLE_TIMEOUT,
-        })
-        .finally(() => setDisabling(false));
+      if (confirmed === true) update({ scanner });
     }, "Failed to turn off the DewesoftX filter");
   return (
     <Button.Button
       size="small"
       variant="outlined"
-      status={disabling ? "loading" : undefined}
+      status={status.keepVariants(variant, "loading")}
       onClick={handleClick}
     >
       Turn off the filter

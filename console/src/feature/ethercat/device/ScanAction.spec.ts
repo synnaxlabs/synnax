@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { Device } from "@/platform/device";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createWarningScanner } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, createTaskStatus } from "@/platform/task/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -29,22 +29,10 @@ const BLOCKED = "No EtherCAT modules found on Ethernet 2.";
  */
 const renderFind = async (data: unknown): Promise<task.Task> => {
   const hardware = { ...EtherCAT.Device.HARDWARE, key: uniqueName("integration") };
-  const rack = await createRunningRack(client, hardware.key);
-  const scanner = await rack.createTask({
-    name: uniqueName("scanner"),
-    type: EtherCAT.Task.SCAN_TYPE,
-    config: {},
-    internal: true,
+  const scanner = await createWarningScanner(client, hardware, {
+    description: BLOCKED,
+    data,
   });
-  await client.statuses.set(
-    createTaskStatus({
-      owner: task.resourceID(scanner.key),
-      variant: "warning",
-      message: "Failed to scan for devices",
-      description: BLOCKED,
-      details: { running: true, rack: rack.key, data },
-    }),
-  );
   await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
   await screen.findByText(BLOCKED);
   return scanner;
@@ -57,6 +45,15 @@ describe("EtherCAT scan action", () => {
     fireEvent.click(findButton("Turn off the filter"));
     fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     expect((await driver.answered).type).toBe("disable_dewesoft_filter");
+  });
+
+  it("should send no command when the user cancels", async () => {
+    await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
+    fireEvent.click(findButton("Turn off the filter"));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await act(async () => {});
+    // A sent command holds the button in its loading state, since no Driver answers.
+    expect(findButton("Turn off the filter").getAttribute("aria-disabled")).toBeNull();
   });
 
   it("should not offer to turn off the filter when it blocks no adapter", async () => {

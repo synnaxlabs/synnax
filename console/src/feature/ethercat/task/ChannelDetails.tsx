@@ -125,7 +125,7 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
   path,
 }) => {
   const recalibrate = useRecalibrate(path);
-  const { key } = PForm.useFieldValue(path);
+  const key = PForm.useFieldValue(path.key);
   return (
     <ChannelDetails
       path={path}

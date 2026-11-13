@@ -21,7 +21,7 @@ interface BaseProps {
   /** Whether the inputs that the field sets hold different values. */
   mixed?: boolean;
   problem?: string;
-  /** Shows the value as one that other software sets. */
+  /** Shows the value read only. */
   disabled?: boolean;
 }
 

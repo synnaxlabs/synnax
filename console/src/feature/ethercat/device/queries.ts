@@ -23,30 +23,15 @@ import { Task } from "@/platform/task";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves, useResult: useResultSlaves } =
-  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+const retrieveSlaves = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+
+/** The slaves that the query matches. Suspends until they resolve. */
+export const useSlaves = retrieveSlaves.use;
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
-  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
-
-export interface EnabledState {
-  allEnabled: boolean;
-  allDisabled: boolean;
-}
-
-export interface EnabledStateParams {
-  keys: device.Key[];
-}
-
-export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
-  const slaves = useSlaves({ where: { key: { in: keys } } });
-  const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
-  return {
-    allDisabled: disabledCount === slaves.length,
-    allEnabled: disabledCount === 0,
-  };
-};
+  retrieveSlaves.useResult(keys.length === 0 ? null : { where: { key: { in: keys } } })
+    .data;
 
 export const useCommonNetwork = (channels: Channel[]) => {
   const keys = channels.map((ch) => ch.device).filter((c) => c != null);
@@ -90,6 +75,14 @@ const SWITCH: verbs.Verbs = {
   participle: "switching",
 };
 
+const DISABLE_DEWESOFT_FILTER_COMMAND = "disable_dewesoft_filter";
+
+const TURN_OFF: verbs.Verbs = {
+  present: "turn off",
+  past: "turned off",
+  participle: "turning off",
+};
+
 const channelDevicesZ = z.object({
   channels: z.array(z.object({ device: z.string() })).default(() => []),
 });
@@ -128,13 +121,20 @@ const retrieveRunningOnNetwork = async (
   return onNetwork(running, slaves, network);
 };
 
-/** The EtherCAT read and write tasks that run on the network of the rack, kept live. */
+/**
+ * The EtherCAT read and write tasks that run on the network of the rack, kept live.
+ * Watches no tasks when rackKey is null.
+ */
 export const useRunningOnNetwork = (
-  rackKey: rack.Key,
+  rackKey: rack.Key | null,
   network: string,
 ): task.Task[] => {
   const tasks =
-    PTask.useResultMultiple({ where: { rack: { eq: rackKey } } }).data ?? [];
+    PTask.useResultMultiple(
+      rackKey == null
+        ? null
+        : { where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } } },
+    ).data ?? [];
   const running = tasks.filter(isRunning);
   const slaves = useSlavesByKeys(unique.unique(running.flatMap(devicesOf))) ?? [];
   return onNetwork(running, slaves, network);
@@ -168,6 +168,28 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
       });
       if (res.variant === "error") throw status.toError(res);
     });
+    return data;
+  },
+});
+
+export interface DisableFilterParams {
+  /** The scan task of the rack whose Driver turns off the filter. */
+  scanner: task.Task;
+}
+
+/**
+ * Turns off the DewesoftX filter on the adapters that the last scan found it blocks.
+ * Windows can ask for administrator access on the computer that runs the Driver.
+ */
+export const { useUpdate: useDisableFilter } = Flux.createUpdate<DisableFilterParams>({
+  name: "the DewesoftX filter",
+  verbs: TURN_OFF,
+  update: async ({ data }) => {
+    const res = await data.scanner.executeCommandSync({
+      type: DISABLE_DEWESOFT_FILTER_COMMAND,
+      timeout: TimeSpan.seconds(60),
+    });
+    if (res.variant === "error") throw status.toError(res);
     return data;
   },
 });

@@ -21,7 +21,7 @@ export const useListenForChanges = () => {
     addStatus<ReturnType<typeof device.deviceZ>>({
       variant: "info",
       name: dev.name,
-      message: `New ${dev.name} connected`,
+      message: "New device connected",
       details: dev,
     });
   };

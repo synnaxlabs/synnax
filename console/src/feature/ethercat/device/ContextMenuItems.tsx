@@ -12,11 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import {
-  useEnabledState,
-  useSlavesByKeys,
-  useToggleEnabled,
-} from "@/feature/ethercat/device/queries";
+import { useSlaves, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 
@@ -35,14 +31,14 @@ const READ_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
-  multiDevice: { zeroProperties: {} },
+  zeroProperties: {},
 });
 
 const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
-  multiDevice: { zeroProperties: {} },
+  zeroProperties: {},
 });
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
@@ -50,8 +46,10 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
 
-  const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const slaves = useSlavesByKeys(keys) ?? [];
+  const slaves = useSlaves({ where: { key: { in: keys } } });
+  const disabled = slaves.filter(({ properties }) => !properties.enabled).length;
+  const allDisabled = disabled === slaves.length;
+  const allEnabled = disabled === 0;
   const hasInputs = slaves.some(({ properties }) => properties.pdos.inputs.length > 0);
   const hasOutputs = slaves.some(
     ({ properties }) => properties.pdos.outputs.length > 0,

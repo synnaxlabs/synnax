@@ -28,13 +28,12 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { type ComponentType, type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
-import { type ScanActionProps } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -74,11 +73,9 @@ const State = ({ variant, message, description, action }: StateProps): ReactElem
   </Pane.Item>
 );
 
-interface ScannerStateProps {
+interface ScannerStateProps extends Pick<Hardware, "name" | "ScanAction"> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
-  name: string;
-  ScanAction?: ComponentType<ScanActionProps>;
 }
 
 const ScannerState = ({
@@ -182,28 +179,17 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
   </Pane.Item>
 );
 
-interface RackCardProps {
-  rack: rack.Rack;
-  scanner: task.Task | undefined;
+interface RackCardProps extends ScannerStateProps {
   devices: device.Device[];
-  name: string;
-  ScanAction?: ComponentType<ScanActionProps>;
   onConfigure: (key: device.Key) => void;
 }
 
-const RackCard = ({
-  rack: r,
-  scanner,
-  devices,
-  name,
-  ScanAction,
-  onConfigure,
-}: RackCardProps): ReactElement => (
+const RackCard = ({ devices, onConfigure, ...props }: RackCardProps): ReactElement => (
   <Pane.Pane>
     <Pane.Header level="p">
       <Header.Title weight={500} color={11}>
         <Icon.Rack />
-        {r.name}
+        {props.rack.name}
       </Header.Title>
       <Header.Actions>
         {devices.length > 0 && (
@@ -211,15 +197,15 @@ const RackCard = ({
             {devices.length === 1 ? "1 device" : `${devices.length} devices`}
           </Text.Text>
         )}
-        <Rack.StatusIndicator status={r.status} />
+        <Rack.StatusIndicator status={props.rack.status} />
       </Header.Actions>
     </Pane.Header>
-    <ScannerState rack={r} scanner={scanner} name={name} ScanAction={ScanAction} />
+    <ScannerState {...props} />
     {devices.map((d) => (
       <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
     ))}
-    {devices.length === 0 && isScanning(r, scanner) && (
-      <State variant="loading" message={`Looking for ${name} hardware`} />
+    {devices.length === 0 && isScanning(props.rack, props.scanner) && (
+      <State variant="loading" message={`Looking for ${props.name} hardware`} />
     )}
   </Pane.Pane>
 );
