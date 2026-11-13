@@ -35,9 +35,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot must belong to exactly one of a project and a range. A line plot in a group
-// belongs to the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a line plot with lp.Key exists.
+// plot must belong to a project. A line plot in a group belongs to the project that
+// holds the group. Create returns an error wrapping validate.ErrValidation when a line
+// plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
@@ -55,7 +55,7 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if err := lp.Validate(); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(lp.Project, lp.Range); err != nil {
+	if err := project.CheckMember(lp.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(lp).Exec(ctx, w.tx); err != nil {
@@ -80,10 +80,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e LinePlot) (LinePlot, error) {
+		Change(func(_ gorp.Context, e LinePlot) LinePlot {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -144,7 +144,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return LinePlot{}, err
 			}
-			return next, project.ValidateOwner(next.Project, next.Range)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

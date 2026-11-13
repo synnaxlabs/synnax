@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -99,7 +100,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey:    node.Identity.HostKey,
 		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     db,
+		Secret: secrettestutil.OpenService(ctx, db),
+	}))
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{

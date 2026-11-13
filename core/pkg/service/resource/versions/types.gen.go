@@ -47,7 +47,7 @@ const (
 	TypeRack Type = v0.TypeRack
 	// TypeRange identifies a range.
 	TypeRange Type = v0.TypeRange
-	// TypeRangeAlias identifies an alias of a channel on a range.
+	// TypeRangeAlias identifies a range alias. The Core no longer stores range aliases.
 	TypeRangeAlias Type = v0.TypeRangeAlias
 	// TypeRole identifies an access control role.
 	TypeRole Type = v0.TypeRole
@@ -74,6 +74,10 @@ const (
 	TypeNiDevice       Type = v0.TypeNiDevice
 	TypeOpcuaServer    Type = v0.TypeOpcuaServer
 	TypeArcDirectory   Type = v0.TypeArcDirectory
+	// TypeSecret identifies a secret.
+	TypeSecret Type = v0.TypeSecret
+	// TypeCertificate identifies a certificate.
+	TypeCertificate Type = v0.TypeCertificate
 )
 
 // ID is a unique identifier for a Resource. An example:

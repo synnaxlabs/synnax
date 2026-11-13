@@ -19,6 +19,7 @@ import (
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
@@ -27,13 +28,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	apinichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
+	apinidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
@@ -47,7 +50,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
@@ -66,7 +68,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		auth.New(&t),
 		ranger.New(&t),
 		kv.New(&t),
-		alias.New(&t),
 		rack.New(&t),
 		task.New(&t),
 		device.New(&t),
@@ -127,11 +128,22 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
+	// NI DEVICE
+	t.NIDeviceCreate = noop.UnaryServer[apinidevice.CreateRequest, apinidevice.CreateResponse]{}
+	t.NIDeviceRetrieve = noop.UnaryServer[apinidevice.RetrieveRequest, apinidevice.RetrieveResponse]{}
+	t.NIDeviceUpdate = noop.UnaryServer[apinidevice.UpdateRequest, struct{}]{}
+	t.NIDeviceDelete = noop.UnaryServer[apinidevice.DeleteRequest, struct{}]{}
+
+	// NI CHASSIS
+	t.NIChassisCreate = noop.UnaryServer[apinichassis.CreateRequest, apinichassis.CreateResponse]{}
+	t.NIChassisRetrieve = noop.UnaryServer[apinichassis.RetrieveRequest, apinichassis.RetrieveResponse]{}
+	t.NIChassisUpdate = noop.UnaryServer[apinichassis.UpdateRequest, struct{}]{}
+	t.NIChassisDelete = noop.UnaryServer[apinichassis.DeleteRequest, struct{}]{}
+
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
 	// RANGE
-	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
@@ -197,6 +209,20 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
 	t.AccessDispatchPolicy = noop.UnaryServer[policy.DispatchRequest, struct{}]{}
 	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
+
+	// SECRET
+	t.SecretSet = noop.UnaryServer[apisecret.SetRequest, apisecret.SetResponse]{}
+	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
+	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
+	t.SecretDispatch = noop.UnaryServer[apisecret.DispatchRequest, struct{}]{}
+	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
+	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
+
+	// CERTIFICATE
+	t.CertificateSet = noop.UnaryServer[apicertificate.SetRequest, apicertificate.SetResponse]{}
+	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
+	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
+	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

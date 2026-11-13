@@ -18,9 +18,10 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -129,9 +130,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the record to numeric or boolean channel values.
-	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -254,25 +255,25 @@ type WriteChannel struct {
 	// Channel is the Synnax channel whose samples are produced.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// JSONType is the JSON type the sample value is serialized as.
-	JSONType http.JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// TimeFormat is the output encoding when the channel holds timestamps. Required for
 	// timestamp channels.
-	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric or boolean channel values to string labels. Only valid
 	// when json_type is 'string'.
-	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (w *WriteChannel) ApplyDefaults() {
 	if w.JSONType == "" {
-		w.JSONType = http.JSONTypeNumber
+		w.JSONType = payload.JSONTypeNumber
 	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteChannel) SetDefaults() {
-	w.JSONType = http.JSONTypeNumber
+	w.JSONType = payload.JSONTypeNumber
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -313,7 +314,7 @@ type Record struct {
 	// omits the timestamp.
 	TimestampPointer *string `json:"timestamp_pointer,omitzero" msgpack:"timestamp_pointer,omitempty"`
 	// TimeFormat is the encoding of the sample timestamp.
-	TimeFormat http.TimeFormat `json:"time_format" msgpack:"time_format"`
+	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
 	// Fields contains additional static or generated record fields.
 	Fields []http.WriteField `json:"fields" msgpack:"fields"`
 }
@@ -324,7 +325,7 @@ func (r *Record) ApplyDefaults() {
 		r.ValuePointer = "/value"
 	}
 	if r.TimeFormat == "" {
-		r.TimeFormat = http.TimeFormatUnixNs
+		r.TimeFormat = payload.TimeFormatUnixNs
 	}
 	for i := range r.Fields {
 		r.Fields[i].ApplyDefaults()
@@ -334,7 +335,7 @@ func (r *Record) ApplyDefaults() {
 // SetDefaults sets every field that has a schema default to that default.
 func (r *Record) SetDefaults() {
 	r.ValuePointer = "/value"
-	r.TimeFormat = http.TimeFormatUnixNs
+	r.TimeFormat = payload.TimeFormatUnixNs
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the

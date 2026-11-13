@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax import channel as channel_, group as group_, project as project_
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import border, color as color_, filter, notation as notation_, spatial, text
@@ -204,13 +204,13 @@ class NumericTelemConfig(BaseModel):
     Attributes:
         channel: Is the channel whose value the symbol displays.
         rolling_average: Is the sample window for rolling-average smoothing.
-        precision: Is the number of decimal places shown.
+        precision: Is the number of decimal places shown, from 0 to 17. Absent shows 2.
         notation: Is the numeric notation used to format the value.
     """
 
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
 
 
@@ -244,11 +244,9 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
-        snapshot: Selects by snapshot.
         groups: Matches the schematics in any of the given groups.
         grouped: Matches the schematics in a group, or in no group when false.
-        projects: Matches the schematics owned by any of the given projects.
-        ranges: Matches the schematics owned by any of the given ranges.
+        projects: Matches the schematics in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -257,13 +255,11 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
-    snapshot: filter.Bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
     projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", "projects", "ranges", mode="before")
+    @field_validator("groups", "projects", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -278,11 +274,9 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
-        "snapshot": filter.BoolInput,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
         "projects": project_.Key | list[project_.Key],
-        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -1050,7 +1044,7 @@ class TankNodeConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
@@ -1785,7 +1779,7 @@ class TankElementConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
@@ -2002,27 +1996,21 @@ class Schematic(BaseModel):
     Attributes:
         key: Is the unique identifier for this schematic.
         name: Is a human-readable name for the schematic.
-        snapshot: Is true if this schematic is an immutable snapshot copy.
         nodes: Contains all diagram nodes in the schematic.
         edges: Contains all connections between nodes.
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
         group: Is the group the schematic sits in, if any.
-        project: Is the project that owns the schematic, if any. Exactly one of project
-            and range is set.
-        range: Is the range that owns the schematic, if any. Exactly one of project and
-            range is set.
+        project: Is the project that holds the schematic.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    snapshot: bool = False
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     configs: dict[str, ElementConfig] = Field(default_factory=dict)
     group: group_.Key | None = None
     project: project_.Key | None = None
-    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

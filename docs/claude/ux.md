@@ -95,6 +95,13 @@ lighter step or the base step in dark mode.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
+### Top bar
+
+- The right end of the top bar holds what applies to the whole Console. It ends with
+  docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
+- The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
+  goes in the left bar.
+
 ### Toolbar search
 
 - A search action in a resource toolbar header turns the title into a field. The search
@@ -338,6 +345,10 @@ bound, a log precision, or the line plot X channel.
 
 - A task's channel list is a record table: one item per channel, built from
   `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- The Labels page of Settings is a record table with checkable items, like the range
+  explorer: a color swatch, then the name. Click the swatch to recolor. A right click
+  opens the menu of the selected labels. You create a label from the page or from any
+  label field.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

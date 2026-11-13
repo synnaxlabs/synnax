@@ -14,7 +14,6 @@ package table
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
@@ -108,8 +107,6 @@ type Where struct {
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the tables in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
-	// Projects matches the tables owned by any of the given projects.
+	// Projects matches the tables in any of the given projects.
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
-	// Ranges matches the tables owned by any of the given ranges.
-	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
 }

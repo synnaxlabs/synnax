@@ -10,6 +10,7 @@
 import "@/feature/lineplot/toolbar/Lines.css";
 
 import { lineplot } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -169,15 +170,24 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large" preventClick>
-      <Channel.AliasInput
-        channel={line.yChannel}
+      <Input.Text
+        selectOnFocus
         variant="shadow"
-        value={line.label ?? ""}
+        value={line.label}
         onChange={handleLabelChange}
-        isDefault={line.isDefaultLabel}
-        onReset={handleLabelReset}
         full="x"
-      />
+      >
+        {!line.isDefaultLabel && (
+          <Button.Button
+            onClick={handleLabelReset}
+            tooltip="Reset to channel name"
+            tooltipLocation={{ y: "top" }}
+            variant="outlined"
+          >
+            <Icon.Sync />
+          </Button.Button>
+        )}
+      </Input.Text>
       <Input.Numeric
         value={line.strokeWidth}
         variant="shadow"

@@ -42,7 +42,26 @@ export type EntryStatus = "present" | "tombstoned" | "unknown";
 export type TableEvent<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
-> = { variant: "set"; key: Key; value: Value } | { variant: "delete"; key: Key };
+> =
+  | {
+      variant: "set";
+      key: Key;
+      value: Value;
+      /**
+       * Set when a fetch found a record that the table did not hold. The record is new
+       * to the table, not changed on the Core.
+       */
+      discovered?: boolean;
+    }
+  | { variant: "delete"; key: Key };
+
+/**
+ * Returns whether the event can change what the Core answers to a query: every event
+ * except a set that a fetch found.
+ */
+export const isChange = <Key extends record.Key, Value extends state.State>(
+  event: TableEvent<Key, Value>,
+): boolean => event.variant === "delete" || event.discovered !== true;
 
 /** Receives {@link TableEvent}s. Must be synchronous; thrown errors are reported to the
  *  table's error sink and do not stop delivery. */
@@ -94,6 +113,11 @@ export interface IngestOptions {
    * reset after it: the fetch predates them.
    */
   since?: Stamp;
+  /**
+   * Set when the records changed on the Core, such as records that the change stream
+   * announced. Each write is then a change, even for a record new to the table.
+   */
+  changed?: boolean;
 }
 
 /** A table value carrying its entry key, so batch writes and fetches can derive each
@@ -139,7 +163,7 @@ export interface TableParams<
   indexes?: Array<LookupIndex<Key, Value>>;
   /**
    * Lets a fetch that started after a delete restore the key. For tables whose deleted
-   * keys fall back to another record, such as a range alias inheriting from its parent.
+   * keys can come back, such as a record deleted and created again.
    */
   revivable?: boolean;
 }
@@ -179,6 +203,14 @@ const closedError = (cause?: unknown): DisconnectedError => {
 // "confirmed" tombstones a key the Core no longer holds. "local" tombstones a key this
 // client deleted ahead of the change stream.
 type Removal = "evict" | "confirmed" | "local";
+
+/** What the table tracks for each live entry beside its value. */
+interface Meta {
+  /** The touch sequence at the last read or write, which orders what trim drops. */
+  touch: number;
+  /** Set while the last write was a fetch that found a record new to the table. */
+  discovered: boolean;
+}
 
 /**
  * Owns the base of a key, the value that writes build on, when a table shows other
@@ -237,8 +269,7 @@ export class Table<
   // grows.
   private readonly inFlight: Stamp[] = [];
   private readonly holders = new Set<Holder<Key>>();
-  // The last read or write of each entry, which orders the entries that trim drops.
-  private readonly touches = new Map<Key, number>();
+  private readonly meta = new Map<Key, Meta>();
   private touchSeq = 0;
   // The touch sequence when the last trim ran. A trim keeps every entry touched since,
   // since a fetch in flight may not yet hold the records it just wrote.
@@ -300,16 +331,21 @@ export class Table<
           });
   }
 
-  private applySet(key: Key, value: Value): void {
+  private applySet(key: Key, value: Value, discovered: boolean): void {
     this.entries.set(key, value);
-    this.touches.set(key, ++this.touchSeq);
+    const meta = this.meta.get(key);
+    if (meta == null) this.meta.set(key, { touch: ++this.touchSeq, discovered });
+    else {
+      meta.touch = ++this.touchSeq;
+      meta.discovered = discovered;
+    }
     for (const index of this.indexes) index.set(key, value);
   }
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     this.writeStamps.delete(key);
-    this.touches.delete(key);
+    this.meta.delete(key);
     for (const index of this.indexes) index.delete(key);
   }
 
@@ -354,7 +390,7 @@ export class Table<
     });
     if (over <= 0) return [];
     const held = this.held();
-    const touchOf = (key: Key): number => this.touches.get(key) ?? 0;
+    const touchOf = (key: Key): number => this.meta.get(key)?.touch ?? 0;
     const dropped = Array.from(this.entries.keys())
       .filter((key) => !held.has(key) && touchOf(key) <= since)
       .sort((a, b) => touchOf(a) - touchOf(b))
@@ -397,26 +433,40 @@ export class Table<
     return this.interceptor?.base(key) ?? this.entries.get(key);
   }
 
-  /** Writes the value as the base of the key and shows the result if it changed. */
-  private show(key: Key, value: Value): void {
+  /**
+   * Writes the value as the base of the key and shows the result if it changed or if
+   * forced.
+   */
+  private show(key: Key, value: Value, discovered = false, forced = false): void {
     const next = this.interceptor == null ? value : this.interceptor.apply(key, value);
     const shown = this.entries.get(key);
-    if (shown != null && this.equal(next, shown, key)) return;
-    this.applySet(key, next);
-    this.notify({ variant: "set", key, value: next });
+    if (shown != null && !forced && this.equal(next, shown, key)) return;
+    this.applySet(key, next, discovered);
+    this.notify(
+      discovered
+        ? { variant: "set", key, value: next, discovered }
+        : { variant: "set", key, value: next },
+    );
   }
 
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
+    fetched = false,
   ): destructor.Destructor | undefined {
     const prev = this.base(key);
     const next = state.executeSetter(value, prev);
-    if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
+    if (next == null) return undefined;
+    // A fetch reads what the Core holds: a record new to the table is no change there.
+    const discovered = fetched && this.status(key) === "unknown";
+    // Lists skip a discovery, so the first change after one shows even when equal: it
+    // can be the stream set of a record that the Core just created.
+    const forced = !fetched && this.meta.get(key)?.discovered === true;
+    if (prev != null && !forced && this.equal(next, prev, key)) return undefined;
     const prevTombstone = this.tombstones.get(key);
     const prevStamp = this.writeStamps.get(key);
     this.tombstones.delete(key);
-    this.show(key, next);
+    this.show(key, next, discovered, forced);
 
     return () => {
       if (prev === undefined) {
@@ -454,11 +504,14 @@ export class Table<
     return rollback;
   }
 
-  private setMany(values: Array<Keyed<Key, Value>>): destructor.Destructor {
+  private setMany(
+    values: Array<Keyed<Key, Value>>,
+    fetched = false,
+  ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
-        const rollback = this.setOne(val.key, val);
+        const rollback = this.setOne(val.key, val, fetched);
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -503,12 +556,15 @@ export class Table<
     return this.changes;
   }
 
-  private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
+  private setIfAbsent(
+    values: Array<Keyed<Key, Value>>,
+    fetched: boolean,
+  ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
         if (this.entries.has(val.key)) return;
-        const rollback = this.setOne(val.key, val);
+        const rollback = this.setOne(val.key, val, fetched);
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -540,29 +596,38 @@ export class Table<
   ): destructor.Destructor {
     if (typeof keyOrValues !== "object") {
       const key = keyOrValues as Key;
-      const { mode = this.hydrateMode, since } = options ?? {};
+      const { mode = this.hydrateMode, since, changed = false } = options ?? {};
       let rollback = destructor.NOOP;
       if (
         this.ingestible(key, since) &&
         (mode !== "if-absent" || !this.entries.has(key))
       )
-        rollback = this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+        rollback =
+          this.setOne(key, valueOrOptions as Value, !changed) ?? destructor.NOOP;
       this.touch(key);
       return rollback;
     }
-    const { mode = this.hydrateMode, since }: IngestOptions =
-      (valueOrOptions as IngestOptions | undefined) ?? {};
+    const {
+      mode = this.hydrateMode,
+      since,
+      changed = false,
+    }: IngestOptions = (valueOrOptions as IngestOptions | undefined) ?? {};
     const values = array.toArray(keyOrValues);
     const arr = values.filter(({ key }) => this.ingestible(key, since));
-    const rollback = mode === "if-absent" ? this.setIfAbsent(arr) : this.setMany(arr);
+    const rollback =
+      mode === "if-absent"
+        ? this.setIfAbsent(arr, !changed)
+        : this.setMany(arr, !changed);
     values.forEach(({ key }) => this.touch(key));
     return rollback;
   }
 
-  // A fetch reads each record it ingests, so a trim keeps the record until the fetch
-  // composes its answer, even when the record left the entry as it was.
+  // Orders the entries that trim drops. A fetch touches each record it ingests, so a
+  // trim keeps the record until the fetch composes its answer, even when the record
+  // left the entry as it was.
   private touch(key: Key): void {
-    if (this.entries.has(key)) this.touches.set(key, ++this.touchSeq);
+    const meta = this.meta.get(key);
+    if (meta != null) meta.touch = ++this.touchSeq;
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
@@ -595,13 +660,13 @@ export class Table<
       for (const key of keys) {
         const value = this.entries.get(key);
         if (value == null) continue;
-        this.touches.set(key, ++this.touchSeq);
+        this.touch(key);
         values.push(value);
       }
       return values;
     }
     const value = this.entries.get(keys);
-    if (value != null) this.touches.set(keys, ++this.touchSeq);
+    if (value != null) this.touch(keys);
     return value;
   }
 
@@ -635,11 +700,11 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence and cached entries the fetch omits are
-   * tombstoned. A key written or deleted while the fetch was in flight keeps that write
-   * either way. Returns the table's entries for the found keys in input order,
-   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
-   * serve cached entries only.
+   * every key is fetched regardless of presence, cached entries the fetch omits are
+   * tombstoned, and a record new to the table is a change. A key written or deleted
+   * while the fetch was in flight keeps that write either way. Returns the table's
+   * entries for the found keys in input order, deduplicated; keys the cluster no longer
+   * has are omitted. Tables without a fetch serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     const { fetchBatcher } = this;
@@ -662,7 +727,8 @@ export class Table<
             );
             this.batch(() => {
               if (vanished.length > 0) this.remove(vanished, "confirmed");
-              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
+              if (fetched.length > 0)
+                this.ingest(fetched, { mode: "set", since, changed: true });
             });
           } else if (fetched.length > 0) this.ingest(fetched, { since });
         });
@@ -848,7 +914,7 @@ export class Table<
     this.pendingDeletes.clear();
     this.writeStamps.clear();
     this.dropped.clear();
-    this.touches.clear();
+    this.meta.clear();
     for (const index of this.indexes) index.reset();
   }
 

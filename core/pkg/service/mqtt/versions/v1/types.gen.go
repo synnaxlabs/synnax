@@ -19,8 +19,9 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -47,42 +48,6 @@ func (q QoS) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// TimeFormat is the encoding of a timestamp value within a JSON payload.
-type TimeFormat string
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = "iso8601"
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = "unix_sec"
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = "unix_ms"
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = "unix_us"
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = "unix_ns"
-)
-
-// IsValid reports whether t is one of the defined TimeFormat
-// values.
-func (t TimeFormat) IsValid() bool {
-	switch t {
-	case TimeFormatISO8601, TimeFormatUnixSec, TimeFormatUnixMs, TimeFormatUnixUs, TimeFormatUnixNs:
-		return true
-	default:
-		return false
-	}
-}
-
-// EnumEntry maps a string label in a JSON payload to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry struct {
-	// Label is the string label in the JSON payload.
-	Label string `json:"label" msgpack:"label"`
-	// Value is the numeric channel value the label maps to.
-	Value float64 `json:"value" msgpack:"value"`
 }
 
 // SparkplugDataType is the Sparkplug B data type of a tag.
@@ -146,9 +111,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the payload to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -442,50 +407,6 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType string
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = "number"
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = "string"
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = "boolean"
-)
-
-// IsValid reports whether j is one of the defined JSONType
-// values.
-func (j JSONType) IsValid() bool {
-	switch j {
-	case JSONTypeNumber, JSONTypeString, JSONTypeBoolean:
-		return true
-	default:
-		return false
-	}
-}
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType string
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each message.
-	GeneratorTypeUUID GeneratorType = "uuid"
-	// GeneratorTypeTimestamp produces the time of the message.
-	GeneratorTypeTimestamp GeneratorType = "timestamp"
-)
-
-// IsValid reports whether g is one of the defined GeneratorType
-// values.
-func (g GeneratorType) IsValid() bool {
-	switch g {
-	case GeneratorTypeUUID, GeneratorTypeTimestamp:
-		return true
-	default:
-		return false
-	}
-}
-
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField struct {
 	// Pointer is the JSON Pointer where the channel value is placed in the payload. An
@@ -493,7 +414,7 @@ type ChannelField struct {
 	// target may not declare any additional fields.
 	Pointer string `json:"pointer" msgpack:"pointer"`
 	// JSONType is the JSON type the channel value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Channel is the Synnax command channel that triggers the publish.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Name is the human-readable name of the command channel.
@@ -502,16 +423,16 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps. An
 	// unset format is ISO 8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *ChannelField) ApplyDefaults() {
 	if c.JSONType == "" {
-		c.JSONType = JSONTypeNumber
+		c.JSONType = payload.JSONTypeNumber
 	}
 	if c.DataType == "" {
 		c.DataType = "float64"
@@ -520,7 +441,7 @@ func (c *ChannelField) ApplyDefaults() {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelField) SetDefaults() {
-	c.JSONType = JSONTypeNumber
+	c.JSONType = payload.JSONTypeNumber
 	c.DataType = "float64"
 }
 
@@ -579,7 +500,7 @@ type WriteFieldVariant interface {
 type StaticWriteField struct {
 	BaseWriteField
 	// JSONType is the JSON type the value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Value is the fixed JSON value placed at the pointer.
 	Value any `json:"value" msgpack:"value"`
 }
@@ -588,13 +509,13 @@ func (StaticWriteField) isWriteFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StaticWriteField) SetDefaults() {
-	s.JSONType = JSONTypeNumber
+	s.JSONType = payload.JSONTypeNumber
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticWriteField) ApplyDefaults() {
 	if s.JSONType == "" {
-		s.JSONType = JSONTypeNumber
+		s.JSONType = payload.JSONTypeNumber
 	}
 }
 
@@ -610,22 +531,22 @@ func (s StaticWriteField) Validate() error {
 type GeneratedWriteField struct {
 	BaseWriteField
 	// Generator is the generator that produces a fresh value per publish.
-	Generator GeneratorType `json:"generator" msgpack:"generator"`
+	Generator payload.GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (g *GeneratedWriteField) SetDefaults() {
-	g.Generator = GeneratorTypeUUID
+	g.Generator = payload.GeneratorTypeUUID
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GeneratedWriteField) ApplyDefaults() {
 	if g.Generator == "" {
-		g.Generator = GeneratorTypeUUID
+		g.Generator = payload.GeneratorTypeUUID
 	}
 }
 

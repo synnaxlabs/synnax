@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -41,15 +42,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -84,7 +87,7 @@ type Transport struct {
 	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
@@ -114,14 +117,6 @@ type Transport struct {
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
 	// KVDispatch applies path actions to a range key-value pair.
 	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
-	// ALIAS
-	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
-	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
-	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
-	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
-	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
-	// AliasDispatch applies path actions to a range alias.
-	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -199,6 +194,18 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceDispatch applies actions to a device.
 	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
+
+	// NI DEVICE
+	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
+	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
+
+	// NI CHASSIS
+	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
+	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
+	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
+	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -232,6 +239,20 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	// SECRET
+	SecretSet      freighter.UnaryServer[secret.SetRequest, secret.SetResponse]
+	SecretRetrieve freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
+	SecretDelete   freighter.UnaryServer[secret.DeleteRequest, struct{}]
+	// SecretDispatch applies path actions to a secret.
+	SecretDispatch    freighter.UnaryServer[secret.DispatchRequest, struct{}]
+	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
+	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
+	// CERTIFICATE
+	CertificateSet      freighter.UnaryServer[certificate.SetRequest, certificate.SetResponse]
+	CertificateRetrieve freighter.UnaryServer[certificate.RetrieveRequest, certificate.RetrieveResponse]
+	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
+	// CertificateDispatch applies path actions to a certificate.
+	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -255,19 +276,22 @@ type Layer struct {
 	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
-	Alias        *alias.Service
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
+	Secret       *secret.Service
+	Certificate  *certificate.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
+	NIDevice     *nidevice.Service
+	NIChassis    *nichassis.Service
 	Policy       *policy.Service
 	Role         *role.Service
 	Arc          *arc.Service
@@ -376,14 +400,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVDelete,
 		t.KVDispatch,
 
-		// ALIAS
-		t.AliasSet,
-		t.AliasResolve,
-		t.AliasRetrieve,
-		t.AliasList,
-		t.AliasDelete,
-		t.AliasDispatch,
-
 		// PROJECT
 		t.ProjectDelete,
 		t.ProjectCreate,
@@ -459,6 +475,18 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceDelete,
 		t.DeviceDispatch,
 
+		// NI DEVICE
+		t.NIDeviceCreate,
+		t.NIDeviceRetrieve,
+		t.NIDeviceUpdate,
+		t.NIDeviceDelete,
+
+		// NI CHASSIS
+		t.NIChassisCreate,
+		t.NIChassisRetrieve,
+		t.NIChassisUpdate,
+		t.NIChassisDelete,
+
 		// ACCESS
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
@@ -481,6 +509,20 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewDispatch,
+
+		// SECRET
+		t.SecretSet,
+		t.SecretRetrieve,
+		t.SecretDelete,
+		t.SecretDispatch,
+		t.SecretGrantCreate,
+		t.SecretResolve,
+
+		// CERTIFICATE
+		t.CertificateSet,
+		t.CertificateRetrieve,
+		t.CertificateDelete,
+		t.CertificateDispatch,
 
 		// ARC
 		t.ArcCreate,
@@ -593,14 +635,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
-	// ALIAS
-	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
-	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
-	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
-	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
-	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
-	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
-
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
@@ -686,6 +720,18 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
+	// NI DEVICE
+	t.NIDeviceCreate.BindHandler(bind.Write(l.binder, l.NIDevice.Create))
+	t.NIDeviceRetrieve.BindHandler(bind.Read(l.binder, l.NIDevice.Retrieve))
+	t.NIDeviceUpdate.BindHandler(bind.Write(l.binder, l.NIDevice.Update))
+	t.NIDeviceDelete.BindHandler(bind.Write(l.binder, l.NIDevice.Delete))
+
+	// NI CHASSIS
+	t.NIChassisCreate.BindHandler(bind.Write(l.binder, l.NIChassis.Create))
+	t.NIChassisRetrieve.BindHandler(bind.Read(l.binder, l.NIChassis.Retrieve))
+	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
+	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -708,6 +754,22 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewRetrieve.BindHandler(bind.Read(l.binder, l.View.Retrieve))
 	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
 	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
+
+	// SECRET
+	t.SecretSet.BindHandler(bind.Write(l.binder, l.Secret.Set))
+	t.SecretRetrieve.BindHandler(bind.Read(l.binder, l.Secret.Retrieve))
+	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
+	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
+	t.SecretGrantCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+	)
+	t.SecretResolve.BindHandler(l.Secret.Resolve)
+
+	// CERTIFICATE
+	t.CertificateSet.BindHandler(bind.Write(l.binder, l.Certificate.Set))
+	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
+	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
+	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -789,7 +851,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
-		Alias:   cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
@@ -823,11 +884,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
 		KV: cfg.Service.KV,
-	}); err != nil {
-		return nil, err
-	}
-	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
@@ -893,6 +949,18 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if l.NIChassis, err = nichassis.NewService(nichassis.ServiceConfig{
+		Chassis: cfg.Service.NI.Chassis,
+		Status:  cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
+		Device: cfg.Service.NI.Devices,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Log, err = log.NewService(log.ServiceConfig{
 		Log: cfg.Service.Log,
 	}); err != nil {
@@ -921,6 +989,17 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Secret, err = secret.NewService(secret.ServiceConfig{
+		Secret: cfg.Service.Secret,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.NewService(certificate.ServiceConfig{
+		Certificate: cfg.Service.Certificate,
 	}); err != nil {
 		return nil, err
 	}

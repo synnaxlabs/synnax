@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Schematic as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/schematic/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Range } from "@/platform/range";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/commands";
@@ -46,11 +45,10 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(
       client.schematics.watch(resource.key).getCached(),
     );
-    // A restored record comes back in the project, as its range or group may be gone.
+    // A restored record comes back in the project, as its group may be gone.
     await client.schematics.create({
       ...corpse,
       project,
-      range: undefined,
       group: undefined,
     });
   },
@@ -60,19 +58,4 @@ const TAB: Panel.Tab = {
 
 export const TABS: Panel.Tabs = {
   [TAB_TYPE]: TAB,
-};
-
-export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
-  [TAB_TYPE]: {
-    icon: <Icon.Schematic />,
-    onClick: async ({ id }, { client, openTab }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.schematics.retrieve(id.key);
-      openTab({ variant: "resource", resource: id });
-    },
-    onDelete: async ({ id: { key } }, { client }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.schematics.delete(key);
-    },
-  },
 };

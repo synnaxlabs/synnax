@@ -66,6 +66,11 @@ on:
         required: false
         type: string
         default: ""
+      test_timeout:
+        description: Minutes the Test step can run; an unsharded Console run needs more
+        required: false
+        type: number
+        default: 20
       ubuntu:
         description: Whether to test on Ubuntu
         required: false
@@ -184,10 +189,12 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
+      # Without a limit, a hung test run holds the job for up to 6 hours.
       - name: Test
         if: inputs.test
         # The reporters feed the coverage upload, which only vitest packages have.
         shell: bash
+        timeout-minutes: ${{ inputs.test_timeout }}
         env:
           PACKAGE: ${{ inputs.package }}
           TEST_ARGS: ${{ inputs.test_args }}
@@ -204,6 +211,7 @@ jobs:
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
+        timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
         run: pnpm test:"$PACKAGE" -- --run --project webkit

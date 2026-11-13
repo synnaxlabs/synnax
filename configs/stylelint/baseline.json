@@ -27,7 +27,6 @@
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
-    "console/src/feature/license/useInfoModal.css": ["lyra-text--code"],
     "console/src/feature/lineplot/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/log/toolbar/Toolbar.css": ["lyra-btn"],
     "console/src/feature/opcua/task/Task.css": ["lyra-header"],
@@ -98,7 +97,6 @@
       "pluto-error-fallback__container",
       "pluto-error-fallback__content"
     ],
-    "console/src/platform/label/Edit.css": ["lyra--hidden", "lyra-input", "lyra-modal"],
     "console/src/platform/multiedit/Sections.css": ["lyra-input-label"],
     "console/src/platform/nav/Nav.css": [
       "lyra--direction-x",
@@ -133,7 +131,6 @@
     ],
     "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
     "console/src/platform/toolbar/Header.css": ["lyra--location-bottom"],
-    "console/src/platform/version/Info.css": ["lyra-text"],
     "console/src/platform/vis/Controls.css": ["lyra-btn", "lyra-tabs__content"],
     "pluto/src/channel/Select.css": ["lyra-dialog__frame", "lyra-dialog__trigger"],
     "pluto/src/code/Editor.css": ["lyra--bordered"],

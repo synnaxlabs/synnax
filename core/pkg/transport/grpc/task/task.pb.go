@@ -213,7 +213,6 @@ type CopyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Snapshot      bool                   `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -260,13 +259,6 @@ func (x *CopyRequest) GetName() string {
 		return x.Name
 	}
 	return ""
-}
-
-func (x *CopyRequest) GetSnapshot() bool {
-	if x != nil {
-		return x.Snapshot
-	}
-	return false
 }
 
 type CopyResponse struct {
@@ -388,11 +380,10 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\x0fRetrieveRequest\x126\n" +
 	"\arequest\x18\x06 \x01(\v2\x1c.api.task.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x06R\x04rackR\x04keysR\x05namesR\x05typesR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"O\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"C\n" +
 	"\vCopyRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\"9\n" +
+	"\x04name\x18\x02 \x01(\tR\x04nameJ\x04\b\x03\x10\x04R\bsnapshot\"9\n" +
 	"\fCopyResponse\x12)\n" +
 	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task\"`\n" +
 	"\x0fDispatchRequest\x12\x10\n" +

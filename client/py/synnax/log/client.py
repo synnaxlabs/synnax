@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import group as group_, project as project_
 from synnax.log.types_gen import (
     Key,
     Log,
@@ -84,15 +84,14 @@ class Client:
     ) -> Log | list[Log]:
         """Create one or more logs.
 
-        :param logs: A single log or a list of them. Each one belongs to exactly one of
-            a project and a range. When omitted, a log is created from the ``name`` and
-            ``project`` keyword arguments.
+        :param logs: A single log or a list of them. Each one belongs to a project.
+            When omitted, a log is created from the ``name`` and ``project`` keyword
+            arguments.
         :param name: The name of the log to create when ``logs`` is omitted.
-        :param project: The key of the project that owns the log when ``logs`` is
+        :param project: The key of the project that holds the log when ``logs`` is
             omitted.
         :returns: The created log, or a list of created logs when ``logs`` is a list.
-        :raises ValidationError: If a log does not belong to exactly one of a project
-            and a range.
+        :raises ValidationError: If a log does not belong to a project.
         """
         is_single = not isinstance(logs, list)
         if logs is None:
@@ -107,7 +106,6 @@ class Client:
         *,
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -123,7 +121,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -140,7 +137,6 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -171,7 +167,6 @@ class Client:
         :param where: A filter tree that the logs must also match.
         :param keys: Keeps logs with one of these keys.
         :param projects: Keeps the logs owned by any of these projects.
-        :param ranges: Keeps the logs owned by any of these ranges.
         :param groups: Keeps logs in any of these groups.
         :param grouped: Keeps only logs in a group when True, and only logs in no group
             when False.

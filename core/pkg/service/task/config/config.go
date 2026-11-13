@@ -38,12 +38,14 @@ type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
 	// Prepare decodes data into the store's record type under key and validates it
-	// against snap, writing nothing. It returns the record to write, or an error
-	// wrapping validate.ErrValidation when data does not decode or fails validation.
+	// against snap, writing nothing. name is the name of the task that owns the
+	// record. It returns the record to write, or an error wrapping
+	// validate.ErrValidation when data does not decode or fails validation.
 	Prepare(
 		ctx context.Context,
 		snap gorp.Snapshot,
 		key uuid.UUID,
+		name string,
 		data msgpack.EncodedJSON,
 	) (Record, error)
 	// Edit applies the path actions at cursors to the record stored under key, then
@@ -56,6 +58,7 @@ type Store interface {
 		ctx context.Context,
 		snap gorp.Snapshot,
 		key uuid.UUID,
+		name string,
 		cursors []patch.Cursor,
 	) (Record, bool, error)
 	// Read returns the record stored under key, or an error wrapping
@@ -130,8 +133,9 @@ func (r Record) Data() (msgpack.EncodedJSON, error) { return r.data() }
 // keys. A list entry added again under a new key hashes as the entry it replaces.
 func (r Record) Hash() string { return r.hash }
 
-// Write writes the record under its key, creating or overwriting it. It returns a
-// validation error when no task has the key.
+// Write writes the record under its key, creating or overwriting it, after the write
+// that the store's resolve hook returned. It returns a validation error when no task
+// has the key.
 func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
@@ -171,9 +175,16 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
-	// snap, before the entry is validated and stored.
+	// snap, before the entry is validated. name is the name of the task that owns the
+	// entry. It returns nil, or a write that Record.Write runs in its transaction
+	// before it stores the entry.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
-	ResolveEntry func(ctx context.Context, snap gorp.Snapshot, e *E) error
+	ResolveEntry func(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		name string,
+		e *E,
+	) (func(context.Context, gorp.Tx) error, error)
 	// ReconcileEntry changes a normalized entry to agree with other resources, read
 	// through tx, so that a config from an older version or another Core passes
 	// ResolveEntry. Normalize runs it at every version. Prepare and Edit do not.
@@ -298,6 +309,7 @@ func (s *Service[E]) Prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
+	name string,
 	data msgpack.EncodedJSON,
 ) (Record, error) {
 	b, err := json.Marshal(data)
@@ -312,7 +324,7 @@ func (s *Service[E]) Prepare(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	return s.prepare(ctx, snap, key, &e)
+	return s.prepare(ctx, snap, key, name, &e)
 }
 
 // Edit implements Store.
@@ -320,6 +332,7 @@ func (s *Service[E]) Edit(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
+	name string,
 	cursors []patch.Cursor,
 ) (Record, bool, error) {
 	e, err := s.retrieve(ctx, snap, key)
@@ -341,7 +354,7 @@ func (s *Service[E]) Edit(
 	if e, err = redecode(e); err != nil {
 		return Record{}, false, err
 	}
-	rec, err := s.prepare(ctx, snap, key, &e)
+	rec, err := s.prepare(ctx, snap, key, name, &e)
 	if err != nil {
 		return Record{}, false, err
 	}
@@ -368,11 +381,14 @@ func (s *Service[E]) prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
+	name string,
 	e *E,
 ) (Record, error) {
 	s.cfg.SetEntryKey(e, key)
+	var resolved func(context.Context, gorp.Tx) error
 	if s.cfg.ResolveEntry != nil {
-		if err := s.cfg.ResolveEntry(ctx, snap, e); err != nil {
+		var err error
+		if resolved, err = s.cfg.ResolveEntry(ctx, snap, name, e); err != nil {
 			return Record{}, err
 		}
 	}
@@ -385,6 +401,11 @@ func (s *Service[E]) prepare(
 		hash: s.hash(e),
 		data: func() (msgpack.EncodedJSON, error) { return encode(*e) },
 		write: func(ctx context.Context, tx gorp.Tx) error {
+			if resolved != nil {
+				if err := resolved(ctx, tx); err != nil {
+					return err
+				}
+			}
 			return s.create(ctx, tx, e)
 		},
 	}, nil

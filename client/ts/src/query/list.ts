@@ -24,7 +24,7 @@ import {
   startStreaming,
   type Trigger,
 } from "@/query/query";
-import { type Keyed, type Table, type TableEvent } from "@/query/table";
+import { isChange, type Keyed, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 /** The most records a search returns. */
@@ -557,7 +557,9 @@ export class Lists<
 
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
     if (entry.ingesting) return;
-    const keys = events.map(({ key }) => key);
+    const changes = entry.ranked ? events.filter(isChange) : events;
+    if (changes.length === 0) return;
+    const keys = changes.map(({ key }) => key);
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {
@@ -582,6 +584,8 @@ export class Lists<
     entry.handlers.add(handler);
     entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
+    // A change in the grace window found no subscriber to refetch for.
+    else if (entry.stale && entry.fetched) this.scheduleRefetch(entry);
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;

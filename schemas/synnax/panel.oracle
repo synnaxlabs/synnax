@@ -9,7 +9,6 @@
 
 import "schemas/synnax/group"
 import "schemas/synnax/project"
-import "schemas/synnax/ranger"
 import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/filter"
@@ -151,18 +150,7 @@ Panel struct {
         @ref on_delete detach
     }
     project project.Key? {
-        @doc value     """
-            is the project that owns the panel, if any. Exactly one of project and range
-            is set.
-        """
-        @ref kind      place
-        @ref on_delete cascade
-    }
-    range   ranger.Key?  {
-        @doc value     """
-            is the range that owns the panel, if any. Exactly one of project and range
-            is set.
-        """
+        @doc value     "is the project that holds the panel."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -306,7 +294,7 @@ Panel struct {
     }
 
     @create
-    @doc value     "is a project-owned tree of visualization tabs."
+    @doc value     "is a tree of visualization tabs in a project."
     @go marshal
     @go migrate
     @resource type "panel"
@@ -322,10 +310,7 @@ Where filter Panel {
         @doc value "matches the panels in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the panels owned by any of the given projects."
-    }
-    ranges   ranger.Key[]  {
-        @doc value "matches the panels owned by any of the given ranges."
+        @doc value "matches the panels in any of the given projects."
     }
 
     @doc value         "is a filter that selects panels."

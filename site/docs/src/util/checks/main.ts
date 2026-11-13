@@ -10,17 +10,19 @@
 // Crawls every page of the static check build in dist/ and runs each registered check
 // over the results. Set DOCS_URL to check an already-running server instead.
 //
-// usage: check-site [check ...] [--route prefix ...]
+// usage: check-site [check ...] [--route prefix ...] [--strict]
 //   pnpm check-site:build                          build dist/ for checking
 //   pnpm check-site                                all checks, all pages
 //   pnpm check-site links media                    only the named checks
 //   pnpm check-site --route /reference/hardware    only routes under the prefix
+//   pnpm check-site --strict                       fail on a broken external link
 
 import { preview } from "astro";
 import fs from "fs";
 import { styleText } from "util";
 
-import { type Check, type Context } from "@/util/checks/check";
+import { warning } from "@/util/checks/annotation";
+import { type Check, type Context, type Source } from "@/util/checks/check";
 import { crawlPages, enumerateRoutes } from "@/util/checks/crawl";
 import { createFetcher } from "@/util/checks/fetch";
 import { links } from "@/util/checks/links";
@@ -33,9 +35,12 @@ import { normalizeRoute } from "@/util/route";
 const PORT = 4399;
 // A trailing slash would defeat the fetcher's prefix-matched localhost bypass.
 const EXTERNAL = process.env.DOCS_URL?.replace(/\/+$/, "");
+// Set on a GitHub Actions runner, where a warning becomes an annotation.
+const WORKSPACE = process.env.GITHUB_WORKSPACE;
 
 const names: string[] = [];
 const prefixes: string[] = [];
+let strict = false;
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++)
   if (argv[i] === "--route") {
@@ -46,16 +51,17 @@ for (let i = 0; i < argv.length; i++)
     }
     prefixes.push(prefix);
     i++;
-  } else if (argv[i].startsWith("--")) {
+  } else if (argv[i] === "--strict") strict = true;
+  else if (argv[i].startsWith("--")) {
     console.error(`unknown flag ${argv[i]}`);
-    console.error("usage: check-site [check ...] [--route prefix ...]");
+    console.error("usage: check-site [check ...] [--route prefix ...] [--strict]");
     process.exit(1);
   } else names.push(argv[i]);
 
 const fullCrawl = prefixes.length === 0;
 const ALL: Check[] = [
   tabs(fullCrawl),
-  links(fullCrawl),
+  links(fullCrawl, strict),
   media(fullCrawl),
   notes(fullCrawl),
   nav(fullCrawl),
@@ -97,6 +103,16 @@ const warnUnverified = (message: string): void => {
   console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
 };
 
+// On a runner, the pull request shows a warning at its source line.
+const warn = (message: string, at: Source | null): void => {
+  if (WORKSPACE != null) console.log(warning(message, at, WORKSPACE));
+  else console.warn(`${styleText(["yellow", "bold"], "warning")} ${message}`);
+};
+
+// The broken external links of a run that is not strict. They print after the checks,
+// behind their total, because GitHub shows only the first 10 warnings of a step.
+const broken: { message: string; at: Source | null }[] = [];
+
 // In-place counter for a finish hook; a newline finishes the line so the next output
 // starts fresh. CI logs skip it.
 const progressFor =
@@ -132,6 +148,7 @@ try {
       warnings += 1;
       warnUnverified(message);
     }),
+    warn: (message, at) => broken.push({ message, at }),
   };
   console.log(styleText("dim", `crawling ${routes.length} routes...`));
   const { pages, failures } = await crawlPages(baseURL, routes);
@@ -148,6 +165,10 @@ try {
     console.warn(
       styleText("yellow", `${warnings} external links could not be verified`),
     );
+  if (broken.length > 0) {
+    warn(`${broken.length} broken external links fail only a strict run`, null);
+    for (const { message, at } of broken) warn(message, at);
+  }
   if (counts.size > 0) {
     const totals = [...counts].map(([check, n]) => `${check}: ${n}`).join(", ");
     console.error(styleText(["red", "bold"], `failures — ${totals}`));

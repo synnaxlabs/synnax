@@ -15,7 +15,6 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { group } from "@/group";
 import { project } from "@/project";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 export const ORDER_FIELDS = ["name"] as const;
@@ -78,7 +77,6 @@ export type Where = {
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
-  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -99,10 +97,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the logs in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the logs owned by any of the given projects. */
+  /** projects matches the logs in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
-  /** ranges matches the logs owned by any of the given ranges. */
-  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /** Cursor is a position in an order of logs: the sort value and the key of a log. */
@@ -135,16 +131,8 @@ export const logZ = z.object({
   timeZone: telem.timeZoneZ.default("local"),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
-  /**
-   * project is the project that owns the log, if any. Exactly one of project and range
-   * is set.
-   */
+  /** project is the project that holds the log. */
   project: project.keyZ.optional(),
-  /**
-   * range is the range that owns the log, if any. Exactly one of project and range is
-   * set.
-   */
-  range: ranger.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
 

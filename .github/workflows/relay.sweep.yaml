@@ -11,6 +11,8 @@
 # requests the other relays cannot reach: a fork or Dependabot gets a token that cannot
 # dispatch or write. It skips a pull request that has not changed for an hour, or for a
 # day when it is a fork without review/human, because a fork's reports can arrive late.
+# It also reruns, one time, the failed CI run of an open pull request in which no job
+# other than OK failed: a GitHub outage fails such a run before OK can wake the shepherd.
 # It runs from the default branch and reads pull requests only through the API.
 
 name: Relay - Sweep
@@ -52,14 +54,15 @@ jobs:
         run: |
           hour=$(date -u -d '1 hour ago' +%FT%TZ)
           day=$(date -u -d '1 day ago' +%FT%TZ)
-          prs=$(gh pr list --state open --limit 5000 \
-            --json number,isCrossRepository,author,updatedAt,labels \
-            --jq ".[] | select(.isCrossRepository
+          gh pr list --state open --limit 5000 \
+            --json number,isCrossRepository,author,updatedAt,labels,headRefOid \
+            > "$RUNNER_TEMP/pulls.json"
+          prs=$(jq -r ".[] | select(.isCrossRepository
                 or .author.login == \"app/dependabot\")
               | select(.updatedAt > \"$hour\" or (.updatedAt > \"$day\"
                 and .isCrossRepository
                 and ([.labels[].name] | index(\"review/human\") | not)))
-              | .number")
+              | .number" "$RUNNER_TEMP/pulls.json")
           {
             echo 'prs<<EOF'
             echo "$prs"
@@ -98,6 +101,10 @@ jobs:
             dispatch merge.auto.yaml -f "inputs[pr]=$pr" || failed=1
           done
           exit "$failed"
+
+      - name: Rerun the outage runs
+        if: ${{ !cancelled() && steps.prs.outcome == 'success' }}
+        run: python3 .github/scripts/rerun_outage.py "$RUNNER_TEMP/pulls.json"
 
   label:
     name: Label pull requests

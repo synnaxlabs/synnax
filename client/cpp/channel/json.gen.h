@@ -54,7 +54,6 @@ inline Channel Channel::parse(x::json::Parser parser) {
         .data_type = parser.field<::x::telem::DataType>("data_type"),
         .is_index = parser.field<bool>("is_index", false),
         .index = parser.field<Key>("index", Key(0)),
-        .alias = parser.field<std::optional<std::string>>("alias"),
         .is_virtual = parser.field<bool>("virtual", false),
         .internal = parser.field<bool>("internal", false),
         .expression = parser.field<std::string>("expression", ""),
@@ -78,7 +77,6 @@ inline x::json::json Channel::to_json() const {
     j["data_type"] = this->data_type;
     j["is_index"] = this->is_index;
     j["index"] = this->index;
-    if (this->alias.has_value()) j["alias"] = *this->alias;
     j["virtual"] = this->is_virtual;
     j["internal"] = this->internal;
     j["expression"] = this->expression;

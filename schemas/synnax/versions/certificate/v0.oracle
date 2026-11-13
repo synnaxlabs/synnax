@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/secret/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for a certificate."
+}
+
+Details struct {
+    subject    string          {
+        @doc value "is the distinguished name of the certificate's subject."
+    }
+    issuer     string          {
+        @doc value "is the distinguished name of the certificate's issuer."
+    }
+    not_before telem.TimeStamp {
+        @doc value "is when the certificate becomes valid."
+    }
+    not_after  telem.TimeStamp {
+        @doc value "is when the certificate expires."
+    }
+    sha1       string          {
+        @doc value "is the SHA-1 hash of the DER bytes as hex, the OPC UA thumbprint."
+    }
+    sha256     string          {
+        @doc value "is the SHA-256 hash of the DER bytes as hex."
+    }
+
+    @doc value  "describes the leaf certificate of a chain."
+    @go marshal
+}
+
+Base struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this certificate."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the certificate."
+    }
+
+    @doc value  "carries the fields shared by every certificate."
+    @go marshal
+}
+
+Certificate union on source secret.Source extends Base {
+    stored {
+        pem         string      {
+            @doc value "is the certificate chain as PEM, leaf first."
+        }
+        private_key secret.Key? {
+            @doc value "is the secret that holds the private key, when there is one."
+        }
+        details     Details     {
+            @doc value "describes the leaf, as the Core read it from the PEM."
+        }
+
+        @doc value "is a certificate whose contents the Core stores."
+    }
+    file {
+        certificate_path string   {
+            @doc value "is the path of the certificate on the computer that uses it."
+        }
+        private_key_file string?  {
+            @doc value """
+                is the name of the private key file in the secrets folder of the rack,
+                when there is one.
+            """
+        }
+        details          Details? {
+            @doc value "describes the leaf, as the file browser read it."
+        }
+
+        @doc value "is a certificate in files on the computer that uses it."
+    }
+
+    @doc value  """
+        is a public certificate that a device uses to secure a connection, with the
+        private key that proves it when there is one.
+    """
+    @go marshal
+    @go migrate
+}

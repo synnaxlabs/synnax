@@ -13,6 +13,7 @@ package expression
 
 import (
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -348,7 +349,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 // one of the operands the compiler runs, the first two of a chain. Such a comparison
 // always has the same result. The error names the constant as the code wrote it, and
 // the module's is_nan when the module has one.
-func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+func checkNaNComparison[T, O antlr.ParserRuleContext](
 	ctx context.Context[T],
 	operands []O,
 	op string,
@@ -356,30 +357,27 @@ func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 	if len(operands) < 2 {
 		return
 	}
-	for _, operand := range operands[:2] {
+	for i, operand := range operands[:2] {
 		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
 			continue
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
 		head, _ := parser.QualifiedNameParts(qid)
-		check := "is_nan from the math module"
+		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
-				check = head + ".is_nan"
+				check, imported = head+".is_nan", true
 			}
 		}
 		if op == "!=" {
 			check = "not " + check
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"%s with %s is always %t, use %s instead",
-			op,
-			qid.GetText(),
-			op == "!=",
-			check,
-		).WithCode(codes.NaNComparison))
+		d := codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check)
+		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
+			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
+		}
+		ctx.Diagnostics.Add(d)
 		return
 	}
 }
@@ -757,9 +755,8 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				if sourceType.Kind == basetypes.KindBool &&
 					targetType.IsNumeric() &&
 					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
-						"bool to %s is experimental; a future release may only "+
-							"allow bool to u8", targetType))
+					ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
+						WithFix(expr, "u8("+sourceText(expr)+")"))
 				}
 			}
 		}
@@ -881,4 +878,52 @@ func isValidCast(source, target basetypes.Type) bool {
 	}
 	return (source.IsNumeric() || source.Kind == basetypes.KindBool) &&
 		target.IsNumeric()
+}
+
+// TruthyCondition returns the warning for a non-boolean condition of type t, and false
+// for a bool. expr is nil when the condition is not an expression.
+func TruthyCondition(
+	condition antlr.ParserRuleContext,
+	expr parser.IExpressionContext,
+	t basetypes.Type,
+) (d diagnostics.Diagnostic, ok bool) {
+	zero := "0"
+	if t.Unwrap().Kind == basetypes.KindString {
+		zero = `""`
+	} else if !t.IsNumeric() {
+		return d, false
+	}
+	fix, known := literalTruth(expr)
+	if !known {
+		fix = sourceText(condition) + " != " + zero
+	}
+	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+}
+
+// sourceText returns the source code of node.
+func sourceText(node antlr.ParserRuleContext) string {
+	start, stop := node.GetStart(), node.GetStop()
+	return start.GetInputStream().GetText(start.GetStart(), stop.GetStop())
+}
+
+// literalTruth returns the bool that the literal expr always is, when it is known.
+func literalTruth(expr parser.IExpressionContext) (truth string, ok bool) {
+	if expr == nil || !parser.IsLiteral(expr) {
+		return "", false
+	}
+	lit := parser.GetLiteral(expr)
+	if number := lit.NumericLiteral(); number != nil {
+		digits := number.INTEGER_LITERAL()
+		if digits == nil {
+			digits = number.FLOAT_LITERAL()
+		}
+		// A literal that is too large to parse has no known value.
+		value, err := strconv.ParseFloat(digits.GetText(), 64)
+		return strconv.FormatBool(value != 0), err == nil
+	}
+	if str := parser.StringTerminal(lit); str != nil {
+		body, flags, ok := literal.StripQuotes(str.GetText())
+		return strconv.FormatBool(body != ""), ok && !flags.Format
+	}
+	return "", false
 }

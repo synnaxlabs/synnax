@@ -25,7 +25,6 @@ const (
 	PathGroupDispatch           = "/group/dispatch"
 	PathRangeDispatch           = "/range/dispatch"
 	PathRangeKVDispatch         = "/range/kv/dispatch"
-	PathRangeAliasDispatch      = "/range/alias/dispatch"
 	PathProjectDispatch         = "/project/dispatch"
 	PathSchematicDispatch       = "/schematic/dispatch"
 	PathSchematicSymbolDispatch = "/schematic/symbol/dispatch"
@@ -42,6 +41,8 @@ const (
 	PathArcDispatch             = "/arc/dispatch"
 	PathArcDirectoryDispatch    = "/arc/directory/dispatch"
 	PathViewDispatch            = "/view/dispatch"
+	PathSecretDispatch          = "/secret/dispatch"
+	PathCertificateDispatch     = "/certificate/dispatch"
 )
 
 // batchRoutes returns the handler of each endpoint a batch accepts. Every handler does
@@ -61,7 +62,6 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathGroupDispatch:           batch.Route(l.Group.Dispatch),
 		PathRangeDispatch:           batch.Route(l.Range.Dispatch),
 		PathRangeKVDispatch:         batch.Route(l.KV.Dispatch),
-		PathRangeAliasDispatch:      batch.Route(l.Alias.Dispatch),
 		PathProjectDispatch:         batch.Route(l.Project.Dispatch),
 		PathSchematicDispatch:       batch.Route(l.Schematic.Dispatch),
 		PathSchematicSymbolDispatch: batch.Route(l.Symbol.Dispatch),
@@ -78,5 +78,7 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathArcDispatch:             batch.Route(l.Arc.Dispatch),
 		PathArcDirectoryDispatch:    batch.Route(l.Arc.DispatchDirectory),
 		PathViewDispatch:            batch.Route(l.View.Dispatch),
+		PathSecretDispatch:          batch.Route(l.Secret.Dispatch),
+		PathCertificateDispatch:     batch.Route(l.Certificate.Dispatch),
 	}
 }
