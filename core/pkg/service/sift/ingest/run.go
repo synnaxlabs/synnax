@@ -49,6 +49,19 @@ type Run struct {
 // failures as Upload does, and fails at once when the key of r is not a UUID. It is
 // safe to call while Upload or Stream runs.
 func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
+	return e.putRun(ctx, r, true)
+}
+
+// UpdateRun updates the run of the asset with the key of r as SetRun does, and returns
+// true. It returns false and creates nothing when the asset has no such run.
+func (e *Engine) UpdateRun(ctx context.Context, r Run) (bool, error) {
+	id, err := e.putRun(ctx, r, false)
+	return id != "", err
+}
+
+// putRun runs SetRun, or UpdateRun when create is false. It returns an empty ID when
+// create is false and the asset has no run with the key of r.
+func (e *Engine) putRun(ctx context.Context, r Run, create bool) (string, error) {
 	if r.Name == "" {
 		r.Name = r.Key
 	}
@@ -65,7 +78,7 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 		return "", err
 	}
 	for {
-		id, err := e.setRun(ctx, r, key)
+		id, err := e.setRun(ctx, r, key, create)
 		if err == nil {
 			return id, nil
 		}
@@ -86,9 +99,14 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 	}
 }
 
-func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) {
+func (e *Engine) setRun(
+	ctx context.Context,
+	r Run,
+	key string,
+	create bool,
+) (string, error) {
 	id, err := e.updateFound(ctx, r, key)
-	if err != nil || id != "" {
+	if err != nil || id != "" || !create {
 		return id, err
 	}
 	_, assetID, err := e.ingestionConfig(ctx)

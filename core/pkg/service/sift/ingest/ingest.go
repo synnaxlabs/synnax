@@ -186,7 +186,8 @@ const liveBuffer = 1024
 var errBehind = errors.New("fell behind the live samples")
 
 // Engine sends the samples of a fixed set of channels to one Sift asset. An Engine is
-// not safe for concurrent use, except that SetRun may run alongside Upload or Stream.
+// not safe for concurrent use, except that SetRun and UpdateRun may run alongside
+// Upload or Stream.
 type Engine struct {
 	cfg     Config
 	flows   []flow

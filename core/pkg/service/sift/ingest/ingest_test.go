@@ -939,6 +939,38 @@ var _ = Describe("Engine", func() {
 		})
 	})
 
+	Describe("UpdateRun", func() {
+		var (
+			e   *ingest.Engine
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			e = open(ctx, channel.Keys{ch.Key()})
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+			}
+		})
+
+		It("Should create nothing when the asset has no run", func(ctx SpecContext) {
+			Expect(e.UpdateRun(ctx, run)).To(BeFalse())
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
+		It("Should update the run that has the key", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
+	})
+
 	Describe("Stream", func() {
 		stream := func(
 			ctx context.Context,
