@@ -1245,14 +1245,21 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward string) {
+	// A plain [N]uint8 copies back, since a []byte may not have length N.
+	plainForward := goField + "[:]"
+	plainBackward := fmt.Sprintf(
+		"func() (a [%d]uint8) { copy(a[:], %s); return a }()",
+		*arrays.Size(typeRef, data.table),
+		pbField,
+	)
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
-		return goField + "[:]", pbField
+		return plainForward, plainBackward
 	}
 
 	goOutput := output.GetPath(resolved, "go")
 	if goOutput == "" {
-		return goField + "[:]", pbField
+		return plainForward, plainBackward
 	}
 
 	importPath := resolveGoImportPath(goOutput, data.repoRoot)
@@ -1913,6 +1920,24 @@ func (p *Plugin) generateArrayConversion(
 				}
 			}
 		}
+	}
+
+	// Protobuf widens a narrow integer to 32 bits, so each element converts.
+	if prim := dealiasPrimitive(elemType, data.table).Name; lo.Contains(
+		[]string{"uint8", "uint16", "int8", "int16"},
+		prim,
+	) {
+		data.AddExternal("github.com/samber/lo")
+		protoType := primitiveToProtoType(prim)
+		return fmt.Sprintf(
+				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+				goField, prim, protoType, protoType,
+			),
+			fmt.Sprintf(
+				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+				pbField, protoType, prim, prim,
+			),
+			false, false
 	}
 
 	return goField, pbField, false, false
