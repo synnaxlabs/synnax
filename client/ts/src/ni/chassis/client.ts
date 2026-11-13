@@ -169,26 +169,45 @@ export class Client extends query.Retriever<
 
   /**
    * Creates the chassis, or replaces the chassis whose keys exist. The Core gives each
-   * new chassis an unknown status. The cache takes the chassis from the stream.
+   * new chassis an unknown status.
    * @throws {ValidationError} if a chassis is invalid or its rack does not exist.
    */
-  async create(chassis: New): Promise<Chassis>;
-  async create(chassis: New[]): Promise<Chassis[]>;
-  async create(chassis: New | New[]): Promise<Chassis | Chassis[]> {
+  async create(chassis: New, opts?: query.WriteOptions): Promise<Chassis>;
+  async create(chassis: New[], opts?: query.WriteOptions): Promise<Chassis[]>;
+  async create(
+    chassis: New | New[],
+    opts: query.WriteOptions = {},
+  ): Promise<Chassis | Chassis[]> {
     const isSingle = !Array.isArray(chassis);
-    const res = await this.cfg.unary.send(
-      "/ni/chassis/create",
-      { chassis: array.toArray(chassis).map((c) => chassisZ.parse(c)) },
-      createReqZ,
-      createResZ,
-    );
+    const normalized = array.toArray(chassis).map((c) => chassisZ.parse(c));
+    const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const { store: statuses } = this.cfg.statuses;
+    // A status streamed during the request is newer than the reply.
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
+            "/ni/chassis/create",
+            { chassis: normalized },
+            createReqZ,
+            createResZ,
+          ),
+      });
+      res.chassis.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
+    });
+    this.store.set(res.chassis.map(stripStatus));
     return isSingle ? res.chassis[0] : res.chassis;
   }
 
   /**
    * Writes one field group to the chassis and keeps the other as stored. The update
    * replaces the whole group, so a field it leaves out is cleared, such as the serial
-   * of an identity update. The cache takes the change from the stream.
+   * of an identity update.
    * @throws {NotFoundError} if the chassis does not exist.
    * @throws {ValidationError} if the update is invalid.
    */
@@ -199,19 +218,28 @@ export class Client extends query.Retriever<
       updateReqZ,
       emptyResZ,
     );
+    await this.fetchThrough(query.keysRequest([key]));
   }
 
   /**
-   * Deletes the chassis with their statuses and the devices they hold. The caches drop
-   * them when the stream delivers the deletes.
+   * Deletes the chassis with their statuses and the devices they hold. The devices
+   * leave the device cache when their deletes stream in.
    */
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/ni/chassis/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
-    );
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => [this.store.delete(keysArr)];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/ni/chassis/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
   }
 
   /** Subscribes to every chassis set delivered to the cache. Statuses excluded. */
