@@ -19,10 +19,10 @@ telemetry. Monorepo:
 ## Release model
 
 `main` is the only long-lived branch. Nothing publishes on push: a person dispatches
-every release from `main` or from a `release/X.Y` hotfix branch. Candidates (`-rc.N`
-tags) never count as shipped. Backward compatibility — file formats, stored shapes, wire
-quirks, migrations — is owed only to what a stable release shipped; candidate-era
-formats may be dropped freely. See RFC 0058.
+every release from `main` or from a `release/X.Y` hotfix branch (`release/desktop-X.Y`
+for Desktop). Candidates (`-rc.N` tags) never count as shipped. Backward compatibility —
+file formats, stored shapes, wire quirks, migrations — is owed only to what a stable
+release shipped; candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
