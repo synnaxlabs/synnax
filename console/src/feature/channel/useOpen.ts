@@ -22,9 +22,9 @@ import { Session } from "@/session";
 const isPlainVirtual = ({ virtual, expression }: channel.Channel): boolean =>
   virtual && expression === "";
 
-// useOpen returns a handler that opens a channel resource in a visualization:
-// plottable channels go to the focused line plot or a new one, plain virtual
-// channels to the focused log or a new one.
+// useOpen returns a handler that opens a channel resource in a visualization. Any
+// channel goes to a focused log the user can edit. Otherwise, plottable channels go to
+// the focused line plot or a new one, and plain virtual channels to a new log.
 export const useOpen = (): ((resource: resource.Resource) => void) => {
   const client = Synnax.use();
   const openTab = Panel.useOpenTab();
@@ -45,16 +45,22 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
       if (focusedTab != null && panelKey != null) {
         const doc = await client.panels.retrieve(panelKey);
         const tab = panel.findTab(doc.root, focusedTab);
-        if (tab?.variant === "resource")
-          if (virtual && tab.resource.type === "log") {
-            await Log.addChannelsToActiveLog(client, tab.resource.key, [channelKey]);
-            return;
-          } else if (!virtual && tab.resource.type === "lineplot") {
-            await LinePlot.addChannelsToActivePlot(client, tab.resource.key, [
-              channelKey,
-            ]);
+        if (tab?.variant === "resource") {
+          const { resource: id } = tab;
+          if (id.type === "log") {
+            const editable = await client.access.granted.retrieve(
+              await client.users.current.retrieve(),
+              { objects: id, action: "update" },
+            );
+            if (editable) {
+              await Log.addChannelsToActiveLog(client, id.key, [channelKey]);
+              return;
+            }
+          } else if (!virtual && id.type === "lineplot") {
+            await LinePlot.addChannelsToActivePlot(client, id.key, [channelKey]);
             return;
           }
+        }
       }
       const project = getSelectedProject();
       if (virtual) {

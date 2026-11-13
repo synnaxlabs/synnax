@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
+import { log } from "@synnaxlabs/client";
+import { Access, Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -24,6 +25,7 @@ const Internal: Panel.Content = () => {
   const hasChannels = Base.useChannelKeys().length > 0;
   const hold = Session.Log.useSelectHold();
   const position = Session.Log.useSelectPosition();
+  const editable = Access.useUpdateGranted(log.resourceID(key));
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -41,6 +43,7 @@ const Internal: Panel.Content = () => {
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
+      editable={editable}
       hold={hold}
       onHold={handleHold}
       position={position}
