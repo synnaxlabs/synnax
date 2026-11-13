@@ -179,9 +179,9 @@ How the stream task sends data:
   Core only when **Auto start** is on.
 - **Runs** -> when a range with one of the task labels ends and Sift has its data, the
   task makes a Sift run for it. A change to the name, span, or labels of the range
-  updates the run. The task does not see a label that you remove while it is stopped, or
-  a label that you delete, so the run keeps that tag. Upload the range again to the same
-  asset to update its tags.
+  updates the run. When a range loses its last task label while the task is stopped, the
+  task no longer sees the range, so the run keeps its old tags. Upload the range again
+  to the same asset to update them.
 - **Errors** -> when Sift rejects the API key, the task stops with an error. When Sift
   rejects the run of one range, the task shows a warning and keeps sending data. Change
   the range to make the run again.

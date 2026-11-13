@@ -117,6 +117,14 @@ describe("Sift.Range.Uploads", () => {
     expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
   });
 
+  it("should show a retrying upload as pending", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "warning");
+    await renderUploads(rng.key);
+    expect(await screen.findByText("50%")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cancel upload" })).toBeTruthy();
+  });
+
   it("should cancel an upload by deleting its status", async () => {
     const rng = await createRange();
     const upload = await createUpload(rng, "loading");

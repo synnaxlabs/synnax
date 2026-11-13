@@ -73,11 +73,11 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
         const res = await list(client, deviceKey);
         if (signal.aborted) return;
         setAssets(res.assets);
+        if (mode === "preview") return;
         const fill = !listed.current || picked.current;
         listed.current = true;
         picked.current = false;
-        if (fill && mode !== "preview" && get<string>(rest.path).value === "")
-          set(rest.path, res.last);
+        if (fill && get<string>(rest.path).value === "") set(rest.path, res.last);
       }, "Failed to list Sift assets");
     },
     [client, deviceKey, mode],
