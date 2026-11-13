@@ -169,37 +169,38 @@ export class Client extends query.Retriever<
 
   /**
    * Creates the devices, or replaces the devices whose keys exist. The Core gives each
-   * new device an unknown status. A device that the cache holds as deleted comes back
-   * when the stream delivers its create, because only the stream knows the order of
-   * the Core's writes.
+   * new device an unknown status.
    * @throws {ValidationError} if a device is invalid or its rack does not exist.
    */
-  async create(device: New): Promise<Device>;
-  async create(devices: New[]): Promise<Device[]>;
-  async create(devices: New | New[]): Promise<Device | Device[]> {
+  async create(device: New, opts?: query.WriteOptions): Promise<Device>;
+  async create(devices: New[], opts?: query.WriteOptions): Promise<Device[]>;
+  async create(
+    devices: New | New[],
+    opts: query.WriteOptions = {},
+  ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
+    const normalized = array.toArray(devices).map((d) => deviceZ.parse(d));
+    const apply = () => [this.store.set(normalized.map(stripStatus))];
     const { store: statuses } = this.cfg.statuses;
-    // A device or status streamed during the request is newer than the reply.
-    const res = await this.store.track(
-      async (since) =>
-        await statuses.track(async (statusSince) => {
-          const res = await this.cfg.unary.send(
+    // A status streamed during the request is newer than the reply.
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
             "/ni/device/create",
-            { devices: array.toArray(devices).map((d) => deviceZ.parse(d)) },
+            { devices: normalized },
             createReqZ,
             createResZ,
-          );
-          this.store.ingest(res.devices.map(stripStatus), {
-            since,
-            mode: "set",
-            changed: true,
-          });
-          res.devices.forEach(({ status: st }) => {
-            if (st != null) statuses.ingest(st, { since: statusSince });
-          });
-          return res;
-        }),
-    );
+          ),
+      });
+      res.devices.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
+    });
+    this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
   }
 
@@ -221,15 +222,21 @@ export class Client extends query.Retriever<
   }
 
   /** Deletes the devices with their statuses. */
-  async delete(keys: Key | Key[]): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    await this.cfg.unary.send(
-      "/ni/device/delete",
-      { keys: keysArr },
-      deleteReqZ,
-      emptyResZ,
-    );
-    this.store.delete(keysArr);
+    const drop = () => [this.store.delete(keysArr)];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/ni/device/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
