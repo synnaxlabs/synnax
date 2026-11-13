@@ -332,6 +332,39 @@ var _ = Describe("Service", func() {
 			Expect(res.Chassis).To(HaveLen(1))
 		})
 
+		DescribeTable("Should order by name",
+			func(ctx SpecContext, descending bool) {
+				prefix := uuid.New().String()
+				named := func(name string) func(*chassis.Chassis) {
+					return func(d *chassis.Chassis) { d.Name = prefix + name }
+				}
+				createChassis(ctx, named("b"))
+				createChassis(ctx, named("a"))
+				grantRetrieve(ctx)
+				res := MustSucceed(retrieve(
+					testutil.AuthedCtx(ctx, u),
+					apichassis.RetrieveRequest{
+						Where: &chassis.Where{Name: &filter.String{
+							In: []string{prefix + "a", prefix + "b"},
+						}},
+						Order: &apichassis.Order{
+							Field:      apichassis.OrderFieldName,
+							Descending: descending,
+						},
+					},
+				))
+				Expect(res.Chassis).To(HaveLen(2))
+				names := []string{res.Chassis[0].Name, res.Chassis[1].Name}
+				if descending {
+					Expect(names).To(Equal([]string{prefix + "b", prefix + "a"}))
+				} else {
+					Expect(names).To(Equal([]string{prefix + "a", prefix + "b"}))
+				}
+			},
+			Entry("ascending", false),
+			Entry("descending", true),
+		)
+
 		It("Should page past the after key", func(ctx SpecContext) {
 			a := createChassis(ctx)
 			b := createChassis(ctx)

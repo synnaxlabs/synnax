@@ -278,6 +278,39 @@ var _ = Describe("Service", func() {
 			Expect(res.Devices).To(HaveLen(1))
 		})
 
+		DescribeTable("Should order by name",
+			func(ctx SpecContext, descending bool) {
+				prefix := uuid.New().String()
+				named := func(name string) func(*device.Device) {
+					return func(d *device.Device) { d.Name = prefix + name }
+				}
+				createDevice(ctx, named("b"))
+				createDevice(ctx, named("a"))
+				grantRetrieve(ctx)
+				res := MustSucceed(retrieve(
+					testutil.AuthedCtx(ctx, u),
+					apidevice.RetrieveRequest{
+						Where: &device.Where{Name: &filter.String{
+							In: []string{prefix + "a", prefix + "b"},
+						}},
+						Order: &apidevice.Order{
+							Field:      apidevice.OrderFieldName,
+							Descending: descending,
+						},
+					},
+				))
+				Expect(res.Devices).To(HaveLen(2))
+				names := []string{res.Devices[0].Name, res.Devices[1].Name}
+				if descending {
+					Expect(names).To(Equal([]string{prefix + "b", prefix + "a"}))
+				} else {
+					Expect(names).To(Equal([]string{prefix + "a", prefix + "b"}))
+				}
+			},
+			Entry("ascending", false),
+			Entry("descending", true),
+		)
+
 		It("Should page past the after key", func(ctx SpecContext) {
 			a := createDevice(ctx)
 			b := createDevice(ctx)
