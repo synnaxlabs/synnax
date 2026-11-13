@@ -210,8 +210,12 @@ var _ = Describe("MigrateSchematic", func() {
 				HaveField("LabeledConfig.Label.Label", Equal("P1")),
 			))
 		},
+		Entry("a button with no width", "button",
+			map[string]any{"label": "P1"}, uint16(65535)),
 		Entry("a button with the default", "button",
-			map[string]any{"label": "P1"}, uint16(150)),
+			map[string]any{"label": "P1", "max_inline_size": 150.0}, uint16(65535)),
+		Entry("a button with a negative width", "button",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
 		Entry("a button with a chosen width", "button",
 			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
 		Entry("a value with the default", "value",

@@ -248,7 +248,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				"LabeledConfig.Label.MaxInlineSize", Equal(width),
 			))
 		},
-		Entry("A button with no wrap width", "n1", uint16(150)),
+		Entry("A button with no wrap width", "n1", uint16(65535)),
 		Entry("A button with a wrap width", "n2", uint16(80)),
 		Entry("An input", "n3", uint16(150)),
 	)

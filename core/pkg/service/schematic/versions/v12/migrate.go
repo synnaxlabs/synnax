@@ -119,7 +119,8 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 // MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
 // width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
-// button, input, select, setpoint, or state indicator keeps its rendered text size.
+// button, input, select, setpoint, or state indicator keeps its rendered text size. A
+// button whose label did not wrap in v11 gets a wrap width of 65535.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -136,6 +137,7 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 		if o.Level != nil && o.Level.IsValid() {
 			n.Level = *o.Level
 		}
+		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
 		out.Variant = n
 	case v11.CircleNodeConfig:
 		n := out.Variant.(CircleNodeConfig)
@@ -247,6 +249,13 @@ func migrateMaxInlineSize(w float64) uint16 {
 		return defaultMaxInlineSize
 	}
 	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
+}
+
+func migrateButtonMaxInlineSize(w float64) uint16 {
+	if math.IsNaN(w) || w <= 0 || w == defaultMaxInlineSize {
+		return math.MaxUint16
+	}
+	return migrateMaxInlineSize(w)
 }
 
 // renderedLevel returns the text level a v11 symbol of the given size rendered at when
