@@ -431,8 +431,8 @@ struct Identity {
     /// @brief chassis is the chassis that holds the device. Absent for a standalone
     /// device.
     std::optional<::synnax::ni::chassis::Key> chassis;
-    /// @brief hardware is what the Driver read from DAQmx about the device. Absent
-    /// until the Driver reads it.
+    /// @brief hardware is what the Driver read from DAQmx about the device. An update
+    /// without it keeps the stored value.
     std::optional<Hardware> hardware;
 
     static Identity parse(x::json::Parser parser);

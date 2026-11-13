@@ -119,8 +119,8 @@ type Identity struct {
 	Model string `json:"model" msgpack:"model"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
-	// Hardware is what the Driver read from DAQmx about the device. Absent until the
-	// Driver reads it.
+	// Hardware is what the Driver read from DAQmx about the device. An update without
+	// it keeps the stored value.
 	Hardware *Hardware `json:"hardware,omitzero" msgpack:"hardware,omitempty"`
 }
 

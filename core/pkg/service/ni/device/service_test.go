@@ -522,6 +522,25 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
 		})
+
+		It("Should keep the stored hardware when an identity update has none", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			identity := newIdentity()
+			identity.Hardware = &device.Hardware{AiMinRate: 10}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			identity.Hardware = nil
+			identity.Model = "PXI-6259A"
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Model).To(Equal("PXI-6259A"))
+			Expect(got.Hardware).To(Equal(&device.Hardware{AiMinRate: 10}))
+		})
 	})
 
 	Describe("Migration", func() {
