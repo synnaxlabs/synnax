@@ -153,4 +153,4 @@ jobs:
           app: Synnax Desktop
 
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
