@@ -899,7 +899,10 @@ func (w Writer) rename(
 					)
 			}
 			c.Name = renameMap[c.Key()]
-			return c, c.Validate()
+			if err := c.Validate(); err != nil {
+				return Channel{}, err
+			}
+			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
