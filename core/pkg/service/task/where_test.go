@@ -68,7 +68,8 @@ var _ = Describe("Where", Ordered, func() {
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: stat,
 		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,
