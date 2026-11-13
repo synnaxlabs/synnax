@@ -15,7 +15,7 @@ import {
   ranger,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -26,6 +26,8 @@ import { uniqueRangeName } from "@/platform/range/testutil";
 import { openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
+  awaitTextEditingElement,
+  commitTextEdit,
   createConsoleWrapper,
   openContextMenu,
   renderSuspended,
@@ -385,6 +387,36 @@ describe("range/next/Explorer", () => {
       });
     });
 
+    it("should open the overview of the range on Open", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} opened`);
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      const store = await renderExplorer(proj.key);
+      await search(token);
+      await findItem(rng.name);
+      await openMenu(rng.name);
+      fireEvent.click(await screen.findByText("Open"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" && t.resource.type === ranger.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource.key).toBe(rng.key);
+    });
+
+    it("should rename a range on Rename", async () => {
+      const rng = await createShown("renamed");
+      await openMenu(rng.name);
+      fireEvent.click(await screen.findByText("Rename"));
+      const name = uniqueRangeName("new name");
+      commitTextEdit(await awaitTextEditingElement(), name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).name).toBe(name),
+      );
+    });
+
     it("should open a new line plot of the range on Plot", async () => {
       const token = uniqueToken();
       const rng = await createRange(`${token} plotted`);
@@ -449,6 +481,25 @@ describe("range/next/Explorer", () => {
       const item = await findItem(planned.name);
       const when = within(item).getByRole("group", { name: "Time range" });
       expect(when.textContent).toBe("Planned");
+    });
+  });
+
+  describe("color", () => {
+    it("should set the color of a range from the swatch of its item", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} colored`);
+      await renderExplorer();
+      await search(token);
+      fireEvent.click(
+        within(await findItem(rng.name)).getByRole("button", { name: "Color" }),
+      );
+      const hex = await screen.findByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "123456" } });
+      fireEvent.keyDown(hex, { code: "Escape" });
+      await waitFor(async () => {
+        const { color: stored } = await client.ranges.retrieve(rng.key);
+        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+      });
     });
   });
 

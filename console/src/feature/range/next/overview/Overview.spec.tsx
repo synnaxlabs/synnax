@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -153,6 +153,19 @@ describe("range/next/overview", () => {
       );
       if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
       expect(tab.resource).toEqual(ranger.resourceID(parent.key));
+    });
+
+    it("should set the color of the range from its swatch", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Color" }));
+      const hex = await screen.findByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "123456" } });
+      fireEvent.keyDown(hex, { code: "Escape" });
+      await waitFor(async () => {
+        const { color: stored } = await client.ranges.retrieve(rng.key);
+        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+      });
     });
 
     it("should copy Python and TypeScript code that retrieves the range", async () => {
