@@ -1058,6 +1058,109 @@ Node union on variant {
 		)
 	})
 
+	Describe("Rule ranges", func() {
+		DescribeTable(
+			"Should reject rules that no value can satisfy",
+			func(ctx SpecContext, source, want string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("a field min above its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 2 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field gt equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate gt 1 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field min_length above its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 5 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a type min above its target's max", `
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+			`, "test.Big has rules that no value can satisfy"),
+			Entry("an integer min above an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate min 9007199254740993
+						@validate max 9007199254740992
+					}
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+		)
+
+		It("Should report an unsatisfiable type only once", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, `
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+				Bigger = Big
+				Entry struct {
+					value Big
+					other Big { @validate max 0.5 }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("test.Big has rules"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Bigger"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry"))
+		})
+
+		DescribeTable(
+			"Should reject a length rule on a type that is not a string",
+			func(ctx SpecContext, source, want string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an alias of uuid", `
+				Key = uuid { @validate max_length 5 }
+			`, "test.Key has a length rule, but its type is not a string"),
+			Entry("a distinct number", `
+				Count int32 { @validate min_length 1 }
+			`, "test.Count has a length rule, but its type is not a string"),
+		)
+
+		DescribeTable(
+			"Should accept rules that a value can satisfy",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a field min equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 1 }
+				}
+			`),
+			Entry("a field min_length equal to its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 4 }
+				}
+			`),
+			Entry("a length rule on a string alias", `
+				Name = string { @validate max_length 4 }
+			`),
+			Entry("an integer gt below an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate gt 9223372036854775806
+						@validate max 9223372036854775807
+					}
+				}
+			`),
+		)
+	})
+
 	Describe("Pattern rules", func() {
 		DescribeTable(
 			"Should reject a second pattern on a value",
