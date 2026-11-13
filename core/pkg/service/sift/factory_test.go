@@ -25,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -32,40 +34,56 @@ import (
 
 const apiKey = "sift-api-key"
 
+// failingKV fails every commit, so that no status write lands.
+type failingKV struct{ kv.DB }
+
+func (f failingKV) OpenTx() kv.Tx { return failingTx{Tx: f.DB.OpenTx()} }
+
+type failingTx struct{ kv.Tx }
+
+func (failingTx) Commit(context.Context, ...any) error {
+	return errors.New("the disk is full")
+}
+
 var _ = Describe("Factory", func() {
 	var f driver.Factory
 
 	BeforeEach(func() {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 	})
 
-	Describe("NewFactory", func() {
-		It("Should require the secret service", func() {
-			Expect(sift.NewFactory(sift.FactoryConfig{
-				DB:     db,
-				Device: deviceSvc,
-				Status: statusSvc,
-			})).Error().To(MatchError(ContainSubstring("secret: must be non-nil")))
-		})
-
-		DescribeTable("Should reject an invalid config",
-			func(mutate func(*sift.FactoryConfig), msg string) {
+	Describe("OpenFactory", func() {
+		DescribeTable(
+			"Should require each service",
+			func(field string, clear func(*sift.FactoryConfig)) {
 				cfg := factoryConfig()
-				mutate(&cfg)
-				Expect(
-					sift.NewFactory(cfg),
-				).Error().
-					To(MatchError(ContainSubstring(msg)))
+				clear(&cfg)
+				Expect(sift.OpenFactory(cfg)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(field+": must be non-nil"),
+				))
 			},
-			Entry("no label service",
-				func(c *sift.FactoryConfig) { c.Label = nil },
-				"label: must be non-nil",
+			Entry("db", "db", func(c *sift.FactoryConfig) { c.DB = nil }),
+			Entry("device", "device", func(c *sift.FactoryConfig) { c.Device = nil }),
+			Entry("status", "status", func(c *sift.FactoryConfig) { c.Status = nil }),
+			Entry("secret", "secret", func(c *sift.FactoryConfig) { c.Secret = nil }),
+			Entry("ranger", "ranger", func(c *sift.FactoryConfig) { c.Ranger = nil }),
+			Entry(
+				"channel",
+				"channel",
+				func(c *sift.FactoryConfig) { c.Channel = nil },
 			),
-			Entry("a checkpoint interval that is not positive",
-				func(c *sift.FactoryConfig) { c.CheckpointInterval = -telem.Second },
-				"checkpoint_interval: must be positive",
-			),
+			Entry("framer", "framer", func(c *sift.FactoryConfig) { c.Framer = nil }),
+			Entry("label", "label", func(c *sift.FactoryConfig) { c.Label = nil }),
+			Entry("task", "task", func(c *sift.FactoryConfig) { c.Task = nil }),
 		)
+
+		It("Should reject a checkpoint interval that is not positive", func() {
+			cfg := factoryConfig()
+			cfg.CheckpointInterval = -telem.Second
+			Expect(sift.OpenFactory(cfg)).Error().
+				To(MatchError("checkpoint_interval: must be positive"))
+		})
 	})
 
 	Describe("Name", func() {
@@ -103,6 +121,22 @@ var _ = Describe("Factory", func() {
 			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 				To(MatchError(ContainSubstring("rate")))
 		})
+
+		It("Should release the rack when the scan task fails to start",
+			func(ctx SpecContext) {
+				cfg := factoryConfig()
+				cfg.DB = gorp.Wrap(failingKV{DB: db.DB})
+				f := MustOpen(sift.OpenFactory(cfg))
+				for range 2 {
+					t := newTask(
+						ctx,
+						sift.ScanTaskType,
+						msgpack.EncodedJSON{"rate": 50},
+					)
+					Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
+						To(MatchError("the disk is full"))
+				}
+			})
 
 		It("Should run one scan task for each rack", func(ctx SpecContext) {
 			cfg := msgpack.EncodedJSON{"rate": 50}

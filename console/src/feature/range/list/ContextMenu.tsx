@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { ranger, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 
@@ -26,8 +27,10 @@ import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-  const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
-  const ranges = getItem?.(keys) ?? [];
+  const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
+  if (getItem == null || subscribe == null)
+    throw new UnexpectedError("No item getter found");
+  const ranges = Store.useItems({ keys, subscribe, getItem });
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
   const ids = ranger.resourceID(keys);

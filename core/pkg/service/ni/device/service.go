@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -78,6 +79,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB:              cfg.DB,
 		Name:            tableName,
+		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
