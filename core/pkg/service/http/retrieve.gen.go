@@ -169,27 +169,5 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 			},
 		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
-			Name:     "endpoints.channel.channel",
-			Table:    "channel",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *WriteConfig) []channel.Key {
-				var targets []channel.Key
-				for _, v1 := range e.Endpoints {
-					if v1.Channel.Channel != 0 {
-						targets = append(targets, v1.Channel.Channel)
-					}
-				}
-				return targets
-			},
-			Detach: func(e *WriteConfig, t channel.Key) {
-				for i2 := range e.Endpoints {
-					if e.Endpoints[i2].Channel.Channel == t {
-						e.Endpoints[i2].Channel.Channel = 0
-					}
-				}
-			},
-		}),
 	}
 }

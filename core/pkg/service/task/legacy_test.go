@@ -96,6 +96,9 @@ var legacyDiscarded = map[string]set.Set[string]{
 	"labjack_read": set.New("pos_chan"),
 	// A read field's data type picks its kind, and a kind holds only its own options.
 	"http_read": set.New("data_type", "enum_values", "time_format"),
+	// A channel field's kind replaces its JSON type, and a channel that exists sets
+	// the data type, so the field keeps only the options of its kind.
+	"http_write": set.New("data_type", "json_type", "enum_values", "time_format"),
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),

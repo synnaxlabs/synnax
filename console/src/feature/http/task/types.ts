@@ -91,21 +91,18 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface ChannelField extends http.ChannelField {}
+export type ChannelField = http.ChannelField;
 
-const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
-  const { enumValues } = ctx.value;
-  const seen = new Set<number>();
-  enumValues.forEach((entry, i) => {
-    if (seen.has(entry.value))
-      ctx.issues.push({
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate enum value ${entry.value}`,
-        path: ["enumValues", i, "value"],
-      });
-    else seen.add(entry.value);
-  });
+const validatePointer = (ctx: z.core.ParsePayload<ChannelField>) => {
+  const { value } = ctx;
+  const pointer = json.pointerZ.safeParse(value.pointer);
+  if (!pointer.success)
+    ctx.issues.push({
+      code: "custom",
+      input: value,
+      message: pointer.error.issues[0].message,
+      path: ["pointer"],
+    });
 };
 
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
@@ -150,9 +147,7 @@ const deployWriteEndpointZ = writeEndpointZ
     method: writeMethodZ,
     headers: headersZ.default(() => []),
     queryParams: queryParamsZ.default(() => []),
-    channel: http.channelFieldZ
-      .extend({ pointer: json.pointerZ })
-      .check(validateEnumValues),
+    channel: http.channelFieldZ.check(validatePointer),
     fields: Task.Payload.deployWriteFieldZ.array(),
   })
   .check(validateWriteEndpoint);

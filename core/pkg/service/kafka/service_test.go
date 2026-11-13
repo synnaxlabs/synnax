@@ -24,6 +24,7 @@ import (
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
+	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -233,7 +234,7 @@ var _ = Describe("Read config migration", func() {
 					Channel:    ch.Key(),
 					Pointer:    "/v",
 					DataType:   telem.Float64T,
-					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
+					EnumValues: []payloadv0.EnumEntry{{Label: "ON", Value: 1}},
 				}},
 			}},
 		}

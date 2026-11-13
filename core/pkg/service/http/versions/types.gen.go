@@ -84,8 +84,40 @@ type ReadEndpoint = v5.ReadEndpoint
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig = v5.ReadConfig
 
-// ChannelField is the command channel value placed into a write endpoint's body.
+// ChannelField is the command channel value placed into the body of a write endpoint.
+// The type selects the JSON value of each sample. A sample that matches an entry of
+// enum_values is written as the entry's label.
 type ChannelField = v5.ChannelField
+
+// ChannelFieldVariant is implemented by every ChannelField variant.
+type ChannelFieldVariant = v5.ChannelFieldVariant
+
+// FloatChannelField writes each sample as a JSON number.
+type FloatChannelField = v5.FloatChannelField
+
+// IntegerChannelField writes each sample as a JSON number.
+type IntegerChannelField = v5.IntegerChannelField
+
+// UnsignedChannelField writes each sample as a JSON number.
+type UnsignedChannelField = v5.UnsignedChannelField
+
+// StringChannelField writes each sample as a JSON string.
+type StringChannelField = v5.StringChannelField
+
+// BooleanChannelField writes each sample as a JSON boolean.
+type BooleanChannelField = v5.BooleanChannelField
+
+// TimestampChannelField writes each sample of a timestamp channel in a time format.
+type TimestampChannelField = v5.TimestampChannelField
+
+// JsonChannelField writes each sample of a JSON channel as its JSON value.
+type JsonChannelField = v5.JsonChannelField
+
+// UuidChannelField writes each sample of a UUID channel as a JSON string.
+type UuidChannelField = v5.UuidChannelField
+
+// BytesChannelField writes each sample of a bytes channel as a base64 JSON string.
+type BytesChannelField = v5.BytesChannelField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint = v5.WriteEndpoint
@@ -99,3 +131,6 @@ type ScanConfig = v5.ScanConfig
 
 // BaseReadField carries the fields every read field shares.
 type BaseReadField = v5.BaseReadField
+
+// BaseChannelField carries the fields every command channel field shares.
+type BaseChannelField = v5.BaseChannelField

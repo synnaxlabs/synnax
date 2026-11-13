@@ -545,8 +545,375 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// ChannelField is the command channel value placed into a write endpoint's body.
-type ChannelField = v4.ChannelField
+// BaseChannelField carries the fields every command channel field shares.
+type BaseChannelField struct {
+	// Pointer is the JSON Pointer where the channel value is placed in the body. An
+	// empty pointer sends the bare value as the entire body, in which case the endpoint
+	// may not declare any additional fields.
+	Pointer string `json:"pointer" msgpack:"pointer"`
+	// Channel is the Synnax command channel that triggers the request.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Name is the human-readable name of the command channel.
+	Name string `json:"name" msgpack:"name"`
+	// DataType is the data type of a new channel. Absent for an existing one.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+}
+
+// ChannelFieldVariant is implemented by every ChannelField variant.
+type ChannelFieldVariant interface {
+	isChannelFieldVariant()
+}
+
+// FloatChannelField writes each sample as a JSON number.
+type FloatChannelField struct {
+	BaseChannelField
+	// EnumValues maps channel values to the labels written in their place.
+	EnumValues []payload.FloatEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+func (FloatChannelField) isChannelFieldVariant() {}
+
+// IntegerChannelField writes each sample as a JSON number.
+type IntegerChannelField struct {
+	BaseChannelField
+	// EnumValues maps channel values to the labels written in their place.
+	EnumValues []payload.IntegerEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+func (IntegerChannelField) isChannelFieldVariant() {}
+
+// UnsignedChannelField writes each sample as a JSON number.
+type UnsignedChannelField struct {
+	BaseChannelField
+	// EnumValues maps channel values to the labels written in their place.
+	EnumValues []payload.UnsignedEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+func (UnsignedChannelField) isChannelFieldVariant() {}
+
+// StringChannelField writes each sample as a JSON string.
+type StringChannelField struct {
+	BaseChannelField
+	// EnumValues maps channel values to the labels written in their place.
+	EnumValues []payload.StringEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+func (StringChannelField) isChannelFieldVariant() {}
+
+// BooleanChannelField writes each sample as a JSON boolean.
+type BooleanChannelField struct {
+	BaseChannelField
+	// EnumValues maps channel values to the labels written in their place.
+	EnumValues []payload.BooleanEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+func (BooleanChannelField) isChannelFieldVariant() {}
+
+// TimestampChannelField writes each sample of a timestamp channel in a time format.
+type TimestampChannelField struct {
+	BaseChannelField
+	// TimeFormat is the encoding of each sample.
+	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
+}
+
+func (TimestampChannelField) isChannelFieldVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TimestampChannelField) Validate() error {
+	v := validate.New("TimestampChannelField")
+	v.Ternaryf("time_format", !t.TimeFormat.IsValid(), "invalid time_format: %v", t.TimeFormat)
+	return v.Error()
+}
+
+// JsonChannelField writes each sample of a JSON channel as its JSON value.
+type JsonChannelField struct {
+	BaseChannelField
+}
+
+func (JsonChannelField) isChannelFieldVariant() {}
+
+// UuidChannelField writes each sample of a UUID channel as a JSON string.
+type UuidChannelField struct {
+	BaseChannelField
+}
+
+func (UuidChannelField) isChannelFieldVariant() {}
+
+// BytesChannelField writes each sample of a bytes channel as a base64 JSON string.
+type BytesChannelField struct {
+	BaseChannelField
+}
+
+func (BytesChannelField) isChannelFieldVariant() {}
+
+// ChannelField is the command channel value placed into the body of a write endpoint.
+// The type selects the JSON value of each sample. A sample that matches an entry of
+// enum_values is written as the entry's label.
+type ChannelField struct {
+	Variant ChannelFieldVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ChannelField) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case FloatChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			FloatChannelField
+		}{Type: payload.KindFloat, FloatChannelField: v})
+	case IntegerChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			IntegerChannelField
+		}{Type: payload.KindInteger, IntegerChannelField: v})
+	case UnsignedChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			UnsignedChannelField
+		}{Type: payload.KindUnsigned, UnsignedChannelField: v})
+	case StringChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			StringChannelField
+		}{Type: payload.KindString, StringChannelField: v})
+	case BooleanChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			BooleanChannelField
+		}{Type: payload.KindBoolean, BooleanChannelField: v})
+	case TimestampChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			TimestampChannelField
+		}{Type: payload.KindTimestamp, TimestampChannelField: v})
+	case JsonChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			JsonChannelField
+		}{Type: payload.KindJSON, JsonChannelField: v})
+	case UuidChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			UuidChannelField
+		}{Type: payload.KindUUID, UuidChannelField: v})
+	case BytesChannelField:
+		return json.MarshalEncode(enc, struct {
+			Type payload.Kind `json:"type"`
+			BytesChannelField
+		}{Type: payload.KindBytes, BytesChannelField: v})
+	default:
+		return errors.Newf("ChannelField: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type payload.Kind `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case payload.KindFloat:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			FloatChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FloatChannelField
+	case payload.KindInteger:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			IntegerChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IntegerChannelField
+	case payload.KindUnsigned:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			UnsignedChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnsignedChannelField
+	case payload.KindString:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			StringChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringChannelField
+	case payload.KindBoolean:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			BooleanChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BooleanChannelField
+	case payload.KindTimestamp:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			TimestampChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TimestampChannelField
+	case payload.KindJSON:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			JsonChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JsonChannelField
+	case payload.KindUUID:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			UuidChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UuidChannelField
+	case payload.KindBytes:
+		var v struct {
+			Type payload.Kind `json:"type"`
+			BytesChannelField
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BytesChannelField
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ChannelField: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ChannelField) Type() payload.Kind {
+	switch u.Variant.(type) {
+	case FloatChannelField:
+		return payload.KindFloat
+	case IntegerChannelField:
+		return payload.KindInteger
+	case UnsignedChannelField:
+		return payload.KindUnsigned
+	case StringChannelField:
+		return payload.KindString
+	case BooleanChannelField:
+		return payload.KindBoolean
+	case TimestampChannelField:
+		return payload.KindTimestamp
+	case JsonChannelField:
+		return payload.KindJSON
+	case UuidChannelField:
+		return payload.KindUUID
+	case BytesChannelField:
+		return payload.KindBytes
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u ChannelField) Validate() error {
+	switch variant := u.Variant.(type) {
+	case TimestampChannelField:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ChannelField) Base() BaseChannelField {
+	switch variant := u.Variant.(type) {
+	case FloatChannelField:
+		return variant.BaseChannelField
+	case IntegerChannelField:
+		return variant.BaseChannelField
+	case UnsignedChannelField:
+		return variant.BaseChannelField
+	case StringChannelField:
+		return variant.BaseChannelField
+	case BooleanChannelField:
+		return variant.BaseChannelField
+	case TimestampChannelField:
+		return variant.BaseChannelField
+	case JsonChannelField:
+		return variant.BaseChannelField
+	case UuidChannelField:
+		return variant.BaseChannelField
+	case BytesChannelField:
+		return variant.BaseChannelField
+	}
+	return BaseChannelField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ChannelField) SetBase(base BaseChannelField) {
+	switch variant := u.Variant.(type) {
+	case FloatChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case IntegerChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case UnsignedChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case StringChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case BooleanChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case TimestampChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case JsonChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case UuidChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	case BytesChannelField:
+		variant.BaseChannelField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ChannelField: cannot set the base of variant %T", variant))
+	}
+}
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint struct {
@@ -573,7 +940,9 @@ func (w *WriteEndpoint) ApplyDefaults() {
 	if w.Method == "" {
 		w.Method = MethodPost
 	}
-	w.Channel.ApplyDefaults()
+	if w.Channel.Variant == nil {
+		w.Channel.Variant = FloatChannelField{}
+	}
 	for i := range w.Fields {
 		w.Fields[i].ApplyDefaults()
 	}
@@ -581,8 +950,8 @@ func (w *WriteEndpoint) ApplyDefaults() {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteEndpoint) SetDefaults() {
-	w.Channel.SetDefaults()
 	w.Method = MethodPost
+	w.Channel.Variant = FloatChannelField{}
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the

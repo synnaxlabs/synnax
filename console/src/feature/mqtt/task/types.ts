@@ -378,9 +378,14 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
 
+/** The JSON type of a browsed scalar. */
+export const scalarTypeZ = z.enum(["number", "boolean", "string"]);
+
+export type ScalarType = z.infer<typeof scalarTypeZ>;
+
 const browsedFieldZ = z.object({
   pointer: z.string(),
-  type: payload.jsonTypeZ,
+  type: scalarTypeZ,
   /** The start of the JSON text of the value. */
   sample: z.string(),
 });

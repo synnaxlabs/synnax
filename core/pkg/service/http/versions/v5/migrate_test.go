@@ -41,7 +41,7 @@ func storedChannels(found map[channel.Key]v5.Channel) v5.Channels {
 	}
 }
 
-func untypedField(dt telem.DataType, entries ...xpayload.EnumEntry) v4.ReadField {
+func untypedField(dt telem.DataType, entries ...payloadv0.EnumEntry) v4.ReadField {
 	return v4.ReadField{
 		Key:        "f",
 		Channel:    7,
@@ -54,7 +54,7 @@ func untypedField(dt telem.DataType, entries ...xpayload.EnumEntry) v4.ReadField
 func optionalField(
 	dt telem.DataType,
 	fill any,
-	entries ...xpayload.EnumEntry,
+	entries ...payloadv0.EnumEntry,
 ) v4.ReadField {
 	f := untypedField(dt, entries...)
 	f.Optional = true
@@ -132,9 +132,11 @@ var _ = Describe("Migration", func() {
 			gorp.NewCreate[uuid.UUID, v4.WriteConfig]().Entry(&stored).Exec(ctx, db),
 		).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "http_write_config",
-			Migrations: []gorp.Migration{v5.WriteMigration},
+			DB:        db,
+			Namespace: "http_write_config",
+			Migrations: []gorp.Migration{v5.NewWriteMigration(storedChannels(
+				map[channel.Key]v5.Channel{7: {DataType: telem.StringT}},
+			))},
 		})).To(Succeed())
 		var got v5.WriteConfig
 		Expect(gorp.NewRetrieve[uuid.UUID, v5.WriteConfig]().
@@ -144,9 +146,11 @@ var _ = Describe("Migration", func() {
 		Expect(got.Endpoints).To(HaveLen(1))
 		ep := got.Endpoints[0]
 		Expect(ep.Path).To(Equal("/set"))
-		Expect(ep.Channel.Pointer).To(Equal("/v"))
-		Expect(ep.Channel.JSONType).To(Equal(payloadv0.JSONTypeString))
-		Expect(ep.Channel.Channel).To(BeEquivalentTo(7))
+		str, ok := ep.Channel.Variant.(v5.StringChannelField)
+		Expect(ok).To(BeTrue())
+		Expect(str.BaseChannelField).
+			To(Equal(v5.BaseChannelField{Pointer: "/v", Channel: 7}))
+		Expect(str.EnumValues).To(BeEmpty())
 		Expect(ep.Fields).To(Equal([]payload.WriteField{
 			{Variant: payload.IntegerWriteField{
 				BaseWriteField: payload.BaseWriteField{Key: "i", Pointer: "/i"},
@@ -331,7 +335,7 @@ var _ = Describe("Read field migration", func() {
 
 		It("Should keep the stored data type of a field with a time format", func() {
 			old := optionalField(
-				telem.Float64T, nil, xpayload.EnumEntry{Label: "ON", Value: 1},
+				telem.Float64T, nil, payloadv0.EnumEntry{Label: "ON", Value: 1},
 			)
 			old.TimeFormat = new(xpayload.TimeFormatUnixSec)
 			float := v5.MigrateReadField(old).Variant.(v5.FloatReadField)
@@ -353,8 +357,8 @@ var _ = Describe("Read field migration", func() {
 			It("Should keep every entry of a float field", func(ctx SpecContext) {
 				f := v5.MigrateReadField(untypedField(
 					telem.Float64T,
-					xpayload.EnumEntry{Label: "HALF", Value: 0.5},
-					xpayload.EnumEntry{Label: "ON", Value: 1},
+					payloadv0.EnumEntry{Label: "HALF", Value: 0.5},
+					payloadv0.EnumEntry{Label: "ON", Value: 1},
 				))
 				Expect(f.Variant.(v5.FloatReadField).EnumValues).To(Equal(
 					[]xpayload.FloatEntry{
@@ -369,9 +373,9 @@ var _ = Describe("Read field migration", func() {
 			) {
 				f := v5.MigrateReadField(untypedField(
 					telem.Int16T,
-					xpayload.EnumEntry{Label: "LOW", Value: -3},
-					xpayload.EnumEntry{Label: "HALF", Value: 0.5},
-					xpayload.EnumEntry{Label: "HUGE", Value: 1e19},
+					payloadv0.EnumEntry{Label: "LOW", Value: -3},
+					payloadv0.EnumEntry{Label: "HALF", Value: 0.5},
+					payloadv0.EnumEntry{Label: "HUGE", Value: 1e19},
 				))
 				Expect(f.Variant.(v5.IntegerReadField).EnumValues).To(Equal(
 					[]xpayload.IntegerEntry{{Label: "LOW", Value: -3}},
@@ -383,8 +387,8 @@ var _ = Describe("Read field migration", func() {
 			) {
 				f := v5.MigrateReadField(untypedField(
 					telem.Uint8T,
-					xpayload.EnumEntry{Label: "LOW", Value: -1},
-					xpayload.EnumEntry{Label: "HIGH", Value: 2},
+					payloadv0.EnumEntry{Label: "LOW", Value: -1},
+					payloadv0.EnumEntry{Label: "HIGH", Value: 2},
 				))
 				Expect(f.Variant.(v5.UnsignedReadField).EnumValues).To(Equal(
 					[]xpayload.UnsignedEntry{{Label: "HIGH", Value: 2}},
@@ -396,8 +400,8 @@ var _ = Describe("Read field migration", func() {
 			) {
 				f := v5.MigrateReadField(untypedField(
 					telem.BooleanT,
-					xpayload.EnumEntry{Label: "OFF", Value: 0},
-					xpayload.EnumEntry{Label: "ON", Value: 2},
+					payloadv0.EnumEntry{Label: "OFF", Value: 0},
+					payloadv0.EnumEntry{Label: "ON", Value: 2},
 				))
 				Expect(f.Variant.(v5.BooleanReadField).EnumValues).To(Equal(
 					[]xpayload.BooleanEntry{
@@ -410,7 +414,7 @@ var _ = Describe("Read field migration", func() {
 			It("Should drop the entries of a string field", func(ctx SpecContext) {
 				f := v5.MigrateReadField(untypedField(
 					telem.StringT,
-					xpayload.EnumEntry{Label: "ON", Value: 1},
+					payloadv0.EnumEntry{Label: "ON", Value: 1},
 				))
 				Expect(f.Variant.(v5.StringReadField).EnumValues).To(BeEmpty())
 			})
@@ -420,9 +424,9 @@ var _ = Describe("Read field migration", func() {
 				func(ctx SpecContext) {
 					f := v5.MigrateReadField(untypedField(
 						telem.Uint8T,
-						xpayload.EnumEntry{Label: "ON", Value: 1},
-						xpayload.EnumEntry{Label: "HIGH", Value: 1},
-						xpayload.EnumEntry{Label: "ON", Value: 2},
+						payloadv0.EnumEntry{Label: "ON", Value: 1},
+						payloadv0.EnumEntry{Label: "HIGH", Value: 1},
+						payloadv0.EnumEntry{Label: "ON", Value: 2},
 					))
 					Expect(f.Variant.(v5.UnsignedReadField).EnumValues).To(Equal(
 						[]xpayload.UnsignedEntry{
@@ -435,7 +439,7 @@ var _ = Describe("Read field migration", func() {
 		})
 
 		Describe("Fills", func() {
-			onOff := []xpayload.EnumEntry{
+			onOff := []payloadv0.EnumEntry{
 				{Label: "OFF", Value: 0},
 				{Label: "ON", Value: 1},
 			}
@@ -688,8 +692,8 @@ var _ = Describe("Read field migration", func() {
 					Key: "ep",
 					Fields: []v4.ReadField{optionalField(
 						telem.Float64T, float64(3),
-						xpayload.EnumEntry{Label: "ON", Value: 1},
-						xpayload.EnumEntry{Label: "HALF", Value: 0.5},
+						payloadv0.EnumEntry{Label: "ON", Value: 1},
+						payloadv0.EnumEntry{Label: "HALF", Value: 0.5},
 					)},
 				}},
 			})

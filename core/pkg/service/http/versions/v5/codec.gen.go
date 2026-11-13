@@ -20,6 +20,56 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bcf BaseChannelField) EncodeOrc(w *orc.Writer) error {
+	w.String(bcf.Pointer)
+	w.Uint32(uint32(bcf.Channel))
+	w.String(bcf.Name)
+	if bcf.DataType != nil {
+		w.Bool(true)
+		w.String(string(*bcf.DataType))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bcf *BaseChannelField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bcf.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		bcf.Channel = channel.Key(rawV)
+	}
+	if bcf.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.DataType
+			{
+				rawV, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = telem.DataType(rawV)
+			}
+			bcf.DataType = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (brf BaseReadField) EncodeOrc(w *orc.Writer) error {
 	w.String(brf.Key)
 	w.String(brf.Name)
@@ -50,6 +100,270 @@ func (brf *BaseReadField) DecodeOrc(r *orc.Reader) error {
 	}
 	if brf.Pointer, err = r.String(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (cf ChannelField) EncodeOrc(w *orc.Writer) error {
+	switch v := cf.Variant.(type) {
+	case FloatChannelField:
+		w.String("float")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case IntegerChannelField:
+		w.String("integer")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case UnsignedChannelField:
+		w.String("unsigned")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case StringChannelField:
+		w.String("string")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case BooleanChannelField:
+		w.String("boolean")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case TimestampChannelField:
+		w.String("timestamp")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.TimeFormat))
+	case JsonChannelField:
+		w.String("json")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+	case UuidChannelField:
+		w.String("uuid")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BytesChannelField:
+		w.String("bytes")
+		if err := v.BaseChannelField.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("ChannelField: nil or unknown variant %T", cf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.FloatEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		cf.Variant = v
+	case "integer":
+		var v IntegerChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.IntegerEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		cf.Variant = v
+	case "unsigned":
+		var v UnsignedChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.UnsignedEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		cf.Variant = v
+	case "string":
+		var v StringChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.StringEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		cf.Variant = v
+	case "boolean":
+		var v BooleanChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.BooleanEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		cf.Variant = v
+	case "timestamp":
+		var v TimestampChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.TimeFormat = payload.TimeFormat(rawV)
+		}
+		cf.Variant = v
+	case "json":
+		var v JsonChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		cf.Variant = v
+	case "uuid":
+		var v UuidChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		cf.Variant = v
+	case "bytes":
+		var v BytesChannelField
+		if err := v.BaseChannelField.DecodeOrc(r); err != nil {
+			return err
+		}
+		cf.Variant = v
+	default:
+		return errors.Newf("ChannelField: unknown variant %q", tag)
 	}
 	return nil
 }

@@ -26,5 +26,8 @@ func NewReadMigrations(channels v5.Channels) []gorp.Migration {
 	}
 }
 
-// WriteMigrations is the ordered migration chain for stored HTTP write task configs.
-var WriteMigrations = []gorp.Migration{v5.WriteMigration}
+// NewWriteMigrations returns the ordered migration chain for stored HTTP write task
+// configs. The last step reconciles each channel field with its channel among channels.
+func NewWriteMigrations(channels v5.Channels) []gorp.Migration {
+	return []gorp.Migration{v5.NewWriteMigration(channels)}
+}

@@ -39,14 +39,6 @@ export const KINDS = [
 export const kindZ = z.enum(KINDS);
 export type Kind = z.infer<typeof kindZ>;
 
-export const JSON_TYPES = ["number", "string", "boolean"] as const;
-export const jsonTypeZ = z.enum(JSON_TYPES);
-export type JSONType = z.infer<typeof jsonTypeZ>;
-
-export const GENERATOR_TYPES = ["uuid", "timestamp"] as const;
-export const generatorTypeZ = z.enum(GENERATOR_TYPES);
-export type GeneratorType = z.infer<typeof generatorTypeZ>;
-
 /** FloatEntry maps a payload label to a float channel value. */
 export const floatEntryZ = z.object({
   /** label is the label in the payload. */
@@ -109,18 +101,6 @@ export const baseWriteFieldZ = z.object({
   pointer: z.string().default(""),
 });
 export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
-
-/**
- * EnumEntry maps a string label in a payload to a numeric channel value for enum-style
- * parsing (e.g. "ON" -> 1, "OFF" -> 0).
- */
-export const enumEntryZ = z.object({
-  /** label is the string label in the payload. */
-  label: z.string().default(""),
-  /** value is the numeric channel value the label maps to. */
-  value: z.number().default(0),
-});
-export interface EnumEntry extends z.infer<typeof enumEntryZ> {}
 
 /** FloatRead holds the options of a field that reads a float. */
 export const floatReadZ = z.object({

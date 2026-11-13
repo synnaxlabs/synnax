@@ -20,10 +20,8 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -114,14 +112,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_write",
-			Migrations:      versions.WriteMigrations,
+			Migrations:      versions.NewWriteMigrations(channels),
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ValidateEntry:   validateWriteConfig,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *WriteConfig,
+			) error {
+				return v5.ResolveWriteConfig(ctx, snap, channels, c)
+			},
+			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
+				return v5.ReconcileWriteConfig(ctx, tx, channels, c, cfg.L.Warn)
+			},
+			ValidateEntry: v5.ValidateWriteConfig,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
@@ -154,27 +162,7 @@ func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
 }
 
-// validateWriteConfig checks cfg and the value of each of its body fields.
-func validateWriteConfig(cfg *WriteConfig) error {
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	for _, ep := range cfg.Endpoints {
-		for _, f := range ep.Fields {
-			if err := payload.ValidateWriteField(f); err != nil {
-				return errors.Wrapf(
-					err,
-					"endpoint %q: field %q",
-					ep.Key,
-					f.Base().Key,
-				)
-			}
-		}
-	}
-	return nil
-}
-
-// channelsOf reads the channels that read fields write to.
+// channelsOf reads the channels that read and write fields use.
 func channelsOf(svc *channel.Service) v5.Channels {
 	return func(
 		ctx context.Context,

@@ -84,8 +84,40 @@ type ReadEndpoint = versions.ReadEndpoint
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig = versions.ReadConfig
 
-// ChannelField is the command channel value placed into a write endpoint's body.
+// ChannelField is the command channel value placed into the body of a write endpoint.
+// The type selects the JSON value of each sample. A sample that matches an entry of
+// enum_values is written as the entry's label.
 type ChannelField = versions.ChannelField
+
+// ChannelFieldVariant is implemented by every ChannelField variant.
+type ChannelFieldVariant = versions.ChannelFieldVariant
+
+// FloatChannelField writes each sample as a JSON number.
+type FloatChannelField = versions.FloatChannelField
+
+// IntegerChannelField writes each sample as a JSON number.
+type IntegerChannelField = versions.IntegerChannelField
+
+// UnsignedChannelField writes each sample as a JSON number.
+type UnsignedChannelField = versions.UnsignedChannelField
+
+// StringChannelField writes each sample as a JSON string.
+type StringChannelField = versions.StringChannelField
+
+// BooleanChannelField writes each sample as a JSON boolean.
+type BooleanChannelField = versions.BooleanChannelField
+
+// TimestampChannelField writes each sample of a timestamp channel in a time format.
+type TimestampChannelField = versions.TimestampChannelField
+
+// JsonChannelField writes each sample of a JSON channel as its JSON value.
+type JsonChannelField = versions.JsonChannelField
+
+// UuidChannelField writes each sample of a UUID channel as a JSON string.
+type UuidChannelField = versions.UuidChannelField
+
+// BytesChannelField writes each sample of a bytes channel as a base64 JSON string.
+type BytesChannelField = versions.BytesChannelField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint = versions.WriteEndpoint
@@ -99,3 +131,6 @@ type ScanConfig = versions.ScanConfig
 
 // BaseReadField carries the fields every read field shares.
 type BaseReadField = versions.BaseReadField
+
+// BaseChannelField carries the fields every command channel field shares.
+type BaseChannelField = versions.BaseChannelField

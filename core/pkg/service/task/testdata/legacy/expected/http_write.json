@@ -5,20 +5,10 @@
     {
       "channel": {
         "channel": 10110,
-        "data_type": "uint8",
-        "enum_values": [
-          {
-            "label": "idle",
-            "value": 1
-          },
-          {
-            "label": "running",
-            "value": 2
-          }
-        ],
-        "json_type": "number",
         "name": "fixture_http_mode_cmd",
-        "pointer": "/command/modeCode"
+        "pointer": "/command/modeCode",
+        "time_format": "iso8601",
+        "type": "timestamp"
       },
       "disabled": false,
       "fields": [
@@ -69,12 +59,10 @@
     {
       "channel": {
         "channel": 10120,
-        "data_type": "timestamp",
         "enum_values": [],
-        "json_type": "string",
         "name": "fixture_http_raw_cmd",
         "pointer": "",
-        "time_format": "iso8601"
+        "type": "string"
       },
       "disabled": true,
       "fields": [],

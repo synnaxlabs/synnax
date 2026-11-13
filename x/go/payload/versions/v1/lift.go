@@ -14,6 +14,7 @@ import (
 	"reflect"
 
 	xjson "github.com/synnaxlabs/x/json"
+	v0 "github.com/synnaxlabs/x/payload/versions/v0"
 )
 
 // maxExactFloat is the largest magnitude up to which a float64 holds every integer.
@@ -64,13 +65,13 @@ func LiftStaticWriteField(base BaseWriteField, value any) (WriteField, error) {
 // false for an unknown generator, which no Driver ran.
 func LiftGeneratedWriteField(
 	base BaseWriteField,
-	generator GeneratorType,
+	generator v0.GeneratorType,
 	format *TimeFormat,
 ) (f WriteField, ok bool) {
 	switch generator {
-	case GeneratorTypeUUID:
+	case v0.GeneratorTypeUUID:
 		return WriteField{Variant: UuidWriteField{BaseWriteField: base}}, true
-	case GeneratorTypeTimestamp:
+	case v0.GeneratorTypeTimestamp:
 		t := TimestampWriteField{BaseWriteField: base, TimeFormat: TimeFormatISO8601}
 		if format != nil {
 			t.TimeFormat = *format

@@ -211,20 +211,6 @@ inline x::json::json BaseWriteField::to_json() const {
     return j;
 }
 
-inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
-    return EnumEntry{
-        .label = parser.field<std::string>("label", ""),
-        .value = parser.field<double>("value", 0),
-    };
-}
-
-inline x::json::json EnumEntry::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["label"] = this->label;
-    j["value"] = this->value;
-    return j;
-}
-
 inline FloatWriteField FloatWriteField::parse(x::json::Parser parser) {
     FloatWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);

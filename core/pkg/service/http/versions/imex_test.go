@@ -14,8 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
+	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -54,10 +57,10 @@ var _ = Describe("WriteConfigLadder", func() {
 			},
 		))
 		Expect(cfg.Endpoints).To(HaveLen(1))
-		ch := cfg.Endpoints[0].Channel
-		Expect(ch.JSONType).To(Equal(payload.JSONTypeString))
-		Expect(*ch.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
-		Expect(ch.EnumValues).To(Equal([]payload.EnumEntry{{Label: "ON", Value: 1}}))
+		Expect(cfg.Endpoints[0].Channel.Variant).To(Equal(v5.StringChannelField{
+			BaseChannelField: v5.BaseChannelField{DataType: new(telem.Float64T)},
+			EnumValues:       []payloadv0.StringEntry{{Label: "ON", Value: "1"}},
+		}))
 		Expect(cfg.Endpoints[0].Fields).To(Equal([]payload.WriteField{
 			{Variant: payload.TimestampWriteField{
 				BaseWriteField: payload.BaseWriteField{Key: "g"},

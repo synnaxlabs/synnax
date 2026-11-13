@@ -38,6 +38,12 @@
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
+using ::synnax::http::BooleanChannelField;
+using ::synnax::http::ChannelField;
+using ::synnax::http::FloatChannelField;
+using ::synnax::http::JsonChannelField;
+using ::synnax::http::StringChannelField;
+using ::synnax::http::TimestampChannelField;
 using ::synnax::http::WriteEndpoint;
 using ::x::payload::StringWriteField;
 using ::x::payload::TimestampWriteField;
@@ -85,16 +91,41 @@ size_t count_requests_for_path(
     return count;
 }
 
-/// @brief config for one POST endpoint that writes channel 1 to /value as json_type.
-WriteTaskConfig single_endpoint_cfg(const std::string &json_type) {
+/// @brief returns a channel field of the kind that writes channel to pointer.
+ChannelField channel_field(
+    const std::string &kind,
+    const std::string &pointer,
+    const synnax::channel::Key channel
+) {
+    ChannelField field = FloatChannelField{};
+    if (kind == x::payload::KIND_STRING)
+        field = StringChannelField{};
+    else if (kind == x::payload::KIND_BOOLEAN)
+        field = BooleanChannelField{};
+    else if (kind == x::payload::KIND_TIMESTAMP) {
+        TimestampChannelField ts;
+        ts.time_format = x::payload::TIME_FORMAT_ISO_8601;
+        field = ts;
+    } else if (kind == x::payload::KIND_JSON)
+        field = JsonChannelField{};
+    std::visit(
+        [&](auto &f) {
+            f.pointer = pointer;
+            f.channel = channel;
+        },
+        field
+    );
+    return field;
+}
+
+/// @brief config for one POST endpoint that writes channel 1 to /value as kind.
+WriteTaskConfig single_endpoint_cfg(const std::string &kind) {
     WriteTaskConfig cfg;
     cfg.device = "test-device";
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = json_type;
-    ep.channel.channel = 1;
+    ep.channel = channel_field(kind, "/value", 1);
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
     cfg.cmd_names = {{1, "valve_cmd"}};
@@ -104,7 +135,7 @@ WriteTaskConfig single_endpoint_cfg(const std::string &json_type) {
 /// @brief asserts that the sink sends no request for invalid, warns with a
 /// description that names the channel and value_text, then sends valid.
 void assert_invalid_value_skipped(
-    const std::string &json_type,
+    const std::string &kind,
     const double invalid,
     const std::string &value_text,
     const double valid,
@@ -122,7 +153,7 @@ void assert_invalid_value_skipped(
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-    auto cfg = single_endpoint_cfg(json_type);
+    auto cfg = single_endpoint_cfg(kind);
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame bad;
@@ -168,8 +199,7 @@ TEST(HTTPWriteTask, ParseConfigAllEndpointsDisabled) {
              {"disabled", true},
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -185,8 +215,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicatePointers) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields",
               {{
                   {"type", "integer"},
@@ -208,7 +237,7 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel", {{"pointer", ""}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", ""}, {"type", "float"}, {"channel", 1}}},
              {"fields",
               {{
                   {"type", "integer"},
@@ -230,8 +259,7 @@ TEST(HTTPWriteTask, ParseConfigFixedFieldEmptyPointer) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields",
               {{
                   {"type", "integer"},
@@ -253,8 +281,7 @@ TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields",
               {{
                   {"type", "uuid"},
@@ -275,8 +302,7 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"headers", {{{"value", "abc"}}}},
          }}},
     };
@@ -295,8 +321,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"headers",
               {
                   {{"name", "X-Key"}, {"value", "a"}},
@@ -327,9 +352,7 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
              {"method", "POST"},
              {"path", "/api/data"},
              {"channel",
-              {{"pointer", "/value"},
-               {"json_type", "number"},
-               {"channel", cmd_ch.key}}},
+              {{"pointer", "/value"}, {"type", "float"}, {"channel", cmd_ch.key}}},
              {"headers", {{{"name", "X-Key"}}}},
          }}},
     };
@@ -340,8 +363,8 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
     EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
 }
 
-/// @brief it should accept a timestamp channel that has no time_format.
-TEST(HTTPWriteTask, ParseConfigTimestampChannelWithoutTimeFormat) {
+/// @brief it should accept a timestamp field on a timestamp channel.
+TEST(HTTPWriteTask, ParseConfigTimestampField) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto cmd_ch = synnax::channel::Channel{
         .name = make_unique_channel_name("cmd"),
@@ -358,13 +381,66 @@ TEST(HTTPWriteTask, ParseConfigTimestampChannelWithoutTimeFormat) {
              {"path", "/api/data"},
              {"channel",
               {{"pointer", "/value"},
-               {"json_type", "string"},
+               {"type", "timestamp"},
+               {"time_format", "unix_ms"},
                {"channel", cmd_ch.key}}},
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(client);
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
-    EXPECT_FALSE(cfg.endpoints[0].channel.time_format.has_value());
+    const auto &field = std::get<TimestampChannelField>(cfg.endpoints[0].channel);
+    EXPECT_EQ(field.time_format, "unix_ms");
+}
+
+/// @brief it should reject a kind that the channel does not allow.
+TEST(HTTPWriteTask, ParseConfigKindNotAllowedByChannel) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto cmd_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(cmd_ch));
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"type", "string"}, {"channel", cmd_ch.key}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(client);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+}
+
+/// @brief it should reject a string entry that is not a value of the channel.
+TEST(HTTPWriteTask, ParseConfigStringEntryNotAChannelValue) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto cmd_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(cmd_ch));
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"type", "string"},
+               {"channel", cmd_ch.key},
+               {"enum_values", {{{"value", "on"}, {"label", "ON"}}}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(client);
+    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
@@ -376,8 +452,7 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"query_params", {{{"value", "10"}}}},
          }}},
     };
@@ -396,8 +471,7 @@ TEST(HTTPWriteTask, ParseConfigFixedFieldMissingValueErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields", {{{"type", "string"}, {"pointer", "/extra"}}}},
          }}},
     };
@@ -416,8 +490,7 @@ TEST(HTTPWriteTask, ParseConfigBytesFieldNotBase64Errors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields",
               {{{"type", "bytes"}, {"pointer", "/extra"}, {"value", "AQ\r\nI="}}}},
          }}},
@@ -437,8 +510,7 @@ TEST(HTTPWriteTask, ParseConfigJSONFieldNotJSONErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"fields", {{{"type", "json"}, {"pointer", "/extra"}, {"value", "{"}}}},
          }}},
     };
@@ -466,9 +538,7 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
              {"method", "POST"},
              {"path", "/api/data"},
              {"channel",
-              {{"pointer", "/value"},
-               {"json_type", "number"},
-               {"channel", cmd_ch.key}}},
+              {{"pointer", "/value"}, {"type", "float"}, {"channel", cmd_ch.key}}},
              {"query_params", {{{"parameter", "limit"}}}},
          }}},
     };
@@ -488,8 +558,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
          {{
              {"method", "POST"},
              {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"channel", {{"pointer", "/value"}, {"type", "float"}, {"channel", 1}}},
              {"query_params",
               {
                   {{"parameter", "key"}, {"value", "a"}},
@@ -525,9 +594,7 @@ TEST(HTTPWriteTask, POSTNumericValue) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -569,9 +636,7 @@ TEST(HTTPWriteTask, PUTStringValue) {
     WriteEndpoint ep;
     ep.method = "PUT";
     ep.path = "/api/setpoint";
-    ep.channel.pointer = "/state";
-    ep.channel.json_type = "string";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_STRING, "/state", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -611,9 +676,7 @@ TEST(HTTPWriteTask, BarePrimitiveBody) {
     WriteEndpoint ep;
     ep.method = "PUT";
     ep.path = "/api/setpoint";
-    ep.channel.pointer = "";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -652,9 +715,7 @@ TEST(HTTPWriteTask, StaticFields) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
     StringWriteField device_field;
     device_field.pointer = "/device_id";
     device_field.value = "sensor-01";
@@ -699,9 +760,7 @@ TEST(HTTPWriteTask, FixedFieldKinds) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
     ::x::payload::FloatWriteField f;
     f.pointer = "/f";
     f.value = 0.5;
@@ -763,9 +822,7 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
     UuidWriteField request_id_field;
     request_id_field.pointer = "/request_id";
     ep.fields = {request_id_field};
@@ -811,9 +868,7 @@ TEST(HTTPWriteTask, Error4xxResponse) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -849,9 +904,7 @@ TEST(HTTPWriteTask, Error5xxResponse) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -895,16 +948,12 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/temp";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "PUT";
     ep2.path = "/api/pressure";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -962,23 +1011,17 @@ TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/temp";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/pressure";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     WriteEndpoint ep3;
     ep3.method = "POST";
     ep3.path = "/api/humidity";
-    ep3.channel.pointer = "/value";
-    ep3.channel.json_type = "number";
-    ep3.channel.channel = 3;
+    ep3.channel = channel_field(x::payload::KIND_FLOAT, "/value", 3);
 
     cfg.endpoints = {ep1, ep2, ep3};
     cfg.cmd_keys = {1, 2, 3};
@@ -1049,16 +1092,12 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/good";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/bad";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -1113,16 +1152,12 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/client-err";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/server-err";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -1171,9 +1206,7 @@ TEST(HTTPWriteTask, LastWriteWins) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1216,9 +1249,7 @@ TEST(HTTPWriteTask, SequentialSends) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1264,9 +1295,7 @@ TEST(HTTPWriteTask, RecoverFromError) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1331,9 +1360,7 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1357,7 +1384,7 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
 /// @brief it should not send NaN to a JSON number field.
 TEST(HTTPWriteTask, NaNToNumberNotSent) {
     assert_invalid_value_skipped(
-        "number",
+        x::payload::KIND_FLOAT,
         std::numeric_limits<double>::quiet_NaN(),
         "NaN",
         1.5,
@@ -1368,7 +1395,7 @@ TEST(HTTPWriteTask, NaNToNumberNotSent) {
 /// @brief it should not send positive infinity to a JSON number field.
 TEST(HTTPWriteTask, InfinityToNumberNotSent) {
     assert_invalid_value_skipped(
-        "number",
+        x::payload::KIND_FLOAT,
         std::numeric_limits<double>::infinity(),
         "Infinity",
         1.5,
@@ -1379,7 +1406,7 @@ TEST(HTTPWriteTask, InfinityToNumberNotSent) {
 /// @brief it should not send negative infinity to a JSON number field.
 TEST(HTTPWriteTask, NegativeInfinityToNumberNotSent) {
     assert_invalid_value_skipped(
-        "number",
+        x::payload::KIND_FLOAT,
         -std::numeric_limits<double>::infinity(),
         "-Infinity",
         1.5,
@@ -1390,7 +1417,7 @@ TEST(HTTPWriteTask, NegativeInfinityToNumberNotSent) {
 /// @brief it should not send NaN to a JSON boolean field.
 TEST(HTTPWriteTask, NaNToBooleanNotSent) {
     assert_invalid_value_skipped(
-        "boolean",
+        x::payload::KIND_BOOLEAN,
         std::numeric_limits<double>::quiet_NaN(),
         "NaN",
         1,
@@ -1412,10 +1439,10 @@ TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-    auto cfg = single_endpoint_cfg("number");
+    auto cfg = single_endpoint_cfg(x::payload::KIND_FLOAT);
     auto other = cfg.endpoints[0];
     other.path = "/api/other";
-    other.channel.channel = 2;
+    other.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
     cfg.endpoints.push_back(other);
     cfg.cmd_keys.push_back(2);
     cfg.cmd_names[2] = "other_cmd";
@@ -1448,7 +1475,7 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-    auto cfg = single_endpoint_cfg("number");
+    auto cfg = single_endpoint_cfg(x::payload::KIND_FLOAT);
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -1527,9 +1554,7 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     WriteEndpoint ep;
     ep.method = "PATCH";
     ep.path = "/api/config";
-    ep.channel.pointer = "/enabled";
-    ep.channel.json_type = "boolean";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_BOOLEAN, "/enabled", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1547,9 +1572,8 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     EXPECT_EQ(body["enabled"].get<bool>(), true);
 }
 
-/// @brief it should format a TIMESTAMP channel value as ISO 8601 when time_format
-/// is unset.
-TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
+/// @brief it should format a timestamp field as ISO 8601.
+TEST(HTTPWriteTask, TimeFormatISO8601) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {{
@@ -1570,9 +1594,7 @@ TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/timestamp";
-    ep.channel.json_type = "string";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_TIMESTAMP, "/timestamp", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1594,8 +1616,7 @@ TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
     EXPECT_EQ(body["timestamp"].get<std::string>(), ts.iso8601());
 }
 
-/// @brief it should format a TIMESTAMP channel value as unix seconds when
-/// time_format is set.
+/// @brief it should format a timestamp field in unix seconds.
 TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -1617,10 +1638,11 @@ TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/ts";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
-    ep.channel.time_format = "unix_sec";
+    TimestampChannelField ts_field;
+    ts_field.pointer = "/ts";
+    ts_field.channel = 1;
+    ts_field.time_format = x::payload::TIME_FORMAT_UNIX_SEC;
+    ep.channel = ts_field;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -1665,9 +1687,7 @@ TEST(HTTPWriteTask, GeneratedTimestampField) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
     TimestampWriteField created_at_field;
     created_at_field.pointer = "/created_at";
     ep.fields = {created_at_field};
@@ -1715,9 +1735,11 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/data";
-    ep.channel.pointer = "/payload/sensors/temperature/reading";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(
+        x::payload::KIND_FLOAT,
+        "/payload/sensors/temperature/reading",
+        1
+    );
     StringWriteField unit_field;
     unit_field.pointer = "/payload/sensors/temperature/unit";
     unit_field.value = "celsius";
@@ -1753,7 +1775,7 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     EXPECT_EQ(body["metadata"]["source"].get<std::string>(), "driver");
 }
 
-/// @brief it should map a numeric channel value to a string label via enum_values.
+/// @brief it should write the label of the entry that a sample matches.
 TEST(HTTPWriteTask, EnumMappingNumericToString) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -1775,16 +1797,15 @@ TEST(HTTPWriteTask, EnumMappingNumericToString) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/state";
-    ep.channel.json_type = "string";
-    ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
-        {"ON", 1.0},
-        {"OFF", 0.0},
-    };
+    StringChannelField state;
+    state.pointer = "/state";
+    state.channel = 1;
+    state.enum_values = {{"ON", "1"}, {"OFF", "0"}};
+    ep.channel = state;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
+    cfg.cmd_types = {{1, x::telem::FLOAT64_T}};
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
@@ -1822,16 +1843,15 @@ TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
     WriteEndpoint ep;
     ep.method = "POST";
     ep.path = "/api/control";
-    ep.channel.pointer = "/state";
-    ep.channel.json_type = "string";
-    ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
-        {"ON", 1.0},
-        {"OFF", 0.0},
-    };
+    StringChannelField state;
+    state.pointer = "/state";
+    state.channel = 1;
+    state.enum_values = {{"ON", "1"}, {"OFF", "0"}};
+    ep.channel = state;
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
+    cfg.cmd_types = {{1, x::telem::FLOAT64_T}};
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
@@ -1847,47 +1867,64 @@ TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
     EXPECT_EQ(body["state"].get<std::string>(), "99");
 }
 
-/// @brief it should fail to parse config when enum_values contains duplicate values.
-TEST(HTTPWriteTask, ParseConfigEnumDuplicateValue) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"endpoints",
-         {{
-             {"method", "POST"},
-             {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"},
-               {"json_type", "string"},
-               {"channel", 1},
-               {"enum_values",
-                {{{"value", 1}, {"label", "ON"}}, {{"value", 1}, {"label", "YES"}}}}}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+/// @brief it should write the label of the boolean that a sample becomes.
+TEST(HTTPWriteTask, BooleanEntryLabel) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg(x::payload::KIND_BOOLEAN);
+    auto &field = std::get<BooleanChannelField>(cfg.endpoints[0].channel);
+    field.enum_values = {{"OPEN", true}};
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{2.5}));
+    ASSERT_NIL(sink->write(frame));
+
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(x::json::json::parse(reqs[0].body)["value"], "OPEN");
 }
 
-/// @brief it should fail to parse config when enum_values is set with a non-string
-/// json_type.
-TEST(HTTPWriteTask, ParseConfigEnumWithNonStringType) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"endpoints",
-         {{
-             {"method", "POST"},
-             {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"},
-               {"json_type", "number"},
-               {"channel", 1},
-               {"enum_values",
-                {{{"value", 1}, {"label", "ON"}}, {{"value", 0}, {"label", "OFF"}}}}}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+/// @brief it should write the JSON value that a JSON sample holds.
+TEST(HTTPWriteTask, JSONFieldWritesRawValue) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg(x::payload::KIND_JSON);
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<std::string>{R"({"a":[1,2]})"}, x::telem::JSON_T)
+    );
+    ASSERT_NIL(sink->write(frame));
+
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(
+        x::json::json::parse(reqs[0].body)["value"],
+        x::json::json::parse(R"({"a":[1,2]})")
+    );
 }
 
 /// @brief it should skip disabled endpoints and only send to enabled ones.
@@ -1921,17 +1958,13 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
     ep1.disabled = false;
     ep1.method = "POST";
     ep1.path = "/api/active";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.disabled = true;
     ep2.method = "POST";
     ep2.path = "/api/inactive";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1};
@@ -1976,9 +2009,7 @@ TEST(HTTPWriteTask, EndpointHeaders) {
     ep.method = "POST";
     ep.path = "/api/control";
     ep.headers = std::vector<::synnax::http::Header>{{"X-Custom", "test-val"}};
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -2023,9 +2054,7 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
         {"key", "abc"},
         {"verbose", "true"}
     };
-    ep.channel.pointer = "/value";
-    ep.channel.json_type = "number";
-    ep.channel.channel = 1;
+    ep.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
@@ -2079,16 +2108,12 @@ TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/good";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/flaky";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -2137,16 +2162,12 @@ TEST(HTTPWriteTask, NoProgressStopsRetry) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/a";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/b";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -2203,23 +2224,17 @@ TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
     WriteEndpoint ep_a;
     ep_a.method = "POST";
     ep_a.path = "/api/a";
-    ep_a.channel.pointer = "/value";
-    ep_a.channel.json_type = "number";
-    ep_a.channel.channel = 1;
+    ep_a.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep_b;
     ep_b.method = "POST";
     ep_b.path = "/api/b";
-    ep_b.channel.pointer = "/value";
-    ep_b.channel.json_type = "number";
-    ep_b.channel.channel = 2;
+    ep_b.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     WriteEndpoint ep_c;
     ep_c.method = "POST";
     ep_c.path = "/api/c";
-    ep_c.channel.pointer = "/value";
-    ep_c.channel.json_type = "number";
-    ep_c.channel.channel = 3;
+    ep_c.channel = channel_field(x::payload::KIND_FLOAT, "/value", 3);
 
     cfg.endpoints = {ep_a, ep_b, ep_c};
     cfg.cmd_keys = {1, 2, 3};
@@ -2271,16 +2286,12 @@ TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/critical";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/flaky";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};
@@ -2330,16 +2341,12 @@ TEST(HTTPWriteTask, AllCriticalNoRetry) {
     WriteEndpoint ep1;
     ep1.method = "POST";
     ep1.path = "/api/a";
-    ep1.channel.pointer = "/value";
-    ep1.channel.json_type = "number";
-    ep1.channel.channel = 1;
+    ep1.channel = channel_field(x::payload::KIND_FLOAT, "/value", 1);
 
     WriteEndpoint ep2;
     ep2.method = "POST";
     ep2.path = "/api/b";
-    ep2.channel.pointer = "/value";
-    ep2.channel.json_type = "number";
-    ep2.channel.channel = 2;
+    ep2.channel = channel_field(x::payload::KIND_FLOAT, "/value", 2);
 
     cfg.endpoints = {ep1, ep2};
     cfg.cmd_keys = {1, 2};

@@ -23,6 +23,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	xpayload "github.com/synnaxlabs/x/payload"
+	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
 	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -56,20 +57,20 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		}
 	case old.TimeFormat != nil && old.Channel != 0 && len(old.EnumValues) == 0:
 		dt = fallbackDataTypes[old.JSONType]
-		if old.JSONType == payload.JSONTypeNumber {
+		if old.JSONType == payloadv0.JSONTypeNumber {
 			dt = old.DataType
 		}
 		c = xpayload.Channel{Kind: xpayload.KindTimestamp, TimeFormat: *old.TimeFormat}
-	case old.JSONType == payload.JSONTypeBoolean:
+	case old.JSONType == payloadv0.JSONTypeBoolean:
 		c = xpayload.Channel{Kind: xpayload.KindBoolean}
-	case old.JSONType == payload.JSONTypeString && len(old.EnumValues) == 0:
+	case old.JSONType == payloadv0.JSONTypeString && len(old.EnumValues) == 0:
 		c = xpayload.Channel{Kind: xpayload.KindString}
 	default:
 		c = xpayload.Channel{
 			Kind: xpayload.KindFloat,
 			Float: lo.Map(
 				old.EnumValues,
-				func(e payload.EnumEntry, _ int) payload.FloatEntry {
+				func(e payloadv0.EnumEntry, _ int) payload.FloatEntry {
 					return payload.FloatEntry{
 						Label: e.Label,
 						Value: payload.Float(e.Value),
@@ -82,9 +83,9 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 }
 
 // fallbackDataTypes holds the data type whose kind writes each v1 JSON type.
-var fallbackDataTypes = map[payload.JSONType]telem.DataType{
-	payload.JSONTypeString:  telem.StringT,
-	payload.JSONTypeBoolean: telem.BooleanT,
+var fallbackDataTypes = map[payloadv0.JSONType]telem.DataType{
+	payloadv0.JSONTypeString:  telem.StringT,
+	payloadv0.JSONTypeBoolean: telem.BooleanT,
 }
 
 // channelField returns the channel field of base with the kind and the options of c.
@@ -256,7 +257,7 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		)
 	}
 	r := xpayload.Read{Kind: kind}
-	drop := func(e xpayload.EnumEntry, why string) {
+	drop := func(e payloadv0.EnumEntry, why string) {
 		note("enum label %q was dropped: %s", e.Label, why)
 	}
 	switch kind {

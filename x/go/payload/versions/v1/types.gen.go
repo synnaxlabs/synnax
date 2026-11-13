@@ -105,32 +105,6 @@ type BooleanRead = v0.BooleanRead
 // TimestampRead holds the options of a field that reads a timestamp.
 type TimestampRead = v0.TimestampRead
 
-// EnumEntry maps a string label in a payload to a numeric channel value for enum-style
-// parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = v0.EnumEntry
-
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType = v0.JSONType
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = v0.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = v0.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = v0.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = v0.GeneratorType
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each payload.
-	GeneratorTypeUUID GeneratorType = v0.GeneratorTypeUUID
-	// GeneratorTypeTimestamp produces the time of the payload.
-	GeneratorTypeTimestamp GeneratorType = v0.GeneratorTypeTimestamp
-)
-
 // BaseWriteField carries the fields every write field shares.
 type BaseWriteField struct {
 	// Key uniquely identifies the field within its payload.

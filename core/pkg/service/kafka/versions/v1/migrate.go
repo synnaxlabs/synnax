@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	xpayload "github.com/synnaxlabs/x/payload"
+	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
 	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -41,19 +42,19 @@ func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, 
 	base := BaseWriteChannel{Key: old.Key, Disabled: old.Disabled, Channel: old.Channel}
 	var v WriteChannelVariant
 	switch {
-	case old.TimeFormat != nil && old.JSONType == payload.JSONTypeNumber &&
+	case old.TimeFormat != nil && old.JSONType == payloadv0.JSONTypeNumber &&
 		len(old.EnumValues) == 0:
 		v = TimestampWriteChannel{BaseWriteChannel: base, TimeFormat: *old.TimeFormat}
-	case old.JSONType == payload.JSONTypeBoolean:
+	case old.JSONType == payloadv0.JSONTypeBoolean:
 		v = BooleanWriteChannel{BaseWriteChannel: base}
-	case old.JSONType == payload.JSONTypeString && len(old.EnumValues) == 0:
+	case old.JSONType == payloadv0.JSONTypeString && len(old.EnumValues) == 0:
 		v = StringWriteChannel{BaseWriteChannel: base}
 	default:
 		v = FloatWriteChannel{
 			BaseWriteChannel: base,
 			EnumValues: lo.Map(
 				old.EnumValues,
-				func(e payload.EnumEntry, _ int) payload.FloatEntry {
+				func(e payloadv0.EnumEntry, _ int) payload.FloatEntry {
 					return payload.FloatEntry{
 						Label: e.Label,
 						Value: payload.Float(e.Value),
@@ -170,7 +171,7 @@ func migrateReadField(old v0.ReadField) (ReadField, []string) {
 		Channel:  old.Channel,
 		Pointer:  old.Pointer,
 	}
-	keep := func(e xpayload.EnumEntry, fits bool) bool {
+	keep := func(e payloadv0.EnumEntry, fits bool) bool {
 		if !fits {
 			changes = append(changes, "dropped entry "+strconv.Quote(e.Label))
 		}

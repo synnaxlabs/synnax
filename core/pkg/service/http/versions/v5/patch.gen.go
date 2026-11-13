@@ -183,6 +183,460 @@ func (we *WriteEndpoint) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (cf *ChannelField) Patch(c patch.Cursor) error {
+	switch v := cf.Variant.(type) {
+	case FloatChannelField:
+		c, ok := c.Guard("type", "float")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case IntegerChannelField:
+		c, ok := c.Guard("type", "integer")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case UnsignedChannelField:
+		c, ok := c.Guard("type", "unsigned")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case StringChannelField:
+		c, ok := c.Guard("type", "string")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case BooleanChannelField:
+		c, ok := c.Guard("type", "boolean")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case TimestampChannelField:
+		c, ok := c.Guard("type", "timestamp")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case JsonChannelField:
+		c, ok := c.Guard("type", "json")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case UuidChannelField:
+		c, ok := c.Guard("type", "uuid")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	case BytesChannelField:
+		c, ok := c.Guard("type", "bytes")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(cf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		cf.Variant = v
+		return nil
+	default:
+		return patch.Absent(cf, c, "type")
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (cf *ChannelField) HashContent(h *content.Hash) {
+	switch v := cf.Variant.(type) {
+	case FloatChannelField:
+		h.String("float")
+		v.HashContent(h)
+	case IntegerChannelField:
+		h.String("integer")
+		v.HashContent(h)
+	case UnsignedChannelField:
+		h.String("unsigned")
+		v.HashContent(h)
+	case StringChannelField:
+		h.String("string")
+		v.HashContent(h)
+	case BooleanChannelField:
+		h.String("boolean")
+		v.HashContent(h)
+	case TimestampChannelField:
+		h.String("timestamp")
+		v.HashContent(h)
+	case JsonChannelField:
+		h.String("json")
+		v.HashContent(h)
+	case UuidChannelField:
+		h.String("uuid")
+		v.HashContent(h)
+	case BytesChannelField:
+		h.String("bytes")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (fcf *FloatChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&fcf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&fcf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&fcf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&fcf.BaseChannelField.DataType, c.Next())
+	case "enum_values":
+		return patch.Value(&fcf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (fcf *FloatChannelField) HashContent(h *content.Hash) {
+	h.String(fcf.BaseChannelField.Pointer)
+	h.Uint(uint64(fcf.BaseChannelField.Channel))
+	h.String(fcf.BaseChannelField.Name)
+	if fcf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*fcf.BaseChannelField.DataType))
+	}
+	h.Len(len(fcf.EnumValues))
+	for i0 := range fcf.EnumValues {
+		fcf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (icf *IntegerChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&icf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&icf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&icf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&icf.BaseChannelField.DataType, c.Next())
+	case "enum_values":
+		return patch.Value(&icf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (icf *IntegerChannelField) HashContent(h *content.Hash) {
+	h.String(icf.BaseChannelField.Pointer)
+	h.Uint(uint64(icf.BaseChannelField.Channel))
+	h.String(icf.BaseChannelField.Name)
+	if icf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*icf.BaseChannelField.DataType))
+	}
+	h.Len(len(icf.EnumValues))
+	for i0 := range icf.EnumValues {
+		icf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (ucf *UnsignedChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&ucf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&ucf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&ucf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&ucf.BaseChannelField.DataType, c.Next())
+	case "enum_values":
+		return patch.Value(&ucf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ucf *UnsignedChannelField) HashContent(h *content.Hash) {
+	h.String(ucf.BaseChannelField.Pointer)
+	h.Uint(uint64(ucf.BaseChannelField.Channel))
+	h.String(ucf.BaseChannelField.Name)
+	if ucf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*ucf.BaseChannelField.DataType))
+	}
+	h.Len(len(ucf.EnumValues))
+	for i0 := range ucf.EnumValues {
+		ucf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (scf *StringChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&scf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&scf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&scf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&scf.BaseChannelField.DataType, c.Next())
+	case "enum_values":
+		return patch.Value(&scf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (scf *StringChannelField) HashContent(h *content.Hash) {
+	h.String(scf.BaseChannelField.Pointer)
+	h.Uint(uint64(scf.BaseChannelField.Channel))
+	h.String(scf.BaseChannelField.Name)
+	if scf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*scf.BaseChannelField.DataType))
+	}
+	h.Len(len(scf.EnumValues))
+	for i0 := range scf.EnumValues {
+		scf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (bcf *BooleanChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&bcf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&bcf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&bcf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&bcf.BaseChannelField.DataType, c.Next())
+	case "enum_values":
+		return patch.Value(&bcf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (bcf *BooleanChannelField) HashContent(h *content.Hash) {
+	h.String(bcf.BaseChannelField.Pointer)
+	h.Uint(uint64(bcf.BaseChannelField.Channel))
+	h.String(bcf.BaseChannelField.Name)
+	if bcf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*bcf.BaseChannelField.DataType))
+	}
+	h.Len(len(bcf.EnumValues))
+	for i0 := range bcf.EnumValues {
+		bcf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (tcf *TimestampChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&tcf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&tcf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&tcf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&tcf.BaseChannelField.DataType, c.Next())
+	case "time_format":
+		return patch.Value(&tcf.TimeFormat, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (tcf *TimestampChannelField) HashContent(h *content.Hash) {
+	h.String(tcf.BaseChannelField.Pointer)
+	h.Uint(uint64(tcf.BaseChannelField.Channel))
+	h.String(tcf.BaseChannelField.Name)
+	if tcf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*tcf.BaseChannelField.DataType))
+	}
+	h.String(string(tcf.TimeFormat))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (jcf *JsonChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&jcf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&jcf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&jcf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&jcf.BaseChannelField.DataType, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (jcf *JsonChannelField) HashContent(h *content.Hash) {
+	h.String(jcf.BaseChannelField.Pointer)
+	h.Uint(uint64(jcf.BaseChannelField.Channel))
+	h.String(jcf.BaseChannelField.Name)
+	if jcf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*jcf.BaseChannelField.DataType))
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (ucf *UuidChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&ucf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&ucf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&ucf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&ucf.BaseChannelField.DataType, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ucf *UuidChannelField) HashContent(h *content.Hash) {
+	h.String(ucf.BaseChannelField.Pointer)
+	h.Uint(uint64(ucf.BaseChannelField.Channel))
+	h.String(ucf.BaseChannelField.Name)
+	if ucf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*ucf.BaseChannelField.DataType))
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (bcf *BytesChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&bcf.BaseChannelField.Pointer, c.Next())
+	case "channel":
+		return patch.Value(&bcf.BaseChannelField.Channel, c.Next())
+	case "name":
+		return patch.Value(&bcf.BaseChannelField.Name, c.Next())
+	case "data_type":
+		return patch.OptionalValue(&bcf.BaseChannelField.DataType, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (bcf *BytesChannelField) HashContent(h *content.Hash) {
+	h.String(bcf.BaseChannelField.Pointer)
+	h.Uint(uint64(bcf.BaseChannelField.Channel))
+	h.String(bcf.BaseChannelField.Name)
+	if bcf.BaseChannelField.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*bcf.BaseChannelField.DataType))
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (rf *ReadField) Patch(c patch.Cursor) error {
 	switch v := rf.Variant.(type) {
 	case FloatReadField:

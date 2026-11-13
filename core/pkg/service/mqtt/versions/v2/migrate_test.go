@@ -31,7 +31,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func storedField(dt telem.DataType, entries ...xpayload.EnumEntry) v1.ReadField {
+func storedField(dt telem.DataType, entries ...payload.EnumEntry) v1.ReadField {
 	return v1.ReadField{
 		Key:        "f1",
 		Name:       "level",
@@ -328,10 +328,10 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should convert whole entries and drop the others on an integer kind", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.Int32T,
-			xpayload.EnumEntry{Label: "OFF", Value: 0},
-			xpayload.EnumEntry{Label: "ON", Value: 1},
-			xpayload.EnumEntry{Label: "HALF", Value: 0.5},
-			xpayload.EnumEntry{Label: "", Value: 2},
+			payload.EnumEntry{Label: "OFF", Value: 0},
+			payload.EnumEntry{Label: "ON", Value: 1},
+			payload.EnumEntry{Label: "HALF", Value: 0.5},
+			payload.EnumEntry{Label: "", Value: 2},
 		))
 		integer, ok := f.Variant.(v2.IntegerReadField)
 		Expect(ok).To(BeTrue())
@@ -348,8 +348,8 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should drop a negative entry on an unsigned kind", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.Uint16T,
-			xpayload.EnumEntry{Label: "LOW", Value: -1},
-			xpayload.EnumEntry{Label: "HIGH", Value: 3},
+			payload.EnumEntry{Label: "LOW", Value: -1},
+			payload.EnumEntry{Label: "HIGH", Value: 3},
 		))
 		unsigned, ok := f.Variant.(v2.UnsignedReadField)
 		Expect(ok).To(BeTrue())
@@ -364,7 +364,7 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should keep every finite entry on a float kind", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.Float64T,
-			xpayload.EnumEntry{Label: "HALF", Value: 0.5},
+			payload.EnumEntry{Label: "HALF", Value: 0.5},
 		))
 		float, ok := f.Variant.(v2.FloatReadField)
 		Expect(ok).To(BeTrue())
@@ -377,8 +377,8 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should map a boolean entry to whether its value is not 0", func() {
 		f, _ := v2.MigrateReadField(storedField(
 			telem.BooleanT,
-			xpayload.EnumEntry{Label: "OFF", Value: 0},
-			xpayload.EnumEntry{Label: "ON", Value: 2},
+			payload.EnumEntry{Label: "OFF", Value: 0},
+			payload.EnumEntry{Label: "ON", Value: 2},
 		))
 		boolean, ok := f.Variant.(v2.BooleanReadField)
 		Expect(ok).To(BeTrue())
@@ -391,7 +391,7 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should drop the entries of a string field", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.StringT,
-			xpayload.EnumEntry{Label: "ON", Value: 1},
+			payload.EnumEntry{Label: "ON", Value: 1},
 		))
 		str, ok := f.Variant.(v2.StringReadField)
 		Expect(ok).To(BeTrue())
@@ -431,7 +431,7 @@ var _ = Describe("MigrateReadField", func() {
 
 	It("Should keep the numeric kind and entries of a typed field with a time format",
 		func() {
-			old := storedField(telem.Uint8T, xpayload.EnumEntry{Label: "ON", Value: 1})
+			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
 			old.TimeFormat = new(xpayload.TimeFormatUnixSec)
 			f, changes := v2.MigrateReadField(old)
 			unsigned, ok := f.Variant.(v2.UnsignedReadField)
@@ -446,7 +446,7 @@ var _ = Describe("MigrateReadField", func() {
 	)
 
 	It("Should keep the entries of a default field with a time format", func() {
-		old := storedField("", xpayload.EnumEntry{Label: "ON", Value: 1})
+		old := storedField("", payload.EnumEntry{Label: "ON", Value: 1})
 		old.TimeFormat = new(xpayload.TimeFormatUnixSec)
 		f, changes := v2.MigrateReadField(old)
 		float, ok := f.Variant.(v2.FloatReadField)
@@ -534,8 +534,8 @@ var _ = Describe("NewReadMigration", func() {
 				Topic:         "plant/level",
 				Fields: []v1.ReadField{storedField(
 					telem.Float64T,
-					xpayload.EnumEntry{Label: "ON", Value: 1},
-					xpayload.EnumEntry{Label: "HALF", Value: 0.5},
+					payload.EnumEntry{Label: "ON", Value: 1},
+					payload.EnumEntry{Label: "HALF", Value: 0.5},
 				)},
 			}}},
 		}
@@ -680,7 +680,7 @@ var _ = Describe("NewReadMigration", func() {
 			"a numeric field with a time format and entries",
 			v2.Channel{Name: "state", DataType: telem.Uint8T},
 			func() v1.ReadField {
-				f := storedField("", xpayload.EnumEntry{Label: "ON", Value: 1})
+				f := storedField("", payload.EnumEntry{Label: "ON", Value: 1})
 				f.TimeFormat = new(xpayload.TimeFormatUnixSec)
 				return f
 			}(),

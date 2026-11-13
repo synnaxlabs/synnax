@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <charconv>
 #include <optional>
 #include <set>
 #include <type_traits>
@@ -24,20 +26,75 @@
 
 namespace driver::http {
 namespace {
-/// @brief parses an x::json::Type from its string form.
-/// @param str the type string ("number", "string", "boolean").
-/// @returns the parsed type paired with an error when the string is unknown.
-std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &str) {
-    if (str == ::x::payload::JSON_TYPE_NUMBER)
-        return {x::json::Type::Number, x::errors::NIL};
-    if (str == ::x::payload::JSON_TYPE_STRING)
-        return {x::json::Type::String, x::errors::NIL};
-    if (str == ::x::payload::JSON_TYPE_BOOLEAN)
-        return {x::json::Type::Boolean, x::errors::NIL};
-    return {
-        x::json::Type::Number,
-        x::errors::Error(x::errors::VALIDATION, "unknown JSON type '" + str + "'"),
+/// @brief parses the text of a string entry as a sample of a channel of the data type,
+/// as the sample it stands for: a number for a numeric or boolean channel, and the text
+/// itself otherwise.
+std::pair<x::telem::SampleValue, x::errors::Error>
+parse_text_entry(const std::string &text, const x::telem::DataType &dt) {
+    const auto kind = kind_of(dt);
+    const auto fail = [&] {
+        return std::pair<x::telem::SampleValue, x::errors::Error>{
+            x::telem::SampleValue{},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "\"" + text + "\" is not a " + dt.name() + " value"
+            ),
+        };
     };
+    if (kind == ::x::payload::KIND_FLOAT) {
+        double v = 0;
+        auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
+        if (ec != std::errc() || end != text.data() + text.size()) return fail();
+        return {v, x::errors::NIL};
+    }
+    if (kind == ::x::payload::KIND_INTEGER) {
+        int64_t v = 0;
+        auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
+        if (ec != std::errc() || end != text.data() + text.size()) return fail();
+        return {v, x::errors::NIL};
+    }
+    if (kind == ::x::payload::KIND_UNSIGNED || kind == ::x::payload::KIND_BOOLEAN) {
+        uint64_t v = 0;
+        auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
+        if (ec != std::errc() || end != text.data() + text.size()) return fail();
+        return {v, x::errors::NIL};
+    }
+    return {text, x::errors::NIL};
+}
+
+/// @brief returns the labels that a numeric or string channel field writes in place of
+/// the samples of a channel of the data type.
+std::pair<x::json::ReverseEnumMap, x::errors::Error>
+enums_of(const ::synnax::http::ChannelField &field, const x::telem::DataType &dt) {
+    x::json::ReverseEnumMap out;
+    if (const auto *f = std::get_if<::synnax::http::FloatChannelField>(&field))
+        for (const auto &e: f->enum_values)
+            out.emplace_back(e.value.value, e.label);
+    else if (const auto *f = std::get_if<::synnax::http::IntegerChannelField>(&field))
+        for (const auto &e: f->enum_values)
+            out.emplace_back(e.value.value, e.label);
+    else if (const auto *f = std::get_if<::synnax::http::UnsignedChannelField>(&field))
+        for (const auto &e: f->enum_values)
+            out.emplace_back(e.value.value, e.label);
+    else if (const auto *f = std::get_if<::synnax::http::StringChannelField>(&field))
+        for (const auto &e: f->enum_values) {
+            auto [v, err] = parse_text_entry(e.value, dt);
+            if (err) return {{}, err};
+            out.emplace_back(std::move(v), e.label);
+        }
+    return {std::move(out), x::errors::NIL};
+}
+
+/// @brief returns the kind that a channel field writes its samples as.
+std::string kind_of_field(const ::synnax::http::ChannelField &field) {
+    return std::visit([](const auto &f) { return f.type; }, field);
+}
+
+/// @brief returns the JSON type that a numeric, string, or boolean kind writes.
+x::json::Type json_type_of(const std::string &kind) {
+    if (kind == ::x::payload::KIND_STRING) return x::json::Type::String;
+    if (kind == ::x::payload::KIND_BOOLEAN) return x::json::Type::Boolean;
+    return x::json::Type::Number;
 }
 
 /// @brief returns the JSON value that a fixed write field places in every body, or
@@ -100,31 +157,17 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         validate_request(ep, parser);
 
         all_pointers.clear();
-        validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
-        all_pointers.insert(ep.channel.pointer);
-        if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
-            parser.field_err("endpoints.channel.json_type", type_err);
-        if (ep.channel.channel == 0)
+        const auto &channel = ::synnax::http::base(ep.channel);
+        validate_pointer(channel.pointer, parser, "endpoints.channel.pointer");
+        all_pointers.insert(channel.pointer);
+        if (channel.channel == 0)
             parser.field_err("endpoints.channel.channel", "this field is required");
-        if (ep.channel.time_format.has_value())
-            if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                    *ep.channel.time_format
-                );
+        if (const auto *ts = std::get_if<::synnax::http::TimestampChannelField>(
+                &ep.channel
+            ))
+            if (auto [fmt, fmt_err] = x::json::parse_time_format(ts->time_format);
                 fmt_err)
                 parser.field_err("endpoints.channel.time_format", fmt_err);
-        std::set<double> values;
-        for (const auto &entry: ep.channel.enum_values)
-            if (!values.insert(entry.value).second)
-                parser.field_err(
-                    "endpoints.channel.enum_values.value",
-                    "duplicate enum value " + x::json::json(entry.value).dump()
-                );
-        if (!ep.channel.enum_values.empty() &&
-            ep.channel.json_type != ::x::payload::JSON_TYPE_STRING)
-            parser.field_err(
-                "endpoints.channel.enum_values",
-                "enum values are only supported when json_type is 'string'"
-            );
 
         for (const auto &field: ep.fields) {
             const std::string *pointer = &::x::payload::base(field).pointer;
@@ -148,7 +191,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         }
 
         // Validate bare primitive: if channel pointer is root, no other fields.
-        if (ep.channel.pointer.empty() && !ep.fields.empty())
+        if (channel.pointer.empty() && !ep.fields.empty())
             parser.field_err(
                 "endpoints.channel",
                 "bare primitive body (root pointer) cannot have additional "
@@ -157,7 +200,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         if (!ep.disabled) {
             some_enabled = true;
-            cfg.cmd_keys.push_back(ep.channel.channel);
+            cfg.cmd_keys.push_back(channel.channel);
         }
     }
 
@@ -175,30 +218,30 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
     for (const auto &ep: cfg.endpoints) {
         if (ep.disabled) continue;
-        auto it = ch_map.find(ep.channel.channel);
+        const auto key = ::synnax::http::base(ep.channel).channel;
+        auto it = ch_map.find(key);
         if (it == ch_map.end()) {
             parser.field_err(
                 "endpoints",
-                "channel " + std::to_string(ep.channel.channel) + " not found"
+                "channel " + std::to_string(key) + " not found"
             );
             continue;
         }
         const auto &ch = it->second;
         cfg.cmd_names[ch.key] = ch.name;
-
-        // Timestamp channels encode by time_format, not json_type.
-        if (ch.data_type == x::telem::TIMESTAMP_T) continue;
-        if (auto conv_err = x::json::check_from_sample_value(
-                ch.data_type,
-                parse_json_type(ep.channel.json_type).first
-            );
-            conv_err) {
+        cfg.cmd_types[ch.key] = ch.data_type;
+        const auto kind = kind_of_field(ep.channel);
+        const auto kinds = channel_kinds(ch.data_type);
+        if (std::find(kinds.begin(), kinds.end(), kind) == kinds.end()) {
             parser.field_err(
-                "endpoints",
+                "endpoints.channel.type",
                 "channel " + ch.name + " (type " + ch.data_type.name() +
-                    ") cannot be converted to the specified JSON type"
+                    ") cannot be written as " + kind
             );
+            continue;
         }
+        if (auto [_, enum_err] = enums_of(ep.channel, ch.data_type); enum_err)
+            parser.field_err("endpoints.channel.enum_values", enum_err);
     }
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -220,16 +263,22 @@ WriteTaskSink::WriteTaskSink(
         const auto &ep = this->cfg.endpoints[i];
         Endpoint state;
         state.method = parse_method(ep.method).first;
-        state.pointer = x::json::json::json_pointer(ep.channel.pointer);
-        state.json_type = parse_json_type(ep.channel.json_type).first;
-        if (ep.channel.time_format.has_value())
-            if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                    *ep.channel.time_format
-                );
-                !fmt_err)
-                state.time_format = fmt;
-        for (const auto &entry: ep.channel.enum_values)
-            state.enum_values.emplace_back(entry.value, entry.label);
+        const auto &channel = ::synnax::http::base(ep.channel);
+        state.pointer = x::json::json::json_pointer(channel.pointer);
+        state.kind = kind_of_field(ep.channel);
+        state.json_type = json_type_of(state.kind);
+        if (const auto *ts = std::get_if<::synnax::http::TimestampChannelField>(
+                &ep.channel
+            ))
+            state.time_format = x::json::parse_time_format(ts->time_format).first;
+        if (const auto *b = std::get_if<::synnax::http::BooleanChannelField>(
+                &ep.channel
+            ))
+            for (const auto &e: b->enum_values)
+                state.boolean_labels.emplace_back(e.value, e.label);
+        if (const auto dt = this->cfg.cmd_types.find(channel.channel);
+            dt != this->cfg.cmd_types.end())
+            state.enum_values = enums_of(ep.channel, dt->second).first;
         for (const auto &field: ep.fields) {
             const auto pointer = x::json::json::json_pointer(
                 ::x::payload::base(field).pointer
@@ -249,7 +298,7 @@ WriteTaskSink::WriteTaskSink(
             }
             state.generated_fields.push_back(std::move(gen_field));
         }
-        if (!ep.disabled) this->channel_to_endpoint[ep.channel.channel] = i;
+        if (!ep.disabled) this->channel_to_endpoint[channel.channel] = i;
         this->endpoints.push_back(std::move(state));
     }
 }
@@ -278,6 +327,28 @@ WriteTaskSink::build_body(const Endpoint &ep, const x::json::json &sample_val) {
     return body.dump();
 }
 
+std::pair<x::json::json, x::errors::Error>
+WriteTaskSink::encode(const Endpoint &ep, const x::telem::Series &series) {
+    if (ep.kind == ::x::payload::KIND_JSON || ep.kind == ::x::payload::KIND_UUID ||
+        ep.kind == ::x::payload::KIND_BYTES)
+        return x::json::from_series(series, -1);
+    const auto sample = series.at(-1);
+    if (ep.kind == ::x::payload::KIND_TIMESTAMP) {
+        const auto *ts = std::get_if<x::telem::TimeStamp>(&sample);
+        if (ts == nullptr) return {x::json::json(), x::json::CONVERSION_ERROR};
+        return {x::json::from_timestamp(*ts, ep.time_format), x::errors::NIL};
+    }
+    if (ep.kind == ::x::payload::KIND_BOOLEAN) {
+        auto [value, err] = x::json::from_sample_value(sample, x::json::Type::Boolean);
+        if (err) return {std::move(value), err};
+        for (const auto &[v, label]: ep.boolean_labels)
+            if (v == value.get<bool>()) return {x::json::json(label), x::errors::NIL};
+        return {std::move(value), x::errors::NIL};
+    }
+    const auto *enums = ep.enum_values.empty() ? nullptr : &ep.enum_values;
+    return x::json::from_sample_value(sample, ep.json_type, enums);
+}
+
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     struct PendingRequest {
         Request request;
@@ -294,30 +365,17 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         const auto ep_idx = it->second;
         const auto &ep = this->endpoints[ep_idx];
 
-        const auto sample_val = series.at(-1);
-
-        x::json::json json_val;
-        if (const auto *ts = std::get_if<x::telem::TimeStamp>(&sample_val)) {
-            json_val = x::json::from_timestamp(*ts, ep.time_format);
-        } else {
-            const auto *enum_ptr = ep.enum_values.empty() ? nullptr : &ep.enum_values;
-            auto [val, conv_err] = x::json::from_sample_value(
-                sample_val,
-                ep.json_type,
-                enum_ptr
+        auto [json_val, conv_err] = encode(ep, series);
+        if (conv_err) {
+            const auto reason = conv_err.data.empty()
+                                  ? "the value has no JSON form for the field"
+                                  : conv_err.data;
+            skipped.push_back(
+                "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
+                ". Did not send " + to_string(ep.method) + " " +
+                base_requests[ep_idx].url + ". Write a finite number."
             );
-            if (conv_err) {
-                const auto reason = conv_err.data.empty()
-                                      ? "the value has no JSON form for the field"
-                                      : conv_err.data;
-                skipped.push_back(
-                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
-                    ". Did not send " + to_string(ep.method) + " " +
-                    base_requests[ep_idx].url + ". Write a finite number."
-                );
-                continue;
-            }
-            json_val = std::move(val);
+            continue;
         }
 
         auto req = base_requests[ep_idx];

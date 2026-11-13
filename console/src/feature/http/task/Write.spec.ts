@@ -65,12 +65,12 @@ const addEndpoint = async (): Promise<void> => {
 const createWriteEndpoint = (
   key: string,
   path: string,
-  channel: Partial<HTTP.Task.ChannelField> = {},
+  channel: Partial<http.BaseChannelField> = {},
 ): HTTP.Task.WriteEndpoint => ({
   ...HTTP.Task.writeEndpointZ.parse({}),
   key,
   path,
-  channel: { ...http.channelFieldZ.parse({}), pointer: "/value", ...channel },
+  channel: http.channelFieldZ.parse({ type: "float", pointer: "/value", ...channel }),
 });
 
 const createWriteConfig = (

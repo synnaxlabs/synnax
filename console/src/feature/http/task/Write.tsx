@@ -9,14 +9,16 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, type http } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { Synnax } from "@synnaxlabs/pluto";
+import { type DataType, deep, id, type payload, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
@@ -24,6 +26,7 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
+  type ChannelField,
   deployWriteConfigZ,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -104,6 +107,50 @@ const endpointItem = Component.renderProp(EndpointItem);
 
 const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
+/** Returns field written as kind, with the defaults of kind. */
+const asKind = (field: ChannelField, kind: payload.Kind): ChannelField =>
+  http.channelFieldZ.parse({
+    pointer: field.pointer,
+    channel: field.channel,
+    name: field.name,
+    dataType: field.dataType,
+    type: kind,
+    ...(kind === "timestamp" ? { timeFormat: "iso8601" } : {}),
+  });
+
+/** A command channel can hold any data type a body writes. */
+const NO_HIDDEN_DATA_TYPES: DataType[] = [];
+
+const POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
+
+const ChannelSections: FC<{ path: deep.Path<WriteEndpoint> }> = ({ path }) => {
+  const field = PForm.useFieldValue(path.channel);
+  const dataType = Task.Payload.useDataType(field.channel, field.dataType);
+  return (
+    <>
+      <PForm.Section title="Channel">
+        <Task.Payload.DataTypeField
+          path={deep.present(path.channel.dataType)}
+          channel={field.channel}
+          hideDataTypes={NO_HIDDEN_DATA_TYPES}
+        />
+        <PForm.TextField
+          path={path.channel.pointer}
+          label="Pointer"
+          padHelpText={false}
+          inputProps={POINTER_INPUT_PROPS}
+        />
+        <Task.Payload.KindFields
+          path={path.channel}
+          dataType={dataType}
+          asKind={asKind}
+        />
+      </PForm.Section>
+      <Task.Payload.EntriesSection path={path.channel} />
+    </>
+  );
+};
+
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = root.config.endpoints[epKey];
   return (
@@ -134,7 +181,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             valuePlaceholder="application/json"
           />
         </PForm.Section>
-        <Task.Payload.ChannelSections path={path.channel} pointerPlaceholder="/value" />
+        <ChannelSections path={path} />
         <Task.Payload.AdditionalFields key={epKey} path={path.fields} />
       </PForm.Sections>
     </Flex.Box>
@@ -143,7 +190,11 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
 
-const createEndpoint = (): WriteEndpoint => writeEndpointZ.parse({});
+/** The data type of the command channel of a new endpoint. */
+const DEFAULT_DATA_TYPE = "float64";
+
+const createEndpoint = (): WriteEndpoint =>
+  writeEndpointZ.parse({ channel: { type: "float", dataType: DEFAULT_DATA_TYPE } });
 
 const duplicateEndpoints = (
   endpoints: WriteEndpoint[],
@@ -161,6 +212,36 @@ const duplicateEndpoints = (
 const Form: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const dev = useFromConfig();
+  const client = Synnax.use();
+  const { get, set } = PForm.useContext();
+  const handleError = Status.useErrorHandler();
+
+  // The Core clears the data type of an endpoint with a channel, so a copy, which gets
+  // a new channel, reads the data type of the channel it copies. The read sets the data
+  // type only while the copy still holds the one it started with.
+  const handleDuplicate = (all: WriteEndpoint[], keys: string[]): WriteEndpoint[] => {
+    const copies = duplicateEndpoints(all, keys);
+    const sources = all.filter(({ key }) => keys.includes(key));
+    copies.forEach((copy, i) => {
+      const key = sources[i].channel.channel;
+      if (key === 0) return;
+      const initial = copy.channel.dataType;
+      const path = root.config.endpoints[copy.key];
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const ch = await client.channels.retrieve(key);
+        const current = get(path, { optional: true })?.value;
+        if (
+          current == null ||
+          current.channel.channel !== 0 ||
+          current.channel.dataType !== initial
+        )
+          return;
+        set(path.channel.dataType, ch.dataType.toString());
+      }, "Failed to copy the data type of the command channel");
+    });
+    return copies;
+  };
   const resolve = (ep: WriteEndpoint) =>
     dev == null
       ? null
@@ -176,7 +257,7 @@ const Form: FC = () => {
           emptyContent={EMPTY_ENDPOINTS}
           addLabel="Add endpoint"
           createChannel={createEndpoint}
-          createChannels={duplicateEndpoints}
+          createChannels={handleDuplicate}
           listItem={endpointItem}
           contextMenuItems={Task.readChannelContextMenuItem}
           resolve={resolve}

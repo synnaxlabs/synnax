@@ -39,19 +39,6 @@ bool is_absent(
            value.get_ref<const std::string &>().empty();
 }
 
-/// @brief returns the kind of read field that a channel of the data type takes.
-std::string kind_of(const x::telem::DataType &dt) {
-    if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
-        return x::payload::KIND_FLOAT;
-    if (dt == x::telem::INT8_T || dt == x::telem::INT16_T || dt == x::telem::INT32_T ||
-        dt == x::telem::INT64_T)
-        return x::payload::KIND_INTEGER;
-    if (dt == x::telem::UINT8_T || dt == x::telem::UINT16_T ||
-        dt == x::telem::UINT32_T || dt == x::telem::UINT64_T)
-        return x::payload::KIND_UNSIGNED;
-    return dt.name();
-}
-
 /// @brief returns the data type that x::json converts a value of the channel to. It
 /// converts no boolean, so a boolean reads as a uint8 that casts to 0 or 1.
 x::telem::DataType conversion_type(const x::telem::DataType &dt) {

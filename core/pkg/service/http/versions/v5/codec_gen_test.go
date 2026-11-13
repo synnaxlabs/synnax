@@ -20,13 +20,18 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
 	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
+	fullyPopulatedBaseChannelField = v5.BaseChannelField{
+		Pointer:  "test_1",
+		Channel:  channel.Key(3),
+		Name:     "test_3",
+		DataType: new(telem.DataType("test_4")),
+	}
 	fullyPopulatedBaseReadField = v5.BaseReadField{
 		Key:      "test_1",
 		Name:     "test_2",
@@ -64,6 +69,26 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("BaseChannelField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.BaseChannelField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.BaseChannelField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseChannelField),
+			Entry("zero values", v5.BaseChannelField{
+				Pointer:  "",
+				Channel:  channel.Key(0),
+				Name:     "",
+				DataType: nil,
+			}),
+		)
+	})
 	Describe("BaseReadField", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.BaseReadField) {
@@ -83,6 +108,46 @@ var _ = Describe("Codec", func() {
 				Channel:  channel.Key(0),
 				Pointer:  "",
 			}),
+		)
+	})
+	Describe("ChannelField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.ChannelField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.ChannelField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("float variant", v5.ChannelField{Variant: v5.FloatChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+			}}),
+			Entry("integer variant", v5.ChannelField{Variant: v5.IntegerChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
+			}}),
+			Entry("unsigned variant", v5.ChannelField{Variant: v5.UnsignedChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
+			}}),
+			Entry("string variant", v5.ChannelField{Variant: v5.StringChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
+			}}),
+			Entry("boolean variant", v5.ChannelField{Variant: v5.BooleanChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.BooleanEntry{{Label: "test_2", Value: true}},
+			}}),
+			Entry("timestamp variant", v5.ChannelField{Variant: v5.TimestampChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				TimeFormat:       payload.TimeFormat("iso8601"),
+			}}),
+			Entry("json variant", v5.ChannelField{Variant: v5.JsonChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}),
+			Entry("uuid variant", v5.ChannelField{Variant: v5.UuidChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}),
+			Entry("bytes variant", v5.ChannelField{Variant: v5.BytesChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}),
 		)
 	})
 	Describe("ReadConfig", func() {
@@ -252,19 +317,14 @@ var _ = Describe("Codec", func() {
 						Path:        "test_8",
 						Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 						QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
-						Channel: v5.ChannelField{
-							Pointer:    "test_16",
-							JSONType:   payloadv0.JSONType("number"),
-							Channel:    channel.Key(19),
-							Name:       "test_19",
-							DataType:   telem.DataType("test_20"),
-							TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-							EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
-						},
+						Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+							BaseChannelField: fullyPopulatedBaseChannelField,
+							EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
+						}},
 						Fields: []payload.WriteField{
 							{Variant: payload.FloatWriteField{
-								BaseWriteField: payload.BaseWriteField{Key: "test_26", Pointer: "test_27"},
-								Value:          payload.Float(28.5),
+								BaseWriteField: payload.BaseWriteField{Key: "test_20", Pointer: "test_21"},
+								Value:          payload.Float(22.5),
 							}},
 						},
 					},
@@ -302,19 +362,14 @@ var _ = Describe("Codec", func() {
 				Path:        "test_4",
 				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
-				Channel: v5.ChannelField{
-					Pointer:    "test_12",
-					JSONType:   payloadv0.JSONType("number"),
-					Channel:    channel.Key(15),
-					Name:       "test_15",
-					DataType:   telem.DataType("test_16"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
-				},
+				Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+					BaseChannelField: fullyPopulatedBaseChannelField,
+					EnumValues:       []payload.FloatEntry{{Label: "test_13", Value: payload.Float(14.5)}},
+				}},
 				Fields: []payload.WriteField{
 					{Variant: payload.FloatWriteField{
-						BaseWriteField: payload.BaseWriteField{Key: "test_22", Pointer: "test_23"},
-						Value:          payload.Float(24.5),
+						BaseWriteField: payload.BaseWriteField{Key: "test_16", Pointer: "test_17"},
+						Value:          payload.Float(18.5),
 					}},
 				},
 			}),
@@ -325,15 +380,15 @@ var _ = Describe("Codec", func() {
 				Path:        "",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
-				Channel: v5.ChannelField{
-					Pointer:    "",
-					JSONType:   payloadv0.JSONType(""),
-					Channel:    channel.Key(0),
-					Name:       "",
-					DataType:   telem.DataType(""),
-					TimeFormat: nil,
-					EnumValues: []payloadv0.EnumEntry{},
-				},
+				Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+					BaseChannelField: v5.BaseChannelField{
+						Pointer:  "",
+						Channel:  channel.Key(0),
+						Name:     "",
+						DataType: nil,
+					},
+					EnumValues: []payload.FloatEntry{},
+				}},
 				Fields: []payload.WriteField{},
 			}),
 			Entry("empty collections", v5.WriteEndpoint{
@@ -343,20 +398,37 @@ var _ = Describe("Codec", func() {
 				Path:        "test_4",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
-				Channel: v5.ChannelField{
-					Pointer:    "test_8",
-					JSONType:   payloadv0.JSONType("number"),
-					Channel:    channel.Key(11),
-					Name:       "test_11",
-					DataType:   telem.DataType("test_12"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{},
-				},
+				Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+					BaseChannelField: v5.BaseChannelField{
+						Pointer:  "test_8",
+						Channel:  channel.Key(10),
+						Name:     "test_10",
+						DataType: new(telem.DataType("test_11")),
+					},
+					EnumValues: []payload.FloatEntry{},
+				}},
 				Fields: []payload.WriteField{},
 			}),
 		)
 	})
 })
+
+func BenchmarkEncodeDecodeBaseChannelField(b *testing.B) {
+	seed := fullyPopulatedBaseChannelField
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.BaseChannelField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeBaseReadField(b *testing.B) {
 	seed := fullyPopulatedBaseReadField
@@ -368,6 +440,26 @@ func BenchmarkEncodeDecodeBaseReadField(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v5.BaseReadField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeChannelField(b *testing.B) {
+	seed := v5.ChannelField{Variant: v5.FloatChannelField{
+		BaseChannelField: fullyPopulatedBaseChannelField,
+		EnumValues:       []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.ChannelField
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -480,19 +572,14 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				Path:        "test_8",
 				Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
-				Channel: v5.ChannelField{
-					Pointer:    "test_16",
-					JSONType:   payloadv0.JSONType("number"),
-					Channel:    channel.Key(19),
-					Name:       "test_19",
-					DataType:   telem.DataType("test_20"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
-				},
+				Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+					BaseChannelField: fullyPopulatedBaseChannelField,
+					EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
+				}},
 				Fields: []payload.WriteField{
 					{Variant: payload.FloatWriteField{
-						BaseWriteField: payload.BaseWriteField{Key: "test_26", Pointer: "test_27"},
-						Value:          payload.Float(28.5),
+						BaseWriteField: payload.BaseWriteField{Key: "test_20", Pointer: "test_21"},
+						Value:          payload.Float(22.5),
 					}},
 				},
 			},
@@ -521,19 +608,14 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 		Path:        "test_4",
 		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
-		Channel: v5.ChannelField{
-			Pointer:    "test_12",
-			JSONType:   payloadv0.JSONType("number"),
-			Channel:    channel.Key(15),
-			Name:       "test_15",
-			DataType:   telem.DataType("test_16"),
-			TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-			EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
-		},
+		Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.FloatEntry{{Label: "test_13", Value: payload.Float(14.5)}},
+		}},
 		Fields: []payload.WriteField{
 			{Variant: payload.FloatWriteField{
-				BaseWriteField: payload.BaseWriteField{Key: "test_22", Pointer: "test_23"},
-				Value:          payload.Float(24.5),
+				BaseWriteField: payload.BaseWriteField{Key: "test_16", Pointer: "test_17"},
+				Value:          payload.Float(18.5),
 			}},
 		},
 	}
@@ -550,6 +632,50 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeBaseChannelField(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseChannelField
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.BaseChannelField{
+			Pointer:  "",
+			Channel:  channel.Key(0),
+			Name:     "",
+			DataType: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.BaseChannelField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.BaseChannelField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeBaseReadField(f *testing.F) {
@@ -587,6 +713,119 @@ func FuzzDecodeBaseReadField(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v5.BaseReadField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeChannelField(f *testing.F) {
+	{
+		seed := v5.ChannelField{Variant: v5.FloatChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.IntegerChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.UnsignedChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.StringChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.BooleanChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			EnumValues:       []payload.BooleanEntry{{Label: "test_2", Value: true}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.TimestampChannelField{
+			BaseChannelField: fullyPopulatedBaseChannelField,
+			TimeFormat:       payload.TimeFormat("iso8601"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.JsonChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.UuidChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ChannelField{Variant: v5.BytesChannelField{BaseChannelField: fullyPopulatedBaseChannelField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.ChannelField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.ChannelField
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -890,19 +1129,14 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					Path:        "test_8",
 					Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 					QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
-					Channel: v5.ChannelField{
-						Pointer:    "test_16",
-						JSONType:   payloadv0.JSONType("number"),
-						Channel:    channel.Key(19),
-						Name:       "test_19",
-						DataType:   telem.DataType("test_20"),
-						TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-						EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
-					},
+					Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+						BaseChannelField: fullyPopulatedBaseChannelField,
+						EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
+					}},
 					Fields: []payload.WriteField{
 						{Variant: payload.FloatWriteField{
-							BaseWriteField: payload.BaseWriteField{Key: "test_26", Pointer: "test_27"},
-							Value:          payload.Float(28.5),
+							BaseWriteField: payload.BaseWriteField{Key: "test_20", Pointer: "test_21"},
+							Value:          payload.Float(22.5),
 						}},
 					},
 				},
@@ -971,19 +1205,14 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			Path:        "test_4",
 			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
-			Channel: v5.ChannelField{
-				Pointer:    "test_12",
-				JSONType:   payloadv0.JSONType("number"),
-				Channel:    channel.Key(15),
-				Name:       "test_15",
-				DataType:   telem.DataType("test_16"),
-				TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-				EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
-			},
+			Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+				BaseChannelField: fullyPopulatedBaseChannelField,
+				EnumValues:       []payload.FloatEntry{{Label: "test_13", Value: payload.Float(14.5)}},
+			}},
 			Fields: []payload.WriteField{
 				{Variant: payload.FloatWriteField{
-					BaseWriteField: payload.BaseWriteField{Key: "test_22", Pointer: "test_23"},
-					Value:          payload.Float(24.5),
+					BaseWriteField: payload.BaseWriteField{Key: "test_16", Pointer: "test_17"},
+					Value:          payload.Float(18.5),
 				}},
 			},
 		}
@@ -1001,15 +1230,15 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			Path:        "",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},
-			Channel: v5.ChannelField{
-				Pointer:    "",
-				JSONType:   payloadv0.JSONType(""),
-				Channel:    channel.Key(0),
-				Name:       "",
-				DataType:   telem.DataType(""),
-				TimeFormat: nil,
-				EnumValues: []payloadv0.EnumEntry{},
-			},
+			Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+				BaseChannelField: v5.BaseChannelField{
+					Pointer:  "",
+					Channel:  channel.Key(0),
+					Name:     "",
+					DataType: nil,
+				},
+				EnumValues: []payload.FloatEntry{},
+			}},
 			Fields: []payload.WriteField{},
 		}
 		w := orc.NewWriter(0)
@@ -1026,15 +1255,15 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			Path:        "test_4",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},
-			Channel: v5.ChannelField{
-				Pointer:    "test_8",
-				JSONType:   payloadv0.JSONType("number"),
-				Channel:    channel.Key(11),
-				Name:       "test_11",
-				DataType:   telem.DataType("test_12"),
-				TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-				EnumValues: []payloadv0.EnumEntry{},
-			},
+			Channel: v5.ChannelField{Variant: v5.FloatChannelField{
+				BaseChannelField: v5.BaseChannelField{
+					Pointer:  "test_8",
+					Channel:  channel.Key(10),
+					Name:     "test_10",
+					DataType: new(telem.DataType("test_11")),
+				},
+				EnumValues: []payload.FloatEntry{},
+			}},
 			Fields: []payload.WriteField{},
 		}
 		w := orc.NewWriter(0)

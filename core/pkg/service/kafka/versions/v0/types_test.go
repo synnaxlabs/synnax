@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
-	"github.com/synnaxlabs/x/payload"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 

@@ -201,12 +201,13 @@ sy.http.FloatReadField(pointer="/flow", channel=flow_ch.key, fill=float("nan"))
 
 ### Channel field
 
-Each write endpoint has one channel field that provides the dynamic value:
+Each write endpoint has one channel field that provides the dynamic value. The class
+sets how each sample is written, such as `FloatChannelField`, `StringChannelField`, or
+`BooleanChannelField`:
 
 ```python
-sy.http.ChannelField(
+sy.http.FloatChannelField(
     pointer="/value",  # Where to place the value in the request body
-    json_type="number",  # JSON type: "number", "string", "boolean"
     channel=cmd_ch.key,
 )
 ```

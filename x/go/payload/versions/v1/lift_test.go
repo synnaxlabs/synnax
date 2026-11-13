@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v0 "github.com/synnaxlabs/x/payload/versions/v0"
 	v1 "github.com/synnaxlabs/x/payload/versions/v1"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -57,7 +58,7 @@ var _ = Describe("Lift", func() {
 	DescribeTable(
 		"LiftGeneratedWriteField should lift a known generator",
 		func(
-			generator v1.GeneratorType,
+			generator v0.GeneratorType,
 			format *v1.TimeFormat,
 			expected v1.WriteFieldVariant,
 		) {
@@ -67,16 +68,16 @@ var _ = Describe("Lift", func() {
 		},
 		Entry(
 			"uuid",
-			v1.GeneratorTypeUUID,
+			v0.GeneratorTypeUUID,
 			nil,
 			v1.UuidWriteField{BaseWriteField: base},
 		),
-		Entry("timestamp with no time format", v1.GeneratorTypeTimestamp, nil,
+		Entry("timestamp with no time format", v0.GeneratorTypeTimestamp, nil,
 			v1.TimestampWriteField{
 				BaseWriteField: base,
 				TimeFormat:     v1.TimeFormatISO8601,
 			}),
-		Entry("timestamp with a time format", v1.GeneratorTypeTimestamp,
+		Entry("timestamp with a time format", v0.GeneratorTypeTimestamp,
 			new(v1.TimeFormatUnixUs),
 			v1.TimestampWriteField{
 				BaseWriteField: base,

@@ -123,39 +123,6 @@ inline x::json::json ReadConfig::to_json() const {
     return j;
 }
 
-inline ChannelField ChannelField::parse(x::json::Parser parser) {
-    return ChannelField{
-        .pointer = parser.field<std::string>("pointer", ""),
-        .json_type = parser.field<std::string>("json_type", "number"),
-        .channel = parser.field<::synnax::channel::Key>(
-            "channel",
-            ::synnax::channel::Key(0)
-        ),
-        .name = parser.field<std::string>("name", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float64")
-        ),
-        .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
-            "enum_values",
-            std::vector<::x::payload::EnumEntry>{}
-        ),
-    };
-}
-
-inline x::json::json ChannelField::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["pointer"] = this->pointer;
-    j["json_type"] = this->json_type;
-    j["channel"] = this->channel;
-    j["name"] = this->name;
-    j["data_type"] = this->data_type;
-    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    return j;
-}
-
 inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
     return WriteEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -167,7 +134,8 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
             "query_params",
             std::vector<QueryParam>{}
         ),
-        .channel = parser.field<ChannelField>("channel", ChannelField{}),
+        .channel = parser.has("channel") ? parse_channel_field(parser.child("channel"))
+                                         : ChannelField{FloatChannelField{}},
         .fields = [&] {
             std::vector<::x::payload::WriteField> result;
             if (parser.has("fields"))
@@ -187,7 +155,7 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
     j["query_params"] = x::json::to_array(this->query_params);
-    j["channel"] = this->channel.to_json();
+    j["channel"] = ::synnax::http::to_json(this->channel);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->fields)
@@ -254,6 +222,27 @@ inline x::json::json BaseReadField::to_json() const {
     j["disabled"] = this->disabled;
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
+    return j;
+}
+
+inline BaseChannelField BaseChannelField::parse(x::json::Parser parser) {
+    return BaseChannelField{
+        .pointer = parser.field<std::string>("pointer", ""),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
+        .name = parser.field<std::string>("name", ""),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
+    };
+}
+
+inline x::json::json BaseChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["pointer"] = this->pointer;
+    j["channel"] = this->channel;
+    j["name"] = this->name;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
     return j;
 }
 
@@ -422,6 +411,168 @@ inline x::json::json BytesReadField::to_json() const {
     return j;
 }
 
+inline FloatChannelField FloatChannelField::parse(x::json::Parser parser) {
+    FloatChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.enum_values = parser.field<std::vector<::x::payload::FloatEntry>>(
+        "enum_values",
+        std::vector<::x::payload::FloatEntry>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FloatChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["enum_values"] = x::json::to_array(this->enum_values);
+    j["type"] = this->type;
+    return j;
+}
+
+inline IntegerChannelField IntegerChannelField::parse(x::json::Parser parser) {
+    IntegerChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.enum_values = parser.field<std::vector<::x::payload::IntegerEntry>>(
+        "enum_values",
+        std::vector<::x::payload::IntegerEntry>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json IntegerChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["enum_values"] = x::json::to_array(this->enum_values);
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnsignedChannelField UnsignedChannelField::parse(x::json::Parser parser) {
+    UnsignedChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.enum_values = parser.field<std::vector<::x::payload::UnsignedEntry>>(
+        "enum_values",
+        std::vector<::x::payload::UnsignedEntry>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnsignedChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["enum_values"] = x::json::to_array(this->enum_values);
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringChannelField StringChannelField::parse(x::json::Parser parser) {
+    StringChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.enum_values = parser.field<std::vector<::x::payload::StringEntry>>(
+        "enum_values",
+        std::vector<::x::payload::StringEntry>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["enum_values"] = x::json::to_array(this->enum_values);
+    j["type"] = this->type;
+    return j;
+}
+
+inline BooleanChannelField BooleanChannelField::parse(x::json::Parser parser) {
+    BooleanChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.enum_values = parser.field<std::vector<::x::payload::BooleanEntry>>(
+        "enum_values",
+        std::vector<::x::payload::BooleanEntry>{}
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BooleanChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["enum_values"] = x::json::to_array(this->enum_values);
+    j["type"] = this->type;
+    return j;
+}
+
+inline TimestampChannelField TimestampChannelField::parse(x::json::Parser parser) {
+    TimestampChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.time_format = parser.field<std::string>("time_format");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TimestampChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["time_format"] = this->time_format;
+    j["type"] = this->type;
+    return j;
+}
+
+inline JsonChannelField JsonChannelField::parse(x::json::Parser parser) {
+    JsonChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json JsonChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline UuidChannelField UuidChannelField::parse(x::json::Parser parser) {
+    UuidChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UuidChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline BytesChannelField BytesChannelField::parse(x::json::Parser parser) {
+    BytesChannelField result;
+    static_cast<BaseChannelField &>(result) = BaseChannelField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BytesChannelField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseChannelField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
 inline ReadField parse_read_field(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "float") return FloatReadField::parse(parser);
@@ -438,6 +589,25 @@ inline ReadField parse_read_field(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const ReadField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ChannelField parse_channel_field(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "float") return FloatChannelField::parse(parser);
+    if (discriminator == "integer") return IntegerChannelField::parse(parser);
+    if (discriminator == "unsigned") return UnsignedChannelField::parse(parser);
+    if (discriminator == "string") return StringChannelField::parse(parser);
+    if (discriminator == "boolean") return BooleanChannelField::parse(parser);
+    if (discriminator == "timestamp") return TimestampChannelField::parse(parser);
+    if (discriminator == "json") return JsonChannelField::parse(parser);
+    if (discriminator == "uuid") return UuidChannelField::parse(parser);
+    if (discriminator == "bytes") return BytesChannelField::parse(parser);
+    parser.field_err("type", "unknown ChannelField type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ChannelField &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

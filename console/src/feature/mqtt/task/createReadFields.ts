@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, payload } from "@synnaxlabs/x";
+import { DataType, type payload } from "@synnaxlabs/x";
 
 import {
   type BrowsedField,
   createReadField,
   type ReadField,
+  type ScalarType,
+  scalarTypeZ,
 } from "@/feature/mqtt/task/types";
 import { Task } from "@/platform/task";
 
-const DATA_TYPES: Record<payload.JSONType, string> = {
+const DATA_TYPES: Record<ScalarType, string> = {
   number: DataType.FLOAT64.toString(),
   boolean: DataType.UINT8.toString(),
   string: DataType.STRING.toString(),
@@ -37,7 +39,7 @@ export const createReadFields = (scalars: BrowsedField[]): ReadField[] => {
   return fields.map((f) => ({ ...f, disabled: isVariable(f) }));
 };
 
-const KINDS: Record<payload.JSONType, payload.Kind> = {
+const KINDS: Record<ScalarType, payload.Kind> = {
   number: "float",
   boolean: "boolean",
   string: "string",
@@ -49,7 +51,7 @@ const KINDS: Record<payload.JSONType, payload.Kind> = {
  */
 export const kindOf = (field: ReadField): payload.Kind => {
   const dataType = Task.Payload.dataTypeOf(field);
-  const type = payload.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
+  const type = scalarTypeZ.options.find((t) => DATA_TYPES[t] === dataType);
   if (type == null) throw new Error(`No JSON sample gives a ${dataType} field`);
   return KINDS[type];
 };

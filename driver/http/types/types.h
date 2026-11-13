@@ -18,6 +18,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/telem.h"
 
@@ -227,4 +228,28 @@ template<typename Endpoint>
     return req;
 }
 
+/// @brief returns the kind of the field that reads a channel of the data type, which is
+/// also the first kind a channel field may write it as.
+inline std::string kind_of(const x::telem::DataType &dt) {
+    if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
+        return x::payload::KIND_FLOAT;
+    if (dt == x::telem::INT8_T || dt == x::telem::INT16_T || dt == x::telem::INT32_T ||
+        dt == x::telem::INT64_T)
+        return x::payload::KIND_INTEGER;
+    if (dt == x::telem::UINT8_T || dt == x::telem::UINT16_T ||
+        dt == x::telem::UINT32_T || dt == x::telem::UINT64_T)
+        return x::payload::KIND_UNSIGNED;
+    return dt.name();
+}
+
+/// @brief returns the kinds a channel field may write a channel of the data type as.
+inline std::vector<std::string> channel_kinds(const x::telem::DataType &dt) {
+    const auto kind = kind_of(dt);
+    if (kind == x::payload::KIND_BOOLEAN)
+        return {kind, x::payload::KIND_UNSIGNED, x::payload::KIND_STRING};
+    if (kind == x::payload::KIND_FLOAT || kind == x::payload::KIND_INTEGER ||
+        kind == x::payload::KIND_UNSIGNED)
+        return {kind, x::payload::KIND_STRING, x::payload::KIND_BOOLEAN};
+    return {kind};
+}
 }

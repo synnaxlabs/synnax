@@ -81,10 +81,94 @@ ReadEndpoint struct extends v4.ReadEndpoint {}
 
 ReadConfig struct extends v4.ReadConfig {}
 
-ChannelField = v4.ChannelField
+BaseChannelField struct {
+    pointer   string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the body. An empty
+            pointer sends the bare value as the entire body, in which case the endpoint
+            may not declare any additional fields.
+        """
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the Synnax command channel that triggers the request."
+    }
+    name      string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+    }
+
+    @doc value  "carries the fields every command channel field shares."
+    @go marshal
+}
+
+ChannelField union on type payload.Kind extends BaseChannelField {
+    float {
+        enum_values payload.FloatEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    integer {
+        enum_values payload.IntegerEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    unsigned {
+        enum_values payload.UnsignedEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    string {
+        enum_values payload.StringEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON string."
+    }
+    boolean {
+        enum_values payload.BooleanEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON boolean."
+    }
+    timestamp {
+        time_format payload.TimeFormat {
+            @doc value "is the encoding of each sample."
+        }
+
+        @doc value "writes each sample of a timestamp channel in a time format."
+    }
+    json {
+        @doc value "writes each sample of a JSON channel as its JSON value."
+    }
+    uuid {
+        @doc value "writes each sample of a UUID channel as a JSON string."
+    }
+    bytes {
+        @doc value "writes each sample of a bytes channel as a base64 JSON string."
+    }
+
+    @doc value  """
+        is the command channel value placed into the body of a write endpoint. The type
+        selects the JSON value of each sample. A sample that matches an entry of
+        enum_values is written as the entry's label.
+    """
+    @go marshal
+}
 
 WriteEndpoint struct extends v4.WriteEndpoint {
-    fields payload.WriteField[] {
+    channel ChannelField = float {
+        @doc value "is the command channel whose writes trigger this endpoint."
+    }
+    fields  payload.WriteField[] {
         @doc value "contains additional fixed or generated body fields."
     }
 }

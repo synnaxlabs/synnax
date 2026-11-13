@@ -64,22 +64,6 @@ Kind = Literal[
     "bytes",
 ]
 
-JSON_TYPE_NUMBER: Literal["number"] = "number"
-
-JSON_TYPE_STRING: Literal["string"] = "string"
-
-JSON_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
-
-
-JSONType = Literal["number", "string", "boolean"]
-
-GENERATOR_TYPE_UUID: Literal["uuid"] = "uuid"
-
-GENERATOR_TYPE_TIMESTAMP: Literal["timestamp"] = "timestamp"
-
-
-GeneratorType = Literal["uuid", "timestamp"]
-
 
 class FloatEntry(BaseModel):
     """Maps a payload label to a float channel value.
@@ -169,19 +153,6 @@ class BaseWriteField(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class EnumEntry(BaseModel):
-    """Maps a string label in a payload to a numeric channel value for enum-style
-    parsing (e.g. "ON" -> 1, "OFF" -> 0).
-
-    Attributes:
-        label: Is the string label in the payload.
-        value: Is the numeric channel value the label maps to.
-    """
-
-    label: str = ""
-    value: float = 0
 
 
 class FloatRead(BaseModel):

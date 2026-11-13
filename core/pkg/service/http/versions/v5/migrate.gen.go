@@ -72,7 +72,6 @@ func autoMigrateWriteEndpoint(ctx context.Context, old v4.WriteEndpoint) (WriteE
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
-		Channel:     old.Channel,
 		Fields:      fields,
 	}, nil
 }

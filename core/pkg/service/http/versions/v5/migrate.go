@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -36,17 +37,111 @@ func MigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfig, e
 	return autoMigrateWriteConfig(ctx, old)
 }
 
-// MigrateWriteEndpoint lifts a v4 write endpoint to v5.
+// MigrateWriteEndpoint lifts a v4 write endpoint to v5. Its channel field lifts as
+// MigrateChannelField does.
 func MigrateWriteEndpoint(
 	ctx context.Context,
 	old v4.WriteEndpoint,
 ) (WriteEndpoint, error) {
-	return autoMigrateWriteEndpoint(ctx, old)
+	ep, err := autoMigrateWriteEndpoint(ctx, old)
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
+	ep.Channel = MigrateChannelField(old.Channel)
+	return ep, nil
+}
+
+// MigrateChannelField lifts a v4 channel field to v5 by its stored shape, without its
+// Synnax channel. The v4 Driver wrote a timestamp channel in its time format whatever
+// the JSON type, so a field with a channel and no entries whose data type is a
+// timestamp, or that has a time format, becomes a timestamp field in that format, ISO
+// 8601 when it has none. Its data type then names the kind its JSON type writes, for
+// the caller to fall back to when the channel holds no timestamps. A field with no
+// channel and a timestamp data type becomes a timestamp field the same way. Otherwise,
+// a boolean JSON type makes a boolean field, and a number a float field that keeps its
+// entries. A string makes a string field whose entries take the decimal text of their
+// values, so a numeric sample writes the same JSON string as in v4. An entry whose
+// value repeats an earlier one's drops, because v4 wrote the first label. The caller
+// reconciles the field against its channel, or against its data type when it has none.
+func MigrateChannelField(old v4.ChannelField) ChannelField {
+	jsonType := lo.CoalesceOrEmpty(old.JSONType, payload.JSONTypeNumber)
+	stored := lo.CoalesceOrEmpty(old.DataType, telem.Float64T)
+	dt := stored
+	base := BaseChannelField{
+		Pointer:  old.Pointer,
+		Channel:  old.Channel,
+		Name:     old.Name,
+		DataType: &dt,
+	}
+	entries := lo.UniqBy(old.EnumValues, func(e payload.EnumEntry) string {
+		return valueText(e.Value)
+	})
+	var c xpayload.Channel
+	switch {
+	case old.Channel != 0 && len(old.EnumValues) == 0 &&
+		(stored == telem.TimestampT || old.TimeFormat != nil):
+		dt = fallbackDataTypes[jsonType]
+		if jsonType == payload.JSONTypeNumber {
+			dt = lo.Ternary(stored == telem.TimestampT, telem.Float64T, stored)
+		}
+		c = xpayload.Channel{
+			Kind:       xpayload.KindTimestamp,
+			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
+		}
+	case old.Channel == 0 && stored == telem.TimestampT:
+		c = xpayload.Channel{
+			Kind:       xpayload.KindTimestamp,
+			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
+		}
+	case jsonType == payload.JSONTypeBoolean:
+		c = xpayload.Channel{Kind: xpayload.KindBoolean}
+	case jsonType == payload.JSONTypeString:
+		c = xpayload.Channel{
+			Kind: xpayload.KindString,
+			String: lo.Map(
+				entries,
+				func(e payload.EnumEntry, _ int) payload.StringEntry {
+					return payload.StringEntry{
+						Label: e.Label,
+						Value: valueText(e.Value),
+					}
+				},
+			),
+		}
+	default:
+		c = xpayload.Channel{
+			Kind: xpayload.KindFloat,
+			Float: lo.Map(
+				entries,
+				func(e payload.EnumEntry, _ int) payload.FloatEntry {
+					return payload.FloatEntry{
+						Label: e.Label,
+						Value: payload.Float(e.Value),
+					}
+				},
+			),
+		}
+	}
+	return newChannelField(base, c)
+}
+
+func valueText(v float64) string {
+	// -0 would format as "-0", which no unsigned channel parses.
+	if v == 0 {
+		v = 0
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// fallbackDataTypes holds the data type whose kind writes each v4 JSON type.
+var fallbackDataTypes = map[payload.JSONType]telem.DataType{
+	payload.JSONTypeString:  telem.StringT,
+	payload.JSONTypeBoolean: telem.BooleanT,
 }
 
 // MigrateWriteField lifts a v4 write field to a typed write field, as
-// payloadv1.LiftStaticWriteField and payloadv1.LiftGeneratedWriteField do. ok is false for
-// a field with an unknown generator, which no Driver ran, and for a null field.
+// payloadv1.LiftStaticWriteField and payloadv1.LiftGeneratedWriteField do. ok is false
+// for a field with an unknown generator, which no Driver ran, and for a null field.
 func MigrateWriteField(old v4.WriteField) (f payloadv1.WriteField, ok bool, err error) {
 	switch v := old.Variant.(type) {
 	case nil:
@@ -89,10 +184,7 @@ func migrateWriteEndpointFields(
 	return fields, nil
 }
 
-// WriteMigration lifts stored HTTP write task configs from v4 to v5.
-var WriteMigration = migrate.NewEntry("v62_http_typed_write_fields", MigrateWriteConfig)
-
-// Warn reports a lossy change to a read field.
+// Warn reports a change that a migration or a reconcile makes to a field.
 type Warn func(msg string, fields ...zap.Field)
 
 func ignore(string, ...zap.Field) {}

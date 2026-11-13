@@ -177,43 +177,64 @@ ReadConfig struct extends task.PersistConfig {
     @retrieve references
 }
 
-ChannelField struct {
-    pointer     string = "" {
-        @doc value """
-            is the JSON Pointer where the channel value is placed in the body. An empty
-            pointer sends the bare value as the entire body, in which case the endpoint
-            may not declare any additional fields.
-        """
+ChannelField union on type payload.Kind extends BaseChannelField {
+    float {
+        enum_values payload.FloatEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
     }
-    json_type   payload.JSONType = number {
-        @doc value "is the JSON type the channel value is serialized as."
+    integer {
+        enum_values payload.IntegerEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
     }
-    channel     channel.Key = 0 {
-        @doc value     "is the Synnax command channel that triggers the request."
-        @ref kind      use
-        @ref on_delete restrict
+    unsigned {
+        enum_values payload.UnsignedEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
     }
-    name        string = "" {
-        @doc value "is the human-readable name of the command channel."
+    string {
+        enum_values payload.StringEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON string."
     }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the command channel."
-        @ts type   "string"
+    boolean {
+        enum_values payload.BooleanEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON boolean."
     }
-    time_format payload.TimeFormat? {
-        @doc value """
-            is the output encoding when the command channel holds timestamps. An unset
-            format is ISO 8601.
-        """
+    timestamp {
+        time_format payload.TimeFormat {
+            @doc value "is the encoding of each sample."
+        }
+
+        @doc value "writes each sample of a timestamp channel in a time format."
     }
-    enum_values payload.EnumEntry[] {
-        @doc value """
-            maps numeric channel values to string labels. Only valid when json_type is
-            'string'.
-        """
+    json {
+        @doc value "writes each sample of a JSON channel as its JSON value."
+    }
+    uuid {
+        @doc value "writes each sample of a UUID channel as a JSON string."
+    }
+    bytes {
+        @doc value "writes each sample of a bytes channel as a base64 JSON string."
     }
 
-    @doc value  "is the command channel value placed into a write endpoint's body."
+    @doc value  """
+        is the command channel value placed into the body of a write endpoint. The type
+        selects the JSON value of each sample. A sample that matches an entry of
+        enum_values is written as the entry's label.
+    """
     @go marshal
 }
 
@@ -237,7 +258,7 @@ WriteEndpoint struct {
     query_params QueryParam[]         {
         @doc value "contains query parameters appended to the request URL."
     }
-    channel      ChannelField = {} {
+    channel      ChannelField = float {
         @doc value "is the command channel whose writes trigger this endpoint."
     }
     fields       payload.WriteField[] {
@@ -298,5 +319,28 @@ BaseReadField struct {
     }
 
     @doc value  "carries the fields every read field shares."
+    @go marshal
+}
+
+BaseChannelField struct {
+    pointer   string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the body. An empty
+            pointer sends the bare value as the entire body, in which case the endpoint
+            may not declare any additional fields.
+        """
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the Synnax command channel that triggers the request."
+    }
+    name      string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+        @ts type   "string"
+    }
+
+    @doc value  "carries the fields every command channel field shares."
     @go marshal
 }

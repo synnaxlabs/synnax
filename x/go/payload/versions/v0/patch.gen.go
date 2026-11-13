@@ -20,12 +20,6 @@ func (be *BooleanEntry) HashContent(h *content.Hash) {
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (ee *EnumEntry) HashContent(h *content.Hash) {
-	h.String(ee.Label)
-	h.Float(ee.Value)
-}
-
-// HashContent writes the content of the value to h, without its keys.
 func (fe *FloatEntry) HashContent(h *content.Hash) {
 	h.String(fe.Label)
 	h.Float(float64(fe.Value))

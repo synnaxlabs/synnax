@@ -408,7 +408,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/control",
                             "channel": {
                                 "pointer": "/power",
-                                "json_type": "string",
+                                "type": "string",
                                 "channel": 1234,
                                 "name": "Power",
                                 "data_type": "string",
@@ -429,7 +429,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/setpoint",
                             "channel": {
                                 "pointer": "/value",
-                                "json_type": "number",
+                                "type": "float",
                                 "channel": 5678,
                                 "name": "Setpoint",
                                 "data_type": "float64",
@@ -450,7 +450,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/config",
                             "channel": {
                                 "pointer": "/mode",
-                                "json_type": "string",
+                                "type": "string",
                                 "channel": 9012,
                                 "name": "Mode",
                                 "data_type": "string",
@@ -471,7 +471,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/control",
                             "channel": {
                                 "pointer": "/value",
-                                "json_type": "number",
+                                "type": "float",
                                 "channel": 1234,
                             },
                             "fields": [
@@ -510,7 +510,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/events",
                             "channel": {
                                 "pointer": "/value",
-                                "json_type": "number",
+                                "type": "float",
                                 "channel": 1234,
                             },
                             "fields": [
@@ -538,7 +538,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/setpoint",
                             "channel": {
                                 "pointer": "/value",
-                                "json_type": "number",
+                                "type": "float",
                                 "channel": 1000,
                             },
                         },
@@ -548,7 +548,7 @@ class TestHTTPWriteTask:
                             "path": "/api/v1/control",
                             "channel": {
                                 "pointer": "/power",
-                                "json_type": "string",
+                                "type": "string",
                                 "channel": 2000,
                             },
                         },
@@ -569,7 +569,7 @@ class TestHTTPWriteTask:
             endpoints=[
                 sy.http.WriteEndpoint(
                     path="/api/v1/control",
-                    channel=sy.http.ChannelField(pointer="/value", channel=1),
+                    channel=sy.http.FloatChannelField(pointer="/value", channel=1),
                     fields=[
                         payload.UuidWriteField(pointer="/id"),
                     ],
@@ -586,7 +586,7 @@ class TestHTTPWriteTask:
         """Test that WriteEndpoint has correct defaults."""
         ep = sy.http.WriteEndpoint(
             path="/control",
-            channel=sy.http.ChannelField(pointer="/value", channel=1),
+            channel=sy.http.FloatChannelField(pointer="/value", channel=1),
         )
         assert ep.disabled is False
         assert ep.method == "POST"
@@ -595,12 +595,12 @@ class TestHTTPWriteTask:
         assert ep.fields == []
 
     def test_channel_field_defaults(self) -> None:
-        """Test that ChannelField has correct defaults."""
-        cf = sy.http.ChannelField(pointer="/value", channel=1234)
-        assert cf.json_type == "number"
-        assert cf.data_type == "float64"
+        """Test that a channel field has correct defaults."""
+        cf = sy.http.FloatChannelField(pointer="/value", channel=1234)
+        assert cf.type == "float"
+        assert cf.enum_values == []
+        assert cf.data_type is None
         assert cf.name == ""
-        assert cf.time_format is None
 
     def test_fields_keep_exact_values(self) -> None:
         """Test that fixed fields keep 64-bit integers exact."""
@@ -640,7 +640,7 @@ class TestHTTPWriteTask:
             endpoints=[
                 sy.http.WriteEndpoint(
                     path="/control",
-                    channel=sy.http.ChannelField(pointer="/value", channel=1),
+                    channel=sy.http.FloatChannelField(pointer="/value", channel=1),
                 ),
             ],
         )
@@ -662,9 +662,8 @@ class TestHTTPWriteTask:
                     key="ep-1",
                     method="PUT",
                     path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
+                    channel=sy.http.FloatChannelField(
                         pointer="/value",
-                        json_type="number",
                         channel=5678,
                     ),
                 ),
@@ -690,9 +689,8 @@ class TestHTTPWriteTask:
                     key="ep-1",
                     method="PUT",
                     path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
+                    channel=sy.http.FloatChannelField(
                         pointer="/value",
-                        json_type="number",
                         channel=5678,
                         name="Setpoint",
                     ),
@@ -1066,7 +1064,7 @@ class TestHTTPDevicePropertyUpdates:
                 sy.http.WriteEndpoint(
                     method="PUT",
                     path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
+                    channel=sy.http.FloatChannelField(
                         pointer="/value",
                         channel=cmd_ch.key,
                     ),

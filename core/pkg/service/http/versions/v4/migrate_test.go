@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
-	"github.com/synnaxlabs/x/payload"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )

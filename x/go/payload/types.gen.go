@@ -134,29 +134,3 @@ type TimestampWriteField = versions.TimestampWriteField
 
 // BytesWriteField places base64 text in every payload.
 type BytesWriteField = versions.BytesWriteField
-
-// EnumEntry maps a string label in a payload to a numeric channel value for enum-style
-// parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = versions.EnumEntry
-
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType = versions.JSONType
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = versions.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = versions.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = versions.GeneratorType
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each payload.
-	GeneratorTypeUUID GeneratorType = versions.GeneratorTypeUUID
-	// GeneratorTypeTimestamp produces the time of the payload.
-	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
-)

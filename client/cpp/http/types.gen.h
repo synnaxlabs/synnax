@@ -27,13 +27,13 @@ namespace synnax::http {
 
 struct Header;
 struct QueryParam;
-struct ChannelField;
 struct ScanConfig;
 struct BaseReadField;
-struct WriteEndpoint;
+struct BaseChannelField;
 struct ReadEndpoint;
-struct WriteConfig;
+struct WriteEndpoint;
 struct ReadConfig;
+struct WriteConfig;
 
 constexpr const char *METHOD_GET = "GET";
 constexpr const char *METHOD_HEAD = "HEAD";
@@ -67,32 +67,6 @@ struct QueryParam {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ChannelField is the command channel value placed into a write endpoint's
-/// body.
-struct ChannelField {
-    /// @brief pointer is the JSON Pointer where the channel value is placed in the
-    /// body. An empty pointer sends the bare value as the entire body, in which case
-    /// the endpoint may not declare any additional fields.
-    std::string pointer = "";
-    /// @brief json_type is the JSON type the channel value is serialized as.
-    std::string json_type = ::x::payload::JSON_TYPE_NUMBER;
-    /// @brief channel is the Synnax command channel that triggers the request.
-    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief name is the human-readable name of the command channel.
-    std::string name = "";
-    /// @brief data_type is the data type of the command channel.
-    ::x::telem::DataType data_type = ::x::telem::DataType("float64");
-    /// @brief time_format is the output encoding when the command channel holds
-    /// timestamps. An unset format is ISO 8601.
-    std::optional<std::string> time_format;
-    /// @brief enum_values maps numeric channel values to string labels. Only valid when
-    /// json_type is 'string'.
-    std::vector<::x::payload::EnumEntry> enum_values;
-
-    static ChannelField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief ScanConfig configures an HTTP scan task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
@@ -114,6 +88,23 @@ struct BaseReadField {
     std::string pointer = "";
 
     static BaseReadField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseChannelField carries the fields every command channel field shares.
+struct BaseChannelField {
+    /// @brief pointer is the JSON Pointer where the channel value is placed in the
+    /// body. An empty pointer sends the bare value as the entire body, in which case
+    /// the endpoint may not declare any additional fields.
+    std::string pointer = "";
+    /// @brief channel is the Synnax command channel that triggers the request.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief name is the human-readable name of the command channel.
+    std::string name = "";
+    /// @brief data_type is the data type of a new channel. Absent for an existing one.
+    std::optional<::x::telem::DataType> data_type;
+
+    static BaseChannelField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -211,28 +202,116 @@ ReadField parse_read_field(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseReadField & { return v; }, value);
 }
 
-/// @brief WriteEndpoint is a single HTTP endpoint written to by a write task.
-struct WriteEndpoint {
-    /// @brief key uniquely identifies the endpoint within the task.
-    std::string key;
-    /// @brief disabled is true when the endpoint is excluded from the task.
-    bool disabled = false;
-    /// @brief method is the HTTP method used to send the request.
-    std::string method = METHOD_POST;
-    /// @brief path is the URL path appended to the device's base URL.
-    std::string path = "";
-    /// @brief headers contains additional headers merged into the request.
-    std::vector<Header> headers;
-    /// @brief query_params contains query parameters appended to the request URL.
-    std::vector<QueryParam> query_params;
-    /// @brief channel is the command channel whose writes trigger this endpoint.
-    ChannelField channel = {};
-    /// @brief fields contains additional fixed or generated body fields.
-    std::vector<::x::payload::WriteField> fields;
+/// @brief FloatChannelField writes each sample as a JSON number.
+struct FloatChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_FLOAT;
+    /// @brief enum_values maps channel values to the labels written in their place.
+    std::vector<::x::payload::FloatEntry> enum_values = {};
 
-    static WriteEndpoint parse(x::json::Parser parser);
+    static FloatChannelField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IntegerChannelField writes each sample as a JSON number.
+struct IntegerChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_INTEGER;
+    /// @brief enum_values maps channel values to the labels written in their place.
+    std::vector<::x::payload::IntegerEntry> enum_values = {};
+
+    static IntegerChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnsignedChannelField writes each sample as a JSON number.
+struct UnsignedChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_UNSIGNED;
+    /// @brief enum_values maps channel values to the labels written in their place.
+    std::vector<::x::payload::UnsignedEntry> enum_values = {};
+
+    static UnsignedChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringChannelField writes each sample as a JSON string.
+struct StringChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_STRING;
+    /// @brief enum_values maps channel values to the labels written in their place.
+    std::vector<::x::payload::StringEntry> enum_values = {};
+
+    static StringChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanChannelField writes each sample as a JSON boolean.
+struct BooleanChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_BOOLEAN;
+    /// @brief enum_values maps channel values to the labels written in their place.
+    std::vector<::x::payload::BooleanEntry> enum_values = {};
+
+    static BooleanChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TimestampChannelField writes each sample of a timestamp channel in a time
+/// format.
+struct TimestampChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_TIMESTAMP;
+    /// @brief time_format is the encoding of each sample.
+    std::string time_format;
+
+    static TimestampChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief JsonChannelField writes each sample of a JSON channel as its JSON value.
+struct JsonChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_JSON;
+
+    static JsonChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UuidChannelField writes each sample of a UUID channel as a JSON string.
+struct UuidChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_UUID;
+
+    static UuidChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BytesChannelField writes each sample of a bytes channel as a base64 JSON
+/// string.
+struct BytesChannelField : public BaseChannelField {
+    std::string type = ::x::payload::KIND_BYTES;
+
+    static BytesChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ChannelField is the command channel value placed into the body of a write
+/// endpoint. The type selects the JSON value of each sample. A sample that matches an
+/// entry of enum_values is written as the entry's label.
+using ChannelField = std::variant<
+    FloatChannelField,
+    IntegerChannelField,
+    UnsignedChannelField,
+    StringChannelField,
+    BooleanChannelField,
+    TimestampChannelField,
+    JsonChannelField,
+    UuidChannelField,
+    BytesChannelField>;
+
+ChannelField parse_channel_field(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ChannelField &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseChannelField &base(const ChannelField &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseChannelField & { return v; },
+        value
+    );
+}
 
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
@@ -258,15 +337,26 @@ struct ReadEndpoint {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
-/// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::task::StartConfig {
-    /// @brief device is the key of the HTTP server device to write to.
-    ::synnax::device::Key device = "";
-    /// @brief endpoints contains the endpoints to write to.
-    std::vector<WriteEndpoint> endpoints;
+/// @brief WriteEndpoint is a single HTTP endpoint written to by a write task.
+struct WriteEndpoint {
+    /// @brief key uniquely identifies the endpoint within the task.
+    std::string key;
+    /// @brief disabled is true when the endpoint is excluded from the task.
+    bool disabled = false;
+    /// @brief method is the HTTP method used to send the request.
+    std::string method = METHOD_POST;
+    /// @brief path is the URL path appended to the device's base URL.
+    std::string path = "";
+    /// @brief headers contains additional headers merged into the request.
+    std::vector<Header> headers;
+    /// @brief query_params contains query parameters appended to the request URL.
+    std::vector<QueryParam> query_params;
+    /// @brief channel is the command channel whose writes trigger this endpoint.
+    ChannelField channel = FloatChannelField{};
+    /// @brief fields contains additional fixed or generated body fields.
+    std::vector<::x::payload::WriteField> fields;
 
-    static WriteConfig parse(x::json::Parser parser);
+    static WriteEndpoint parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -285,6 +375,18 @@ struct ReadConfig : public ::synnax::task::PersistConfig {
     bool nan_fill_enabled = false;
 
     static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
+/// whenever a value is written to an endpoint's command channel.
+struct WriteConfig : public ::synnax::task::StartConfig {
+    /// @brief device is the key of the HTTP server device to write to.
+    ::synnax::device::Key device = "";
+    /// @brief endpoints contains the endpoints to write to.
+    std::vector<WriteEndpoint> endpoints;
+
+    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

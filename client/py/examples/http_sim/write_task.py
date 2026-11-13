@@ -59,12 +59,10 @@ tsk = http.WriteTask(
         http.WriteEndpoint(
             method="PUT",
             path="/api/v1/setpoint",
-            channel=http.ChannelField(
+            channel=http.FloatChannelField(
                 pointer="/value",
-                json_type="number",
                 channel=setpoint_cmd.key,
                 name="Setpoint",
-                data_type=sy.DataType.FLOAT64,
             ),
         ),
     ],

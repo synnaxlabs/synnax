@@ -25,7 +25,6 @@ namespace x::payload {
 struct StringEntry;
 struct BooleanEntry;
 struct BaseWriteField;
-struct EnumEntry;
 struct StringRead;
 struct BooleanRead;
 struct FloatEntry;
@@ -51,13 +50,6 @@ constexpr const char *KIND_TIMESTAMP = "timestamp";
 constexpr const char *KIND_JSON = "json";
 constexpr const char *KIND_UUID = "uuid";
 constexpr const char *KIND_BYTES = "bytes";
-
-constexpr const char *JSON_TYPE_NUMBER = "number";
-constexpr const char *JSON_TYPE_STRING = "string";
-constexpr const char *JSON_TYPE_BOOLEAN = "boolean";
-
-constexpr const char *GENERATOR_TYPE_UUID = "uuid";
-constexpr const char *GENERATOR_TYPE_TIMESTAMP = "timestamp";
 
 /// @brief StringEntry maps a payload label to a string channel value.
 struct StringEntry {
@@ -89,18 +81,6 @@ struct BaseWriteField {
     std::string pointer = "";
 
     static BaseWriteField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief EnumEntry maps a string label in a payload to a numeric channel value for
-/// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-struct EnumEntry {
-    /// @brief label is the string label in the payload.
-    std::string label = "";
-    /// @brief value is the numeric channel value the label maps to.
-    double value = 0;
-
-    static EnumEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

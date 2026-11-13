@@ -39,12 +39,6 @@ BooleanRead = v0.BooleanRead
 
 TimestampRead = v0.TimestampRead
 
-EnumEntry = v0.EnumEntry
-
-JSONType = v0.JSONType
-
-GeneratorType = v0.GeneratorType
-
 BaseWriteField struct {
     key     string = create {
         @doc value "uniquely identifies the field within its payload."

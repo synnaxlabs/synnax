@@ -48,35 +48,6 @@ export const queryParamZ = z.object({
 });
 export interface QueryParam extends z.infer<typeof queryParamZ> {}
 
-/** ChannelField is the command channel value placed into a write endpoint's body. */
-export const channelFieldZ = z.object({
-  /**
-   * pointer is the JSON Pointer where the channel value is placed in the body. An empty
-   * pointer sends the bare value as the entire body, in which case the endpoint may not
-   * declare any additional fields.
-   */
-  pointer: z.string().default(""),
-  /** jsonType is the JSON type the channel value is serialized as. */
-  jsonType: payload.jsonTypeZ.default("number"),
-  /** channel is the Synnax command channel that triggers the request. */
-  channel: channel.keyZ.default(0),
-  /** name is the human-readable name of the command channel. */
-  name: z.string().default(""),
-  /** dataType is the data type of the command channel. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the output encoding when the command channel holds timestamps. An
-   * unset format is ISO 8601.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /**
-   * enumValues maps numeric channel values to string labels. Only valid when json_type
-   * is 'string'.
-   */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ChannelField extends z.infer<typeof channelFieldZ> {}
-
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
@@ -95,26 +66,22 @@ export const baseReadFieldZ = z.object({
 });
 export interface BaseReadField extends z.infer<typeof baseReadFieldZ> {}
 
-/** WriteEndpoint is a single HTTP endpoint written to by a write task. */
-export const writeEndpointZ = z.object({
-  /** key uniquely identifies the endpoint within the task. */
-  key: z.string().default(id.create),
-  /** disabled is true when the endpoint is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /** method is the HTTP method used to send the request. */
-  method: methodZ.default("POST"),
-  /** path is the URL path appended to the device's base URL. */
-  path: z.string().default(""),
-  /** headers contains additional headers merged into the request. */
-  headers: headerZ.array().default(() => []),
-  /** queryParams contains query parameters appended to the request URL. */
-  queryParams: queryParamZ.array().default(() => []),
-  /** channel is the command channel whose writes trigger this endpoint. */
-  channel: channelFieldZ.prefault({}),
-  /** fields contains additional fixed or generated body fields. */
-  fields: payload.writeFieldZ.array().default(() => []),
+/** BaseChannelField carries the fields every command channel field shares. */
+export const baseChannelFieldZ = z.object({
+  /**
+   * pointer is the JSON Pointer where the channel value is placed in the body. An empty
+   * pointer sends the bare value as the entire body, in which case the endpoint may not
+   * declare any additional fields.
+   */
+  pointer: z.string().default(""),
+  /** channel is the Synnax command channel that triggers the request. */
+  channel: channel.keyZ.default(0),
+  /** name is the human-readable name of the command channel. */
+  name: z.string().default(""),
+  /** dataType is the data type of a new channel. Absent for an existing one. */
+  dataType: z.string().optional(),
 });
-export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
+export interface BaseChannelField extends z.infer<typeof baseChannelFieldZ> {}
 
 /** FloatReadField reads a float. */
 export const floatReadFieldZ = baseReadFieldZ.extend(payload.floatReadZ.shape).extend({
@@ -220,11 +187,112 @@ export const READ_FIELD_SCHEMAS: {
   bytes: bytesReadFieldZ,
 };
 
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  endpoints: writeEndpointZ.array().default(() => []),
+/** FloatChannelField writes each sample as a JSON number. */
+export const floatChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("float"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.floatEntryZ.array().default(() => []),
 });
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+export interface FloatChannelField extends z.infer<typeof floatChannelFieldZ> {}
+
+/** IntegerChannelField writes each sample as a JSON number. */
+export const integerChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("integer"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.integerEntryZ.array().default(() => []),
+});
+export interface IntegerChannelField extends z.infer<typeof integerChannelFieldZ> {}
+
+/** UnsignedChannelField writes each sample as a JSON number. */
+export const unsignedChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("unsigned"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.unsignedEntryZ.array().default(() => []),
+});
+export interface UnsignedChannelField extends z.infer<typeof unsignedChannelFieldZ> {}
+
+/** StringChannelField writes each sample as a JSON string. */
+export const stringChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("string"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.stringEntryZ.array().default(() => []),
+});
+export interface StringChannelField extends z.infer<typeof stringChannelFieldZ> {}
+
+/** BooleanChannelField writes each sample as a JSON boolean. */
+export const booleanChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("boolean"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.booleanEntryZ.array().default(() => []),
+});
+export interface BooleanChannelField extends z.infer<typeof booleanChannelFieldZ> {}
+
+/** TimestampChannelField writes each sample of a timestamp channel in a time format. */
+export const timestampChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("timestamp"),
+  /** timeFormat is the encoding of each sample. */
+  timeFormat: payload.timeFormatZ,
+});
+export interface TimestampChannelField extends z.infer<typeof timestampChannelFieldZ> {}
+
+/** JsonChannelField writes each sample of a JSON channel as its JSON value. */
+export const jsonChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("json"),
+});
+export interface JsonChannelField extends z.infer<typeof jsonChannelFieldZ> {}
+
+/** UuidChannelField writes each sample of a UUID channel as a JSON string. */
+export const uuidChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidChannelField extends z.infer<typeof uuidChannelFieldZ> {}
+
+/** BytesChannelField writes each sample of a bytes channel as a base64 JSON string. */
+export const bytesChannelFieldZ = baseChannelFieldZ.extend({
+  type: z.literal("bytes"),
+});
+export interface BytesChannelField extends z.infer<typeof bytesChannelFieldZ> {}
+
+/**
+ * ChannelField is the command channel value placed into the body of a write endpoint.
+ * The type selects the JSON value of each sample. A sample that matches an entry of
+ * enum_values is written as the entry's label.
+ */
+export const channelFieldZ = z.discriminatedUnion("type", [
+  floatChannelFieldZ,
+  integerChannelFieldZ,
+  unsignedChannelFieldZ,
+  stringChannelFieldZ,
+  booleanChannelFieldZ,
+  timestampChannelFieldZ,
+  jsonChannelFieldZ,
+  uuidChannelFieldZ,
+  bytesChannelFieldZ,
+]);
+export type ChannelField =
+  | FloatChannelField
+  | IntegerChannelField
+  | UnsignedChannelField
+  | StringChannelField
+  | BooleanChannelField
+  | TimestampChannelField
+  | JsonChannelField
+  | UuidChannelField
+  | BytesChannelField;
+
+export const CHANNEL_FIELD_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<ChannelField, { type: K }>>;
+} = {
+  float: floatChannelFieldZ,
+  integer: integerChannelFieldZ,
+  unsigned: unsignedChannelFieldZ,
+  string: stringChannelFieldZ,
+  boolean: booleanChannelFieldZ,
+  timestamp: timestampChannelFieldZ,
+  json: jsonChannelFieldZ,
+  uuid: uuidChannelFieldZ,
+  bytes: bytesChannelFieldZ,
+};
 
 /** ReadEndpoint is a single HTTP endpoint polled by a read task. */
 export const readEndpointZ = z.object({
@@ -250,6 +318,27 @@ export const readEndpointZ = z.object({
 });
 export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
 
+/** WriteEndpoint is a single HTTP endpoint written to by a write task. */
+export const writeEndpointZ = z.object({
+  /** key uniquely identifies the endpoint within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the endpoint is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /** method is the HTTP method used to send the request. */
+  method: methodZ.default("POST"),
+  /** path is the URL path appended to the device's base URL. */
+  path: z.string().default(""),
+  /** headers contains additional headers merged into the request. */
+  headers: headerZ.array().default(() => []),
+  /** queryParams contains query parameters appended to the request URL. */
+  queryParams: queryParamZ.array().default(() => []),
+  /** channel is the command channel whose writes trigger this endpoint. */
+  channel: channelFieldZ.prefault({ type: "float" }),
+  /** fields contains additional fixed or generated body fields. */
+  fields: payload.writeFieldZ.array().default(() => []),
+});
+export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
+
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
@@ -257,3 +346,9 @@ export const readConfigZ = task.persistConfigZ.extend({
   nanFillEnabled: z.boolean().default(false),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  endpoints: writeEndpointZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

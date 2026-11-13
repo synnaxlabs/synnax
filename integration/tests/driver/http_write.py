@@ -32,11 +32,9 @@ class HTTPWriteSetpoint(HTTPWriteTaskCase):
             http.WriteEndpoint(
                 method="PUT",
                 path="/api/v1/setpoint",
-                channel=http.ChannelField(
+                channel=http.FloatChannelField(
                     pointer="/value",
-                    json_type="number",
                     channel=cmd_key,
-                    data_type=sy.DataType.FLOAT64,
                 ),
             ),
         ]
@@ -61,11 +59,9 @@ class HTTPWriteControl(HTTPWriteTaskCase):
             http.WriteEndpoint(
                 method="POST",
                 path="/api/v1/control",
-                channel=http.ChannelField(
+                channel=http.FloatChannelField(
                     pointer="/power",
-                    json_type="number",
                     channel=cmd_key,
-                    data_type=sy.DataType.FLOAT64,
                 ),
                 fields=[
                     payload.StringWriteField(pointer="/mode", value="AUTO"),
