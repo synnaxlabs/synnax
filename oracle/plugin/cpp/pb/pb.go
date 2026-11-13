@@ -1561,7 +1561,7 @@ func (p *Plugin) generateMapConversion(
 		keyRef = ref
 	}
 	switch keyRef.Name {
-	case "int8", "int16", "uint8", "uint12", "uint16":
+	case "int8", "int16", "uint8", "uint16":
 	default:
 		return forward, backward
 	}

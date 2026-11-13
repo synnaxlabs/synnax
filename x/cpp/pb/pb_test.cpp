@@ -79,13 +79,13 @@ TEST(TestPB, testFromProtoRepeatedErrorOnMiddleItem) {
 }
 
 /// @brief it should convert a value that fits in the narrower type.
-TEST(Narrow, ConvertsValueInRange) {
+TEST(TestPB, testNarrowConvertsValueInRange) {
     ASSERT_EQ(ASSERT_NIL_P(narrow<std::uint8_t>(std::uint32_t{255})), 255);
     ASSERT_EQ(ASSERT_NIL_P(narrow<std::int16_t>(std::int32_t{-32768})), -32768);
 }
 
 /// @brief it should reject a value that does not fit in the narrower type.
-TEST(Narrow, RejectsValueOutOfRange) {
+TEST(TestPB, testNarrowRejectsValueOutOfRange) {
     ASSERT_OCCURRED_AS_P(narrow<std::uint8_t>(std::uint32_t{256}), errors::VALIDATION);
     ASSERT_OCCURRED_AS_P(narrow<std::int8_t>(std::int32_t{-129}), errors::VALIDATION);
 }

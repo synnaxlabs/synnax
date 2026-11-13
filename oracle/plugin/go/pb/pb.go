@@ -816,7 +816,7 @@ func (p *Plugin) buildMapValueConversion(
 ) *mapValueConversionData {
 	keyName := dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name
 	mvc := p.buildMapElementConversion(typeRef, data)
-	if !resolution.IsPrimitive(keyName) || !primitiveNeedsConversion(keyName) {
+	if !narrowKeyPrimitive(keyName) {
 		return mvc
 	}
 	keyType := primitiveToProtoType(keyName)
@@ -825,7 +825,7 @@ func (p *Plugin) buildMapValueConversion(
 	}, data)
 	if mvc == nil {
 		valName := dealiasPrimitive(typeRef.TypeArgs[1], data.table).Name
-		if !castablePrimitive(valName) {
+		if !castablePrimitive(valName) || primitiveNeedsConversion(valName) {
 			return nil
 		}
 		mvc = &mapValueConversionData{
@@ -843,6 +843,16 @@ func (p *Plugin) buildMapValueConversion(
 	mvc.ForwardKeyExpr = keyType + "(k)"
 	mvc.NarrowKeyType = goKeyType
 	return mvc
+}
+
+// narrowKeyPrimitive reports whether a map key is narrower than its proto key type and
+// fills the whole range of its Go type, so that a range check on the Go type is exact.
+func narrowKeyPrimitive(name string) bool {
+	switch name {
+	case "int8", "int16", "uint8", "uint16":
+		return true
+	}
+	return false
 }
 
 // castablePrimitive reports whether a primitive has the same Go type as its proto
@@ -865,7 +875,7 @@ func (p *Plugin) buildMapElementConversion(
 	keyType := primitiveToProtoType(
 		dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name,
 	)
-	valArg := typeRef.TypeArgs[1]
+	valArg := dealiasPrimitive(typeRef.TypeArgs[1], data.table)
 
 	if resolution.IsPrimitive(valArg.Name) {
 		switch valArg.Name {

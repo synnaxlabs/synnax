@@ -1902,12 +1902,33 @@ var _ = Describe("Go PB Plugin", func() {
 				"key, err := xpb.Narrow[uint8](k)",
 				"r.Items[key] = converted",
 			),
+			Entry(
+				"a narrow key with a value through an alias",
+				"items map<uint16, Port>",
+				"pb.Items = make(map[uint32]uint32",
+				"pb.Items[uint32(k)] = uint32(v)",
+				"r.Items = make(map[uint16]uint16",
+				"r.Items[key] = uint16(v)",
+			),
 			Entry("a wide key with a distinct value", "items map<uint32, Key>",
 				"pb.Items = make(map[uint32]uint32",
 				"pb.Items[k] = uint32(v)",
 				"r.Items[k] = test.Key(v)",
 			),
 		)
+
+		It("Should not range-check a uint12 key", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Test struct {
+					items map<uint12, uint32>
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").ToNotContain("xpb.Narrow")
+		})
 
 		It("Should not cast a map value of a distinct record", func(ctx SpecContext) {
 			source := `
