@@ -105,18 +105,17 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
         "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
       path: ["channel", "pointer"],
     });
-  const pointers = new Set<string>();
-  pointers.add(channel.pointer);
+  const pointers = isBarePrimitive ? [] : [channel.pointer];
   for (const [i, field] of fields.entries()) {
     if (field.pointer === "") continue;
-    if (pointers.has(field.pointer))
+    if (pointers.some((p) => Task.Payload.pointersOverlap(p, field.pointer)))
       ctx.issues.push({
         code: "custom",
         input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
+        message: `Pointer "${field.pointer}" overlaps another field`,
         path: ["fields", i, "pointer"],
       });
-    else pointers.add(field.pointer);
+    else pointers.push(field.pointer);
   }
 };
 

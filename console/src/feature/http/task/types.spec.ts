@@ -785,6 +785,32 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
+    it.each([
+      ["inside the channel pointer", ["/value/unit"]],
+      ["inside another field", ["/meta", "/meta/unit"]],
+    ])("should reject a field pointer %s", (_, pointers) => {
+      const result = HTTP.Task.deployWriteConfigZ.safeParse({
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: pointers.map((pointer, i) => ({
+              key: `f${i}`,
+              type: "json",
+              pointer,
+              value: "{}",
+            })),
+          },
+        ],
+      });
+      expect(result.error?.issues.map(({ message }) => message)).toEqual([
+        `Pointer "${pointers.at(-1)}" overlaps another field`,
+      ]);
+    });
+
     it("should reject a fixed field with empty pointer", () => {
       const config = {
         device: "dev-001",
