@@ -320,7 +320,7 @@ func (f *Factory) configureStreamTask(
 		return nil, err
 	}
 	if cfg.AutoStart {
-		if err = st.Start(ctx, driver.NoCommand); err != nil {
+		if err = st.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}
@@ -341,7 +341,7 @@ func (f *Factory) configureScanTask(
 		return nil, err
 	}
 	if autoStart {
-		if err = st.Start(ctx, driver.NoCommand); err != nil {
+		if err = st.Start(ctx, cmdKey); err != nil {
 			f.release(t)
 			return nil, err
 		}

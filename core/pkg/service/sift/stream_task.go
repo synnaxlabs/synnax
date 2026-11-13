@@ -48,7 +48,8 @@ const streamKeyPrefix = "sift_stream:"
 type ProgressStatus = status.Status[StreamDetails]
 
 // ProgressKey returns the key of the progress status of the stream task with key.
-// Deleting the status makes the task start again from the current time.
+// Deleting the status while the task is stopped makes it start again from the current
+// time.
 func ProgressKey(key task.Key) status.Key { return streamKeyPrefix + key.String() }
 
 func validateStreamConfig(c StreamConfig) error {
