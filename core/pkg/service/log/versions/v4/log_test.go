@@ -10,12 +10,31 @@
 package v4_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("Log", func() {
+	Describe("GorpKey", func() {
+		It("Should return the log's key", func() {
+			k := uuid.New()
+			Expect(v4.Log{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
+			k := uuid.New()
+			Expect(v4.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
+			}))
+		})
+	})
+
 	Describe("Validate", func() {
 		It("Should reject an empty name and an invalid timestamp precision", func() {
 			l := v4.Log{TimestampPrecision: 4}

@@ -10,12 +10,31 @@
 package v9_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ = Describe("LinePlot", func() {
+	Describe("GorpKey", func() {
+		It("Should return the line plot's key", func() {
+			k := uuid.New()
+			Expect(v9.LinePlot{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("ResourceID", func() {
+		It("Should return the line plot resource identifier", func() {
+			k := uuid.New()
+			Expect(v9.LinePlot{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLineplot, Key: k.String(),
+			}))
+		})
+	})
+
 	Describe("Validate", func() {
 		It("Should reject an empty name", func() {
 			lp := v9.LinePlot{}
