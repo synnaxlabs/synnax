@@ -406,6 +406,25 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should update the tags of a run when a task label is renamed",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire")),
+				))
+				rename := label.NewSetAction(label.SetPayload{
+					Path:  []string{"name"},
+					Value: "coldflow",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Apply(ctx, l.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("coldflow")),
+				))
+			})
+
 		It("Should stop when Sift rejects the API key for a run",
 			func(ctx SpecContext) {
 				server.FailRuns(grpcstatus.Error(codes.Unauthenticated, "expired"))

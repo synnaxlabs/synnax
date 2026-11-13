@@ -125,6 +125,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		progress: p,
 		wake:     make(chan struct{}, 1),
 		changed:  make(set.Set[ranger.Key]),
+		labels:   make(set.Set[label.Key]),
 		rejected: make(set.Set[ranger.Key]),
 	}
 	e, err := ingest.New(ctx, ingest.Config{
@@ -169,8 +170,10 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		)
 		defer cancel()
 		if len(t.cfg.Labels) > 0 {
-			disconnect := t.factoryCfg.Ranger.OnAction(runs.observe)
-			defer disconnect()
+			disconnectRanges := t.factoryCfg.Ranger.OnAction(runs.observe)
+			defer disconnectRanges()
+			disconnectLabels := t.factoryCfg.Label.Actions().OnChange(runs.observeLabel)
+			defer disconnectLabels()
 			runs.signal()
 			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 		}
@@ -312,7 +315,7 @@ func (p *progress) write(ctx context.Context) {
 
 // runSync makes each range with one of the labels of a stream task a Sift run once
 // Sift has every sample before the end of the range, and updates the run when the
-// range changes.
+// range or one of its labels changes.
 type runSync struct {
 	task     *streamTask
 	uri      string
@@ -325,8 +328,10 @@ type runSync struct {
 	// rejected holds the ranges whose run Sift rejected, which wait until they change.
 	rejected set.Set[ranger.Key]
 	mu       sync.Mutex
-	// changed holds the ranges that changed since the last sync. It is guarded by mu.
+	// changed holds the ranges that changed since the last sync, and labels holds the
+	// labels that changed since then. They are guarded by mu.
 	changed set.Set[ranger.Key]
+	labels  set.Set[label.Key]
 }
 
 func (r *runSync) signal() {
@@ -342,6 +347,16 @@ func (r *runSync) observe(
 ) {
 	r.mu.Lock()
 	r.changed.Add(a.Key)
+	r.mu.Unlock()
+	r.signal()
+}
+
+func (r *runSync) observeLabel(
+	_ context.Context,
+	a actions.Scoped[label.Key, label.Action],
+) {
+	r.mu.Lock()
+	r.labels.Add(a.Key)
 	r.mu.Unlock()
 	r.signal()
 }
@@ -368,13 +383,14 @@ func (r *runSync) run(ctx context.Context) error {
 func (r *runSync) sync(ctx context.Context) (err error) {
 	start, sent, since := r.progress.through()
 	r.mu.Lock()
-	changed := r.changed
-	r.changed = make(set.Set[ranger.Key])
+	changed, labels := r.changed, r.labels
+	r.changed, r.labels = make(set.Set[ranger.Key]), make(set.Set[label.Key])
 	r.mu.Unlock()
 	defer func() {
 		if err != nil {
 			r.mu.Lock()
 			r.changed.Add(changed.Slice()...)
+			r.labels.Add(labels.Slice()...)
 			r.mu.Unlock()
 		}
 	}()
@@ -386,6 +402,10 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		return err
 	}
 	for _, rng := range ranges {
+		// The names of the labels of a range are the tags of its run.
+		if slices.ContainsFunc(rng.Labels, labels.Contains) {
+			changed.Add(rng.Key)
+		}
 		if changed.Contains(rng.Key) {
 			r.rejected.Remove(rng.Key)
 		}
