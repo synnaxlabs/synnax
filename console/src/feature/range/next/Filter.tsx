@@ -194,7 +194,8 @@ const ParentItem = ({
   if (item == null) return null;
   return (
     <Select.Item<ranger.Key> itemKey={itemKey} {...rest}>
-      <Ranger.StageIcon timeRange={item.timeRange} />
+      {/* The name alone names the option. */}
+      <Ranger.StageIcon timeRange={item.timeRange} aria-hidden />
       {item.name}
     </Select.Item>
   );

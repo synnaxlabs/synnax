@@ -166,12 +166,7 @@ describe("range/next/Explorer", () => {
       fireEvent.change(within(picker).getByPlaceholderText("Search ranges..."), {
         target: { value: parent.name },
       });
-      // The stage icon of the range leads the name of the option.
-      fireEvent.click(
-        await within(picker).findByRole("option", {
-          name: new RegExp(`${parent.name}$`),
-        }),
-      );
+      fireEvent.click(await within(picker).findByRole("option", { name: parent.name }));
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(child.name)).toBeTruthy();
