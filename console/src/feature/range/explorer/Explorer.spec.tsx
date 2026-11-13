@@ -863,10 +863,12 @@ describe("range/explorer/Explorer", () => {
       await renderExplorer(
         await createTestClientWithGrants(client, {
           retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          create: [lineplot.TYPE_RESOURCE_ID],
         }),
       );
       await openMenuOf(rng);
-      await menuItem("Open");
+      // The same policy read answers every grant, so Plot shows that it landed.
+      await menuItem("Plot");
       expect(screen.queryByRole("menuitem", { name: "Rename" })).toBeNull();
       expect(screen.queryByRole("menuitem", { name: "Start child range" })).toBeNull();
       expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
