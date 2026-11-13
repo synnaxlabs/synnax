@@ -9,7 +9,7 @@
 
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x.color import Color
 
@@ -110,7 +110,7 @@ class TestColor:
     )
     def test_hex(self, color: Color, expected: str) -> None:
         assert color.hex() == expected
-        assert color.model_dump() == expected
+        assert TypeAdapter(Color).dump_python(color) == expected
         assert color.model_dump_json() == f'"{expected}"'
 
     def test_serializes_nested_color_to_hex(self) -> None:
