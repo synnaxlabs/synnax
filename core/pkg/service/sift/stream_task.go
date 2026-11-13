@@ -452,10 +452,6 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	}
 	ready := func(rng ranger.Range) bool {
 		end := rng.TimeRange.End
-		// Sift has no data of a range that ends by start.
-		if end <= start {
-			return false
-		}
 		// Sift has every sample before since, also when sent falls behind it after a
 		// restart or a catch-up. So a range that ends by since does not wait for sent.
 		if end <= since {
@@ -464,7 +460,21 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		return end <= sent
 	}
 	for _, rng := range ranges {
-		if _, ok := r.rejected[rng.Key]; ok || !ready(rng) {
+		if _, ok := r.rejected[rng.Key]; ok {
+			continue
+		}
+		// Sift has no data of a range that ends by start, but an edit can move the end
+		// of
+		// a range with a run there.
+		if rng.TimeRange.End <= start {
+			if changed.Contains(rng.Key) {
+				if err = r.put(ctx, rng, false); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		if !ready(rng) {
 			continue
 		}
 		if err = r.put(ctx, rng, true); err != nil {
@@ -476,10 +486,8 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	var waiting []ranger.Key
 	for _, rng := range unlabeled {
 		end := rng.TimeRange.End
-		if end <= start {
-			continue
-		}
-		if _, ok := r.rejected[rng.Key]; ok || (end > since && end > sent) {
+		_, rejected := r.rejected[rng.Key]
+		if rejected || (end > start && end > since && end > sent) {
 			waiting = append(waiting, rng.Key)
 			continue
 		}
