@@ -229,7 +229,8 @@ func MigrateToggleConfig(
 }
 
 // MigrateLabelConfig lifts a v11 label config into v12. It rounds the wrap width to
-// whole pixels and clamps it to 1 through 65535. A NaN or 0 width becomes 150.
+// whole pixels and clamps it to 1 through 65535. A NaN width, or one of 0 or less,
+// becomes 150.
 func MigrateLabelConfig(ctx context.Context, old v11.LabelConfig) (LabelConfig, error) {
 	cfg, err := autoMigrateLabelConfig(ctx, old)
 	if err != nil {
@@ -242,7 +243,7 @@ func MigrateLabelConfig(ctx context.Context, old v11.LabelConfig) (LabelConfig, 
 const defaultMaxInlineSize = 150
 
 func migrateMaxInlineSize(w float64) uint16 {
-	if math.IsNaN(w) || w == 0 {
+	if math.IsNaN(w) || w <= 0 {
 		return defaultMaxInlineSize
 	}
 	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
