@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,8 +34,12 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xuuid "github.com/synnaxlabs/x/uuid"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var _ = Describe("Stream task", func() {
@@ -567,6 +572,50 @@ var _ = Describe("Stream task", func() {
 				Consistently(server.Runs).
 					WithTimeout(200 * time.Millisecond).
 					Should(BeEmpty())
+			})
+
+		It("Should not update the run of a range that never had the task label",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx)
+				conn := MustOpen(grpc.NewClient(
+					server.Address(),
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				))
+				authed := metadata.AppendToOutgoingContext(
+					ctx,
+					"authorization",
+					"Bearer "+apiKey,
+				)
+				key := xuuid.NewV5(rng.Key, "stand").String()
+				MustSucceed(runsv2.NewRunServiceClient(conn).CreateAdhocRun(
+					authed,
+					&runsv2.CreateAdhocRunRequest{
+						Name:      "outside",
+						StartTime: timestamppb.New(rng.TimeRange.Start.Time()),
+						StopTime:  timestamppb.New(rng.TimeRange.End.Time()),
+						ClientKey: &key,
+					},
+				))
+				labeled := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(ContainElement(
+					HaveField("Name", labeled.Name),
+				))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(ContainElement(SatisfyAll(
+						HaveField("ClientKey", HaveValue(Equal(key))),
+						HaveField("Name", "outside"),
+					)))
 			})
 
 		It("Should warn until the range changes when Sift rejects its new tags",
