@@ -1202,10 +1202,11 @@ var _ = Describe("Engine", func() {
 				done := make(chan error, 1)
 				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
-				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
 				cancel()
-				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				// The error depends on whether the sends filled the stream first, and
+				// a stopped stream's error is ignored.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive())
 				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
 			})
 
