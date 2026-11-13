@@ -549,18 +549,24 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
-				return nil, errors.Newf(
-					"%s: @ref is not supported on union fields (%s)",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
 			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
-			refs = append(refs, info)
+			// The walk over a union's variants declares the reference, because each
+			// variant holds the base field.
+			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+				if info.OnDelete == "Detach" {
+					return nil, errors.Newf(
+						"%s: @ref on_delete detach is not supported on the base fields "+
+							"of a union (%s)",
+						typ.QualifiedName,
+						field.Name,
+					)
+				}
+			} else {
+				refs = append(refs, info)
+			}
 			filters = append(filters, filterInfo{
 				FieldName:  field.Name,
 				GoName:     info.GoName,
