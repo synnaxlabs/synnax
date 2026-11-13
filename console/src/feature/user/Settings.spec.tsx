@@ -15,7 +15,13 @@ import { describe, expect, it } from "vitest";
 
 import { User } from "@/feature/user";
 import { findButton } from "@/platform/modals/testutil";
-import { awaitGranted, createConsoleWrapper, uniqueName } from "@/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
+import {
+  awaitGranted,
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -36,8 +42,12 @@ const loginAs = async (roleName: string): Promise<Login> => {
   return { u, username, as: createTestClientAs(username, PASSWORD) };
 };
 
-const renderAs = async (as: Synnax, ui: ReactElement): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const renderAs = async (
+  as: Synnax,
+  ui: ReactElement,
+  preloadedState?: ConsolePreloadedState,
+): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as, preloadedState });
   await act(async () => {
     render(ui, { wrapper });
   });
@@ -66,6 +76,13 @@ describe("User.ProfileSettings", () => {
     await renderAs(as, <User.ProfileSettings />);
     expect(await screen.findByText(u.name)).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+  });
+
+  it("should show the username of the selected Core connection", async () => {
+    const { as } = await loginAs("Engineer");
+    const core = createCore("Local", { username: uniqueName("login") });
+    await renderAs(as, <User.ProfileSettings />, createCoreState([core], core.key));
+    expect(await screen.findByText(core.username)).toBeTruthy();
   });
 
   it("should change the logged-in user's password", async () => {

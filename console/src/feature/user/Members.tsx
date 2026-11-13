@@ -20,7 +20,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, User } from "@synnaxlabs/pluto";
+import { Access, Flux, Synnax, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -44,6 +44,9 @@ const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
   },
 });
 
+// The client knows its subject once it connects, so no row waits for a retrieve.
+const useSelfKey = (): user.Key | undefined => Synnax.use()?.auth.subject?.key;
+
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Role", width: "30rem", field: true },
@@ -52,13 +55,13 @@ const COLUMNS: List.Column[] = [
 const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
-  const { data: currentKey } = User.useResultKey({});
+  const selfKey = useSelfKey();
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const { update: rename } = User.useRename();
   const { update: setRole } = useSetRole();
   if (item == null) return null;
-  const self = item.key === currentKey;
+  const self = item.key === selfKey;
   const renamable = canUpdate && !self;
   return (
     <Select.Item<user.Key>
@@ -98,7 +101,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
 const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const { getItem } = List.useUtilContext<user.Key, user.User>();
   const users = getItem?.(keys) ?? [];
-  const { data: currentKey } = User.useResultKey({});
+  const selfKey = useSelfKey();
   const ids = user.resourceID(keys);
   const canUpdate = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
@@ -108,8 +111,9 @@ const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
     beforeUpdate: async () => await confirm(users),
   });
   const single = users.length === 1 ? users[0] : undefined;
-  const self = single?.key === currentKey;
-  const includesSelf = users.some((u) => u.key === currentKey);
+  const self = single?.key === selfKey;
+  // The Core refuses to delete the root user.
+  const deletable = users.every((u) => u.key !== selfKey && !u.rootUser);
   return (
     <ContextMenu.Menu>
       {single != null && canUpdate && !self && (
@@ -132,7 +136,7 @@ const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {users.length > 0 && canDelete && !includesSelf && (
+      {users.length > 0 && canDelete && deletable && (
         <ContextMenu.DeleteItem onClick={() => remove(users.map((u) => u.key))} />
       )}
       <Menu.Divider />

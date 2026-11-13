@@ -28,7 +28,8 @@ import { awaitGranted, createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-// Can read users and nothing else, so it can neither open tabs nor read the license.
+// Can read users and nothing else, so it can neither open tabs, read the license, nor
+// manage users.
 // Every grant check reads the role's policies, which awaitGranted caches, so the checks
 // in each test answer on the first render.
 const createLimitedClient = async () => {
@@ -57,16 +58,18 @@ const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisibl
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
-    for (const name of ["Appearance", "Storage", "General", "License"]) {
+    const sections = ["Profile", "API keys", "Appearance", "Storage", "General"];
+    for (const name of [...sections, "Users", "License"]) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
   });
 
-  it("should hide License from a user who cannot read it", async () => {
+  it("should hide License and Users from a user who cannot use them", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "License" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Users" })).toBeNull();
   });
 
   it("should offer the gear and the command to a user who can open tabs", async () => {

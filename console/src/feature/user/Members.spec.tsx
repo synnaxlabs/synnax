@@ -8,8 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { access, NotFoundError, type Synnax, user } from "@synnaxlabs/client";
-import { createTestClient, createTestClientAs } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  createTestClient,
+  createTestClientAs,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +34,7 @@ import {
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
+  queryIcon,
   uniqueName,
 } from "@/testutil";
 
@@ -74,6 +87,21 @@ const confirmDelete = async (): Promise<void> => {
   await act(async () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
   });
+};
+
+const selectAll = (): void =>
+  screen
+    .getAllByRole("checkbox", { name: "Select" })
+    .forEach((box) => fireEvent.click(box));
+
+// An Owner who is not the root user, so only being logged in locks their own line.
+const loginAsOwner = async (username = uniqueName("owner")) => {
+  const owner = await createUser("Owner", username);
+  const as = createTestClientAs(username, "password123");
+  await awaitGranted(as, user.resourceID(owner.key), "update");
+  await awaitGranted(as, user.resourceID(owner.key), "delete");
+  await awaitGranted(as, access.role.TYPE_RESOURCE_ID, "update");
+  return { owner, as };
 };
 
 const deleted = async (key: user.Key): Promise<boolean> => {
@@ -131,28 +159,76 @@ describe("User.Members", () => {
     const b = await createUser("Operator", `${prefix}-b`);
     await renderMembers();
     await search(prefix, 2);
-    screen
-      .getAllByRole("checkbox", { name: "Select" })
-      .forEach((box) => fireEvent.click(box));
+    selectAll();
     await openMenu(a.name);
     await confirmDelete();
     await expect.poll(async () => await deleted(a.key)).toBe(true);
     await expect.poll(async () => await deleted(b.key)).toBe(true);
   });
 
-  describe("the logged-in user", () => {
-    // An Owner that is not the root user, so only being the logged-in user locks the
-    // role and the delete action.
-    const loginAsOwner = async () => {
-      const username = uniqueName("owner");
-      const owner = await createUser("Owner", username);
-      const as = createTestClientAs(username, "password123");
-      await awaitGranted(as, user.resourceID(owner.key), "update");
-      await awaitGranted(as, user.resourceID(owner.key), "delete");
-      await awaitGranted(as, access.role.TYPE_RESOURCE_ID, "update");
-      return { owner, as };
-    };
+  it("should show the icon of each user's role", async () => {
+    const u = await createUser("Operator");
+    await renderMembers();
+    await search(u.name);
+    await screen.findByText("Operator");
+    expect(queryIcon(findButton("Operator"), "control")).toBeTruthy();
+  });
 
+  it("should offer only Delete for more than one user", async () => {
+    const prefix = uniqueName("multi");
+    const a = await createUser("Operator", `${prefix}-a`);
+    await createUser("Operator", `${prefix}-b`);
+    await renderMembers();
+    await search(prefix, 2);
+    selectAll();
+    await openMenu(a.name);
+    expect(await screen.findByText("Delete")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Manage credentials")).toBeNull();
+  });
+
+  it("should open the credentials of another user", async () => {
+    const u = await createUser("Operator");
+    const name = uniqueName("key");
+    await client.auth.createKey({ subject: user.resourceID(u.key), name });
+    await renderMembers();
+    await search(u.name);
+    await openMenu(u.name);
+    await clickAndSettle("Manage credentials");
+    expect(await screen.findByText(name)).toBeTruthy();
+  });
+
+  it("should offer Create user only to a user who may create users", async () => {
+    const u = await createUser("Operator");
+    await renderMembers();
+    expect(await screen.findByRole("button", { name: "Create user" })).toBeTruthy();
+    cleanup();
+    const limited = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [user.TYPE_RESOURCE_ID, access.role.TYPE_RESOURCE_ID],
+      actions: ["retrieve"],
+    });
+    await awaitGranted(limited, user.TYPE_RESOURCE_ID, "retrieve");
+    await renderMembers(limited);
+    await search(u.name);
+    expect(screen.queryByRole("button", { name: "Create user" })).toBeNull();
+  });
+
+  it("should not let anyone change the role of the root user or delete them", async () => {
+    const root = (await client.users.retrieve({})).find((u) => u.rootUser);
+    if (root == null) throw new Error("no root user");
+    const { as } = await loginAsOwner();
+    await renderMembers(as);
+    await search(root.name);
+    const line = screen.getByRole("option", { name: root.name });
+    await openMenu(root.name);
+    expect(await screen.findByText("Manage credentials")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+    const picker = within(line).getByRole("button", { name: /Owner/ });
+    expect(picker.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  describe("the logged-in user", () => {
     it("should not let the user change their own role", async () => {
       const { owner, as } = await loginAsOwner();
       await renderMembers(as);
@@ -168,6 +244,20 @@ describe("User.Members", () => {
       await search(owner.name);
       await openMenu(owner.name);
       expect(await screen.findByText("Manage credentials")).toBeTruthy();
+      expect(screen.queryByText("Delete")).toBeNull();
+    });
+
+    it("should not let the user delete a selection that includes them", async () => {
+      const username = uniqueName("owner");
+      const { as } = await loginAsOwner(username);
+      const peer = await createUser("Operator", `${username}-peer`);
+      await renderMembers(as);
+      await search(username, 2);
+      await openMenu(peer.name);
+      expect(await screen.findByText("Delete")).toBeTruthy();
+      selectAll();
+      await openMenu(peer.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();
     });
   });
