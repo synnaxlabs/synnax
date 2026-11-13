@@ -166,7 +166,9 @@ export interface Page extends z.infer<typeof pageZ> {}
  */
 export const stalenessConfigZ = z.object({
   /** stalenessTimeout is the span after which the value is considered stale. */
-  stalenessTimeout: telem.numericTimeSpanZ.default(5000000000),
+  stalenessTimeout: telem.numericTimeSpanZ
+    .check(z.gte(1000000000), z.lte(9007199254740991))
+    .default(5000000000),
   /** stalenessColor is the color applied when the value is stale. */
   stalenessColor: color.colorZ.optional(),
 });
@@ -309,7 +311,9 @@ export const toggleConfigZ = labeledConfigZ
     stateChannel: channel.keyZ.optional(),
     commandChannel: channel.keyZ.optional(),
     control: controlStateConfigZ.optional(),
-    onClickDelay: telem.numericTimeSpanZ.default(0),
+    onClickDelay: telem.numericTimeSpanZ
+      .check(z.gte(0), z.lte(2147483647000000))
+      .default(0),
   });
 export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
@@ -530,7 +534,9 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   /** level is the typography level of the button text. */
   level: text.levelZ.default("h4"),
   /** onClickDelay is the debounce delay applied to clicks. */
-  onClickDelay: telem.numericTimeSpanZ.default(0),
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** commandChannel is the channel button presses are written to. */
   commandChannel: channel.keyZ.optional(),
   /** mode is the actuation behavior of the button. */
@@ -599,7 +605,9 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   /** inlineSize is the width of the field in pixels, not counting the Set button. */
   inlineSize: zod.uint16.default(150),
   /** onClickDelay is the debounce delay applied to clicks. */
-  onClickDelay: telem.numericTimeSpanZ.default(0),
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -698,7 +706,9 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks. */
-  onClickDelay: telem.numericTimeSpanZ.default(0),
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -750,7 +760,9 @@ export const setpointNodeConfigZ = labeledConfigZ
     /** inlineSize is the width of the field in pixels, not counting the Set button. */
     inlineSize: zod.uint16.default(100),
     /** onClickDelay is the debounce delay applied to clicks. */
-    onClickDelay: telem.numericTimeSpanZ.default(0),
+    onClickDelay: telem.numericTimeSpanZ
+      .check(z.gte(0), z.lte(2147483647000000))
+      .default(0),
     /** control is the control state display configuration. */
     control: controlStateConfigZ.optional(),
   });
