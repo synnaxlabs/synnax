@@ -506,6 +506,25 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should update the run of a range whose end moves before the task start",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				for _, edit := range []ranger.SetPayload{
+					{Path: []string{"time_range", "start"}, Value: telem.SecondTS},
+					{Path: []string{"time_range", "end"}, Value: 2 * telem.SecondTS},
+				} {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return rangerSvc.NewWriter(tx).
+							Apply(ctx, rng.Key, ranger.NewSetAction(edit))
+					})).To(Succeed())
+				}
+				Eventually(func() time.Time {
+					return server.Runs()[0].StopTime.AsTime()
+				}).Should(BeTemporally("==", time.Unix(2, 0)))
+			})
+
 		It("Should update the tags of a run when its range gets a label",
 			func(ctx SpecContext) {
 				cold := label.Label{Name: "cold"}
