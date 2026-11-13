@@ -63,8 +63,10 @@ const createPlanned = async (name: string): Promise<ranger.Range> => {
   return rng;
 };
 
-/** Creates a label, one range with it, and one range without it. */
-const createLabeled = async (): Promise<{
+/** Creates a label, one range with it, and one without it, each named after token. */
+const createLabeled = async (
+  token: string,
+): Promise<{
   label: label.Label;
   labeled: ranger.Range;
   other: ranger.Range;
@@ -73,10 +75,8 @@ const createLabeled = async (): Promise<{
     name: uniqueName("label"),
     color: "#000000",
   });
-  const labeled = await createRange(uniqueRangeName("labeled"), {
-    labels: [label.key],
-  });
-  const other = await createRange(uniqueRangeName("other"));
+  const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
+  const other = await createRange(`${token} other`);
   return { label, labeled, other };
 };
 
@@ -145,9 +145,12 @@ const aimAtLabels = async (): Promise<void> => {
 describe("range/next/Explorer", () => {
   describe("filter", () => {
     it("should keep the ranges with a picked label and restore the rest when its chip goes", async () => {
-      const { label, labeled, other } = await createLabeled();
+      const token = uniqueToken();
+      const { label, labeled, other } = await createLabeled(token);
       await renderExplorer();
-      await screen.findByText(other.name);
+      // Other specs make ranges that sort above these, so a search shows them alone.
+      await search(token);
+      await findItem(other.name);
       fireEvent.click(await screen.findByRole("button", { name: "Filter" }));
       const labels = await screen.findByRole("button", {
         name: "Labels",
@@ -159,15 +162,15 @@ describe("range/next/Explorer", () => {
       });
       fireEvent.click(await screen.findByRole("option", { name: label.name }));
       await waitFor(() => {
-        expect(screen.queryByText(other.name)).toBeNull();
-        expect(screen.getByText(labeled.name)).toBeTruthy();
+        expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
+        expect(itemOf(labeled.name)).toBeTruthy();
       });
       fireEvent.click(screen.getByRole("button", { name: "Remove Labels filter" }));
-      await screen.findByText(other.name);
+      await findItem(other.name);
     });
 
     it("should show the chip of a stored view that filters by one label", async () => {
-      const { label, labeled, other } = await createLabeled();
+      const { label, labeled, other } = await createLabeled(uniqueToken());
       // A 0.61 view stores a sole labels filter outside an and.
       const stored = await client.views.create({
         name: uniqueName("view"),
@@ -300,15 +303,30 @@ describe("range/next/Explorer", () => {
   });
 
   describe("context menu", () => {
-    /** Opens the menu of the named range once the explorer shows it. */
-    const openMenu = async (name: string): Promise<void> => {
-      await findItem(name);
-      await openContextMenu(name);
+    /**
+     * Creates a range whose name holds a unique token, and shows it alone through a
+     * search, since other specs make ranges that sort above it.
+     */
+    const createShown = async (
+      label: string,
+      extra: Partial<ranger.New> = {},
+    ): Promise<ranger.Range> => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} ${label}`, extra);
+      await renderExplorer();
+      await search(token);
+      await findItem(rng.name);
+      return rng;
     };
 
+    const openMenu = async (name: string): Promise<void> =>
+      await openContextMenu(() => itemOf(name));
+
     it("should start a planned range now with no end", async () => {
-      const planned = await createPlanned(uniqueRangeName("planned"));
-      await renderExplorer();
+      const planned = await createShown("planned", {
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+      });
+      onTestFinished(async () => await client.ranges.delete(planned.key));
       await openMenu(planned.name);
       fireEvent.click(await screen.findByText("Start"));
       await waitFor(async () => {
@@ -319,10 +337,9 @@ describe("range/next/Explorer", () => {
     });
 
     it("should stop a running range", async () => {
-      const running = await createRange(uniqueRangeName("running"), {
+      const running = await createShown("running", {
         timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
       });
-      await renderExplorer();
       await openMenu(running.name);
       fireEvent.click(await screen.findByText("Stop"));
       await waitFor(async () => {
@@ -332,8 +349,7 @@ describe("range/next/Explorer", () => {
     });
 
     it("should offer Unpin once a range is pinned", async () => {
-      const rng = await createRange(uniqueRangeName("pinned"));
-      await renderExplorer();
+      const rng = await createShown("pinned");
       await openMenu(rng.name);
       expect(screen.queryByText("Unpin")).toBeNull();
       fireEvent.click(await screen.findByText("Pin"));
@@ -345,45 +361,46 @@ describe("range/next/Explorer", () => {
     });
 
     it("should open the create modal under the range on Start child range", async () => {
-      const parent = await createRange(uniqueRangeName("parent"));
-      await renderExplorer();
+      const parent = await createShown("parent");
       await openMenu(parent.name);
       fireEvent.click(await screen.findByText("Start child range"));
       await screen.findByLabelText("Range name");
-      // The parent select of the modal names the range.
-      await waitFor(() => expect(screen.getAllByText(parent.name)).toHaveLength(2));
+      // The search tints the token in the item, so only the parent select of the modal
+      // shows the whole name.
+      await screen.findByText(parent.name);
     });
 
     it("should delete a range after the confirm", async () => {
-      const rng = await createRange(uniqueRangeName("deleted"));
-      await renderExplorer();
+      const rng = await createShown("deleted");
       await openMenu(rng.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
-      await waitFor(() => expect(screen.queryByText(rng.name)).toBeNull());
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: rng.name })).toBeNull(),
+      );
       await expect(client.ranges.retrieve(rng.key)).rejects.toThrow(NotFoundError);
     });
   });
 
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
-      await createPlanned(uniqueRangeName("planned"));
-      const running = await createRange(uniqueRangeName("running"));
+      const planned = await createPlanned(uniqueRangeName("planned"));
+      await createRange(uniqueRangeName("running"));
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      await findItem(running.name);
+      // A range with no start sorts first, so its lane always shows.
+      await findItem(planned.name);
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
     });
 
     it("should offer Fit all once a zoom or Now moves the window", async () => {
-      const rng = await createRange(uniqueRangeName("running"));
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      await findItem(rng.name);
+      const zoomIn = await screen.findByRole("button", { name: "Zoom in" });
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(zoomIn);
       fireEvent.click(screen.getByRole("button", { name: "Fit all" }));
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Now" }));
