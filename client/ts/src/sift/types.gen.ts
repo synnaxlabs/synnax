@@ -54,6 +54,15 @@ export const positionZ = z.object({
 });
 export interface Position extends z.infer<typeof positionZ> {}
 
+/** ChannelPosition is how far Sift has confirmed the values of one data channel. */
+export const channelPositionZ = z.object({
+  /** channel is the data channel the position belongs to. */
+  channel: channel.keyZ,
+  /** time is the time before which Sift confirmed every value of the channel. */
+  time: telem.timeStampZ,
+});
+export interface ChannelPosition extends z.infer<typeof channelPositionZ> {}
+
 /**
  * UploadDetails is the state of an upload to Sift, held in the details of its status.
  */
@@ -82,9 +91,19 @@ export interface UploadDetails extends z.infer<typeof uploadDetailsZ> {}
  * StreamDetails is the progress of a stream to Sift, held in the details of its status.
  */
 export const streamDetailsZ = z.object({
+  /**
+   * start is the time the task started to send from, so a range that ends at or before
+   * it gets no run.
+   */
+  start: telem.timeStampZ,
   /** positions holds, for each index, how far Sift has confirmed the stream. */
   positions: positionZ.array().default(() => []),
   /** runsThrough is the time before which every labeled range that ended has a run. */
   runsThrough: telem.timeStampZ,
+  /**
+   * behind holds each data channel that was written without its index and whose values
+   * Sift has not confirmed. It is empty while every channel arrives with its index.
+   */
+  behind: channelPositionZ.array().default(() => []),
 });
 export interface StreamDetails extends z.infer<typeof streamDetailsZ> {}
