@@ -76,7 +76,14 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       reset(await client.views.create(values));
       return;
     }
-    const edits = actions.diffFields(formSchema, stored, values, ["name", "where"]);
+    const edits = actions.diffFields(formSchema, stored, values, [
+      "name",
+      "icon",
+      "color",
+      "where",
+      "sort",
+      "layout",
+    ]);
     if (edits.length > 0) await client.views.dispatch(key, edits);
   },
   mountListeners: ({ client, query: { key }, reset }) =>

@@ -42,11 +42,7 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a schematic as a versioned envelope", func(ctx SpecContext) {
-			s := schematic.Schematic{
-				Project:  &proj.Key,
-				Name:     "exported",
-				Snapshot: true,
-			}
+			s := schematic.Schematic{Project: &proj.Key, Name: "exported"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &s)
 			})).To(Succeed())
@@ -59,7 +55,6 @@ var _ = Describe("ImEx", func() {
 				WireRoundTrip(env).Decode[schematic.Schematic](ctx),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
-			Expect(decoded.Snapshot).To(BeTrue())
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
@@ -106,7 +101,6 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
-			Expect(res.Snapshot).To(BeTrue())
 			Expect(res.Nodes).To(HaveLen(1))
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
 			Expect(res.Edges[0].Source).To(

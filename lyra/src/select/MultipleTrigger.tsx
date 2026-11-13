@@ -31,7 +31,6 @@ import { Text } from "@/text";
 export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
   color?: color.Crude;
-  alias?: string;
 }
 
 export interface MultipleTagProps<K extends record.Key> extends Omit<
@@ -52,9 +51,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = useItemState(itemKey);
-  let label: string = itemKey.toString();
-  if (primitive.isNonZero(item?.alias)) label = item.alias;
-  else if (primitive.isNonZero(item?.name)) label = item.name;
+  const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag

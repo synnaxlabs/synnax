@@ -47,24 +47,30 @@ var ontologyDropMigration = migrate.New(
 	},
 )
 
-// ontologyChannelNames are the internal channels the Core announced ontology changes
-// on.
-var ontologyChannelNames = []string{
+// rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
+var rangeAliasDropMigration = migrate.Drop("v62_drop_range_aliases", "Alias")
+
+// retiredChannelNames are the internal channels the Core announced ontology and range
+// alias changes on.
+var retiredChannelNames = []string{
 	"sy_ontology_resource_set",
 	"sy_ontology_resource_delete",
 	"sy_ontology_relationship_set",
 	"sy_ontology_relationship_delete",
+	"sy_range_alias_set",
+	"sy_range_alias_delete",
+	"sy_range_alias_action_set",
 }
 
-// deleteOntologyChannels deletes the ontology channels an upgraded store still holds.
-// It does nothing when none exist.
-func deleteOntologyChannels(
+// deleteRetiredChannels deletes the retired channels an upgraded store still holds. It
+// does nothing when none exist.
+func deleteRetiredChannels(
 	ctx context.Context,
 	db *gorp.DB,
 	ch *channel.Service,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		return ch.NewWriter(tx).
-			DeleteManyByNames(ctx, ontologyChannelNames, true)
+			DeleteManyByNames(ctx, retiredChannelNames, true)
 	})
 }

@@ -26,7 +26,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
 	github.com/shirou/gopsutil/v4 v4.26.9
-	github.com/sift-stack/sift/go v0.4.0
+	github.com/sift-stack/sift/go v0.4.1-0.20261019204012-83100e90939b
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0

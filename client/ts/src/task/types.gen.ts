@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { rack } from "@/rack";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
@@ -189,8 +188,6 @@ export type Where = {
   type?: filter.String;
   rack?: filter.Set<typeof rack.keyZ>;
   internal?: filter.Bool;
-  snapshot?: filter.Bool;
-  ranges?: ranger.Key[];
   arcs?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
@@ -216,10 +213,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   rack: filter.setZ(rack.keyZ).optional(),
   /** internal selects by internal. */
   internal: filter.boolZ.optional(),
-  /** snapshot selects by snapshot. */
-  snapshot: filter.boolZ.optional(),
-  /** ranges matches the tasks that are snapshots in any of the given ranges. */
-  ranges: zod.nullToUndefined(ranger.keyZ.array()),
   /** arcs matches the tasks that run any of the Arcs with the given keys. */
   arcs: zod.nullToUndefined(z.uuid().array()),
 });
@@ -284,9 +277,7 @@ export const payloadZ = <
     config: config ?? record.unknownZ().default(() => ({})),
     configHash: z.string().default(""),
     internal: z.boolean().default(false),
-    snapshot: z.boolean().default(false),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
-    range: ranger.keyZ.optional(),
   });
 export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   key: Key;
@@ -296,9 +287,7 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   config: z.infer<S["config"]>;
   configHash: string;
   internal: boolean;
-  snapshot: boolean;
   status?: Status<S["statusData"]>;
-  range?: ranger.Key;
 }
 
 export const persistConfigZ = startConfigZ.extend({
@@ -324,7 +313,7 @@ export const retrieveRequestZ = z.strictObject({
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   Omit<Payload<S>, "status">,
-  "key" | "rack" | "configHash" | "internal" | "snapshot"
+  "key" | "rack" | "configHash" | "internal"
 > & {
   status?: status.New<ReturnType<typeof statusDetailsZ>>;
 };
