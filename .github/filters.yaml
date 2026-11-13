@@ -434,7 +434,6 @@ integration:
   - *driver_build
   - *py
   - *x_py
-  - .github/actions/upload-artifact/**
   - .github/scripts/check_artifact_cache.sh
   - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
