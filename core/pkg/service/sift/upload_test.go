@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -57,7 +58,7 @@ var _ = Describe("Upload", func() {
 	}
 
 	BeforeEach(func(ctx SpecContext) {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
@@ -112,6 +113,21 @@ var _ = Describe("Upload", func() {
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+	})
+
+	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
+		l := label.Label{Name: "hotfire"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := labelSvc.NewWriter(tx).Create(ctx, &l); err != nil {
+				return err
+			}
+			return rangerSvc.NewWriter(tx).AddLabels(ctx, rng.Key, []label.Key{l.Key})
+		})).To(Succeed())
+		key := upload(ctx)
+		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+		Expect(server.Runs()).To(HaveExactElements(
+			HaveField("Tags", ConsistOf("hotfire")),
+		))
 	})
 
 	It("Should upload while scanning is off", func(ctx SpecContext) {
@@ -284,6 +300,23 @@ var _ = Describe("Upload", func() {
 		}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
 		Expect(server.Runs()).To(BeEmpty())
 	})
+
+	It("Should finish without a run when its range is deleted during the upload",
+		func(ctx SpecContext) {
+			server.Pause()
+			key := upload(ctx)
+			Eventually(server.Streams).Should(Equal(1))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Delete(ctx, rng.Key)
+			})).To(Succeed())
+			server.Resume()
+			statusOf(ctx, key).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Uploaded to Sift"),
+			))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+			Expect(server.Runs()).To(BeEmpty())
+		})
 
 	It("Should not write back the status of an upload deleted as it ends",
 		func(ctx SpecContext) {

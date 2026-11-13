@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,16 +48,16 @@ var _ = Describe("Factory", func() {
 	var f driver.Factory
 
 	BeforeEach(func() {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 	})
 
-	Describe("NewFactory", func() {
+	Describe("OpenFactory", func() {
 		DescribeTable(
 			"Should require each service",
 			func(field string, clear func(*sift.FactoryConfig)) {
 				cfg := factoryConfig()
 				clear(&cfg)
-				Expect(sift.NewFactory(cfg)).Error().To(And(
+				Expect(sift.OpenFactory(cfg)).Error().To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(field+": must be non-nil"),
 				))
@@ -72,7 +73,16 @@ var _ = Describe("Factory", func() {
 				func(c *sift.FactoryConfig) { c.Channel = nil },
 			),
 			Entry("framer", "framer", func(c *sift.FactoryConfig) { c.Framer = nil }),
+			Entry("label", "label", func(c *sift.FactoryConfig) { c.Label = nil }),
+			Entry("task", "task", func(c *sift.FactoryConfig) { c.Task = nil }),
 		)
+
+		It("Should reject a checkpoint interval that is not positive", func() {
+			cfg := factoryConfig()
+			cfg.CheckpointInterval = -telem.Second
+			Expect(sift.OpenFactory(cfg)).Error().
+				To(MatchError("checkpoint_interval: must be positive"))
+		})
 	})
 
 	Describe("Name", func() {
@@ -115,7 +125,7 @@ var _ = Describe("Factory", func() {
 			func(ctx SpecContext) {
 				cfg := factoryConfig()
 				cfg.DB = gorp.Wrap(failingKV{DB: db.DB})
-				f := MustSucceed(sift.NewFactory(cfg))
+				f := MustOpen(sift.OpenFactory(cfg))
 				for range 2 {
 					t := newTask(
 						ctx,

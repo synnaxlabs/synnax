@@ -16,6 +16,9 @@ import (
 	"encoding/json/v2"
 	"reflect"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -61,4 +64,18 @@ func (s ScanConfig) Validate() error {
 	v := validate.New("ScanConfig")
 	v.Exec(s.ScanConfig.Validate)
 	return v.Error()
+}
+
+// StreamConfig configures a task that streams live data to Sift.
+type StreamConfig struct {
+	task.StartConfig
+	// Device is the key of the Sift device the task sends to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Asset is the name of the Sift asset that receives the data.
+	Asset string `json:"asset" msgpack:"asset"`
+	// Channels are the channels the task sends.
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	// Labels are the labels that make a range a Sift run. A range with any of them
+	// becomes a run once Sift has its data. Empty makes no runs.
+	Labels []label.Key `json:"labels" msgpack:"labels"`
 }

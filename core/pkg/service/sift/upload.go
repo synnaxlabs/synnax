@@ -320,7 +320,7 @@ func (u *uploader) finish(ctx context.Context, s *UploadStatus, err error) {
 	default:
 		s.Variant = status.VariantSuccess
 		s.Message = "Uploaded to Sift"
-		s.Description = progress(s.Details)
+		s.Description = uploadProgress(s.Details)
 	}
 	u.write(ctx, s)
 }
@@ -352,18 +352,25 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	uploading := func() {
 		s.Variant = status.VariantLoading
 		s.Message = "Uploading to Sift"
-		s.Description = progress(*d)
+		s.Description = uploadProgress(*d)
 	}
 	uploading()
 	u.write(ctx, s)
+	retrying := func(ctx context.Context, err error) {
+		s.Variant = status.VariantWarning
+		s.Message = "Retrying upload to Sift"
+		s.Description = err.Error()
+		u.write(ctx, s)
+	}
 	e, err := ingest.New(ctx, ingest.Config{
-		DB:              u.cfg.DB,
-		Instrumentation: u.cfg.Child("upload"),
-		Framer:          u.cfg.Framer,
-		Channel:         u.cfg.Channel,
-		Conn:            conn,
-		Asset:           d.Asset,
-		Keys:            d.Channels,
+		DB:                 u.cfg.DB,
+		Instrumentation:    u.cfg.Child("upload"),
+		Framer:             u.cfg.Framer,
+		Channel:            u.cfg.Channel,
+		Conn:               conn,
+		Asset:              d.Asset,
+		Keys:               d.Channels,
+		CheckpointInterval: u.cfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
 			d.Positions = toPositions(cp.Positions)
 			d.Samples += cp.Samples
@@ -371,12 +378,8 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 			u.write(ctx, s)
 			return nil
 		},
-		OnRetry: func(ctx context.Context, err error) {
-			s.Variant = status.VariantWarning
-			s.Message = "Retrying upload to Sift"
-			s.Description = err.Error()
-			u.write(ctx, s)
-		},
+		OnRetry:    retrying,
+		OnRunRetry: retrying,
 	})
 	if err != nil {
 		return err
@@ -384,10 +387,27 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
+	var rng ranger.Range
+	err = u.cfg.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(d.Range)).
+		Entry(&rng).
+		Exec(ctx, u.cfg.DB)
+	// A range deleted during the upload has no run to make.
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	tags, err := rangeTags(ctx, u.cfg, rng)
+	if err != nil {
+		return err
+	}
 	_, err = e.SetRun(ctx, ingest.Run{
-		Key:       d.Range.String(),
-		Name:      s.Name,
+		Key:       rng.Key.String(),
+		Name:      rng.Name,
 		TimeRange: d.TimeRange,
+		Tags:      tags,
 	})
 	return err
 }
@@ -421,7 +441,7 @@ func (u *uploader) write(ctx context.Context, s *UploadStatus) {
 	}
 }
 
-func progress(d UploadDetails) string {
+func uploadProgress(d UploadDetails) string {
 	return fmt.Sprintf("Sent %s to asset %s.", sampleCount(d.Samples), d.Asset)
 }
 

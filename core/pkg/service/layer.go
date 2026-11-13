@@ -1048,7 +1048,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
-	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
 		Instrumentation: cfg.Child("sift"),
 		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
@@ -1057,8 +1057,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ranger:          l.Ranger,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
+		Label:           l.Label,
+		Task:            l.Task,
 	})
-	if !ok(err, nil) {
+	if !ok(err, siftFactory) {
 		return nil, err
 	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
