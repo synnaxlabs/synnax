@@ -38,7 +38,7 @@ describe("Label.configZ", () => {
   });
 
   it("should fill the default wrap width when it is not set", () => {
-    expect(Label.configZ.parse({}).maxInlineSize).toBe(Label.DEFAULT_MAX_INLINE_SIZE);
+    expect(Label.configZ.parse({}).maxInlineSize).toBe(150);
   });
 
   it("should reject a fractional wrap width", () => {

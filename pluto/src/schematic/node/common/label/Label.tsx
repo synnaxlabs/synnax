@@ -20,9 +20,6 @@ import { type NodeProps } from "@/schematic/node/spec";
 export const configZ = schematic.labelConfigZ;
 export type Config = schematic.LabelConfig;
 
-/** The default wrap width of a label in pixels. */
-export const DEFAULT_MAX_INLINE_SIZE = 150;
-
 /** The bounds of a stored wrap width in pixels. */
 export const WRAP_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 65535 };
 
