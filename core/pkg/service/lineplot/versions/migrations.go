@@ -12,12 +12,12 @@ package versions
 import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
-	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 )
 
 // Migrations is the ordered migration chain for stored line plots.

@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 )
 

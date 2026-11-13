@@ -165,7 +165,9 @@ var _ = Describe("Migrations", func() {
 			openTable()
 			want := MustSucceed(v5.MigratePanel(
 				ctx,
-				MustSucceed(v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored)))),
+				MustSucceed(
+					v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
+				),
 			))
 			want.Project = &owner
 			got := retrieve(stored.Key)
