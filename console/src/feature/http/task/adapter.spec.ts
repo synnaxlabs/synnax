@@ -105,6 +105,26 @@ describe("adapter", () => {
       expect("fill" in integer ? integer.fill : undefined).toBeUndefined();
     });
 
+    it("should make numeric entries and a fill booleans on a boolean kind", () => {
+      const field = createField({
+        type: "float",
+        fill: 1,
+        enumValues: [
+          { label: "ON", value: 1 },
+          { label: "OFF", value: 0 },
+          { label: "UNKNOWN", value: NaN },
+        ],
+      });
+      expect(retype(field, DataType.BOOLEAN)).toMatchObject({
+        type: "boolean",
+        fill: true,
+        enumValues: [
+          { label: "ON", value: true },
+          { label: "OFF", value: false },
+        ],
+      });
+    });
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({

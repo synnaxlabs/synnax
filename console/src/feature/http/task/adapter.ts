@@ -80,23 +80,34 @@ const convertNumber = (
   return n >= min && n <= max ? n.toString() : undefined;
 };
 
+/** @returns v as a boolean that is true when v is not 0, or undefined for NaN. */
+const toBoolean = (v: number | string): boolean | undefined => {
+  const f = typeof v === "number" ? v : Number(v);
+  return Number.isNaN(f) ? undefined : f !== 0;
+};
+
 /**
- * @returns the field with the kind of the data type. Between float, integer, and
- * unsigned kinds, the fill and enum entries convert when a channel of the data type
- * holds them exactly, as the Core does. A field of another kind keeps only its base
- * fields.
+ * @returns the field with the kind of the data type, converting the fill and enum
+ * entries as the Core does. Between float, integer, and unsigned kinds, they convert
+ * when a channel of the data type holds them exactly, and on a boolean kind a number
+ * is true when it is not 0. A field of another kind keeps only its base fields.
  */
 export const retype = (field: ReadField, dataType: DataType): ReadField => {
   const type = kindOf(dataType);
   if (type === field.type) return isNumeric(field) ? { ...field, dataType } : field;
   const { key, name, disabled, channel, pointer } = field;
+  const convert =
+    type === "boolean"
+      ? toBoolean
+      : isNumericKind(type)
+        ? (v: number | string) => convertNumber(v, type, dataType)
+        : null;
   const converted =
-    isNumeric(field) && isNumericKind(type)
+    isNumeric(field) && convert != null
       ? {
-          fill:
-            field.fill == null ? undefined : convertNumber(field.fill, type, dataType),
+          fill: field.fill == null ? undefined : convert(field.fill),
           enumValues: field.enumValues.flatMap(({ label, value }) => {
-            const v = convertNumber(value, type, dataType);
+            const v = convert(value);
             return v == null ? [] : [{ label, value: v }];
           }),
         }
