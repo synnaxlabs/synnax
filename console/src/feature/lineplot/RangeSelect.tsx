@@ -258,7 +258,7 @@ const DurationSearch = ({
       }}
     >
       <Select.Search
-        placeholder="Search favorites or type a duration"
+        placeholder="Search pinned ranges or type a duration"
         onSearch={onSearch}
       />
     </Flex.Box>

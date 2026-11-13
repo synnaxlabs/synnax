@@ -36,7 +36,7 @@ const NoStatuses = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
-      message="No favorited statuses"
+      message="No pinned statuses"
       action={hasRetrievePermission ? "Open status explorer" : undefined}
       onClick={openExplorer}
     />

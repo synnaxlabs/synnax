@@ -58,7 +58,7 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
-const SEARCH_PLACEHOLDER = "Search favorites or type a duration";
+const SEARCH_PLACEHOLDER = "Search pinned ranges or type a duration";
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));

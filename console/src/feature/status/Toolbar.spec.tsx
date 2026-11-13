@@ -133,14 +133,14 @@ describe("status toolbar permissions", () => {
 
   it("should withhold the create action from a viewer", async () => {
     const { container } = await renderToolbar([], await roles.get("Viewer"));
-    await screen.findByText("No favorited statuses");
+    await screen.findByText("No pinned statuses");
     await waitFor(() => expect(queryIcon(container, "explore")).toBeTruthy());
     expect(queryIcon(container, "add")).toBeNull();
   });
 
   it("should offer the create action to an engineer", async () => {
     const { container } = await renderToolbar([], await roles.get("Engineer"));
-    await screen.findByText("No favorited statuses");
+    await screen.findByText("No pinned statuses");
     await waitFor(() => expect(queryIcon(container, "add")).toBeTruthy());
   });
 });
