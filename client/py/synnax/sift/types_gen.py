@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import override as _override
+from typing import Annotated, override as _override
 
 from pydantic import BaseModel, Field
 
@@ -53,7 +53,9 @@ class StreamConfig(task.StartConfig):
 
     device: device_.Key = ""
     asset: str = ""
-    channels: list[channel_.Key] = Field(default_factory=list)
+    channels: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
     labels: list[label.Key] = Field(default_factory=list)
 
     @_override
@@ -103,7 +105,9 @@ class UploadDetails(BaseModel):
     device: device_.Key
     range: ranger.Key | None = None
     time_range: telem.TimeRange
-    channels: list[channel_.Key] = Field(default_factory=list)
+    channels: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
     asset: str
     positions: list[Position] = Field(default_factory=list)
     samples: int = Field(default=0, ge=-9223372036854775808, le=9223372036854775807)
