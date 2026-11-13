@@ -34,10 +34,10 @@ class Identity(BaseModel):
         model: Is the product name of the chassis.
     """
 
-    rack: rack_.Key = Field(ge=0, le=4294967295)
+    rack: rack_.Key = Field(gt=0, le=4294967295)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
 
 
 class Configuration(BaseModel):
@@ -47,7 +47,7 @@ class Configuration(BaseModel):
         name: Is a human-readable name for the chassis.
     """
 
-    name: str
+    name: str = Field(min_length=1)
 
 
 class Where(BaseModel):
@@ -178,10 +178,10 @@ class Chassis(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    name: str
+    name: str = Field(min_length=1)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     status: Status | None = None
 
     @_override

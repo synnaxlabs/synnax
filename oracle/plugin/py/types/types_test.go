@@ -406,6 +406,34 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		It(
+			"Should refuse the zero value of a required string or unsigned field",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Serial = uint32
+
+				Device struct {
+					name   string @validate required
+					serial Serial @validate required
+					count  uint16 @validate required
+					label  string @validate {
+						required
+						min_length 3
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`name: str = Field(min_length=1)`,
+					`serial: Serial = Field(gt=0, le=4294967295)`,
+					`count: int = Field(gt=0, le=65535)`,
+					`label: str = Field(min_length=3)`,
+				)
+			},
+		)
+
+		It(
 			"Should apply validation rules with Field constraints",
 			func(ctx SpecContext) {
 				source := `

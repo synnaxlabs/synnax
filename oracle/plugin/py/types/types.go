@@ -1160,11 +1160,14 @@ func collectValidation(
 	primitive := key.ResolvePrimitive(typeRef, table)
 	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
-		if rules.MinLength != nil {
+		switch {
+		case rules.MinLength != nil:
 			constraints = append(
 				constraints,
 				fmt.Sprintf("min_length=%d", *rules.MinLength),
 			)
+		case rules.Required:
+			constraints = append(constraints, "min_length=1")
 		}
 		if rules.MaxLength != nil {
 			constraints = append(
@@ -1174,6 +1177,11 @@ func collectValidation(
 		}
 	}
 	if isNumber {
+		// A required unsigned integer is nonzero, so it is greater than zero.
+		if rules.Required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+			rules.GT == nil {
+			constraints = append(constraints, "gt=0")
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))

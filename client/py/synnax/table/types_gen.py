@@ -50,7 +50,7 @@ class Row(BaseModel):
             points at an entry in the table's cells map.
     """
 
-    key: str = Field(default_factory=lambda: str(uuid4()))
+    key: str = Field(min_length=1, default_factory=lambda: str(uuid4()))
     size: float = Field(default=36, ge=1, allow_inf_nan=False)
     cells: list[str] = Field(default_factory=list)
 
@@ -63,7 +63,7 @@ class Column(BaseModel):
         size: Is the width of the column in pixels.
     """
 
-    key: str = Field(default_factory=lambda: str(uuid4()))
+    key: str = Field(min_length=1, default_factory=lambda: str(uuid4()))
     size: float = Field(default=72, ge=1, allow_inf_nan=False)
 
 
@@ -205,7 +205,7 @@ class Table(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     rows: list[Row] = Field(default_factory=list)
     columns: list[Column] = Field(default_factory=list)
     cells: dict[str, CellConfig] = Field(default_factory=dict)
