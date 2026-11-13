@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -34,7 +35,7 @@ var (
 		Device:   "test_6",
 	}
 	fullyPopulatedMinMaxVal   = v4.MinMaxVal{MinVal: 1.5, MaxVal: 2.5}
-	fullyPopulatedTerminal    = v4.Terminal{TerminalConfig: v4.TerminalConfig("Cfg_Default")}
+	fullyPopulatedTerminal    = v4.Terminal{TerminalConfig: device.TerminalConfig("Cfg_Default")}
 	fullyPopulatedCustomScale = v4.CustomScale{
 		CustomScale: v4.Scale{Variant: v4.LinearScale{
 			Slope:          2.5,
@@ -909,6 +910,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Terminal", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v4.Terminal) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v4.Terminal
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedTerminal),
+			Entry("zero values", v4.Terminal{TerminalConfig: device.TerminalConfig("")}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeAIChannel(b *testing.B) {
@@ -1260,6 +1276,23 @@ func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v4.DigitalWriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeTerminal(b *testing.B) {
+	seed := fullyPopulatedTerminal
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v4.Terminal
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2708,6 +2741,45 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v4.DigitalWriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTerminal(f *testing.F) {
+	{
+		seed := fullyPopulatedTerminal
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v4.Terminal{TerminalConfig: device.TerminalConfig("")}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v4.Terminal
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v4.Terminal
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

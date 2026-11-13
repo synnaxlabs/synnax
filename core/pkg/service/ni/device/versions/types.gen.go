@@ -42,3 +42,35 @@ type StatusDetails = v1.StatusDetails
 
 // Status is the operational status of a device.
 type Status = v1.Status
+
+// TerminalConfig selects the terminal configuration for an analog input channel.
+type TerminalConfig = v1.TerminalConfig
+
+const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
+	TerminalConfigCfgDefault TerminalConfig = v1.TerminalConfigCfgDefault
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = v1.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = v1.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = v1.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
+	TerminalConfigPseudoDiff TerminalConfig = v1.TerminalConfigPseudoDiff
+)
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort = v1.AnalogInputPort
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort = v1.AnalogOutputPort
+
+// CounterPort is a counter of an NI device.
+type CounterPort = v1.CounterPort
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort = v1.DigitalPort
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+type Hardware = v1.Hardware

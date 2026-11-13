@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-#include "client/cpp/ni/types.gen.h"
+#include "client/cpp/ni/device/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/ni/daqmx/sugared.h"
@@ -26,10 +26,10 @@ namespace driver::ni {
 /// @param dmx the DAQmx library.
 /// @param device the DAQmx name of the device, such as Dev1.
 /// @returns the hardware of the device, or the first error that DAQmx returns.
-std::pair<::synnax::ni::Hardware, x::errors::Error>
+std::pair<::synnax::ni::device::Hardware, x::errors::Error>
 probe(daqmx::SugaredAPI &dmx, const std::string &device);
 
 /// @brief returns whether the hardware holds every value that probe reads, which is
 /// false when a default terminal configuration failed to read back.
-bool is_complete(const ::synnax::ni::Hardware &hw);
+bool is_complete(const ::synnax::ni::device::Hardware &hw);
 }

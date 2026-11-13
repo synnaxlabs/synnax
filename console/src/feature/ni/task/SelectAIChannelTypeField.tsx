@@ -51,7 +51,7 @@ interface SelectAIChannelTypeFieldProps extends Pick<
    * The hardware of the channel's device. An unscaled switch to current takes its
    * widest current range.
    */
-  hardware?: ni.Hardware;
+  hardware?: ni.device.Hardware;
 }
 
 export const SelectAIChannelTypeField = ({

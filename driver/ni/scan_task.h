@@ -17,8 +17,8 @@
 
 #include "nlohmann/json.hpp"
 
-#include "client/cpp/ni/json.gen.h"
-#include "client/cpp/ni/types.gen.h"
+#include "client/cpp/ni/device/json.gen.h"
+#include "client/cpp/ni/device/types.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/lib/lazy.h"
 
@@ -55,7 +55,7 @@ struct Device : synnax::device::Device {
     std::string provides_link_name;
     /// @brief the ports and capabilities of the device. Absent when the scan did not
     /// read them, which keeps the stored value.
-    std::optional<::synnax::ni::Hardware> hardware;
+    std::optional<::synnax::ni::device::Hardware> hardware;
 
     Device() = default;
 

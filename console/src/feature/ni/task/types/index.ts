@@ -35,9 +35,9 @@ export type ForceSensitivityUnits = ni.ForceSensitivityUnits;
 export type ResistanceConfig = ni.ResistanceConfig;
 export type RTDType = ni.RTDType;
 export type StrainConfig = ni.StrainConfig;
-export type TerminalConfig = ni.TerminalConfig;
+export type TerminalConfig = ni.device.TerminalConfig;
 
-export const TERMINAL_CONFIGS = ni.TERMINAL_CONFIGS;
+export const TERMINAL_CONFIGS = ni.device.TERMINAL_CONFIGS;
 
 export const TERMINAL_CONFIG_NAMES = {
   RSE: "Referenced single ended",
@@ -155,7 +155,7 @@ const TEMPERATURE_RANGES: Record<ni.TemperatureUnits, closedBounds.ClosedBounds>
 export const defaultAIRange = (
   previous: AIChannelType,
   channel: AIChannel,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds | undefined => {
   if (channel.type === "ai_current") return widest(hardware?.aiCurrentRanges ?? []);
   if (!isTemperature(channel) || TEMPERATURE_TYPES.has(previous)) return undefined;
@@ -170,7 +170,7 @@ const VOLTAGE_RANGE: closedBounds.ClosedBounds = { lower: -10, upper: 10 };
  * V when the device reports none.
  */
 export const defaultAIVoltageRange = (
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds =>
   widest(hardware?.aiVoltageRanges ?? []) ?? VOLTAGE_RANGE;
 
@@ -308,7 +308,7 @@ export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
  */
 export const defaultAORange = (
   type: AOChannelType,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds | undefined =>
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 

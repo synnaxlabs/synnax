@@ -95,6 +95,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			d.ResourceName = v.ResourceName
 			d.Model = v.Model
 			d.Chassis = v.Chassis
+			d.Hardware = v.Hardware
 			return d, nil
 		})
 	case ConfigurationUpdate:
