@@ -685,6 +685,7 @@ TEST(StableForVarDurationTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
     EXPECT_TRUE(t.next());
 }
 
+/// @brief it should convert a live duration to the unit of the input.
 TEST(StableForVarDurationTest, ConvertsALiveDurationToTheUnitOfTheInput) {
     types::Unit s, ns;
     s.dimensions.time = ns.dimensions.time = 1;
