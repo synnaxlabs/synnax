@@ -421,7 +421,7 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'windows-build-bot'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -429,8 +429,6 @@ jobs:
             format('synnax-driver-debug-symbols-v{0}-windows',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver.pdb
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Build Driver (macOS)
         if:
@@ -450,15 +448,13 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
             || format('synnax-driver-debug-symbols-v{0}-macos',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver.dSYM
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Build Driver (NI Linux Real-Time)
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
@@ -479,7 +475,7 @@ jobs:
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names &&
@@ -487,20 +483,16 @@ jobs:
             format('synnax-driver-debug-symbols-v{0}-nilinuxrt',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver-nilinuxrt.debug
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Upload NI Linux Real-Time Driver as artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
             format('synnax-driver-v{0}-nilinuxrt', needs.setup.outputs.VERSION) }}
           path:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Upload NI Linux Real-Time Driver to release
         if:
@@ -546,15 +538,13 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
             || format('synnax-driver-debug-symbols-v{0}-linux',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver.debug
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Set up trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
@@ -613,7 +603,7 @@ jobs:
 
       - name: Upload Driver as artifact
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ env.SIGNING_DEFERRED == 'true' && 'unsigned-' || '' }}${{
@@ -623,8 +613,6 @@ jobs:
           path:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
             matrix.os-name }}${{ matrix.executable }}
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Upload Driver to release
         if: inputs.driver && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
@@ -734,15 +722,13 @@ jobs:
 
       - name: Upload Console assets as artifact
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
             matrix.os-name) || format('synnax-console-assets-v{0}-{1}',
             needs.setup.outputs.VERSION, matrix.os-name) }}
           path: console/dist/
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Upload Console web bundle to release
         if:
@@ -829,7 +815,7 @@ jobs:
 
       - name: Upload Core binary as artifact
         if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: ./.github/actions/upload-artifact
         with:
           name:
             ${{ env.SIGNING_DEFERRED == 'true' && 'unsigned-' || '' }}${{
@@ -837,8 +823,6 @@ jobs:
             matrix.os-name) || format('synnax-core-v{0}-{1}',
             needs.setup.outputs.VERSION, matrix.os-name) }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
-          retention-days: 7
-          if-no-files-found: error
 
       - name: Rename Core binary for release
         if: inputs.core && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'

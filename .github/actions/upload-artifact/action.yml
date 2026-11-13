@@ -1,0 +1,58 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Uploads a workflow artifact in up to three attempts. Connections from the Mac build
+# bots to artifact storage stall at random, and actions/upload-artifact fails when one
+# block stalls four times.
+
+name: Upload artifact
+description: Upload a workflow artifact, and try again when the upload fails
+
+inputs:
+  name:
+    description: Artifact name
+    required: true
+  path:
+    description: File, directory, or pattern to upload
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Upload
+      id: first
+      continue-on-error: true
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        retention-days: 7
+        if-no-files-found: error
+
+    - name: Upload, second attempt
+      id: second
+      if: steps.first.outcome == 'failure'
+      continue-on-error: true
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        retention-days: 7
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload, third attempt
+      if: steps.second.outcome == 'failure'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        retention-days: 7
+        if-no-files-found: error
+        overwrite: true
