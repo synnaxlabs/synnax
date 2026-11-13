@@ -18,9 +18,12 @@ import (
 
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/breaker"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	xuuid "github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -76,46 +79,18 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 }
 
 func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) {
-	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
-		PageSize: 1,
-		Filter:   fmt.Sprintf("client_key == %q", key),
-	})
+	existing, err := e.findRun(ctx, key)
 	if err != nil {
 		return "", err
 	}
-	start := timestamppb.New(time.Unix(0, int64(r.TimeRange.Start)))
-	stop := timestamppb.New(time.Unix(0, int64(r.TimeRange.End)))
-	if len(res.Runs) > 0 {
-		existing := res.Runs[0]
-		if existing.Name == r.Name &&
-			proto.Equal(existing.StartTime, start) &&
-			proto.Equal(existing.StopTime, stop) &&
-			slices.Equal(
-				slices.Sorted(slices.Values(existing.Tags)),
-				slices.Sorted(slices.Values(r.Tags)),
-			) {
-			return existing.RunId, nil
-		}
-		if _, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
-			Run: &runsv2.Run{
-				RunId:     existing.RunId,
-				Name:      r.Name,
-				StartTime: start,
-				StopTime:  stop,
-				Tags:      r.Tags,
-			},
-			UpdateMask: &fieldmaskpb.FieldMask{
-				Paths: []string{"name", "start_time", "stop_time", "tags"},
-			},
-		}); err != nil {
-			return "", err
-		}
-		return existing.RunId, nil
+	if existing != nil {
+		return e.updateRun(ctx, existing, r)
 	}
 	assetID, err := e.asset(ctx)
 	if err != nil {
 		return "", err
 	}
+	start, stop := runSpan(r)
 	created, err := e.runs.CreateAdhocRun(ctx, &runsv2.CreateAdhocRunRequest{
 		Name:      r.Name,
 		StartTime: start,
@@ -124,8 +99,65 @@ func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) 
 		Tags:      r.Tags,
 		ClientKey: &key,
 	})
+	if status.Code(err) == codes.AlreadyExists {
+		if existing, err = e.findRun(ctx, key); err != nil {
+			return "", err
+		}
+		if existing == nil {
+			return "", errors.New("Sift reported a run that it does not list")
+		}
+		return e.updateRun(ctx, existing, r)
+	}
 	if err != nil {
 		return "", err
 	}
 	return created.Run.RunId, nil
+}
+
+func (e *Engine) findRun(ctx context.Context, key string) (*runsv2.Run, error) {
+	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
+		PageSize: 1,
+		Filter:   fmt.Sprintf("client_key == %q", key),
+	})
+	if err != nil || len(res.Runs) == 0 {
+		return nil, err
+	}
+	return res.Runs[0], nil
+}
+
+func (e *Engine) updateRun(
+	ctx context.Context,
+	existing *runsv2.Run,
+	r Run,
+) (string, error) {
+	start, stop := runSpan(r)
+	if existing.Name == r.Name &&
+		proto.Equal(existing.StartTime, start) &&
+		proto.Equal(existing.StopTime, stop) &&
+		slices.Equal(
+			slices.Sorted(slices.Values(existing.Tags)),
+			slices.Sorted(slices.Values(r.Tags)),
+		) {
+		return existing.RunId, nil
+	}
+	if _, err := e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+		Run: &runsv2.Run{
+			RunId:     existing.RunId,
+			Name:      r.Name,
+			StartTime: start,
+			StopTime:  stop,
+			Tags:      r.Tags,
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{
+			Paths: []string{"name", "start_time", "stop_time", "tags"},
+		},
+	}); err != nil {
+		return "", err
+	}
+	return existing.RunId, nil
+}
+
+func runSpan(r Run) (start, stop *timestamppb.Timestamp) {
+	return timestamppb.New(time.Unix(0, int64(r.TimeRange.Start))),
+		timestamppb.New(time.Unix(0, int64(r.TimeRange.End)))
 }
