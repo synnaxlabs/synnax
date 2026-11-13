@@ -992,29 +992,9 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		if typeRef.TypeParam.HasDefault() {
-			forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
-				resolution.Field{
-					Name:     field.Name,
-					Type:     *typeRef.TypeParam.Default,
-					Optional: field.Optional,
-				},
-				data,
-				parentStruct,
-			)
-			return fieldTranslatorData{
-				GoName:       goName,
-				PBName:       pbName,
-				ForwardExpr:  forwardExpr,
-				BackwardExpr: backwardExpr,
-				BackwardCast: backwardCast,
-				IsOptional:   isOptional,
-				IsOptionalStruct: isOptional &&
-					isStructType(*typeRef.TypeParam.Default, data.table),
-				IsOptionalEnum: isOptional &&
-					isEnumType(*typeRef.TypeParam.Default, data.table),
-				HasError:         hasError,
-				HasBackwardError: hasBackwardError,
-			}, false
+			resolved := field
+			resolved.Type = *typeRef.TypeParam.Default
+			return p.processFieldForTranslation(resolved, data, parentStruct), false
 		}
 
 		paramName := typeRef.TypeParam.Name
