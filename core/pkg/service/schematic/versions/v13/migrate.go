@@ -37,8 +37,10 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 // themeColors names, for each struct, the optional colors whose zero color v12 read as
 // "the theme picks the color".
 var themeColors = map[reflect.Type][]string{
-	reflect.TypeFor[StalenessConfig]():      {"StalenessColor"},
-	reflect.TypeFor[TankElementConfig]():    {"StalenessColor"},
+	reflect.TypeFor[StalenessConfig](): {"StalenessColor"},
+	reflect.TypeFor[TankElementConfig](): {
+		"StalenessColor", "LevelColor", "AxisColor", "TextColor",
+	},
 	reflect.TypeFor[ScaleIndicatorConfig](): {"LevelColor", "AxisColor", "TextColor"},
 	reflect.TypeFor[ValueElementConfig]():   {"TextColor"},
 	reflect.TypeFor[GaugeElementConfig]():   {"StrokeColor"},

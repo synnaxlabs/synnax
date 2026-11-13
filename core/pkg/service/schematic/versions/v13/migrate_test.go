@@ -175,24 +175,72 @@ var _ = Describe("Migrate functions", func() {
 			)).StrokeColor
 		}),
 	)
-	It("Should make a zero color that meant the theme absent", func(ctx SpecContext) {
-		zero := &color.Color{}
+	DescribeTable("Should make a zero color that meant the theme absent",
+		func(
+			ctx SpecContext,
+			variant v12.ElementConfigVariant,
+			cleared func(v13.ElementConfigVariant) []*colorv2.Color,
+		) {
+			out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+				Configs: map[string]v12.ElementConfig{"n": {Variant: variant}},
+			}))
+			for _, c := range cleared(out.Configs["n"].Variant) {
+				Expect(c).To(BeNil())
+			}
+		},
+		Entry("a value", v12.ValueElementConfig{
+			StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
+			TextColor:       &color.Color{},
+		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
+			c := v.(v13.ValueElementConfig)
+			return []*colorv2.Color{c.StalenessColor, c.TextColor}
+		}),
+		Entry("a gauge", v12.GaugeElementConfig{
+			StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
+			StrokeColor:     &color.Color{},
+		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
+			c := v.(v13.GaugeElementConfig)
+			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
+		}),
+		Entry("a scale", v12.ScaleElementConfig{
+			ScaleIndicatorConfig: v12.ScaleIndicatorConfig{
+				StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
+				LevelColor:      &color.Color{},
+				AxisColor:       &color.Color{},
+				TextColor:       &color.Color{},
+			},
+		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
+			c := v.(v13.ScaleElementConfig)
+			return []*colorv2.Color{
+				c.StalenessColor,
+				c.LevelColor,
+				c.AxisColor,
+				c.TextColor,
+			}
+		}),
+		Entry("a tank", v12.TankElementConfig{
+			StalenessColor: &color.Color{},
+			LevelColor:     &color.Color{},
+			AxisColor:      &color.Color{},
+			TextColor:      &color.Color{},
+		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
+			c := v.(v13.TankElementConfig)
+			return []*colorv2.Color{
+				c.StalenessColor,
+				c.LevelColor,
+				c.AxisColor,
+				c.TextColor,
+			}
+		}),
+	)
+	It("Should keep the zero stroke of a value", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
-				"value": {Variant: v12.ValueElementConfig{
-					StalenessConfig: v12.StalenessConfig{StalenessColor: zero},
-					StrokeColor:     zero,
-					TextColor:       zero,
-				}},
-				"gauge": {Variant: v12.GaugeElementConfig{StrokeColor: zero}},
+				"n": {Variant: v12.ValueElementConfig{StrokeColor: &color.Color{}}},
 			},
 		}))
-		value := out.Configs["value"].Variant.(v13.ValueElementConfig)
-		Expect(value.TextColor).To(BeNil())
-		Expect(value.StalenessColor).To(BeNil())
-		Expect(value.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
-		Expect(out.Configs["gauge"].Variant.(v13.GaugeElementConfig).StrokeColor).
-			To(BeNil())
+		Expect(out.Configs["n"].Variant.(v13.ValueElementConfig).StrokeColor).
+			To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
