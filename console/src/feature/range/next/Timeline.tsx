@@ -508,7 +508,11 @@ const Frame = ({
                   level="tiny"
                   color={9}
                   className={CSS.BE("range-timeline", "tick")}
-                  style={{ left: `${percent(mark.at, w)}%` }}
+                  style={
+                    {
+                      "--console-range-timeline-tick": mark.at - ctx.origin,
+                    } as CSSProperties
+                  }
                 >
                   {formatTick(mark, i === 0)}
                 </Text.Text>

@@ -154,8 +154,17 @@
 }
 
 .console-range-timeline__tick {
+    /* Each tick sets its time in milliseconds after the timeline origin. */
+    --console-range-timeline-tick-from: calc(
+        var(--console-range-timeline-tick) - var(--console-range-timeline-start)
+    );
+
     position: absolute;
     top: 50%;
+    left: calc(
+        var(--console-range-timeline-tick-from) * 100% /
+            (var(--console-range-timeline-end) - var(--console-range-timeline-start))
+    );
     padding-left: 0.75rem;
     transform: translateY(-50%);
     font-variant-numeric: tabular-nums;
