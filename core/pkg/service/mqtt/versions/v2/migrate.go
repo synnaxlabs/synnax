@@ -169,21 +169,7 @@ func MigrateWriteTarget(ctx context.Context, old v1.WriteTarget) (WriteTarget, e
 
 // MigrateWriteConfig lifts a v1 write config and each of its targets to v2.
 func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
-	cfg, err := autoMigrateWriteConfig(ctx, old)
-	if err != nil {
-		return WriteConfig{}, err
-	}
-	targets, err := lo.MapErr(
-		old.Targets,
-		func(t v1.WriteTarget, _ int) (WriteTarget, error) {
-			return MigrateWriteTarget(ctx, t)
-		},
-	)
-	if err != nil {
-		return WriteConfig{}, err
-	}
-	cfg.Targets = targets
-	return cfg, nil
+	return autoMigrateWriteConfig(ctx, old)
 }
 
 // migratePlainWriteTargetFields lifts the additional fields of a plain target of a
