@@ -189,26 +189,24 @@ var _ = Describe("Migrate functions", func() {
 			}
 		},
 		Entry("a value", v12.ValueElementConfig{
-			StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
-			TextColor:       &color.Color{},
+			StalenessColor: &color.Color{},
+			TextColor:      &color.Color{},
 		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
 			c := v.(v13.ValueElementConfig)
 			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
 		Entry("a gauge", v12.GaugeElementConfig{
-			StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
-			StrokeColor:     &color.Color{},
+			StalenessColor: &color.Color{},
+			StrokeColor:    &color.Color{},
 		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
 			c := v.(v13.GaugeElementConfig)
 			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
 		Entry("a scale", v12.ScaleElementConfig{
-			ScaleIndicatorConfig: v12.ScaleIndicatorConfig{
-				StalenessConfig: v12.StalenessConfig{StalenessColor: &color.Color{}},
-				LevelColor:      &color.Color{},
-				AxisColor:       &color.Color{},
-				TextColor:       &color.Color{},
-			},
+			StalenessColor: &color.Color{},
+			LevelColor:     &color.Color{},
+			AxisColor:      &color.Color{},
+			TextColor:      &color.Color{},
 		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
 			c := v.(v13.ScaleElementConfig)
 			return []*colorv2.Color{
