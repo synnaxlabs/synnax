@@ -52,16 +52,13 @@ export { CaretlessContext, HighlightContext };
 export const scheduled = (timeRange: TimeRange): boolean =>
   !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
-/** Starts a planned range now, with no end until it stops. */
+/** Starts a planned range now. It keeps an end that is still ahead. */
 export const useStart = (): ((range: ranger.Range) => void) => {
   const { update } = Ranger.useSetTimeRange();
   return (range) =>
     update({
       key: range.key,
-      timeRange: {
-        start: TimeStamp.now().nanoseconds,
-        end: TimeStamp.MAX.nanoseconds,
-      },
+      timeRange: Ranger.moveToStage(range.timeRange.numeric, "in_progress"),
     });
 };
 
