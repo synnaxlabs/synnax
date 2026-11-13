@@ -277,6 +277,7 @@ var _ = Describe("Upload", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return deviceSvc.NewWriter(tx).Create(ctx, &moved)
 			})).To(Succeed())
+			deleteAfterSpec(moved)
 			s := sift.UploadStatus{
 				Key:     "sift_upload:" + uuid.NewV7().String(),
 				Name:    rng.Name,
