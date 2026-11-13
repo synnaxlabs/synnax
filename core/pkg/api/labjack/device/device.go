@@ -155,11 +155,12 @@ type UpdateRequest struct {
 	Device device.Device `json:"device" msgpack:"device"`
 }
 
-// Update replaces the device stored under the key of req.Device. It returns a
-// validation
-// error when req.Device has no model, and an error wrapping query.ErrNotFound when no
-// device is stored under its key. A device built from an earlier retrieve overwrites
-// every change committed since that retrieve.
+// Update writes the user's fields of req.Device to the device stored under its key and
+// keeps the stored rack, connection, serial, and model, which only the scanner writes.
+// It returns a validation error when req.Device has no model or a different model than
+// the stored device, and an error wrapping query.ErrNotFound when no device is stored
+// under its key. A device built from an earlier retrieve overwrites every user change
+// committed since that retrieve.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -174,7 +175,23 @@ func (s *Service) Update(
 	return struct{}{}, s.cfg.Device.NewWriter(tx).Update(
 		ctx,
 		next.Base().Key,
-		func(device.Device) (device.Device, error) { return next, nil },
+		func(stored device.Device) (device.Device, error) {
+			v := validate.New("device")
+			v.Ternaryf(
+				"model",
+				next.Model() != stored.Model(),
+				"cannot change from %s to %s",
+				stored.Model(),
+				next.Model(),
+			)
+			if err := v.Error(); err != nil {
+				return device.Device{}, err
+			}
+			b, kept := next.Base(), stored.Base()
+			b.Rack, b.Connection, b.Serial = kept.Rack, kept.Connection, kept.Serial
+			next.SetBase(b)
+			return next, nil
+		},
 	)
 }
 
