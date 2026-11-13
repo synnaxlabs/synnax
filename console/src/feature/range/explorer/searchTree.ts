@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Ranger } from "@synnaxlabs/pluto";
-import { compare, deep, TimeStamp, unique } from "@synnaxlabs/x";
+import { compare, deep, type destructor, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 /** The most matches a search shows in a tree. */
@@ -42,10 +43,18 @@ const compareBy =
     return descending ? -c : c;
   };
 
+/** @returns every range of the answer: the matches and the ranges above them. */
+const rangesOf = ({ links }: Answer): ranger.Key[] =>
+  unique.unique(
+    Object.entries(links).flatMap(([key, parent]) =>
+      parent == null ? [key] : [key, parent],
+    ),
+  );
+
 /** Places each match under its parent, with the ranges of each level in order. */
 const place = (
   { matches, links }: Answer,
-  getItem: (keys: ranger.Key[]) => ranger.Range[],
+  ranges: ranger.Range[],
   order: ranger.Order,
 ): Placed => {
   const roots: ranger.Key[] = [];
@@ -63,7 +72,7 @@ const place = (
     visit(parent);
   };
   matches.forEach(visit);
-  const records = new Map(getItem([...placed]).map((r) => [r.key, r]));
+  const records = new Map(ranges.map((r) => [r.key, r]));
   const compareRanges = compareBy(order);
   // The last answer can name ranges deleted since it landed.
   const sort = (keys: ranger.Key[]) =>
@@ -88,6 +97,8 @@ export interface UseSearchTreeParams {
   order: ranger.Order;
   /** Reads the live records of the matches and of the ranges above them. */
   getItem: (keys: ranger.Key[]) => ranger.Range[];
+  /** Calls the listener when the range with the key changes. */
+  subscribe: (listener: () => void, key: ranger.Key) => destructor.Destructor;
 }
 
 export interface SearchTree {
@@ -107,6 +118,8 @@ export interface SearchTree {
 
 const EMPTY: Placed = { roots: [], fixed: new Map(), holders: [] };
 
+const NO_KEYS: ranger.Key[] = [];
+
 /**
  * Shows search matches in their tree: each match under the ranges above it, with those
  * ranges open.
@@ -116,6 +129,7 @@ export const useSearchTree = ({
   scope,
   order,
   getItem,
+  subscribe,
 }: UseSearchTreeParams): SearchTree => {
   const matched = new Set(matches?.map(({ key }) => key));
   const tops =
@@ -149,7 +163,13 @@ export const useSearchTree = ({
     open: new Map<ranger.Key, boolean>(),
   }));
   if (toggled.scope !== scope) setToggled({ scope, open: new Map() });
-  const placed = shown == null ? EMPTY : place(shown, getItem, order);
+  // The tree orders the ranges in render, so it subscribes to them.
+  const ranges = Store.useItems({
+    keys: shown == null ? NO_KEYS : rangesOf(shown),
+    subscribe,
+    getItem,
+  });
+  const placed = shown == null ? EMPTY : place(shown, ranges, order);
   const expanded = unique.unique([
     ...placed.holders.filter((key) => toggled.open.get(key) !== false),
     ...[...toggled.open].flatMap(([key, open]) => (open ? [key] : [])),
