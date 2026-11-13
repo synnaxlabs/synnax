@@ -1263,7 +1263,9 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("has_value()").
-						ToContain("to_string()")
+						ToContain("to_string()").
+						ToContain("if (pb.has_parent()) {").
+						ToNotContain("pb.parent().empty()")
 				},
 			)
 		})

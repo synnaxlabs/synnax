@@ -155,7 +155,7 @@ uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
 uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb) {
     ::x::filter::Set<x::uuid::UUID> cpp;
-    if (!pb.eq().empty()) {
+    if (pb.has_eq()) {
         auto [v, err] = x::uuid::UUID::parse(pb.eq());
         if (err) return {{}, err};
         cpp.eq = v;
@@ -198,7 +198,7 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
         if (err) return {{}, err};
         cpp.source = v;
     }
-    if (!pb.directory().empty()) {
+    if (pb.has_directory()) {
         auto [v, err] = x::uuid::UUID::parse(pb.directory());
         if (err) return {{}, err};
         cpp.directory = v;

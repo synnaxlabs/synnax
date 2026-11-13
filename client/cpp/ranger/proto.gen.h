@@ -75,7 +75,7 @@ uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
 uuid_set_from_proto(const ::service::ranger::pb::UuidSet &pb) {
     ::x::filter::Set<x::uuid::UUID> cpp;
-    if (!pb.eq().empty()) {
+    if (pb.has_eq()) {
         auto [v, err] = x::uuid::UUID::parse(pb.eq());
         if (err) return {{}, err};
         cpp.eq = v;
@@ -137,7 +137,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.labels.push_back(v);
     }
-    if (!pb.parent().empty()) {
+    if (pb.has_parent()) {
         auto [v, err] = x::uuid::UUID::parse(pb.parent());
         if (err) return {{}, err};
         cpp.parent = v;
