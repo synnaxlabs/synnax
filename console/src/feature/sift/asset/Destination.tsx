@@ -139,7 +139,9 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
                     label: "Asset name",
                     icon: <Icon.Logo.Sift />,
                   });
-                  if (name != null) onChange(name.trim());
+                  if (name == null) return;
+                  const trimmed = name.trim();
+                  if (trimmed !== "") onChange(trimmed);
                 }, "Failed to name the new asset")
               }
             >
