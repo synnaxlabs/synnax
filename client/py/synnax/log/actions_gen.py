@@ -55,12 +55,12 @@ class SetChannelEntryPayload(BaseModel):
 
 
 class SetChannelColorPayload(BaseModel):
-    """Sets the display color of the entry identified by channel. The zero color resets
-    it to the text color of the log. No-op when no entry references the channel.
+    """Sets the display color of the entry identified by channel. Absent resets it to
+    the text color of the log. No-op when no entry references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
-    color: color_.Color
+    color: color_.Color | None = None
 
 
 class SetChannelNotationPayload(BaseModel):

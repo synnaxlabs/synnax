@@ -19,6 +19,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -38,6 +39,7 @@ var Migrations = []gorp.Migration{
 	v3.ArcExplorerTabsMigration,
 	v4.RangeMigration,
 	v4.Migration,
+	v5.Migration,
 }
 
 // CompositionMigrations returns the migrations the service layer runs after every
@@ -73,11 +75,15 @@ func migratePanel(ctx context.Context, p0 v0.Panel) (Panel, error) {
 	if err != nil {
 		return Panel{}, err
 	}
-	return v4.MigratePanel(ctx, p3)
+	p4, err := v4.MigratePanel(ctx, p3)
+	if err != nil {
+		return Panel{}, err
+	}
+	return v5.MigratePanel(ctx, p4)
 }
 
 // Latest is the portable schema version stamped on a panel bundle member and the
 // highest version an import accepts. It tracks the stored schema version, which the
 // bundle body mirrors: the same fields, with each resource reference in the tree
 // rewritten to a bundle path.
-const Latest = v4.Version
+const Latest = v5.Version

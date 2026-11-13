@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type patch } from "@synnaxlabs/x";
+import { type patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -49,9 +49,7 @@ const handlers: Handlers = {
   addChannel: (state, payload) => {
     if (state.channels.some((e) => e.channel === payload.channel))
       return actions.NO_OP_RESULT;
-    state.channels.push(
-      channelEntryZ.parse({ channel: payload.channel, color: color.ZERO }),
-    );
+    state.channels.push(channelEntryZ.parse({ channel: payload.channel }));
     return {
       inverse: [removeChannel({ channel: payload.channel })],
       targets: [`channel:${payload.channel}`],

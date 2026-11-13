@@ -1,0 +1,28 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/resource"
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/x/versions/color/v2"
+
+TabKey = v0.TabKey
+
+TabBase = v0.TabBase
+
+View = v1.View
+
+Tab = v1.Tab
+
+Node = v1.Node
+
+Key = v0.Key
+
+Panel struct extends v4.Panel {}

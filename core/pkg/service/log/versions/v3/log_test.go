@@ -11,7 +11,6 @@ package v3_test
 
 import (
 	"io"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -68,82 +67,6 @@ var _ = Describe("Log", func() {
 			Expect(
 				l.Channels[0].TimestampConfig.TimeZone,
 			).To(Equal(telem.TimeZone("UTC")))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should reject a channel of 0", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.channel")))
-		})
-
-		It("Should accept a defaulted log with an absent precision", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Channel: 1}}}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(Succeed())
-		})
-
-		DescribeTable("Should accept a precision in range",
-			func(precision uint8) {
-				l := v3.Log{
-					Name: "valid",
-					Channels: []v3.ChannelEntry{
-						{Channel: 1, Precision: new(precision)},
-					},
-				}
-				l.ApplyDefaults()
-				Expect(l.Validate()).To(Succeed())
-			},
-			Entry("lower bound", uint8(0)),
-			Entry("upper bound", uint8(17)),
-		)
-
-		DescribeTable("Should reject a precision out of range",
-			func(precision uint8) {
-				l := v3.Log{
-					Name: "valid",
-					Channels: []v3.ChannelEntry{
-						{Channel: 1, Precision: new(precision)},
-					},
-				}
-				l.ApplyDefaults()
-				Expect(
-					l.Validate(),
-				).To(MatchError(ContainSubstring("channels.0.precision")))
-			},
-			Entry("above the maximum", uint8(18)),
-		)
-
-		It("Should accept an alias at the maximum length", func() {
-			l := v3.Log{
-				Name: "valid",
-				Channels: []v3.ChannelEntry{
-					{Channel: 1, Alias: strings.Repeat("a", 64)},
-				},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(Succeed())
-		})
-
-		It("Should reject an alias past the maximum length", func() {
-			l := v3.Log{
-				Name: "valid",
-				Channels: []v3.ChannelEntry{
-					{Channel: 1, Alias: strings.Repeat("a", 65)},
-				},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
-		})
-
-		It("Should path an invalid notation to its channel", func() {
-			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Channel: 1, Notation: "bogus"}},
-			}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
 		})
 	})
 

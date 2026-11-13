@@ -151,7 +151,6 @@ func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

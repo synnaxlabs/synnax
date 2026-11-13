@@ -116,7 +116,8 @@ class ChannelEntry(BaseModel):
 
     Attributes:
         channel: Is the channel this entry references.
-        color: Is the display color for the channel.
+        color: Is the display color for the channel. Absent uses the text color of the
+            log.
         notation: Is the numeric notation used to render samples.
         precision: Is the number of digits after the decimal point, from 0 to 17. Absent
             shows each sample as it arrives.
@@ -126,7 +127,7 @@ class ChannelEntry(BaseModel):
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
-    color: color_.Color
+    color: color_.Color | None = None
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")

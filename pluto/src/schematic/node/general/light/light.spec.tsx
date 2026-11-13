@@ -102,7 +102,7 @@ describe("light symbol", () => {
       );
       expect(swatches).toHaveLength(1);
       expect(swatches[0].style.getPropertyValue("--pluto-swatch-color")).toBe(
-        "rgba(0, 255, 0, 1)",
+        "#00ff00",
       );
     });
   });

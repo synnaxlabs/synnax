@@ -18,7 +18,6 @@
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
