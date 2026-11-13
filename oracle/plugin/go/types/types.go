@@ -1519,6 +1519,12 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 	for i := range {{$s.Receiver}}.{{.GoName}} {
 		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
+			{{$s.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
 		value.ApplyDefaults()
@@ -1638,6 +1644,12 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	for i := range {{$s.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
@@ -1741,6 +1753,12 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
 		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
+			{{$vt.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
 		value.ApplyDefaults()
@@ -1801,6 +1819,12 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
@@ -1834,7 +1858,7 @@ func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-{{formatDoc "UnmarshalJSONFrom" (printf "decodes the variant selected by the %q field. A null or a missing %q decodes to no variant, which Validate rejects." .DiscJSONName .DiscJSONName)}}
+// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field.
 func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -1854,8 +1878,6 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 {{- range .Variants}}
 	case {{.ConstName}}:
 		var v struct {

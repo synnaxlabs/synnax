@@ -19,18 +19,18 @@ import (
 )
 
 var _ = Describe("WriteEndpoint", func() {
-	DescribeTable("Should reject a write field without a type",
-		func(field string) {
-			var endpoint v4.WriteEndpoint
-			Expect(json.Unmarshal(
-				[]byte(`{"fields": [`+field+`]}`),
-				&endpoint,
-			)).To(Succeed())
-			err := endpoint.Validate()
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring("fields.0.type: required")))
-		},
-		Entry("null", "null"),
-		Entry("no type", "{}"),
-	)
+	It("Should reject a null write field", func() {
+		var endpoint v4.WriteEndpoint
+		Expect(json.Unmarshal([]byte(`{"fields": [null]}`), &endpoint)).To(Succeed())
+		Expect(endpoint.Validate()).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("fields.0.type: required")),
+		))
+	})
+
+	It("Should reject a write field without a type", func() {
+		var endpoint v4.WriteEndpoint
+		Expect(json.Unmarshal([]byte(`{"fields": [{}]}`), &endpoint)).
+			To(MatchError(validate.ErrValidation))
+	})
 })

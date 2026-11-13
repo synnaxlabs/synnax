@@ -818,7 +818,9 @@ const (
 	recurseValue   recurseKind = "value"
 	recursePointer recurseKind = "pointer"
 	recurseSlice   recurseKind = "slice"
-	recurseMap     recurseKind = "map"
+	// recurseNestedSlice reaches the elements of each slice in a slice of slices.
+	recurseNestedSlice recurseKind = "nested_slice"
+	recurseMap         recurseKind = "map"
 )
 
 // recurseStepData describes one nested call a generated method makes into a field (or
@@ -887,14 +889,14 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 	return validation.Parse(domain).Skip
 }
 
-// resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
-// builtin container (Array/Map), or a type parameter.
+// resolvesToMethodType reports whether ref resolves, through any aliases, to a struct
+// or union — a type that can carry an ApplyDefaults/Validate method — rather than a
+// primitive, a builtin container (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
 		return false
 	}
-	resolved, ok := ref.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}
@@ -984,11 +986,32 @@ func typeNeedsMethod(
 // the strconv import for the index path segment in a generated Validate method.
 func hasSliceRecurse(steps []recurseStepData) bool {
 	for _, step := range steps {
-		if step.Kind == recurseSlice {
+		if step.Kind == recurseSlice || step.Kind == recurseNestedSlice {
 			return true
 		}
 	}
 	return false
+}
+
+// unaliasContainer returns the Array or Map that ref names through aliases, or ref
+// itself when it names neither.
+func unaliasContainer(ref resolution.TypeRef, data *templateData) resolution.TypeRef {
+	for visited := set.New[string](); !visited.Contains(ref.Name); {
+		visited.Add(ref.Name)
+		resolved, ok := ref.Resolve(data.table)
+		if !ok {
+			return ref
+		}
+		alias, ok := resolved.Form.(resolution.AliasForm)
+		if !ok {
+			return ref
+		}
+		if alias.Target.Name == "Array" || alias.Target.Name == "Map" {
+			return alias.Target
+		}
+		ref = alias.Target
+	}
+	return ref
 }
 
 // goRecurseStep returns the nested-method step for a field whose type (transitively)
@@ -1007,9 +1030,19 @@ func goRecurseStep(
 		return resolvesToMethodType(r, data) &&
 			typeNeedsMethod(r, data, set.New[string](), rule)
 	}
+	ref = unaliasContainer(ref, data)
 	switch ref.Name {
 	case "Array":
-		if len(ref.TypeArgs) == 1 && needs(ref.TypeArgs[0]) {
+		if len(ref.TypeArgs) != 1 {
+			return recurseStepData{}, false
+		}
+		elem := unaliasContainer(ref.TypeArgs[0], data)
+		if elem.Name == "Array" && len(elem.TypeArgs) == 1 &&
+			needs(elem.TypeArgs[0]) {
+			step.Kind = recurseNestedSlice
+			return step, true
+		}
+		if needs(elem) {
 			step.Kind = recurseSlice
 			return step, true
 		}

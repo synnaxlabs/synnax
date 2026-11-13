@@ -1076,10 +1076,14 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				sliding {}
 			}
 
+			Windows = Window[]
+
 			Container struct {
 				window   Window
 				fallback Window?
 				windows  Window[]
+				named    Windows
+				grid     Windows[]
 			}
 		`
 
@@ -1098,17 +1102,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 
 		It(
-			"Should decode a missing discriminator to no variant",
-			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-				ExpectContent(resp, "types.gen.go").ToContain(
-					"switch disc.Type {\n\tcase \"\":\n\t\tu.Variant = nil",
-				)
-			},
-		)
-
-		It(
-			"Should validate required, optional, and array union fields",
+			"Should validate required, optional, array, and aliased array union fields",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
@@ -1118,6 +1112,11 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					`validate.PathedError(c.Fallback.Validate(), "fallback")`,
 					`validate.PathedError(c.Windows[i].Validate(), "windows", `+
 						`strconv.Itoa(i))`,
+					`validate.PathedError(c.Named[i].Validate(), "named", `+
+						`strconv.Itoa(i))`,
+					"for j := range c.Grid[i] {",
+					`validate.PathedError(c.Grid[i][j].Validate(), "grid", `+
+						`strconv.Itoa(i), strconv.Itoa(j))`,
 				)
 			},
 		)
