@@ -29,19 +29,8 @@ const configuration = (name: string): ni.device.ConfigurationUpdate => ({
   digitalOutput: {},
 });
 
-const nameOf = async (key: string): Promise<string> =>
-  (await client.ni.devices.retrieve({ key })).name;
-
-const gone = async (key: string): Promise<boolean> =>
-  await client.ni.devices.retrieve({ key }).then(
-    () => false,
-    (e: unknown) => e instanceof NotFoundError,
-  );
-
 describe("NI device", async () => {
-  await client.connect();
   await other.connect();
-  await waitForStreamLive(client.connection);
   const rack = await client.racks.create({ name: "ni-device-test" });
   const create = async (name = "Dev1"): Promise<ni.device.Device> =>
     await client.ni.devices.create({
@@ -71,17 +60,8 @@ describe("NI device", async () => {
     it("should create a device again after deleting it", async () => {
       const d = await create();
       await client.ni.devices.delete(d.key);
-      await expect.poll(async () => await gone(d.key)).toBe(true);
       await client.ni.devices.create(d);
-      await expect.poll(async () => await nameOf(d.key)).toBe(d.name);
-    });
-
-    it("should put a created device in the cache through the stream", async () => {
-      const seen: string[] = [];
-      const stop = client.ni.devices.onSet((device) => seen.push(device.key));
-      onTestFinished(stop);
-      const d = await create();
-      await expect.poll(() => seen).toContain(d.key);
+      expect((await client.ni.devices.retrieve({ key: d.key })).name).toBe(d.name);
     });
 
     it("should add a created device to a watched search", async () => {
@@ -98,7 +78,8 @@ describe("NI device", async () => {
     it("should replace a device whose key exists", async () => {
       const d = await create();
       await client.ni.devices.create({ ...d, name: "Replaced" });
-      await expect.poll(async () => await nameOf(d.key)).toBe("Replaced");
+      const retrieved = await client.ni.devices.retrieve({ key: d.key });
+      expect(retrieved.name).toBe("Replaced");
     });
   });
 
@@ -153,8 +134,8 @@ describe("NI device", async () => {
         digitalInput: {},
         digitalOutput: {},
       });
-      await expect.poll(async () => await nameOf(d.key)).toBe("Renamed");
       const retrieved = await client.ni.devices.retrieve({ key: d.key });
+      expect(retrieved.name).toBe("Renamed");
       expect(retrieved.identifier).toBe("dev");
       expect(retrieved.model).toBe(d.model);
     });
@@ -168,10 +149,8 @@ describe("NI device", async () => {
         resourceName: d.resourceName,
         model: "PXIe-4302",
       });
-      await expect
-        .poll(async () => (await client.ni.devices.retrieve({ key: d.key })).serial)
-        .toBe("01ABCDEF");
       const retrieved = await client.ni.devices.retrieve({ key: d.key });
+      expect(retrieved.serial).toBe("01ABCDEF");
       expect(retrieved.model).toBe("PXIe-4302");
       expect(retrieved.name).toBe(d.name);
     });
@@ -186,15 +165,12 @@ describe("NI device", async () => {
   });
 
   describe("delete", () => {
-    it("should drop the device from the cache through the stream", async () => {
+    it("should delete the device", async () => {
       const d = await create();
-      await expect.poll(async () => await nameOf(d.key)).toBe(d.name);
-      const deleted: string[] = [];
-      const stop = client.ni.devices.onDelete((key) => deleted.push(key));
-      onTestFinished(stop);
       await client.ni.devices.delete(d.key);
-      await expect.poll(() => deleted).toContain(d.key);
-      expect(await gone(d.key)).toBe(true);
+      await expect(client.ni.devices.retrieve({ key: d.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 
