@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/view/FilterChip.css";
+import "@/platform/view/filter/Chip.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -21,14 +21,14 @@ import { useContext } from "@/platform/view/context";
 
 const SEGMENT_CLASS = CSS.BE("view", "filter-segment");
 
-export interface FilterChipProps extends Flex.BoxProps {}
+export interface ChipProps extends Flex.BoxProps {}
 
 /**
- * One condition of a view's filter, as parts split by lines: a {@link FilterChipName},
- * a {@link FilterChipOperator}, a {@link FilterChipValue} or {@link FilterChipTrigger},
- * and a {@link FilterChipRemove}.
+ * One condition of a view's filter, as parts split by lines: a {@link ChipName}, a
+ * {@link ChipOperator}, a {@link ChipValue} or {@link ChipTrigger}, and a
+ * {@link ChipRemove}.
  */
-export const FilterChip = ({ className, ...rest }: FilterChipProps): ReactElement => (
+export const Chip = ({ className, ...rest }: ChipProps): ReactElement => (
   <Flex.Box
     x
     align="stretch"
@@ -42,56 +42,51 @@ export const FilterChip = ({ className, ...rest }: FilterChipProps): ReactElemen
   />
 );
 
-export interface FilterChipNameProps extends PropsWithChildren {
+export interface ChipNameProps extends PropsWithChildren {
   /** The icon of the property the condition tests. */
   icon: Icon.FC;
 }
 
-/** The name of the property a {@link FilterChip} tests, after its icon. */
-export const FilterChipName = ({
+/** The name of the property a {@link Chip} tests, after its icon. */
+export const ChipName = ({
   icon: PropertyIcon,
   children,
-}: FilterChipNameProps): ReactElement => (
+}: ChipNameProps): ReactElement => (
   <Text.Text gap="small" align="center" className={SEGMENT_CLASS}>
     <PropertyIcon color={9} />
     {children}
   </Text.Text>
 );
 
-export interface FilterChipOperatorProps extends PropsWithChildren {}
+export interface ChipOperatorProps extends PropsWithChildren {}
 
-/** How a {@link FilterChip} compares the property to its value, such as "is". */
-export const FilterChipOperator = ({
-  children,
-}: FilterChipOperatorProps): ReactElement => (
+/** How a {@link Chip} compares the property to its value, such as "is". */
+export const ChipOperator = ({ children }: ChipOperatorProps): ReactElement => (
   <Text.Text color={9} align="center" className={SEGMENT_CLASS}>
     {children}
   </Text.Text>
 );
 
-export interface FilterChipValueProps extends PropsWithChildren {}
+export interface ChipValueProps extends PropsWithChildren {}
 
-/** The value a {@link FilterChip} compares the property to. */
-export const FilterChipValue = ({ children }: FilterChipValueProps): ReactElement => (
+/** The value a {@link Chip} compares the property to. */
+export const ChipValue = ({ children }: ChipValueProps): ReactElement => (
   <Text.Text el="div" gap="small" align="center" className={SEGMENT_CLASS}>
     {children}
   </Text.Text>
 );
 
-export interface FilterChipTriggerProps extends Omit<
+export interface ChipTriggerProps extends Omit<
   Dialog.TriggerProps,
   "variant" | "size" | "level" | "hideCaret" | "sharp" | "preview"
 > {}
 
 /**
- * A part of a {@link FilterChip} that opens a dialog, such as a picker of its value or
- * a choice of its operator. It opens nothing while the view is not editable.
+ * A part of a {@link Chip} that opens a dialog, such as the picker of its value or a
+ * choice of its operator. It opens nothing while the view is not editable.
  */
-export const FilterChipTrigger = ({
-  className,
-  ...rest
-}: FilterChipTriggerProps): ReactElement => {
-  const { editable } = useContext("View.FilterChipTrigger");
+export const ChipTrigger = ({ className, ...rest }: ChipTriggerProps): ReactElement => {
+  const { editable } = useContext("View.Filter.ChipTrigger");
   return (
     <Dialog.Trigger
       variant="text"
@@ -107,21 +102,18 @@ export const FilterChipTrigger = ({
   );
 };
 
-export interface FilterChipRemoveProps {
+export interface ChipRemoveProps {
   /** The name of the property, which names the button for assistive technology. */
   name: string;
   onClick: () => void;
 }
 
 /**
- * Removes the condition of a {@link FilterChip} from the filter. It is absent while the
- * view is not editable.
+ * Removes the condition of a {@link Chip} from the filter. It is absent while the view
+ * is not editable.
  */
-export const FilterChipRemove = ({
-  name,
-  onClick,
-}: FilterChipRemoveProps): ReactElement | null => {
-  const { editable } = useContext("View.FilterChipRemove");
+export const ChipRemove = ({ name, onClick }: ChipRemoveProps): ReactElement | null => {
+  const { editable } = useContext("View.Filter.ChipRemove");
   if (!editable) return null;
   return (
     <Button.Button

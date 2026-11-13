@@ -384,6 +384,21 @@ describe("range/overview", () => {
       expect(await parent.listAliases()).toEqual({ [ch.key]: "thrust" });
     });
 
+    it("should keep an inherited alias inherited after a focus and blur", async () => {
+      const parent = await createTestRange(client);
+      const child = await createChild(parent);
+      const ch = await createChannel();
+      await parent.setAlias(ch.key, "thrust");
+      await renderOverview(child.key);
+      const input = await screen.findByDisplayValue("thrust");
+      fireEvent.focus(input);
+      fireEvent.blur(input);
+      // A range with its own alias would keep it over the parent's new one.
+      await parent.setAlias(ch.key, "force");
+      await screen.findByDisplayValue("force");
+      expect(screen.getByText("Inherited")).toBeTruthy();
+    });
+
     it("should let a range remove its own alias that equals the parent's", async () => {
       const parent = await createTestRange(client);
       const child = await createChild(parent);

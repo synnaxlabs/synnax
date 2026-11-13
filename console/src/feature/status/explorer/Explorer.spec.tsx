@@ -53,6 +53,25 @@ describe("status explorer", () => {
     expect(await screen.findByText(s.name)).toBeTruthy();
   });
 
+  it("should show a chip for each field of a view saved by 0.61", async () => {
+    const saved = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#F00000",
+    });
+    const stored = await client.views.create({
+      name: uniqueName("view"),
+      type: "status",
+      where: { labels: [saved.key], variant: { in: ["error"] } },
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Explorer />, { wrapper });
+    fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+    expect(await screen.findByText(saved.name)).toBeTruthy();
+    expect(screen.getByText("Labels")).toBeTruthy();
+    expect(screen.getByText("Variants")).toBeTruthy();
+    expect(screen.getByText("Error")).toBeTruthy();
+  });
+
   it("should rename a status in place from the context menu", async () => {
     const s = await client.statuses.set(
       status.create({ name: uniqueName("status"), variant: "info", message: "m" }),

@@ -80,13 +80,16 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset, stored }) => {
-    const values = value();
-    if (values.key == null) {
+    const { key } = value();
+    // The form holds the text as typed, so the schema trims it. It also gives a new
+    // view its key.
+    const values = formSchema.parse(value());
+    if (key == null) {
       reset(await client.views.create(values));
       return;
     }
     const edits = actions.diffFields(formSchema, stored, values, ["name", "where"]);
-    if (edits.length > 0) await client.views.dispatch(values.key, edits);
+    if (edits.length > 0) await client.views.dispatch(key, edits);
   },
   mountListeners: ({ client, query: { key }, reset }) =>
     client.views.watch(key).onChange((result) => {

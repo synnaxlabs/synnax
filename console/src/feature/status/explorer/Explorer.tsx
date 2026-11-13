@@ -24,6 +24,11 @@ import { View } from "@/platform/view";
 
 const item = Component.renderProp(Status.List.Item);
 
+const PROPERTIES: View.Filter.Properties<status.Where> = {
+  labels: Label.Filter.createProperty(),
+  variant: Status.Filter.VARIANT,
+};
+
 export const Explorer: Panel.Content = () => (
   <View.Frame resourceType="status" icon="Status">
     <Internal />
@@ -43,12 +48,8 @@ const Internal = () => {
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
         <Flex.Box x align="center" gap="small" grow wrap>
-          <View.FilterMenu>
-            <Label.Filter.MenuItem />
-            <Status.Filter.MenuItem />
-          </View.FilterMenu>
-          <Label.Filter.Chips />
-          <Status.Filter.Chips />
+          <View.Filter.Menu properties={PROPERTIES} />
+          <View.Filter.Chips properties={PROPERTIES} />
         </Flex.Box>
         {hasCreatePermission && (
           <Button.Button

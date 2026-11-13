@@ -181,14 +181,14 @@ class ViewsClient(ResourceClient):
     def select_filter(self, trigger: str, option: str) -> None:
         """Select an option in one of the explorer's filter dropdowns.
 
-        The filter is a two-level dialog: the filter button opens the first dialog,
-        the trigger opens the second dialog holding the option list.
+        The filter button opens the filter menu, and the menu item of the property
+        opens its picker beside the menu.
 
-        :param trigger: Accessible name of the dropdown trigger, e.g. "Labels".
+        :param trigger: Name of the property's menu item, e.g. "Labels".
         :param option: Display name of the option to select.
         """
         filter_dialog = self.open_filter()
-        filter_dialog.get_by_role("button", name=trigger, exact=True).click()
+        filter_dialog.get_by_role("menuitem", name=trigger, exact=True).click()
         item = self.layout.dialog.get_by_role("option").filter(has_text=option).first
         item.wait_for(state="visible", timeout=5000)
         item.click()

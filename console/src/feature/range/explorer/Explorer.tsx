@@ -21,7 +21,7 @@ import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { Chips, isEmpty, MenuItems } from "@/feature/range/explorer/Filter";
+import { PROPERTIES } from "@/feature/range/explorer/Filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
 import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
@@ -93,7 +93,7 @@ const isCapped = (
   term: string,
   where: ranger.Where | undefined,
   flat: boolean,
-): boolean => (term !== "" || !isEmpty(where)) && !flat;
+): boolean => (term !== "" || where != null) && !flat;
 
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
@@ -207,10 +207,8 @@ const Internal = (): ReactElement => {
     >
       <View.Toolbar>
         <Flex.Box x align="center" gap="small" grow wrap>
-          <View.FilterMenu>
-            <MenuItems />
-          </View.FilterMenu>
-          <Chips />
+          <View.Filter.Menu properties={PROPERTIES} />
+          <View.Filter.Chips properties={PROPERTIES} />
         </Flex.Box>
         <Flex.Box x align="center" gap="small">
           {searchTerm === "" && (

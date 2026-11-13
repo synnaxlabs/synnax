@@ -305,6 +305,8 @@ bound, a log precision, or the line plot X channel.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
 - The search in a submenu is a line of text over a hairline, with no box.
+- Every explorer filters through `View.Filter`: one menu item for each property, which
+  opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
   next to each other join into one highlight.
 - A divider separates groups of actions, never single items.

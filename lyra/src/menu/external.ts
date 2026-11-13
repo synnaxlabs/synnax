@@ -13,5 +13,6 @@ export * from "@/menu/Dialog";
 export * from "@/menu/Divider";
 export * from "@/menu/Item";
 export * from "@/menu/Menu";
+export * from "@/menu/Sub";
 export * from "@/menu/types";
 export * from "@/menu/UndoRedoItems";

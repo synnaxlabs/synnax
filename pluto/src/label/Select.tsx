@@ -20,7 +20,8 @@ import { Flux } from "@/flux";
 import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
-const ListItem = ({
+/** An option of a label select: the color of the label, then its name. */
+export const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
