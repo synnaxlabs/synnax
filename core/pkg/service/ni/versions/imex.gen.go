@@ -85,21 +85,13 @@ func decodeCounterReadConfig(
 		if err != nil {
 			return CounterReadConfig{}, err
 		}
-		t4, err := v4.MigrateCounterReadConfig(ctx, t3)
-		if err != nil {
-			return CounterReadConfig{}, err
-		}
-		return t4, nil
+		return t3, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.CounterReadConfig](data, "ni.CounterReadConfig", version)
 		if err != nil {
 			return CounterReadConfig{}, err
 		}
-		t4, err := v4.MigrateCounterReadConfig(ctx, t3)
-		if err != nil {
-			return CounterReadConfig{}, err
-		}
-		return t4, nil
+		return t3, nil
 	case v4.Version:
 		return imex.DecodeBlob[CounterReadConfig](data, "ni.CounterReadConfig", version)
 	}

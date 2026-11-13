@@ -37,14 +37,6 @@ func MigrateAnalogWriteConfig(
 	return cfg, nil
 }
 
-// MigrateCounterReadConfig lifts a v3 counter read config to v4.
-func MigrateCounterReadConfig(
-	ctx context.Context,
-	old v3.CounterReadConfig,
-) (CounterReadConfig, error) {
-	return autoMigrateCounterReadConfig(ctx, old)
-}
-
 // AnalogWriteMigration lifts stored analog write configs to v4 and logs each function
 // generator frequency it changes.
 var AnalogWriteMigration = migrate.NewInstrumentedEntry(

@@ -126,7 +126,8 @@ BaseCIChannel struct extends v2.BaseCIChannel {
 CIChannel union on type extends v2.CIChannel {
     ci_frequency {
         divisor uint32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
     }
     ci_edge_count {
@@ -136,17 +137,20 @@ CIChannel union on type extends v2.CIChannel {
     }
     ci_period {
         divisor uint32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
     }
     ci_velocity_angular {
         pulses_per_rev uint32 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
     }
     ci_position_angular {
         pulses_per_rev uint32 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
     }
 }
