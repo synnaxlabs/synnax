@@ -130,6 +130,20 @@ var _ = Describe("MigrateReadField", func() {
 		Entry("bytes", oldField(telem.BytesT), v1.BytesReadField{BaseReadField: base}),
 	)
 
+	It("Should keep the kind and entries of a field with a stale time format", func(
+		ctx SpecContext,
+	) {
+		old := oldField(telem.Int16T, payload.EnumEntry{Label: "ON", Value: 1})
+		old.TimeFormat = new(payload.TimeFormatUnixSec)
+		Expect(MustSucceed(v1.MigrateReadField(ctx, old)).Variant).To(Equal(
+			v1.IntegerReadField{
+				BaseReadField: base,
+				DataType:      new(telem.Int16T),
+				EnumValues:    []payload.IntegerEntry{{Label: "ON", Value: 1}},
+			},
+		))
+	})
+
 	It("Should lift a float64 field with a time format to a timestamp field", func(
 		ctx SpecContext,
 	) {
