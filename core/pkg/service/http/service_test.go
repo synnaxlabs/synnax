@@ -242,7 +242,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a write field with no valid value",
 		func(ctx SpecContext, kind string, value any, msg string) {
-			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{
 					"key": "ep",
 					"fields": []any{map[string]any{
