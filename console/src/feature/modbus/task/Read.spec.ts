@@ -17,16 +17,18 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
   commitFieldInput,
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
   reportTaskStopped,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { findIconButton, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -58,6 +60,33 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createModbusDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const entry = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key: id.create(),
+      address: 0,
+      dataType: "float32",
+      channel: float.key,
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [entry],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {

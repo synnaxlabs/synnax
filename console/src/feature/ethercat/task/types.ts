@@ -324,10 +324,6 @@ export const getUnresolvedMessage = (
   return `'${pdo}' matches ${found}. Pick an entry.`;
 };
 
-/** @returns the channel with the given key, else the last channel, else nothing. */
-const baseOf = <C extends Channel>(channels: C[], copy?: string): Partial<C> =>
-  channels.find(({ key }) => key === copy) ?? channels.at(-1) ?? {};
-
 /**
  * Creates a new read channel on the slave of the channel to copy, the last channel when
  * none is given.
@@ -336,7 +332,7 @@ export const createReadChannel = (
   channels: ReadChannel[],
   copy?: string,
 ): ReadChannel => {
-  const base = baseOf(channels, copy);
+  const base: Partial<ReadChannel> = Task.channelToCopy(channels, copy) ?? {};
   return READ_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.READ_CHANNEL_OVERRIDE,
@@ -380,7 +376,7 @@ export const createWriteChannel = (
   channels: WriteChannel[],
   copy?: string,
 ): WriteChannel => {
-  const base = baseOf(channels, copy);
+  const base: Partial<WriteChannel> = Task.channelToCopy(channels, copy) ?? {};
   return WRITE_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.WRITE_CHANNEL_OVERRIDE,

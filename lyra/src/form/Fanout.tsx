@@ -45,8 +45,10 @@ const merge = (states: (FieldState | null)[]): FieldState | null => {
 
 /**
  * Edits several subtrees of the form as one. A field inside binds under the first path.
- * It reads as mixed when the subtrees hold different values there, and its edits go to
- * every subtree. Paths outside the first pass through unchanged.
+ * It reads as mixed when the subtrees hold different values there. Edits, statuses,
+ * checks, and validations of a path in the first subtree go to every subtree, and `has`
+ * asks every subtree. Focus stays with the fields under the first path. Paths outside
+ * the first pass through unchanged.
  */
 export const Fanout = ({ paths, children }: FanoutProps): ReactElement => {
   const parent = useContext(undefined, "Form.Fanout");
@@ -95,6 +97,23 @@ export const Fanout = ({ paths, children }: FanoutProps): ReactElement => {
     each(target, (p) => parent.insert(p, value, after));
   const move: MoveFunc = (target, key, after) =>
     each(target, (p) => parent.move(p, key, after));
+  const validate: ContextValue["validate"] = (target) =>
+    target == null
+      ? parent.validate()
+      : targets(target)
+          .map((p) => parent.validate(p))
+          .every(Boolean);
+  const validateAsync: ContextValue["validateAsync"] = async (target) => {
+    if (target == null) return await parent.validateAsync();
+    const results = await Promise.all(
+      targets(target).map(async (p) => await parent.validateAsync(p)),
+    );
+    return results.every(Boolean);
+  };
+  const addCheck: ContextValue["addCheck"] = (target, schema) => {
+    const removes = targets(target).map((p) => parent.addCheck(p, schema));
+    return () => removes.forEach((r) => r());
+  };
   const ctx: ContextValue = {
     ...parent,
     get,
@@ -102,6 +121,10 @@ export const Fanout = ({ paths, children }: FanoutProps): ReactElement => {
     remove,
     insert,
     move,
+    validate,
+    validateAsync,
+    addCheck,
+    has: (target) => targets(target).every((p) => parent.has(p)),
     setStatus: (target, status) => each(target, (p) => parent.setStatus(p, status)),
   };
   return <Context value={ctx}>{children}</Context>;

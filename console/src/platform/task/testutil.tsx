@@ -542,6 +542,24 @@ export const awaitCommand = async (
 };
 
 /**
+ * Runs the action, then resolves with the arguments of the tare command that it sends
+ * to the task.
+ */
+export const awaitTare = async (
+  client: Client,
+  taskKey: task.Key,
+  action: () => Promise<void>,
+): Promise<unknown> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await action();
+    return (await awaitCommand(streamer, taskKey, "tare")).args;
+  } finally {
+    streamer.close();
+  }
+};
+
+/**
  * Clicks the form's deploy button, waits for the resulting start command, then returns
  * the persisted task. The streamer opens before the click because deploy saves the task
  * and issues the command in one pass.

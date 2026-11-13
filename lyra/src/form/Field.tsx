@@ -18,12 +18,23 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { type FieldState } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
+
+/**
+ * @returns the text under a field: its status message, or "Mixed" when the subtrees
+ * that `Form.Fanout` edits differ there and the field has no problem.
+ */
+export const helpTextOf = ({
+  mixed,
+  status,
+}: Pick<FieldState, "mixed" | "status">): string | undefined =>
+  mixed === true && status.variant === "success" ? "Mixed" : status.message;
 
 /** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
@@ -71,10 +82,7 @@ export const Field = <I = string | number, O = I>({
   if (field == null || !visible) return null;
   const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
-  const helpText =
-    field.mixed === true && field.status.variant === "success"
-      ? "Mixed"
-      : field.status.message;
+  const helpText = helpTextOf(field);
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
   if (field.preview != null) childrenProps.preview = field.preview;

@@ -20,9 +20,11 @@ export interface MinMaxValueFieldsProps {
 export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const min = Form.useFieldState(path.minVal);
   const max = Form.useFieldState(path.maxVal);
-  const mixed = min.mixed === true || max.mixed === true;
+  const helpText = [min, max]
+    .map(Form.helpTextOf)
+    .find((text) => text != null && text !== "");
   return (
-    <Input.Item label="Range" helpText={mixed ? "Mixed" : undefined}>
+    <Input.Item label="Range" helpText={helpText}>
       <Flex.Box x gap="small">
         <Form.NumericField
           path={path.minVal}

@@ -39,6 +39,7 @@ import {
   type WriteChannel,
   type WriteChannelType,
   type WriteSchemas,
+  writesOverlap,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -161,7 +162,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 };
 
 const getOpenChannel = (channels: WriteChannel[], copy?: string): WriteChannel => {
-  const next = nextOpenChannel(channels, copy);
+  const next = nextOpenChannel(channels, writesOverlap, copy);
   if (next == null)
     return {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),

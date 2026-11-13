@@ -18,7 +18,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
     itemKey: "ni.analogReadTask",
     label: "Create analog read task",
     useCreate: Task.useCreateAnalogRead,
-    multiDevice: { zeroProperties: ZERO_PROPERTIES },
+    zeroProperties: ZERO_PROPERTIES,
   }),
   PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.analogWriteTask",
@@ -29,7 +29,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
     itemKey: "ni.counterReadTask",
     label: "Create counter read task",
     useCreate: Task.useCreateCounterRead,
-    multiDevice: { zeroProperties: ZERO_PROPERTIES },
+    zeroProperties: ZERO_PROPERTIES,
   }),
   PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.digitalReadTask",

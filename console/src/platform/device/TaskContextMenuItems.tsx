@@ -21,11 +21,10 @@ export interface TaskContextMenuItemConfig {
   label: string;
   useCreate: Task.UseCreate;
   /**
-   * Offers the item for several devices, which it configures with these zero properties
-   * and a free identifier when they are not configured yet. The task it creates gets
-   * `deviceKeys`.
+   * Offers the item for several devices. Each device that is not configured gets these
+   * properties and a free identifier.
    */
-  multiDevice?: { zeroProperties: record.Unknown };
+  zeroProperties?: record.Unknown;
 }
 
 export interface TaskContextMenuItemProps {
@@ -44,18 +43,17 @@ export const createTaskContextMenuItem = ({
   itemKey,
   label,
   useCreate,
-  multiDevice,
+  zeroProperties,
 }: TaskContextMenuItemConfig): TaskContextMenuItem => {
   const Item: TaskContextMenuItem = ({ deviceKeys, beforeCreate }) => {
     const createTask = useCreate();
     const { updateAsync: configure } = useConfigureMany();
     const handleClick = () => {
-      if (multiDevice == null || deviceKeys.length === 1) {
+      if (zeroProperties == null || deviceKeys.length === 1) {
         beforeCreate();
         createTask({ deviceKey: deviceKeys[0] });
         return;
       }
-      const { zeroProperties } = multiDevice;
       void (async () => {
         if (await configure({ keys: deviceKeys, zeroProperties }))
           createTask({ deviceKeys });
@@ -68,7 +66,7 @@ export const createTaskContextMenuItem = ({
     );
   };
   Item.itemKey = itemKey;
-  Item.multiDevice = multiDevice != null;
+  Item.multiDevice = zeroProperties != null;
   return Item;
 };
 

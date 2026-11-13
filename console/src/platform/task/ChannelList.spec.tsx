@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import {
-  awaitCommand,
+  awaitTare,
   renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
@@ -253,8 +253,7 @@ describe("ChannelList", () => {
         type: "opc_read",
         config: {},
       });
-      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      try {
+      const args = await awaitTare(client, tsk.key, async () => {
         await renderTareable(tsk.key, [
           { key: "a", disabled: false, channel: float },
           { key: "b", disabled: true, channel: disabledFloat },
@@ -262,11 +261,8 @@ describe("ChannelList", () => {
         ]);
         fireEvent.contextMenu(await screen.findByText("item-a"));
         fireEvent.click(await screen.findByText("Tare"));
-        const cmd = await awaitCommand(streamer, tsk.key, "tare");
-        expect(cmd.args).toEqual({ keys: [float] });
-      } finally {
-        streamer.close();
-      }
+      });
+      expect(args).toEqual({ keys: [float] });
     });
 
     it("should keep Tare in preview", async () => {

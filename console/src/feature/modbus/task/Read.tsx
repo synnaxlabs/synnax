@@ -43,6 +43,7 @@ import {
   readDataType,
   readMapKey,
   type ReadSchemas,
+  readsOverlap,
   UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
@@ -121,7 +122,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 };
 
 const getOpenChannel = (channels: ReadChannel[], copy?: string): ReadChannel => {
-  const next = nextOpenChannel(channels, copy);
+  const next = nextOpenChannel(channels, readsOverlap, copy);
   if (next == null)
     return {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
