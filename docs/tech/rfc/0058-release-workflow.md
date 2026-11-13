@@ -96,9 +96,10 @@ Each selected product runs four stages:
    for that version, and a stable release from the same branch promotes it. The action
    also emits the previous stable product tag; a candidate uses the same baseline, so
    its notes cover every change since the last stable.
-2. **Verify**: `ci.yaml` runs with `full` as a `workflow_call` job, once per run, and
-   the migration audit runs when its input is set. Both run in parallel with the builds
-   and gate only the publish (RFC 0111 §2).
+2. **Verify**: The commit needs one green run of `ci.yaml` with `full`. A nightly run or
+   an earlier release run of the commit counts. If there is none, `ci.yaml` runs as a
+   `workflow_call` job. The migration audit runs when its input is set. Both run in
+   parallel with the builds and gate only the publish (RFC 0111 §2 and §3.2).
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
