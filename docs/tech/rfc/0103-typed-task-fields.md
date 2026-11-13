@@ -21,7 +21,7 @@ version with a §7 migration, and releases do not hold.
 
 ## 1 Schema
 
-`schemas/x/versions/payload/v1.oracle`, with docs and tags cut:
+The current `payload` version, with docs and tags cut:
 
 ```
 Kind enum { float integer unsigned string boolean timestamp json uuid bytes }
@@ -34,9 +34,12 @@ IntegerEntry  struct { label string  value Integer }
 UnsignedEntry struct { label string  value Unsigned }
 StringEntry   struct { label string  value string }
 BooleanEntry  struct { label string  value bool }
-FloatRead     struct { enum_values FloatEntry[]  fill Float? }
-IntegerRead   struct { enum_values IntegerEntry[]  fill Integer? }
-UnsignedRead  struct { enum_values UnsignedEntry[]  fill Unsigned? }
+FloatRead     struct { data_type telem.DataType?  enum_values FloatEntry[]  fill Float? }
+IntegerRead   struct { data_type telem.DataType?  enum_values IntegerEntry[]  fill Integer? }
+UnsignedRead  struct { data_type telem.DataType?  enum_values UnsignedEntry[]  fill Unsigned? }
+FloatOptions    struct { enum_values FloatEntry[]  fill Float? }
+IntegerOptions  struct { enum_values IntegerEntry[]  fill Integer? }
+UnsignedOptions struct { enum_values UnsignedEntry[]  fill Unsigned? }
 StringRead    struct { enum_values StringEntry[]  fill string? }
 BooleanRead   struct { enum_values BooleanEntry[]  fill bool? }
 TimestampRead struct { time_format TimeFormat  fill telem.TimeStamp? }
@@ -49,9 +52,9 @@ WriteField union on type Kind extends BaseWriteField {
 
 `BaseWriteField` holds `key` and `pointer`. `timestamp` and `uuid` write fields generate
 a value per message. `json` holds JSON text, because `record` holds only objects, and
-`bytes` holds base64 text. Phase 11 mints payload v1 for `WriteField`. Payload v0
-shipped with a `data_type` on the three numeric read types, so Phase 27 removes it from
-v1.
+`bytes` holds base64 text. Phases 7, 9, and 12 extend the numeric `*Read` types, whose
+`data_type` sizes a new channel. Phase 27 adds the three `*Options` types without it as
+new types, with no new payload version, and Phases 28 to 31 extend them.
 
 Phase 27 also adds `Binding` to `schemas/synnax/task.oracle`, in task v3 with no new
 version, because `x` cannot import `channel.Key` or its `@ref`. Integration version
@@ -68,8 +71,8 @@ Each integration declares two unions on its own base:
 
 ```
 ReadField union on type payload.Kind extends BaseReadField {
-    float extends payload.FloatRead {}  integer extends payload.IntegerRead {}
-    unsigned extends payload.UnsignedRead {}  string extends payload.StringRead {}
+    float extends payload.FloatOptions {}  integer extends payload.IntegerOptions {}
+    unsigned extends payload.UnsignedOptions {}  string extends payload.StringRead {}
     boolean extends payload.BooleanRead {}  timestamp extends payload.TimestampRead {}
     json {}  uuid {}  bytes {}
 }
@@ -281,11 +284,13 @@ cannot see channels, so a key it binds can dangle on import (see **Dangling keys
 numeric type picks its kind. `boolean` entries become `value != 0`. `string` drops its
 entries, as no conversion read them. `timestamp` with no `time_format` takes `iso8601`.
 
-- **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
-  channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
-  `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`. Each shipped default is `float64`, so such an index field or
-  field with a `time_format` takes `data_type: timestamp`.
+- **Binding**: From each version before `Binding` (Kafka v0 and v1, MQTT v1 and v2, HTTP
+  v4 and v5), a read field, channel field, or Sparkplug read entry with `channel != 0`
+  becomes `bound` and drops `name` and `data_type`. One with `channel == 0` becomes
+  `unbound` with the stored `name` and `data_type`. Each shipped default is `float64`,
+  so such an index field or field with a `time_format` takes `data_type: timestamp`. A
+  field with no stored `data_type` takes it from its kind: `float64`, `int64`, or
+  `uint64` for a numeric kind, and the kind's own type otherwise.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -327,14 +332,15 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   **Binding**. `Decoded` carries the map to `ReconcileEntry`, which now runs before
   `DropDangling` and turns each bound key into `unbound` from the map when no local
   channel has that key, or when `cluster` is another Core's, because two Cores hand out
-  the same channel keys. A Kafka write channel from another Core becomes disabled, and
-  the import logs it. A map built from a version before `Binding` holds no real channel
-  values, so it unbinds only a missing key. With no map entry for a missing key,
-  `ReconcileEntry` removes the field, or for a channel field its target or endpoint, and
-  logs what it removed. `ReconcileEntry` skips a missing key that is not a `Binding`,
-  such as a Kafka write channel, and `DropDangling` removes it as today. `bound.key` 0
-  is invalid. Phase 27 adds `BoundKeys`, the `Decode` and hook arguments, the order, and
-  a `cluster.Identity` input to the task service. Phases 28 to 31 apply the rule.
+  the same channel keys. Every other channel key from another Core, such as a Kafka
+  write channel or a Sparkplug tag, becomes disabled, and the import logs it. A map
+  built from a version before `Binding` holds no real channel values, so it unbinds only
+  a missing key. With no map entry for a missing key, `ReconcileEntry` removes the
+  field, or for a channel field its target or endpoint, and logs what it removed.
+  `ReconcileEntry` skips a missing key that is not a `Binding`, such as a Kafka write
+  channel, and `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27
+  adds `BoundKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
+  input to the task service. Phases 28 to 31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
@@ -386,8 +392,8 @@ carries a config keeps the `Float` text form; check C++ `to_json`.
 | 24    | Narrow NI config field types                          | `schemas/synnax`, `core/pkg/service/ni`, `driver/ni`, `console/src/feature/ni`, `client`                                                                                            | -                              |
 | 25    | Rename the Modbus device swap flags                   | `schemas/synnax`, `core/pkg/service/modbus`, `driver/modbus/device`, `console/src/feature/modbus`, `client`                                                                         | 21                             |
 | 26    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                                                                                            | 14, 15, 19, 20, 21, 23, 24, 25 |
-| 27    | Add `task.Binding` and drop payload read `data_type`  | `schemas/x`, `schemas/synnax/task.oracle`, `schemas/synnax/versions/task`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `core/pkg/service/task`, `client` | 11                             |
+| 27    | Add `task.Binding` and the payload `*Options` types   | `schemas/x`, `schemas/synnax/task.oracle`, `schemas/synnax/versions/task`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `core/pkg/service/task`, `client` | 11                             |
 | 28    | Bind Kafka read fields to `task.Binding`              | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/task`, `console/src/feature/kafka`, `client`, `site/docs/src/pages/reference/hardware`                                | 7, 27                          |
 | 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`, `site/docs/src/pages/reference/hardware`                                             | 9, 27                          |
 | 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`, `site/docs/src/pages/reference/hardware`                                             | 10, 27                         |
-| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 27                     |
+| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27                 |
