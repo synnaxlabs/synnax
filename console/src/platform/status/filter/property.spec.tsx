@@ -10,6 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,6 +22,8 @@ import { enableEditing } from "@/platform/view/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({ where: status.whereZ.optional() });
 
@@ -34,7 +37,7 @@ const Fixture = ({ where }: { where?: status.Where }): ReactElement => {
     <View.Frame resourceType="status" icon="Status">
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Chips properties={PROPERTIES} />
-        <Form.Field path="where" showLabel={false}>
+        <Form.Field path={path.where} showLabel={false}>
           {({ value }) => <span>{`where:${JSON.stringify(value) ?? "none"}`}</span>}
         </Form.Field>
       </Form.Form>
