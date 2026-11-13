@@ -21,6 +21,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	xuuid "github.com/synnaxlabs/x/uuid"
+	"github.com/synnaxlabs/x/validate"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -41,12 +44,33 @@ type Run struct {
 
 // SetRun makes r an ad hoc run of the asset in Sift and returns its ID. When the asset
 // has a run with the key of r, SetRun updates its name, span, and tags to match r.
-// SetRun retries temporary failures as Upload does, and fails at once when the key of r
-// is not a UUID. It is safe to call while Upload or Stream runs.
+// Sift needs a name and a span with length, so SetRun names a run with no name by its
+// key and grows a span with no length to one nanosecond. SetRun retries temporary
+// failures as Upload does, and fails at once when the key of r is not a UUID. It is
+// safe to call while Upload or Stream runs.
 func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
+	return e.putRun(ctx, r, true)
+}
+
+// UpdateRun updates the run of the asset with the key of r as SetRun does, and returns
+// true. It returns false and creates nothing when the asset has no such run.
+func (e *Engine) UpdateRun(ctx context.Context, r Run) (bool, error) {
+	id, err := e.putRun(ctx, r, false)
+	return id != "", err
+}
+
+// putRun runs SetRun, or UpdateRun when create is false. It returns an empty ID when
+// create is false and the asset has no run with the key of r.
+func (e *Engine) putRun(ctx context.Context, r Run, create bool) (string, error) {
+	if r.Name == "" {
+		r.Name = r.Key
+	}
+	if r.TimeRange.End == r.TimeRange.Start {
+		r.TimeRange.End = r.TimeRange.Start + 1
+	}
 	rng, err := uuid.Parse(r.Key)
 	if err != nil {
-		return "", errors.Wrapf(err, "run key %q is not a UUID", r.Key)
+		return "", validate.Errorf("run key %q is not a UUID", r.Key)
 	}
 	key := xuuid.NewV5(rng, e.cfg.Asset).String()
 	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
@@ -54,7 +78,7 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 		return "", err
 	}
 	for {
-		id, err := e.setRun(ctx, r, key)
+		id, err := e.setRun(ctx, r, key, create)
 		if err == nil {
 			return id, nil
 		}
@@ -65,7 +89,7 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 		if permanent {
 			return "", err
 		}
-		e.cfg.OnRetry(ctx, err)
+		e.cfg.OnRunRetry(ctx, err)
 		if !brk.Wait() {
 			if ctx.Err() != nil {
 				return "", ctx.Err()
@@ -75,47 +99,21 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 	}
 }
 
-func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) {
-	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
-		PageSize: 1,
-		Filter:   fmt.Sprintf("client_key == %q", key),
-	})
+func (e *Engine) setRun(
+	ctx context.Context,
+	r Run,
+	key string,
+	create bool,
+) (string, error) {
+	id, err := e.updateFound(ctx, r, key)
+	if err != nil || id != "" || !create {
+		return id, err
+	}
+	_, assetID, err := e.ingestionConfig(ctx)
 	if err != nil {
 		return "", err
 	}
-	start := timestamppb.New(time.Unix(0, int64(r.TimeRange.Start)))
-	stop := timestamppb.New(time.Unix(0, int64(r.TimeRange.End)))
-	if len(res.Runs) > 0 {
-		existing := res.Runs[0]
-		if existing.Name == r.Name &&
-			proto.Equal(existing.StartTime, start) &&
-			proto.Equal(existing.StopTime, stop) &&
-			slices.Equal(
-				slices.Sorted(slices.Values(existing.Tags)),
-				slices.Sorted(slices.Values(r.Tags)),
-			) {
-			return existing.RunId, nil
-		}
-		if _, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
-			Run: &runsv2.Run{
-				RunId:     existing.RunId,
-				Name:      r.Name,
-				StartTime: start,
-				StopTime:  stop,
-				Tags:      r.Tags,
-			},
-			UpdateMask: &fieldmaskpb.FieldMask{
-				Paths: []string{"name", "start_time", "stop_time", "tags"},
-			},
-		}); err != nil {
-			return "", err
-		}
-		return existing.RunId, nil
-	}
-	assetID, err := e.asset(ctx)
-	if err != nil {
-		return "", err
-	}
+	start, stop := runSpan(r)
 	created, err := e.runs.CreateAdhocRun(ctx, &runsv2.CreateAdhocRunRequest{
 		Name:      r.Name,
 		StartTime: start,
@@ -124,8 +122,75 @@ func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) 
 		Tags:      r.Tags,
 		ClientKey: &key,
 	})
+	if status.Code(err) == codes.AlreadyExists {
+		if id, err = e.updateFound(ctx, r, key); err != nil || id != "" {
+			return id, err
+		}
+		return "", errors.New("Sift reported a run that it does not list")
+	}
 	if err != nil {
 		return "", err
 	}
 	return created.Run.RunId, nil
+}
+
+// updateFound updates the run with key to match r and returns its ID. It returns an
+// empty ID when Sift lists no such run.
+func (e *Engine) updateFound(ctx context.Context, r Run, key string) (string, error) {
+	// A run can go away between the look-up and the update, so look once more.
+	for range 2 {
+		existing, err := e.findRun(ctx, key)
+		if err != nil || existing == nil {
+			return "", err
+		}
+		switch err := e.updateRun(ctx, existing, r); {
+		case err == nil:
+			return existing.RunId, nil
+		case status.Code(err) != codes.NotFound:
+			return "", err
+		}
+	}
+	return "", errors.New("Sift could not find a run that it listed")
+}
+
+func (e *Engine) findRun(ctx context.Context, key string) (*runsv2.Run, error) {
+	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
+		PageSize: 1,
+		Filter:   fmt.Sprintf("client_key == %q", key),
+	})
+	if err != nil || len(res.Runs) == 0 {
+		return nil, err
+	}
+	return res.Runs[0], nil
+}
+
+func (e *Engine) updateRun(ctx context.Context, existing *runsv2.Run, r Run) error {
+	start, stop := runSpan(r)
+	if existing.Name == r.Name &&
+		proto.Equal(existing.StartTime, start) &&
+		proto.Equal(existing.StopTime, stop) &&
+		slices.Equal(
+			slices.Sorted(slices.Values(existing.Tags)),
+			slices.Sorted(slices.Values(r.Tags)),
+		) {
+		return nil
+	}
+	_, err := e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+		Run: &runsv2.Run{
+			RunId:     existing.RunId,
+			Name:      r.Name,
+			StartTime: start,
+			StopTime:  stop,
+			Tags:      r.Tags,
+		},
+		UpdateMask: &fieldmaskpb.FieldMask{
+			Paths: []string{"name", "start_time", "stop_time", "tags"},
+		},
+	})
+	return err
+}
+
+func runSpan(r Run) (start, stop *timestamppb.Timestamp) {
+	return timestamppb.New(time.Unix(0, int64(r.TimeRange.Start))),
+		timestamppb.New(time.Unix(0, int64(r.TimeRange.End)))
 }

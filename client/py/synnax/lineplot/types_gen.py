@@ -180,7 +180,7 @@ class Line(BaseModel):
     x_channel: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     label: str | None = None
     color: color_.Color | None = None
-    stroke_width: float = Field(default=2, ge=1)
+    stroke_width: float = Field(default=2, ge=1, allow_inf_nan=False)
     aggregation: Aggregation = "min_max"
     detail: Detail = "medium"
 

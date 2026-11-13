@@ -27,6 +27,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -1678,7 +1679,7 @@ TEST(HTTPWriteTask, EnumMappingNumericToString) {
     ep.channel.pointer = "/state";
     ep.channel.json_type = "string";
     ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0},
     };
@@ -1725,7 +1726,7 @@ TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
     ep.channel.pointer = "/state";
     ep.channel.json_type = "string";
     ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0},
     };

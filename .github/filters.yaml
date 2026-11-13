@@ -357,6 +357,13 @@ codeql_cpp:
   - *driver
   - .github/workflows/codeql.yaml
 
+# Every path that changes a Rust CodeQL analysis.
+codeql_rust:
+  - "**/*.rs"
+  - "**/Cargo.lock"
+  - "**/Cargo.toml"
+  - .github/workflows/codeql.yaml
+
 buildifier:
   - "**/*.bzl"
   - "**/BUILD"
