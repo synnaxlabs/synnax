@@ -84,7 +84,12 @@ std::pair<Range, x::errors::Error> Client::retrieve(
         return {Range(), errors::paged_one_error()};
     auto [ranges, err] = this->retrieve(where, options);
     if (err) return {Range(), err};
-    if (const auto one_err = errors::check_one("range", where.to_json(), ranges.size()))
+    if (const auto one_err = errors::check_one(
+            "range",
+            where.to_json(),
+            options.search_term,
+            ranges.size()
+        ))
         return {Range(), one_err};
     return {std::move(ranges[0]), x::errors::NIL};
 }

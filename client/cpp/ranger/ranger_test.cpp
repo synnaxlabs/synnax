@@ -244,6 +244,22 @@ TEST(RangerTests, testRetrieveOneWhereNotFound) {
     ASSERT_EQ(err.data, "Found no range where name = \"" + name + "\"");
 }
 
+/// @brief it should name the search term in the error when no range matches it.
+TEST(RangerTests, testRetrieveOneSearchTermNotFound) {
+    const auto client = new_test_client();
+    const auto name = std::to_string(gen_rand());
+    const auto [_, err] = client.ranges.retrieve(
+        {.name = name},
+        x::filter::one,
+        {.search_term = name}
+    );
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        "Found no range matching \"" + name + "\" where name = \"" + name + "\""
+    );
+}
+
 /// @brief it should return an error when more than one range matches a filter.
 TEST(RangerTests, testRetrieveOneWhereMultipleFound) {
     const auto client = new_test_client();
