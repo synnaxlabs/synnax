@@ -3194,6 +3194,33 @@ TEST(HTTPReadTask, UnsignedEnumLabel) {
     EXPECT_EQ(fr.at<uint64_t>(1, 0), std::numeric_limits<uint64_t>::max());
 }
 
+/// @brief it should write the value of a string field's entry, and the response text
+/// when no entry has the label.
+TEST(HTTPReadTask, StringFieldWithEntries) {
+    StringReadField mapped;
+    mapped.pointer = "/state";
+    mapped.channel = 1;
+    mapped.enum_values = std::vector<::x::payload::StringEntry>{
+        {"1", "running"},
+        {"0", "stopped"},
+    };
+    StringReadField unmapped = mapped;
+    unmapped.pointer = "/other";
+    unmapped.channel = 2;
+    ReadEndpoint ep;
+    ep.fields = {mapped, unmapped};
+    ReadTaskConfig cfg;
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "state", .data_type = x::telem::STRING_T};
+    cfg.channels[2] = {.key = 2, .name = "other", .data_type = x::telem::STRING_T};
+
+    auto [fr, res] = read_once(cfg, R"({"state": "1", "other": "idle"})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(std::get<std::string>(fr.at(1, 0)), "running");
+    EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "idle");
+}
+
 /// @brief it should read a boolean channel from enum labels and JSON booleans.
 TEST(HTTPReadTask, BooleanFieldWithEntries) {
     BooleanReadField on;

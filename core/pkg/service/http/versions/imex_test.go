@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,5 +56,43 @@ var _ = Describe("WriteConfigLadder", func() {
 		g := cfg.Endpoints[0].Fields[0].Variant.(versions.GeneratedWriteField)
 		Expect(g.Generator).To(Equal(payload.GeneratorTypeTimestamp))
 		Expect(*g.TimeFormat).To(Equal(payload.TimeFormatUnixNs))
+	})
+})
+
+var _ = Describe("ReadConfigLadder", func() {
+	It("Should lift the fields of a v4 body to typed fields", func(ctx SpecContext) {
+		cfg := MustSucceed(versions.ReadConfigLadder.Decode(
+			ctx,
+			v4.Version,
+			msgpack.EncodedJSON{
+				"device": "dev",
+				"rate":   1,
+				"endpoints": []any{map[string]any{
+					"key":   "ep",
+					"index": "t",
+					"fields": []any{
+						map[string]any{
+							"key":        "f",
+							"pointer":    "/v",
+							"data_type":  "float64",
+							"optional":   true,
+							"fill_value": 1.5,
+						},
+						map[string]any{
+							"key":         "t",
+							"pointer":     "/t",
+							"data_type":   "float64",
+							"time_format": "unix_ms",
+						},
+					},
+				}},
+			},
+		))
+		fields := cfg.Endpoints[0].Fields
+		Expect(fields).To(HaveLen(2))
+		Expect(*fields[0].Variant.(versions.FloatReadField).Fill).
+			To(Equal(payload.Float(1.5)))
+		Expect(fields[1].Variant.(versions.TimestampReadField).TimeFormat).
+			To(Equal(payload.TimeFormatUnixMs))
 	})
 })
