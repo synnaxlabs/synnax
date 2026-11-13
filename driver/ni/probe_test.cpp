@@ -16,7 +16,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/json.gen.h"
+#include "client/cpp/ni/device/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/daqmx/mock.h"
@@ -230,14 +230,14 @@ public:
 };
 
 /// @brief returns the hardware that probe reads from api.
-::synnax::ni::Hardware probe_api(const std::shared_ptr<FakeAPI> &api) {
+::synnax::ni::device::Hardware probe_api(const std::shared_ptr<FakeAPI> &api) {
     daqmx::SugaredAPI dmx(api);
     return ASSERT_NIL_P(probe(dmx, DEVICE));
 }
 
 /// @brief returns the negative port of each analog input port, keyed by port.
 std::unordered_map<std::uint16_t, std::uint16_t>
-negatives(const ::synnax::ni::Hardware &hw) {
+negatives(const ::synnax::ni::device::Hardware &hw) {
     std::unordered_map<std::uint16_t, std::uint16_t> out;
     for (const auto &ai: hw.analog_inputs)
         out[ai.port] = ai.negative;
@@ -351,7 +351,7 @@ TEST(ProbeTest, testLeavesDefaultUnreadWhenReadbackFails) {
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(
         hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
     );
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
     EXPECT_FALSE(is_complete(hw));
@@ -389,7 +389,7 @@ TEST(ProbeTest, testRoundTripsThroughJSON) {
     const auto j = probe_api(api).to_json();
     EXPECT_EQ(j["ai_min_rate"], 0);
     EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
-    EXPECT_EQ(::synnax::ni::Hardware::parse(x::json::Parser(j)).to_json(), j);
+    EXPECT_EQ(::synnax::ni::device::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
 
 /// @brief it should parse stored hardware that has removed keys and lacks the keys with
@@ -405,7 +405,7 @@ TEST(ProbeTest, testParsesEarlierStoredHardware) {
                {"types", {"ai_voltage"}}}}},
         }
     );
-    const auto hw = ::synnax::ni::Hardware::parse(parser);
+    const auto hw = ::synnax::ni::device::Hardware::parse(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 0);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
@@ -435,7 +435,7 @@ TEST(ProbeTest, testNoDefaultWithoutTerminalConfigs) {
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(
         hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
     );
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
@@ -451,7 +451,7 @@ TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(
         hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
     );
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());

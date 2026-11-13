@@ -202,6 +202,22 @@ var _ = Describe("MigrateCJC", func() {
 	})
 })
 
+var _ = Describe("MigrateTerminal", func() {
+	DescribeTable("Should keep the terminal configuration",
+		func(ctx SpecContext, config v3.TerminalConfig) {
+			got := MustSucceed(
+				v4.MigrateTerminal(ctx, v3.Terminal{TerminalConfig: config}),
+			)
+			Expect(string(got.TerminalConfig)).To(Equal(string(config)))
+		},
+		Entry("default", v3.TerminalConfigCfgDefault),
+		Entry("RSE", v3.TerminalConfigRse),
+		Entry("NRSE", v3.TerminalConfigNrse),
+		Entry("Diff", v3.TerminalConfigDiff),
+		Entry("PseudoDiff", v3.TerminalConfigPseudoDiff),
+	)
+})
+
 var _ = Describe("MigrateAnalogReadConfig", func() {
 	It("Should disable a thermocouple whose cold-junction port clamps",
 		func(ctx SpecContext) {

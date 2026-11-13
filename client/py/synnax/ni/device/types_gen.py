@@ -19,7 +19,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
 from synnax.resource import ID
-from x import filter
+from x import filter, spatial, telem
+
+TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
+
+TERMINAL_CONFIG_RSE: Literal["RSE"] = "RSE"
+
+TERMINAL_CONFIG_NRSE: Literal["NRSE"] = "NRSE"
+
+TERMINAL_CONFIG_DIFF: Literal["Diff"] = "Diff"
+
+TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
+
+
+TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 
 Key: TypeAlias = UUID
 
@@ -94,23 +107,68 @@ class DigitalInputChannels(BaseModel):
     ] = Field(default_factory=dict)
 
 
-class Identity(BaseModel):
-    """Holds the device fields that the scanner owns.
+class AnalogInputPort(BaseModel):
+    """Is an analog input port of an NI device.
 
     Attributes:
-        rack: Is the key of the rack the device is connected to.
-        serial: Is the serial number of the device. Empty on simulated hardware.
-        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
-            renames.
-        model: Is the product name of the device.
-        chassis: Is the chassis that holds the device. Absent for a standalone device.
+        port: Is the number in the DAQmx name of the port, such as 3 for ai3.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        default_terminal_config: Is the terminal configuration that Cfg_Default gives on
+            the port. The value Cfg_Default means that the Driver did not read it. DAQmx
+            always reads back a real configuration.
+        types: Are the channel types that the port accepts, such as ai_voltage.
+        negative: Is the port that a differential channel on this port uses as its
+            negative input. 0 means that the port has no pair. Port 0 is never a
+            negative port.
     """
 
-    rack: rack_.Key = Field(ge=0, le=4294967295)
-    serial: str = ""
-    resource_name: str
-    model: str
-    chassis: chassis_.Key | None = None
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    default_terminal_config: TerminalConfig = "Cfg_Default"
+    types: list[str] = Field(default_factory=list)
+    negative: int = Field(default=0, ge=0, le=65535)
+
+
+class AnalogOutputPort(BaseModel):
+    """Is an analog output port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 1 for ao1.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        types: Are the channel types that the port accepts, such as ao_voltage.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    types: list[str] = Field(default_factory=list)
+
+
+class CounterPort(BaseModel):
+    """Is a counter of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the counter, such as 0 for ctr0.
+        types: Are the channel types that the counter accepts, such as ci_frequency.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    types: list[str] = Field(default_factory=list)
+
+
+class DigitalPort(BaseModel):
+    """Is a digital port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 0 for port0.
+        lines: Is the number of lines in the port.
+        input: Is true when the port reads digital input.
+        output: Is true when the port writes digital output.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    lines: int = Field(ge=0, le=32)
+    input: bool = False
+    output: bool = False
 
 
 class Where(BaseModel):
@@ -196,6 +254,53 @@ class DigitalOutputChannels(BaseModel):
     )
 
 
+class Hardware(BaseModel):
+    """Is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
+    device.
+
+    Attributes:
+        analog_inputs: Are the analog input ports of the device.
+        analog_outputs: Are the analog output ports of the device.
+        counter_inputs: Are the counters of the device that read input.
+        counter_outputs: Are the counters of the device that write output.
+        digital_ports: Are the digital ports of the device.
+        terminals: Are the terminals of the device, such as PFI0, without the device
+            name.
+        ai_min_rate: Is the lowest analog input sample rate, in Hz. 0 means that the
+            device does not support the attribute.
+        ai_max_single_channel_rate: Is the highest analog input sample rate of one
+            channel, in Hz. 0 means that the device does not support the attribute.
+        ai_max_multi_channel_rate: Is the highest analog input sample rate of the
+            device, in Hz. A task with several channels divides it by the channel count.
+            0 means that the device does not support the attribute.
+        ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
+            device does not support the attribute.
+        ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
+            included.
+        ai_current_ranges: Are the analog input current ranges of the device, ends
+            included.
+        ao_voltage_ranges: Are the analog output voltage ranges of the device, ends
+            included.
+        ao_current_ranges: Are the analog output current ranges of the device, ends
+            included.
+    """
+
+    analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
+    analog_outputs: list[AnalogOutputPort] = Field(default_factory=list)
+    counter_inputs: list[CounterPort] = Field(default_factory=list)
+    counter_outputs: list[CounterPort] = Field(default_factory=list)
+    digital_ports: list[DigitalPort] = Field(default_factory=list)
+    terminals: list[str] = Field(default_factory=list)
+    ai_min_rate: telem.Rate = telem.Rate(0)
+    ai_max_single_channel_rate: telem.Rate = telem.Rate(0)
+    ai_max_multi_channel_rate: telem.Rate = telem.Rate(0)
+    ao_max_rate: telem.Rate = telem.Rate(0)
+    ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -250,6 +355,28 @@ class Configuration(BaseModel):
     ] = Field(default_factory=dict)
 
 
+class Identity(BaseModel):
+    """Holds the device fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the device is connected to.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
+        model: Is the product name of the device.
+        chassis: Is the chassis that holds the device. Absent for a standalone device.
+        hardware: Is what the Driver read from DAQmx about the device. An update without
+            it keeps the stored value.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    serial: str = ""
+    resource_name: str
+    model: str
+    chassis: chassis_.Key | None = None
+    hardware: Hardware | None = None
+
+
 class Device(BaseModel):
     """Is an NI module in a chassis, or a standalone USB or PCIe device.
 
@@ -262,6 +389,8 @@ class Device(BaseModel):
             renames.
         model: Is the product name of the device.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
+        hardware: Is what the Driver read from DAQmx about the device. Absent until the
+            Driver reads it.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         analog_input: Are the channels of the analog input ports.
@@ -279,6 +408,7 @@ class Device(BaseModel):
     resource_name: str
     model: str
     chassis: chassis_.Key | None = None
+    hardware: Hardware | None = None
     identifier: str = ""
     analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
     analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (

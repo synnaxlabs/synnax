@@ -64,7 +64,7 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
         device = self.client.devices.retrieve(key=self._device_key)
         if "hardware" not in device.properties:
             raise AssertionError(f"Device {device.key} has no hardware")
-        hardware = sy.ni.Hardware.model_validate(device.properties["hardware"])
+        hardware = sy.ni.device.Hardware.model_validate(device.properties["hardware"])
         ports = {p.port: p for p in hardware.analog_inputs}
         for ch in self.tsk.config.channels:
             assert isinstance(ch, sy.ni.AIVoltageChannel)

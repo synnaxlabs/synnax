@@ -35,9 +35,9 @@ export type ForceSensitivityUnits = ni.ForceSensitivityUnits;
 export type ResistanceConfig = ni.ResistanceConfig;
 export type RTDType = ni.RTDType;
 export type StrainConfig = ni.StrainConfig;
-export type TerminalConfig = ni.TerminalConfig;
+export type TerminalConfig = ni.device.TerminalConfig;
 
-export const TERMINAL_CONFIGS = ni.TERMINAL_CONFIGS;
+export const TERMINAL_CONFIGS = ni.device.TERMINAL_CONFIGS;
 
 export const TERMINAL_CONFIG_NAMES = {
   RSE: "Referenced single ended",
@@ -118,7 +118,7 @@ const widest = (ranges: spatial.Bounds[]): spatial.Bounds | undefined =>
  */
 export const defaultAIRange = (
   type: AIChannelType,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): spatial.Bounds | undefined =>
   type === "ai_current" ? widest(hardware?.aiCurrentRanges ?? []) : undefined;
 
@@ -256,7 +256,7 @@ export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
  */
 export const defaultAORange = (
   type: AOChannelType,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): spatial.Bounds | undefined =>
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 

@@ -12,12 +12,20 @@
 package v1
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+	"strconv"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key uniquely identifies an NI device.
@@ -81,6 +89,192 @@ type StatusDetails struct {
 // Status is the operational status of a device.
 type Status = status.Status[StatusDetails]
 
+// TerminalConfig selects the terminal configuration for an analog input channel.
+type TerminalConfig string
+
+const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
+	TerminalConfigCfgDefault TerminalConfig = "Cfg_Default"
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = "RSE"
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = "NRSE"
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = "Diff"
+	// TerminalConfigPseudoDiff is pseudo-differential.
+	TerminalConfigPseudoDiff TerminalConfig = "PseudoDiff"
+)
+
+// IsValid reports whether t is one of the defined TerminalConfig
+// values.
+func (t TerminalConfig) IsValid() bool {
+	switch t {
+	case TerminalConfigCfgDefault, TerminalConfigRse, TerminalConfigNrse, TerminalConfigDiff, TerminalConfigPseudoDiff:
+		return true
+	default:
+		return false
+	}
+}
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort struct {
+	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
+	Port uint16 `json:"port" msgpack:"port"`
+	// TerminalConfigs are the terminal configurations that the port accepts.
+	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
+	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
+	// port. The value Cfg_Default means that the Driver did not read it. DAQmx always
+	// reads back a real configuration.
+	DefaultTerminalConfig TerminalConfig `json:"default_terminal_config" msgpack:"default_terminal_config"`
+	// Types are the channel types that the port accepts, such as ai_voltage.
+	Types []string `json:"types" msgpack:"types"`
+	// Negative is the port that a differential channel on this port uses as its
+	// negative input. 0 means that the port has no pair. Port 0 is never a negative
+	// port.
+	Negative uint16 `json:"negative" msgpack:"negative"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogInputPort) ApplyDefaults() {
+	if a.DefaultTerminalConfig == "" {
+		a.DefaultTerminalConfig = TerminalConfigCfgDefault
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogInputPort) SetDefaults() {
+	a.DefaultTerminalConfig = TerminalConfigCfgDefault
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogInputPort) Validate() error {
+	v := validate.New("AnalogInputPort")
+	v.Ternaryf("default_terminal_config", !a.DefaultTerminalConfig.IsValid(), "invalid default_terminal_config: %v", a.DefaultTerminalConfig)
+	return v.Error()
+}
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort struct {
+	// Port is the number in the DAQmx name of the port, such as 1 for ao1.
+	Port uint16 `json:"port" msgpack:"port"`
+	// TerminalConfigs are the terminal configurations that the port accepts.
+	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
+	// Types are the channel types that the port accepts, such as ao_voltage.
+	Types []string `json:"types" msgpack:"types"`
+}
+
+// CounterPort is a counter of an NI device.
+type CounterPort struct {
+	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Types are the channel types that the counter accepts, such as ci_frequency.
+	Types []string `json:"types" msgpack:"types"`
+}
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort struct {
+	// Port is the number in the DAQmx name of the port, such as 0 for port0.
+	Port uint16 `json:"port" msgpack:"port"`
+	// Lines is the number of lines in the port.
+	Lines uint8 `json:"lines" msgpack:"lines"`
+	// Input is true when the port reads digital input.
+	Input bool `json:"input" msgpack:"input"`
+	// Output is true when the port writes digital output.
+	Output bool `json:"output" msgpack:"output"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalPort) Validate() error {
+	v := validate.New("DigitalPort")
+	v.LessThanEq("lines", d.Lines, 32)
+	return v.Error()
+}
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+type Hardware struct {
+	// AnalogInputs are the analog input ports of the device.
+	AnalogInputs []AnalogInputPort `json:"analog_inputs" msgpack:"analog_inputs"`
+	// AnalogOutputs are the analog output ports of the device.
+	AnalogOutputs []AnalogOutputPort `json:"analog_outputs" msgpack:"analog_outputs"`
+	// CounterInputs are the counters of the device that read input.
+	CounterInputs []CounterPort `json:"counter_inputs" msgpack:"counter_inputs"`
+	// CounterOutputs are the counters of the device that write output.
+	CounterOutputs []CounterPort `json:"counter_outputs" msgpack:"counter_outputs"`
+	// DigitalPorts are the digital ports of the device.
+	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
+	// Terminals are the terminals of the device, such as PFI0, without the device name.
+	Terminals []string `json:"terminals" msgpack:"terminals"`
+	// AiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
+	// does not support the attribute.
+	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
+	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
+	// Hz. 0 means that the device does not support the attribute.
+	AiMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
+	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
+	// Hz. A task with several channels divides it by the channel count. 0 means that
+	// the device does not support the attribute.
+	AiMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
+	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
+	// device does not support the attribute.
+	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
+	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
+	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
+	// AiCurrentRanges are the analog input current ranges of the device, ends included.
+	AiCurrentRanges []spatial.Bounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
+	// AoVoltageRanges are the analog output voltage ranges of the device, ends
+	// included.
+	AoVoltageRanges []spatial.Bounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
+	// AoCurrentRanges are the analog output current ranges of the device, ends
+	// included.
+	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (h *Hardware) ApplyDefaults() {
+	for i := range h.AnalogInputs {
+		h.AnalogInputs[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h Hardware) Validate() error {
+	v := validate.New("Hardware")
+	for i := range h.AnalogInputs {
+		v.Exec(func() error {
+			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))
+		})
+	}
+	for i := range h.DigitalPorts {
+		v.Exec(func() error {
+			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
+		})
+	}
+	return v.Error()
+}
+
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
 type Device struct {
 	// Key uniquely identifies the device.
@@ -98,6 +292,9 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
+	// Hardware is what the Driver read from DAQmx about the device. Absent until the
+	// Driver reads it.
+	Hardware *Hardware `json:"hardware,omitzero" msgpack:"hardware,omitempty"`
 	// Identifier is the prefix of the device's channel names. The device is
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
@@ -115,6 +312,13 @@ type Device struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *Device) ApplyDefaults() {
+	if d.Hardware != nil {
+		d.Hardware.ApplyDefaults()
+	}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (d Device) Validate() error {
@@ -122,5 +326,8 @@ func (d Device) Validate() error {
 	v.NotEmptyString("name", d.Name)
 	v.NotEmptyString("resource_name", d.ResourceName)
 	v.NotEmptyString("model", d.Model)
+	if d.Hardware != nil {
+		v.Exec(func() error { return validate.PathedError(d.Hardware.Validate(), "hardware") })
+	}
 	return v.Error()
 }

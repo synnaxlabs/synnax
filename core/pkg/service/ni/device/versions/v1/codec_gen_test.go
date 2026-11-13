@@ -22,10 +22,46 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
+	Describe("AnalogInputPort", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.AnalogInputPort) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.AnalogInputPort
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.AnalogInputPort{
+				Port:                  2,
+				TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+				DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+				Types:                 []string{"test_4"},
+				Negative:              6,
+			}),
+			Entry("zero values", v1.AnalogInputPort{
+				Port:                  0,
+				TerminalConfigs:       []v1.TerminalConfig{},
+				DefaultTerminalConfig: v1.TerminalConfig(""),
+				Types:                 []string{},
+				Negative:              0,
+			}),
+			Entry("empty collections", v1.AnalogInputPort{
+				Port:                  2,
+				TerminalConfigs:       []v1.TerminalConfig{},
+				DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+				Types:                 []string{},
+				Negative:              6,
+			}),
+		)
+	})
 	Describe("AnalogInputPorts", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.AnalogInputPorts) {
@@ -77,6 +113,34 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("AnalogOutputPort", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.AnalogOutputPort) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.AnalogOutputPort
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.AnalogOutputPort{
+				Port:            2,
+				TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+				Types:           []string{"test_3"},
+			}),
+			Entry("zero values", v1.AnalogOutputPort{
+				Port:            0,
+				TerminalConfigs: []v1.TerminalConfig{},
+				Types:           []string{},
+			}),
+			Entry("empty collections", v1.AnalogOutputPort{
+				Port:            2,
+				TerminalConfigs: []v1.TerminalConfig{},
+				Types:           []string{},
+			}),
+		)
+	})
 	Describe("CounterInputChannels", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.CounterInputChannels) {
@@ -90,6 +154,22 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.CounterInputChannels{Index: channel.Key(2), Channel: channel.Key(3)}),
 			Entry("zero values", v1.CounterInputChannels{Index: channel.Key(0), Channel: channel.Key(0)}),
+		)
+	})
+	Describe("CounterPort", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.CounterPort) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.CounterPort
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.CounterPort{Port: 2, Types: []string{"test_2"}}),
+			Entry("zero values", v1.CounterPort{Port: 0, Types: []string{}}),
+			Entry("empty collections", v1.CounterPort{Port: 2, Types: []string{}}),
 		)
 	})
 	Describe("Device", func() {
@@ -111,30 +191,67 @@ var _ = Describe("Codec", func() {
 				ResourceName: "test_5",
 				Model:        "test_6",
 				Chassis:      new(chassis.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Identifier:   "test_8",
+				Hardware: new(v1.Hardware{
+					AnalogInputs: []v1.AnalogInputPort{
+						{
+							Port:                  11,
+							TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+							DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+							Types:                 []string{"test_13"},
+							Negative:              15,
+						},
+					},
+					AnalogOutputs: []v1.AnalogOutputPort{
+						{
+							Port:            17,
+							TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+							Types:           []string{"test_18"},
+						},
+					},
+					CounterInputs:  []v1.CounterPort{{Port: 21, Types: []string{"test_21"}}},
+					CounterOutputs: []v1.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+					DigitalPorts: []v1.DigitalPort{
+						{
+							Port:   27,
+							Lines:  28,
+							Input:  false,
+							Output: true,
+						},
+					},
+					Terminals:              []string{"test_30"},
+					AiMinRate:              telem.Rate(31.5),
+					AiMaxSingleChannelRate: telem.Rate(32.5),
+					AiMaxMultiChannelRate:  telem.Rate(33.5),
+					AoMaxRate:              telem.Rate(34.5),
+					AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
+					AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
+					AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
+					AoCurrentRanges:        []spatial.Bounds{{Lower: 45.5, Upper: 46.5}},
+				}),
+				Identifier: "test_47",
 				AnalogInput: v1.AnalogInputPorts{
-					Index:       channel.Key(11),
-					Temperature: channel.Key(12),
-					Channels:    map[uint16]channel.Key{13: channel.Key(13)},
+					Index:       channel.Key(50),
+					Temperature: channel.Key(51),
+					Channels:    map[uint16]channel.Key{52: channel.Key(52)},
 				},
 				AnalogOutput: map[uint16]v1.AnalogOutputChannels{
-					14: {
-						StateIndex: channel.Key(15),
-						Command:    channel.Key(16),
-						State:      channel.Key(17),
+					53: {
+						StateIndex: channel.Key(54),
+						Command:    channel.Key(55),
+						State:      channel.Key(56),
 					},
 				},
-				CounterInput: map[uint16]v1.CounterInputChannels{18: {Index: channel.Key(19), Channel: channel.Key(20)}},
+				CounterInput: map[uint16]v1.CounterInputChannels{57: {Index: channel.Key(58), Channel: channel.Key(59)}},
 				DigitalInput: map[uint16]v1.DigitalInputChannels{
-					21: {
-						Index: channel.Key(22),
-						Lines: map[uint8]channel.Key{23: channel.Key(23)},
+					60: {
+						Index: channel.Key(61),
+						Lines: map[uint8]channel.Key{62: channel.Key(62)},
 					},
 				},
 				DigitalOutput: map[uint16]v1.DigitalOutputChannels{
-					24: {
-						StateIndex: channel.Key(25),
-						Lines:      map[uint8]v1.CommandStatePair{26: {Command: channel.Key(27), State: channel.Key(28)}},
+					63: {
+						StateIndex: channel.Key(64),
+						Lines:      map[uint8]v1.CommandStatePair{65: {Command: channel.Key(66), State: channel.Key(67)}},
 					},
 				},
 			}),
@@ -146,6 +263,7 @@ var _ = Describe("Codec", func() {
 				ResourceName: "",
 				Model:        "",
 				Chassis:      nil,
+				Hardware:     nil,
 				Identifier:   "",
 				AnalogInput: v1.AnalogInputPorts{
 					Index:       channel.Key(0),
@@ -165,10 +283,26 @@ var _ = Describe("Codec", func() {
 				ResourceName: "test_5",
 				Model:        "test_6",
 				Chassis:      new(chassis.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Identifier:   "test_8",
+				Hardware: new(v1.Hardware{
+					AnalogInputs:           []v1.AnalogInputPort{},
+					AnalogOutputs:          []v1.AnalogOutputPort{},
+					CounterInputs:          []v1.CounterPort{},
+					CounterOutputs:         []v1.CounterPort{},
+					DigitalPorts:           []v1.DigitalPort{},
+					Terminals:              []string{},
+					AiMinRate:              telem.Rate(15.5),
+					AiMaxSingleChannelRate: telem.Rate(16.5),
+					AiMaxMultiChannelRate:  telem.Rate(17.5),
+					AoMaxRate:              telem.Rate(18.5),
+					AiVoltageRanges:        []spatial.Bounds{},
+					AiCurrentRanges:        []spatial.Bounds{},
+					AoVoltageRanges:        []spatial.Bounds{},
+					AoCurrentRanges:        []spatial.Bounds{},
+				}),
+				Identifier: "test_23",
 				AnalogInput: v1.AnalogInputPorts{
-					Index:       channel.Key(11),
-					Temperature: channel.Key(12),
+					Index:       channel.Key(26),
+					Temperature: channel.Key(27),
 					Channels:    map[uint16]channel.Key{},
 				},
 				AnalogOutput:  map[uint16]v1.AnalogOutputChannels{},
@@ -222,7 +356,137 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("DigitalPort", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.DigitalPort) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.DigitalPort
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.DigitalPort{
+				Port:   2,
+				Lines:  3,
+				Input:  true,
+				Output: false,
+			}),
+			Entry("zero values", v1.DigitalPort{
+				Port:   0,
+				Lines:  0,
+				Input:  false,
+				Output: false,
+			}),
+		)
+	})
+	Describe("Hardware", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Hardware) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Hardware
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Hardware{
+				AnalogInputs: []v1.AnalogInputPort{
+					{
+						Port:                  3,
+						TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+						DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+						Types:                 []string{"test_5"},
+						Negative:              7,
+					},
+				},
+				AnalogOutputs: []v1.AnalogOutputPort{
+					{
+						Port:            9,
+						TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+						Types:           []string{"test_10"},
+					},
+				},
+				CounterInputs:  []v1.CounterPort{{Port: 13, Types: []string{"test_13"}}},
+				CounterOutputs: []v1.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+				DigitalPorts: []v1.DigitalPort{
+					{
+						Port:   19,
+						Lines:  20,
+						Input:  false,
+						Output: true,
+					},
+				},
+				Terminals:              []string{"test_22"},
+				AiMinRate:              telem.Rate(23.5),
+				AiMaxSingleChannelRate: telem.Rate(24.5),
+				AiMaxMultiChannelRate:  telem.Rate(25.5),
+				AoMaxRate:              telem.Rate(26.5),
+				AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
+				AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
+				AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
+				AoCurrentRanges:        []spatial.Bounds{{Lower: 37.5, Upper: 38.5}},
+			}),
+			Entry("zero values", v1.Hardware{
+				AnalogInputs:           []v1.AnalogInputPort{},
+				AnalogOutputs:          []v1.AnalogOutputPort{},
+				CounterInputs:          []v1.CounterPort{},
+				CounterOutputs:         []v1.CounterPort{},
+				DigitalPorts:           []v1.DigitalPort{},
+				Terminals:              []string{},
+				AiMinRate:              telem.Rate(0),
+				AiMaxSingleChannelRate: telem.Rate(0),
+				AiMaxMultiChannelRate:  telem.Rate(0),
+				AoMaxRate:              telem.Rate(0),
+				AiVoltageRanges:        []spatial.Bounds{},
+				AiCurrentRanges:        []spatial.Bounds{},
+				AoVoltageRanges:        []spatial.Bounds{},
+				AoCurrentRanges:        []spatial.Bounds{},
+			}),
+			Entry("empty collections", v1.Hardware{
+				AnalogInputs:           []v1.AnalogInputPort{},
+				AnalogOutputs:          []v1.AnalogOutputPort{},
+				CounterInputs:          []v1.CounterPort{},
+				CounterOutputs:         []v1.CounterPort{},
+				DigitalPorts:           []v1.DigitalPort{},
+				Terminals:              []string{},
+				AiMinRate:              telem.Rate(7.5),
+				AiMaxSingleChannelRate: telem.Rate(8.5),
+				AiMaxMultiChannelRate:  telem.Rate(9.5),
+				AoMaxRate:              telem.Rate(10.5),
+				AiVoltageRanges:        []spatial.Bounds{},
+				AiCurrentRanges:        []spatial.Bounds{},
+				AoVoltageRanges:        []spatial.Bounds{},
+				AoCurrentRanges:        []spatial.Bounds{},
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeAnalogInputPort(b *testing.B) {
+	seed := v1.AnalogInputPort{
+		Port:                  2,
+		TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+		DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+		Types:                 []string{"test_4"},
+		Negative:              6,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.AnalogInputPort
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeAnalogInputPorts(b *testing.B) {
 	seed := v1.AnalogInputPorts{
@@ -266,6 +530,27 @@ func BenchmarkEncodeDecodeAnalogOutputChannels(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeAnalogOutputPort(b *testing.B) {
+	seed := v1.AnalogOutputPort{
+		Port:            2,
+		TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+		Types:           []string{"test_3"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.AnalogOutputPort
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeCounterInputChannels(b *testing.B) {
 	seed := v1.CounterInputChannels{Index: channel.Key(2), Channel: channel.Key(3)}
 	w := orc.NewWriter(0)
@@ -283,6 +568,23 @@ func BenchmarkEncodeDecodeCounterInputChannels(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeCounterPort(b *testing.B) {
+	seed := v1.CounterPort{Port: 2, Types: []string{"test_2"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.CounterPort
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeDevice(b *testing.B) {
 	seed := v1.Device{
 		Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -292,30 +594,67 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		ResourceName: "test_5",
 		Model:        "test_6",
 		Chassis:      new(chassis.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-		Identifier:   "test_8",
+		Hardware: new(v1.Hardware{
+			AnalogInputs: []v1.AnalogInputPort{
+				{
+					Port:                  11,
+					TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+					DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+					Types:                 []string{"test_13"},
+					Negative:              15,
+				},
+			},
+			AnalogOutputs: []v1.AnalogOutputPort{
+				{
+					Port:            17,
+					TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+					Types:           []string{"test_18"},
+				},
+			},
+			CounterInputs:  []v1.CounterPort{{Port: 21, Types: []string{"test_21"}}},
+			CounterOutputs: []v1.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+			DigitalPorts: []v1.DigitalPort{
+				{
+					Port:   27,
+					Lines:  28,
+					Input:  false,
+					Output: true,
+				},
+			},
+			Terminals:              []string{"test_30"},
+			AiMinRate:              telem.Rate(31.5),
+			AiMaxSingleChannelRate: telem.Rate(32.5),
+			AiMaxMultiChannelRate:  telem.Rate(33.5),
+			AoMaxRate:              telem.Rate(34.5),
+			AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
+			AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
+			AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
+			AoCurrentRanges:        []spatial.Bounds{{Lower: 45.5, Upper: 46.5}},
+		}),
+		Identifier: "test_47",
 		AnalogInput: v1.AnalogInputPorts{
-			Index:       channel.Key(11),
-			Temperature: channel.Key(12),
-			Channels:    map[uint16]channel.Key{13: channel.Key(13)},
+			Index:       channel.Key(50),
+			Temperature: channel.Key(51),
+			Channels:    map[uint16]channel.Key{52: channel.Key(52)},
 		},
 		AnalogOutput: map[uint16]v1.AnalogOutputChannels{
-			14: {
-				StateIndex: channel.Key(15),
-				Command:    channel.Key(16),
-				State:      channel.Key(17),
+			53: {
+				StateIndex: channel.Key(54),
+				Command:    channel.Key(55),
+				State:      channel.Key(56),
 			},
 		},
-		CounterInput: map[uint16]v1.CounterInputChannels{18: {Index: channel.Key(19), Channel: channel.Key(20)}},
+		CounterInput: map[uint16]v1.CounterInputChannels{57: {Index: channel.Key(58), Channel: channel.Key(59)}},
 		DigitalInput: map[uint16]v1.DigitalInputChannels{
-			21: {
-				Index: channel.Key(22),
-				Lines: map[uint8]channel.Key{23: channel.Key(23)},
+			60: {
+				Index: channel.Key(61),
+				Lines: map[uint8]channel.Key{62: channel.Key(62)},
 			},
 		},
 		DigitalOutput: map[uint16]v1.DigitalOutputChannels{
-			24: {
-				StateIndex: channel.Key(25),
-				Lines:      map[uint8]v1.CommandStatePair{26: {Command: channel.Key(27), State: channel.Key(28)}},
+			63: {
+				StateIndex: channel.Key(64),
+				Lines:      map[uint8]v1.CommandStatePair{65: {Command: channel.Key(66), State: channel.Key(67)}},
 			},
 		},
 	}
@@ -372,6 +711,146 @@ func BenchmarkEncodeDecodeDigitalOutputChannels(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkEncodeDecodeDigitalPort(b *testing.B) {
+	seed := v1.DigitalPort{
+		Port:   2,
+		Lines:  3,
+		Input:  true,
+		Output: false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.DigitalPort
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeHardware(b *testing.B) {
+	seed := v1.Hardware{
+		AnalogInputs: []v1.AnalogInputPort{
+			{
+				Port:                  3,
+				TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+				DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+				Types:                 []string{"test_5"},
+				Negative:              7,
+			},
+		},
+		AnalogOutputs: []v1.AnalogOutputPort{
+			{
+				Port:            9,
+				TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+				Types:           []string{"test_10"},
+			},
+		},
+		CounterInputs:  []v1.CounterPort{{Port: 13, Types: []string{"test_13"}}},
+		CounterOutputs: []v1.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+		DigitalPorts: []v1.DigitalPort{
+			{
+				Port:   19,
+				Lines:  20,
+				Input:  false,
+				Output: true,
+			},
+		},
+		Terminals:              []string{"test_22"},
+		AiMinRate:              telem.Rate(23.5),
+		AiMaxSingleChannelRate: telem.Rate(24.5),
+		AiMaxMultiChannelRate:  telem.Rate(25.5),
+		AoMaxRate:              telem.Rate(26.5),
+		AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
+		AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
+		AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
+		AoCurrentRanges:        []spatial.Bounds{{Lower: 37.5, Upper: 38.5}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Hardware
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeAnalogInputPort(f *testing.F) {
+	{
+		seed := v1.AnalogInputPort{
+			Port:                  2,
+			TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+			DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+			Types:                 []string{"test_4"},
+			Negative:              6,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.AnalogInputPort{
+			Port:                  0,
+			TerminalConfigs:       []v1.TerminalConfig{},
+			DefaultTerminalConfig: v1.TerminalConfig(""),
+			Types:                 []string{},
+			Negative:              0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.AnalogInputPort{
+			Port:                  2,
+			TerminalConfigs:       []v1.TerminalConfig{},
+			DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+			Types:                 []string{},
+			Negative:              6,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.AnalogInputPort
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.AnalogInputPort
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeAnalogInputPorts(f *testing.F) {
@@ -480,6 +959,65 @@ func FuzzDecodeAnalogOutputChannels(f *testing.F) {
 	})
 }
 
+func FuzzDecodeAnalogOutputPort(f *testing.F) {
+	{
+		seed := v1.AnalogOutputPort{
+			Port:            2,
+			TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+			Types:           []string{"test_3"},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.AnalogOutputPort{
+			Port:            0,
+			TerminalConfigs: []v1.TerminalConfig{},
+			Types:           []string{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.AnalogOutputPort{
+			Port:            2,
+			TerminalConfigs: []v1.TerminalConfig{},
+			Types:           []string{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.AnalogOutputPort
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.AnalogOutputPort
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeCounterInputChannels(f *testing.F) {
 	{
 		seed := v1.CounterInputChannels{Index: channel.Key(2), Channel: channel.Key(3)}
@@ -519,6 +1057,53 @@ func FuzzDecodeCounterInputChannels(f *testing.F) {
 	})
 }
 
+func FuzzDecodeCounterPort(f *testing.F) {
+	{
+		seed := v1.CounterPort{Port: 2, Types: []string{"test_2"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.CounterPort{Port: 0, Types: []string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.CounterPort{Port: 2, Types: []string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.CounterPort
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.CounterPort
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeDevice(f *testing.F) {
 	{
 		seed := v1.Device{
@@ -529,30 +1114,67 @@ func FuzzDecodeDevice(f *testing.F) {
 			ResourceName: "test_5",
 			Model:        "test_6",
 			Chassis:      new(chassis.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			Identifier:   "test_8",
+			Hardware: new(v1.Hardware{
+				AnalogInputs: []v1.AnalogInputPort{
+					{
+						Port:                  11,
+						TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+						DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+						Types:                 []string{"test_13"},
+						Negative:              15,
+					},
+				},
+				AnalogOutputs: []v1.AnalogOutputPort{
+					{
+						Port:            17,
+						TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+						Types:           []string{"test_18"},
+					},
+				},
+				CounterInputs:  []v1.CounterPort{{Port: 21, Types: []string{"test_21"}}},
+				CounterOutputs: []v1.CounterPort{{Port: 24, Types: []string{"test_24"}}},
+				DigitalPorts: []v1.DigitalPort{
+					{
+						Port:   27,
+						Lines:  28,
+						Input:  false,
+						Output: true,
+					},
+				},
+				Terminals:              []string{"test_30"},
+				AiMinRate:              telem.Rate(31.5),
+				AiMaxSingleChannelRate: telem.Rate(32.5),
+				AiMaxMultiChannelRate:  telem.Rate(33.5),
+				AoMaxRate:              telem.Rate(34.5),
+				AiVoltageRanges:        []spatial.Bounds{{Lower: 36.5, Upper: 37.5}},
+				AiCurrentRanges:        []spatial.Bounds{{Lower: 39.5, Upper: 40.5}},
+				AoVoltageRanges:        []spatial.Bounds{{Lower: 42.5, Upper: 43.5}},
+				AoCurrentRanges:        []spatial.Bounds{{Lower: 45.5, Upper: 46.5}},
+			}),
+			Identifier: "test_47",
 			AnalogInput: v1.AnalogInputPorts{
-				Index:       channel.Key(11),
-				Temperature: channel.Key(12),
-				Channels:    map[uint16]channel.Key{13: channel.Key(13)},
+				Index:       channel.Key(50),
+				Temperature: channel.Key(51),
+				Channels:    map[uint16]channel.Key{52: channel.Key(52)},
 			},
 			AnalogOutput: map[uint16]v1.AnalogOutputChannels{
-				14: {
-					StateIndex: channel.Key(15),
-					Command:    channel.Key(16),
-					State:      channel.Key(17),
+				53: {
+					StateIndex: channel.Key(54),
+					Command:    channel.Key(55),
+					State:      channel.Key(56),
 				},
 			},
-			CounterInput: map[uint16]v1.CounterInputChannels{18: {Index: channel.Key(19), Channel: channel.Key(20)}},
+			CounterInput: map[uint16]v1.CounterInputChannels{57: {Index: channel.Key(58), Channel: channel.Key(59)}},
 			DigitalInput: map[uint16]v1.DigitalInputChannels{
-				21: {
-					Index: channel.Key(22),
-					Lines: map[uint8]channel.Key{23: channel.Key(23)},
+				60: {
+					Index: channel.Key(61),
+					Lines: map[uint8]channel.Key{62: channel.Key(62)},
 				},
 			},
 			DigitalOutput: map[uint16]v1.DigitalOutputChannels{
-				24: {
-					StateIndex: channel.Key(25),
-					Lines:      map[uint8]v1.CommandStatePair{26: {Command: channel.Key(27), State: channel.Key(28)}},
+				63: {
+					StateIndex: channel.Key(64),
+					Lines:      map[uint8]v1.CommandStatePair{65: {Command: channel.Key(66), State: channel.Key(67)}},
 				},
 			},
 		}
@@ -571,6 +1193,7 @@ func FuzzDecodeDevice(f *testing.F) {
 			ResourceName: "",
 			Model:        "",
 			Chassis:      nil,
+			Hardware:     nil,
 			Identifier:   "",
 			AnalogInput: v1.AnalogInputPorts{
 				Index:       channel.Key(0),
@@ -597,10 +1220,26 @@ func FuzzDecodeDevice(f *testing.F) {
 			ResourceName: "test_5",
 			Model:        "test_6",
 			Chassis:      new(chassis.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			Identifier:   "test_8",
+			Hardware: new(v1.Hardware{
+				AnalogInputs:           []v1.AnalogInputPort{},
+				AnalogOutputs:          []v1.AnalogOutputPort{},
+				CounterInputs:          []v1.CounterPort{},
+				CounterOutputs:         []v1.CounterPort{},
+				DigitalPorts:           []v1.DigitalPort{},
+				Terminals:              []string{},
+				AiMinRate:              telem.Rate(15.5),
+				AiMaxSingleChannelRate: telem.Rate(16.5),
+				AiMaxMultiChannelRate:  telem.Rate(17.5),
+				AoMaxRate:              telem.Rate(18.5),
+				AiVoltageRanges:        []spatial.Bounds{},
+				AiCurrentRanges:        []spatial.Bounds{},
+				AoVoltageRanges:        []spatial.Bounds{},
+				AoCurrentRanges:        []spatial.Bounds{},
+			}),
+			Identifier: "test_23",
 			AnalogInput: v1.AnalogInputPorts{
-				Index:       channel.Key(11),
-				Temperature: channel.Key(12),
+				Index:       channel.Key(26),
+				Temperature: channel.Key(27),
 				Channels:    map[uint16]channel.Key{},
 			},
 			AnalogOutput:  map[uint16]v1.AnalogOutputChannels{},
@@ -732,6 +1371,168 @@ func FuzzDecodeDigitalOutputChannels(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.DigitalOutputChannels
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDigitalPort(f *testing.F) {
+	{
+		seed := v1.DigitalPort{
+			Port:   2,
+			Lines:  3,
+			Input:  true,
+			Output: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.DigitalPort{
+			Port:   0,
+			Lines:  0,
+			Input:  false,
+			Output: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.DigitalPort
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.DigitalPort
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeHardware(f *testing.F) {
+	{
+		seed := v1.Hardware{
+			AnalogInputs: []v1.AnalogInputPort{
+				{
+					Port:                  3,
+					TerminalConfigs:       []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+					DefaultTerminalConfig: v1.TerminalConfig("Cfg_Default"),
+					Types:                 []string{"test_5"},
+					Negative:              7,
+				},
+			},
+			AnalogOutputs: []v1.AnalogOutputPort{
+				{
+					Port:            9,
+					TerminalConfigs: []v1.TerminalConfig{v1.TerminalConfig("Cfg_Default")},
+					Types:           []string{"test_10"},
+				},
+			},
+			CounterInputs:  []v1.CounterPort{{Port: 13, Types: []string{"test_13"}}},
+			CounterOutputs: []v1.CounterPort{{Port: 16, Types: []string{"test_16"}}},
+			DigitalPorts: []v1.DigitalPort{
+				{
+					Port:   19,
+					Lines:  20,
+					Input:  false,
+					Output: true,
+				},
+			},
+			Terminals:              []string{"test_22"},
+			AiMinRate:              telem.Rate(23.5),
+			AiMaxSingleChannelRate: telem.Rate(24.5),
+			AiMaxMultiChannelRate:  telem.Rate(25.5),
+			AoMaxRate:              telem.Rate(26.5),
+			AiVoltageRanges:        []spatial.Bounds{{Lower: 28.5, Upper: 29.5}},
+			AiCurrentRanges:        []spatial.Bounds{{Lower: 31.5, Upper: 32.5}},
+			AoVoltageRanges:        []spatial.Bounds{{Lower: 34.5, Upper: 35.5}},
+			AoCurrentRanges:        []spatial.Bounds{{Lower: 37.5, Upper: 38.5}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Hardware{
+			AnalogInputs:           []v1.AnalogInputPort{},
+			AnalogOutputs:          []v1.AnalogOutputPort{},
+			CounterInputs:          []v1.CounterPort{},
+			CounterOutputs:         []v1.CounterPort{},
+			DigitalPorts:           []v1.DigitalPort{},
+			Terminals:              []string{},
+			AiMinRate:              telem.Rate(0),
+			AiMaxSingleChannelRate: telem.Rate(0),
+			AiMaxMultiChannelRate:  telem.Rate(0),
+			AoMaxRate:              telem.Rate(0),
+			AiVoltageRanges:        []spatial.Bounds{},
+			AiCurrentRanges:        []spatial.Bounds{},
+			AoVoltageRanges:        []spatial.Bounds{},
+			AoCurrentRanges:        []spatial.Bounds{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Hardware{
+			AnalogInputs:           []v1.AnalogInputPort{},
+			AnalogOutputs:          []v1.AnalogOutputPort{},
+			CounterInputs:          []v1.CounterPort{},
+			CounterOutputs:         []v1.CounterPort{},
+			DigitalPorts:           []v1.DigitalPort{},
+			Terminals:              []string{},
+			AiMinRate:              telem.Rate(7.5),
+			AiMaxSingleChannelRate: telem.Rate(8.5),
+			AiMaxMultiChannelRate:  telem.Rate(9.5),
+			AoMaxRate:              telem.Rate(10.5),
+			AiVoltageRanges:        []spatial.Bounds{},
+			AiCurrentRanges:        []spatial.Bounds{},
+			AoVoltageRanges:        []spatial.Bounds{},
+			AoCurrentRanges:        []spatial.Bounds{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Hardware
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Hardware
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

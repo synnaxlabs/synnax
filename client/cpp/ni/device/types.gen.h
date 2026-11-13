@@ -28,6 +28,8 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/spatial/types.gen.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni::device {
@@ -37,15 +39,26 @@ struct AnalogInputPorts;
 struct AnalogOutputChannels;
 struct CounterInputChannels;
 struct DigitalInputChannels;
-struct Identity;
+struct CounterPort;
+struct DigitalPort;
 struct Where;
 struct StatusDetails;
 struct Cursor;
 struct DigitalOutputChannels;
+struct AnalogInputPort;
+struct AnalogOutputPort;
 struct RetrieveRequest;
 struct Configuration;
+struct Hardware;
 struct Device;
+struct Identity;
 struct RetrieveResponse;
+
+constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
+constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
+constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
+constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
+constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
 
 using Key = x::uuid::UUID;
 
@@ -109,22 +122,30 @@ struct DigitalInputChannels {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Identity holds the device fields that the scanner owns.
-struct Identity {
-    /// @brief rack is the key of the rack the device is connected to.
-    ::synnax::rack::Key rack = 0;
-    /// @brief serial is the serial number of the device. Empty on simulated hardware.
-    std::string serial = "";
-    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
-    /// survives renames.
-    std::string resource_name;
-    /// @brief model is the product name of the device.
-    std::string model;
-    /// @brief chassis is the chassis that holds the device. Absent for a standalone
-    /// device.
-    std::optional<::synnax::ni::chassis::Key> chassis;
+/// @brief CounterPort is a counter of an NI device.
+struct CounterPort {
+    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+    std::uint16_t port = 0;
+    /// @brief types are the channel types that the counter accepts, such as
+    /// ci_frequency.
+    std::vector<std::string> types = {};
 
-    static Identity parse(x::json::Parser parser);
+    static CounterPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalPort is a digital port of an NI device.
+struct DigitalPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
+    std::uint16_t port = 0;
+    /// @brief lines is the number of lines in the port.
+    std::uint8_t lines = 0;
+    /// @brief input is true when the port reads digital input.
+    bool input = false;
+    /// @brief output is true when the port writes digital output.
+    bool output = false;
+
+    static DigitalPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -210,6 +231,40 @@ struct DigitalOutputChannels {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief AnalogInputPort is an analog input port of an NI device.
+struct AnalogInputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief default_terminal_config is the terminal configuration that Cfg_Default
+    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
+    /// DAQmx always reads back a real configuration.
+    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
+    /// @brief types are the channel types that the port accepts, such as ai_voltage.
+    std::vector<std::string> types = {};
+    /// @brief negative is the port that a differential channel on this port uses as its
+    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
+    /// port.
+    std::uint16_t negative = 0;
+
+    static AnalogInputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnalogOutputPort is an analog output port of an NI device.
+struct AnalogOutputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief types are the channel types that the port accepts, such as ao_voltage.
+    std::vector<std::string> types = {};
+
+    static AnalogOutputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
@@ -275,6 +330,52 @@ struct Configuration {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
+/// ranges of an NI device.
+struct Hardware {
+    /// @brief analog_inputs are the analog input ports of the device.
+    std::vector<AnalogInputPort> analog_inputs = {};
+    /// @brief analog_outputs are the analog output ports of the device.
+    std::vector<AnalogOutputPort> analog_outputs = {};
+    /// @brief counter_inputs are the counters of the device that read input.
+    std::vector<CounterPort> counter_inputs = {};
+    /// @brief counter_outputs are the counters of the device that write output.
+    std::vector<CounterPort> counter_outputs = {};
+    /// @brief digital_ports are the digital ports of the device.
+    std::vector<DigitalPort> digital_ports = {};
+    /// @brief terminals are the terminals of the device, such as PFI0, without the
+    /// device name.
+    std::vector<std::string> terminals = {};
+    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
+    /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
+    /// channel, in Hz. 0 means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
+    /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
+    /// device, in Hz. A task with several channels divides it by the channel count. 0
+    /// means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
+    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
+    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
+    /// @brief ai_current_ranges are the analog input current ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_current_ranges = {};
+    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_voltage_ranges = {};
+    /// @brief ao_current_ranges are the analog output current ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_current_ranges = {};
+
+    static Hardware parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Device is an NI module in a chassis, or a standalone USB or PCIe device.
 struct Device {
     /// @brief key uniquely identifies the device.
@@ -293,6 +394,9 @@ struct Device {
     /// @brief chassis is the chassis that holds the device. Absent for a standalone
     /// device.
     std::optional<::synnax::ni::chassis::Key> chassis;
+    /// @brief hardware is what the Driver read from DAQmx about the device. Absent
+    /// until the Driver reads it.
+    std::optional<Hardware> hardware;
     /// @brief identifier is the prefix of the device's channel names. The device is
     /// unconfigured while it is empty.
     std::string identifier = "";
@@ -310,6 +414,37 @@ struct Device {
     std::optional<Status> status;
 
     static Device parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Identity holds the device fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the device is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the device. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
+    /// survives renames.
+    std::string resource_name;
+    /// @brief model is the product name of the device.
+    std::string model;
+    /// @brief chassis is the chassis that holds the device. Absent for a standalone
+    /// device.
+    std::optional<::synnax::ni::chassis::Key> chassis;
+    /// @brief hardware is what the Driver read from DAQmx about the device. An update
+    /// without it keeps the stored value.
+    std::optional<Hardware> hardware;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief devices are the devices the request selects.
+    std::vector<Device> devices;
+
+    static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -335,15 +470,6 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
-
-/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief devices are the devices the request selects.
-    std::vector<Device> devices;
-
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 const synnax::resource::ID TYPE_RESOURCE_ID("ni_device", "");
 

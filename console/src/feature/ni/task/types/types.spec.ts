@@ -481,7 +481,7 @@ describe("deploy configs", () => {
 
 describe("default ranges", () => {
   const hardware = {
-    ...ni.hardwareZ.parse({}),
+    ...ni.device.hardwareZ.parse({}),
     aiCurrentRanges: [
       { lower: -0.01, upper: 0.01 },
       { lower: -0.02, upper: 0.02 },

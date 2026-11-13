@@ -26,6 +26,8 @@ cc_library(
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/mem",
+        "//x/cpp/spatial",
+        "//x/cpp/telem",
         "//x/cpp/uuid",
     ],
 )

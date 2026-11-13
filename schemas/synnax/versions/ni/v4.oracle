@@ -9,6 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/ni_device/v1"
 import "schemas/synnax/versions/task/v2"
 
 Units = v2.Units
@@ -24,8 +25,6 @@ ForceUnits = v2.ForceUnits
 ElectricalUnits = v2.ElectricalUnits
 
 ExcitationSource = v2.ExcitationSource
-
-TerminalConfig = v2.TerminalConfig
 
 BridgeConfig = v2.BridgeConfig
 
@@ -65,7 +64,14 @@ Scale = v2.Scale
 
 MinMaxVal = v2.MinMaxVal
 
-Terminal = v2.Terminal
+Terminal struct {
+    terminal_config ni_device.TerminalConfig = cfg_default {
+        @doc value "selects the terminal configuration (RSE, NRSE, Diff, ...)."
+    }
+
+    @doc value  "configures the terminal wiring of an analog input channel."
+    @go marshal
+}
 
 Sensitivity = v2.Sensitivity
 

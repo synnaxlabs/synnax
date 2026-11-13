@@ -18,14 +18,15 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/key.h"
+#include "client/cpp/ni/device/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::ni {
 
 struct MinMaxVal;
+struct Terminal;
 struct Sensitivity;
 struct BaseAIChannel;
 struct BaseCIChannel;
@@ -34,8 +35,6 @@ struct DIChannel;
 struct DOChannel;
 struct WriteConfig;
 struct ScanConfig;
-struct CounterPort;
-struct DigitalPort;
 struct CommandedAOChannel;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
@@ -44,23 +43,13 @@ struct Table;
 struct TwoPointLin;
 struct CurrentExcitation;
 struct VoltageExcitation;
-struct Terminal;
-struct AnalogInputPort;
-struct AnalogOutputPort;
 struct Bridge;
 struct Resistance;
 struct ZIndex;
 struct CustomScale;
-struct Hardware;
 struct AnalogReadConfig;
 struct CounterReadConfig;
 struct AnalogWriteConfig;
-
-constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
-constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
-constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
-constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
-constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
 
 constexpr const char *EXCITATION_SOURCE_INTERNAL = "Internal";
 constexpr const char *EXCITATION_SOURCE_EXTERNAL = "External";
@@ -241,6 +230,16 @@ struct MinMaxVal {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Terminal configures the terminal wiring of an analog input channel.
+struct Terminal {
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::string terminal_config = ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+
+    static Terminal parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Sensitivity specifies a sensor's sensitivity rating.
 struct Sensitivity {
     /// @brief sensitivity is the sensor's sensitivity rating.
@@ -357,33 +356,6 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CounterPort is a counter of an NI device.
-struct CounterPort {
-    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-    std::uint16_t port = 0;
-    /// @brief types are the channel types that the counter accepts, such as
-    /// ci_frequency.
-    std::vector<std::string> types = {};
-
-    static CounterPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief DigitalPort is a digital port of an NI device.
-struct DigitalPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
-    std::uint16_t port = 0;
-    /// @brief lines is the number of lines in the port.
-    std::uint8_t lines = 0;
-    /// @brief input is true when the port reads digital input.
-    bool input = false;
-    /// @brief output is true when the port writes digital output.
-    bool output = false;
-
-    static DigitalPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -611,50 +583,6 @@ struct VoltageExcitation {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Terminal configures the terminal wiring of an analog input channel.
-struct Terminal {
-    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
-    /// ...).
-    std::string terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
-
-    static Terminal parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief AnalogInputPort is an analog input port of an NI device.
-struct AnalogInputPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
-    std::uint16_t port = 0;
-    /// @brief terminal_configs are the terminal configurations that the port accepts.
-    std::vector<std::string> terminal_configs = {};
-    /// @brief default_terminal_config is the terminal configuration that Cfg_Default
-    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
-    /// DAQmx always reads back a real configuration.
-    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
-    /// @brief types are the channel types that the port accepts, such as ai_voltage.
-    std::vector<std::string> types = {};
-    /// @brief negative is the port that a differential channel on this port uses as its
-    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
-    /// port.
-    std::uint16_t negative = 0;
-
-    static AnalogInputPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief AnalogOutputPort is an analog output port of an NI device.
-struct AnalogOutputPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
-    std::uint16_t port = 0;
-    /// @brief terminal_configs are the terminal configurations that the port accepts.
-    std::vector<std::string> terminal_configs = {};
-    /// @brief types are the channel types that the port accepts, such as ao_voltage.
-    std::vector<std::string> types = {};
-
-    static AnalogOutputPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief Bridge configures the wiring and nominal resistance of a bridge-based sensor.
 struct Bridge {
     /// @brief bridge_config selects the physical bridge wiring.
@@ -699,53 +627,6 @@ struct CustomScale {
     Scale custom_scale = NoneScale{};
 
     static CustomScale parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
-/// ranges of an NI device. The Driver stores it in the device properties under
-/// hardware.
-struct Hardware {
-    /// @brief analog_inputs are the analog input ports of the device.
-    std::vector<AnalogInputPort> analog_inputs = {};
-    /// @brief analog_outputs are the analog output ports of the device.
-    std::vector<AnalogOutputPort> analog_outputs = {};
-    /// @brief counter_inputs are the counters of the device that read input.
-    std::vector<CounterPort> counter_inputs = {};
-    /// @brief counter_outputs are the counters of the device that write output.
-    std::vector<CounterPort> counter_outputs = {};
-    /// @brief digital_ports are the digital ports of the device.
-    std::vector<DigitalPort> digital_ports = {};
-    /// @brief terminals are the terminals of the device, such as PFI0, without the
-    /// device name.
-    std::vector<std::string> terminals = {};
-    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
-    /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
-    /// channel, in Hz. 0 means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
-    /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
-    /// device, in Hz. A task with several channels divides it by the channel count. 0
-    /// means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
-    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
-    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
-    /// included.
-    std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
-    /// @brief ai_current_ranges are the analog input current ranges of the device, ends
-    /// included.
-    std::vector<::x::spatial::Bounds> ai_current_ranges = {};
-    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device,
-    /// ends included.
-    std::vector<::x::spatial::Bounds> ao_voltage_ranges = {};
-    /// @brief ao_current_ranges are the analog output current ranges of the device,
-    /// ends included.
-    std::vector<::x::spatial::Bounds> ao_current_ranges = {};
-
-    static Hardware parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

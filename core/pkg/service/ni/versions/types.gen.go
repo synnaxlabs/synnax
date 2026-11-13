@@ -131,22 +131,6 @@ const (
 	ExcitationSourceNone ExcitationSource = v4.ExcitationSourceNone
 )
 
-// TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = v4.TerminalConfig
-
-const (
-	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
-	TerminalConfigCfgDefault TerminalConfig = v4.TerminalConfigCfgDefault
-	// TerminalConfigRse is referenced single ended.
-	TerminalConfigRse TerminalConfig = v4.TerminalConfigRse
-	// TerminalConfigNrse is non-referenced single ended.
-	TerminalConfigNrse TerminalConfig = v4.TerminalConfigNrse
-	// TerminalConfigDiff is differential.
-	TerminalConfigDiff TerminalConfig = v4.TerminalConfigDiff
-	// TerminalConfigPseudoDiff is pseudo-differential.
-	TerminalConfigPseudoDiff TerminalConfig = v4.TerminalConfigPseudoDiff
-)
-
 // BridgeConfig selects the physical bridge wiring of a bridge-based sensor.
 type BridgeConfig = v4.BridgeConfig
 

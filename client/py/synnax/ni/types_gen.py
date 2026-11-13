@@ -16,21 +16,9 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, task
-from x import spatial, telem
-
-TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
-
-TERMINAL_CONFIG_RSE: Literal["RSE"] = "RSE"
-
-TERMINAL_CONFIG_NRSE: Literal["NRSE"] = "NRSE"
-
-TERMINAL_CONFIG_DIFF: Literal["Diff"] = "Diff"
-
-TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
-
-
-TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
+from synnax import channel as channel_, device as device__, task
+from synnax.ni import device as device_
+from x import telem
 
 EXCITATION_SOURCE_INTERNAL: Literal["Internal"] = "Internal"
 
@@ -471,7 +459,7 @@ class Terminal(BaseModel):
         terminal_config: Selects the terminal configuration (RSE, NRSE, Diff, ...).
     """
 
-    terminal_config: TerminalConfig = "Cfg_Default"
+    terminal_config: device_.TerminalConfig = "Cfg_Default"
 
 
 class Sensitivity(BaseModel):
@@ -595,7 +583,7 @@ class BaseAIChannel(BaseModel):
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     port: int = Field(default=0, ge=0, le=65535)
-    device: device_.Key = ""
+    device: device__.Key = ""
 
     @_override
     def __hash__(self) -> int:
@@ -635,7 +623,7 @@ class BaseCIChannel(BaseModel):
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     port: int = Field(default=0, ge=0, le=65535)
-    device: device_.Key = ""
+    device: device__.Key = ""
 
     @_override
     def __hash__(self) -> int:
@@ -732,70 +720,6 @@ class ScanConfig(task.ScanConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class AnalogInputPort(BaseModel):
-    """Is an analog input port of an NI device.
-
-    Attributes:
-        port: Is the number in the DAQmx name of the port, such as 3 for ai3.
-        terminal_configs: Are the terminal configurations that the port accepts.
-        default_terminal_config: Is the terminal configuration that Cfg_Default gives on
-            the port. The value Cfg_Default means that the Driver did not read it. DAQmx
-            always reads back a real configuration.
-        types: Are the channel types that the port accepts, such as ai_voltage.
-        negative: Is the port that a differential channel on this port uses as its
-            negative input. 0 means that the port has no pair. Port 0 is never a
-            negative port.
-    """
-
-    port: int = Field(ge=0, le=65535)
-    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
-    default_terminal_config: TerminalConfig = "Cfg_Default"
-    types: list[str] = Field(default_factory=list)
-    negative: int = Field(default=0, ge=0, le=65535)
-
-
-class AnalogOutputPort(BaseModel):
-    """Is an analog output port of an NI device.
-
-    Attributes:
-        port: Is the number in the DAQmx name of the port, such as 1 for ao1.
-        terminal_configs: Are the terminal configurations that the port accepts.
-        types: Are the channel types that the port accepts, such as ao_voltage.
-    """
-
-    port: int = Field(ge=0, le=65535)
-    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
-    types: list[str] = Field(default_factory=list)
-
-
-class CounterPort(BaseModel):
-    """Is a counter of an NI device.
-
-    Attributes:
-        port: Is the number in the DAQmx name of the counter, such as 0 for ctr0.
-        types: Are the channel types that the counter accepts, such as ci_frequency.
-    """
-
-    port: int = Field(ge=0, le=65535)
-    types: list[str] = Field(default_factory=list)
-
-
-class DigitalPort(BaseModel):
-    """Is a digital port of an NI device.
-
-    Attributes:
-        port: Is the number in the DAQmx name of the port, such as 0 for port0.
-        lines: Is the number of lines in the port.
-        input: Is true when the port reads digital input.
-        output: Is true when the port writes digital output.
-    """
-
-    port: int = Field(ge=0, le=65535)
-    lines: int = Field(ge=0, le=32)
-    input: bool = False
-    output: bool = False
 
 
 class CommandedAOChannel(BaseModel):
@@ -905,7 +829,7 @@ class DigitalReadConfig(task.ReadConfig):
         channels: Are the digital input channels the task acquires.
     """
 
-    device: device_.Key = ""
+    device: device__.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
     @_override
@@ -925,53 +849,6 @@ class DigitalWriteConfig(WriteConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class Hardware(BaseModel):
-    """Is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
-    device. The Driver stores it in the device properties under hardware.
-
-    Attributes:
-        analog_inputs: Are the analog input ports of the device.
-        analog_outputs: Are the analog output ports of the device.
-        counter_inputs: Are the counters of the device that read input.
-        counter_outputs: Are the counters of the device that write output.
-        digital_ports: Are the digital ports of the device.
-        terminals: Are the terminals of the device, such as PFI0, without the device
-            name.
-        ai_min_rate: Is the lowest analog input sample rate, in Hz. 0 means that the
-            device does not support the attribute.
-        ai_max_single_channel_rate: Is the highest analog input sample rate of one
-            channel, in Hz. 0 means that the device does not support the attribute.
-        ai_max_multi_channel_rate: Is the highest analog input sample rate of the
-            device, in Hz. A task with several channels divides it by the channel count.
-            0 means that the device does not support the attribute.
-        ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
-            device does not support the attribute.
-        ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
-            included.
-        ai_current_ranges: Are the analog input current ranges of the device, ends
-            included.
-        ao_voltage_ranges: Are the analog output voltage ranges of the device, ends
-            included.
-        ao_current_ranges: Are the analog output current ranges of the device, ends
-            included.
-    """
-
-    analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
-    analog_outputs: list[AnalogOutputPort] = Field(default_factory=list)
-    counter_inputs: list[CounterPort] = Field(default_factory=list)
-    counter_outputs: list[CounterPort] = Field(default_factory=list)
-    digital_ports: list[DigitalPort] = Field(default_factory=list)
-    terminals: list[str] = Field(default_factory=list)
-    ai_min_rate: telem.Rate = telem.Rate(0)
-    ai_max_single_channel_rate: telem.Rate = telem.Rate(0)
-    ai_max_multi_channel_rate: telem.Rate = telem.Rate(0)
-    ao_max_rate: telem.Rate = telem.Rate(0)
-    ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
 
 
 class CustomScale(BaseModel):
@@ -1112,7 +989,7 @@ class AITempBuiltinChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    device: device_.Key = ""
+    device: device__.Key = ""
     units: TemperatureUnits = "DegC"
 
 
