@@ -155,6 +155,37 @@ describe("Write", () => {
     expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
+  it("should store a picked channel with an output type it allows", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "string",
+      virtual: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [{ ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1" }],
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await findChannelListItem("No channel"));
+    fireEvent.click(await screen.findByRole("button", { name: "Channel" }));
+    fireEvent.change(await screen.findByPlaceholderText(/search/i), {
+      target: { value: ch.name },
+    });
+    fireEvent.click(await screen.findByText(ch.name));
+    await waitFor(async () => {
+      const stored = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: Kafka.Task.WRITE_SCHEMAS,
+      });
+      expect(stored.config.channels[0]).toMatchObject({
+        channel: ch.key,
+        type: "string",
+      });
+    });
+  });
+
   // A Core clears the channel of a row whose channel it no longer holds.
   it("should deploy when a disabled row has no channel", async () => {
     const dev = await createKafkaDevice(client);
