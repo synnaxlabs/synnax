@@ -16,8 +16,14 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 )
 
-// Migration moves each stored range to its v3 shape.
-var Migration = migrate.NewEntry("v62_range_shape", autoMigrateRange)
+// MigrateRange lifts a v2 range to v3, which stores every color alpha as a 0-255
+// byte.
+func MigrateRange(ctx context.Context, old v2.Range) (Range, error) {
+	return autoMigrateRange(ctx, old)
+}
+
+// Migration lifts stored ranges from v2 to v3.
+var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateRange)
 
 // MigrateWhere lifts a v2 range filter to v3. A v2 filter sets none of the lines that
 // v3 adds.

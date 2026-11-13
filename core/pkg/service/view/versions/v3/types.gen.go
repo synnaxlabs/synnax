@@ -18,7 +18,7 @@ import (
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )

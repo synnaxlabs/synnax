@@ -32,6 +32,11 @@ var _ = Describe("Code", func() {
 			exit.DataRefused,
 		),
 		Entry(
+			"locked data",
+			errors.Mark(errors.New("Failed to acquire lock"), storage.ErrLocked),
+			exit.DataLocked,
+		),
+		Entry(
 			"invalid config",
 			errors.Mark(errors.New("unknown flag: --bogus"), validate.ErrValidation),
 			exit.Config,

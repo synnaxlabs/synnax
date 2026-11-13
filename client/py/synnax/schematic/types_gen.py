@@ -246,7 +246,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the schematics in any of the given groups.
         grouped: Matches the schematics in a group, or in no group when false.
-        projects: Matches the schematics owned by any of the given projects.
+        projects: Matches the schematics in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -2001,7 +2001,7 @@ class Schematic(BaseModel):
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
         group: Is the group the schematic sits in, if any.
-        project: Is the project that owns the schematic.
+        project: Is the project that holds the schematic.
     """
 
     key: Key = Field(default_factory=uuid4)

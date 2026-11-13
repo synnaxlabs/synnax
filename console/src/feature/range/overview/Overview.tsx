@@ -13,6 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
+import { Sift } from "@/feature/sift";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -28,6 +29,7 @@ export const Overview: Panel.Content = () => {
         <Range.Details rangeKey={key} />
         <ChildRanges rangeKey={key} />
         <Range.MetaData rangeKey={key} />
+        <Sift.Range.Uploads rangeKey={key} />
       </Flex.Box>
     </Flex.Box>
   );

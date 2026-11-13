@@ -48,9 +48,10 @@ StalenessConfig = v9.StalenessConfig
 
 NumericTelemConfig struct extends v9.NumericTelemConfig {
     precision uint8? {
-        @doc value """
+        @doc value    """
             is the number of decimal places shown, from 0 to 17. Absent shows 2.
         """
+        @validate max 17
     }
 }
 
@@ -80,6 +81,6 @@ Schematic struct extends v11.Schematic {
     -snapshot
     -range
     project project.Key? {
-        @doc value "is the project that owns the schematic."
+        @doc value "is the project that holds the schematic."
     }
 }

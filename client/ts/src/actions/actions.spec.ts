@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type patch, record, zod } from "@synnaxlabs/x";
+import { caseconv, color, type patch, record, zod } from "@synnaxlabs/x";
 import { type Draft, freeze, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -126,6 +126,59 @@ describe("applyPath", () => {
       inverse: [{ type: "set", set: { path: ["max_size"], value: 1, guards: [] } }],
       targets: ["max_size"],
     });
+  });
+
+  it("should store a color edit as a tuple and invert it to hex", () => {
+    const colorDocZ = z.object({ fillColor: color.colorZ });
+    let inverse: patch.Action[] = [];
+    const next = produce({ fillColor: color.construct("#000000ff") }, (draft) => {
+      inverse = actions.applyPath(
+        draft,
+        { type: "set", set: { path: ["fill_color"], value: "#ff000080", guards: [] } },
+        colorDocZ,
+      ).inverse;
+    });
+    expect(next.fillColor).toEqual([255, 0, 0, 128]);
+    expect(inverse).toEqual([
+      { type: "set", set: { path: ["fill_color"], value: "#000000", guards: [] } },
+    ]);
+  });
+
+  it("should store the colors of a value that an undo sets as tuples", () => {
+    const bandZ = z.object({ fillColor: color.colorZ });
+    const docZ = z.object({ bands: z.array(bandZ) });
+    let inverse: patch.Action[] = [];
+    const red = color.construct("#ff000080");
+    const removed = produce({ bands: [{ fillColor: red }] }, (draft) => {
+      inverse = actions.applyPath(
+        draft,
+        { type: "set", set: { path: ["bands"], value: [], guards: [] } },
+        docZ,
+      ).inverse;
+    });
+    expect(inverse).toEqual([
+      {
+        type: "set",
+        set: { path: ["bands"], value: [{ fill_color: "#ff000080" }], guards: [] },
+      },
+    ]);
+    const restored = produce(removed, (draft) => {
+      actions.applyPath(draft, inverse[0], docZ);
+    });
+    expect(restored.bands[0].fillColor).toEqual(red);
+  });
+
+  it("should reject a bad wire color instead of storing it", () => {
+    const colorDocZ = z.object({ fillColor: color.colorZ });
+    expect(() =>
+      produce({ fillColor: color.construct("#000000ff") }, (draft) => {
+        actions.applyPath(
+          draft,
+          { type: "set", set: { path: ["fill_color"], value: "#zz", guards: [] } },
+          colorDocZ,
+        );
+      }),
+    ).toThrow(zod.ParseError);
   });
 
   it("should keep the case of a key the schema preserves", () => {

@@ -70,7 +70,7 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if err := validateScales(prev, *s); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(s.Project); err != nil {
+	if err := project.CheckMember(s.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -190,7 +190,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = validateScales(Schematic{Configs: stored}, next); err != nil {
 				return Schematic{}, err
 			}
-			return next, project.ValidateOwner(next.Project)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

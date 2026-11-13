@@ -57,7 +57,7 @@ func (w Writer) Create(ctx context.Context, t *Table) error {
 	if err := t.Validate(); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(t.Project); err != nil {
+	if err := project.CheckMember(t.Project); err != nil {
 		return err
 	}
 	if err := validateUniqueKeys(*t); err != nil {
@@ -175,7 +175,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = validateUniqueKeys(next); err != nil {
 				return Table{}, err
 			}
-			return next, project.ValidateOwner(next.Project)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

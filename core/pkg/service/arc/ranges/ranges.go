@@ -250,7 +250,7 @@ func dispatchCreate(
 ) string {
 	var c *color.Color
 	if colorHex != "" {
-		parsed, err := color.FromCSS(colorHex)
+		parsed, err := color.Parse(colorHex)
 		if err != nil {
 			report(
 				ctx,
@@ -373,7 +373,7 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 	if value == "" {
 		return
 	}
-	if _, err := color.FromCSS(value); err != nil {
+	if _, err := color.Parse(value); err != nil {
 		diags.Add(diagnostics.Errorf(expr, "%v", err))
 	}
 }

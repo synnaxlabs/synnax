@@ -80,7 +80,7 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should store the edited icon and color", func(ctx SpecContext) {
-		c := MustSucceed(color.FromHex("#00ff00"))
+		c := MustSucceed(color.Parse("#00ff00"))
 		Expect(apply(ctx, set("icon", "bell"), set("color", c))).To(Succeed())
 		Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.StatusView{
 			Base: view.Base{
@@ -123,7 +123,7 @@ var _ = Describe("Dispatch", func() {
 		It(
 			"Should store the edited icon, color, sort, and layout",
 			func(ctx SpecContext) {
-				c := MustSucceed(color.FromHex("#ff0000"))
+				c := MustSucceed(color.Parse("#ff0000"))
 				Expect(apply(
 					ctx,
 					set("icon", "star"),

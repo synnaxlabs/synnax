@@ -34,7 +34,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 		Label: schematic.LabelConfig{Label: label},
 	}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	ec := schematic.ElementConfig{Variant: cfg}
 	ec.ApplyDefaults()
@@ -46,7 +46,7 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
@@ -1099,7 +1099,7 @@ var _ = Describe("Path actions", func() {
 			))
 			Expect(
 				tank(next).StrokeColor,
-			).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+			).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 		})
 
 		It("Should do nothing when the variant guard fails", func() {

@@ -14,6 +14,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 )
 
 // Migrations is the ordered migration chain for stored symbols.
@@ -22,4 +23,5 @@ var Migrations = []gorp.Migration{
 	v2.Migration,
 	v3.Migration,
 	v3.MembersMigration,
+	v4.Migration,
 }

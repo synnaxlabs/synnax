@@ -12,8 +12,10 @@
 package v0
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -39,6 +41,87 @@ func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if sc.Disabled, err = r.Bool(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sc StreamConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(sc.Key[:])
+	w.Bool(sc.AutoStart)
+	w.String(sc.Device)
+	w.String(sc.Asset)
+	w.Bool(sc.Channels != nil)
+	if sc.Channels != nil {
+		w.Uint32(uint32(len(sc.Channels)))
+		for i := range sc.Channels {
+			w.Uint32(uint32(sc.Channels[i]))
+		}
+	}
+	w.Bool(sc.Labels != nil)
+	if sc.Labels != nil {
+		w.Uint32(uint32(len(sc.Labels)))
+		for i := range sc.Labels {
+			w.Write(sc.Labels[i][:])
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sc *StreamConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(sc.Key[:]); err != nil {
+		return err
+	}
+	if sc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if sc.Device, err = r.String(); err != nil {
+		return err
+	}
+	if sc.Asset, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			sc.Channels = make([]channel.Key, n)
+			for i := range sc.Channels {
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					sc.Channels[i] = channel.Key(rawV)
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			sc.Labels = make([]uuid.UUID, n)
+			for i := range sc.Labels {
+				if _, err := r.Read(sc.Labels[i][:]); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

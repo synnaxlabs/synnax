@@ -11466,7 +11466,7 @@ type Schematic struct {
 	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 	// Group is the group the schematic sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the schematic.
+	// Project is the project that holds the schematic.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 
@@ -11482,7 +11482,6 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for key, value := range s.Configs {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
 	}

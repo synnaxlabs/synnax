@@ -23,6 +23,9 @@ import (
 // ScanConfig configures a Sift scan task.
 type ScanConfig = versions.ScanConfig
 
+// StreamConfig configures a task that streams live data to Sift.
+type StreamConfig = versions.StreamConfig
+
 // Properties configures the connection to a Sift device.
 type Properties struct {
 	// URI is the address of the Sift gRPC API, as host:port. A local host connects
@@ -41,12 +44,21 @@ type Position struct {
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 }
 
+// ChannelPosition is how far Sift has confirmed the values of one data channel.
+type ChannelPosition struct {
+	// Channel is the data channel the position belongs to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Time is the time before which Sift confirmed every value of the channel.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+}
+
 // UploadDetails is the state of an upload to Sift, held in the details of its status.
 type UploadDetails struct {
 	// Device is the key of the Sift device the upload sends to.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Range is the key of the range whose data the upload sends.
-	Range ranger.Key `json:"range" msgpack:"range"`
+	// Range is the key of the range whose data the upload sends. An upload of a plain
+	// time span has none.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 	// TimeRange is the span of data the upload sends.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Channels are the channels the upload sends.
@@ -57,4 +69,19 @@ type UploadDetails struct {
 	Positions []Position `json:"positions" msgpack:"positions"`
 	// Samples is the number of values Sift has confirmed.
 	Samples int64 `json:"samples" msgpack:"samples"`
+}
+
+// StreamDetails is the progress of a stream to Sift, held in the details of its status.
+type StreamDetails struct {
+	// Start is the time the task started to send from, so a range that ends at or
+	// before it gets no run.
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// Positions holds, for each index, how far Sift has confirmed the stream.
+	Positions []Position `json:"positions" msgpack:"positions"`
+	// RunsThrough is the time before which every labeled range that ended has a run.
+	RunsThrough telem.TimeStamp `json:"runs_through" msgpack:"runs_through"`
+	// Behind holds each data channel that was written without its index and whose
+	// values Sift has not confirmed. It is empty while every channel arrives with its
+	// index.
+	Behind []ChannelPosition `json:"behind" msgpack:"behind"`
 }

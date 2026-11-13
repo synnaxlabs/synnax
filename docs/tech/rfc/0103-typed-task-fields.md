@@ -16,16 +16,12 @@ wider or signed when they cannot be negative.
 Each field becomes a union on a shared `Kind` in a new X package, `payload`. Each config
 field takes its narrowest correct type (§6).
 
-**Releases hold until every phase from 1 to 15 has landed.** HTTP v4, Kafka v0, MQTT v1,
-and OPC UA v2 are not in `core/v0.60.1`, so they change in place, with no v5. A release
-before then owes a migration for each. `CONTRIBUTING.md` says `main` "is always
-releasable" and that "unfinished work ships dark behind a flag", but a stored shape
-cannot ship dark: once a stable release writes it, compatibility is owed. Modbus v2
-shipped, so Modbus gets a v3 and does not hold releases.
+`core/v0.61.0` shipped every version that this RFC changes, so each change mints a new
+version with a §7 migration, and releases do not hold.
 
 ## 1 Schema
 
-`schemas/x/versions/payload/v0.oracle`, with docs and tags cut:
+The current `payload` version, with docs and tags cut:
 
 ```
 Kind enum { float integer unsigned string boolean timestamp json uuid bytes }
@@ -41,6 +37,9 @@ BooleanEntry  struct { label string  value bool }
 FloatRead     struct { data_type telem.DataType?  enum_values FloatEntry[]  fill Float? }
 IntegerRead   struct { data_type telem.DataType?  enum_values IntegerEntry[]  fill Integer? }
 UnsignedRead  struct { data_type telem.DataType?  enum_values UnsignedEntry[]  fill Unsigned? }
+FloatOptions    struct { enum_values FloatEntry[]  fill Float? }
+IntegerOptions  struct { enum_values IntegerEntry[]  fill Integer? }
+UnsignedOptions struct { enum_values UnsignedEntry[]  fill Unsigned? }
 StringRead    struct { enum_values StringEntry[]  fill string? }
 BooleanRead   struct { enum_values BooleanEntry[]  fill bool? }
 TimestampRead struct { time_format TimeFormat  fill telem.TimeStamp? }
@@ -53,13 +52,27 @@ WriteField union on type Kind extends BaseWriteField {
 
 `BaseWriteField` holds `key` and `pointer`. `timestamp` and `uuid` write fields generate
 a value per message. `json` holds JSON text, because `record` holds only objects, and
-`bytes` holds base64 text. Each integration declares two unions, because its base holds
-`channel.Key`:
+`bytes` holds base64 text. Phases 7, 9, and 12 extend the numeric `*Read` types, whose
+`data_type` sizes a new channel. Phase 27 adds the three `*Options` types without it as
+new types, with no new payload version, and Phases 28 to 31 extend them.
+
+Phase 27 also adds `Binding` to `schemas/synnax/task.oracle`, in task v3 with no new
+version, because `x` cannot import `channel.Key` or its `@ref`. Integration version
+files then pin task v3:
+
+```
+Binding union on type {
+    bound { key channel.Key  @ref kind use  @ref on_delete restrict }
+    unbound { name string = ""  data_type telem.DataType }
+}
+```
+
+Each integration declares two unions on its own base:
 
 ```
 ReadField union on type payload.Kind extends BaseReadField {
-    float extends payload.FloatRead {}  integer extends payload.IntegerRead {}
-    unsigned extends payload.UnsignedRead {}  string extends payload.StringRead {}
+    float extends payload.FloatOptions {}  integer extends payload.IntegerOptions {}
+    unsigned extends payload.UnsignedOptions {}  string extends payload.StringRead {}
     boolean extends payload.BooleanRead {}  timestamp extends payload.TimestampRead {}
     json {}  uuid {}  bytes {}
 }
@@ -74,9 +87,17 @@ ChannelField union on type payload.Kind extends BaseChannelField {
 }
 ```
 
-`BaseReadField` holds `key`, `name`, `disabled`, `channel`, and `pointer`, and
-`BaseChannelField` holds `pointer`, `channel`, `name`, and `data_type?`. A channel field
-writes a matching entry's label, or else `string` writes text and `boolean` a boolean.
+`BaseReadField` holds `key`, `disabled`, `pointer`, and `channel task.Binding`, and
+`BaseChannelField` holds `pointer` and `channel task.Binding`. The MQTT Sparkplug read
+entry replaces its `channel`, `name`, and `data_type` with `channel task.Binding` too. A
+channel field writes a matching entry's label, or else `string` writes text and
+`boolean` a boolean.
+
+A field is bound to a channel, or unbound with the name and data type of the channel to
+create. No field then holds a `data_type` that the Core must ignore. `unbound` holds a
+full data type on every kind, so one union serves read and channel fields, and §4 checks
+it as it checks a channel. Kafka write channels, Sparkplug write targets, and edge tags
+keep their own channel fields, and this RFC does not bind them.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
@@ -123,7 +144,9 @@ string.
 With a pointer, bytes are base64 text, as `AppendSampleText` writes. An empty pointer
 stays the JSON root value on other kinds. Only on `bytes` is it a raw, non-JSON payload,
 and then the field is the only one enabled. On Kafka, a raw write is an empty
-`value_pointer`.
+`value_pointer`. It is allowed only when every enabled channel is `bytes` and the record
+places nothing else: no channel pointers, no timestamp pointer, and no extra record
+fields. The one-field rule does not apply to it, and `ValidateEntry` (§5) checks it.
 
 - **`x/go/json`**: `NewDecoder` accepts `BytesT` as base64 text, and `Encoder` writes it
   as base64, where it quotes raw bytes today.
@@ -146,27 +169,29 @@ and then the field is the only one enabled. On Kafka, a raw write is an empty
 | `boolean`         | `boolean`            | `boolean`, `unsigned`, `string` |
 | Other             | Same name            | Same name                       |
 
-A numeric kind takes a JSON boolean as 0 or 1, and an enum label. With channel 0,
-`data_type` states the width for a new channel. A field with no fill is required, and
-the #4594 absent rule stays: no value, `null`, or `""` on a non-string channel.
+A numeric kind takes a JSON boolean as 0 or 1, and an enum label. On an unbound field,
+`data_type` takes the place of the channel's data type in this table. A field with no
+fill is required, and the #4594 absent rule stays: no value, `null`, or `""` on a
+non-string channel.
 
 ## 5 Rules by layer
 
-**Core write**, in `ResolveEntry` (`task/config/config.go:105`), through a `Channels`
-function that each service builds, as `slavesOf` does. It skips disabled fields, channel
-0, and missing channels, because imports hold foreign keys. It rejects a kind that §4
-does not allow, a fill or entry that does not fit the channel's width, and a fill on an
-index channel. It also converts each channel field entry to the channel's type and
-rejects values that collide only after narrowing, such as `0.1` and `0.1000000001` on a
-`float32` channel. It clears `data_type`.
+**Core write**, in `ResolveEntry` (`task/config/config.go`), through a `Channels`
+function that each service builds, as `slavesOf` does. It skips disabled fields and
+missing channels, because the reference check on write rejects a missing channel. It
+rejects a kind that §4 does not allow, a fill or entry that does not fit the channel's
+width, and a fill on an index channel. It also converts each channel field entry to the
+channel's type and rejects values that collide only after narrowing, such as `0.1` and
+`0.1000000001` on a `float32` channel. It checks an unbound field by the same rules,
+against its `data_type`.
 
 **Core config**, in `ValidateEntry`, which has no channel and checks every field: Read
 field labels are unique, channel field values are unique on the stored value, so two
-`"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, and a raw
-`bytes` field is alone. Only a static `float` write value must be finite, because it
-goes into a payload as a JSON number. Fills and float entries may be non-finite. Kafka
-and MQTT check kinds at task configure and gain fill (Kafka skips an absent value today,
-`read_task.go:767`).
+`"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, a raw
+`bytes` read field is alone, and a raw Kafka write follows §3. Only a static `float`
+write value must be finite, because it goes into a payload as a JSON number. Fills and
+float entries may be non-finite. Kafka and MQTT check kinds at task configure and gain
+fill (Kafka skips an absent value today, `read_task.go:767`).
 
 **Non-finite samples**, when no entry matches: A `float` channel field fails the write.
 A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
@@ -178,10 +203,39 @@ writes `true` (`field.go:318`), and C++ writes `null`, `inf`, and `true`
 index rule, and `check_from_sample_value`, because channels drift. It removes time
 format, fill-needs-optional, `json_type`, and enum shape errors, and adds `BOOLEAN_T`.
 JSON and UUID samples are strings (`driver/opcua/telem/telem.h:36`), so a new
-`Series(SampleValue, DataType)` keeps the channel's type, and writes read `uuids()`.
+`Series(SampleValue, DataType)` keeps the channel's type, and writes read `uuids()`. The
+HTTP Driver reads the key from `bound` and rejects an enabled `unbound` field, where it
+rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 
 **Console**: The data type select sets the kind, and `DataTypeField` shows every type.
-An adapter keeps the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
+On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel that the
+device stores for it: the pointer's channel for a read field and the target's channel
+for a channel field. It binds only when that channel exists, holds the field's
+`data_type`, and, for a fixed-density read channel, is on the index that the source
+picks below. Otherwise, and always on Kafka, whose devices store no channels, it creates
+one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
+that becomes unbound again takes its channel's name without a `_<data_type>` or
+`_<data_type>_<n>` suffix whose type is the channel's own, so suffixes do not stack. A
+user name of that form loses the suffix too, which changes only the name of the new
+channel. An empty name first takes the name the Console generates today. A new channel
+takes the name when it is free, else the name with its data type as a suffix, such as
+`temp_int32`, else that name with a counter, such as `temp_int32_2`, until a name is
+free. Each name is checked against the channels that the same configure already created,
+and a taken-name error from the Core retries with the next name. Phase 27 gives that
+error its own type in `core/pkg/service/channel` and in the TS and Python clients, which
+find it inside the path error, so no other validation error retries. The C++ client
+keeps it as a plain path error, because it never configures channels. A command channel
+retry keeps the `_time` index it already created and retries only the channel. A taken
+name never fails configure, and configure never binds by name. Each source picks one
+index: the channel of a bound index field, else the first non-zero index of its bound
+channels, on HTTP and MQTT the stored index when it still exists, else a new one. An
+unbound index field binds to it, and each new fixed-density read channel takes it. A
+command channel keeps its own `_time` index, as today. A new index takes the unbound
+index field's `unbound.name`, or else the generated `_time` name, under the same rename
+rule. On HTTP and MQTT the device stores the source's index. On HTTP and MQTT, a new
+variable-density channel (string, JSON, or bytes) stays virtual, as today. On Kafka it
+takes the index, as today. `onConfigure` then saves the field as bound. An adapter keeps
+the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
 
 ## 6 Field types
 
@@ -227,19 +281,28 @@ and imports) applies these rules in this order. Each migration phase tests a cla
 both bounds, a clamped-and-disabled identifier, and that a stored 199 becomes absent and
 the channel stays enabled.
 
-LabJack v2 shipped, so LabJack gets v3. NI v3 has not shipped, so NI changes it in place
-if it lands before a release, or else adds v4. Kafka v0 changes in place in Phase 7.
-Phase 25 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
+Phases 15, 21, 23, and 24 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. Phase
+25 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
 cutover (RFC 0081 §4.8), which already rewrites every Modbus device and types its
 writes. The old Python client writes `swap_bytes`, and an old Driver requires it
 (`device.h:273`), so that release's notes say to upgrade both with the Core.
 
 ## 7 Migration
 
-`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`. A
+`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`. It
+cannot see channels, so a key it binds can dangle on import (see **Dangling keys**). A
 numeric type picks its kind. `boolean` entries become `value != 0`. `string` drops its
 entries, as no conversion read them. `timestamp` with no `time_format` takes `iso8601`.
 
+- **Binding**: From each version, from the shipped one up to the one before `Binding`, a
+  read field, channel field, or Sparkplug read entry with `channel != 0` becomes `bound`
+  and drops `name` and `data_type`. One with `channel == 0` becomes `unbound` with the
+  stored `name` and `data_type`. Each shipped default is `float64`, so
+  `MigrateReadField`, the first step from a shipped version, gives such an index field
+  or field with a `time_format` the `timestamp` kind and `timestamp` data type, and
+  keeps its `time_format`. A later step takes the data type from the kind when the field
+  stores none: `float64`, `int64`, or `uint64` for a numeric kind, and the kind's own
+  type otherwise.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -255,14 +318,14 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   boolean keeps its kind. Others, `null` included, become `json` text. A generator
   becomes `uuid` or `timestamp`.
 
-`Reconcile` sets the kind from §4 and clears `data_type`, because the Driver never read
-it and the HTTP default is `float64`. Between numeric kinds it converts entries and
-fills by the same rules, so a non-finite fill becomes no fill, and it drops them on
-other kinds. It logs each change, naming a foreign key that matched an unrelated local
-channel. Migration and `Reconcile` apply only each side's rule. A read field keeps the
-first entry of a repeated label, so a stored `{ON: 1, HIGH: 1}` keeps both. A channel
-field keeps the first entry of a set whose values collide, on the stored value or after
-narrowing. Each drop is logged.
+`Reconcile` sets the kind from §4, against the channel of a bound field or the
+`data_type` of an unbound field. A bound field holds no `data_type`, so nothing is left
+to clear. Between numeric kinds it converts entries and fills by the same rules, so a
+non-finite fill becomes no fill, and it drops them on other kinds. It logs each change,
+naming a foreign key that matched an unrelated local channel. Migration and `Reconcile`
+apply only each side's rule. A read field keeps the first entry of a repeated label, so
+a stored `{ON: 1, HIGH: 1}` keeps both. A channel field keeps the first entry of a set
+whose values collide, on the stored value or after narrowing. Each drop is logged.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
@@ -271,6 +334,41 @@ narrowing. Each drop is logged.
   `task/versions/v3/migrate.go:137`). A new `ReconcileEntry` hook runs in it at each
   version. Without it, the task migration quarantines a mismatch. Client writes do not
   reconcile.
+- **Dangling keys**: Export adds a `$channels` object, with the exporting Core's
+  `cluster` key and a `keys` map from each bound key to its channel's `name` and
+  `data_type`, next to `type` and `name` in the envelope body (`task/imex.go`). A new
+  `Store.ChannelKeys(config)` gives export the bound keys, and also the Sparkplug write
+  target and edge command channel keys. No config field can hold `$channels`, and import
+  removes it and passes it to `Store.Decode`. For any version before `Binding`, legacy
+  input included, each integration's store builds the map from the raw body after the
+  legacy rewrite and before the ladder runs, with the timestamp rule of **Binding**.
+  `Decoded` carries the map to `ReconcileEntry`, which now runs before `DropDangling`
+  and turns each bound key into `unbound` from the map when no local channel has that
+  key, or when `cluster` is another Core's, because two Cores hand out the same channel
+  keys. From another Core, or when its channel is missing, a Sparkplug write target's
+  `channel` and an edge tag's non-zero `command_channel` become 0, and the import writes
+  the target's `name` or the tag's `command_channel_name` from `$channels`, or else the
+  name that the Console derives today, such as `<tag>_cmd`. Configure then binds the
+  device's stored channel for the tag, or else creates one under the §5 rename rule.
+  Phase 30 applies that rule in `configureCommandChannel`, to the channel and its
+  `_time` index, so HTTP write configure changes too. A Kafka write channel or an edge
+  tag's published `channel` becomes disabled with key 0, because configure cannot create
+  it, and the user picks a channel before it runs again. A task with an enabled key 0
+  fails validation, as today. A disabled edge tag gets its command channel when the user
+  enables it again. The import logs each one, with any name it set. A map built from a
+  version before `Binding` holds no real channel values, so it unbinds only a missing
+  key, and a non-zero command channel with no stored name takes the derived one. A tag
+  stored with `command_channel` 0 and no `command_channel_name` still rejects writes.
+  With no map entry for a missing `Binding` key, `ReconcileEntry` removes the field, or
+  for a channel field its target or endpoint, and logs what it removed. `ReconcileEntry`
+  applies these rules to each of the four keys above, missing or foreign, before
+  `DropDangling` runs. It skips any other missing key, and `DropDangling` removes it as
+  today. `bound.key` 0 is invalid. Phase 27 adds `ChannelKeys`, the `Decode` and hook
+  arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
+  31 apply the rule. Phase 27 adds the rename rule as a shared helper in
+  `console/src/platform/task`, which Phases 28 to 31 use. Phase 29 changes the shared
+  `configureReadChannels`, Phase 30 changes `configureCommandChannel`, and each keeps
+  the HTTP callers working until Phase 31, which uses both.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
@@ -278,8 +376,9 @@ channel. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
 
 ## 8 Implementation phases
 
-#4594 merges before Phase 2. Each phase is one PR. Releases hold until every phase from
-1 to 15 has landed. Phase 13 removes `EnumEntry`, `JSONType`, and `GeneratorType`.
+#4594 merges before Phase 2. Each phase is one PR. A phase that changes a stored shape
+in place mints the next version if a release shipped that version first. A new type may
+join a shipped version. Phase 13 removes `EnumEntry`, `JSONType`, and `GeneratorType`.
 
 No schema or test uses a qualified variant `extends` or borrowed discriminator. Phase 1
 tests both, with `integer payload.IntegerRead` and one `Kind` per integration as
@@ -289,35 +388,40 @@ The embedded Driver (`core/pkg/driver`) always matches the Core. A standalone Dr
 lag, and fails silently on three shapes: an absent `array_mode` runs an array task as
 unary, an absent `json_type` sends a number for a `string` or `boolean` channel field,
 and an enum entry past 2^53 rounds. The rest fail loudly. Upgrade standalone Drivers
-with the Core, and say so in the notes of the release that ends the hold. PR #4493 would
-reject a lagging Driver, but this RFC does not depend on it. Every path that carries a
-config keeps the `Float` text form; check C++ `to_json`.
+with the Core, and say so in the notes of each release that ships a new shape. PR #4493
+would reject a lagging Driver, but this RFC does not depend on it. Every path that
+carries a config keeps the `Float` text form; check C++ `to_json`.
 
-| Phase | Scope                                                 | Touches                                                                                                               | Depends on                     |
-| ----- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| 1     | Add the `payload` schema with today's shared types    | `schemas/x`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `oracle/analyzer`                 | -                              |
-| 2     | Point Kafka, MQTT, and HTTP v4 at `payload`           | `schemas/synnax`, `core/pkg/service`, `client`, `console/src/platform/task/payload`                                   | 1                              |
-| 3     | Key JSON enums by sample and keep 64-bit values exact | `x/go/json`, `x/cpp/json`                                                                                             | -                              |
-| 4     | Convert bytes as base64 in `x/go/json`                | `x/go/json`                                                                                                           | -                              |
-| 5     | Pass `tx` to `Normalize` and add `ReconcileEntry`     | `core/pkg/service/task`                                                                                               | -                              |
-| 6     | Inject channels into the HTTP, Kafka, and MQTT stores | `x/go/payload`, `core/pkg/service`                                                                                    | 1, 5                           |
-| 7     | Retype Kafka read fields and rename `tls` to `secure` | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client`                                     | 2, 3, 4, 6                     |
-| 8     | Retype Kafka write channels                           | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `x/go/json`, `console/src/feature/kafka`, `client`         | 2, 3, 4, 6                     |
-| 9     | Retype MQTT read fields                               | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                         | 2, 3, 4, 6                     |
-| 10    | Retype MQTT write channel fields                      | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                         | 8                              |
-| 11    | Share a typed `WriteField` and migrate `http_write`   | `schemas`, `core/pkg/service`, `driver/http`, `console/src/platform/task/payload`, `client`                           | 8, 10                          |
-| 12    | Cut over HTTP read fields                             | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`     | 2, 3, 6                        |
-| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                          | 7, 9, 11, 12                   |
-| 14    | Retype the HTTP task forms and delete the adapter     | `console/src/feature/http/task`                                                                                       | 12, 13                         |
-| 15    | Replace OPC UA array fields with a `Sampling` union   | `schemas/synnax/versions/opcua`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua/task`, `client` | -                              |
-| 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                     | -                              |
-| 17    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16                         |
-| 18    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                        | 14, 16                         |
-| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                     | 7, 8, 9, 10                    |
-| 20    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                         | 17, 18                         |
-| 21    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus`, `client`  | -                              |
-| 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                         | 12, 13                         |
-| 23    | Narrow LabJack v3 config field types                  | `schemas/synnax`, `core/pkg/service/labjack`, `driver/labjack`, `console/src/feature/labjack`, `client`               | -                              |
-| 24    | Narrow NI config field types                          | `schemas/synnax`, `core/pkg/service/ni`, `driver/ni`, `console/src/feature/ni`, `client`                              | -                              |
-| 25    | Rename the Modbus device swap flags                   | `schemas/synnax`, `core/pkg/service/modbus`, `driver/modbus/device`, `console/src/feature/modbus`, `client`           | 21                             |
-| 26    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                              | 14, 15, 19, 20, 21, 23, 24, 25 |
+| Phase | Scope                                                 | Touches                                                                                                                                                                                                                                      | Depends on                     |
+| ----- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 1     | Add the `payload` schema with today's shared types    | `schemas/x`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `oracle/analyzer`                                                                                                                                        | -                              |
+| 2     | Point Kafka, MQTT, and HTTP v4 at `payload`           | `schemas/synnax`, `core/pkg/service`, `client`, `console/src/platform/task/payload`                                                                                                                                                          | 1                              |
+| 3     | Key JSON enums by sample and keep 64-bit values exact | `x/go/json`, `x/cpp/json`                                                                                                                                                                                                                    | -                              |
+| 4     | Convert bytes as base64 in `x/go/json`                | `x/go/json`                                                                                                                                                                                                                                  | -                              |
+| 5     | Pass `tx` to `Normalize` and add `ReconcileEntry`     | `core/pkg/service/task`                                                                                                                                                                                                                      | -                              |
+| 6     | Inject channels into the HTTP, Kafka, and MQTT stores | `x/go/payload`, `core/pkg/service`                                                                                                                                                                                                           | 1, 5                           |
+| 7     | Retype Kafka read fields and rename `tls` to `secure` | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client`                                                                                                                                                            | 2, 3, 4, 6                     |
+| 8     | Retype Kafka write channels                           | `schemas/synnax/versions/kafka`, `core/pkg/service/kafka`, `x/go/json`, `console/src/feature/kafka`, `client`                                                                                                                                | 2, 3, 4, 6                     |
+| 9     | Retype MQTT read fields                               | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                                                                                                                                                | 2, 3, 4, 6                     |
+| 10    | Retype MQTT write channel fields                      | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`                                                                                                                                                | 8                              |
+| 11    | Share a typed `WriteField` and migrate `http_write`   | `schemas`, `core/pkg/service`, `driver/http`, `console/src/platform/task/payload`, `client`                                                                                                                                                  | 8, 10                          |
+| 12    | Cut over HTTP read fields                             | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                                                                                                                            | 2, 3, 6                        |
+| 13    | Cut over the HTTP `ChannelField`                      | `schemas`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`                                                                                                                                                 | 7, 9, 11, 12                   |
+| 14    | Retype the HTTP task forms and delete the adapter     | `console/src/feature/http/task`                                                                                                                                                                                                              | 12, 13                         |
+| 15    | Replace OPC UA array fields with a `Sampling` union   | `schemas/synnax/versions/opcua`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua/task`, `client`                                                                                                                        | -                              |
+| 16    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                                                                                                                                            | -                              |
+| 17    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                                                                                                                                               | 14, 16                         |
+| 18    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                                                                                                                                               | 14, 16                         |
+| 19    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `console/src/feature/kafka`                                                                                                                                                               | 7, 8, 9, 10                    |
+| 20    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                                                                                                                                                | 17, 18                         |
+| 21    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus`, `client`                                                                                                                         | -                              |
+| 22    | Remove config-only checks from the Driver             | `driver/http`                                                                                                                                                                                                                                | 12, 13                         |
+| 23    | Narrow LabJack v3 config field types                  | `schemas/synnax`, `core/pkg/service/labjack`, `driver/labjack`, `console/src/feature/labjack`, `client`                                                                                                                                      | -                              |
+| 24    | Narrow NI config field types                          | `schemas/synnax`, `core/pkg/service/ni`, `driver/ni`, `console/src/feature/ni`, `client`                                                                                                                                                     | -                              |
+| 25    | Rename the Modbus device swap flags                   | `schemas/synnax`, `core/pkg/service/modbus`, `driver/modbus/device`, `console/src/feature/modbus`, `client`                                                                                                                                  | 21                             |
+| 26    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                                                                                                                                                     | 14, 15, 19, 20, 21, 23, 24, 25 |
+| 27    | Add `task.Binding` and the payload `*Options` types   | `schemas/x`, `core/pkg/service/channel`, `schemas/synnax/task.oracle`, `schemas/synnax/versions/task`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `core/pkg/service/task`, `console/src/platform/task`, `client` | 11                             |
+| 28    | Bind Kafka read fields to `task.Binding`              | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/task`, `console/src/feature/kafka`, `client`, `site/docs/src/pages/reference/hardware`                                                                                         | 7, 27                          |
+| 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/feature/http/task`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                                        | 9, 27                          |
+| 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/feature/http/task`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                                        | 10, 27                         |
+| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                                                                                  | 12, 13, 14, 27, 29, 30         |

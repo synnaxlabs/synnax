@@ -22,9 +22,9 @@ export const HAUL_TYPE = "color";
 const COLOR_VAR = CSS.variable("swatch", "color");
 const TEXT_VAR = CSS.variable("swatch", "text");
 
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
 
-const createHaulItem = (key: color.Hex): HaulItem => ({
+const createHaulItem = (key: string): HaulItem => ({
   type: HAUL_TYPE,
   key,
 });

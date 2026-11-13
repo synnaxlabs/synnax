@@ -44,7 +44,7 @@ class AWS:
 
     def instances(self) -> dict[str, dict]:
         """Maps instance id to its region, state, running flag, whether it runs
-        Windows, its type, and when it was launched."""
+        Windows, its type, when it was launched, and its tags."""
         found: dict[str, dict] = {}
         with ThreadPoolExecutor(len(REGIONS)) as pool:
             for region, pages in zip(
@@ -63,6 +63,9 @@ class AWS:
                                 "windows": i.get("PlatformDetails") == "Windows",
                                 "type": i["InstanceType"],
                                 "launched": sy.TimeStamp(i["LaunchTime"]),
+                                "tags": {
+                                    t["Key"]: t["Value"] for t in i.get("Tags", [])
+                                },
                             }
         return found
 
