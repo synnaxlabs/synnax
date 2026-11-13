@@ -329,7 +329,7 @@ export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
 export const readConfigZ = persistConfigZ.extend({
   sampleRate: z.number().gt(0).default(10),
-  streamRate: z.number().default(5),
+  streamRate: z.number().min(0).default(5),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
