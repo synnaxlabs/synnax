@@ -19,6 +19,9 @@
 export const FLAGS = {
   // Owner: Emiliano Bonilla. Umbrella: SY-3591. Removed in v0.62.0.
   sift: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
+  // Owner: Patrick Dotson. Umbrella: SY-5127. Removed in v0.63.0. Reads NI devices from
+  // their typed tables. Turns on when the Driver writes them.
+  typedNIDevices: false,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

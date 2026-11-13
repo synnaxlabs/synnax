@@ -9,14 +9,14 @@
 
 import "@/device/StatusIndicator.css";
 
-import { type device } from "@synnaxlabs/client";
+import { type status as clientStatus } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 
 import { CSS } from "@/css";
 
 export interface StatusIndicatorProps {
-  status?: device.Status;
+  status?: Pick<clientStatus.Status, "variant" | "message">;
   tooltipLocation?: Tooltip.DialogProps["location"];
 }
 
