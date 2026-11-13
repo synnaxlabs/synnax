@@ -298,6 +298,34 @@ var _ = Describe("Channel fields", func() {
 			},
 		)
 
+		It("Should import v1 string fields as strings, and on a JSON channel as JSON",
+			func(ctx SpecContext) {
+				data := MustSucceed(svc.Write.Normalize(ctx, db, 1, config(
+					map[string]any{
+						"channel":   create(ctx, telem.Int16T),
+						"json_type": "string",
+						"enum_values": []any{
+							map[string]any{"label": "ON", "value": 1},
+						},
+					},
+					map[string]any{
+						"channel":   create(ctx, telem.JSONT),
+						"json_type": "string",
+					},
+				)))
+				targets := data["targets"].([]any)
+				field := func(t any) any { return t.(map[string]any)["channel"] }
+				Expect(field(targets[0])).To(SatisfyAll(
+					HaveKeyWithValue("type", "string"),
+					HaveKeyWithValue("enum_values", HaveExactElements(SatisfyAll(
+						HaveKeyWithValue("label", "ON"),
+						HaveKeyWithValue("value", "1"),
+					))),
+				))
+				Expect(field(targets[1])).To(HaveKeyWithValue("type", "json"))
+			},
+		)
+
 		It(
 			"Should give a field with no channel or data type the type of its kind",
 			func(
