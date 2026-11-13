@@ -17,8 +17,7 @@
  * umbrella issue, and the release that removes it.
  */
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: the range quality pass, #5391 to #5395. Removed
-  // in 0.62 by #5395.
+  // Owner: Emiliano Bonilla. Umbrella: SY-5892. Removed in 0.62.
   ranges: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
 } as const satisfies Record<string, boolean>;
 
