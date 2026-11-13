@@ -642,6 +642,31 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
+	Describe("ClearEdgeStrokeColor", func() {
+		It("Should remove the stroke color and keep the other fields", func() {
+			colored := edge("e1", "a", "o", "b", "i")
+			colored.StrokeColor = new(MustSucceed(color.FromHex("#ff0000")))
+			colored.StrokeWidth = 6
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{Edges: []schematic.Edge{colored}},
+				schematic.NewClearEdgeStrokeColorAction(
+					schematic.ClearEdgeStrokeColorPayload{Key: "e1"},
+				),
+			))
+			Expect(out.Edges[0].StrokeColor).To(BeNil())
+			Expect(out.Edges[0].StrokeWidth).To(BeEquivalentTo(6))
+		})
+		It("Should not create an edge that does not exist", func() {
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewClearEdgeStrokeColorAction(
+					schematic.ClearEdgeStrokeColorPayload{Key: "e1"},
+				),
+			))
+			Expect(out.Edges).To(BeEmpty())
+		})
+	})
+
 	Describe("SetEdge", func() {
 		nodes := []schematic.Node{node("a", 0, 0), node("b", 1, 1)}
 		It("Should append an edge whose key is not yet present", func() {
@@ -967,6 +992,7 @@ var _ = Describe("Reducer", func() {
 			Entry("set_edge", schematic.ActionTypeSetEdge),
 			Entry("set_edge_segments", schematic.ActionTypeSetEdgeSegments),
 			Entry("set_edge_style", schematic.ActionTypeSetEdgeStyle),
+			Entry("clear_edge_stroke_color", schematic.ActionTypeClearEdgeStrokeColor),
 			Entry("set_config", schematic.ActionTypeSetConfig),
 		)
 

@@ -39,6 +39,9 @@ const (
 	ActionTypeSetEdgeSegments = "set_edge_segments"
 	// ActionTypeSetEdgeStyle is the Type of an Action that carries SetEdgeStylePayload.
 	ActionTypeSetEdgeStyle = "set_edge_style"
+	// ActionTypeClearEdgeStrokeColor is the Type of an Action that carries
+	// ClearEdgeStrokeColorPayload.
+	ActionTypeClearEdgeStrokeColor = "clear_edge_stroke_color"
 	// ActionTypeSetConfig is the Type of an Action that carries SetConfigPayload.
 	ActionTypeSetConfig = "set_config"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
@@ -111,6 +114,12 @@ type SetEdgeStylePayload struct {
 	StrokeWidth *uint8       `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
 
+// ClearEdgeStrokeColorPayload removes the stroke color of the edge with the given key,
+// so the edge takes its theme color. No-op when no edge has the key.
+type ClearEdgeStrokeColorPayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
 // SetConfigPayload replaces the config entry stored under the given node key. No-op
 // when no node has the key.
 type SetConfigPayload struct {
@@ -137,21 +146,22 @@ type MovePayload patch.Move
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
-	SetEdge         *SetEdgePayload         `json:"set_edge,omitzero" msgpack:"set_edge,omitempty"`
-	SetEdgeSegments *SetEdgeSegmentsPayload `json:"set_edge_segments,omitzero" msgpack:"set_edge_segments,omitempty"`
-	SetEdgeStyle    *SetEdgeStylePayload    `json:"set_edge_style,omitzero" msgpack:"set_edge_style,omitempty"`
-	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
-	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move            *MovePayload            `json:"move,omitzero" msgpack:"move,omitempty"`
+	Type                 string                       `json:"type" msgpack:"type"`
+	Create               *CreatePayload               `json:"create,omitzero" msgpack:"create,omitempty"`
+	SetNodePosition      *SetNodePositionPayload      `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
+	SetNode              *SetNodePayload              `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
+	RemoveNode           *RemoveNodePayload           `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
+	AddEdge              *AddEdgePayload              `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
+	RemoveEdge           *RemoveEdgePayload           `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
+	SetEdge              *SetEdgePayload              `json:"set_edge,omitzero" msgpack:"set_edge,omitempty"`
+	SetEdgeSegments      *SetEdgeSegmentsPayload      `json:"set_edge_segments,omitzero" msgpack:"set_edge_segments,omitempty"`
+	SetEdgeStyle         *SetEdgeStylePayload         `json:"set_edge_style,omitzero" msgpack:"set_edge_style,omitempty"`
+	ClearEdgeStrokeColor *ClearEdgeStrokeColorPayload `json:"clear_edge_stroke_color,omitzero" msgpack:"clear_edge_stroke_color,omitempty"`
+	SetConfig            *SetConfigPayload            `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
+	Set                  *SetPayload                  `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove               *RemovePayload               `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert               *InsertPayload               `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move                 *MovePayload                 `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -207,6 +217,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetEdgeStyle.Handle(state)
+		case ActionTypeClearEdgeStrokeColor:
+			if a.ClearEdgeStrokeColor == nil {
+				return Schematic{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.ClearEdgeStrokeColor.Handle(state)
 		case ActionTypeSetConfig:
 			if a.SetConfig == nil {
 				return Schematic{}, union.MissingPayload(a.Type)
@@ -285,6 +300,11 @@ func NewSetEdgeSegmentsAction(p SetEdgeSegmentsPayload) Action {
 // NewSetEdgeStyleAction wraps a SetEdgeStylePayload in an Action envelope.
 func NewSetEdgeStyleAction(p SetEdgeStylePayload) Action {
 	return Action{Type: ActionTypeSetEdgeStyle, SetEdgeStyle: &p}
+}
+
+// NewClearEdgeStrokeColorAction wraps a ClearEdgeStrokeColorPayload in an Action envelope.
+func NewClearEdgeStrokeColorAction(p ClearEdgeStrokeColorPayload) Action {
+	return Action{Type: ActionTypeClearEdgeStrokeColor, ClearEdgeStrokeColor: &p}
 }
 
 // NewSetConfigAction wraps a SetConfigPayload in an Action envelope.

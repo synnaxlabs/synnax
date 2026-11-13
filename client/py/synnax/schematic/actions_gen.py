@@ -101,6 +101,14 @@ class SetEdgeStylePayload(BaseModel):
     stroke_width: int | None = Field(default=None, ge=0, le=255)
 
 
+class ClearEdgeStrokeColorPayload(BaseModel):
+    """Removes the stroke color of the edge with the given key, so the edge takes its
+    theme color. No-op when no edge has the key.
+    """
+
+    key: str
+
+
 class SetConfigPayload(BaseModel):
     """Replaces the config entry stored under the given node key. No-op when no node has
     the key.
@@ -175,6 +183,11 @@ class SetEdgeStyleAction(BaseModel):
     set_edge_style: SetEdgeStylePayload
 
 
+class ClearEdgeStrokeColorAction(BaseModel):
+    type: Literal["clear_edge_stroke_color"] = "clear_edge_stroke_color"
+    clear_edge_stroke_color: ClearEdgeStrokeColorPayload
+
+
 class SetConfigAction(BaseModel):
     type: Literal["set_config"] = "set_config"
     set_config: SetConfigPayload
@@ -211,6 +224,7 @@ Action = Annotated[
     | SetEdgeAction
     | SetEdgeSegmentsAction
     | SetEdgeStyleAction
+    | ClearEdgeStrokeColorAction
     | SetConfigAction
     | SetAction
     | RemoveAction
@@ -254,6 +268,12 @@ def set_edge_segments(payload: SetEdgeSegmentsPayload) -> SetEdgeSegmentsAction:
 
 def set_edge_style(payload: SetEdgeStylePayload) -> SetEdgeStyleAction:
     return SetEdgeStyleAction(set_edge_style=payload)
+
+
+def clear_edge_stroke_color(
+    payload: ClearEdgeStrokeColorPayload,
+) -> ClearEdgeStrokeColorAction:
+    return ClearEdgeStrokeColorAction(clear_edge_stroke_color=payload)
 
 
 def set_config(payload: SetConfigPayload) -> SetConfigAction:

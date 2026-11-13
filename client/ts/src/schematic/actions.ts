@@ -14,6 +14,7 @@ import { actions } from "@/actions";
 import {
   type Action,
   addEdge,
+  clearEdgeStrokeColor,
   createReduceAll,
   type HandlerResult,
   type Handlers,
@@ -65,6 +66,7 @@ const isConfigEdit = (action: Action): boolean => {
     case "set_edge":
     case "set_edge_segments":
     case "set_edge_style":
+    case "clear_edge_stroke_color":
       return true;
     case "set":
     case "remove":
@@ -200,17 +202,28 @@ const handlers: Handlers = {
     if (variant != null) edge.variant = variant;
     if (strokeColor != null) edge.strokeColor = strokeColor;
     if (strokeWidth != null) edge.strokeWidth = strokeWidth;
-    // A style set cannot clear a color, so undoing a first color restores the edge.
-    const inverse =
-      strokeColor != null && old.strokeColor == null
-        ? setEdge({ edge: old })
-        : setEdgeStyle({
-            key: payload.key,
-            variant: variant != null ? old.variant : undefined,
-            strokeColor: strokeColor != null ? old.strokeColor : undefined,
-            strokeWidth: strokeWidth != null ? old.strokeWidth : undefined,
-          });
-    return { inverse: [inverse], targets: [payload.key] };
+    const inverse: Action[] = [
+      setEdgeStyle({
+        key: payload.key,
+        variant: variant != null ? old.variant : undefined,
+        strokeColor: strokeColor != null ? old.strokeColor : undefined,
+        strokeWidth: strokeWidth != null ? old.strokeWidth : undefined,
+      }),
+    ];
+    // A style set cannot remove a color, so undoing a first color clears it.
+    if (strokeColor != null && old.strokeColor == null)
+      inverse.push(clearEdgeStrokeColor({ key: payload.key }));
+    return { inverse, targets: [payload.key] };
+  },
+  clearEdgeStrokeColor: (state, payload) => {
+    const edge = state.edges.find((e) => e.key === payload.key);
+    if (edge?.strokeColor == null) return actions.NO_OP_RESULT;
+    const strokeColor = actions.snapshotDraft(edge.strokeColor);
+    delete edge.strokeColor;
+    return {
+      inverse: [setEdgeStyle({ key: payload.key, strokeColor })],
+      targets: [payload.key],
+    };
   },
   setConfig: (state, payload) => {
     if (!hasNode(state, payload.key)) return actions.NO_OP_RESULT;
@@ -248,15 +261,14 @@ export interface SetEdgeChangedArgs {
 
 /**
  * Writes only the fields of an edge that differ between base and next, so a concurrent
- * edit to another field of the edge survives and a deleted edge stays deleted. A
- * cleared stroke color has no field-level action, so it writes the whole edge.
+ * edit to another field of the edge survives and a deleted edge stays deleted.
  * @returns the actions to dispatch, with none when nothing differs.
  */
 export const setEdgeChanged = ({ base, next }: SetEdgeChangedArgs): Action[] => {
   const { key } = next;
-  if (base.strokeColor != null && next.strokeColor == null)
-    return [setEdge({ edge: next })];
   const out: Action[] = [];
+  if (base.strokeColor != null && next.strokeColor == null)
+    out.push(clearEdgeStrokeColor({ key }));
   const style: SetEdgeStylePayload = { key };
   if (next.variant !== base.variant) style.variant = next.variant;
   if (next.strokeWidth !== base.strokeWidth) style.strokeWidth = next.strokeWidth;

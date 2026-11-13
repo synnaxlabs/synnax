@@ -1032,6 +1032,15 @@ Schematic struct {
         """
     }
 
+    action ClearEdgeStrokeColor {
+        key string
+
+        @doc value """
+            removes the stroke color of the edge with the given key, so the edge takes
+            its theme color. No-op when no edge has the key.
+        """
+    }
+
     action SetConfig {
         key    string
         config NodeConfig

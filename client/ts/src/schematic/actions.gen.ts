@@ -116,6 +116,16 @@ export const setEdgeStylePayloadZ = z.object({
 export type SetEdgeStylePayload = z.infer<typeof setEdgeStylePayloadZ>;
 
 /**
+ * ClearEdgeStrokeColor removes the stroke color of the edge with the given key, so the
+ * edge takes its theme color. No-op when no edge has the key.
+ */
+export const clearEdgeStrokeColorPayloadZ = z.object({
+  key: z.string(),
+});
+
+export type ClearEdgeStrokeColorPayload = z.infer<typeof clearEdgeStrokeColorPayloadZ>;
+
+/**
  * SetConfig replaces the config entry stored under the given node key. No-op when no
  * node has the key.
  */
@@ -168,6 +178,10 @@ export type Action =
   | { type: "set_edge"; setEdge: SetEdgePayload }
   | { type: "set_edge_segments"; setEdgeSegments: SetEdgeSegmentsPayload }
   | { type: "set_edge_style"; setEdgeStyle: SetEdgeStylePayload }
+  | {
+      type: "clear_edge_stroke_color";
+      clearEdgeStrokeColor: ClearEdgeStrokeColorPayload;
+    }
   | { type: "set_config"; setConfig: SetConfigPayload }
   | { type: "set"; set: SetPayload }
   | { type: "remove"; remove: RemovePayload }
@@ -190,6 +204,10 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setEdgeSegments: setEdgeSegmentsPayloadZ,
   }),
   z.object({ type: z.literal("set_edge_style"), setEdgeStyle: setEdgeStylePayloadZ }),
+  z.object({
+    type: z.literal("clear_edge_stroke_color"),
+    clearEdgeStrokeColor: clearEdgeStrokeColorPayloadZ,
+  }),
   z.object({ type: z.literal("set_config"), setConfig: setConfigPayloadZ }),
   z.object({ type: z.literal("set"), set: setPayloadZ }),
   z.object({ type: z.literal("remove"), remove: removePayloadZ }),
@@ -266,6 +284,15 @@ export const setEdgeStyle = (
   }),
 });
 
+export const clearEdgeStrokeColor = (
+  payload: z.input<typeof clearEdgeStrokeColorPayloadZ>,
+): Action => ({
+  type: "clear_edge_stroke_color",
+  clearEdgeStrokeColor: zod.parse(clearEdgeStrokeColorPayloadZ, payload, {
+    label: "schematic clear_edge_stroke_color action payload",
+  }),
+});
+
 export const setConfig = (payload: z.input<typeof setConfigPayloadZ>): Action => ({
   type: "set_config",
   setConfig: zod.parse(setConfigPayloadZ, payload, {
@@ -324,6 +351,10 @@ export interface Handlers {
     state: Draft<Schematic>,
     payload: SetEdgeStylePayload,
   ) => HandlerResult;
+  clearEdgeStrokeColor: (
+    state: Draft<Schematic>,
+    payload: ClearEdgeStrokeColorPayload,
+  ) => HandlerResult;
   setConfig: (state: Draft<Schematic>, payload: SetConfigPayload) => HandlerResult;
   set: (state: Draft<Schematic>, payload: SetPayload) => HandlerResult;
   remove: (state: Draft<Schematic>, payload: RemovePayload) => HandlerResult;
@@ -352,6 +383,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setEdgeSegments(state, action.setEdgeSegments);
       case "set_edge_style":
         return handlers.setEdgeStyle(state, action.setEdgeStyle);
+      case "clear_edge_stroke_color":
+        return handlers.clearEdgeStrokeColor(state, action.clearEdgeStrokeColor);
       case "set_config":
         return handlers.setConfig(state, action.setConfig);
       case "set":

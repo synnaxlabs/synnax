@@ -551,11 +551,33 @@ describe("schematic reducer", () => {
     it("should write nothing when nothing changed", () => {
       expect(schematic.setEdgeChanged({ base, next: base })).toEqual([]);
     });
-    it("should write the whole edge to clear a stroke color", () => {
+    it("should clear a removed stroke color with its own action", () => {
       const colored = { ...base, strokeColor: color.construct("#ff0000") };
-      expect(schematic.setEdgeChanged({ base: colored, next: base })).toEqual([
-        schematic.setEdge({ edge: base }),
+      expect(
+        schematic.setEdgeChanged({ base: colored, next: { ...base, strokeWidth: 6 } }),
+      ).toEqual([
+        schematic.clearEdgeStrokeColor({ key: "e1" }),
+        schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 }),
       ]);
+    });
+  });
+
+  describe("clearEdgeStrokeColor", () => {
+    it("should remove the stroke color and keep the other fields", () => {
+      const state = empty({
+        edges: [
+          edge("e1", "a", "o", "b", "i", {
+            strokeColor: [255, 0, 0, 1],
+            strokeWidth: 6,
+          }),
+        ],
+      });
+      const out = apply(state, schematic.clearEdgeStrokeColor({ key: "e1" }));
+      expect(out.edges[0]).toEqual(edge("e1", "a", "o", "b", "i", { strokeWidth: 6 }));
+    });
+    it("should not create an edge that does not exist", () => {
+      const state = empty();
+      expect(apply(state, schematic.clearEdgeStrokeColor({ key: "e1" }))).toBe(state);
     });
   });
 
@@ -1215,13 +1237,23 @@ describe("schematic reducer inverses", () => {
       ]);
     });
     it("should invert a first stroke color by clearing it", () => {
-      const state = empty({
-        nodes: [node("a", 0, 0), node("b", 1, 1)],
-        edges: [edge("e1", "a", "o", "b", "i")],
-      });
+      const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
+      const { inverse } = schematic.reduceAll(state, [
+        schematic.setEdgeStyle({ key: "e1", strokeColor: [255, 0, 0, 1] }),
+      ]);
+      expect(inverse.some((a) => a.type === "set_edge")).toBe(false);
       expectRoundTrip(state, [
         schematic.setEdgeStyle({ key: "e1", strokeColor: [255, 0, 0, 1] }),
       ]);
+    });
+  });
+
+  describe("clearEdgeStrokeColor", () => {
+    it("should invert to the prior stroke color", () => {
+      const state = empty({
+        edges: [edge("e1", "a", "o", "b", "i", { strokeColor: [255, 0, 0, 1] })],
+      });
+      expectRoundTrip(state, [schematic.clearEdgeStrokeColor({ key: "e1" })]);
     });
   });
 
