@@ -174,16 +174,14 @@ func resolveWriteConfig(
 		if err != nil {
 			return errors.Wrap(err, path)
 		}
-		dt := ch.DataType
-		base.DataType = &dt
+		base.DataType = nil
 		t.Channel = newChannelField(base, c)
 		return nil
 	})
 }
 
 // reconcileWriteConfig changes the channel field of each plain target of cfg to agree
-// with its channel, as payload.Channel.Reconcile does, sets its data type to the
-// channel's, and logs
+// with its channel, as payload.Channel.Reconcile does, clears its data type, and logs
 // each change. A timestamp field on a channel that holds no timestamps becomes the
 // kind of its data type, and then the kind the channel allows. A field with no channel
 // agrees with its data type instead, which it keeps, and one with no data type takes
@@ -250,7 +248,7 @@ func reconcileWriteConfig(
 			)
 		}
 		if ok {
-			base.DataType = &dt
+			base.DataType = nil
 		}
 		t.Channel = newChannelField(base, c)
 		return nil
