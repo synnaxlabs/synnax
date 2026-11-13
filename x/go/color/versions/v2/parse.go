@@ -24,6 +24,8 @@ var functionPattern = regexp.MustCompile(`^(rgba?|hsla?)\((.*)\)$`)
 
 var argSeparator = regexp.MustCompile(`[\s,/]+`)
 
+var numberPattern = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
+
 // Parse parses a color string. It accepts a CSS color name or the transparent keyword,
 // a hex value of 3, 4, 6, or 8 digits with or without a leading '#', an rgb() or rgba()
 // function, and an hsl() or hsla() function, in comma or space syntax with an optional
@@ -95,7 +97,7 @@ func parseFunction(name, body string) (Color, error) {
 		}
 		return Color{R: ch[0], G: ch[1], B: ch[2], A: a}, nil
 	}
-	h, err := strconv.ParseFloat(strings.TrimSuffix(args[0], "deg"), 64)
+	h, err := parseDecimal(strings.TrimSuffix(args[0], "deg"))
 	if err != nil {
 		return Color{}, errors.New("invalid hsl() hue")
 	}
@@ -114,10 +116,19 @@ func parseFunction(name, body string) (Color, error) {
 // parseNumber parses a number, reading a percentage as a fraction of scale.
 func parseNumber(arg string, scale float64) (float64, error) {
 	if p, ok := strings.CutSuffix(arg, "%"); ok {
-		v, err := strconv.ParseFloat(p, 64)
-		return v / 100 * scale, err
+		v, err := parseDecimal(p)
+		return v * scale / 100, err
 	}
-	return strconv.ParseFloat(arg, 64)
+	return parseDecimal(arg)
+}
+
+// parseDecimal parses a plain decimal number, rejecting forms such as NaN, Inf, and
+// exponents that strconv.ParseFloat accepts.
+func parseDecimal(s string) (float64, error) {
+	if !numberPattern.MatchString(s) {
+		return 0, errors.New("invalid number")
+	}
+	return strconv.ParseFloat(s, 64)
 }
 
 // hslToRGB converts a hue in degrees and 0-1 saturation and lightness to 0-255

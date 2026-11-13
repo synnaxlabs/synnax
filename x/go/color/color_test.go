@@ -89,6 +89,9 @@ var _ = Describe("Color", func() {
 			Entry("an alpha above 1", "rgba(1, 2, 3, 1.5)"),
 			Entry("a malformed alpha", "rgba(1, 2, 3, 1.2.3)"),
 			Entry("a malformed hue", "hsl(1.2.3, 0%, 0%)"),
+			Entry("a NaN channel", "rgb(NaN, 0, 0)"),
+			Entry("an infinite hue", "hsl(Inf, 0%, 0%)"),
+			Entry("an infinite alpha", "rgba(1, 2, 3, inf)"),
 			Entry("a saturation above 100", "hsl(0, 101%, 0%)"),
 			Entry("a lightness above 100", "hsl(0, 0%, 101%)"),
 		)

@@ -513,6 +513,8 @@ describe("color.Color", () => {
       "rgb(-1, 0, 0)",
       "rgba(1, 2, 3, 1.5)",
       "hsl(180turn 100% 50%)",
+      "rgb(NaN, 0, 0)",
+      "rgb(1e2, 0, 0)",
       "hsl(0, 101%, 50%)",
       "hsl(0, 0%, 101%)",
     ])("rejects %j", (input) => {

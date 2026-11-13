@@ -93,13 +93,12 @@ class LabelClient(ResourceClient):
         style = color_swatch.get_attribute("style")
         if style is None:
             raise ValueError(f"Label '{name}' has no style attribute")
-        # Find --pluto-swatch-color: rgba( ... );
-        match = re_search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
+        match = re_search(r"--pluto-swatch-color:\s*([^;]+)", style)
         if match is None:
             raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
-        rgba = match.group(1)
+        swatch = match.group(1).strip()
         self._close_edit_modal()
-        return Color(rgba)
+        return Color(swatch)
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an existing label.

@@ -96,10 +96,10 @@ export type Color = RGBA;
 export const isColor = (color: unknown): color is Color => z.validate(rgbaZ, color);
 
 /**
- * Converts a crude color to its most meaningful CSS format.
+ * Converts a crude color to a CSS color value.
  * @returns undefined if the color is undefined.
- * @returns an RGBA CSS string if the color can be parsed into a Color.
- * @returns the color directly if it is a css variable.
+ * @returns the hex string of the color if it parses as a color.
+ * @returns any other string as it is, such as a CSS variable.
  * @throws {zod.ParseError} if the color does not match any of the preceding
  * conditions.
  */
@@ -314,7 +314,7 @@ export const TRANSPARENT: Color = [0, 0, 0, 0];
 const byteToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
 
 const FUNCTION_PATTERN = /^(rgb|hsl)a?\((.*)\)$/;
-const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/;
+const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)$/;
 
 /**
  * Parses a color string: a CSS color name or the transparent keyword, a hex value of 3,
