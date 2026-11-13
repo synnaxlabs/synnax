@@ -48,7 +48,6 @@ import {
   type RetrieveParams,
   type Settled,
   subscribeReader,
-  useFulfilled,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -455,7 +454,6 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // A refresh replaces the settled answer of a mounted reader.
   useSettled<Query, Data>(locals, client, memoQuery);
   const pending = usePendingFetch<Query, Data>(memoQuery);
-  const fulfill = useFulfilled<Data>();
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
@@ -469,7 +467,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
       throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
-    return use(fulfill(cached));
+    return use(pending.fulfill(cached));
   }
   return use(
     promiseFor(
@@ -504,7 +502,6 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const pending = usePendingFetch<Query, Data>(memoQuery);
-  const fulfill = useFulfilled<Data>();
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
@@ -520,7 +517,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
           `${caseconv.capitalize(name)} was deleted`,
           cached.corpse,
         );
-      use(fulfill(cached));
+      use(pending.fulfill(cached));
       return;
     }
   }

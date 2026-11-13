@@ -268,6 +268,11 @@ export interface PendingFetch<Data> {
   promise: Promise<Data> | null;
   /** Records the promise this attempt suspends on. */
   set: (promise: Promise<Data>) => void;
+  /**
+   * Wraps a value as {@link fulfilled} does, but returns the same promise while the
+   * value stays the same. A replay must pass `use` the promise its attempt read.
+   */
+  fulfill: (value: Data) => Promise<Data>;
 }
 
 /**
@@ -285,6 +290,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
   // across the replay.
   "use no memo";
   const pending = useRef<{ query: Query | null; promise: Promise<Data> } | null>(null);
+  const settled = useRef<{ value: Data; promise: Promise<Data> } | null>(null);
   useLayoutEffect(() => {
     pending.current = null;
   });
@@ -294,6 +300,11 @@ export const usePendingFetch = <Query extends query.Params, Data>(
     promise: held != null && held.query === q ? held.promise : null,
     set: (promise) => {
       pending.current = { query: q, promise };
+    },
+    fulfill: (value) => {
+      if (settled.current?.value !== value)
+        settled.current = { value, promise: fulfilled(value) };
+      return settled.current.promise;
     },
   };
   /* eslint-enable synnax/react-compiler */
@@ -309,21 +320,6 @@ export const fulfilled = <Data>(value: Data): Promise<Data> =>
   Object.assign(Promise.resolve(value), { status: "fulfilled" as const, value });
 
 /**
- * @returns a function that wraps a value as {@link fulfilled} does, but returns the
- * same promise while the value stays the same. A replay must pass each `use` the
- * promise its suspended attempt read, or React flags the promise as uncached.
- */
-export const useFulfilled = <Data>(): ((value: Data) => Promise<Data>) => {
-  "use no memo";
-  const held = useRef<{ value: Data; promise: Promise<Data> } | null>(null);
-  return (value) => {
-    if (held.current?.value !== value)
-      held.current = { value, promise: fulfilled(value) };
-    return held.current.promise;
-  };
-};
-
-/**
  * @returns the promise a suspending read passes to `use`: the one the replayed attempt
  * suspended on, the settled answer, or a new fetch.
  * @throws the error the query last settled to.
@@ -337,7 +333,7 @@ export const promiseFor = <Query extends query.Params, Data extends query.Data>(
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
-    return fulfilled(settled.data);
+    return pending.fulfill(settled.data);
   }
   const promise = ensureFetch(params, fetchParams);
   pending.set(promise);
