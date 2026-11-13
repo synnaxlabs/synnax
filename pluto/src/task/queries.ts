@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { type query, rack, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -22,62 +22,27 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 const BASE_QUERY = { includeStatus: true };
 
 /**
- * Parses cached and streamed tasks through the schemas, so a typed hook never hands on
- * the untyped tasks other consumers write into the client cache. A task that fails to
- * parse reads as not cached. Results are memoized per task, as the cache interns its
- * tasks and Flux compares snapshots by identity.
+ * A typed retrieve parses cached and streamed tasks through the schemas. A task that
+ * fails to parse reads as not cached.
  */
-const createCachedParser = <S extends task.Schemas>(schemas: S) => {
-  const schema = task.payloadZ(schemas);
-  const tasks = new WeakMap<task.Task, task.Task<S> | undefined>();
-  const deleted = new WeakMap<query.Deleted<task.Task>, query.Deleted<task.Task<S>>>();
-  const parse = (client: Synnax, cached: task.Task): task.Task<S> | undefined => {
-    if (tasks.has(cached)) return tasks.get(cached);
-    const result = schema.safeParse(cached.payload);
-    // payloadZ types each optional schema as a union with its default, so the parsed
-    // payload narrows to the typed one here.
-    const typed = result.success
-      ? client.tasks.sugar(result.data as task.Payload<S>, schemas)
-      : undefined;
-    tasks.set(cached, typed);
-    return typed;
-  };
-  return (
-    client: Synnax,
-    cached: query.Cached<task.Task> | undefined,
-  ): query.Cached<task.Task<S>> | undefined => {
-    if (cached === undefined) return undefined;
-    if (!query.Deleted.matches(cached)) return parse(client, cached);
-    const held = deleted.get(cached);
-    if (held != null) return held;
-    const corpse = parse(client, cached.corpse);
-    if (corpse === undefined) return undefined;
-    const next = new query.Deleted(corpse, cached.deletedAt);
-    deleted.set(cached, next);
-    return next;
-  };
-};
-
-export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) => {
-  const parse = schemas == null ? null : createCachedParser(schemas);
-  return Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
+export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
+  Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
-      parse == null
+      schemas == null
         ? client.tasks.watch(query).onChange(handler as query.ChangeHandler<task.Task>)
         : client.tasks
             .watch(query)
-            .onChange((cached) => handler(parse(client, cached))),
+            .onChange((cached) => handler(client.tasks.parse(cached, schemas))),
     getCached: ({ client, query }) =>
-      parse == null
+      schemas == null
         ? (client.tasks.watch(query).getCached() as
             query.Cached<task.Task<S>> | undefined)
-        : parse(client, client.tasks.watch(query).getCached()),
+        : client.tasks.parse(client.tasks.watch(query).getCached(), schemas),
   });
-};
 
 export const { use, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();

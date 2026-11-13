@@ -376,6 +376,12 @@ export interface ClientConfig {
  * Creates, reads, deletes, and commands tasks on a Core. Reach it through
  * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
  */
+interface Parsed {
+  schema: z.ZodType;
+  tasks: WeakMap<Task, Task | undefined>;
+  deleted: WeakMap<query.Deleted<Task>, query.Deleted<Task>>;
+}
+
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
@@ -389,6 +395,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
+  private readonly parsed = new WeakMap<Schemas, Parsed>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -840,6 +847,44 @@ export class Client extends query.Retriever<
       .toArray(payloads)
       .map((payload) => new Task(payload, schemas, this.cfg.framer));
     return isSingle ? res[0] : res;
+  }
+
+  /**
+   * Parses a cached task through schemas, so a typed reader never sees an untyped task
+   * that another consumer wrote into the cache. A task that fails to parse returns
+   * undefined. The result is memoized per schemas and cached task, so the same input
+   * always returns the same instance.
+   */
+  parse<S extends Schemas>(
+    cached: query.Cached<Task> | undefined,
+    schemas: S,
+  ): query.Cached<Task<S>> | undefined {
+    if (cached === undefined) return undefined;
+    let p = this.parsed.get(schemas);
+    if (p == null) {
+      p = { schema: payloadZ(schemas), tasks: new WeakMap(), deleted: new WeakMap() };
+      this.parsed.set(schemas, p);
+    }
+    const { schema, tasks, deleted } = p;
+    const parseOne = (t: Task): Task<S> | undefined => {
+      if (tasks.has(t)) return tasks.get(t) as Task<S> | undefined;
+      const result = schema.safeParse(t.payload);
+      // payloadZ types each optional schema as a union with its default, so the parsed
+      // payload narrows to the typed one here.
+      const typed = result.success
+        ? this.sugar(result.data as Payload<S>, schemas)
+        : undefined;
+      tasks.set(t, typed);
+      return typed;
+    };
+    if (!query.Deleted.matches(cached)) return parseOne(cached);
+    const held = deleted.get(cached);
+    if (held != null) return held as query.Deleted<Task<S>>;
+    const corpse = parseOne(cached.corpse);
+    if (corpse === undefined) return undefined;
+    const next = new query.Deleted(corpse, cached.deletedAt);
+    deleted.set(cached, next);
+    return next;
   }
 
   /**
