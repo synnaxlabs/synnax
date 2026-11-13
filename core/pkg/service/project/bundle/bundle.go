@@ -111,8 +111,7 @@ var unreachedTypes = set.New(
 
 // Export serializes the project identified by key, as snap holds it, and the groups and
 // visualizations it holds as a bundle: one envelope per member document and panel,
-// group
-// children as directories, and a manifest naming the project at the root. It also
+// group children as directories, and a manifest naming the project at the root. It also
 // returns the resource ID of every document, panel, and group that shaped the artifact,
 // so a caller can enforce access on them. The encoder decides both the serialization
 // and the extension every file takes.
