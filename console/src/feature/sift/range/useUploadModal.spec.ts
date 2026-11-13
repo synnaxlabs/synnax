@@ -195,6 +195,31 @@ describe("Sift.Range.useUploadModal", () => {
     expect(trigger.textContent).not.toContain(" Rig 2 ");
   });
 
+  it("should keep the asset when a new asset name is only spaces", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      { client },
+    );
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(dev.name);
+    await answered;
+    await findDialogTriggerByText("stand");
+    fireEvent.click(screen.getByRole("button", { name: /New asset/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Asset name"), {
+      target: { value: "   " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+    await waitFor(() => expect(screen.queryByPlaceholderText("Asset name")).toBeNull());
+    expect(await findDialogTriggerByText("stand")).toBeTruthy();
+  });
+
   it("should not list calculated channels, which the Core does not store", async () => {
     const [, data] = await newIndexedPair(client);
     const calc = await client.channels.create({
