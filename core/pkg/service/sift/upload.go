@@ -141,17 +141,15 @@ func queueUpload(
 
 // uploader runs the pending uploads to the Sift devices of one rack, one at a time
 // per device, oldest first. The pending statuses are its queue: it resumes them after
-// a restart, and deleting one cancels its upload. A device that leaves the rack takes
-// its upload with it, and the uploader of its new rack resumes it.
+// a restart, and deleting one cancels its upload.
 type uploader struct {
-	cfg               FactoryConfig
-	rack              rack.Key
-	sCtx              signal.Context
-	cancel            context.CancelFunc
-	disconnect        observe.Disconnect
-	disconnectDevices observe.Disconnect
-	wake              chan struct{}
-	mu                sync.Mutex
+	cfg        FactoryConfig
+	rack       rack.Key
+	sCtx       signal.Context
+	cancel     context.CancelFunc
+	disconnect observe.Disconnect
+	wake       chan struct{}
+	mu         sync.Mutex
 	// running holds the upload in progress on each device.
 	running map[device.Key]*upload
 }
@@ -173,7 +171,6 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 		running: make(map[device.Key]*upload),
 	}
 	u.disconnect = cfg.Status.Observe().OnChange(u.observe)
-	u.disconnectDevices = cfg.Device.Observe().OnChange(u.observeDevices)
 	u.signal()
 	sCtx.Go(u.run, signal.RecoverWithErrOnPanic())
 	return u
@@ -183,7 +180,6 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 // the next uploader of the rack resumes it from there.
 func (u *uploader) Close() error {
 	u.disconnect()
-	u.disconnectDevices()
 	u.cancel()
 	return errors.Skip(u.sCtx.Wait(), context.Canceled)
 }
@@ -214,24 +210,6 @@ func (u *uploader) observe(
 			}
 		}
 		u.mu.Unlock()
-	}
-}
-
-func (u *uploader) observeDevices(
-	_ context.Context,
-	r gorp.TxReader[device.Key, device.Device],
-) {
-	for c := range r {
-		if c.Kind != gorp.ChangeDelete && c.Value.Make != Make {
-			continue
-		}
-		u.mu.Lock()
-		if up, ok := u.running[c.Key]; ok &&
-			(c.Kind == gorp.ChangeDelete || c.Value.Rack != u.rack) {
-			up.cancel()
-		}
-		u.mu.Unlock()
-		u.signal()
 	}
 }
 
@@ -285,7 +263,7 @@ func (u *uploader) schedule(ctx context.Context) error {
 		if _, busy := u.running[dev]; busy {
 			continue
 		}
-		// Each rack that finds an upload whose device is gone fails it.
+		// An upload whose device is gone fails on whichever rack finds it first.
 		if rk, ok := racks[dev]; ok && rk != u.rack {
 			continue
 		}
