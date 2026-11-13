@@ -23,7 +23,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEvent,
@@ -47,6 +47,10 @@ const [CaretlessContext, useCaretless] = context.create<boolean>({
 });
 
 export { CaretlessContext, HighlightContext };
+
+/** Whether the time range has a start, and so a time to show. */
+export const scheduled = (timeRange: TimeRange): boolean =>
+  !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
 /** Starts a planned range now, with no end until it stops. */
 export const useStart = (): ((range: ranger.Range) => void) => {
@@ -289,8 +293,10 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
       aria-label="Time range"
       className={CSS.BE("range-item", "when")}
     >
+      {/* A range with no start keeps the empty column, so the columns line up. */}
       <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
-        {`${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
+        {scheduled(range.timeRange) &&
+          `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
       </Text.Text>
       {span}
     </Flex.Box>

@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
+import {
+  label,
+  query as clientQuery,
+  ranger,
+  type Synnax as SynnaxClient,
+} from "@synnaxlabs/client";
 import {
   color,
   deep,
+  destructor,
   type NumericTimeRange,
   primitive,
   unique,
@@ -62,29 +68,54 @@ export type AncestorsQuery = {
   keys: ranger.Key[];
 };
 
+type Links = Record<ranger.Key, ranger.Key | null>;
+
+/** Adds the parent of each range to links, and returns the keys above that it lacks. */
+const link = (links: Links, ranges: ranger.Range[]): ranger.Key[] => {
+  ranges.forEach(({ key, parent }) => (links[key] = parent ?? null));
+  return unique.unique(
+    ranges.flatMap(({ parent }) => (parent == null || parent in links ? [] : [parent])),
+  );
+};
+
+const getCachedAncestors = (
+  client: SynnaxClient,
+  keys: ranger.Key[],
+): Links | undefined => {
+  const links: Links = {};
+  let level = keys;
+  while (level.length > 0) {
+    const ranges = client.ranges.watch(level).getCached();
+    if (!clientQuery.isLive(ranges)) return undefined;
+    level = link(links, ranges);
+  }
+  return links;
+};
+
 /**
  * The parent of each of the ranges and of each range above them: a key maps to the key
- * of its parent, or to null at the top. It reads one level at a time.
+ * of its parent, or to null at the top. A move of one of them updates the answer.
  */
 export const { useResult: useResultAncestors } = Flux.createRetrieve<
   AncestorsQuery,
-  Record<ranger.Key, ranger.Key | null>
+  Links
 >({
   name: PLURAL_PARENT_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) => {
-    const links: Record<ranger.Key, ranger.Key | null> = {};
+    const links: Links = {};
     let level = keys;
-    while (level.length > 0) {
-      const ranges = await client.ranges.retrieve(level);
-      ranges.forEach(({ key, parent }) => (links[key] = parent ?? null));
-      level = unique.unique(
-        ranges.flatMap(({ parent }) =>
-          parent == null || parent in links ? [] : [parent],
-        ),
-      );
-    }
+    while (level.length > 0) level = link(links, await client.ranges.retrieve(level));
     return links;
   },
+  onChange: ({ client, query: { keys } }, handler) => {
+    const notify = () => handler(getCachedAncestors(client, keys));
+    const offSet = client.ranges.onSet(notify);
+    const offDelete = client.ranges.onDelete(notify);
+    return () => destructor.unwind(offSet, offDelete);
+  },
+  getCached: ({ client, query: { keys } }) => getCachedAncestors(client, keys),
+  // Each read builds new links, so equal links keep the answer.
+  equal: deep.equal,
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =

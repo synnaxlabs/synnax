@@ -40,7 +40,7 @@ import {
   useState,
 } from "react";
 
-import { Lead } from "@/feature/range/tree/Item";
+import { Lead, scheduled } from "@/feature/range/tree/Item";
 import { type Node, useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
@@ -98,10 +98,6 @@ const FIT_COUNT = 12;
 const ZOOM_STEP = 2;
 /** Where now sits across the window after Now, so recent ranges show to its left. */
 const NOW_AT = 0.8;
-
-/** Whether the time range has a start, and so a place on the axis. */
-const scheduled = (timeRange: TimeRange): boolean =>
-  !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
 /** @returns the window of a scheduled time range. An open one runs to now. */
 const span = (timeRange: TimeRange, now: number): Window => {
