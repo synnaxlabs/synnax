@@ -195,8 +195,6 @@ func (u *uploader) observe(
 	_ context.Context,
 	r gorp.TxReader[status.Key, status.Status[any]],
 ) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
 	for c := range r {
 		if !strings.HasPrefix(c.Key, uploadKeyPrefix) {
 			continue
@@ -205,11 +203,13 @@ func (u *uploader) observe(
 			u.signal()
 			continue
 		}
+		u.mu.Lock()
 		for _, up := range u.running {
 			if up.key == c.Key {
 				up.cancel()
 			}
 		}
+		u.mu.Unlock()
 	}
 }
 
