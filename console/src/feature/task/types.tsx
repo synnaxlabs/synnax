@@ -19,6 +19,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATIONS: Task.Integration[] = [
@@ -31,6 +32,7 @@ export const INTEGRATIONS: Task.Integration[] = [
   NI.Task.INTEGRATION,
   OPCUA.Task.INTEGRATION,
   PagerDuty.Task.INTEGRATION,
+  Sift.Task.INTEGRATION,
 ];
 
 const TASK_ICON = <Icon.Task />;

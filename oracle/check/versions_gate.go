@@ -939,6 +939,12 @@ func ruleDrift(live, frozen resolution.Type, goRules bool) []string {
 	if goRules && goRulesKey(live) != goRulesKey(frozen) {
 		drift = append(drift, "@go method rules on "+live.Name)
 	}
+	for _, d := range []string{"validate", "default"} {
+		if exprsKey(live.Domains[d].Expressions) !=
+			exprsKey(frozen.Domains[d].Expressions) {
+			drift = append(drift, "@"+d+" on "+live.Name)
+		}
+	}
 	lf, ok := live.Form.(resolution.StructForm)
 	if !ok {
 		return drift

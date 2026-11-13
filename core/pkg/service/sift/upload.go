@@ -45,8 +45,11 @@ type UploadStatus = status.Status[UploadDetails]
 type uploadArgs struct {
 	// Device is the key of the Sift device to send to.
 	Device device.Key `json:"device"`
-	// Range is the key of the range whose data to send.
-	Range ranger.Key `json:"range"`
+	// Range is the key of the range whose data to send. An upload of a range makes a
+	// Sift run of it.
+	Range *ranger.Key `json:"range"`
+	// TimeRange is the span of data to send when there is no range.
+	TimeRange *telem.TimeRange `json:"time_range"`
 	// Channels are the channels to send.
 	Channels []channel.Key `json:"channels"`
 	// Asset is the name of the Sift asset that receives the data.
@@ -56,7 +59,9 @@ type uploadArgs struct {
 func (a uploadArgs) validate() error {
 	v := validate.New("sift.upload")
 	v.NotEmptyString("device", a.Device)
-	v.Ternary("range", a.Range == uuid.Nil(), "required")
+	hasRange, hasSpan := a.Range != nil, a.TimeRange != nil
+	v.Ternary("range", !hasRange && !hasSpan, "a range or a time range is required")
+	v.Ternary("time_range", hasRange && hasSpan, "cannot be set with a range")
 	v.NotEmptySlice("channels", a.Channels)
 	v.NotEmptyString("asset", a.Asset)
 	return v.Error()
@@ -98,34 +103,43 @@ func queueUpload(
 	if err := ingest.Validate(ctx, cfg.DB, cfg.Channel, args.Channels); err != nil {
 		return "", err
 	}
-	var rng ranger.Range
-	if err := cfg.Ranger.NewRetrieve().
-		Where(ranger.MatchKeys(args.Range)).
-		Entry(&rng).
-		Exec(ctx, cfg.DB); err != nil {
-		return "", err
+	// An upload of a plain time span takes the name of its asset.
+	name, subject := args.Asset, "time range"
+	var tr telem.TimeRange
+	if args.TimeRange != nil {
+		tr = *args.TimeRange
 	}
-	// A range that has not ended sends the data written so far.
-	tr, now := rng.TimeRange, telem.Now()
+	if args.Range != nil {
+		var rng ranger.Range
+		if err := cfg.Ranger.NewRetrieve().
+			Where(ranger.MatchKeys(*args.Range)).
+			Entry(&rng).
+			Exec(ctx, cfg.DB); err != nil {
+			return "", err
+		}
+		name, subject, tr = rng.Name, "range "+rng.Name, rng.TimeRange
+	}
+	// A span that has not ended sends the data written so far.
+	now := telem.Now()
 	if tr.Start > now {
 		return "", validate.Errorf(
-			"range %s starts in the future, so it has no data yet",
-			rng.Name,
+			"%s starts in the future, so it has no data yet",
+			subject,
 		)
 	}
 	tr.End = min(tr.End, now)
 	if tr.Span() <= 0 {
-		return "", validate.Errorf("range %s has no time span to upload", rng.Name)
+		return "", validate.Errorf("%s has no time span to upload", subject)
 	}
 	s := UploadStatus{
 		Key:     uploadKeyPrefix + uuid.NewV7().String(),
-		Name:    rng.Name,
+		Name:    name,
 		Variant: status.VariantLoading,
 		Message: "Waiting to upload to Sift",
 		Time:    telem.Now(),
 		Details: UploadDetails{
 			Device:    dev.Key,
-			Range:     rng.Key,
+			Range:     args.Range,
 			TimeRange: tr,
 			Channels:  args.Channels,
 			Asset:     args.Asset,
@@ -320,13 +334,13 @@ func (u *uploader) finish(ctx context.Context, s *UploadStatus, err error) {
 	default:
 		s.Variant = status.VariantSuccess
 		s.Message = "Uploaded to Sift"
-		s.Description = progress(s.Details)
+		s.Description = uploadProgress(s.Details)
 	}
 	u.write(ctx, s)
 }
 
-// send sends the data of s to Sift and makes its run, saving progress in s as Sift
-// confirms it.
+// send sends the data of s to Sift, saving progress in s as Sift confirms it. An upload
+// of a range then makes the run of the range.
 func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	d := &s.Details
 	var dev device.Device
@@ -352,18 +366,25 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	uploading := func() {
 		s.Variant = status.VariantLoading
 		s.Message = "Uploading to Sift"
-		s.Description = progress(*d)
+		s.Description = uploadProgress(*d)
 	}
 	uploading()
 	u.write(ctx, s)
+	retrying := func(ctx context.Context, err error) {
+		s.Variant = status.VariantWarning
+		s.Message = "Retrying upload to Sift"
+		s.Description = err.Error()
+		u.write(ctx, s)
+	}
 	e, err := ingest.New(ctx, ingest.Config{
-		DB:              u.cfg.DB,
-		Instrumentation: u.cfg.Child("upload"),
-		Framer:          u.cfg.Framer,
-		Channel:         u.cfg.Channel,
-		Conn:            conn,
-		Asset:           d.Asset,
-		Keys:            d.Channels,
+		DB:                 u.cfg.DB,
+		Instrumentation:    u.cfg.Child("upload"),
+		Framer:             u.cfg.Framer,
+		Channel:            u.cfg.Channel,
+		Conn:               conn,
+		Asset:              d.Asset,
+		Keys:               d.Channels,
+		CheckpointInterval: u.cfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
 			d.Positions = toPositions(cp.Positions)
 			d.Samples += cp.Samples
@@ -371,12 +392,8 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 			u.write(ctx, s)
 			return nil
 		},
-		OnRetry: func(ctx context.Context, err error) {
-			s.Variant = status.VariantWarning
-			s.Message = "Retrying upload to Sift"
-			s.Description = err.Error()
-			u.write(ctx, s)
-		},
+		OnRetry:    retrying,
+		OnRunRetry: retrying,
 	})
 	if err != nil {
 		return err
@@ -384,10 +401,31 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
+	// A plain time span makes no run.
+	if d.Range == nil {
+		return nil
+	}
+	var rng ranger.Range
+	err = u.cfg.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(*d.Range)).
+		Entry(&rng).
+		Exec(ctx, u.cfg.DB)
+	// A range deleted during the upload has no run to make.
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	tags, err := rangeTags(ctx, u.cfg, rng)
+	if err != nil {
+		return err
+	}
 	_, err = e.SetRun(ctx, ingest.Run{
-		Key:       d.Range.String(),
-		Name:      s.Name,
+		Key:       rng.Key.String(),
+		Name:      rng.Name,
 		TimeRange: d.TimeRange,
+		Tags:      tags,
 	})
 	return err
 }
@@ -421,7 +459,7 @@ func (u *uploader) write(ctx context.Context, s *UploadStatus) {
 	}
 }
 
-func progress(d UploadDetails) string {
+func uploadProgress(d UploadDetails) string {
 	return fmt.Sprintf("Sent %s to asset %s.", sampleCount(d.Samples), d.Asset)
 }
 
@@ -454,4 +492,59 @@ func fromPositions(positions []Position) ingest.Positions {
 		p[pos.Index] = pos.Time
 	}
 	return p
+}
+
+// retrieveUploads returns the statuses of every upload, oldest first.
+func retrieveUploads(
+	ctx context.Context,
+	db *gorp.DB,
+	statuses *status.Service,
+) ([]UploadStatus, error) {
+	var uploads []UploadStatus
+	if err := statuses.NewRetrieve[UploadDetails]().
+		WherePrefix(uploadKeyPrefix).
+		Entries(&uploads).
+		Exec(ctx, db); err != nil {
+		return nil, err
+	}
+	return uploads, nil
+}
+
+// lastAsset returns the asset of the newest upload from dev, or "" when there is none.
+func lastAsset(
+	ctx context.Context,
+	db *gorp.DB,
+	statuses *status.Service,
+	dev device.Key,
+) (string, error) {
+	uploads, err := retrieveUploads(ctx, db, statuses)
+	if err != nil {
+		return "", err
+	}
+	for _, s := range slices.Backward(uploads) {
+		if s.Details.Device == dev {
+			return s.Details.Asset, nil
+		}
+	}
+	return "", nil
+}
+
+// rangeUploads returns the keys of the uploads of rng, newest first.
+func rangeUploads(
+	ctx context.Context,
+	db *gorp.DB,
+	statuses *status.Service,
+	rng ranger.Key,
+) ([]status.Key, error) {
+	uploads, err := retrieveUploads(ctx, db, statuses)
+	if err != nil {
+		return nil, err
+	}
+	keys := []status.Key{}
+	for _, s := range slices.Backward(uploads) {
+		if s.Details.Range != nil && *s.Details.Range == rng {
+			keys = append(keys, s.Key)
+		}
+	}
+	return keys, nil
 }

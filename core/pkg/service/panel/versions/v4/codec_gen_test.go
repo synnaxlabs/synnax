@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
-	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
@@ -59,7 +58,6 @@ var _ = Describe("Codec", func() {
 				}),
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-				Owner:   new(user.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 			}),
 			Entry("zero values", v4.Panel{
 				Key:     uuid.Nil(),
@@ -69,7 +67,6 @@ var _ = Describe("Codec", func() {
 				Color:   nil,
 				Group:   nil,
 				Project: nil,
-				Owner:   nil,
 			}),
 		)
 	})
@@ -96,7 +93,6 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 		}),
 		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-		Owner:   new(user.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -135,7 +131,6 @@ func FuzzDecodePanel(f *testing.F) {
 			}),
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-			Owner:   new(user.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -152,7 +147,6 @@ func FuzzDecodePanel(f *testing.F) {
 			Color:   nil,
 			Group:   nil,
 			Project: nil,
-			Owner:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -41,7 +41,7 @@ describe("edge Base", () => {
 
   it("should pass a fully transparent color through as a choice", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={color.ZERO} />,
+      <Base.Base path="M0 0 L10 10" color={color.TRANSPARENT} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
@@ -50,10 +50,10 @@ describe("edge Base", () => {
 
   it("should carry the alpha channel so a translucent edge stays translucent", () => {
     const { container } = renderEdge(
-      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 0.5]} />,
+      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 51]} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
+      "255, 0, 0, 0.2",
     );
   });
 

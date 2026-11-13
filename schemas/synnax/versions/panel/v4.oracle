@@ -10,7 +10,6 @@
 import "schemas/synnax/resource"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
-import "schemas/synnax/versions/user/v1"
 import "schemas/x/versions/color/v1"
 
 TabKey = v0.TabKey
@@ -29,9 +28,6 @@ Panel struct extends v3.Panel {
     -range
     project project.Key? {
         @doc value "is the project that holds the panel."
-    }
-    owner   user.Key?    {
-        @doc value "is the user whose draft the panel is. Nil for a shared panel."
     }
 
     @doc value "is a tree of visualization tabs in a project."

@@ -112,9 +112,13 @@ disabling a sanitizer wholesale.
 The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
-and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
+and stops. Its own uv project and CI job. A pool in `pools.py` must use the label the
 workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
 instance.
+
+`seats.py` starts a stopped agent seat (`infra/agent-runner`) when a job that asks for
+its labels queues. It finds a seat by its instance tags, because the seat runners belong
+to the organization. A seat stops itself when it is idle.
 
 Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
 Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start

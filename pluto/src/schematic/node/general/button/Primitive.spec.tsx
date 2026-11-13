@@ -45,14 +45,14 @@ describe("button symbol", () => {
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(<Button fillColor={[255, 0, 0, 0.5]} />);
+    const { container } = render(<Button fillColor={[255, 0, 0, 51]} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
+      "255, 0, 0, 0.2",
     );
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(<Button fillColor={color.ZERO} />);
+    const { container } = render(<Button fillColor={color.TRANSPARENT} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );

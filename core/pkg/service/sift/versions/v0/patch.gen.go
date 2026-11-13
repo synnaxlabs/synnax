@@ -37,3 +37,38 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 	h.Float(float64(sc.ScanConfig.Rate))
 	h.Bool(sc.ScanConfig.Disabled)
 }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (sc *StreamConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&sc.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&sc.StartConfig.AutoStart, c.Next())
+	case "device":
+		return patch.Value(&sc.Device, c.Next())
+	case "asset":
+		return patch.Value(&sc.Asset, c.Next())
+	case "channels":
+		return patch.Value(&sc.Channels, c.Next())
+	case "labels":
+		return patch.Value(&sc.Labels, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (sc *StreamConfig) HashContent(h *content.Hash) {
+	h.Bool(sc.StartConfig.AutoStart)
+	h.String(sc.Device)
+	h.String(sc.Asset)
+	h.Len(len(sc.Channels))
+	for i0 := range sc.Channels {
+		h.Uint(uint64(sc.Channels[i0]))
+	}
+	h.Len(len(sc.Labels))
+	for i0 := range sc.Labels {
+		h.Bytes(sc.Labels[i0][:])
+	}
+}
