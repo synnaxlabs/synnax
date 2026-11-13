@@ -450,6 +450,26 @@ TEST_F(EtherCATScanFilterTest, TurnsOffTheFilterOnTheReportedInterfaces) {
     EXPECT_EQ(status.details.cmd, "1");
 }
 
+/// @brief it should report no filter on the interfaces it started to turn off until
+/// their next probe, a full interval later.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterUntilTheProbeAfterATurnOff) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    ASSERT_EQ(this->disable_filter().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->disable_filter().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->disabled.size(), 1);
+    ASSERT_NIL_P(this->scanner->scan({.count = 1, .devices = &this->saved}));
+    ASSERT_NIL_P(this->scanner->scan({.count = 6, .devices = &this->saved}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 7, .devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    EXPECT_NE(this->scanner->status_data(), std::nullopt);
+}
+
 /// @brief it should report why the filter is still on.
 TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
     this->disable_err = x::errors::Error(

@@ -211,6 +211,16 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<std::pair<std::string, std::string>> blocked;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
+    std::vector<std::string> turned_off;
+    {
+        std::lock_guard lock(this->mu);
+        turned_off = std::exchange(this->turned_off, {});
+    }
+    // A full interval gives the user time to answer the Windows prompt.
+    for (const auto &key: turned_off)
+        this->next_probes[key] = {
+            .due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL
+        };
 
     for (const auto &master_info: masters) {
         const auto &key = master_info.key;
@@ -323,7 +333,7 @@ synnax::task::Status Scanner::command_status(const synnax::task::Command &cmd) c
     };
 }
 
-void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) const {
+void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) {
     auto task_status = this->command_status(cmd);
     task_status.message = "Failed to turn off the DewesoftX filter";
     std::vector<std::string> interfaces;
@@ -337,6 +347,11 @@ void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) const {
         task_status.description = err.data;
         task_status.details.data = this->status_data();
     } else {
+        {
+            std::lock_guard lock(this->mu);
+            this->filtered.clear();
+            this->turned_off = std::move(interfaces);
+        }
         task_status.variant = synnax::status::VARIANT_SUCCESS;
         task_status.message = "Started to turn off the DewesoftX filter";
         task_status.description = "If Windows asks for administrator access on the "

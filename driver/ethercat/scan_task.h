@@ -115,12 +115,15 @@ private:
     /// @brief the interfaces whose replies the last scan found the DewesoftX filter
     /// blocks. Guarded by mu.
     std::vector<std::string> filtered;
+    /// @brief the interfaces whose filter a command started to turn off since the last
+    /// scan. Guarded by mu.
+    std::vector<std::string> turned_off;
     /// @brief when to probe again an interface that had no slaves.
     struct Probe {
         /// @brief the scan count at which to probe the interface.
         size_t due = 0;
         /// @brief why the interface had no slaves, which each scan reports until the
-        /// next probe, or empty when the user cannot fix it.
+        /// next probe, or empty when there is nothing for the user to fix.
         std::string failure;
     };
     /// @brief the next probe of each interface that had no slaves.
@@ -156,8 +159,9 @@ private:
     void set_standalone(const synnax::task::Command &cmd) const;
 
     /// @brief handles the disable_dewesoft_filter command. A failed reply keeps the
-    /// filtered interfaces in its data, so the user can try again.
-    void disable_dewesoft_filter(const synnax::task::Command &cmd) const;
+    /// filtered interfaces in its data, so the user can try again. After a successful
+    /// start, scans report no filter on the interfaces until their next probe.
+    void disable_dewesoft_filter(const synnax::task::Command &cmd);
 
     /// @brief returns an error status that answers cmd.
     [[nodiscard]] synnax::task::Status

@@ -906,6 +906,13 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await retrieve(slave.key)).properties.identifier).toBe("slave_2");
     });
 
+    it("should offer no restart for a module that is not configured", async () => {
+      const slave = await setup({ configured: false });
+      await createRunningRead(slave);
+      fireEvent.change(nameInput(), { target: { value: uniqueName("renamed") } });
+      await expect(screen.findByText(RESTART)).rejects.toThrow();
+    });
+
     it("should offer no restart once no task on the network runs", async () => {
       const slave = await setup();
       const read = await createRunningRead(slave);

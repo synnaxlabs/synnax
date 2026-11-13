@@ -2321,4 +2321,29 @@ TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
     EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(ctx->statuses[3].description, "eth1: cannot open");
 }
+/// @brief it should send the running status again after the scanner answers a command
+/// with its own status.
+TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+    scan_task->start();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = ANSWERED_CMD_TYPE,
+        .key = "answered_cmd",
+    };
+    scan_task->exec(cmd);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        3,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[1].message, "Answered");
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+}
 }

@@ -261,7 +261,6 @@ const INITIAL_VALUES: SlaveDevice = {
 
 const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
 
-// A check reports issues without making the form invalid, so its errors stop the save.
 /** A check never makes the form invalid, so a field with an error blocks the save. */
 const hasError = (statuses: Status.Crude[]): boolean =>
   statuses.some(({ variant }) => variant === "error");
@@ -518,7 +517,7 @@ export const Configure = ({
                 Save and create write task
               </Button.Button>
             )}
-          {opened.configured && running.length > 0 && (
+          {running.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               onClick={() =>
