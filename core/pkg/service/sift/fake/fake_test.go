@@ -496,6 +496,9 @@ var _ = Describe("Server", func() {
 				codes.InvalidArgument),
 			Entry("stop before start", &runsv2.Run{StopTime: start},
 				[]string{"stop_time"}, codes.InvalidArgument),
+			Entry("no name", &runsv2.Run{}, []string{"name"}, codes.InvalidArgument),
+			Entry("no start time", &runsv2.Run{}, []string{"start_time"},
+				codes.InvalidArgument),
 		)
 
 		It("Should return the errors FailRuns sets, in order", func(ctx SpecContext) {

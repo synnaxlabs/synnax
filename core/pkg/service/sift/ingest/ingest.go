@@ -193,7 +193,8 @@ const liveBuffer = 1024
 var errBehind = errors.New("fell behind the live samples")
 
 // Engine sends the samples of a fixed set of channels to one Sift asset. An Engine is
-// not safe for concurrent use, except that SetRun may run alongside Upload or Stream.
+// not safe for concurrent use, except that SetRun and UpdateRun may run alongside
+// Upload or Stream.
 type Engine struct {
 	cfg     Config
 	flows   []flow
@@ -509,7 +510,7 @@ func (e *Engine) retry(
 		return err
 	}
 	for {
-		id, err := e.ingestionConfig(ctx)
+		id, _, err := e.ingestionConfig(ctx)
 		if err == nil {
 			a := &attempt{
 				engine: e,
@@ -562,25 +563,18 @@ func (e *Engine) retry(
 	}
 }
 
-// asset returns the ID of the Sift asset, creating the ingestion config of the engine
-// when it does not exist yet.
-func (e *Engine) asset(ctx context.Context) (string, error) {
-	if _, err := e.ingestionConfig(ctx); err != nil {
-		return "", err
-	}
+// ingestionConfig returns the IDs of the Sift ingestion config for the engine's flows
+// and of its asset, creating the config the first time.
+func (e *Engine) ingestionConfig(
+	ctx context.Context,
+) (configID, assetID string, err error) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.assetID, nil
-}
-
-// ingestionConfig returns the ID of the Sift ingestion config for the engine's flows,
-// creating it the first time.
-func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.configID != "" {
-		return e.configID, nil
+	configID, assetID = e.configID, e.assetID
+	e.mu.Unlock()
+	if configID != "" {
+		return configID, assetID, nil
 	}
+	// Two calls that create the config at once resolve through AlreadyExists.
 	key := clientKey(e.cfg.Asset, e.flows)
 	find := func() (*ingestionconfigsv2.IngestionConfig, error) {
 		res, err := e.configs.ListIngestionConfigs(
@@ -596,7 +590,7 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 	}
 	cfg, err := find()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if cfg == nil {
 		flows := make([]*ingestionconfigsv2.FlowConfig, len(e.flows))
@@ -614,21 +608,23 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 		switch {
 		case status.Code(err) == codes.AlreadyExists:
 			if cfg, err = find(); err != nil {
-				return "", err
+				return "", "", err
 			}
 			if cfg == nil {
-				return "", errors.New(
+				return "", "", errors.New(
 					"Sift reported an ingestion config that it does not list",
 				)
 			}
 		case err != nil:
-			return "", err
+			return "", "", err
 		default:
 			cfg = res.IngestionConfig
 		}
 	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.configID, e.assetID = cfg.IngestionConfigId, cfg.AssetId
-	return e.configID, nil
+	return e.configID, e.assetID, nil
 }
 
 // progress is what Sift confirmed and which channels arrived without their index.
