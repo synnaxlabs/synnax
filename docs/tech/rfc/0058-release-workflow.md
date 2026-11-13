@@ -47,10 +47,11 @@ package manifest carries its own version.
 template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main` and
 `release/**` build and test only.
 
-A hotfix is fixed on `main` first, then cherry-picked by PR onto
-`release/<product>-X.Y`, cut from the product's latest stable tag. The release workflow
-runs from that branch and resolves its minor from the tags reachable from it. The branch
-is deleted afterwards.
+A hotfix is fixed on `main` first, then cherry-picked by PR onto `release/X.Y`, the one
+branch of train `X.Y`. The branch must reach the latest stable `X.Y` tag of every
+product it releases, because the release workflow runs from that branch and resolves the
+minor of each product from the tags reachable from it. The branch stays for later
+patches of the train. Desktop releases its patches from `release/desktop-X.Y`.
 
 ### 2.1 Release workflow
 
@@ -62,7 +63,7 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
   this run releases, else the newest on the resolved minor (candidates included when
-  `prerelease` is set), so a hotfix from `release/core-0.59` never picks up 0.60.
+  `prerelease` is set), so a hotfix from `release/0.59` never picks up 0.60.
 
 Each selected product runs four stages:
 
