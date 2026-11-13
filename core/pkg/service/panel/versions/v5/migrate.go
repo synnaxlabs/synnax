@@ -16,8 +16,7 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 )
 
-// MigratePanel lifts a v4 panel to v5, which stores every color alpha as a 0-255
-// byte.
+// MigratePanel lifts a v4 panel to v5, which stores every color alpha as a 0-255 byte.
 func MigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
 	return autoMigratePanel(ctx, old)
 }

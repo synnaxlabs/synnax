@@ -17,8 +17,7 @@ import (
 )
 
 // MigrateLinePlot lifts a v9 line plot to v10, which stores every color alpha as a
-// 0-255
-// byte.
+// 0-255 byte.
 func MigrateLinePlot(ctx context.Context, old v9.LinePlot) (LinePlot, error) {
 	return autoMigrateLinePlot(ctx, old)
 }

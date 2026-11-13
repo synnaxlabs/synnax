@@ -16,8 +16,7 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 )
 
-// MigrateTable lifts a v5 table to v6, which stores every color alpha as a 0-255
-// byte.
+// MigrateTable lifts a v5 table to v6, which stores every color alpha as a 0-255 byte.
 func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	return autoMigrateTable(ctx, old)
 }

@@ -124,7 +124,7 @@ func DecodeBundle(
 	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
 }
 
-// decodeBundleBody decodes the body of env. A member from before panel v4 holds a color
+// decodeBundleBody decodes the body of env. A member from before panel v5 holds a color
 // with a 0-1 alpha, which it migrates to a byte alpha.
 func decodeBundleBody(
 	ctx context.Context,
