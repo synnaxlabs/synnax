@@ -57,6 +57,24 @@ describe("NI device", async () => {
       expect(devices.map((d) => d.name)).toEqual(["A", "B"]);
     });
 
+    it("should create a device again after deleting it", async () => {
+      const d = await create();
+      await client.ni.devices.delete(d.key);
+      await client.ni.devices.create(d);
+      expect((await client.ni.devices.retrieve({ key: d.key })).name).toBe(d.name);
+    });
+
+    it("should add a created device to a watched search", async () => {
+      const token = `nidev${Math.random().toString(36).slice(2)}`;
+      const list = client.ni.devices.watch({ searchTerm: token });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const d = await create(token);
+      await expect
+        .poll(() => list.getCached()?.records.map(({ key }) => key))
+        .toContain(d.key);
+    });
+
     it("should replace a device whose key exists", async () => {
       const d = await create();
       await client.ni.devices.create({ ...d, name: "Replaced" });
