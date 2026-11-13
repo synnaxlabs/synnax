@@ -48,9 +48,10 @@ template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main`
 `release/**` build and test only.
 
 A hotfix is fixed on `main` first, then cherry-picked by PR onto `release/X.Y`, the one
-branch of train `X.Y`, cut from a stable tag of the train. The release workflow runs
-from that branch and resolves its minor from the tags reachable from it. The branch is
-deleted afterwards.
+branch of train `X.Y`. The branch must reach the latest stable `X.Y` tag of every
+product it releases, because the release workflow runs from that branch and resolves the
+minor of each product from the tags reachable from it. The branch stays for later
+patches of the train. Desktop releases its patches from `release/desktop-X.Y`.
 
 ### 2.1 Release workflow
 
