@@ -130,6 +130,16 @@ const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { nam
 const findItem = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("listitem", { name });
 
+/** @returns the keys of the tabs that the selected panel shows. */
+const focusedTabs = (store: TestStore): string[] => {
+  const state = store.getState();
+  const panelKey = Session.Panel.selectSelected(state);
+  return panelKey == null ? [] : Session.Panel.selectSelectedTabs(state, panelKey);
+};
+
+const checkboxOf = (name: string): HTMLInputElement =>
+  within(itemOf(name)).getByRole<HTMLInputElement>("checkbox", { name: "Select" });
+
 /** Searches for the range, then opens the context menu on it. */
 const openMenuOf = async (rng: ranger.Range): Promise<void> => {
   await search(rng.name);
@@ -524,6 +534,45 @@ describe("range/explorer/Explorer", () => {
   });
 
   describe("item", () => {
+    it("should open the overview of the range on a plain click", async () => {
+      const rng = await createRange(uniqueRangeName("click"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      fireEvent.click(await findItem(rng.name));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(rng.key));
+      expect(checkboxOf(rng.name).checked).toBe(false);
+    });
+
+    it.each([
+      ["Shift", { shiftKey: true }],
+      ["Ctrl", { ctrlKey: true }],
+      ["Cmd", { metaKey: true }],
+    ])("should select the range without opening it on a %s click", async (_, key) => {
+      const rng = await createRange(uniqueRangeName("modifier"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(await findItem(rng.name), key);
+      await waitFor(() => expect(checkboxOf(rng.name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
+    it("should select the range without opening it on a click of its checkbox", async () => {
+      const rng = await createRange(uniqueRangeName("checkbox"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await search(rng.name);
+      await findItem(rng.name);
+      const before = focusedTabs(store);
+      fireEvent.click(checkboxOf(rng.name));
+      await waitFor(() => expect(checkboxOf(rng.name).checked).toBe(true));
+      expect(focusedTabs(store)).toEqual(before);
+    });
+
     it("should show no start for a range with no start", async () => {
       const planned = await createPlanned(uniqueRangeName("planned"));
       await renderExplorer();

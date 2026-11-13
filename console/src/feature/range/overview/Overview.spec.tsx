@@ -304,6 +304,20 @@ describe("range/overview", () => {
       await waitFor(async () => expect(await rng.kv.list()).toEqual({}));
     });
 
+    it("should drop a pair that another client deletes", async () => {
+      const rng = await createTestRange(client);
+      await rng.kv.set("operator", "ada");
+      await renderOverview(rng.key);
+      await screen.findByDisplayValue("ada");
+      const other = await createTestClient().ranges.retrieve(rng.key);
+      // A pair set from another client shows that the stream is live.
+      await other.kv.set("shift", "night");
+      await screen.findByDisplayValue("night");
+      await other.kv.delete("operator");
+      await waitFor(() => expect(screen.queryByDisplayValue("ada")).toBeNull());
+      expect(screen.getByDisplayValue("night")).toBeTruthy();
+    });
+
     it("should show a value that another client sets", async () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
