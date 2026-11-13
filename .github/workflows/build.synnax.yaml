@@ -219,6 +219,8 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       build_matrix: ${{ steps.set-matrix.outputs.build_matrix }}
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
+      tauri_macos_matrix: ${{ steps.set-console-tauri-matrix.outputs.macos }}
+      tauri_windows_matrix: ${{ steps.set-console-tauri-matrix.outputs.windows }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
@@ -283,19 +285,24 @@ jobs:
       - name: Generate Console Tauri matrix
         id: set-console-tauri-matrix
         run: |
-          OS_LIST=""
+          MACOS=""
+          WINDOWS=""
           if [ "${{ inputs.macos }}" = "true" ]; then
             if [ "${{ inputs.sign_binaries }}" = "true" ]; then
-              OS_LIST="\"macos-latest\""
+              MACOS="\"macos-latest\""
             else
-              OS_LIST="\"macos-build-bot\""
+              MACOS="\"macos-build-bot\""
             fi
           fi
           if [ "${{ inputs.windows }}" = "true" ]; then
-            [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-            OS_LIST="${OS_LIST}\"windows-latest\""
+            WINDOWS="\"windows-latest\""
           fi
-          echo "matrix=[${OS_LIST}]" >> "$GITHUB_OUTPUT"
+          OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
+          {
+            echo "matrix=[${OS_LIST}]"
+            echo "macos=[${MACOS}]"
+            echo "windows=[${WINDOWS}]"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify build configuration
         run: |
@@ -1302,7 +1309,7 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets:
+    secrets: &tauri_secrets
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -1317,45 +1324,75 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  build-desktop-tauri:
-    name: Build Synnax Desktop
-    needs:
-      - setup
-      - build
-      - build-macos
-      - republish
-      - sign-macos-driver
-      - build-macos-core
-      - sign-macos-core
-    # build.tauri.yaml uploads the bundles to the draft release.
+  # Only the bundles of Desktop need the Core, so on macOS the app compiles while the
+  # Driver and the Core build and get their signatures. This stage signs nothing.
+  compile-desktop-macos:
+    name: Compile Synnax Desktop (macOS)
+    needs: setup
+    # build.tauri.yaml asks for the permission. This stage uploads only an artifact.
     permissions:
       contents: write
-    # Desktop bundles the signed macOS Core. A build job skips when the run has no
-    # system for it, and a macOS signing job skips when the run has nothing to sign.
-    if: >-
-      ${{ !cancelled() && inputs.desktop && needs.setup.outputs.console_tauri_matrix !=
-      '[]' && !contains(needs.*.result, 'failure') && !contains(needs.*.result,
-      'cancelled') }}
+    if: inputs.desktop && needs.setup.outputs.tauri_macos_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
       desktop: true
-      os: ${{ needs.setup.outputs.console_tauri_matrix }}
+      stage: compile
+      os: ${{ needs.setup.outputs.tauri_macos_matrix }}
       version: ${{ needs.setup.outputs.VERSION }}
       app_version: ${{ inputs.desktop_version }}
       sign_binaries: ${{ inputs.sign_binaries }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
     secrets:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
-      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  bundle-desktop-macos:
+    name: Bundle Synnax Desktop (macOS)
+    needs:
+      - setup
+      - build-macos
+      - republish
+      - sign-macos-driver
+      - build-macos-core
+      - sign-macos-core
+      - compile-desktop-macos
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
+    # Desktop bundles the signed macOS Core. A macOS signing job skips when the run has
+    # nothing for it to sign.
+    if: >-
+      ${{ !cancelled() && inputs.desktop && needs.setup.outputs.tauri_macos_matrix !=
+      '[]' && !contains(needs.*.result, 'failure') && !contains(needs.*.result,
+      'cancelled') }}
+    uses: ./.github/workflows/build.tauri.yaml
+    with:
+      desktop: true
+      stage: bundle
+      os: ${{ needs.setup.outputs.tauri_macos_matrix }}
+      version: ${{ needs.setup.outputs.VERSION }}
+      app_version: ${{ inputs.desktop_version }}
+      sign_binaries: ${{ inputs.sign_binaries }}
+      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
+      updater_channel: ${{ inputs.updater_channel }}
+    secrets: *tauri_secrets
+
+  # Desktop on Windows needs only the Windows Core, so it does not wait for macOS.
+  build-desktop-windows:
+    name: Build Synnax Desktop (Windows)
+    needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
+    if: inputs.desktop && needs.setup.outputs.tauri_windows_matrix != '[]'
+    uses: ./.github/workflows/build.tauri.yaml
+    with:
+      desktop: true
+      os: ${{ needs.setup.outputs.tauri_windows_matrix }}
+      version: ${{ needs.setup.outputs.VERSION }}
+      app_version: ${{ inputs.desktop_version }}
+      sign_binaries: ${{ inputs.sign_binaries }}
+      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
+      updater_channel: ${{ inputs.updater_channel }}
+    secrets: *tauri_secrets
