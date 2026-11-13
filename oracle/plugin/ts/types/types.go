@@ -543,10 +543,16 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	case resolution.DistinctForm:
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
 			zodType := primitiveToZod(typeOverride, data)
-			if validateDomain, ok := td.Domains["validate"]; ok {
+			// The override replaces the schema of every type in the chain, so the type
+			// applies all of their rules.
+			rules := validation.TypeRules(validation.TypeChain(
+				resolution.TypeRef{Name: td.QualifiedName},
+				data.Request.Resolutions,
+			))
+			if !validation.IsEmpty(rules) {
 				result := p.applyValidation(
 					zodType,
-					validation.Parse(validateDomain),
+					rules,
 					nil,
 					form.Base,
 					td.Name,

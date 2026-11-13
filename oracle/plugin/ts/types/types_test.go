@@ -473,6 +473,31 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should apply a base chain's rules to a type overridden to number",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@validate gt 0
+				}
+
+				Hz = Rate {
+					@validate max 100
+				}
+
+				Fast Hz {
+					@ts type "number"
+				}
+			`
+				resp := MustGenerate(ctx, source, "rate", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const fastZ = z.number().gt(0).max(100);",
+				)
+			},
+		)
+
+		It(
 			"Should leave a generated type's rules to its own schema",
 			func(ctx SpecContext) {
 				source := `
