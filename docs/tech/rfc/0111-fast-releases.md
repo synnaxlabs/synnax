@@ -106,9 +106,9 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
 - **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
   upload move to the publish stage.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
-  pushes the image, stages npm, and uploads to PyPI. The Core publishes first, since it
-  holds the Latest badge. A failed build leaves only drafts, which the next run clears
-  (`draft-release/action.yaml:55`).
+  pushes the image, stages npm, and uploads to PyPI. The Core publishes last, so a
+  public Core never embeds a release that is still a draft. A failed build leaves only
+  drafts, which the next run clears (`draft-release/action.yaml:55`).
 - **Docs**: One deploy per run, after the publish. The docs pages are prerendered, so
   the deploy sets the download links and the dates of the release notes.
 - **Release notes date**: For 0.59 and later, `Release.astro` reads the publish date of
@@ -118,15 +118,18 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
 
 ### 3.2 Verify
 
-`verify` looks for a successful run of `ci.yaml` with `full: true` on the commit of the
-run. Nightly runs and earlier release runs both count. When none exists, `verify` calls
-`ci.yaml` itself, in parallel with the builds. A retry of a failed release finds the
-green run and skips CI.
+The `green-run` job looks for a successful run of `ci.yaml` with `full: true` on the
+commit of the run. Nightly runs and earlier release runs both count. When none exists,
+the `ci` job calls `ci.yaml`, in parallel with the builds. The `verify` job passes when
+a green run exists or `ci` passed, and every publish needs it. A retry of a failed
+release finds the green run and skips CI.
 
 The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
-`nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
-passed. A full run has about 185 jobs, so the script pages the job list. It follows
-`check_artifact_cache.sh`, which finds an earlier run through the same API.
+`nightly.yaml`, `release.yaml`, and `release.desktop.yaml` on the commit and accepts one
+whose `CI / OK` job passed in any attempt, so a rerun of all jobs finds the first
+attempt of its own run. A full run has about 185 jobs, so the script pages the job list,
+50 jobs per page: a page of 100 at times gets an HTTP 502. An API error counts as no
+green run, and CI runs.
 
 ### 3.3 macOS builds on the build bots, signing on hosted runners
 

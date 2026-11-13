@@ -21,6 +21,8 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -50,31 +52,11 @@ const (
 	MethodConnect Method = v3.MethodConnect
 )
 
-// TimeFormat is the encoding of a timestamp value within a JSON body.
-type TimeFormat = v3.TimeFormat
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = v3.TimeFormatISO8601
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = v3.TimeFormatUnixSec
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = v3.TimeFormatUnixMs
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = v3.TimeFormatUnixUs
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = v3.TimeFormatUnixNs
-)
-
 // Header is a single HTTP header sent with a request.
 type Header = v3.Header
 
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam = v3.QueryParam
-
-// EnumEntry maps a string label in a JSON body to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = v3.EnumEntry
 
 // ReadField is a single value extracted from an endpoint's JSON response.
 type ReadField struct {
@@ -98,9 +80,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the response to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -258,63 +240,382 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// JSONType is the JSON type a channel value is serialized as in a request body.
-type JSONType = v3.JSONType
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = v3.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = v3.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = v3.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = v3.GeneratorType
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each request.
-	GeneratorTypeUUID GeneratorType = v3.GeneratorTypeUUID
-	// GeneratorTypeTimestamp produces the time of the request.
-	GeneratorTypeTimestamp GeneratorType = v3.GeneratorTypeTimestamp
-)
-
 // ChannelField is the command channel value placed into a write endpoint's body.
-type ChannelField = v3.ChannelField
+type ChannelField struct {
+	// Pointer is the JSON Pointer where the channel value is placed in the body. An
+	// empty pointer sends the bare value as the entire body, in which case the endpoint
+	// may not declare any additional fields.
+	Pointer string `json:"pointer" msgpack:"pointer"`
+	// JSONType is the JSON type the channel value is serialized as.
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
+	// Channel is the Synnax command channel that triggers the request.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Name is the human-readable name of the command channel.
+	Name string `json:"name" msgpack:"name"`
+	// DataType is the data type of the command channel.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	// EnumValues maps numeric channel values to string labels. Only valid when
+	// json_type is 'string'.
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *ChannelField) ApplyDefaults() {
+	if c.JSONType == "" {
+		c.JSONType = payload.JSONTypeNumber
+	}
+	if c.DataType == "" {
+		c.DataType = "float64"
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelField) SetDefaults() {
+	c.JSONType = payload.JSONTypeNumber
+	c.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ChannelField) Validate() error {
+	v := validate.New("ChannelField")
+	v.Ternaryf("json_type", !c.JSONType.IsValid(), "invalid json_type: %v", c.JSONType)
+	return v.Error()
+}
 
 // BaseWriteField carries the fields every write body field shares.
 type BaseWriteField = v3.BaseWriteField
 
-// WriteField is an additional body field on a write endpoint. The type field selects
-// whether the value is fixed or generated per request.
-type WriteField = v3.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v3.WriteFieldVariant
-
 // WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v3.WriteFieldType
+type WriteFieldType string
 
 const (
 	// StaticWriteFieldType places a fixed value in the request body.
-	StaticWriteFieldType WriteFieldType = v3.StaticWriteFieldType
+	StaticWriteFieldType WriteFieldType = "static"
 	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
-	GeneratedWriteFieldType WriteFieldType = v3.GeneratedWriteFieldType
+	GeneratedWriteFieldType WriteFieldType = "generated"
 )
 
+// WriteFieldVariant is implemented by every WriteField variant.
+type WriteFieldVariant interface {
+	isWriteFieldVariant()
+}
+
 // StaticWriteField places a fixed value in the request body.
-type StaticWriteField = v3.StaticWriteField
+type StaticWriteField struct {
+	BaseWriteField
+	// JSONType is the JSON type the value is serialized as.
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
+	// Value is the fixed JSON value placed at the pointer.
+	Value any `json:"value" msgpack:"value"`
+}
+
+func (StaticWriteField) isWriteFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticWriteField) SetDefaults() {
+	s.JSONType = payload.JSONTypeNumber
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StaticWriteField) ApplyDefaults() {
+	if s.JSONType == "" {
+		s.JSONType = payload.JSONTypeNumber
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StaticWriteField) Validate() error {
+	v := validate.New("StaticWriteField")
+	v.Ternaryf("json_type", !s.JSONType.IsValid(), "invalid json_type: %v", s.JSONType)
+	return v.Error()
+}
 
 // GeneratedWriteField places a freshly generated UUID or timestamp in the body.
-type GeneratedWriteField = v3.GeneratedWriteField
+type GeneratedWriteField struct {
+	BaseWriteField
+	// Generator is the generator that produces a fresh value per request.
+	Generator payload.GeneratorType `json:"generator" msgpack:"generator"`
+	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+}
+
+func (GeneratedWriteField) isWriteFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GeneratedWriteField) SetDefaults() {
+	g.Generator = payload.GeneratorTypeUUID
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (g *GeneratedWriteField) ApplyDefaults() {
+	if g.Generator == "" {
+		g.Generator = payload.GeneratorTypeUUID
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (g GeneratedWriteField) Validate() error {
+	v := validate.New("GeneratedWriteField")
+	v.Ternaryf("generator", !g.Generator.IsValid(), "invalid generator: %v", g.Generator)
+	return v.Error()
+}
+
+// WriteField is an additional body field on a write endpoint. The type field selects
+// whether the value is fixed or generated per request.
+type WriteField struct {
+	Variant WriteFieldVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteField) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case StaticWriteField:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}{Type: StaticWriteFieldType, StaticWriteField: v})
+	case GeneratedWriteField:
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}{Type: GeneratedWriteFieldType, GeneratedWriteField: v})
+	default:
+		return errors.Newf("WriteField: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteFieldType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case StaticWriteFieldType:
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}
+		v.StaticWriteField.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StaticWriteField
+	case GeneratedWriteFieldType:
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}
+		v.GeneratedWriteField.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GeneratedWriteField
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteField: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteField) Type() WriteFieldType {
+	switch u.Variant.(type) {
+	case StaticWriteField:
+		return StaticWriteFieldType
+	case GeneratedWriteField:
+		return GeneratedWriteFieldType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *WriteField) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case GeneratedWriteField:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u WriteField) Validate() error {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		return variant.Validate()
+	case GeneratedWriteField:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteField) Base() BaseWriteField {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		return variant.BaseWriteField
+	case GeneratedWriteField:
+		return variant.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteField) SetBase(base BaseWriteField) {
+	switch variant := u.Variant.(type) {
+	case StaticWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	case GeneratedWriteField:
+		variant.BaseWriteField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteField: cannot set the base of variant %T", variant))
+	}
+}
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
-type WriteEndpoint = v3.WriteEndpoint
+type WriteEndpoint struct {
+	// Key uniquely identifies the endpoint within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the endpoint is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Method is the HTTP method used to send the request.
+	Method Method `json:"method" msgpack:"method"`
+	// Path is the URL path appended to the device's base URL.
+	Path string `json:"path" msgpack:"path"`
+	// Headers contains additional headers merged into the request.
+	Headers []Header `json:"headers" msgpack:"headers"`
+	// QueryParams contains query parameters appended to the request URL.
+	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
+	// Channel is the command channel whose writes trigger this endpoint.
+	Channel ChannelField `json:"channel" msgpack:"channel"`
+	// Fields contains additional static or generated body fields.
+	Fields []WriteField `json:"fields" msgpack:"fields"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteEndpoint) ApplyDefaults() {
+	if w.Method == "" {
+		w.Method = MethodPost
+	}
+	w.Channel.ApplyDefaults()
+	for i := range w.Fields {
+		w.Fields[i].ApplyDefaults()
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteEndpoint) SetDefaults() {
+	w.Channel.SetDefaults()
+	w.Method = MethodPost
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteEndpoint
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteEndpoint
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteEndpoint) Validate() error {
+	v := validate.New("WriteEndpoint")
+	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
+	v.Exec(func() error { return validate.PathedError(w.Channel.Validate(), "channel") })
+	for i := range w.Fields {
+		v.Exec(func() error { return validate.PathedError(w.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
-type WriteConfig = v3.WriteConfig
+type WriteConfig struct {
+	task.StartConfig
+	// Device is the key of the HTTP server device to write to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Endpoints contains the endpoints to write to.
+	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	for i := range w.Endpoints {
+		w.Endpoints[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Endpoints {
+		v.Exec(func() error { return validate.PathedError(w.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = v3.ScanConfig
