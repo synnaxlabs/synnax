@@ -2797,6 +2797,23 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     );
 }
 
+/// @brief it should fail activation with a retryable error when one slave aborts a
+/// startup parameter and another gives no response.
+TEST_F(SOEMMasterTest, ActivateRetriesWhenOneStartupParameterGetsNoResponse) {
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {
+        {1, {.startup_parameters = {FILTER}}},
+        {2, {.startup_parameters = {RANGE}}},
+    };
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[1].sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
+}
+
 /// @brief it should not blame an abort of another object for a failed startup parameter
 /// write.
 TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
