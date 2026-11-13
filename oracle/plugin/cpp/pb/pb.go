@@ -798,7 +798,7 @@ func (p *Plugin) generatePrimitiveConversion(
 				pbSetter,
 				cppFieldName,
 			)
-			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::uuid::UUID::parse(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
