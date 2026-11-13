@@ -114,7 +114,7 @@ export const renderTaskFormHook = async <R,>(
   return await renderHookWithConsole(useHarness);
 };
 
-export interface TaskFormProviderProps extends PropsWithChildren {
+interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
   mode?: PForm.Mode;
   formRef?: FormRef;
@@ -122,13 +122,8 @@ export interface TaskFormProviderProps extends PropsWithChildren {
   schema?: z.ZodType;
 }
 
-/**
- * Provides a real pluto Form context to its children so ambient form-context task hooks
- * (e.g. useTare, which reads the "key" and "status" fields without an explicit ctx) can
- * be rendered against seeded form values. When `formRef` is provided, the live form
- * context is exposed through it for reading/writing form state in specs.
- */
-export const TaskFormProvider = ({
+/** Gives its children a real form with the values, exposed through formRef if given. */
+const TaskFormProvider = ({
   values,
   mode,
   formRef,
