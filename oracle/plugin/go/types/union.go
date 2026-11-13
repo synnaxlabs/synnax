@@ -56,9 +56,6 @@ type unionData struct {
 	// NeedsApplyDefaults reports that at least one variant carries an ApplyDefaults
 	// method, so the wrapper emits one that dispatches on the active variant.
 	NeedsApplyDefaults bool
-	// NeedsValidate reports that at least one variant carries a Validate method, so the
-	// wrapper emits one that dispatches on the active variant.
-	NeedsValidate bool
 	// Base is the struct every variant embeds (e.g. "BaseAIChannel"), set only when
 	// resolver.SharedBase finds one. The wrapper then emits Base and SetBase.
 	Base string
@@ -123,6 +120,14 @@ func (u unionData) HasGroups() bool {
 		}
 	}
 	return false
+}
+
+// ValidatesVariants reports whether a variant of the union emits Validate.
+func (u unionData) ValidatesVariants() bool {
+	return slices.ContainsFunc(
+		u.Variants,
+		func(v unionVariantData) bool { return v.NeedsValidate },
+	)
 }
 
 // SetDefaultsView returns the view of the variant's SetDefaults method.
@@ -317,8 +322,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			embeds,
 			inlineFields,
 			data,
-			defaultsHasOwn,
-			neverSkip,
+			defaultsRule,
 		)
 		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
 		vd.SetFills = setFills(vd.DefaultFills)
@@ -327,8 +331,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			embeds,
 			inlineFields,
 			data,
-			validateHasOwn,
-			validateSkip,
+			validateRule,
 		)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
 			len(vd.DefaultFills) > 0 || len(vd.DefaultGroups) > 0
@@ -337,16 +340,10 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		if vd.NeedsApplyDefaults {
 			ud.NeedsApplyDefaults = true
 		}
-		if vd.NeedsValidate {
-			ud.NeedsValidate = true
-		}
 		if hasSliceRecurse(vd.ValidateRecurse) {
 			data.AddExternal(strconvImportPath)
 		}
 		ud.Variants = append(ud.Variants, vd)
-	}
-	if ud.NeedsValidate {
-		data.AddExternal(validateImportPath)
 	}
 	return ud, nil
 }
@@ -367,13 +364,12 @@ func embedRecurseSteps(
 	embeds []embeddedType,
 	inlineFields []resolution.Field,
 	data *templateData,
-	hasOwn fieldHasOwn,
-	skip fieldHasOwn,
+	rule methodRule,
 ) []recurseStepData {
 	var steps []recurseStepData
 	for _, e := range embeds {
 		if resolvesToMethodType(e.ref, data) &&
-			typeNeedsMethod(e.ref, data, set.New[string](), hasOwn, skip) {
+			typeNeedsMethod(e.ref, data, set.New[string](), rule) {
 			steps = append(
 				steps,
 				recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue},
@@ -382,10 +378,10 @@ func embedRecurseSteps(
 	}
 	for _, f := range inlineFields {
 		fd := data.forField(f)
-		if skip(f, fd) {
+		if rule.skip(f, fd) {
 			continue
 		}
-		if step, ok := goRecurseStep(f, fd, hasOwn, skip); ok {
+		if step, ok := goRecurseStep(f, fd, rule); ok {
 			steps = append(steps, step)
 		}
 	}

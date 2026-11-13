@@ -1048,7 +1048,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (u Scale) Validate() error {",
-					"return variant.Validate()",
+					`v.Ternary("type", u.Variant == nil, "required")`,
+					"case LinearScale:",
+					"v.Exec(variant.Validate)",
 				)
 			},
 		)
@@ -1060,6 +1062,62 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (c *Container) ApplyDefaults() {",
 					"c.Scale.ApplyDefaults()",
+				)
+			},
+		)
+	})
+
+	Describe("Union without a variant", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			Window union on variant {
+				tumbling {}
+				sliding {}
+			}
+
+			Container struct {
+				window   Window
+				fallback Window?
+				windows  Window[]
+			}
+		`
+
+		It(
+			"Should reject a union without a variant when no variant validates",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (u Window) Validate() error {",
+					`v.Ternary("variant", u.Variant == nil, "required")`,
+				)
+				ExpectContent(resp, "types.gen.go").ToNotContain(
+					"switch variant := u.Variant.(type) {",
+				)
+			},
+		)
+
+		It(
+			"Should decode a missing discriminator to no variant",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"switch disc.Type {\n\tcase \"\":\n\t\tu.Variant = nil",
+				)
+			},
+		)
+
+		It(
+			"Should validate required, optional, and array union fields",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c Container) Validate() error {",
+					`validate.PathedError(c.Window.Validate(), "window")`,
+					"if c.Fallback != nil {",
+					`validate.PathedError(c.Fallback.Validate(), "fallback")`,
+					`validate.PathedError(c.Windows[i].Validate(), "windows", `+
+						`strconv.Itoa(i))`,
 				)
 			},
 		)

@@ -819,11 +819,11 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if genMethods && len(embeds) > 0 {
 		sd.DefaultRecurse = append(
 			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
+			embedRecurseSteps(embeds, nil, data, defaultsRule)...,
 		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
-			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
+			embedRecurseSteps(embeds, nil, data, validateRule)...,
 		)
 	}
 	if sd.IsGeneric {
@@ -859,7 +859,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			}
 			sd.DefaultFills = append(sd.DefaultFills, fills...)
 		}
-		if step, ok := goRecurseStep(field, fd, defaultsHasOwn, neverSkip); ok {
+		if step, ok := goRecurseStep(field, fd, defaultsRule); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
 		if validateSkip(field, fd) {
@@ -872,7 +872,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			sd.ConstraintChecks,
 			goConstraintChecks(field, defaultOnly.Contains(field.Name), fd)...,
 		)
-		if step, ok := goRecurseStep(field, fd, validateHasOwn, validateSkip); ok {
+		if step, ok := goRecurseStep(field, fd, validateRule); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
@@ -1834,7 +1834,9 @@ func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field.
+// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field. A
+// null or a
+// missing "{{.DiscJSONName}}" decodes to no variant, which Validate rejects.
 func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -1854,6 +1856,8 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 {{- range .Variants}}
 	case {{.ConstName}}:
 		var v struct {
@@ -1918,22 +1922,25 @@ func (u *{{.Name}}) ApplyDefaults() {
 	}
 }
 {{- end}}
-{{- if .NeedsValidate}}
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u {{.Name}}) Validate() error {
+	v := validate.New("{{.Name}}")
+	v.Ternary("{{.DiscJSONName}}", u.Variant == nil, "required")
+{{- if .ValidatesVariants}}
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
 {{- if .NeedsValidate}}
 	case {{.TypeName}}:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 {{- end}}
 {{- end}}
 	}
-	return nil
-}
 {{- end}}
+	return v.Error()
+}
 {{- if .Base}}
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
