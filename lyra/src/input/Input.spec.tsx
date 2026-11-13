@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -113,6 +114,21 @@ describe("Input", () => {
         fireEvent.blur(input);
         expect(onChange).toHaveBeenCalledWith("test");
       });
+
+      it("should not call onChange on a blur that leaves the text as it was", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Text value="original" onChange={onChange} onlyChangeOnBlur />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        fireEvent.blur(input);
+        fireEvent.focus(input);
+        fireEvent.change(input, { target: { value: "new" } });
+        fireEvent.change(input, { target: { value: "original" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+      });
     });
 
     describe("focus and blur handlers", () => {
@@ -134,7 +150,7 @@ describe("Input", () => {
     });
 
     describe("resetOnBlurIfEmpty", () => {
-      it("should reset to original value on blur if empty", () => {
+      it("should reset to the original value with no onChange on blur if empty", () => {
         const onChange = vi.fn();
         const c = render(
           <Input.Text
@@ -148,7 +164,32 @@ describe("Input", () => {
         fireEvent.focus(input);
         fireEvent.change(input, { target: { value: "" } });
         fireEvent.blur(input);
-        expect(onChange).toHaveBeenCalledWith("original");
+        expect(onChange).not.toHaveBeenCalled();
+        expect(input).toHaveProperty("value", "original");
+      });
+
+      it("should change an emptied value back to the original on blur", () => {
+        const onChange = vi.fn();
+        const Controlled = () => {
+          const [value, setValue] = useState("original");
+          return (
+            <Input.Text
+              value={value}
+              onChange={(next) => {
+                onChange(next);
+                setValue(next);
+              }}
+              resetOnBlurIfEmpty
+            />
+          );
+        };
+        const c = render(<Controlled />);
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange.mock.calls).toEqual([[""], ["original"]]);
+        expect(input).toHaveProperty("value", "original");
       });
 
       it("should not reset if input is not empty on blur", () => {
