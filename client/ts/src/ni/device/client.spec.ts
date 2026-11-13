@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
+import { query } from "@/query";
 import { resource } from "@/resource";
 import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 
@@ -117,6 +118,14 @@ describe("NI device", async () => {
       expect(client.ni.devices.watch(d.key ?? "").getCached()).toBeUndefined();
     });
 
+    it("should restore the previous device when a replace fails", async () => {
+      const d = await create();
+      await expect(
+        client.ni.devices.create({ ...d, name: "Replacement" }, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(expectLive(client.ni.devices.watch(d.key).getCached()).name).toBe(d.name);
+    });
+
     it("should restore the device when a delete fails", async () => {
       const d = await create();
       await expect(
@@ -149,6 +158,27 @@ describe("NI device", async () => {
         includeStatus: true,
       });
       expect(retrieved.status?.owner).toEqual(ni.device.resourceID(d.key));
+    });
+
+    it("should update the status of a cached device", async () => {
+      const d = await create();
+      const params = { key: d.key, includeStatus: true };
+      onTestFinished(client.ni.devices.watch(params).onChange(() => {}));
+      await client.ni.devices.retrieve(params);
+      await client.statuses.set({
+        owner: ni.device.resourceID(d.key),
+        name: "",
+        variant: "warning",
+        message: "Device degraded",
+        time: TimeStamp.now(),
+        details: { rack: rack.key, device: d.key },
+      });
+      await expect
+        .poll(() => {
+          const cached = client.ni.devices.watch(params).getCached();
+          return query.isLive(cached) ? cached.status?.message : undefined;
+        })
+        .toBe("Device degraded");
     });
 
     it("should filter devices by rack", async () => {
