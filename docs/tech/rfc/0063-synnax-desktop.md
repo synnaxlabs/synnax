@@ -429,10 +429,10 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
   `DESKTOP` constant and wiring sites, `feature/embedded`, `EMBEDDED_KEY`, and the
   splash inputs. One phase, because no part runs without the others and the Console
   bundle is the green state at every commit.
-- **Phase 3: Release.** `release.desktop.yaml`, the `desktop` product in
-  `resolve_version.sh` and the hub, the Desktop CI job, the updater manifest, and
-  signing. The installation page waits for the first release, because its download link
-  needs a published manifest.
+- **Phase 3: Release.** `release.desktop.yaml` (now part of `release.yaml`), the
+  `desktop` product in `resolve_version.sh` and the hub, the Desktop CI job, the updater
+  manifest, and signing. The installation page waits for the first release, because its
+  download link needs a published manifest.
 
 ## 7 What this RFC does not cover
 
