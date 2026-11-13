@@ -114,9 +114,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:              cfg.DB,
-			References:      analogReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+			DB:         cfg.DB,
+			References: analogReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogReadMigration,
+				v4.AnalogReadMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -158,9 +161,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:              cfg.DB,
-			References:      counterReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+			DB:         cfg.DB,
+			References: counterReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.CounterReadMigration,
+				v4.CounterReadMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -181,9 +187,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:              cfg.DB,
-			References:      digitalReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.DigitalReadMigration},
+			DB:         cfg.DB,
+			References: digitalReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.DigitalReadMigration,
+				v4.DigitalReadMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -204,9 +213,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:              cfg.DB,
-			References:      digitalWriteConfigReferences(),
-			Migrations:      []gorp.Migration{v3.DigitalWriteMigration},
+			DB:         cfg.DB,
+			References: digitalWriteConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.DigitalWriteMigration,
+				v4.DigitalWriteMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_digital_write",
 			LegacyVersion:   legacy.LastVersion,

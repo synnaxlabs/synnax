@@ -49,13 +49,21 @@ func decodeAnalogReadConfig(
 		if err != nil {
 			return AnalogReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateAnalogReadConfig(ctx, t3)
+		if err != nil {
+			return AnalogReadConfig{}, err
+		}
+		return t4, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.AnalogReadConfig](data, "ni.AnalogReadConfig", version)
 		if err != nil {
 			return AnalogReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateAnalogReadConfig(ctx, t3)
+		if err != nil {
+			return AnalogReadConfig{}, err
+		}
+		return t4, nil
 	case v4.Version:
 		return imex.DecodeBlob[AnalogReadConfig](data, "ni.AnalogReadConfig", version)
 	}
@@ -85,13 +93,21 @@ func decodeCounterReadConfig(
 		if err != nil {
 			return CounterReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateCounterReadConfig(ctx, t3)
+		if err != nil {
+			return CounterReadConfig{}, err
+		}
+		return t4, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.CounterReadConfig](data, "ni.CounterReadConfig", version)
 		if err != nil {
 			return CounterReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateCounterReadConfig(ctx, t3)
+		if err != nil {
+			return CounterReadConfig{}, err
+		}
+		return t4, nil
 	case v4.Version:
 		return imex.DecodeBlob[CounterReadConfig](data, "ni.CounterReadConfig", version)
 	}
@@ -165,13 +181,21 @@ func decodeDigitalReadConfig(
 		if err != nil {
 			return DigitalReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateDigitalReadConfig(ctx, t3)
+		if err != nil {
+			return DigitalReadConfig{}, err
+		}
+		return t4, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.DigitalReadConfig](data, "ni.DigitalReadConfig", version)
 		if err != nil {
 			return DigitalReadConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateDigitalReadConfig(ctx, t3)
+		if err != nil {
+			return DigitalReadConfig{}, err
+		}
+		return t4, nil
 	case v4.Version:
 		return imex.DecodeBlob[DigitalReadConfig](data, "ni.DigitalReadConfig", version)
 	}
@@ -201,13 +225,21 @@ func decodeDigitalWriteConfig(
 		if err != nil {
 			return DigitalWriteConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateDigitalWriteConfig(ctx, t3)
+		if err != nil {
+			return DigitalWriteConfig{}, err
+		}
+		return t4, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
 		if err != nil {
 			return DigitalWriteConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateDigitalWriteConfig(ctx, t3)
+		if err != nil {
+			return DigitalWriteConfig{}, err
+		}
+		return t4, nil
 	case v4.Version:
 		return imex.DecodeBlob[DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
 	}

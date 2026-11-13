@@ -250,7 +250,7 @@ integer.
 | Modbus        | `RegisterString.length`           | `int32 = 0`    | `uint16`                         | `min 1`, `max 250` | One request reads 125 registers at most (`driver/modbus/channels.h:71`)              |
 | Modbus        | `bytes_swapped`, `words_swapped`  | `bool?`        | `bool?`                          | -                  | Absent inherits the device's order (`driver/modbus/channels.h:97`)                   |
 | Modbus device | `swap_bytes`, `swap_words`        | `bool`         | `bytes_swapped`, `words_swapped` | -                  | Booleans are adjectival (`driver/modbus/device/device.h:243`)                        |
-| NI            | Channel and `CJC.chan` `port`     | `int32 = 0`    | `uint32 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign                                               |
+| NI            | Channel and `CJC.chan` `port`     | `int32 = 0`    | `uint16 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign; migration clamps it to 0 to 65535            |
 | NI            | DI and DO `line`                  | `int32 = 0`    | `uint8 = 0`                      | `max 31`           | A DAQmx port has 32 lines at most                                                    |
 | NI            | Counter `divisor`                 | `int32 = 4`    | `uint32 = 4`                     | `min 1`            | `DAQmxCreateCIFreqChan` takes `uInt32`, and 0 has no meaning                         |
 | NI            | `pulses_per_rev`                  | `float64 = 24` | `uint32 = 24`                    | `min 1`            | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1419`) |
@@ -281,11 +281,12 @@ and imports) applies these rules in this order. Each migration phase tests a cla
 both bounds, a clamped-and-disabled identifier, and that a stored 199 becomes absent and
 the channel stays enabled.
 
-Phases 15, 21, 23, and 24 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. Phase
-25 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
-cutover (RFC 0081 §4.8), which already rewrites every Modbus device and types its
-writes. The old Python client writes `swap_bytes`, and an old Driver requires it
-(`device.h:273`), so that release's notes say to upgrade both with the Core.
+Phases 15, 21, 23, and 24 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. NI v3
+shipped with `uint32` ports, so NI v4 narrows them to `uint16`. Phase 25 waits for, and
+renames the Modbus device keys in, the RFC 0081 `modbus.Server` cutover (RFC 0081 §4.8),
+which already rewrites every Modbus device and types its writes. The old Python client
+writes `swap_bytes`, and an old Driver requires it (`device.h:273`), so that release's
+notes say to upgrade both with the Core.
 
 ## 7 Migration
 

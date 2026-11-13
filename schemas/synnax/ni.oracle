@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port uint32 = 0 {
+        port uint16 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -676,7 +676,7 @@ BaseAIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
@@ -1198,7 +1198,7 @@ BaseCIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
@@ -1511,7 +1511,7 @@ BaseAOChannel struct {
     disabled bool = false {
         @doc value "is true when the channel is excluded from the task."
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1569,7 +1569,7 @@ DIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     uint32 = 0 {
+    port     uint16 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     line     uint8 = 0 {
@@ -1605,7 +1605,7 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               uint32 = 0 {
+    port               uint16 = 0 {
         @doc value "is the physical port the channel writes to."
     }
     line               uint8 = 0 {
