@@ -213,6 +213,9 @@ var _ = Describe("MigrateReadRecord", func() {
 })
 
 var _ = Describe("NewReadMigration", func() {
+	staleTimeFormat := oldField(telem.Int16T)
+	staleTimeFormat.TimeFormat = new(payload.TimeFormatUnixMs)
+
 	It("Should lift, log, and reconcile each stored read config", func(
 		ctx SpecContext,
 	) {
@@ -229,6 +232,7 @@ var _ = Describe("NewReadMigration", func() {
 						payload.EnumEntry{Label: "HALF", Value: 0.5},
 					),
 					oldField(telem.JSONT, payload.EnumEntry{Label: "ON", Value: 1}),
+					staleTimeFormat,
 				},
 			}},
 		}
@@ -259,6 +263,6 @@ var _ = Describe("NewReadMigration", func() {
 		Expect(reconciled).To(Equal([]uuid.UUID{stored.Key}))
 		Expect(logs.FilterMessage(
 			"changed a Kafka read field while lifting it to v1",
-		).Len()).To(Equal(2))
+		).Len()).To(Equal(3))
 	})
 })
