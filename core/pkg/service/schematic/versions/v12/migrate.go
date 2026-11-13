@@ -14,13 +14,15 @@ import (
 	"reflect"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateSchematic lifts a v11 schematic to v12, which stores every color alpha as a
 // 0-255 byte. An optional color that holds the zero color becomes absent, as v11 stored
-// the zero color to mean that the theme picks the color.
+// the zero color to mean that the theme picks the color. Symbol state overrides keep
+// their zero colors, which paint a region transparent.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -34,11 +36,17 @@ func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error)
 	return s, nil
 }
 
-var colorPtrType = reflect.TypeFor[*color.Color]()
+var (
+	colorPtrType = reflect.TypeFor[*color.Color]()
+	statesType   = reflect.TypeFor[[]symbol.State]()
+)
 
-// clearZeroColors sets every optional color under v that holds the zero color to nil.
-// v must be settable.
+// clearZeroColors sets every optional color under v that holds the zero color to nil,
+// except inside symbol states. v must be settable.
 func clearZeroColors(v reflect.Value) {
+	if v.Type() == statesType {
+		return
+	}
 	switch v.Kind() {
 	case reflect.Pointer:
 		if v.IsNil() {

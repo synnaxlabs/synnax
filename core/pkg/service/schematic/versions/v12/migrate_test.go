@@ -197,4 +197,23 @@ var _ = Describe("Migrate functions", func() {
 			To(Equal(want))
 		Expect(out.Configs["e"].Variant.(v12.PipeElementConfig).StrokeColor).To(BeNil())
 	})
+	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Configs: map[string]v11.ElementConfig{
+				"n": {Variant: v11.CustomStaticElementConfig{
+					StateOverrides: []symbolv2.State{
+						{
+							Key: "base",
+							Regions: []symbolv2.Region{
+								{Key: "r", FillColor: &color.Color{}},
+							},
+						},
+					},
+				}},
+			},
+		}))
+		node := out.Configs["n"].Variant.(v12.CustomStaticElementConfig)
+		Expect(node.StateOverrides[0].Regions[0].FillColor).
+			To(HaveValue(Equal(colorv2.Color{})))
+	})
 })
