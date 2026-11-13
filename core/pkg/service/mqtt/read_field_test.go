@@ -350,24 +350,20 @@ var _ = Describe("Read field", func() {
 			))
 		})
 
-		It("Should keep the entries of an imported v1 field with a time format", func(
+		It("Should import a v1 index field as a timestamp field", func(
 			ctx SpecContext,
 		) {
-			ch := createChannel(ctx, telem.Uint8T)
-			data := MustSucceed(svc.Read.Normalize(ctx, db, 1, readConfig(
-				map[string]any{
-					"key":         "f1",
-					"channel":     ch.Key(),
-					"pointer":     "/v",
-					"time_format": "unix_sec",
-					"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
-				},
-			)))
+			ch := createChannel(ctx, telem.TimestampT)
+			cfg := readConfig(map[string]any{
+				"key":     "stamp",
+				"channel": ch.Key(),
+				"pointer": "/ts",
+			})
+			cfg["entries"].([]any)[0].(map[string]any)["index"] = "stamp"
+			data := MustSucceed(svc.Read.Normalize(ctx, db, 1, cfg))
 			Expect(fieldsOf(data)[0]).To(SatisfyAll(
-				HaveKeyWithValue("type", "unsigned"),
-				HaveKeyWithValue("enum_values", HaveExactElements(
-					map[string]any{"label": "ON", "value": "1"},
-				)),
+				HaveKeyWithValue("type", "timestamp"),
+				HaveKeyWithValue("time_format", "iso8601"),
 			))
 		})
 

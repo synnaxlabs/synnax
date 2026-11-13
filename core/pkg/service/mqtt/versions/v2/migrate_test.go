@@ -53,7 +53,7 @@ var _ = Describe("MigrateReadField", func() {
 	DescribeTable(
 		"Should pick the kind of the stored data type",
 		func(dt telem.DataType, kind payload.Kind) {
-			f, changes := v2.MigrateReadField(storedField(dt))
+			f, changes := v2.MigrateReadField(storedField(dt), false)
 			Expect(f.Type()).To(Equal(kind))
 			Expect(changes).To(BeEmpty())
 		},
@@ -71,7 +71,7 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should keep the base of the field", func() {
 		old := storedField(telem.Float64T)
 		old.Disabled = true
-		f, _ := v2.MigrateReadField(old)
+		f, _ := v2.MigrateReadField(old, false)
 		Expect(f.Base()).To(Equal(v2.BaseReadField{
 			Key:      "f1",
 			Name:     "level",
@@ -82,7 +82,7 @@ var _ = Describe("MigrateReadField", func() {
 	})
 
 	It("Should keep the stored data type as the width of a new channel", func() {
-		f, _ := v2.MigrateReadField(storedField(telem.Int16T))
+		f, _ := v2.MigrateReadField(storedField(telem.Int16T), false)
 		Expect(v2.ReadOf(f).Number.DataType).To(HaveValue(Equal(telem.Int16T)))
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("MigrateReadField", func() {
 			payload.EnumEntry{Label: "ON", Value: 1},
 			payload.EnumEntry{Label: "HALF", Value: 0.5},
 			payload.EnumEntry{Label: "", Value: 2},
-		))
+		), false)
 		integer, ok := f.Variant.(v2.IntegerReadField)
 		Expect(ok).To(BeTrue())
 		Expect(integer.EnumValues).To(Equal([]payload.IntegerEntry{
@@ -111,7 +111,7 @@ var _ = Describe("MigrateReadField", func() {
 			telem.BooleanT,
 			payload.EnumEntry{Label: "ON", Value: 1},
 			payload.EnumEntry{Label: "ON", Value: 0},
-		))
+		), false)
 		boolean, ok := f.Variant.(v2.BooleanReadField)
 		Expect(ok).To(BeTrue())
 		Expect(boolean.EnumValues).To(Equal(
@@ -127,7 +127,7 @@ var _ = Describe("MigrateReadField", func() {
 			telem.Uint16T,
 			payload.EnumEntry{Label: "LOW", Value: -1},
 			payload.EnumEntry{Label: "HIGH", Value: 3},
-		))
+		), false)
 		unsigned, ok := f.Variant.(v2.UnsignedReadField)
 		Expect(ok).To(BeTrue())
 		Expect(unsigned.EnumValues).To(Equal(
@@ -142,7 +142,7 @@ var _ = Describe("MigrateReadField", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.Float64T,
 			payload.EnumEntry{Label: "HALF", Value: 0.5},
-		))
+		), false)
 		float, ok := f.Variant.(v2.FloatReadField)
 		Expect(ok).To(BeTrue())
 		Expect(float.EnumValues).To(Equal(
@@ -156,7 +156,7 @@ var _ = Describe("MigrateReadField", func() {
 			telem.BooleanT,
 			payload.EnumEntry{Label: "OFF", Value: 0},
 			payload.EnumEntry{Label: "ON", Value: 2},
-		))
+		), false)
 		boolean, ok := f.Variant.(v2.BooleanReadField)
 		Expect(ok).To(BeTrue())
 		Expect(boolean.EnumValues).To(Equal([]payload.BooleanEntry{
@@ -169,7 +169,7 @@ var _ = Describe("MigrateReadField", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.StringT,
 			payload.EnumEntry{Label: "ON", Value: 1},
-		))
+		), false)
 		str, ok := f.Variant.(v2.StringReadField)
 		Expect(ok).To(BeTrue())
 		Expect(str.EnumValues).To(BeEmpty())
@@ -179,7 +179,7 @@ var _ = Describe("MigrateReadField", func() {
 	})
 
 	It("Should give a timestamp field with no time format ISO 8601", func() {
-		f, _ := v2.MigrateReadField(storedField(telem.TimestampT))
+		f, _ := v2.MigrateReadField(storedField(telem.TimestampT), false)
 		stamp, ok := f.Variant.(v2.TimestampReadField)
 		Expect(ok).To(BeTrue())
 		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
@@ -188,7 +188,7 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should keep the time format of a timestamp field", func() {
 		old := storedField(telem.TimestampT)
 		old.TimeFormat = new(payload.TimeFormatUnixMs)
-		f, _ := v2.MigrateReadField(old)
+		f, _ := v2.MigrateReadField(old, false)
 		stamp, ok := f.Variant.(v2.TimestampReadField)
 		Expect(ok).To(BeTrue())
 		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
@@ -197,47 +197,40 @@ var _ = Describe("MigrateReadField", func() {
 	It("Should keep the time format of a field stored with another data type", func() {
 		old := storedField(telem.Float64T)
 		old.TimeFormat = new(payload.TimeFormatUnixMs)
-		f, changes := v2.MigrateReadField(old)
+		f, changes := v2.MigrateReadField(old, false)
 		stamp, ok := f.Variant.(v2.TimestampReadField)
 		Expect(ok).To(BeTrue())
 		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
 		Expect(changes).To(ConsistOf(
-			"data type float64 became the timestamp kind, which its time format reads",
+			"data type float64 became the timestamp kind of an index or time format",
 		))
 	})
 
-	It("Should keep the numeric kind and entries of a typed field with a time format",
-		func() {
-			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
-			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			f, changes := v2.MigrateReadField(old)
-			unsigned, ok := f.Variant.(v2.UnsignedReadField)
-			Expect(ok).To(BeTrue())
-			Expect(unsigned.EnumValues).To(Equal(
-				[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
-			))
-			Expect(changes).To(ConsistOf(
-				"time format unix_sec was dropped, because the field is unsigned",
-			))
-		},
-	)
-
-	It("Should keep the entries of a default field with a time format", func() {
-		old := storedField("", payload.EnumEntry{Label: "ON", Value: 1})
+	It("Should lift a typed field with a time format to the timestamp kind", func() {
+		old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
 		old.TimeFormat = new(payload.TimeFormatUnixSec)
-		f, changes := v2.MigrateReadField(old)
-		float, ok := f.Variant.(v2.FloatReadField)
+		f, changes := v2.MigrateReadField(old, false)
+		stamp, ok := f.Variant.(v2.TimestampReadField)
 		Expect(ok).To(BeTrue())
-		Expect(
-			float.EnumValues,
-		).To(Equal([]payload.FloatEntry{{Label: "ON", Value: 1}}))
+		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixSec))
 		Expect(changes).To(ConsistOf(
-			"time format unix_sec was dropped, because the field is float",
+			"data type uint8 became the timestamp kind of an index or time format",
+			`enum label "ON" was dropped: a timestamp field takes no numeric entries`,
+		))
+	})
+
+	It("Should lift an index field with no time format to ISO 8601", func() {
+		f, changes := v2.MigrateReadField(storedField(""), true)
+		stamp, ok := f.Variant.(v2.TimestampReadField)
+		Expect(ok).To(BeTrue())
+		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+		Expect(changes).To(ConsistOf(
+			"data type float64 became the timestamp kind of an index or time format",
 		))
 	})
 
 	It("Should lift an unknown data type to the float kind and describe it", func() {
-		f, changes := v2.MigrateReadField(storedField("complex128"))
+		f, changes := v2.MigrateReadField(storedField("complex128"), false)
 		Expect(f.Type()).To(Equal(payload.KindFloat))
 		Expect(v2.ReadOf(f).Number.DataType).To(BeNil())
 		Expect(changes).To(ConsistOf(
@@ -245,19 +238,21 @@ var _ = Describe("MigrateReadField", func() {
 		))
 	})
 
-	It("Should lift an unknown data type with a time format to the float kind", func() {
-		old := storedField("complex128")
-		old.TimeFormat = new(payload.TimeFormatUnixSec)
-		f, changes := v2.MigrateReadField(old)
-		Expect(f.Type()).To(Equal(payload.KindFloat))
-		Expect(changes).To(ConsistOf(
-			`unknown data type "complex128" became the float kind`,
-			"time format unix_sec was dropped, because the field is float",
-		))
-	})
+	It("Should lift an unknown data type with a time format to the timestamp kind",
+		func() {
+			old := storedField("complex128")
+			old.TimeFormat = new(payload.TimeFormatUnixSec)
+			f, changes := v2.MigrateReadField(old, false)
+			Expect(f.Type()).To(Equal(payload.KindTimestamp))
+			Expect(changes).To(ConsistOf(
+				`unknown data type "complex128" became the float kind`,
+				"data type complex128 became the timestamp kind of an index or time format",
+			))
+		},
+	)
 
 	It("Should take float64 for an empty data type", func() {
-		f, changes := v2.MigrateReadField(storedField(""))
+		f, changes := v2.MigrateReadField(storedField(""), false)
 		Expect(v2.ReadOf(f).Number.DataType).To(HaveValue(Equal(telem.Float64T)))
 		Expect(changes).To(BeEmpty())
 	})
@@ -292,7 +287,7 @@ var _ = Describe("MigrateReadConfig", func() {
 		Expect(plain.Topic).To(Equal("plant/level"))
 		Expect(plain.Index).To(Equal("f1"))
 		Expect(plain.Fields).To(HaveLen(1))
-		Expect(plain.Fields[0].Type()).To(Equal(payload.KindUnsigned))
+		Expect(plain.Fields[0].Type()).To(Equal(payload.KindTimestamp))
 		tag, ok := cfg.Entries[1].Variant.(v2.SparkplugReadEntry)
 		Expect(ok).To(BeTrue())
 		Expect(tag.Tag).To(Equal("speed"))

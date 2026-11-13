@@ -35,18 +35,22 @@ import (
 // field drops its entries, and a timestamp field with no time format takes ISO 8601.
 // Each kind but string drops an entry with an empty label, which it can never match.
 // An empty data type is the v1 default, float64. An unknown one lifts to the float
-// kind with no data type, so that reconciling with the channel can set the kind. A
-// float64 field with a time format and no entries lifts to the timestamp kind and keeps
-// the format, because v1 left the data type at its default and read the channel's
-// data type. A field with entries stays numeric, and its time format drops.
-func MigrateReadField(old v1.ReadField) (ReadField, []string) {
-	return migrateReadField(old, nil)
+// kind with no data type, so that reconciling with the channel can set the kind. The
+// index field of its entry, and a field with a time format, lift to the timestamp kind
+// and keep the format, because v1 left the data type at its default and read the
+// channel's data type.
+func MigrateReadField(old v1.ReadField, index bool) (ReadField, []string) {
+	return migrateReadField(old, index, nil)
 }
 
 // migrateReadField is MigrateReadField with the field's channel, when known. The
 // channel's data type then picks the kind, as v1 read it, and a numeric kind takes no
 // data type, because the channel exists.
-func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
+func migrateReadField(
+	old v1.ReadField,
+	index bool,
+	ch *Channel,
+) (ReadField, []string) {
 	var changes []string
 	note := func(format string, args ...any) {
 		changes = append(changes, fmt.Sprintf(format, args...))
@@ -65,10 +69,9 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		note("unknown data type %q became the float kind", dt)
 	}
 	switch {
-	case ch == nil && old.TimeFormat != nil && dt == telem.Float64T &&
-		len(old.EnumValues) == 0:
+	case ch == nil && kind != payload.KindTimestamp && (index || old.TimeFormat != nil):
 		kind = payload.KindTimestamp
-		note("data type %s became the timestamp kind, which its time format reads", dt)
+		note("data type %s became the timestamp kind of an index or time format", dt)
 	case old.TimeFormat != nil && kind != payload.KindTimestamp:
 		note(
 			"time format %s was dropped, because the field is %s",
@@ -171,7 +174,7 @@ func migrateReadConfig(
 			if c, ok := found[f.Channel]; ok {
 				ch = &c
 			}
-			fields[j], changes = migrateReadField(f, ch)
+			fields[j], changes = migrateReadField(f, f.Key == plain.Index, ch)
 			for _, c := range changes {
 				note(path, c)
 			}
