@@ -10,8 +10,10 @@
 package sift
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/gorp"
@@ -148,7 +150,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		return nil, err
 	}
 	runs.engine = e
-	from := fromPositions(p.positions())
+	from, behind := p.from()
 	for _, index := range e.Indexes() {
 		if _, ok := from[index]; !ok {
 			from[index] = start
@@ -169,7 +171,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 		}
 		sCtx.Go(func(ctx context.Context) error {
-			return e.Stream(ctx, from)
+			return e.Stream(ctx, from, behind)
 		}, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 		return errors.Skip(sCtx.Wait(), context.Canceled)
 	}, nil
@@ -221,10 +223,12 @@ type progress struct {
 	samples int64
 }
 
-func (p *progress) positions() []Position {
+// from returns the saved positions of the task, and the channels that are behind them.
+func (p *progress) from() (ingest.Positions, ingest.ChannelPositions) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.status.Details.Positions
+	d := p.status.Details
+	return fromPositions(d.Positions), fromChannelPositions(d.Behind)
 }
 
 // through returns the time the task started to send from, the time before which Sift
@@ -249,6 +253,7 @@ func (p *progress) advance(ctx context.Context, cp ingest.Checkpoint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.status.Details.Positions = toPositions(cp.Positions)
+	p.status.Details.Behind = toChannelPositions(cp.Behind)
 	p.sent = cp.Through
 	p.samples += cp.Samples
 	p.write(ctx)
@@ -259,6 +264,25 @@ func (p *progress) setRunsThrough(ctx context.Context, ts telem.TimeStamp) {
 	defer p.mu.Unlock()
 	p.status.Details.RunsThrough = ts
 	p.write(ctx)
+}
+
+func toChannelPositions(p ingest.ChannelPositions) []ChannelPosition {
+	positions := make([]ChannelPosition, 0, len(p))
+	for ch, t := range p {
+		positions = append(positions, ChannelPosition{Channel: ch, Time: t})
+	}
+	slices.SortFunc(positions, func(a, b ChannelPosition) int {
+		return cmp.Compare(a.Channel, b.Channel)
+	})
+	return positions
+}
+
+func fromChannelPositions(positions []ChannelPosition) ingest.ChannelPositions {
+	p := make(ingest.ChannelPositions, len(positions))
+	for _, pos := range positions {
+		p[pos.Channel] = pos.Time
+	}
+	return p
 }
 
 // write saves the status. p.mu must be held.

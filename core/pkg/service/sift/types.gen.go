@@ -44,6 +44,14 @@ type Position struct {
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 }
 
+// ChannelPosition is how far Sift has confirmed the values of one data channel.
+type ChannelPosition struct {
+	// Channel is the data channel the position belongs to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Time is the time before which Sift confirmed every value of the channel.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+}
+
 // UploadDetails is the state of an upload to Sift, held in the details of its status.
 type UploadDetails struct {
 	// Device is the key of the Sift device the upload sends to.
@@ -71,4 +79,8 @@ type StreamDetails struct {
 	Positions []Position `json:"positions" msgpack:"positions"`
 	// RunsThrough is the time before which every labeled range that ended has a run.
 	RunsThrough telem.TimeStamp `json:"runs_through" msgpack:"runs_through"`
+	// Behind holds each data channel that was written without its index and whose
+	// values Sift has not confirmed. It is empty while every channel arrives with its
+	// index.
+	Behind []ChannelPosition `json:"behind" msgpack:"behind"`
 }

@@ -17,8 +17,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -463,6 +465,44 @@ var _ = Describe("Stream task", func() {
 					Should(BeEmpty())
 			})
 	})
+
+	It("Should send after a restart the values of a channel written without its index",
+		func(ctx SpecContext) {
+			other := createData(ctx, idx)
+			cfg := streamConfig()
+			cfg["channels"] = []channel.Key{ch.Key(), other.Key()}
+			start(ctx, cfg)
+			now := telem.Now()
+			stamps := []telem.TimeStamp{now, now.Add(telem.Millisecond)}
+			write(ctx, idx, other, stamps, telem.NewSeriesV(1.0, 2.0))
+			Eventually(func() []fake.Point {
+				return server.Points("stand", other.Name)
+			}).Should(HaveLen(2))
+			Expect(progressOf(ctx)).To(HaveField("Details.Behind", BeEmpty()))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			keys := channel.Keys{ch.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  keys,
+				Start: stamps[0],
+			}))
+			Expect(MustSucceed(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{telem.NewSeriesV(10.0, 20.0)},
+			)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(progressOf(ctx)).To(HaveField(
+				"Details.Behind",
+				HaveExactElements(HaveField("Channel", ch.Key())),
+			))
+			start(ctx, cfg)
+			Eventually(values).Should(HaveExactElements(10.0, 20.0))
+			Eventually(progressOf).WithArguments(ctx).
+				Should(HaveField("Details.Behind", BeEmpty()))
+			Expect(values()).To(HaveExactElements(10.0, 20.0))
+		})
 
 	It("Should warn while Sift is down and clear the warning once it recovers",
 		func(ctx SpecContext) {
