@@ -378,10 +378,11 @@ jobs:
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
       # that mtime is less than an hour old, so an entry older than an hour before the
-      # build did not serve this run. A size budget is not safe: it deletes the first
-      # entries of the run, which are the standard library and the modules.
+      # build did not serve this run. A size budget below the size of one build deletes
+      # entries that the run used. A failed run used only a part of the cache, so only
+      # a run that passes trims and saves.
       - name: Trim the Go build cache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         shell: bash
         env:
           BUILD: ${{ steps.key.outputs.build }}
@@ -395,7 +396,7 @@ jobs:
       # The shards restore the same cache and save under one key, so only the first
       # saves.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
