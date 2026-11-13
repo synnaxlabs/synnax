@@ -114,6 +114,20 @@ describe("View.Filter", () => {
       fireEvent.click(removes[1]);
       await expectWhere({ and: [{ variant: { in: ["error"] } }] });
     });
+
+    it("should edit only the first condition from the menu", async () => {
+      await renderFixture(TWO);
+      await pickVariant("Warning");
+      await expectWhere({
+        and: [{ variant: { in: ["error", "warning"] } }, { variant: { in: ["info"] } }],
+      });
+    });
+
+    it("should clear only the first condition from the menu", async () => {
+      await renderFixture(TWO);
+      await pickVariant("Error");
+      await expectWhere({ and: [{ variant: { in: ["info"] } }] });
+    });
   });
 
   it("should show a chip for each field of one node", async () => {

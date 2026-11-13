@@ -17,16 +17,19 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
+import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -44,8 +47,15 @@ import {
 
 const client = createTestClient();
 
-const renderExplorer = async (as: Client = client): Promise<TestStore> => {
-  const { wrapper, store } = await createConsoleWrapper({ client: as });
+/** Renders the explorer. A copied link names the selected Core, if one is given. */
+const renderExplorer = async (
+  as: Client = client,
+  core?: Session.Core.Core,
+): Promise<TestStore> => {
+  const { wrapper, store } = await createConsoleWrapper({
+    client: as,
+    preloadedState: core == null ? undefined : createCoreState([core], core.key),
+  });
   await renderSuspended(
     <>
       <Explorer />
@@ -396,6 +406,16 @@ describe("range/explorer/Explorer", () => {
       });
     });
 
+    it("should copy a link to the range on Copy link", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createRange(uniqueRangeName("linked"));
+      await renderExplorer(client, createCore("test"));
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Copy link"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(writeText.mock.calls[0][0]).toContain(`range/${rng.key}`);
+    });
+
     it("should open a new line plot of the range on Plot", async () => {
       const rng = await createRange(uniqueRangeName("plotted"));
       const store = await renderExplorer();
@@ -472,6 +492,29 @@ describe("range/explorer/Explorer", () => {
     });
   });
 
+  describe("labels", () => {
+    it("should add and remove a label from the picker of an item", async () => {
+      const token = uniqueToken();
+      const label = await client.labels.create({
+        name: uniqueName("label"),
+        color: "#000000",
+      });
+      const rng = await createRange(`${token} labeled`);
+      await renderExplorer();
+      await search(token);
+      const item = await findItem(rng.name);
+      fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
+      await searchAndClickLabelOption(label.name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([label.key]),
+      );
+      fireEvent.click(await within(item).findByLabelText(`Remove ${label.name}`));
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([]),
+      );
+    });
+  });
+
   describe("color", () => {
     it("should set the color of a range from the swatch of its item", async () => {
       const token = uniqueToken();
@@ -510,6 +553,27 @@ describe("range/explorer/Explorer", () => {
       );
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
+    });
+
+    it("should pan the window on a drag of the axis", async () => {
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      const axis = await screen.findByRole("group", { name: "Time axis" });
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.pointerDown(axis, { clientX: 50, pointerId: 1 });
+      fireEvent.pointerMove(axis, { clientX: 20, pointerId: 1 });
+      fireEvent.pointerUp(axis, { clientX: 20, pointerId: 1 });
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
+    });
+
+    it("should pan the window on a sideways wheel", async () => {
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      const axis = await screen.findByRole("group", { name: "Time axis" });
+      fireEvent.wheel(axis, { deltaY: 30, clientX: 50 });
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.wheel(axis, { deltaX: 30, clientX: 50 });
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
     });
 
     it("should offer Fit all once a zoom or Now moves the window", async () => {

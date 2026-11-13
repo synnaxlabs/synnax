@@ -22,7 +22,7 @@ import {
   ChipTrigger,
   ChipValue,
 } from "@/platform/view/filter/Chip";
-import { type Condition } from "@/platform/view/filter/codec";
+import { type Condition, replace } from "@/platform/view/filter/codec";
 import { type Properties, type Property } from "@/platform/view/filter/types";
 import { useConditions } from "@/platform/view/filter/useConditions";
 
@@ -84,13 +84,8 @@ export const Chips = <W extends { and?: W[] }>({
   const { editable } = useContext("View.Filter.Chips");
   const [conditions, setConditions] = useConditions(properties);
   if (conditions.length === 0) return null;
-  // A chip edits only its own condition, as a filter can hold two on one property.
-  const replace = (index: number, next: Condition<W> | null): void =>
-    setConditions(
-      next == null
-        ? conditions.filter((_, i) => i !== index)
-        : conditions.map((c, i) => (i === index ? next : c)),
-    );
+  const set = (index: number, next: Condition<W> | null): void =>
+    setConditions(replace(conditions, index, next));
   return (
     <>
       {conditions.map((condition, i) =>
@@ -98,7 +93,7 @@ export const Chips = <W extends { and?: W[] }>({
           <OtherChip
             key={`other-${i}`}
             where={condition.where}
-            onRemove={() => replace(i, null)}
+            onRemove={() => set(i, null)}
           />
         ) : (
           <PropertyChip
@@ -106,7 +101,7 @@ export const Chips = <W extends { and?: W[] }>({
             property={properties[condition.property]}
             value={condition.value}
             onChange={(value) =>
-              replace(i, value == null ? null : { property: condition.property, value })
+              set(i, value == null ? null : { property: condition.property, value })
             }
           />
         ),

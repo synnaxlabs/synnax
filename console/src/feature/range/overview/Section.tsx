@@ -117,28 +117,19 @@ export const AddLine = ({ onClick, children }: AddLineProps): ReactElement => (
 interface FieldProps {
   name: ReactNode;
   children: ReactNode;
-  /** Shows at the end of the field at all times. */
-  note?: ReactNode;
   /** Shows at the end of the field on hover and focus. */
   actions?: ReactNode;
 }
 
-export const Field = ({ name, children, note, actions }: FieldProps): ReactElement => (
+export const Field = ({ name, children, actions }: FieldProps): ReactElement => (
   <div className={CSS.BE("range-overview", "field")}>
     {name}
     {children}
-    <Flex.Box x align="center" gap="small">
-      {note}
-      {actions != null && (
-        <Flex.Box
-          x
-          align="center"
-          className={CSS.BE("range-overview", "field-actions")}
-        >
-          {actions}
-        </Flex.Box>
-      )}
-    </Flex.Box>
+    {actions != null && (
+      <Flex.Box x align="center" className={CSS.BE("range-overview", "field-actions")}>
+        {actions}
+      </Flex.Box>
+    )}
   </div>
 );
 

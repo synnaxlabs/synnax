@@ -13,7 +13,7 @@ import pytest
 
 import synnax as sy
 from synnax import ranger, status, view
-from synnax.view import RangeView, StatusView
+from synnax.view import RangeView, StatusView, actions_gen
 from x.testutil import assert_eventually
 
 
@@ -61,6 +61,31 @@ class TestView:
         assert isinstance(renamed, StatusView)
         assert renamed.name == "After Rename"
         assert renamed.where == where
+
+    def test_style(self, client: sy.Synnax) -> None:
+        """Should store the icon, color, sort, and layout of a view."""
+        v = client.views.create(
+            RangeView(
+                name="Styled",
+                icon="star",
+                color=sy.Color("#ff0000"),
+                sort="oldest",
+                layout="timeline",
+            )
+        )
+        retrieved = client.views.retrieve(key=v.key)
+        assert isinstance(retrieved, RangeView)
+        assert retrieved.icon == "star"
+        assert retrieved.color == sy.Color("#ff0000")
+        assert retrieved.sort == "oldest"
+        assert retrieved.layout == "timeline"
+        client.views.dispatch(
+            v.key, actions_gen.set(actions_gen.SetPayload(path=["sort"], value="name"))
+        )
+        updated = client.views.retrieve(key=v.key)
+        assert isinstance(updated, RangeView)
+        assert updated.sort == "name"
+        assert updated.icon == "star"
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""

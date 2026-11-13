@@ -25,8 +25,8 @@ export interface ConditionProps<V> {
 }
 
 /**
- * A property that a view filters by, such as labels. Each holds at most one condition
- * of the filter.
+ * A property that a view filters by, such as labels. A filter can hold more than one
+ * condition on a property. The filter menu edits the first of them.
  */
 export interface Property<W, V> {
   name: string;

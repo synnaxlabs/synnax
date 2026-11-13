@@ -190,7 +190,7 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
         location={RIGHT_EDGE}
         value={range.labels}
         onChange={handleChange}
-        triggerProps={{ variant: "shadow" }}
+        triggerProps={{ variant: "shadow", "aria-label": "Labels" }}
       />
     </Field>
   );

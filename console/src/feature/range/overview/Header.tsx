@@ -73,6 +73,7 @@ const Labels = ({ rangeKey, preview }: RangeKeyProps & { preview: boolean }) => 
       value={value}
       onChange={handleChange}
       preview={preview}
+      triggerProps={{ variant: "text", "aria-label": "Labels" }}
     />
   );
 };

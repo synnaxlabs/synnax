@@ -17,6 +17,11 @@ import { findDialogTrigger } from "@/testutil";
  */
 export const searchAndClickLabel = async (name: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
+  await searchAndClickLabelOption(name);
+};
+
+/** Narrows the open label select dialog down to name and clicks the matching option. */
+export const searchAndClickLabelOption = async (name: string): Promise<void> => {
   const search = await waitFor(() => screen.getByPlaceholderText("Search labels..."));
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));
