@@ -197,7 +197,8 @@ func duplicate[E any](entries []E, equal func(a, b E) bool) int {
 
 // Reconcile returns c changed to agree with a channel of data type dt, and describes
 // each change. A kind dt does not allow becomes the first numeric kind dt allows when
-// it is numeric, and KindOf(dt) otherwise. Entries convert between numeric kinds when
+// it is numeric or a timestamp, and KindOf(dt) otherwise. Entries convert between
+// numeric kinds when
 // they stay exact, and drop on other kinds. An entry that does not fit dt, or whose
 // value matches an earlier entry's there, drops. c is returned as it is when dt is not
 // a known data type.
@@ -209,7 +210,8 @@ func (c Channel) Reconcile(dt telem.DataType) (Channel, []string) {
 	var changes []string
 	if !slices.Contains(kinds, c.Kind) {
 		kind := kinds[0]
-		if numeric(c.Kind) {
+		// A timestamp field that moved off a timestamp channel wrote numbers there.
+		if numeric(c.Kind) || c.Kind == KindTimestamp {
 			if i := slices.IndexFunc(kinds, numeric); i >= 0 {
 				kind = kinds[i]
 			}
