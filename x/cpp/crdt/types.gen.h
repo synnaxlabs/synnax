@@ -17,6 +17,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/spatial/types.gen.h"
 
 #include "x/go/crdt/pb/crdt.pb.h"
 
