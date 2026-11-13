@@ -1,0 +1,51 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Backs up the Synnax Core on Sandbox-Windows to a zip on that box. The Core stops while
+# its data is copied.
+
+name: Backup - Runner Core
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: deploy-runners
+
+env:
+  INSTANCE: i-0daf42c1631de819a
+
+jobs:
+  backup:
+    name: Back up the Core on Sandbox-Windows
+    runs-on: ubuntu-latest
+    environment: runners
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            scripts/runners
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: arn:aws:iam::004704223095:role/github-runners-deploy
+          aws-region: us-east-1
+
+      - name: Back up
+        env:
+          COMMENT: Back up the Core at ${{ github.sha }}
+          TIMEOUT: 1800
+        run: .github/scripts/run_ssm_powershell.sh < scripts/runners/backup.ps1
