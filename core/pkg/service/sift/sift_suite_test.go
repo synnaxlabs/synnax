@@ -131,6 +131,7 @@ func factoryConfig() sift.FactoryConfig {
 		Channel:            channelSvc,
 		Framer:             framerSvc,
 		Label:              labelSvc,
+		Task:               taskSvc,
 		Timeout:            2 * telem.Second,
 		CheckpointInterval: 20 * telem.Millisecond,
 	}

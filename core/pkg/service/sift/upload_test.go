@@ -58,7 +58,7 @@ var _ = Describe("Upload", func() {
 	}
 
 	BeforeEach(func(ctx SpecContext) {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)

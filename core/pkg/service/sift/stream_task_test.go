@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xuuid "github.com/synnaxlabs/x/uuid"
@@ -48,7 +49,7 @@ var _ = Describe("Stream task", func() {
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
@@ -143,6 +144,48 @@ var _ = Describe("Stream task", func() {
 			send(ctx, 3)
 			Eventually(values).Should(HaveExactElements(1.0, 3.0))
 		})
+
+	It("Should delete its progress when the task is deleted", func(ctx SpecContext) {
+		start(ctx, streamConfig())
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, false)
+		})).To(Succeed())
+		progressErr := func() error {
+			_, err := progressOf(ctx)
+			return err
+		}
+		Eventually(progressErr).Should(MatchError(query.ErrNotFound))
+		send(ctx, 2)
+		Expect(dt.Stop(false)).To(Succeed())
+		Consistently(progressErr).WithTimeout(200 * time.Millisecond).
+			Should(MatchError(query.ErrNotFound))
+	})
+
+	It("Should rename its progress when the task is renamed", func(ctx SpecContext) {
+		rename := func(name string) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := taskSvc.NewWriter(tx).Apply(ctx, t.Key, task.NewSetAction(
+					task.SetPayload{Path: []string{"name"}, Value: name},
+				))
+				return err
+			})).To(Succeed())
+		}
+		start(ctx, streamConfig())
+		Expect(dt.Stop(false)).To(Succeed())
+		rename("stopped")
+		Eventually(progressOf).WithArguments(ctx).
+			Should(HaveField("Name", "stopped"))
+		start(ctx, streamConfig())
+		rename("running")
+		Eventually(progressOf).WithArguments(ctx).
+			Should(HaveField("Name", "running"))
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Expect(progressOf(ctx)).To(HaveField("Name", "running"))
+	})
 
 	It("Should save where it starts before it sends anything", func(ctx SpecContext) {
 		before := telem.Now()
@@ -556,7 +599,7 @@ var _ = Describe("Stream task", func() {
 			cfg := factoryConfig()
 			// The writes below must arrive before the engine waits for Sift to confirm.
 			cfg.CheckpointInterval = 500 * telem.Millisecond
-			f = MustSucceed(sift.NewFactory(cfg))
+			f = MustOpen(sift.OpenFactory(cfg))
 			other := createData(ctx, idx)
 			taskCfg := streamConfig()
 			taskCfg["channels"] = []channel.Key{ch.Key(), other.Key()}

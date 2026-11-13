@@ -292,7 +292,8 @@ func fromChannelPositions(positions []ChannelPosition) ingest.ChannelPositions {
 	return p
 }
 
-// write saves the status. p.mu must be held.
+// write saves the status under the name of the task, unless the task was deleted. p.mu
+// must be held.
 func (p *progress) write(ctx context.Context) {
 	p.status.Message = "Sent to Sift"
 	p.status.Description = fmt.Sprintf(
@@ -303,6 +304,20 @@ func (p *progress) write(ctx context.Context) {
 	p.status.Time = telem.Now()
 	ctx = context.WithoutCancel(ctx)
 	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		// Transactions run one at a time, so no delete of the task lands between the
+		// check and the set. The factory deletes a status saved before the delete.
+		var t task.Task
+		err := p.cfg.Task.NewRetrieve().
+			Where(task.MatchKeys(p.task.Key)).
+			Entry(&t).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		p.status.Name = t.Name
 		return p.cfg.Status.NewWriter(tx).Set(ctx, &p.status)
 	}); err != nil {
 		p.cfg.L.Error(
