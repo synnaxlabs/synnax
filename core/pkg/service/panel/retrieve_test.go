@@ -170,6 +170,15 @@ var _ = Describe("Drafts", func() {
 		).To(Equal([]panel.Key{shared.Key}))
 	})
 
+	It("Should retrieve the shared panels and the drafts of a user from a Where", func(
+		ctx SpecContext,
+	) {
+		f := MustSucceed(panel.MatchWhere(panel.Where{
+			Or: []panel.Where{{Owned: new(false)}, {Owners: []user.Key{mine.Key}}},
+		}))
+		Expect(retrieve(ctx, f)).To(ConsistOf(shared.Key, myDraft.Key))
+	})
+
 	It("Should delete the drafts of a deleted user", func(ctx SpecContext) {
 		Expect(userSvc.NewWriter(tx).Delete(ctx, mine.Key)).To(Succeed())
 		Expect(retrieve(ctx, panel.MatchProjects(drafts.Key))).
