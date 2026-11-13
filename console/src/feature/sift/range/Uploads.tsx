@@ -22,7 +22,7 @@ import { Device, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
 import { bounds, TimeRange } from "@synnaxlabs/x";
 
 import { MAKE } from "@/feature/sift/device/types";
-import { useList as useUploadKeys } from "@/feature/sift/range/list";
+import { useList } from "@/feature/sift/range/list";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 import { CSS } from "@/platform/css";
 
@@ -99,7 +99,7 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
   const devices = Device.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
   const open = useUploadModal();
-  const uploads = useUploadKeys(rangeKey);
+  const uploads = useList(rangeKey);
   const data = uploads.data ?? [];
   const failed = uploads.variant === "error";
   if (!failed && data.length === 0 && devices.length === 0) return null;
