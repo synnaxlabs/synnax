@@ -155,7 +155,8 @@ func (u CustomRange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
+// missing "variant" decodes to no variant, which Validate rejects.
 func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -175,6 +176,8 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case DynamicCustomRangeType:
 		var v struct {
 			Type CustomRangeType `json:"variant"`
@@ -203,6 +206,14 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CustomRange) Validate() error {
+	v := validate.New("CustomRange")
+	v.Ternary("variant", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
 	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
@@ -214,6 +225,16 @@ type Ranges struct {
 	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
 	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Ranges) Validate() error {
+	v := validate.New("Ranges")
+	if r.Custom != nil {
+		v.Exec(func() error { return validate.PathedError(r.Custom.Validate(), "custom") })
+	}
+	return v.Error()
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -305,6 +326,7 @@ func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Ranges.Validate(), "ranges") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

@@ -328,7 +328,8 @@ func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -348,6 +349,8 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case LinearScaleType:
 		var v struct {
 			Type ScaleType `json:"type"`
@@ -435,4 +438,12 @@ func (u *Scale) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }

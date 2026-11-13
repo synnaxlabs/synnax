@@ -215,7 +215,8 @@ func (u Reduction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
+// missing "variant" decodes to no variant, which Validate rejects.
 func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -235,6 +236,8 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case StrideReductionType:
 		var v struct {
 			Type ReductionType `json:"variant"`
@@ -274,12 +277,14 @@ func (u *Reduction) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Reduction) Validate() error {
+	v := validate.New("Reduction")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LimitReduction:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }

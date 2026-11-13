@@ -95,7 +95,8 @@ func (u Window) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
+// missing "variant" decodes to no variant, which Validate rejects.
 func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -115,6 +116,8 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case DynamicWindowType:
 		var v struct {
 			Type WindowType `json:"variant"`
@@ -141,6 +144,14 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Window) Validate() error {
+	v := validate.New("Window")
+	v.Ternary("variant", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition

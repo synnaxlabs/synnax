@@ -125,7 +125,8 @@ func (u Tab) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
+// missing "variant" decodes to no variant, which Validate rejects.
 func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -145,6 +146,8 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case ResourceTabType:
 		var v struct {
 			Type TabType `json:"variant"`
@@ -173,14 +176,16 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Tab) Validate() error {
+	v := validate.New("Tab")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case ResourceTab:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -295,7 +300,8 @@ func (u Node) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
+// missing "variant" decodes to no variant, which Validate rejects.
 func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -315,6 +321,8 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case LeafNodeType:
 		var v struct {
 			Type NodeType `json:"variant"`
@@ -343,16 +351,18 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Node) Validate() error {
+	v := validate.New("Node")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LeafNode:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SplitNode:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Key is a unique identifier for a panel, represented as a UUID.

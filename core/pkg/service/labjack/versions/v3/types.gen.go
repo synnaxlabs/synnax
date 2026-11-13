@@ -125,6 +125,7 @@ func (a AnalogReadChannel) Validate() error {
 	if a.NegChan != nil {
 		v.LessThanEq("neg_chan", *a.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(a.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -214,6 +215,7 @@ func (t ThermocoupleReadChannel) Validate() error {
 	if t.NegChan != nil {
 		v.LessThanEq("neg_chan", *t.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(t.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -248,7 +250,8 @@ func (u ReadChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -268,6 +271,8 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case AnalogReadChannelType:
 		var v struct {
 			Type ReadChannelType `json:"type"`
@@ -337,16 +342,18 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AnalogReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThermocoupleReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

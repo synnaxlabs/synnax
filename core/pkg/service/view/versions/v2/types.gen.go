@@ -115,7 +115,8 @@ func (u View) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -135,6 +136,8 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case TypeRange:
 		var v struct {
 			Type Type `json:"type"`
@@ -174,16 +177,18 @@ func (u View) Type() Type {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u View) Validate() error {
+	v := validate.New("View")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case RangeView:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StatusView:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

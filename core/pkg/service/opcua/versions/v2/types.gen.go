@@ -146,7 +146,8 @@ func (u Sampling) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *Sampling) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -166,6 +167,8 @@ func (u *Sampling) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case UnarySamplingType:
 		var v struct {
 			Type SamplingType `json:"type"`
@@ -216,14 +219,16 @@ func (u *Sampling) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Sampling) Validate() error {
+	v := validate.New("Sampling")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case ArraySampling:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // ReadConfig configures an OPC UA read task.

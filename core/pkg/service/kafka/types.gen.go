@@ -156,7 +156,8 @@ func (u SASL) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "mechanism" field.
+// UnmarshalJSONFrom decodes the variant selected by the "mechanism" field. A null or a
+// missing "mechanism" decodes to no variant, which Validate rejects.
 func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -176,6 +177,8 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case NoneSASLType:
 		var v struct {
 			Type SASLType `json:"mechanism"`
@@ -238,6 +241,14 @@ func (u SASL) Mechanism() SASLType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u SASL) Validate() error {
+	v := validate.New("SASL")
+	v.Ternary("mechanism", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Properties configures the connection to a Kafka cluster device.
 type Properties struct {
 	// Brokers contains the bootstrap broker addresses, as host:port.
@@ -280,4 +291,12 @@ func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		p.SetDefaults()
 	}
 	return dec.Decode((*plain)(p))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Properties) Validate() error {
+	v := validate.New("Properties")
+	v.Exec(func() error { return validate.PathedError(p.Sasl.Validate(), "sasl") })
+	return v.Error()
 }

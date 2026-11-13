@@ -131,7 +131,8 @@ func (u Certificate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "source" field.
+// UnmarshalJSONFrom decodes the variant selected by the "source" field. A null or a
+// missing "source" decodes to no variant, which Validate rejects.
 func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -151,6 +152,8 @@ func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case secret.SourceStored:
 		var v struct {
 			Type secret.Source `json:"source"`
@@ -191,16 +194,18 @@ func (u Certificate) Source() secret.Source {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Certificate) Validate() error {
+	v := validate.New("Certificate")
+	v.Ternary("source", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case StoredCertificate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FileCertificate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

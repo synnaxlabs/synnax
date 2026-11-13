@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"strconv"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -101,6 +102,14 @@ func (e *EntryReadChannel) ApplyDefaults() {
 	e.Scale.ApplyDefaults()
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e EntryReadChannel) Validate() error {
+	v := validate.New("EntryReadChannel")
+	v.Exec(func() error { return validate.PathedError(e.Scale.Validate(), "scale") })
+	return v.Error()
+}
+
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
 type UnresolvedReadChannel struct {
@@ -137,7 +146,8 @@ func (u ReadChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -157,6 +167,8 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case EntryReadChannelType:
 		var v struct {
 			Type ReadChannelType `json:"type"`
@@ -205,6 +217,18 @@ func (u *ReadChannel) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case EntryReadChannel:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -303,7 +327,8 @@ func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -323,6 +348,8 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case EntryWriteChannelType:
 		var v struct {
 			Type WriteChannelType `json:"type"`
@@ -360,6 +387,14 @@ func (u WriteChannel) Type() WriteChannelType {
 		return UnresolvedWriteChannelType
 	}
 	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -434,6 +469,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Exec(r.ReadConfig.Validate)
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -490,6 +528,9 @@ func (w WriteConfig) Validate() error {
 	v := validate.New("WriteConfig")
 	v.GreaterThan("state_rate", w.StateRate, 0)
 	v.GreaterThan("execution_rate", w.ExecutionRate, 0)
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 

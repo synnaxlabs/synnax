@@ -593,7 +593,8 @@ func (u CJC) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "source" field.
+// UnmarshalJSONFrom decodes the variant selected by the "source" field. A null or a
+// missing "source" decodes to no variant, which Validate rejects.
 func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -613,6 +614,8 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case BuiltInCJCType:
 		var v struct {
 			Type CJCType `json:"source"`
@@ -662,6 +665,14 @@ func (u CJC) Source() CJCType {
 		return ChanCJCType
 	}
 	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CJC) Validate() error {
+	v := validate.New("CJC")
+	v.Ternary("source", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // VelocityUnits are the engineering units for a velocity measurement.
@@ -983,7 +994,8 @@ func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -1003,6 +1015,8 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case LinearScaleType:
 		var v struct {
 			Type ScaleType `json:"type"`
@@ -1100,20 +1114,22 @@ func (u *Scale) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LinearScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case MapScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TableScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolynomialScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // MinMaxVal bounds the expected signal range in scaled units.
@@ -2457,6 +2473,7 @@ func (a AIThermocoupleChannel) Validate() error {
 	v := validate.New("AIThermocoupleChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	v.Exec(func() error { return validate.PathedError(a.Cjc.Validate(), "cjc") })
 	return v.Error()
 }
 
@@ -3594,7 +3611,8 @@ func (u AIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -3614,6 +3632,8 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case AIVoltageChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
@@ -4117,72 +4137,74 @@ func (u *AIChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AIChannel) Validate() error {
+	v := validate.New("AIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AIVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIBridgeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIMicrophoneChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIResistanceChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIRTDChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIStrainGaugeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITempBuiltinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermocoupleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVelocityIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccel4WireDCVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIFreqVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorIexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorVexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageWithExcitChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // CIEdge selects the signal edge a counter responds to.
@@ -5339,7 +5361,8 @@ func (u CIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -5359,6 +5382,8 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case CIFrequencyChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
@@ -5557,34 +5582,36 @@ func (u *CIChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u CIChannel) Validate() error {
+	v := validate.New("CIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CIFrequencyChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIEdgeCountChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPulseWidthChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CISemiPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CITwoEdgeSepChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIDutyCycleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -5873,7 +5900,8 @@ func (u AOChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
+// missing "type" decodes to no variant, which Validate rejects.
 func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -5893,6 +5921,8 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
+	case "":
+		u.Variant = nil
 	case AOCurrentChannelType:
 		var v struct {
 			Type AOChannelType `json:"type"`
@@ -5965,18 +5995,20 @@ func (u *AOChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AOChannel) Validate() error {
+	v := validate.New("AOChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AOCurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOFuncGenChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
