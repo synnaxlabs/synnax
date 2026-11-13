@@ -13,11 +13,13 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
 	"github.com/synnaxlabs/x/breaker"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,6 +44,7 @@ type recorder struct {
 	mu          sync.Mutex
 	checkpoints []ingest.Checkpoint
 	retries     []error
+	runRetries  []error
 }
 
 func (r *recorder) onCheckpoint(_ context.Context, cp ingest.Checkpoint) error {
@@ -54,6 +58,12 @@ func (r *recorder) onRetry(_ context.Context, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.retries = append(r.retries, err)
+}
+
+func (r *recorder) onRunRetry(_ context.Context, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.runRetries = append(r.runRetries, err)
 }
 
 func (r *recorder) last() ingest.Checkpoint {
@@ -81,12 +91,69 @@ func (r *recorder) retryErrors() []error {
 	return append([]error(nil), r.retries...)
 }
 
+func (r *recorder) runRetryErrors() []error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]error(nil), r.runRetries...)
+}
+
 // at returns the timestamp s seconds after the epoch.
 func at(s int) telem.TimeStamp { return telem.TimeStamp(s) * telem.SecondTS }
 
 // point returns the point Sift stores for a value written at ts.
 func point(ts telem.TimeStamp, v any) fake.Point {
 	return fake.Point{Time: time.Unix(0, int64(ts)).UTC(), Value: v}
+}
+
+// racingConn creates each run on its own just before the engine does, as a second
+// engine for the same asset would.
+type racingConn struct{ grpc.ClientConnInterface }
+
+func (c racingConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.runs.v2.RunService/CreateAdhocRun" {
+		var first runsv2.CreateAdhocRunResponse
+		if err := c.ClientConnInterface.Invoke(
+			ctx,
+			method,
+			args,
+			&first,
+			opts...,
+		); err != nil {
+			return err
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
+}
+
+// stallConn holds each call that lists ingestion configs until release closes or the
+// context of the call ends.
+type stallConn struct {
+	grpc.ClientConnInterface
+	release <-chan struct{}
+	// stalled counts the calls held.
+	stalled *atomic.Int32
+}
+
+func (c stallConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.ingestion_configs.v2.IngestionConfigService/ListIngestionConfigs" {
+		c.stalled.Add(1)
+		select {
+		case <-c.release:
+		case <-ctx.Done():
+			return status.FromContextError(ctx.Err()).Err()
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
 }
 
 var _ = Describe("Engine", func() {
@@ -120,6 +187,7 @@ var _ = Describe("Engine", func() {
 			Keys:         keys,
 			OnCheckpoint: rec.onCheckpoint,
 			OnRetry:      rec.onRetry,
+			OnRunRetry:   rec.onRunRetry,
 			Retry: breaker.Config{
 				BaseInterval: 5 * time.Millisecond,
 				MaxRetries:   breaker.InfiniteRetries,
@@ -611,6 +679,19 @@ var _ = Describe("Engine", func() {
 			)))
 		})
 
+		It("Should make a run on the asset of a config that another engine created",
+			func(ctx SpecContext) {
+				MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, run))
+				second := run
+				second.Key = uuid.New().String()
+				id := MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, second))
+				Expect(server.IngestionConfigs()).To(HaveLen(1))
+				Expect(server.Runs()).To(ContainElement(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+				)))
+			})
+
 		It("Should update the run that already has the key", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			id := MustSucceed(e.SetRun(ctx, run))
@@ -661,11 +742,44 @@ var _ = Describe("Engine", func() {
 			))
 		})
 
+		DescribeTable("Should name a run with no name by its key",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.Name = ""
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("Name", run.Key)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
+		DescribeTable("Should grow a span with no length to one nanosecond",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.TimeRange = telem.TimeRange{Start: at(2), End: at(2)}
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("StartTime.AsTime()", time.Unix(2, 0).UTC()),
+					HaveField("StopTime.AsTime()", time.Unix(2, 1).UTC()),
+				)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
 		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			run.Key = "hotfire"
-			Expect(e.SetRun(ctx, run)).Error().
-				To(MatchError(`run key "hotfire" is not a UUID: invalid uuid`))
+			Expect(e.SetRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
 			Expect(server.Runs()).To(BeEmpty())
 		})
 
@@ -677,13 +791,44 @@ var _ = Describe("Engine", func() {
 			Expect(server.Runs()[0]).To(BeIdenticalTo(before))
 		})
 
-		It("Should retry a temporary failure", func(ctx SpecContext) {
+		It(
+			"Should update a run that another engine created first",
+			func(ctx SpecContext) {
+				e := open(
+					ctx,
+					channel.Keys{ch.Key()},
+					ingest.Config{Conn: racingConn{conn}},
+				)
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.runRetryErrors()).To(BeEmpty())
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("Name", "hotfire 1"),
+				)))
+			},
+		)
+
+		It(
+			"Should retry when Sift reports a run that it does not list",
+			func(ctx SpecContext) {
+				server.FailRuns(status.Error(codes.AlreadyExists, "run exists"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
+					MatchError("Sift reported a run that it does not list"),
+				))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
+			},
+		)
+
+		It("Should report a temporary failure to OnRunRetry", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
 			e := open(ctx, channel.Keys{ch.Key()})
 			MustSucceed(e.SetRun(ctx, run))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
+			Expect(rec.retryErrors()).To(BeEmpty())
 			Expect(server.Runs()).To(HaveLen(1))
 		})
 
@@ -693,11 +838,42 @@ var _ = Describe("Engine", func() {
 			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
 			run.Name = "renamed"
 			Expect(e.SetRun(ctx, run)).To(Equal(id))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
 		})
+
+		It("Should look up a run again when it is gone at the update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(status.Error(codes.NotFound, "run not found"))
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.runRetryErrors()).To(BeEmpty())
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
+
+		It("Should retry when a run it looked up twice is gone at each update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(
+					status.Error(codes.NotFound, "run not found"),
+					status.Error(codes.NotFound, "run not found"),
+				)
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
+					MatchError("Sift could not find a run that it listed"),
+				))
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
 
 		It("Should set a run while Upload runs", func(ctx SpecContext) {
 			idx := createIndex(ctx)
@@ -729,6 +905,69 @@ var _ = Describe("Engine", func() {
 				Expect(server.Runs()).To(BeEmpty())
 			})
 
+		Describe("A slow ingestion config", func() {
+			var (
+				release chan struct{}
+				stalled *atomic.Int32
+				e       *ingest.Engine
+			)
+
+			BeforeEach(func(ctx SpecContext) {
+				release, stalled = make(chan struct{}), &atomic.Int32{}
+				e = open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Conn: stallConn{
+						ClientConnInterface: conn,
+						release:             release,
+						stalled:             stalled,
+					},
+				})
+			})
+
+			// startUpload starts an upload that waits for the ingestion config.
+			startUpload := func(ctx context.Context) <-chan error {
+				GinkgoHelper()
+				upload := make(chan error, 1)
+				go func() {
+					upload <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+				}()
+				Eventually(stalled.Load).Should(BeEquivalentTo(1))
+				return upload
+			}
+
+			It("Should not hold a SetRun that is cancelled", func(ctx SpecContext) {
+				upload := startUpload(ctx)
+				sCtx, cancel := context.WithCancel(ctx)
+				set := make(chan error, 1)
+				go func() {
+					_, err := e.SetRun(sCtx, run)
+					set <- err
+				}()
+				Eventually(stalled.Load).Should(BeEquivalentTo(2))
+				cancel()
+				Eventually(set).Should(Receive(MatchError(context.Canceled)))
+				close(release)
+				Eventually(upload).Should(Receive(Succeed()))
+			})
+
+			It("Should make one ingestion config for two calls at once",
+				func(ctx SpecContext) {
+					upload := startUpload(ctx)
+					set := make(chan error, 1)
+					go func() {
+						_, err := e.SetRun(ctx, run)
+						set <- err
+					}()
+					Eventually(stalled.Load).Should(BeEquivalentTo(2))
+					close(release)
+					Eventually(upload).Should(Receive(Succeed()))
+					Eventually(set).Should(Receive(Succeed()))
+					Expect(server.IngestionConfigs()).To(HaveLen(1))
+					Expect(server.Runs()).To(HaveExactElements(
+						HaveField("AssetIds", ConsistOf("asset-stand")),
+					))
+				})
+		})
+
 		It("Should name no single cause when Sift cannot find a thing",
 			func(ctx SpecContext) {
 				server.FailRuns(status.Error(codes.NotFound, "run not found"))
@@ -744,7 +983,61 @@ var _ = Describe("Engine", func() {
 			e := open(ctx, channel.Keys{ch.Key()})
 			Expect(e.SetRun(ctx, run)).Error().
 				To(MatchError(ContainSubstring("no permission")))
-			Expect(rec.retryErrors()).To(BeEmpty())
+			Expect(rec.runRetryErrors()).To(BeEmpty())
+		})
+	})
+
+	Describe("UpdateRun", func() {
+		var (
+			e   *ingest.Engine
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			e = open(ctx, channel.Keys{ch.Key()})
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+			}
+		})
+
+		It("Should create nothing when the asset has no run", func(ctx SpecContext) {
+			Expect(e.UpdateRun(ctx, run)).To(BeFalse())
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
+		It("Should update the run that has the key", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			run.Key = "hotfire"
+			Expect(e.UpdateRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
 		})
 	})
 
@@ -757,7 +1050,7 @@ var _ = Describe("Engine", func() {
 			GinkgoHelper()
 			sCtx, cancel := context.WithCancel(ctx)
 			done := make(chan error, 1)
-			go func() { done <- e.Stream(sCtx, from) }()
+			go func() { done <- e.Stream(sCtx, from, nil) }()
 			return func() error {
 				cancel()
 				var err error
@@ -889,7 +1182,7 @@ var _ = Describe("Engine", func() {
 				server.Fail(status.Error(codes.Unavailable, "down"))
 				sCtx, cancel := context.WithCancel(ctx)
 				done := make(chan error, 1)
-				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				write(ctx, idx, []telem.TimeStamp{at(1)},
 					map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
 				Eventually(server.Streams).Should(Equal(1))
@@ -922,7 +1215,7 @@ var _ = Describe("Engine", func() {
 				DeferCleanup(server.Resume)
 				sCtx, cancel := context.WithCancel(ctx)
 				done := make(chan error, 1)
-				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
 				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
@@ -1057,6 +1350,398 @@ var _ = Describe("Engine", func() {
 					Expect(server.Invalid()).To(BeEmpty())
 				})
 
+			It("Should resend the values of a channel written without its index",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+						Retry: breaker.Config{
+							BaseInterval: 300 * time.Millisecond,
+						},
+					})
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					write(
+						ctx,
+						idx,
+						[]telem.TimeStamp{at(1), at(2)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						},
+					)
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					server.Fail(status.Error(codes.Unavailable, "sift is down"))
+					keys := channel.Keys{ch.Key()}
+					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: at(1),
+					}))
+					Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(1.0, 2.0),
+					})))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					Eventually(rec.retryErrors).Should(HaveLen(1))
+					// The next attempt catches up past this value of the channel.
+					write(ctx, idx, []telem.TimeStamp{at(3)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(3.0)})
+					want := []fake.Point{
+						point(at(1), 1.0),
+						point(at(2), 2.0),
+						point(at(3), 3.0),
+					}
+					Eventually(points(ch.Name)).Should(Equal(want))
+					Expect(stop()).To(Succeed())
+					Expect(server.Points("stand", ch.Name)).To(Equal(want))
+					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+
+			It("Should send the values of a marked channel before a later value of it",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 300 * telem.Millisecond,
+					})
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					write(
+						ctx,
+						idx,
+						[]telem.TimeStamp{at(1), at(2)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						},
+					)
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					keys := channel.Keys{ch.Key()}
+					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: at(1),
+					}))
+					Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(1.0, 2.0),
+					})))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					write(ctx, idx, []telem.TimeStamp{at(3)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(3.0)})
+					want := []fake.Point{
+						point(at(1), 1.0),
+						point(at(2), 2.0),
+						point(at(3), 3.0),
+					}
+					Eventually(points(ch.Name)).Should(Equal(want))
+					Expect(stop()).To(Succeed())
+					Expect(server.Points("stand", ch.Name)).To(Equal(want))
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+
+			It(
+				"Should resend the values of a channel written without its index after a restart",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					keys := channel.Keys{ch.Key(), other.Key()}
+					cfg := ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+						Retry: breaker.Config{
+							BaseInterval: 10 * time.Second,
+						},
+					}
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(
+						ctx,
+						open(ctx, keys, cfg),
+						ingest.Positions{idx.Key(): at(0)},
+					)
+					live()
+					write(
+						ctx,
+						idx,
+						[]telem.TimeStamp{at(1), at(2)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						},
+					)
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					Expect(rec.last().Behind).To(BeEmpty())
+					server.Fail(status.Error(codes.Unavailable, "sift is down"))
+					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  channel.Keys{ch.Key()},
+						Start: at(1),
+					}))
+					Expect(MustSucceed(w.Write(frame.NewMulti(
+						channel.Keys{ch.Key()},
+						[]telem.Series{telem.NewSeriesV(1.0, 2.0)},
+					)))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					Eventually(rec.retryErrors).Should(HaveLen(1))
+					Expect(stop()).To(Succeed())
+					cp := rec.last()
+					Expect(
+						cp.Behind,
+					).To(Equal(ingest.ChannelPositions{ch.Key(): at(0)}))
+					e := open(ctx, keys, cfg)
+					sCtx, cancel := context.WithCancel(ctx)
+					done := make(chan error, 1)
+					go func() { done <- e.Stream(sCtx, cp.Positions, cp.Behind) }()
+					want := []fake.Point{point(at(1), 1.0), point(at(2), 2.0)}
+					Eventually(points(ch.Name)).Should(Equal(want))
+					Eventually(func() ingest.ChannelPositions {
+						return rec.last().Behind
+					}).Should(BeEmpty())
+					cancel()
+					Eventually(done).Should(Receive(Succeed()))
+					Expect(server.Points("stand", ch.Name)).To(Equal(want))
+					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
+				},
+			)
+
+			Describe("Marks that an attempt did not report", func() {
+				var (
+					idx, ch, other channel.Channel
+					cfg            ingest.Config
+				)
+				BeforeEach(func(ctx SpecContext) {
+					idx = createIndex(ctx)
+					ch = createData(ctx, idx, telem.Float64T)
+					other = createData(ctx, idx, telem.Float64T)
+					cfg = ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+						Retry: breaker.Config{
+							BaseInterval: 10 * time.Second,
+						},
+					}
+				})
+
+				// sendOther returns once the engine reports that Sift confirmed other.
+				// The engine then has no open stream that closing Sift could fail.
+				sendOther := func(ctx context.Context) {
+					GinkgoHelper()
+					live()
+					write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						})
+					Eventually(rec.samples).Should(BeEquivalentTo(2))
+				}
+
+				It("Should report a mark that OnCheckpoint failed to report",
+					func(ctx SpecContext) {
+						failed := false
+						cfg.OnCheckpoint = func(
+							ctx context.Context,
+							cp ingest.Checkpoint,
+						) error {
+							if len(cp.Behind) > 0 && !failed {
+								failed = true
+								return errors.New("the store is down")
+							}
+							return rec.onCheckpoint(ctx, cp)
+						}
+						e := open(ctx, channel.Keys{ch.Key(), other.Key()}, cfg)
+						stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+						sendOther(ctx)
+						openWriter(
+							ctx,
+							channel.Keys{ch.Key()},
+							framer.WriterConfig{Start: at(1)},
+						)(telem.NewSeriesV(1.0, 2.0))
+						Eventually(rec.retryErrors).Should(HaveExactElements(
+							MatchError("the store is down"),
+						))
+						Expect(stop()).To(Succeed())
+						Expect(rec.last().Behind).
+							To(Equal(ingest.ChannelPositions{ch.Key(): at(0)}))
+					})
+
+				It("Should report a mark in a frame that fails to send",
+					func(ctx SpecContext) {
+						// The spec closes this server, so that every send fails.
+						sift := MustSucceed(fake.Open(fake.Config{}))
+						cfg.Conn = MustOpen(grpc.NewClient(
+							sift.Address(),
+							grpc.WithTransportCredentials(insecure.NewCredentials()),
+						))
+						failing := createIndex(ctx)
+						data := createData(ctx, failing, telem.Float64T)
+						e := open(
+							ctx,
+							channel.Keys{ch.Key(), other.Key(), data.Key()},
+							cfg,
+						)
+						stop := stream(ctx, e, ingest.Positions{
+							idx.Key():     at(0),
+							failing.Key(): at(0),
+						})
+						sendOther(ctx)
+						Expect(sift.Close()).To(Succeed())
+						openWriter(
+							ctx,
+							channel.Keys{ch.Key(), failing.Key(), data.Key()},
+							framer.WriterConfig{Start: at(1)},
+						)(
+							telem.NewSeriesV(1.0, 2.0),
+							telem.NewSeries([]telem.TimeStamp{at(1)}),
+							telem.NewSeriesV(1.0),
+						)
+						Eventually(rec.retryErrors).Should(HaveLen(1))
+						Expect(stop()).To(Succeed())
+						Expect(rec.last().Behind).
+							To(Equal(ingest.ChannelPositions{ch.Key(): at(0)}))
+					})
+			})
+
+			It("Should send the values of a channel written without its index in a "+
+				"frame the live stream dropped", func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				other := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+					CheckpointInterval: 10 * telem.Millisecond,
+				})
+				points := func(name string) func() []fake.Point {
+					return func() []fake.Point { return server.Points("stand", name) }
+				}
+				stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+				live()
+				write(
+					ctx,
+					idx,
+					[]telem.TimeStamp{at(1), at(2)},
+					map[channel.Key]telem.Series{
+						other.Key(): telem.NewSeriesV(1.0, 2.0),
+					},
+				)
+				Eventually(points(other.Name)).Should(HaveLen(2))
+				server.Pause()
+				const count = 1100
+				writeOther := func(i int) {
+					GinkgoHelper()
+					write(ctx, idx, []telem.TimeStamp{at(i + 3)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(float64(i)),
+						})
+				}
+				writeOther(0)
+				// Gives the engine time to wait for a confirm, so that the live frames
+				// fill its buffer.
+				Consistently(points(other.Name), 50*time.Millisecond).Should(HaveLen(2))
+				for i := 1; i < count; i++ {
+					writeOther(i)
+				}
+				openWriter(
+					ctx,
+					channel.Keys{ch.Key()},
+					framer.WriterConfig{Start: at(1)},
+				)(telem.NewSeriesV(1.0, 2.0))
+				server.Resume()
+				Eventually(points(ch.Name)).WithTimeout(10 * time.Second).Should(Equal(
+					[]fake.Point{point(at(1), 1.0), point(at(2), 2.0)},
+				))
+				Expect(stop()).To(Succeed())
+				Expect(server.Points("stand", other.Name)).To(HaveLen(count + 2))
+			})
+
+			It("Should send the values of a channel written without its index while "+
+				"Sift is unavailable", func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				other := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+					CheckpointInterval: 10 * telem.Millisecond,
+					Retry: breaker.Config{
+						BaseInterval: 300 * time.Millisecond,
+					},
+				})
+				points := func(name string) func() []fake.Point {
+					return func() []fake.Point { return server.Points("stand", name) }
+				}
+				stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+				live()
+				write(
+					ctx,
+					idx,
+					[]telem.TimeStamp{at(1), at(2)},
+					map[channel.Key]telem.Series{
+						other.Key(): telem.NewSeriesV(1.0, 2.0),
+					},
+				)
+				Eventually(points(other.Name)).Should(HaveLen(2))
+				server.Fail(status.Error(codes.Unavailable, "sift is down"))
+				write(ctx, idx, []telem.TimeStamp{at(3)},
+					map[channel.Key]telem.Series{other.Key(): telem.NewSeriesV(3.0)})
+				Eventually(rec.retryErrors).Should(HaveLen(1))
+				// The engine waits to try again, and Sift confirmed these stamps.
+				openWriter(
+					ctx,
+					channel.Keys{ch.Key()},
+					framer.WriterConfig{Start: at(1)},
+				)(telem.NewSeriesV(1.0, 2.0))
+				want := []fake.Point{point(at(1), 1.0), point(at(2), 2.0)}
+				Eventually(points(ch.Name)).Should(Equal(want))
+				Expect(stop()).To(Succeed())
+				Expect(server.Points("stand", ch.Name)).To(Equal(want))
+				Expect(server.Points("stand", other.Name)).To(Equal([]fake.Point{
+					point(at(1), 1.0),
+					point(at(2), 2.0),
+					point(at(3), 3.0),
+				}))
+				Expect(server.Invalid()).To(BeEmpty())
+			})
+
+			It("Should send the values of a channel written without its index while "+
+				"catching up", func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				other := createData(ctx, idx, telem.Float64T)
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				write(ctx, idx, stamps, map[channel.Key]telem.Series{
+					other.Key(): telem.NewSeries(make([]float64, count)),
+				})
+				e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+					CheckpointInterval: 10 * telem.Millisecond,
+				})
+				server.Pause()
+				DeferCleanup(server.Resume)
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
+				Eventually(server.Streams).Should(Equal(1))
+				// Gives the sends time to fill the stream that Sift does not read.
+				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+				openWriter(
+					ctx,
+					channel.Keys{ch.Key()},
+					framer.WriterConfig{Start: at(1)},
+				)(telem.NewSeriesV(1.0, 2.0))
+				server.Resume()
+				Eventually(func() []fake.Point {
+					return server.Points("stand", ch.Name)
+				}).WithTimeout(10 * time.Second).Should(Equal([]fake.Point{
+					point(stamps[0], 1.0),
+					point(stamps[1], 2.0),
+				}))
+				cancel()
+				Eventually(done).Should(Receive(Succeed()))
+			})
+
 			It("Should stop reading the stored values of a channel once it sent them",
 				func(ctx SpecContext) {
 					idx := createIndex(ctx)
@@ -1116,7 +1801,7 @@ var _ = Describe("Engine", func() {
 				}
 				sCtx, cancel := context.WithCancel(ctx)
 				done := make(chan error, 1)
-				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				live()
 				// The index alone sends nothing, so no stream is open at the stop.
 				write(ctx, idx, stamps, nil)

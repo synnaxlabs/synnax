@@ -10,17 +10,33 @@
 from synnax.ni.chassis.types_gen import (
     TYPE_RESOURCE_ID,
     Chassis,
+    Configuration,
+    ConfigurationUpdate,
+    Cursor,
+    Identity,
+    IdentityUpdate,
     Key,
     Status,
     StatusDetails,
+    Update,
+    Where,
+    WhereInput,
     resource_id,
 )
 
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Chassis",
+    "Configuration",
+    "ConfigurationUpdate",
+    "Cursor",
+    "Identity",
+    "IdentityUpdate",
     "Key",
     "Status",
     "StatusDetails",
+    "Update",
+    "Where",
+    "WhereInput",
     "resource_id",
 ]

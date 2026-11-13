@@ -20,11 +20,12 @@ import {
   tag,
 } from "@/util/releases";
 
-const release = (tag_name: string, prerelease = false, draft = false): Release => ({
-  tag_name,
-  prerelease,
-  draft,
-});
+const release = (
+  tag_name: string,
+  prerelease = false,
+  draft = false,
+  published_at: string | null = null,
+): Release => ({ tag_name, prerelease, draft, published_at });
 
 const RELEASES: Release[] = [
   release("console/v0.58.3"),
@@ -173,6 +174,58 @@ describe("releases", () => {
       expect(fetch).toHaveBeenCalledTimes(3);
       expect(fetch.mock.calls[1]?.[0]).toEqual("p2");
       expect(fetch.mock.calls[2]?.[0]).toEqual("p3");
+    });
+
+    describe("publishedAt", () => {
+      const PUBLISHED = "2026-10-08T01:18:23Z";
+
+      it("should return when the stable release was published", async () => {
+        const fetch = vi.fn(async () =>
+          respond([release("core/v0.59.0", false, false, PUBLISHED)]),
+        );
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toEqual(
+          new Date(PUBLISHED),
+        );
+      });
+
+      it("should find a release on a later page", async () => {
+        const fetch = vi
+          .fn()
+          .mockResolvedValueOnce(respond([release("core/v0.61.0")], 200, "p2"))
+          .mockResolvedValueOnce(
+            respond([release("core/v0.59.0", false, false, PUBLISHED)], 200, "p3"),
+          )
+          .mockResolvedValueOnce(respond([release("synnax-v0.58.2")]));
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toEqual(
+          new Date(PUBLISHED),
+        );
+      });
+
+      it("should return null for a version with no release", async () => {
+        const fetch = vi.fn(async () => respond(RELEASES));
+        expect(await new Releases({ fetch }).publishedAt("core", "0.62.0")).toBeNull();
+      });
+
+      it("should return null for a draft, a candidate, and a pre-release", async () => {
+        const fetch = vi.fn(async () =>
+          respond([
+            release("core/v0.62.0", false, true),
+            release("core/v0.63.0-rc.1", false, false, PUBLISHED),
+            release("core/v0.64.0", true, false, PUBLISHED),
+          ]),
+        );
+        const releases = new Releases({ fetch });
+        expect(await releases.publishedAt("core", "0.62.0")).toBeNull();
+        expect(await releases.publishedAt("core", "0.63.0-rc.1")).toBeNull();
+        expect(await releases.publishedAt("core", "0.64.0")).toBeNull();
+      });
+
+      it("should return null for another product's release", async () => {
+        const fetch = vi.fn(async () =>
+          respond([release("console/v0.59.0", false, false, PUBLISHED)]),
+        );
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toBeNull();
+      });
     });
 
     it("should stop at the last page", async () => {

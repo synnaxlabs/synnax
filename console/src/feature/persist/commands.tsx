@@ -8,27 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
 
+import { useClear } from "@/feature/persist/useClear";
 import { Command } from "@/platform/command";
-import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
-
-const useClear = () => {
-  const store = Session.useStore();
-  const confirm = Modals.useConfirm();
-  const handleError = Status.useErrorHandler();
-  return () =>
-    handleError(async () => {
-      const res = await confirm({
-        message: "Are you sure you want to clear the Console's local storage?",
-        description:
-          "This removes all saved Console data that is not stored in a Core.",
-      });
-      if (!res) return;
-      store.dispatch(Session.Persist.clearState());
-    }, "Failed to clear local storage");
-};
 
 const ClearCommand = Command.create({
   key: "clear_local_storage",

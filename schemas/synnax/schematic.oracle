@@ -1175,8 +1175,11 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64 = 2 {
-        @doc value "is the number of decimal places shown."
+    precision       uint8?            {
+        @doc value    """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
+        @validate max 17
     }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."

@@ -13,6 +13,12 @@ export interface Page {
   html: string;
 }
 
+/** A line of a source file. The file is relative to the docs package. */
+export interface Source {
+  file: string;
+  line: number;
+}
+
 export interface Context {
   /** Normalized routes of every page the crawler fetched. */
   routes: Set<string>;
@@ -26,6 +32,8 @@ export interface Context {
    * the checks' own server is fetched directly.
    */
   fetchOk: (url: string) => Promise<string | null>;
+  /** Reports a problem that does not fail the run, at its source when known. */
+  warn: (message: string, at: Source | null) => void;
 }
 
 export interface Check {

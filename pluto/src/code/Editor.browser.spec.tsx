@@ -9,12 +9,72 @@
 
 import "@/code/Editor.css";
 
-import { renderThemed, selectedByTripleClick } from "@synnaxlabs/lyra/styletest";
+import {
+  computed,
+  renderThemed,
+  resolve,
+  selectedByTripleClick,
+} from "@synnaxlabs/lyra/styletest";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
+import { Code } from "@/code";
 import { CSS } from "@/css";
 
 const CODE = "const pressure = 1;";
+
+// Monaco loads its whole runtime on the first editor of the page.
+const MONACO_TIMEOUT = 60_000;
+
+/** @returns the marker row of the hover that a real editor opens on a warning. */
+const hoverWarning = async (code?: string): Promise<Element> => {
+  let editor: Code.Monaco.editor.IStandaloneCodeEditor | undefined;
+  const capture: Code.EditorExtension = (e) => {
+    editor = e;
+    return { dispose: () => {} };
+  };
+  await renderThemed(
+    <Code.Provider>
+      <Code.Editor
+        language="plaintext"
+        initialValue={CODE}
+        extensions={[capture]}
+        style={{ width: 600, height: 300 }}
+      />
+    </Code.Provider>,
+  );
+  await expect.poll(() => editor, { timeout: MONACO_TIMEOUT }).toBeDefined();
+  const model = editor?.getModel();
+  if (editor == null || model == null) throw new Error("editor has no model");
+  const monaco = await import("@codingame/monaco-vscode-editor-api");
+  monaco.editor.setModelMarkers(model, "spec", [
+    {
+      severity: monaco.MarkerSeverity.Warning,
+      message: "experimental",
+      source: "arc-analyzer",
+      code,
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: 1,
+      endColumn: CODE.length + 1,
+    },
+  ]);
+  const text = () => document.querySelector(".monaco-editor .view-line > span");
+  await expect.poll(text).not.toBeNull();
+  await userEvent.hover(text() as Element);
+  const row = () => document.querySelector(".monaco-hover .marker.hover-contents");
+  await expect.poll(row, { timeout: 5000 }).not.toBeNull();
+  return row() as Element;
+};
+
+const expectColors = (row: Element, token: string): void => {
+  expect(computed(row, "background-color")).toEqual(
+    resolve(`var(--pluto-${token}-z-10)`, "background-color"),
+  );
+  expect(computed(row, "border-top-color")).toEqual(
+    resolve(`var(--pluto-${token}-z-70)`, "border-top-color"),
+  );
+};
 
 describe("Editor", () => {
   // Monaco's parts that set no user-select of their own inherit it from the editor.
@@ -25,5 +85,19 @@ describe("Editor", () => {
       </div>,
     );
     expect(await selectedByTripleClick(getByText(CODE).element())).toContain(CODE);
+  });
+
+  describe("hover severity", () => {
+    it(
+      "should color the hover of a warning that has a code as a warning",
+      async () => expectColors(await hoverWarning("ARC2005"), "warning"),
+      MONACO_TIMEOUT,
+    );
+
+    it(
+      "should color the hover of a warning that has no code as an error",
+      async () => expectColors(await hoverWarning(), "error"),
+      MONACO_TIMEOUT,
+    );
   });
 });
