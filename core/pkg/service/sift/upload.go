@@ -141,7 +141,8 @@ func queueUpload(
 
 // uploader runs the pending uploads to the Sift devices of one rack, one at a time
 // per device, oldest first. The pending statuses are its queue: it resumes them after
-// a restart, and deleting one cancels its upload.
+// a restart, and deleting one cancels its upload. An upload whose device moves to
+// another Core rack while it runs can run on both racks until it ends.
 type uploader struct {
 	cfg        FactoryConfig
 	rack       rack.Key
