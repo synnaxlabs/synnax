@@ -116,7 +116,8 @@ one shared behavior, and it stays in the status service (§4.2).
 
 1. **One resource type per kind of hardware**: A chassis, a module, a master, a slave,
    and a server have different fields. Each gets its own struct, table, and ontology
-   type. No base struct, no union.
+   type. No base struct, no union across kinds. A LabJack device is one kind whose ports
+   vary by model, so it is a union on `model` (§4.1).
 2. **Oracle is the only source of a device shape**: Go, TypeScript, Python, and C++
    consume generated types. Hand-written Zod, C++ structs, and Python dicts are deleted.
 3. **The integration owns its devices**: The Go service that owns an integration's task
@@ -270,8 +271,10 @@ group from the hardware, and the configuration group with today's defaults (`nam
 `NI <model>` or `<type>-<last4 of serial>`, `identifier` is empty). After creation the
 scanner writes only the identity group, through `Update`. When hardware appears on
 another rack, the scanner moves it; `name` stays as the user left it. The user's write
-path is `Update` over the configuration group. The shallow merge in
-`driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
+path is `Update` over the configuration group. A LabJack device has no groups: the
+scanner's `Update` function changes only `rack` and `connection` on the stored row, and
+the user's changes the rest. The shallow merge in `driver/common/scan_task.h:40-51` and
+the EtherCAT `enabled` guard are deleted.
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
@@ -308,8 +311,9 @@ Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/update`, `/ni/device/delete`, and the same for
 `/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
 that dispatches on a union over the identity and configuration groups, so one request
-writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
-`include_status`, and `include_parent`. The generic `/device/*` routes are deleted.
+writes one group. `/labjack/device/update` takes the whole device. Retrieve filters are
+the struct's `@filter` fields plus `search_term`, `include_status`, and
+`include_parent`. The generic `/device/*` routes are deleted.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
