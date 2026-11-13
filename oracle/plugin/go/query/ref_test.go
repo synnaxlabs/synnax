@@ -140,8 +140,12 @@ var _ = Describe("@ref", func() {
 	)
 
 	union := func(schema, field string) string {
+		imports := ""
+		for dep := range strings.SplitSeq(schema, ",") {
+			imports += "import \"schemas/" + dep + "\"\n"
+		}
 		return `
-			import "schemas/` + schema + `"
+			` + imports + `
 
 			@go output "core/pkg/service/device"
 
@@ -187,6 +191,35 @@ var _ = Describe("@ref", func() {
 			"func MatchLabels(",
 		),
 	)
+
+	It("Should declare a resource target for an ID reference on a union", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, union(
+			"resource",
+			`owner resource.ID? @ref on_delete cascade @ref types device @ref kind use`,
+		), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToContain(
+			"func resourceTarget(id resource.ID) gorp.Target {",
+			"targets[i] = resourceTarget(v)",
+		)
+	})
+
+	It("Should name the index of a union reference after the field", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, union(
+			"rack",
+			`rack rack.Key {
+				@ref on_delete restrict
+				@ref kind place
+				@go name "RackKey"
+			}`,
+		), "device", loader, p)
+		content := MustContentOf(resp, "retrieve.gen.go")
+		Expect(content).To(ContainSubstring("r.indexes.rack.Filter("))
+		Expect(content).ToNot(ContainSubstring("r.indexes.rackKey"))
+	})
 
 	It("Should refuse a detach reference on a union", func(ctx SpecContext) {
 		req := MustGenerateRequest(
