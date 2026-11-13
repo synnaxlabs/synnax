@@ -17,6 +17,7 @@ FIO4 to FIO7 | Nothing. A pull-up holds a floating line at 1.
 """
 
 from abc import abstractmethod
+from collections.abc import Callable
 
 import numpy as np
 
@@ -192,16 +193,30 @@ class LabJackAnalogLoopback(LabJackAnalogRead):
                     enable_auto_commit=True,
                 ) as writer,
             ):
-                for level in _LEVELS:
-                    self.log(f"Testing: DAC0 at {level} V")
+
+                def command(level: float) -> None:
                     writer.write(
                         {output.cmd_channel: level, cmd_idx.key: sy.TimeStamp.now()}
                     )
-                    self._wait_for_level(streamer, inputs, level)
+
+                self.drive(streamer, inputs, command)
         finally:
             # The Core refuses to delete a channel that a task uses.
             self.client.tasks.delete(write.key)
             delete_channels(self.client, [output.cmd_channel, output.state_channel])
+
+    def drive(
+        self,
+        streamer: sy.Streamer,
+        inputs: list[int],
+        command: Callable[[float], None],
+    ) -> None:
+        """Runs with both tasks started. streamer streams inputs, AIN0 to AIN3, and
+        command sets DAC0 to a level in volts."""
+        for level in _LEVELS:
+            self.log(f"Testing: DAC0 at {level} V")
+            command(level)
+            self._wait_for_level(streamer, inputs, level)
 
     def _wait_for_level(
         self, streamer: sy.Streamer, inputs: list[int], level: float
