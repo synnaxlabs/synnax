@@ -455,6 +455,24 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should apply numeric rules to a type overridden to number",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts type "number"
+					@validate gt 0
+				}
+			`
+				resp := MustGenerate(ctx, source, "rate", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const rateZ = z.number().gt(0);",
+				)
+			},
+		)
+
+		It(
 			"Should leave a generated type's rules to its own schema",
 			func(ctx SpecContext) {
 				source := `
