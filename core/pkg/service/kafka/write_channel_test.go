@@ -430,6 +430,7 @@ var _ = Describe("Stored write configs", func() {
 				Status:  statuses,
 			}))
 			create := func(dt telem.DataType) channel.Key {
+				GinkgoHelper()
 				ch := channel.Channel{
 					Name:     "ch_" + uuid.New().String()[:8],
 					DataType: dt,

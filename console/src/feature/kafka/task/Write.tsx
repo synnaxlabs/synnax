@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep, id, type payload, primitive } from "@synnaxlabs/x";
-import { type FC, useEffect } from "react";
+import { type FC, useEffect, useRef } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
@@ -300,14 +300,19 @@ const ChannelField = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const { get, set } = PForm.useContext();
-  const handleChange = (key: number) =>
+  const latest = useRef(0);
+  const handleChange = (key: number) => {
+    const pick = ++latest.current;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const { dataType } = await client.channels.retrieve(key);
+      // A slow lookup for an earlier pick must not replace a later one.
+      if (pick !== latest.current) return;
       const kinds = Task.Payload.channelKinds(dataType);
       const ch = { ...get<WriteChannel>(path).value, channel: key };
       set(path, kinds.includes(ch.type) ? ch : asKind(ch, kinds[0]));
     }, "Failed to select the channel");
+  };
   return (
     <PForm.Field path={path.channel} label="Channel" required>
       {({ value }) => <PChannel.SelectSingle value={value} onChange={handleChange} />}
