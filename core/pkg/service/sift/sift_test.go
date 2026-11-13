@@ -64,6 +64,7 @@ var _ = Describe("APIKeyReference", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 			})).To(Succeed())
+			deleteAfterSpec(dev)
 			Expect(secretSvc.Uses(ctx, db, key)).To(BeEmpty())
 		})
 

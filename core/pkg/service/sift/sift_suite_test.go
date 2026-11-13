@@ -189,12 +189,18 @@ func createDevice(ctx context.Context, props sift.Properties) device.Device {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 	})).To(Succeed())
+	deleteAfterSpec(dev)
+	return dev
+}
+
+// deleteAfterSpec deletes dev when the spec ends.
+func deleteAfterSpec(dev device.Device) {
+	GinkgoHelper()
 	DeferCleanup(func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
 		})).To(Succeed())
 	})
-	return dev
 }
 
 // newTask stores and returns a task of typ holding cfg. newTask skips task.Writer,
