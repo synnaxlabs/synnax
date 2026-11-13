@@ -15,8 +15,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax.schematic.types_gen import Edge, Node, NodeConfig, Schematic
-from x import patch, spatial
+from synnax.schematic.types_gen import (
+    Edge,
+    EdgeVariant,
+    Node,
+    NodeConfig,
+    Schematic,
+    Segment,
+)
+from x import color, patch, spatial
 
 
 class CreatePayload(BaseModel):
@@ -72,6 +79,26 @@ class SetEdgePayload(BaseModel):
     """
 
     edge: Edge
+
+
+class SetEdgeSegmentsPayload(BaseModel):
+    """Replaces the segments of the edge with the given key. No-op when no edge has the
+    key.
+    """
+
+    key: str
+    segments: list[Segment] = Field(default_factory=list)
+
+
+class SetEdgeStylePayload(BaseModel):
+    """Sets each style field that the payload holds on the edge with the given key, and
+    keeps the others. No-op when no edge has the key.
+    """
+
+    key: str
+    variant: EdgeVariant | None = None
+    stroke_color: color.Color | None = None
+    stroke_width: int | None = Field(default=None, ge=0, le=255)
 
 
 class SetConfigPayload(BaseModel):
@@ -138,6 +165,16 @@ class SetEdgeAction(BaseModel):
     set_edge: SetEdgePayload
 
 
+class SetEdgeSegmentsAction(BaseModel):
+    type: Literal["set_edge_segments"] = "set_edge_segments"
+    set_edge_segments: SetEdgeSegmentsPayload
+
+
+class SetEdgeStyleAction(BaseModel):
+    type: Literal["set_edge_style"] = "set_edge_style"
+    set_edge_style: SetEdgeStylePayload
+
+
 class SetConfigAction(BaseModel):
     type: Literal["set_config"] = "set_config"
     set_config: SetConfigPayload
@@ -172,6 +209,8 @@ Action = Annotated[
     | AddEdgeAction
     | RemoveEdgeAction
     | SetEdgeAction
+    | SetEdgeSegmentsAction
+    | SetEdgeStyleAction
     | SetConfigAction
     | SetAction
     | RemoveAction
@@ -207,6 +246,14 @@ def remove_edge(payload: RemoveEdgePayload) -> RemoveEdgeAction:
 
 def set_edge(payload: SetEdgePayload) -> SetEdgeAction:
     return SetEdgeAction(set_edge=payload)
+
+
+def set_edge_segments(payload: SetEdgeSegmentsPayload) -> SetEdgeSegmentsAction:
+    return SetEdgeSegmentsAction(set_edge_segments=payload)
+
+
+def set_edge_style(payload: SetEdgeStylePayload) -> SetEdgeStyleAction:
+    return SetEdgeStyleAction(set_edge_style=payload)
 
 
 def set_config(payload: SetConfigPayload) -> SetConfigAction:

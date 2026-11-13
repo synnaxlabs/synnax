@@ -1010,6 +1010,28 @@ Schematic struct {
         """
     }
 
+    action SetEdgeSegments {
+        key      string
+        segments Segment[]
+
+        @doc value """
+            replaces the segments of the edge with the given key. No-op when no edge has
+            the key.
+        """
+    }
+
+    action SetEdgeStyle {
+        key          string
+        variant      EdgeVariant?
+        stroke_color color.Color?
+        stroke_width uint8?
+
+        @doc value """
+            sets each style field that the payload holds on the edge with the given key,
+            and keeps the others. No-op when no edge has the key.
+        """
+    }
+
     action SetConfig {
         key    string
         config NodeConfig

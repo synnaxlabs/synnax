@@ -570,6 +570,78 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
+	Describe("SetEdgeSegments", func() {
+		It("Should replace the segments and keep the style", func() {
+			styled := edge("e1", "a", "o", "b", "i")
+			styled.StrokeWidth = 6
+			segments := []schematic.Segment{{Direction: "x", Length: 40}}
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{Edges: []schematic.Edge{styled}},
+				schematic.NewSetEdgeSegmentsAction(schematic.SetEdgeSegmentsPayload{
+					Key:      "e1",
+					Segments: segments,
+				}),
+			))
+			Expect(out.Edges[0].Segments).To(Equal(segments))
+			Expect(out.Edges[0].StrokeWidth).To(BeEquivalentTo(6))
+		})
+		It("Should not create an edge that does not exist", func() {
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetEdgeSegmentsAction(schematic.SetEdgeSegmentsPayload{
+					Key:      "e1",
+					Segments: []schematic.Segment{{Direction: "x", Length: 40}},
+				}),
+			))
+			Expect(out.Edges).To(BeEmpty())
+		})
+	})
+
+	Describe("SetEdgeStyle", func() {
+		It("Should set only the fields the payload holds", func() {
+			styled := edge("e1", "a", "o", "b", "i")
+			styled.Variant = schematic.EdgeVariantPipe
+			styled.StrokeWidth = 2
+			styled.Segments = []schematic.Segment{{Direction: "x", Length: 40}}
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{Edges: []schematic.Edge{styled}},
+				schematic.NewSetEdgeStyleAction(schematic.SetEdgeStylePayload{
+					Key:         "e1",
+					StrokeWidth: new(uint8(6)),
+				}),
+			))
+			Expect(out.Edges[0].StrokeWidth).To(BeEquivalentTo(6))
+			Expect(out.Edges[0].Variant).To(Equal(schematic.EdgeVariantPipe))
+			Expect(out.Edges[0].Segments).To(Equal(styled.Segments))
+		})
+		It("Should set the variant and stroke color", func() {
+			stroke := MustSucceed(color.FromHex("#ff0000"))
+			variant := schematic.EdgeVariantHydraulic
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{
+					Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")},
+				},
+				schematic.NewSetEdgeStyleAction(schematic.SetEdgeStylePayload{
+					Key:         "e1",
+					Variant:     &variant,
+					StrokeColor: &stroke,
+				}),
+			))
+			Expect(out.Edges[0].Variant).To(Equal(variant))
+			Expect(out.Edges[0].StrokeColor).To(HaveValue(Equal(stroke)))
+		})
+		It("Should not create an edge that does not exist", func() {
+			out := MustSucceed(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetEdgeStyleAction(schematic.SetEdgeStylePayload{
+					Key:         "e1",
+					StrokeWidth: new(uint8(6)),
+				}),
+			))
+			Expect(out.Edges).To(BeEmpty())
+		})
+	})
+
 	Describe("SetEdge", func() {
 		nodes := []schematic.Node{node("a", 0, 0), node("b", 1, 1)}
 		It("Should append an edge whose key is not yet present", func() {
@@ -893,6 +965,8 @@ var _ = Describe("Reducer", func() {
 			Entry("add_edge", schematic.ActionTypeAddEdge),
 			Entry("remove_edge", schematic.ActionTypeRemoveEdge),
 			Entry("set_edge", schematic.ActionTypeSetEdge),
+			Entry("set_edge_segments", schematic.ActionTypeSetEdgeSegments),
+			Entry("set_edge_style", schematic.ActionTypeSetEdgeStyle),
 			Entry("set_config", schematic.ActionTypeSetConfig),
 		)
 

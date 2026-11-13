@@ -12,6 +12,7 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -33,6 +34,11 @@ const (
 	ActionTypeRemoveEdge = "remove_edge"
 	// ActionTypeSetEdge is the Type of an Action that carries SetEdgePayload.
 	ActionTypeSetEdge = "set_edge"
+	// ActionTypeSetEdgeSegments is the Type of an Action that carries
+	// SetEdgeSegmentsPayload.
+	ActionTypeSetEdgeSegments = "set_edge_segments"
+	// ActionTypeSetEdgeStyle is the Type of an Action that carries SetEdgeStylePayload.
+	ActionTypeSetEdgeStyle = "set_edge_style"
 	// ActionTypeSetConfig is the Type of an Action that carries SetConfigPayload.
 	ActionTypeSetConfig = "set_config"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
@@ -89,6 +95,22 @@ type SetEdgePayload struct {
 	Edge Edge `json:"edge" msgpack:"edge"`
 }
 
+// SetEdgeSegmentsPayload replaces the segments of the edge with the given key. No-op
+// when no edge has the key.
+type SetEdgeSegmentsPayload struct {
+	Key      string    `json:"key" msgpack:"key"`
+	Segments []Segment `json:"segments" msgpack:"segments"`
+}
+
+// SetEdgeStylePayload sets each style field that the payload holds on the edge with the
+// given key, and keeps the others. No-op when no edge has the key.
+type SetEdgeStylePayload struct {
+	Key         string       `json:"key" msgpack:"key"`
+	Variant     *EdgeVariant `json:"variant,omitzero" msgpack:"variant,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeWidth *uint8       `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+}
+
 // SetConfigPayload replaces the config entry stored under the given node key. No-op
 // when no node has the key.
 type SetConfigPayload struct {
@@ -123,6 +145,8 @@ type Action struct {
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
 	SetEdge         *SetEdgePayload         `json:"set_edge,omitzero" msgpack:"set_edge,omitempty"`
+	SetEdgeSegments *SetEdgeSegmentsPayload `json:"set_edge_segments,omitzero" msgpack:"set_edge_segments,omitempty"`
+	SetEdgeStyle    *SetEdgeStylePayload    `json:"set_edge_style,omitzero" msgpack:"set_edge_style,omitempty"`
 	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
 	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
 	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
@@ -173,6 +197,16 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetEdge.Handle(state)
+		case ActionTypeSetEdgeSegments:
+			if a.SetEdgeSegments == nil {
+				return Schematic{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetEdgeSegments.Handle(state)
+		case ActionTypeSetEdgeStyle:
+			if a.SetEdgeStyle == nil {
+				return Schematic{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetEdgeStyle.Handle(state)
 		case ActionTypeSetConfig:
 			if a.SetConfig == nil {
 				return Schematic{}, union.MissingPayload(a.Type)
@@ -241,6 +275,16 @@ func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
 // NewSetEdgeAction wraps a SetEdgePayload in an Action envelope.
 func NewSetEdgeAction(p SetEdgePayload) Action {
 	return Action{Type: ActionTypeSetEdge, SetEdge: &p}
+}
+
+// NewSetEdgeSegmentsAction wraps a SetEdgeSegmentsPayload in an Action envelope.
+func NewSetEdgeSegmentsAction(p SetEdgeSegmentsPayload) Action {
+	return Action{Type: ActionTypeSetEdgeSegments, SetEdgeSegments: &p}
+}
+
+// NewSetEdgeStyleAction wraps a SetEdgeStylePayload in an Action envelope.
+func NewSetEdgeStyleAction(p SetEdgeStylePayload) Action {
+	return Action{Type: ActionTypeSetEdgeStyle, SetEdgeStyle: &p}
 }
 
 // NewSetConfigAction wraps a SetConfigPayload in an Action envelope.

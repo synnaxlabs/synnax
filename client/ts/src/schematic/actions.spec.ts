@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -513,6 +514,65 @@ describe("schematic reducer", () => {
     ])("should be a no-op when the %s node does not exist", (_, e) => {
       const state = empty({ nodes });
       expect(apply(state, schematic.setEdge({ edge: e }))).toBe(state);
+    });
+  });
+
+  describe("setEdgeSegments", () => {
+    it("should replace the segments and keep the style", () => {
+      const state = empty({
+        edges: [edge("e1", "a", "o", "b", "i", { strokeWidth: 6 })],
+      });
+      const segments = [{ direction: "x" as const, length: 40 }];
+      const out = apply(state, schematic.setEdgeSegments({ key: "e1", segments }));
+      expect(out.edges[0].segments).toEqual(segments);
+      expect(out.edges[0].strokeWidth).toBe(6);
+    });
+    it("should not create an edge that does not exist", () => {
+      const state = empty();
+      expect(apply(state, schematic.setEdgeSegments({ key: "e1", segments: [] }))).toBe(
+        state,
+      );
+    });
+  });
+
+  describe("setEdgeChanged", () => {
+    const base = edge("e1", "a", "o", "b", "i");
+    it("should write only the changed style fields", () => {
+      expect(
+        schematic.setEdgeChanged({ base, next: { ...base, strokeWidth: 6 } }),
+      ).toEqual([schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 })]);
+    });
+    it("should write changed segments on their own", () => {
+      const segments = [{ direction: "x" as const, length: 40 }];
+      expect(schematic.setEdgeChanged({ base, next: { ...base, segments } })).toEqual([
+        schematic.setEdgeSegments({ key: "e1", segments }),
+      ]);
+    });
+    it("should write nothing when nothing changed", () => {
+      expect(schematic.setEdgeChanged({ base, next: base })).toEqual([]);
+    });
+    it("should write the whole edge to clear a stroke color", () => {
+      const colored = { ...base, strokeColor: color.construct("#ff0000") };
+      expect(schematic.setEdgeChanged({ base: colored, next: base })).toEqual([
+        schematic.setEdge({ edge: base }),
+      ]);
+    });
+  });
+
+  describe("setEdgeStyle", () => {
+    it("should set only the fields the payload holds", () => {
+      const segments = [{ direction: "x" as const, length: 40 }];
+      const state = empty({ edges: [edge("e1", "a", "o", "b", "i", { segments })] });
+      const out = apply(state, schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 }));
+      expect(out.edges[0]).toEqual(
+        edge("e1", "a", "o", "b", "i", { segments, strokeWidth: 6 }),
+      );
+    });
+    it("should not create an edge that does not exist", () => {
+      const state = empty();
+      expect(apply(state, schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 }))).toBe(
+        state,
+      );
     });
   });
 
@@ -1126,6 +1186,42 @@ describe("schematic reducer inverses", () => {
         edges: [edge("e1", "a", "o", "b", "i", { strokeWidth: 5 })],
       });
       expectRoundTrip(state, [schematic.removeEdge({ key: "e1" })]);
+    });
+  });
+
+  describe("setEdgeSegments", () => {
+    it("should invert to the prior segments", () => {
+      const state = empty({
+        edges: [
+          edge("e1", "a", "o", "b", "i", { segments: [{ direction: "y", length: 9 }] }),
+        ],
+      });
+      expectRoundTrip(state, [
+        schematic.setEdgeSegments({
+          key: "e1",
+          segments: [{ direction: "x", length: 40 }],
+        }),
+      ]);
+    });
+  });
+
+  describe("setEdgeStyle", () => {
+    it("should invert to the prior style", () => {
+      const state = empty({
+        edges: [edge("e1", "a", "o", "b", "i", { variant: "data", strokeWidth: 3 })],
+      });
+      expectRoundTrip(state, [
+        schematic.setEdgeStyle({ key: "e1", variant: "pipe", strokeWidth: 8 }),
+      ]);
+    });
+    it("should invert a first stroke color by clearing it", () => {
+      const state = empty({
+        nodes: [node("a", 0, 0), node("b", 1, 1)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+      });
+      expectRoundTrip(state, [
+        schematic.setEdgeStyle({ key: "e1", strokeColor: [255, 0, 0, 1] }),
+      ]);
     });
   });
 

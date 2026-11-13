@@ -141,6 +141,39 @@ func (p SetEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
+// Handle replaces the segments of the edge with the matching key. No-op if no edge
+// matches.
+func (p SetEdgeSegmentsPayload) Handle(state Schematic) (Schematic, error) {
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
+	if i == -1 {
+		return state, nil
+	}
+	state.Edges = slices.Clone(state.Edges)
+	state.Edges[i].Segments = p.Segments
+	return state, nil
+}
+
+// Handle sets each style field that the payload holds on the edge with the matching
+// key. No-op if no edge matches.
+func (p SetEdgeStylePayload) Handle(state Schematic) (Schematic, error) {
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
+	if i == -1 {
+		return state, nil
+	}
+	state.Edges = slices.Clone(state.Edges)
+	e := &state.Edges[i]
+	if p.Variant != nil {
+		e.Variant = *p.Variant
+	}
+	if p.StrokeColor != nil {
+		e.StrokeColor = p.StrokeColor
+	}
+	if p.StrokeWidth != nil {
+		e.StrokeWidth = *p.StrokeWidth
+	}
+	return state, nil
+}
+
 // Handle replaces the configs entry stored under the given key. A config naming no
 // variant is rejected: stored, it would be a null entry no client can read back. No-op
 // when no node has the key.

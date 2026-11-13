@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch } from "@synnaxlabs/x";
+import { deep, patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -21,10 +21,14 @@ import {
   removeNode,
   setConfig,
   setEdge,
+  setEdgeSegments,
+  setEdgeStyle,
+  type SetEdgeStylePayload,
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
 import {
+  type Edge,
   type NodeConfig,
   nodeConfigZ,
   type Schematic,
@@ -59,6 +63,8 @@ const isConfigEdit = (action: Action): boolean => {
   switch (action.type) {
     case "set_config":
     case "set_edge":
+    case "set_edge_segments":
+    case "set_edge_style":
       return true;
     case "set":
     case "remove":
@@ -176,6 +182,36 @@ const handlers: Handlers = {
     state.edges[idx] = payload.edge;
     return { inverse: [setEdge({ edge: oldEdge })], targets: [key] };
   },
+  setEdgeSegments: (state, payload) => {
+    const edge = state.edges.find((e) => e.key === payload.key);
+    if (edge == null) return actions.NO_OP_RESULT;
+    const segments = actions.snapshotDraft(edge.segments);
+    edge.segments = payload.segments;
+    return {
+      inverse: [setEdgeSegments({ key: payload.key, segments })],
+      targets: [payload.key],
+    };
+  },
+  setEdgeStyle: (state, payload) => {
+    const edge = state.edges.find((e) => e.key === payload.key);
+    if (edge == null) return actions.NO_OP_RESULT;
+    const old = actions.snapshotDraft(edge);
+    const { variant, strokeColor, strokeWidth } = payload;
+    if (variant != null) edge.variant = variant;
+    if (strokeColor != null) edge.strokeColor = strokeColor;
+    if (strokeWidth != null) edge.strokeWidth = strokeWidth;
+    // A style set cannot clear a color, so undoing a first color restores the edge.
+    const inverse =
+      strokeColor != null && old.strokeColor == null
+        ? setEdge({ edge: old })
+        : setEdgeStyle({
+            key: payload.key,
+            variant: variant != null ? old.variant : undefined,
+            strokeColor: strokeColor != null ? old.strokeColor : undefined,
+            strokeWidth: strokeWidth != null ? old.strokeWidth : undefined,
+          });
+    return { inverse: [inverse], targets: [payload.key] };
+  },
   setConfig: (state, payload) => {
     if (!hasNode(state, payload.key)) return actions.NO_OP_RESULT;
     const prev = snapshotConfig(state, payload.key);
@@ -204,6 +240,33 @@ export interface SetChangedArgs {
  */
 export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
   patch.diff(nodeConfigZ, base, next).map((a) => patch.prefix(a, ["configs", key]));
+
+export interface SetEdgeChangedArgs {
+  base: Edge;
+  next: Edge;
+}
+
+/**
+ * Writes only the fields of an edge that differ between base and next, so a concurrent
+ * edit to another field of the edge survives and a deleted edge stays deleted. A
+ * cleared stroke color has no field-level action, so it writes the whole edge.
+ * @returns the actions to dispatch, with none when nothing differs.
+ */
+export const setEdgeChanged = ({ base, next }: SetEdgeChangedArgs): Action[] => {
+  const { key } = next;
+  if (base.strokeColor != null && next.strokeColor == null)
+    return [setEdge({ edge: next })];
+  const out: Action[] = [];
+  const style: SetEdgeStylePayload = { key };
+  if (next.variant !== base.variant) style.variant = next.variant;
+  if (next.strokeWidth !== base.strokeWidth) style.strokeWidth = next.strokeWidth;
+  if (next.strokeColor != null && !deep.equal(next.strokeColor, base.strokeColor))
+    style.strokeColor = next.strokeColor;
+  if (Object.keys(style).length > 1) out.push(setEdgeStyle(style));
+  if (!deep.equal(next.segments, base.segments))
+    out.push(setEdgeSegments({ key, segments: next.segments }));
+  return out;
+};
 
 /**
  * Converts a path action from the camelCase form of the cached schematic into the
