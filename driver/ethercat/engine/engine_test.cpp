@@ -1257,6 +1257,20 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should return at once, without a retry, when a slave rejects a setting.
+TEST_F(EngineTest, RejectedSettingSkipsRetries) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8040:1C")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {

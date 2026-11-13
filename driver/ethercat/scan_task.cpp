@@ -236,12 +236,24 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
         const auto health = this->pool->health(key);
         bool rediscovery_needed = false;
+        bool unidentified = false;
         for (const auto &slave: slaves) {
             // A slave whose EEPROM read failed, as while it restarts, has no identity.
             if (slave.properties.vendor_id == 0 && slave.properties.product_code == 0) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
+                unidentified = true;
+                // A restart clears by the next rediscovery, so only one that does not
+                // is reported.
+                if (rediscover || this->unidentified.contains(key)) {
+                    const auto [engine, acquire_err] = this->pool->acquire(key);
+                    if (acquire_err) return {{}, acquire_err};
+                    failures.insert(
+                        "Slave " + std::to_string(slave.properties.position) + " on " +
+                        engine->name() + " gives no identity. Restart its power."
+                    );
+                }
                 continue;
             }
             auto [dev, enabled] = this->create_slave_device(
@@ -255,6 +267,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                                    !slave.status.settings_error.empty());
             devices.push_back(std::move(dev));
         }
+        if (!unidentified)
+            this->unidentified.erase(key);
+        else if (rediscover)
+            this->unidentified.insert(key);
         if (!rediscovery_needed)
             this->next_rediscoveries.erase(key);
         else if (!scheduled || rediscover)

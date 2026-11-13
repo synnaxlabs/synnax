@@ -460,6 +460,55 @@ TEST_F(TaskManagerTest, DeployOnStart) {
     ASSERT_EQ(s.details.rack, rack.key);
 }
 
+/// @brief it should answer a start with a loading status before the task starts, so
+/// the sender waits for the result.
+TEST_F(TaskManagerTest, StartAnswersWithALoadingStatusFirst) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-cmd";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(s.message, "Starting task");
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, task.config_hash);
+}
+
+/// @brief it should answer a start of a live task with a loading status too.
+TEST_F(TaskManagerTest, StartOfALiveTaskAnswersWithALoadingStatus) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    ASSERT_EVENTUALLY_EQ(f->task_states[0]->exec_count.load(), 1);
+    send_start(client, task, "s2");
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(s.message, "Starting task");
+}
+
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{

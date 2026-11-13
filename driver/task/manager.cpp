@@ -560,6 +560,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     this->refuse_pinned_start(tsk, op.cmd);
                     break;
                 }
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
                 std::string deployed;
                 {
                     std::lock_guard entry_lock{entry->mu};
@@ -581,7 +582,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     entry->instance->exec(cmd);
                     break;
                 }
-            }
+            } else
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
@@ -633,6 +635,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 if (!op.cmd.key.empty()) this->refuse_command(op);
                 return;
             }
+            {
+                std::unique_lock entry_lock{entry->mu};
+                const auto name = entry->row.name;
+                const auto hash = entry->deployed_hash;
+                entry_lock.unlock();
+                this->announce_start(op.task_key, name, hash, op.cmd);
+            }
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
@@ -676,6 +685,24 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+}
+
+void Manager::announce_start(
+    const synnax::task::Key &key,
+    const std::string &name,
+    const std::string &config_hash,
+    const synnax::task::Command &cmd
+) {
+    if (cmd.type != synnax::task::START_CMD_TYPE || cmd.key.empty()) return;
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(key);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_LOADING;
+    status.message = "Starting task";
+    status.details.running = false;
+    status.details.cmd = cmd.key;
+    status.details.config_hash = config_hash;
+    this->ctx->set_status(status);
 }
 
 void Manager::refuse_pinned_start(

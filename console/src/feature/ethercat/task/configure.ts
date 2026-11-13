@@ -64,55 +64,60 @@ const onlyReaderStep = (props: SlaveProperties): string => {
     : "Pick another entry.";
 };
 
+/**
+ * @returns why the task cannot start with the enabled channel on the slave, or null.
+ * channels holds the enabled channels of the task on the slave, ch among them.
+ */
+export const entryProblem = (
+  slave: SlaveDevice,
+  channels: Channel[],
+  ch: Channel,
+  pdoType: PDOType,
+): string | null => {
+  if (ch.type === "unresolved") return getUnresolvedMessage(ch.pdo, slave, pdoType);
+  if (!hasEntry(ch))
+    return `A channel on slave ${slave.name} has no entry. Pick an entry.`;
+  const address = ethercat.formatAddress(ch);
+  const entry = entryAt(slave.properties.pdos[pdoType], ch);
+  if (entry == null)
+    return (
+      `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
+      "Pick an entry."
+    );
+  const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
+  if (reader != null)
+    return (
+      `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+      `reads. ${onlyReaderStep(slave.properties)}`
+    );
+  const dataType = new DataType(ch.dataType);
+  const width = entryWidth(entry.bitLength);
+  if (!(dataType.isInteger || dataType.isFloat) || dataType.density.valueOf() !== width)
+    return (
+      `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
+      `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
+      "byte number type."
+    );
+  const key = addressKey(ch);
+  if (channels.some((o) => o.key !== ch.key && hasEntry(o) && addressKey(o) === key))
+    return (
+      `More than one channel uses entry ${address} on slave ${slave.name}. ` +
+      "Pick a different entry for one of them."
+    );
+  return null;
+};
+
 const validateEntries = <C extends Channel>(
   slave: SlaveDevice,
   channels: C[],
   pdoType: PDOType,
 ): Extract<C, EntryChannel>[] => {
-  const used = new Set<string>();
-  const entries = slave.properties.pdos[pdoType];
-  return channels
-    .filter((ch) => !ch.disabled)
-    .map((ch) => {
-      if (ch.type === "unresolved")
-        throw new Error(getUnresolvedMessage(ch.pdo, slave, pdoType));
-      if (!hasEntry(ch))
-        throw new Error(
-          `A channel on slave ${slave.name} has no entry. Pick an entry.`,
-        );
-      const address = ethercat.formatAddress(ch);
-      const entry = entryAt(entries, ch);
-      if (entry == null)
-        throw new Error(
-          `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
-            "Pick an entry.",
-        );
-      const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
-      if (reader != null)
-        throw new Error(
-          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-            `reads. ${onlyReaderStep(slave.properties)}`,
-        );
-      const dataType = new DataType(ch.dataType);
-      const width = entryWidth(entry.bitLength);
-      if (
-        !(dataType.isInteger || dataType.isFloat) ||
-        dataType.density.valueOf() !== width
-      )
-        throw new Error(
-          `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
-            `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
-            "byte number type.",
-        );
-      const key = addressKey(ch);
-      if (used.has(key))
-        throw new Error(
-          `More than one channel uses entry ${address} on slave ${slave.name}. ` +
-            "Pick a different entry for one of them.",
-        );
-      used.add(key);
-      return ch;
-    });
+  const enabled = channels.filter((ch) => !ch.disabled);
+  for (const ch of enabled) {
+    const problem = entryProblem(slave, enabled, ch, pdoType);
+    if (problem != null) throw new Error(problem);
+  }
+  return enabled.filter((ch): ch is Extract<C, EntryChannel> => hasEntry(ch));
 };
 
 /**
@@ -141,11 +146,37 @@ export const createSlaveChannels = async <C extends Channel>(
 };
 
 /**
+ * @throws {Error} if another device on the rack is at the network and position of the
+ * slave. The error names the device that is not connected, which the user deletes.
+ */
+const checkPositionFree = (slave: SlaveDevice, onRack: SlaveDevice[]): void => {
+  const { network, position } = slave.properties;
+  const other = onRack.find(
+    (o) =>
+      o.key !== slave.key &&
+      o.properties.network === network &&
+      o.properties.position === position,
+  );
+  if (other == null) return;
+  const connected = (d: SlaveDevice): boolean =>
+    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const stale = connected(slave) ? other : connected(other) ? slave : null;
+  const step =
+    stale == null
+      ? "Delete the one that is not on the network."
+      : `Delete ${stale.name}, which is not connected.`;
+  throw new Error(
+    `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
+      `${network}. ${step}`,
+  );
+};
+
+/**
  * Retrieves the slaves the channels use and checks the entries of the enabled channels.
  * @returns the slaves, their rack, and the enabled channels of each slave.
- * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, an input that only another program reads, or an
- * entry another channel uses.
+ * @throws {Error} if the slaves are on different networks, if another device is at the
+ * position of a slave, or if an enabled channel has no entry, an entry its slave lacks,
+ * an input that only another program reads, or an entry another channel uses.
  */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
@@ -172,6 +203,15 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
       "No network found for the selected slaves. Scan the network again.",
     );
 
+  const onRack = await client.devices.retrieve({
+    make: MAKE,
+    model: SLAVE_MODEL,
+    rack: slaves[0].rack,
+    schemas: SLAVE_SCHEMAS,
+    includeStatus: true,
+  });
+  for (const slave of slaves) checkPositionFree(slave, onRack);
+
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(
@@ -184,6 +224,24 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     );
 
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
+};
+
+/**
+ * @returns why the task cannot start with the settings of the input that the channel
+ * reads, or null. held holds the startup parameters of the task.
+ */
+export const settingProblem = (
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+  held: ethercat.SlaveStartupParameters[],
+): string | null => {
+  if (isShared(slave.properties)) return null;
+  const input = findInput(slave.properties.settings, ch);
+  if (input == null) return null;
+  const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
+  const [problem] = check(input, fill(input.settings, prior));
+  if (problem == null) return null;
+  return `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`;
 };
 
 /**
@@ -210,13 +268,9 @@ export const fillStartupParameters = (
     for (const input of inputs) {
       const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
       if (ch == null) continue;
-      const filledInput = fill(input.settings, prior);
-      const [problem] = check(input, filledInput);
-      if (problem != null)
-        throw new Error(
-          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
-        );
-      parameters.push(...filledInput);
+      const problem = settingProblem(slave, ch, held);
+      if (problem != null) throw new Error(problem);
+      parameters.push(...fill(input.settings, prior));
     }
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }

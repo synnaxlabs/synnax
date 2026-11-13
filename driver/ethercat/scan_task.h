@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -108,6 +109,8 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
+    /// @brief each interface on which a rediscovery found a slave with no identity.
+    std::unordered_set<std::string> unidentified;
 
     /// @brief creates a slave device for the given slave, and returns whether its saved
     /// config enables it. The status names any invalid property, and otherwise reflects
