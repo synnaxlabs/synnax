@@ -178,6 +178,12 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     "endpoints.fields.pointer",
                     "field pointer cannot be empty"
                 );
+            // The append token reaches an array slot that the overlap check cannot see.
+            else if (pointer->ends_with("/-") || pointer->contains("/-/"))
+                parser.field_err(
+                    "endpoints.fields.pointer",
+                    "pointer '" + *pointer + "' must not use the '-' token"
+                );
             else if (
                 const auto other = std::ranges::find_if(
                     pointers,
