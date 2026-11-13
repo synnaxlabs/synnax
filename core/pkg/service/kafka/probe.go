@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -34,13 +35,13 @@ const stageTimeout = 5 * time.Second
 // defaultPort is the port of a seed broker whose address names none.
 const defaultPort = "9092"
 
-// testConnection tests a connection to the cluster of props one stage at a time: dial,
-// TLS, SASL, metadata, and each broker that the cluster advertises. It returns a
-// driver.Failure for the first stage that fails, and a validation error when props
-// cannot open a client.
-func testConnection(ctx context.Context, props Properties) error {
-	props.ApplyDefaults()
-	if err := validateProperties(props); err != nil {
+// testConnection tests a connection to the cluster whose properties raw holds, one
+// stage at a time: dial, TLS, SASL, metadata, and each broker that the cluster
+// advertises. It returns a driver.Failure for the first stage that fails, and a
+// validation error when the properties cannot open a client.
+func testConnection(ctx context.Context, raw msgpack.EncodedJSON) error {
+	props, err := parseProperties(raw)
+	if err != nil {
 		return err
 	}
 	conn, addr, err := dialSeed(ctx, props.Brokers)

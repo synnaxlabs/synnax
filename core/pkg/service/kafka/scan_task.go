@@ -35,8 +35,9 @@ const (
 
 // testConnectionArgs are the arguments of a test_connection command.
 type testConnectionArgs struct {
-	// Connection is the cluster to test. It need not be a stored device yet.
-	Connection Properties `json:"connection"`
+	// Connection holds the properties of the cluster to test. It need not be a stored
+	// device yet.
+	Connection msgpack.EncodedJSON `json:"connection"`
 }
 
 // browseArgs are the arguments of a browse command.

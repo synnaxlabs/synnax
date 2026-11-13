@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -95,6 +97,20 @@ var _ = Describe("ReadConfig", func() {
 		var out msgpack.EncodedJSON
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 			out, err = svc.Read.Normalize(ctx, tx, svc.Read.Version(), data)
+			return err
+		})).To(Succeed())
+		return fieldsOf(out)[0].(map[string]any)
+	}
+
+	normalizeAt := func(
+		ctx context.Context,
+		version imex.Version,
+		data msgpack.EncodedJSON,
+	) map[string]any {
+		GinkgoHelper()
+		var out msgpack.EncodedJSON
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			out, err = svc.Read.Normalize(ctx, tx, version, data)
 			return err
 		})).To(Succeed())
 		return fieldsOf(out)[0].(map[string]any)
@@ -432,6 +448,24 @@ var _ = Describe("ReadConfig", func() {
 			Entry("float64", telem.Float64T, "9007199254740992", "9007199254740993"),
 			Entry("float32", telem.Float32T, "16777216", "16777217"),
 		)
+
+		It("Should lift a v0 field and change it to the kind of its channel", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, telem.Uint8T)
+			out := normalizeAt(ctx, v0.Version, configOf(map[string]any{
+				"key":         "f",
+				"pointer":     "/v",
+				"channel":     ch.Key(),
+				"data_type":   "int16",
+				"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
+			}))
+			Expect(out).To(HaveKeyWithValue("type", "unsigned"))
+			Expect(out).NotTo(HaveKey("data_type"))
+			Expect(out["enum_values"]).To(HaveExactElements(
+				map[string]any{"label": "ON", "value": "1"},
+			))
+		})
 
 		It("Should keep the first entry of a repeated label", func(ctx SpecContext) {
 			out := normalize(ctx, configOf(map[string]any{

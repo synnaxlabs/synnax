@@ -1613,6 +1613,18 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9},
 			telem.NewSeriesV(true),
 		),
+		Entry("a missing timestamp",
+			telem.TimestampT,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.TimestampReadField{
+					BaseReadField: b,
+					TimeFormat:    payload.TimeFormatUnixNs,
+					Fill:          new(telem.TimeStamp(5)),
+				}
+			},
+			map[string]any{"ts": 10e9},
+			telem.NewSeriesV[telem.TimeStamp](5),
+		),
 	)
 
 	DescribeTable("Should skip a record whose value does not convert",

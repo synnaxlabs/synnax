@@ -386,6 +386,27 @@ var _ = Describe("Factory", func() {
 				},
 			)
 
+			It("Should reject the tls property that secure replaced", func(
+				ctx SpecContext,
+			) {
+				key := uuid.New().String()
+				Expect(dt.Exec(ctx, task.Command{
+					Task: t.Key,
+					Type: "test_connection",
+					Key:  key,
+					Args: toJSON(map[string]any{
+						"connection": map[string]any{"brokers": brokers, "tls": true},
+					}),
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Details.Cmd).To(Equal(key))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).
+						To(ContainSubstring("tls is now named secure"))
+				}).WithTimeout(15 * time.Second).Should(Succeed())
+			})
+
 			It("Should reject a CA certificate without TLS", func(ctx SpecContext) {
 				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
