@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -81,8 +82,11 @@ describe("BindChannels", () => {
   });
 
   it("should match an entry whose binding does not change", async () => {
-    const match = (entry: Entry): Entry =>
-      entry.port === 9 ? entry : { ...entry, port: 9 };
+    // Marks the entry once match can see the channel it binds.
+    const match = (entry: Entry, channels: channel.Channel[]): Entry =>
+      entry.port === 9 || !channels.some(({ key }) => key === entry.channel)
+        ? entry
+        : { ...entry, port: 9 };
     const { form } = await renderInTaskFormWithClient(
       <Task.BindChannels<Entry>
         path={CHANNELS}
