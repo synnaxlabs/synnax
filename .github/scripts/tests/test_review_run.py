@@ -1021,12 +1021,6 @@ class TestMain:
         new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
         assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
 
-    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
-        self, tmp_path: Path, env: dict[str, str]
-    ) -> None:
-        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
-        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
-
     @staticmethod
     def side(head: Path, base: str, files: dict[str, str]) -> str:
         """Commits files on a branch from the base, and returns the commit. The checkout
@@ -1052,6 +1046,20 @@ class TestMain:
         new = self.prompt_after_reviews_of(tmp_path, dropped)
         assert "diff --git a/b.go b/b.go" in new
         assert "a.go" not in new
+
+    def test_should_compare_with_the_last_review_after_an_amend(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        older = env["HEAD_SHA"]
+        amended = self.side(head, older, {"b.go": "three\n"})
+        (head / "c.go").write_text("four\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "amend")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, amended, older)
+        assert "diff --git a/c.go b/c.go" in new
+        assert "no longer changes these files:\n- `b.go`" in new
 
     def test_should_fetch_a_reviewed_commit_that_the_checkout_lacks(
         self, tmp_path: Path, env: dict[str, str]

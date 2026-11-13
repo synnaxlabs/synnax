@@ -108,7 +108,10 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     diff = _diff(head, target.base, target.head, excluded)
     earlier = [c for c in reviewed(target, gh) if c != target.head]
     since = next((c for c in earlier if _before(head, c, target.head)), None)
-    # A replay cannot tell a commit that a force push dropped from a later one.
+    # The last review is the newest one, even when a force push dropped its commit. A
+    # replay cannot tell such a commit from a review that came after it.
+    if not replay and earlier and since != earlier[0]:
+        since = None
     rewritten = since is None and bool(earlier) and not replay
     new = ""
     dropped: list[str] = []
