@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )

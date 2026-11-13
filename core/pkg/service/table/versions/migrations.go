@@ -16,6 +16,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 )
 
 // Migrations is the ordered migration chain for stored tables.
@@ -28,4 +29,6 @@ var Migrations = []gorp.Migration{
 	v4.Migration,
 	v4.MembersMigration,
 	v4.OwnersMigration,
+	v5.RangeMigration,
+	v5.Migration,
 }

@@ -58,7 +58,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // Script-local override: drop the sections unrelated to labels so the shot
   // stays on the Details block.
   await page.evaluate(() => {
-    const hide = ["Child ranges", "Metadata", "Snapshots"];
+    const hide = ["Child ranges", "Metadata"];
     for (const el of document.querySelectorAll(".lyra-header"))
       if (hide.includes(el.textContent?.trim() ?? ""))
         el.parentElement?.style.setProperty("display", "none");

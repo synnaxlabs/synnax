@@ -38,7 +38,6 @@ message StatusDetails {
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
 message Task {
-  reserved 10;
   // key is the unique identifier for this task.
   string key = 1;
   // rack is the key of the rack this task deploys to. Zero for a draft that has not
@@ -58,10 +57,8 @@ message Task {
   string config_hash = 6;
   // internal is true if this is an internal system task.
   bool internal = 7;
-  // snapshot is true if this task is an immutable snapshot copy of another task.
-  bool snapshot = 8;
   // status is the current execution status of the task.
-  optional .service.status.pb.Status status = 9;
+  optional .service.status.pb.Status status = 8;
 }
 message WhereList {
   repeated Where values = 1;
@@ -90,9 +87,6 @@ message RackKeySet {
   // in matches a value equal to an element of in.
   RackKeyList in = 2;
 }
-message RangerKeyList {
-  repeated string values = 1;
-}
 
 // Where is a filter that selects tasks.
 message Where {
@@ -112,12 +106,8 @@ message Where {
   optional RackKeySet rack = 7;
   // internal selects by internal.
   optional .x.filter.pb.Bool internal = 8;
-  // snapshot selects by snapshot.
-  optional .x.filter.pb.Bool snapshot = 9;
-  // ranges matches the tasks that are snapshots in any of the given ranges.
-  RangerKeyList ranges = 10;
   // arcs matches the tasks that run any of the Arcs with the given keys.
-  UuidList arcs = 11;
+  UuidList arcs = 9;
 }
 
 // Command is a command to execute on a task in the Driver system.

@@ -42,10 +42,6 @@ export const RANGES_NAV: Nav.PageNavNode = {
       name: "Channel aliases",
     },
     {
-      href: "/reference/ranges/snapshots",
-      name: "Snapshots",
-    },
-    {
       href: "/reference/ranges/data",
       name: "Read and write range data",
     },

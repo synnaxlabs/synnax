@@ -212,6 +212,7 @@ export default defineConfig({
     "/reference/enterprise/clusters": "/reference/enterprise",
     "/reference/concepts/overview": "/reference/channels",
     "/reference/concepts/ranges": "/reference/ranges",
+    "/reference/ranges/snapshots": "/reference/ranges",
     "/reference/concepts/reads": "/reference/client/read-data",
     "/reference/concepts/streams": "/reference/client/stream-data",
     "/reference/concepts/writes": "/reference/client/write-data",
