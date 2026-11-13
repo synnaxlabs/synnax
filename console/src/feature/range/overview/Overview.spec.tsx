@@ -19,7 +19,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { type Flux } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
@@ -224,6 +224,19 @@ describe("range/overview", () => {
       await renderOverview(rng.key);
       fireEvent.click(await screen.findByRole("button", { name: "Download as CSV" }));
       await screen.findByText(`Download data for ${rng.name} as CSV`);
+    });
+
+    it("should set the color of the range from its swatch", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Color" }));
+      const hex = await screen.findByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "123456" } });
+      fireEvent.keyDown(hex, { code: "Escape" });
+      await waitFor(async () => {
+        const { color: stored } = await client.ranges.retrieve(rng.key);
+        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+      });
     });
   });
 
