@@ -36,9 +36,11 @@ import (
 // Each kind but string drops an entry with an empty label, which it can never match.
 // An empty data type is the v1 default, float64. An unknown one lifts to the float
 // kind with no data type, so that reconciling with the channel can set the kind. The
-// index field of its entry, and a field with a time format, lift to the timestamp kind
-// and keep the format, because v1 left the data type at its default and read the
-// channel's data type.
+// index field of its entry lifts to the timestamp kind. So does a field with a time
+// format, no entries, and the default or an unknown data type, and it keeps the format,
+// because v1 left the data type at its default and read the channel's data type. On
+// any other field, the time format is left over from an earlier data type, so the
+// field keeps its kind and entries.
 func MigrateReadField(old v1.ReadField, index bool) (ReadField, []string) {
 	return migrateReadField(old, index, nil)
 }
@@ -69,7 +71,9 @@ func migrateReadField(
 		note("unknown data type %q became the float kind", dt)
 	}
 	switch {
-	case ch == nil && kind != payload.KindTimestamp && (index || old.TimeFormat != nil):
+	case ch == nil && kind != payload.KindTimestamp &&
+		(index || (old.TimeFormat != nil && len(old.EnumValues) == 0 &&
+			(dt == telem.Float64T || !known))):
 		kind = payload.KindTimestamp
 		note("data type %s became the timestamp kind of an index or time format", dt)
 	case old.TimeFormat != nil && kind != payload.KindTimestamp:
