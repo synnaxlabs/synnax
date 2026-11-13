@@ -80,6 +80,24 @@ describe("BindChannels", () => {
     expect(channelOf(form, "b")).toBe(0);
   });
 
+  it("should match an entry whose binding does not change", async () => {
+    const match = (entry: Entry): Entry =>
+      entry.port === 9 ? entry : { ...entry, port: 9 };
+    const { form } = await renderInTaskFormWithClient(
+      <Task.BindChannels<Entry>
+        path={CHANNELS}
+        resolve={() => ({ channel: MAPPED[1] })}
+        match={match}
+      />,
+      {
+        client,
+        values: { config: { channels: [{ key: "a", port: 1, channel: MAPPED[1] }] } },
+      },
+    );
+    await waitFor(() => expect(form.current?.get(CHANNELS.a.port).value).toBe(9));
+    expect(channelOf(form, "a")).toBe(MAPPED[1]);
+  });
+
   it("should leave every entry alone while the device is unknown", async () => {
     const { form } = await render([{ key: "a", port: 1, channel: 7 }], () => null);
     await act(async () => {});

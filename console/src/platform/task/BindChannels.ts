@@ -25,7 +25,10 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
    * before.
    */
   resolve: (entry: C) => Partial<C> | null;
-  /** Changes an entry that a binding changed to agree with the channels it binds. */
+  /**
+   * Changes each bound entry to agree with the channels it binds. It runs on every
+   * pass, so it must return the entry itself when nothing changes.
+   */
   match?: (entry: C, channels: channel.Channel[]) => C;
 }
 
@@ -133,7 +136,7 @@ export const BindChannels = <C extends record.Keyed<string>>({
       const patch = dropMissing(entry, resolved, live);
       next.set(entry.key, patch);
       const bound = bind(entry, patch, before);
-      return bound === entry || match == null ? bound : match(bound, channels ?? []);
+      return match == null ? bound : match(bound, channels ?? []);
     });
     held.current = next;
     if (bound.some((entry, i) => entry !== entries[i])) set(path, bound);

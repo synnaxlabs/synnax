@@ -30,7 +30,10 @@ export interface BindReadChannelsProps {
   propertiesKey: deep.Target<string>;
   /** The read properties of the device, or null while the device is unknown. */
   read: Record<string, ReadChannelProps> | null;
-  /** Changes a field that a binding changed to agree with the channel it binds. */
+  /**
+   * Changes each bound field to agree with the channel it binds. It must return the
+   * field itself when nothing changes.
+   */
   match?: (field: BoundField, channel: channel.Channel) => BoundField;
 }
 
