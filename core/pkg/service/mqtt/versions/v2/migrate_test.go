@@ -106,6 +106,22 @@ var _ = Describe("MigrateReadField", func() {
 		))
 	})
 
+	It("Should keep the first entry of a repeated label", func() {
+		f, changes := v2.MigrateReadField(storedField(
+			telem.BooleanT,
+			payload.EnumEntry{Label: "ON", Value: 1},
+			payload.EnumEntry{Label: "ON", Value: 0},
+		))
+		boolean, ok := f.Variant.(v2.BooleanReadField)
+		Expect(ok).To(BeTrue())
+		Expect(boolean.EnumValues).To(Equal(
+			[]payload.BooleanEntry{{Label: "ON", Value: true}},
+		))
+		Expect(changes).To(ConsistOf(
+			`enum label "ON" was dropped: it repeats an earlier label`,
+		))
+	})
+
 	It("Should drop a negative entry on an unsigned kind", func() {
 		f, changes := v2.MigrateReadField(storedField(
 			telem.Uint16T,

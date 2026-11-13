@@ -145,6 +145,14 @@ var _ = Describe("Read field", func() {
 			MustSucceed(prepare(ctx, readConfig(disabled, missing)))
 		})
 
+		It("Should skip the fields of a disabled entry", func(ctx SpecContext) {
+			ch := createChannel(ctx, telem.Int32T)
+			cfg := readConfig(readField("float", ch, nil))
+			cfg["entries"].([]any)[0].(map[string]any)["disabled"] = true
+			data := MustSucceed(prepare(ctx, cfg))
+			Expect(fieldsOf(data)[0]).To(HaveKeyWithValue("type", "float"))
+		})
+
 		DescribeTable(
 			"should reject a field that does not agree with its channel",
 			func(

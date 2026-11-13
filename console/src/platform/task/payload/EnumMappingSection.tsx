@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type deep } from "@synnaxlabs/x";
+import { Input } from "@synnaxlabs/lyra/input";
+import { type deep, type payload } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
@@ -63,3 +64,37 @@ export const TextEnumMappingSection = ({
     />
   </Form.Section>
 );
+
+export interface BooleanEnumMappingSectionProps {
+  /** The path of the enum values. */
+  path: deep.Target<payload.BooleanEntry[]>;
+}
+
+/**
+ * Maps string labels in a payload to boolean channel values, shown as 1 for true and 0
+ * for false. Any value but 0 is true.
+ */
+export const BooleanEnumMappingSection = ({
+  path,
+}: BooleanEnumMappingSectionProps): ReactElement => {
+  const { set } = Form.useContext();
+  const entries = Form.useFieldValue(path);
+  const rows = entries.map(({ label, value }) => [label, value ? 1 : 0]);
+  const handleChange = (next: Input.TableCell[][]) =>
+    set(
+      path,
+      next.map(([label, value]) => ({ label: String(label), value: value !== 0 })),
+    );
+  return (
+    <Form.Section title="Enum mapping">
+      <Input.Item padHelpText={false}>
+        <Input.Table value={rows} onChange={handleChange} resourceName="mapping">
+          <Input.TableColumn name="Label" type="string">
+            {(p) => <Input.Text {...p} placeholder="String (e.g. ON)" />}
+          </Input.TableColumn>
+          <Input.TableColumn name="Value" />
+        </Input.Table>
+      </Input.Item>
+    </Form.Section>
+  );
+};

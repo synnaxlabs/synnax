@@ -45,6 +45,36 @@ describe("readOptionsOf", () => {
     });
   });
 
+  it("should drop an entry and a fill that do not fit the new width", () => {
+    expect(
+      Task.Payload.readOptionsOf("uint8", {
+        type: "float",
+        enumValues: [
+          { label: "MAX", value: 255 },
+          { label: "BIG", value: 256 },
+        ],
+        fill: 300,
+      }),
+    ).toEqual({
+      type: "unsigned",
+      dataType: DataType.UINT8,
+      enumValues: [{ label: "MAX", value: "255" }],
+      fill: undefined,
+    });
+    expect(
+      Task.Payload.readOptionsOf("float32", {
+        type: "integer",
+        enumValues: [{ label: "ONE", value: "1" }],
+        fill: "-1",
+      }),
+    ).toEqual({
+      type: "float",
+      dataType: DataType.FLOAT32,
+      enumValues: [{ label: "ONE", value: 1 }],
+      fill: -1,
+    });
+  });
+
   it("should drop an integer entry that a float does not hold exactly", () => {
     expect(
       Task.Payload.readOptionsOf("float64", {

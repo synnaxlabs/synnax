@@ -309,6 +309,7 @@ var _ = Describe("Read", func() {
 
 	Describe("Field", func() {
 		decode := func(r payload.Read, dt telem.DataType, raw string) []byte {
+			GinkgoHelper()
 			dec := MustSucceed(xjson.NewDecoder(MustSucceed(r.Field(dt))))
 			return MustSucceed(dec.Append(nil, jsontext.Value(raw)))
 		}

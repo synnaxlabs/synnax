@@ -217,6 +217,12 @@ const ReadOptionsSection: FC<{ path: deep.Path<ReadField> }> = ({ path }) => {
           valuePlaceholder="Integer (e.g. 1)"
         />
       );
+    case "boolean":
+      return (
+        <Task.Payload.BooleanEnumMappingSection
+          path={deep.variant(path, "type", "boolean").enumValues}
+        />
+      );
     case "string":
       return (
         <Task.Payload.TextEnumMappingSection

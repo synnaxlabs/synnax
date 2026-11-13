@@ -54,27 +54,37 @@ const isNumeric = (options?: ReadOptions): options is NumericOptions =>
 
 const DECIMAL = /^-?[0-9]+$/;
 
-const toFloat = (value: number | string): number | null => {
-  if (typeof value === "number") return value;
-  if (!DECIMAL.test(value)) return null;
-  const n = BigInt(value);
-  const f = Number(n);
-  return BigInt(f) === n ? f : null;
-};
+const MAX_FLOAT32 = 3.4028234663852886e38;
 
-const RANGES: Record<"integer" | "unsigned", readonly [bigint, bigint]> = {
-  integer: [-(2n ** 63n), 2n ** 63n - 1n],
-  unsigned: [0n, 2n ** 64n - 1n],
+const toFloat = (value: number | string, dataType: DataType): number | null => {
+  let f: number;
+  if (typeof value === "number") f = value;
+  else {
+    if (!DECIMAL.test(value)) return null;
+    const n = BigInt(value);
+    f = Number(n);
+    if (BigInt(f) !== n) return null;
+  }
+  const fits =
+    !dataType.equals(DataType.FLOAT32) ||
+    !Number.isFinite(f) ||
+    Math.abs(f) <= MAX_FLOAT32;
+  return fits ? f : null;
 };
 
 const toDecimal = (
   value: number | string,
   kind: "integer" | "unsigned",
+  dataType: DataType,
 ): string | null => {
   if (typeof value === "number" ? !Number.isInteger(value) : !DECIMAL.test(value))
     return null;
   const n = BigInt(value);
-  const [min, max] = RANGES[kind];
+  const bits = BigInt(dataType.density.valueOf() * 8);
+  const [min, max] =
+    kind === "integer"
+      ? [-(2n ** (bits - 1n)), 2n ** (bits - 1n) - 1n]
+      : [0n, 2n ** bits - 1n];
   return n >= min && n <= max ? n.toString() : null;
 };
 
@@ -88,7 +98,8 @@ const convertEntries = <V>(
   });
 
 // Converts the entries and fill of previous to kind, keeping each one that kind holds
-// exactly, as the Core does when it reconciles a field with its channel.
+// exactly and that fits dataType, as the Core does when it reconciles a field with its
+// channel.
 const convertNumeric = (
   kind: NumericOptions["type"],
   dataType: DataType,
@@ -96,14 +107,16 @@ const convertNumeric = (
 ): NumericOptions => {
   const entries: NumericEntry[] = previous.enumValues;
   const fill = previous.fill;
-  if (kind === "float")
+  if (kind === "float") {
+    const convert = (v: number | string) => toFloat(v, dataType);
     return {
       type: kind,
       dataType,
-      enumValues: convertEntries(entries, toFloat),
-      fill: fill == null ? undefined : (toFloat(fill) ?? undefined),
+      enumValues: convertEntries(entries, convert),
+      fill: fill == null ? undefined : (convert(fill) ?? undefined),
     };
-  const convert = (v: number | string) => toDecimal(v, kind);
+  }
+  const convert = (v: number | string) => toDecimal(v, kind, dataType);
   return {
     type: kind,
     dataType,
@@ -115,7 +128,7 @@ const convertNumeric = (
 /**
  * @returns the options of a read field into a new channel of dataType. A field of the
  * same kind keeps its options. Between numeric kinds, each entry and the fill that the
- * new kind holds exactly carry over.
+ * new kind holds exactly, and that fit dataType, carry over.
  * @throws {Error} if dataType is not a known data type.
  */
 export const readOptionsOf = (

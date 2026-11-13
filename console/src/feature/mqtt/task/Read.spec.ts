@@ -190,6 +190,36 @@ describe("MQTT Read form", () => {
     });
   });
 
+  it("should map labels to boolean values on a boolean field", async () => {
+    const { draft } = await renderRead([
+      createReadEntry("e1", "plant/valve", {
+        fields: [
+          createReadField("f1", "/open", {
+            dataType: "boolean",
+            enumValues: [{ label: "OPEN", value: true }],
+          }),
+        ],
+      }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/open/ }));
+    expect(await screen.findByDisplayValue("OPEN")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    const labels = await screen.findAllByPlaceholderText("String (e.g. ON)");
+    fireEvent.change(labels[1], { target: { value: "SHUT" } });
+    fireEvent.blur(labels[1]);
+    await waitFor(async () => {
+      const [entry] = await retrieveEntries(draft.key);
+      if (entry.type !== "plain") throw new Error("expected a plain entry");
+      expect(entry.fields[0]).toMatchObject({
+        type: "boolean",
+        enumValues: [
+          { label: "OPEN", value: true },
+          { label: "SHUT", value: false },
+        ],
+      });
+    });
+  });
+
   it("should change the width of a field with an unfinished enum mapping", async () => {
     await renderRead([
       createReadEntry("e1", "plant/oven", {
