@@ -204,15 +204,18 @@ Check the path, the body fields, and the authentication of the server.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Pointer ... is already used by another field"}>
+<Problem.Item message={"Pointer ... overlaps another field"}>
 <Problem.Cause>
 
-Two fields in the body use the same pointer.
+Two fields in the body use the same pointer, or one pointer sits inside another, such as
+`/meta` and `/meta/unit`. The channel pointer counts too. The Driver reports this as
+`pointer '...' overlaps pointer '...'` when the task starts.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each field its own pointer.
+Give each field a pointer that no other pointer contains, such as `/unit` next to
+`/value`.
 
 </Problem.Fix>
 </Problem.Item>
