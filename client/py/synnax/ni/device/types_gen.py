@@ -365,8 +365,8 @@ class Identity(BaseModel):
             renames.
         model: Is the product name of the device.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
-        hardware: Is what the Driver read from DAQmx about the device. Absent until the
-            Driver reads it.
+        hardware: Is what the Driver read from DAQmx about the device. An update without
+            it keeps the stored value.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
