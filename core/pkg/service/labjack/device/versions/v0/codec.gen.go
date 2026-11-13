@@ -12,26 +12,29 @@
 package v0
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (d Device) EncodeOrc(w *orc.Writer) error {
-	w.Write(d.Key[:])
-	w.Uint32(uint32(d.Rack))
-	w.String(d.Name)
-	w.Uint32(uint32(d.Serial))
-	w.String(string(d.Model))
-	w.String(string(d.Connection))
-	w.String(d.Identifier)
+func (bv Base) EncodeOrc(w *orc.Writer) error {
+	w.Write(bv.Key[:])
+	w.Uint32(uint32(bv.Rack))
+	w.String(bv.Name)
+	w.Uint32(uint32(bv.Serial))
+	w.String(string(bv.Connection))
+	w.String(bv.Identifier)
+	w.Uint32(uint32(bv.ReadIndex))
+	w.Uint32(uint32(bv.WriteStateIndex))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (d *Device) DecodeOrc(r *orc.Reader) error {
+func (bv *Base) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(d.Key[:]); err != nil {
+	if _, err := r.Read(bv.Key[:]); err != nil {
 		return err
 	}
 	{
@@ -39,12 +42,12 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		d.Rack = rack.Key(rawV)
+		bv.Rack = rack.Key(rawV)
 	}
-	if d.Name, err = r.String(); err != nil {
+	if bv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if d.Serial, err = r.Uint32(); err != nil {
+	if bv.Serial, err = r.Uint32(); err != nil {
 		return err
 	}
 	{
@@ -52,17 +55,79 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		d.Model = Model(rawV)
+		bv.Connection = Connection(rawV)
+	}
+	if bv.Identifier, err = r.String(); err != nil {
+		return err
 	}
 	{
-		rawV, err := r.String()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		d.Connection = Connection(rawV)
+		bv.ReadIndex = channel.Key(rawV)
 	}
-	if d.Identifier, err = r.String(); err != nil {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		bv.WriteStateIndex = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (d Device) EncodeOrc(w *orc.Writer) error {
+	switch v := d.Variant.(type) {
+	case T4Device:
+		w.String("t4")
+		if err := v.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	case T7Device:
+		w.String("t7")
+		if err := v.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	case T8Device:
+		w.String("t8")
+		if err := v.Base.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Device: nil or unknown variant %T", d.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (d *Device) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
 		return err
+	}
+	switch string(tag) {
+	case "t4":
+		var v T4Device
+		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		d.Variant = v
+	case "t7":
+		var v T7Device
+		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		d.Variant = v
+	case "t8":
+		var v T8Device
+		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		d.Variant = v
+	default:
+		return errors.Newf("Device: unknown variant %q", tag)
 	}
 	return nil
 }

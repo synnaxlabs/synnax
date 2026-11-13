@@ -47,7 +47,7 @@ func newIndexes() indexes {
 	return indexes{
 		serial: gorp.NewLookupIndex[Key, Device, uint32](
 			"serial",
-			func(e *Device) uint32 { return e.Serial },
+			func(e *Device) uint32 { return e.Base().Serial },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
 			Name:     "rack",
@@ -55,13 +55,22 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				return []rack.Key{e.Rack}
+				var targets []rack.Key
+				switch v1 := e.Variant.(type) {
+				case T4Device:
+					targets = append(targets, v1.Rack)
+				case T7Device:
+					targets = append(targets, v1.Rack)
+				case T8Device:
+					targets = append(targets, v1.Rack)
+				}
+				return targets
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
-				return []string{e.Name}
+				return []string{e.Base().Name}
 			},
 		),
 	}
@@ -160,7 +169,7 @@ func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
 		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return want.Contains(e.Name), nil
+			return want.Contains(e.Base().Name), nil
 		})
 	}
 }
@@ -171,18 +180,6 @@ func MatchNames(vals ...string) Filter {
 func MatchSerials(vals ...uint32) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.serial.Filter(vals...)
-	}
-}
-
-// MatchModels returns a filter for
-// devices whose Model matches any of the
-// provided values.
-func MatchModels(vals ...Model) Filter {
-	return func(Retrieve) gorp.Filter[Key, Device] {
-		want := set.New(vals...)
-		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return want.Contains(e.Model), nil
-		})
 	}
 }
 

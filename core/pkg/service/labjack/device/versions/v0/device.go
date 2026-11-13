@@ -21,9 +21,9 @@ var _ gorp.Entry[Key] = Device{}
 func (Device) CustomTypeName() string { return "labjack_device" }
 
 // GorpKey returns the key of the device.
-func (d Device) GorpKey() Key { return d.Key }
+func (d Device) GorpKey() Key { return d.Base().Key }
 
 // ResourceID returns the resource ID of the device.
 func (d Device) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeLabjackDevice, Key: d.Key.String()}
+	return resource.ID{Type: resource.TypeLabjackDevice, Key: d.Base().Key.String()}
 }

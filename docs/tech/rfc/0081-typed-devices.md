@@ -209,9 +209,10 @@ the port maps are the configuration group. The port maps are the typed form of t
 
 Field groups per make:
 
-- **LabJack**: identity `serial`, `model` (the existing `LJM_dtT4`, `T7`, `T8` enum),
-  `connection` (USB or TCP); configuration `identifier`, `read_index`,
-  `thermocouple_index`, `write_state_index`, four port channel maps.
+- **LabJack**: `labjack.Device` is a union on `model` (`t4`, `t7`, `t8`) with no field
+  groups, because each model has different ports. Every variant carries `serial`,
+  `connection` (USB or TCP), `identifier`, `read_index`, and `write_state_index`, and
+  adds channel maps keyed by its own port enums. An update replaces the whole device.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,

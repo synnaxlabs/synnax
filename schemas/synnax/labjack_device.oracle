@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 
@@ -15,70 +16,22 @@ import "schemas/synnax/status"
 @py output  "client/py/synnax/labjack/device"
 @ts output  "client/ts/src/labjack/device"
 
-Device struct {
-    key        Key = create {
-        @doc value "uniquely identifies the device."
-        @key
-    }
-    rack       rack.Key   {
-        @doc value     "is the key of the rack the device is connected to."
-        @ref kind      place
-        @ref on_delete restrict
-    }
-    name       string     {
-        @doc value         "is a human-readable name for the device."
-        @filter
-        @search
-        @validate required
-    }
-    serial     uint32     {
-        @doc value         "is the serial number of the device."
-        @filter
-        @index lookup
-        @validate required
-    }
-    model      Model      {
-        @doc value "is the model of the device."
-        @filter
-    }
-    connection Connection {
-        @doc value "is the connection the scanner last found the device on."
-    }
-    identifier string = "" {
-        @doc value """
-            is the prefix of the device's channel names. The device is unconfigured
-            while it is empty.
-        """
-    }
-    status     Status?    {
-        @doc value  "is the current operational status of the device."
-        @go marshal omit
-    }
-
-    @create
-    @doc value     "is a LabJack T-series device."
-    @go marshal
-    @go migrate
-    @resource type "labjack_device"
-    @retrieve
-}
-
 Key = uuid {
     @doc value "uniquely identifies a LabJack device."
 }
 
 Model enum {
-    t4 = "LJM_dtT4" {
+    t4 = "t4" {
         @doc value "is a T4."
     }
-    t7 = "LJM_dtT7" {
+    t7 = "t7" {
         @doc value "is a T7."
     }
-    t8 = "LJM_dtT8" {
+    t8 = "t8" {
         @doc value "is a T8."
     }
 
-    @doc value "is the model of a LabJack device, named by its LJM device type."
+    @doc value "is the model of a LabJack device."
 }
 
 Connection enum {
@@ -107,4 +60,69 @@ StatusDetails struct {
 
 Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a device."
+}
+
+Base struct {
+    key               Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack              rack.Key    {
+        @doc value     "is the key of the rack the device is connected to."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name              string      {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @search
+        @validate required
+    }
+    serial            uint32      {
+        @doc value         "is the serial number of the device."
+        @filter
+        @index lookup
+        @validate required
+    }
+    connection        Connection  {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    identifier        string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    status            Status?     {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+
+    @doc value  "carries the fields that every LabJack device shares."
+    @go marshal
+}
+
+Device union on model Model extends Base {
+    t4 {
+        @doc value "is a T4."
+    }
+    t7 {
+        @doc value "is a T7."
+    }
+    t8 {
+        @doc value "is a T8."
+    }
+
+    @create
+    @doc value     "is a LabJack T-series device. Its model selects the ports it has."
+    @go marshal
+    @go migrate
+    @resource type "labjack_device"
+    @retrieve
 }

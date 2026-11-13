@@ -11,22 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import rack as rack_, status as status_
+from synnax import channel, rack as rack_, status as status_
 from synnax.resource import ID
-
-MODEL_T4: Literal["LJM_dtT4"] = "LJM_dtT4"
-
-MODEL_T7: Literal["LJM_dtT7"] = "LJM_dtT7"
-
-MODEL_T8: Literal["LJM_dtT8"] = "LJM_dtT8"
-
-
-Model = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
 CONNECTION_USB: Literal["LJM_ctUSB"] = "LJM_ctUSB"
 
@@ -34,6 +25,15 @@ CONNECTION_TCP: Literal["LJM_ctTCP"] = "LJM_ctTCP"
 
 
 Connection = Literal["LJM_ctUSB", "LJM_ctTCP"]
+
+MODEL_T4: Literal["t4"] = "t4"
+
+MODEL_T7: Literal["t7"] = "t7"
+
+MODEL_T8: Literal["t8"] = "t8"
+
+
+Model = Literal["t4", "t7", "t8"]
 
 Key: TypeAlias = UUID
 
@@ -53,18 +53,20 @@ class StatusDetails(BaseModel):
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class Device(BaseModel):
-    """Is a LabJack T-series device.
+class Base(BaseModel):
+    """Carries the fields that every LabJack device shares.
 
     Attributes:
         key: Uniquely identifies the device.
         rack: Is the key of the rack the device is connected to.
         name: Is a human-readable name for the device.
         serial: Is the serial number of the device.
-        model: Is the model of the device.
         connection: Is the connection the scanner last found the device on.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
+        read_index: Is the index channel of the channels that the device reads into.
+        write_state_index: Is the index channel of the state channels of the device's
+            outputs.
         status: Is the current operational status of the device.
     """
 
@@ -72,14 +74,40 @@ class Device(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str
     serial: int = Field(ge=0, le=4294967295)
-    model: Model
     connection: Connection
     identifier: str = ""
+    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     status: Status | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class T4Device(Base):
+    """Is a T4."""
+
+    model: Literal["t4"] = "t4"
+
+
+class T7Device(Base):
+    """Is a T7."""
+
+    model: Literal["t7"] = "t7"
+
+
+class T8Device(Base):
+    """Is a T8."""
+
+    model: Literal["t8"] = "t8"
+
+
+# Is a LabJack T-series device. Its model selects the ports it has.
+Device = Annotated[
+    T4Device | T7Device | T8Device,
+    Field(discriminator="model"),
+]
 
 
 TYPE_RESOURCE_ID = ID(type="labjack_device")
