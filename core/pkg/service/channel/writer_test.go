@@ -1676,6 +1676,13 @@ var _ = Describe("Writer", func() {
 					})).To(MatchError(ContainSubstring("contains invalid characters")))
 				})
 			})
+			Context("new name is empty", func() {
+				It("Should return the same error as create", func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+					})).To(MatchError(ContainSubstring("name: required")))
+				})
+			})
 			Context("new name is a duplicate", func() {
 				It("Should return an error", func(ctx SpecContext) {
 					secondCh := channel.Channel{

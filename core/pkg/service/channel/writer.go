@@ -764,9 +764,9 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
-// validateChannelNames rejects a create/rename request whose proposed names are empty,
-// are not identifiers, duplicate each other, or collide with an existing channel under
-// a different key.
+// validateChannelNames rejects a create/rename request whose proposed names are not
+// identifiers, duplicate each other, or collide with an existing channel under a
+// different key. It leaves an empty name to Channel.Validate.
 func (w Writer) validateChannelNames(
 	ctx context.Context,
 	keys Keys,
@@ -774,13 +774,7 @@ func (w Writer) validateChannelNames(
 	skipExisting bool,
 ) error {
 	for i, name := range names {
-		if name == "" {
-			return validate.PathedError(
-				errors.Wrap(validate.ErrValidation, "name cannot be empty"),
-				fmt.Sprintf("[%d]", i), "name",
-			)
-		}
-		if !validate.IsIdentifier(name) {
+		if name != "" && !validate.IsIdentifier(name) {
 			return validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
