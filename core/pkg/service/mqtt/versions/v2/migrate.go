@@ -22,16 +22,15 @@ import (
 
 // MigrateChannelField lifts a v1 channel field to v2 by its stored shape, without its
 // Synnax channel. v1 encoded a timestamp channel in its time format whatever the
-// shape, so a field with a channel and no entries whose data type is a timestamp, or
-// that has a time format, becomes a timestamp field in that format, ISO 8601 when it
-// has none. Its data type then names the kind its JSON type writes, for the caller to
-// fall back to when the channel holds no timestamps. A field with no channel and a
-// timestamp data type becomes a timestamp field the same way. Otherwise, a boolean
-// JSON type makes a boolean field, and a number a float field that keeps its entries.
-// A string makes a string field whose entries take the decimal text of their values,
-// so a numeric sample writes the same JSON string as in v1. An entry whose value
-// repeats an earlier one's drops, because v1 wrote the first label. The caller
-// reconciles the field against its channel, or against its data type when it has none.
+// shape, so a field with no entries and a timestamp data type, or with a channel and a
+// time format, becomes a timestamp field in that format, ISO 8601 when it has none. A
+// timestamp data type stays. Otherwise, a bound field's data type names the kind its
+// JSON type writes, for the caller to fall back to when the channel holds no
+// timestamps. Any other field with a boolean JSON type makes a boolean field, and a
+// number a float field that keeps its entries. A string makes a string field whose
+// entries take the decimal text of their values, so a numeric sample writes the same
+// JSON string as in v1. An entry whose value repeats an earlier one's drops, because
+// v1 wrote the first label.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
 	dt := old.DataType
@@ -46,21 +45,12 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 	})
 	var c xpayload.Channel
 	switch {
-	case old.Channel != 0 && len(old.EnumValues) == 0 &&
-		(dt == telem.TimestampT || old.TimeFormat != nil):
-		dt = fallbackDataTypes[old.JSONType]
-		if old.JSONType == payload.JSONTypeNumber {
-			dt = lo.Ternary(
-				old.DataType == telem.TimestampT,
-				telem.Float64T,
-				old.DataType,
-			)
+	case len(old.EnumValues) == 0 &&
+		(dt == telem.TimestampT || (old.Channel != 0 && old.TimeFormat != nil)):
+		if old.Channel != 0 && dt != telem.TimestampT &&
+			old.JSONType != payload.JSONTypeNumber {
+			dt = fallbackDataTypes[old.JSONType]
 		}
-		c = xpayload.Channel{
-			Kind:       xpayload.KindTimestamp,
-			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
-		}
-	case old.Channel == 0 && dt == telem.TimestampT:
 		c = xpayload.Channel{
 			Kind:       xpayload.KindTimestamp,
 			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
