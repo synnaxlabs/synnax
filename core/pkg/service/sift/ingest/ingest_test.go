@@ -13,11 +13,13 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -29,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -87,6 +90,57 @@ func at(s int) telem.TimeStamp { return telem.TimeStamp(s) * telem.SecondTS }
 // point returns the point Sift stores for a value written at ts.
 func point(ts telem.TimeStamp, v any) fake.Point {
 	return fake.Point{Time: time.Unix(0, int64(ts)).UTC(), Value: v}
+}
+
+// racingConn creates each run on its own just before the engine does, as a second
+// engine for the same asset would.
+type racingConn struct{ grpc.ClientConnInterface }
+
+func (c racingConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.runs.v2.RunService/CreateAdhocRun" {
+		var first runsv2.CreateAdhocRunResponse
+		if err := c.ClientConnInterface.Invoke(
+			ctx,
+			method,
+			args,
+			&first,
+			opts...,
+		); err != nil {
+			return err
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
+}
+
+// stallConn holds each call that lists ingestion configs until release closes or the
+// context of the call ends.
+type stallConn struct {
+	grpc.ClientConnInterface
+	release <-chan struct{}
+	// stalled counts the calls held.
+	stalled *atomic.Int32
+}
+
+func (c stallConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.ingestion_configs.v2.IngestionConfigService/ListIngestionConfigs" {
+		c.stalled.Add(1)
+		select {
+		case <-c.release:
+		case <-ctx.Done():
+			return status.FromContextError(ctx.Err()).Err()
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
 }
 
 var _ = Describe("Engine", func() {
@@ -432,6 +486,22 @@ var _ = Describe("Engine", func() {
 				Expect(server.IngestionConfigs()).To(HaveLen(1))
 			})
 
+		It("Should retry when Sift reports an ingestion config that it does not list",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				write(ctx, idx, []telem.TimeStamp{at(1)},
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+				server.FailConfigs(status.Error(codes.AlreadyExists, "exists"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				Expect(e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(2)}, nil)).
+					To(Succeed())
+				Expect(server.Points("stand", ch.Name)).To(HaveLen(1))
+				Expect(rec.retryErrors()).To(HaveExactElements(MatchError(
+					"Sift reported an ingestion config that it does not list",
+				)))
+			})
+
 		It("Should retry a temporary failure from the confirmed positions",
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)
@@ -530,6 +600,396 @@ var _ = Describe("Engine", func() {
 					idx.Key(): stamps[len(points)-1] + 1,
 				}))
 			})
+	})
+
+	Describe("SetRun", func() {
+		var (
+			ch  channel.Channel
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch = createData(ctx, createIndex(ctx), telem.Float64T)
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+				Tags:      []string{"hot"},
+			}
+		})
+
+		It("Should create an ad hoc run of the asset", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "hotfire 1"),
+				HaveField("AssetIds", ConsistOf("asset-stand")),
+				HaveField("Tags", ConsistOf("hot")),
+				HaveField("StartTime.AsTime()", time.Unix(1, 0).UTC()),
+				HaveField("StopTime.AsTime()", time.Unix(5, 0).UTC()),
+			)))
+		})
+
+		It("Should make a run on the asset of a config that another engine created",
+			func(ctx SpecContext) {
+				MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, run))
+				second := run
+				second.Key = uuid.New().String()
+				id := MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, second))
+				Expect(server.IngestionConfigs()).To(HaveLen(1))
+				Expect(server.Runs()).To(ContainElement(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+				)))
+			})
+
+		It("Should update the run that already has the key", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			run.Name = "renamed"
+			run.TimeRange.End = at(9)
+			run.Tags = nil
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Name", "renamed"),
+				HaveField("StopTime.AsTime()", time.Unix(9, 0).UTC()),
+				HaveField("Tags", BeEmpty()),
+			)))
+		})
+
+		It("Should keep one run of a range for each asset", func(ctx SpecContext) {
+			stand := open(ctx, channel.Keys{ch.Key()})
+			bench := open(ctx, channel.Keys{ch.Key()}, ingest.Config{Asset: "bench"})
+			standID := MustSucceed(stand.SetRun(ctx, run))
+			benchID := MustSucceed(bench.SetRun(ctx, run))
+			rng := uuid.MustParse(run.Key)
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(
+					HaveField("RunId", standID),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "stand").String(),
+					))),
+				),
+				SatisfyAll(
+					HaveField("RunId", benchID),
+					HaveField("AssetIds", ConsistOf("asset-bench")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "bench").String(),
+					))),
+				),
+			))
+			run.Name = "renamed"
+			Expect(stand.SetRun(ctx, run)).To(Equal(standID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "hotfire 1")),
+			))
+			Expect(bench.SetRun(ctx, run)).To(Equal(benchID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "renamed")),
+			))
+		})
+
+		DescribeTable("Should name a run with no name by its key",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.Name = ""
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("Name", run.Key)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
+		DescribeTable("Should grow a span with no length to one nanosecond",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.TimeRange = telem.TimeRange{Start: at(2), End: at(2)}
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("StartTime.AsTime()", time.Unix(2, 0).UTC()),
+					HaveField("StopTime.AsTime()", time.Unix(2, 1).UTC()),
+				)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			run.Key = "hotfire"
+			Expect(e.SetRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
+		It("Should leave a run that already matches", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			before := server.Runs()[0]
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(server.Runs()[0]).To(BeIdenticalTo(before))
+		})
+
+		It(
+			"Should update a run that another engine created first",
+			func(ctx SpecContext) {
+				e := open(
+					ctx,
+					channel.Keys{ch.Key()},
+					ingest.Config{Conn: racingConn{conn}},
+				)
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("Name", "hotfire 1"),
+				)))
+			},
+		)
+
+		It(
+			"Should retry when Sift reports a run that it does not list",
+			func(ctx SpecContext) {
+				server.FailRuns(status.Error(codes.AlreadyExists, "run exists"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.retryErrors()).To(HaveExactElements(
+					MatchError("Sift reported a run that it does not list"),
+				))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
+			},
+		)
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			MustSucceed(e.SetRun(ctx, run))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+		It("Should retry a temporary failure to update a run", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Name = "renamed"
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
+		})
+
+		It("Should look up a run again when it is gone at the update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(status.Error(codes.NotFound, "run not found"))
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
+
+		It("Should retry when a run it looked up twice is gone at each update",
+			func(ctx SpecContext) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				server.FailRunUpdates(
+					status.Error(codes.NotFound, "run not found"),
+					status.Error(codes.NotFound, "run not found"),
+				)
+				run.Name = "renamed"
+				Expect(e.SetRun(ctx, run)).To(Equal(id))
+				Expect(rec.retryErrors()).To(HaveExactElements(
+					MatchError("Sift could not find a run that it listed"),
+				))
+				Expect(
+					server.Runs(),
+				).To(HaveExactElements(HaveField("Name", "renamed")))
+			})
+
+		It("Should set a run while Upload runs", func(ctx SpecContext) {
+			idx := createIndex(ctx)
+			data := createData(ctx, idx, telem.Float64T)
+			write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
+				map[channel.Key]telem.Series{data.Key(): telem.NewSeriesV(1.0, 2.0)})
+			e := open(ctx, channel.Keys{data.Key()})
+			done := make(chan error, 1)
+			go func() {
+				done <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+			}()
+			id := MustSucceed(e.SetRun(ctx, run))
+			Eventually(done).Should(Receive(Succeed()))
+			Expect(server.Points("stand", data.Name)).To(HaveLen(2))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
+		})
+
+		It("Should return the last error once it runs out of retries",
+			func(ctx SpecContext) {
+				server.FailRuns(
+					status.Error(codes.Unavailable, "sift is down"),
+					status.Error(codes.Unavailable, "sift is down"),
+				)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Retry: breaker.Config{MaxRetries: 1},
+				})
+				Expect(e.SetRun(ctx, run)).Error().
+					To(MatchError(ContainSubstring("sift is down")))
+				Expect(server.Runs()).To(BeEmpty())
+			})
+
+		Describe("A slow ingestion config", func() {
+			var (
+				release chan struct{}
+				stalled *atomic.Int32
+				e       *ingest.Engine
+			)
+
+			BeforeEach(func(ctx SpecContext) {
+				release, stalled = make(chan struct{}), &atomic.Int32{}
+				e = open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Conn: stallConn{
+						ClientConnInterface: conn,
+						release:             release,
+						stalled:             stalled,
+					},
+				})
+			})
+
+			// startUpload starts an upload that waits for the ingestion config.
+			startUpload := func(ctx context.Context) <-chan error {
+				GinkgoHelper()
+				upload := make(chan error, 1)
+				go func() {
+					upload <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+				}()
+				Eventually(stalled.Load).Should(BeEquivalentTo(1))
+				return upload
+			}
+
+			It("Should not hold a SetRun that is cancelled", func(ctx SpecContext) {
+				upload := startUpload(ctx)
+				sCtx, cancel := context.WithCancel(ctx)
+				set := make(chan error, 1)
+				go func() {
+					_, err := e.SetRun(sCtx, run)
+					set <- err
+				}()
+				Eventually(stalled.Load).Should(BeEquivalentTo(2))
+				cancel()
+				Eventually(set).Should(Receive(MatchError(context.Canceled)))
+				close(release)
+				Eventually(upload).Should(Receive(Succeed()))
+			})
+
+			It("Should make one ingestion config for two calls at once",
+				func(ctx SpecContext) {
+					upload := startUpload(ctx)
+					set := make(chan error, 1)
+					go func() {
+						_, err := e.SetRun(ctx, run)
+						set <- err
+					}()
+					Eventually(stalled.Load).Should(BeEquivalentTo(2))
+					close(release)
+					Eventually(upload).Should(Receive(Succeed()))
+					Eventually(set).Should(Receive(Succeed()))
+					Expect(server.IngestionConfigs()).To(HaveLen(1))
+					Expect(server.Runs()).To(HaveExactElements(
+						HaveField("AssetIds", ConsistOf("asset-stand")),
+					))
+				})
+		})
+
+		It("Should name no single cause when Sift cannot find a thing",
+			func(ctx SpecContext) {
+				server.FailRuns(status.Error(codes.NotFound, "run not found"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				Expect(e.SetRun(ctx, run)).Error().To(MatchError(
+					"Sift could not find what the request names: rpc error: " +
+						"code = NotFound desc = run not found",
+				))
+			})
+
+		It("Should stop at a permanent failure", func(ctx SpecContext) {
+			server.FailRuns(status.Error(codes.PermissionDenied, "no runs for you"))
+			e := open(ctx, channel.Keys{ch.Key()})
+			Expect(e.SetRun(ctx, run)).Error().
+				To(MatchError(ContainSubstring("no permission")))
+			Expect(rec.retryErrors()).To(BeEmpty())
+		})
+	})
+
+	Describe("UpdateRun", func() {
+		var (
+			e   *ingest.Engine
+			run ingest.Run
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			e = open(ctx, channel.Keys{ch.Key()})
+			run = ingest.Run{
+				Key:       uuid.New().String(),
+				Name:      "hotfire 1",
+				TimeRange: telem.TimeRange{Start: at(1), End: at(5)},
+			}
+		})
+
+		It("Should create nothing when the asset has no run", func(ctx SpecContext) {
+			Expect(e.UpdateRun(ctx, run)).To(BeFalse())
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
+		It("Should update the run that has the key", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			run.Key = "hotfire"
+			Expect(e.UpdateRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
 	})
 
 	Describe("Stream", func() {
@@ -1017,17 +1477,16 @@ var _ = Describe("Engine", func() {
 					}
 				})
 
-				// sendOther waits until sift stores two values of other.
-				sendOther := func(ctx context.Context, sift *fake.Server) {
+				// sendOther returns once the engine reports that Sift confirmed other.
+				// The engine then has no open stream that closing Sift could fail.
+				sendOther := func(ctx context.Context) {
 					GinkgoHelper()
 					live()
 					write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
 						map[channel.Key]telem.Series{
 							other.Key(): telem.NewSeriesV(1.0, 2.0),
 						})
-					Eventually(func() []fake.Point {
-						return sift.Points("stand", other.Name)
-					}).Should(HaveLen(2))
+					Eventually(rec.samples).Should(BeEquivalentTo(2))
 				}
 
 				It("Should report a mark that OnCheckpoint failed to report",
@@ -1045,7 +1504,7 @@ var _ = Describe("Engine", func() {
 						}
 						e := open(ctx, channel.Keys{ch.Key(), other.Key()}, cfg)
 						stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
-						sendOther(ctx, server)
+						sendOther(ctx)
 						openWriter(
 							ctx,
 							channel.Keys{ch.Key()},
@@ -1078,7 +1537,7 @@ var _ = Describe("Engine", func() {
 							idx.Key():     at(0),
 							failing.Key(): at(0),
 						})
-						sendOther(ctx, sift)
+						sendOther(ctx)
 						Expect(sift.Close()).To(Succeed())
 						openWriter(
 							ctx,
