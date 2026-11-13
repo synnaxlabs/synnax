@@ -54,10 +54,9 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 				BaseAOChannel: v3.BaseAOChannel{Key: "ao", Port: 2},
 			}}},
 		}))
-		Expect(got.Channels[0].Variant).
-			To(Equal(v4.AOChannelVariant(v4.AOVoltageChannel{
-				Key: "ao", Port: 2,
-			})))
+		var want v4.AOVoltageChannel
+		want.Key, want.Port = "ao", 2
+		Expect(got.Channels[0].Variant).To(Equal(v4.AOChannelVariant(want)))
 	})
 })
 
