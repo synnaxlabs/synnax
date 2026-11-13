@@ -35,6 +35,13 @@ describe("NI chassis", async () => {
       expect(await client.ni.chassis.retrieve({ key: c.key })).toEqual(c);
     });
 
+    it("should create a chassis again after deleting it", async () => {
+      const c = await create();
+      await client.ni.chassis.delete(c.key);
+      await client.ni.chassis.create(c);
+      expect((await client.ni.chassis.retrieve({ key: c.key })).name).toBe(c.name);
+    });
+
     it("should create several chassis", async () => {
       const chassis = await client.ni.chassis.create([
         { rack: rack.key, name: "A", resourceName: id.create(), model: "cDAQ-9178" },
