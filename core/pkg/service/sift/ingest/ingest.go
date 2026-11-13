@@ -114,12 +114,16 @@ type Config struct {
 	//
 	// [REQUIRED]
 	OnCheckpoint func(ctx context.Context, cp Checkpoint) error
-	// OnRetry runs after a temporary failure, before the engine waits to try again. It
-	// must be safe to call concurrently with itself and OnCheckpoint, since SetRun can
-	// retry while Upload or Stream runs.
+	// OnRetry runs after a temporary failure of Upload or Stream, before the engine
+	// waits to try again.
 	//
 	// [OPTIONAL]
 	OnRetry func(ctx context.Context, err error)
+	// OnRunRetry runs after a temporary failure of SetRun, before it waits to try
+	// again. It must be safe to call concurrently with OnRetry and OnCheckpoint.
+	//
+	// [OPTIONAL]
+	OnRunRetry func(ctx context.Context, err error)
 }
 
 var _ config.Config[Config] = Config{}
@@ -135,7 +139,8 @@ var DefaultConfig = Config{
 		MaxRetries:   breaker.InfiniteRetries,
 		Clock:        xtime.Real,
 	},
-	OnRetry: func(context.Context, error) {},
+	OnRetry:    func(context.Context, error) {},
+	OnRunRetry: func(context.Context, error) {},
 }
 
 // Override implements config.Config.
@@ -155,6 +160,7 @@ func (c Config) Override(other Config) Config {
 	c.Retry = c.Retry.Override(other.Retry)
 	c.OnCheckpoint = override.Nil(c.OnCheckpoint, other.OnCheckpoint)
 	c.OnRetry = override.Nil(c.OnRetry, other.OnRetry)
+	c.OnRunRetry = override.Nil(c.OnRunRetry, other.OnRunRetry)
 	return c
 }
 
@@ -171,6 +177,7 @@ func (c Config) Validate() error {
 	v.Positive("confirm_timeout", c.ConfirmTimeout)
 	v.NotNil("on_checkpoint", c.OnCheckpoint)
 	v.NotNil("on_retry", c.OnRetry)
+	v.NotNil("on_run_retry", c.OnRunRetry)
 	return errors.Join(v.Error(), c.Retry.Validate())
 }
 

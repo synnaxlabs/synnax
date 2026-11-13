@@ -43,6 +43,7 @@ type recorder struct {
 	mu          sync.Mutex
 	checkpoints []ingest.Checkpoint
 	retries     []error
+	runRetries  []error
 }
 
 func (r *recorder) onCheckpoint(_ context.Context, cp ingest.Checkpoint) error {
@@ -56,6 +57,12 @@ func (r *recorder) onRetry(_ context.Context, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.retries = append(r.retries, err)
+}
+
+func (r *recorder) onRunRetry(_ context.Context, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.runRetries = append(r.runRetries, err)
 }
 
 func (r *recorder) last() ingest.Checkpoint {
@@ -81,6 +88,12 @@ func (r *recorder) retryErrors() []error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]error(nil), r.retries...)
+}
+
+func (r *recorder) runRetryErrors() []error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]error(nil), r.runRetries...)
 }
 
 // at returns the timestamp s seconds after the epoch.
@@ -147,6 +160,7 @@ var _ = Describe("Engine", func() {
 			Keys:         keys,
 			OnCheckpoint: rec.onCheckpoint,
 			OnRetry:      rec.onRetry,
+			OnRunRetry:   rec.onRunRetry,
 			Retry: breaker.Config{
 				BaseInterval: 5 * time.Millisecond,
 				MaxRetries:   breaker.InfiniteRetries,
@@ -728,7 +742,7 @@ var _ = Describe("Engine", func() {
 					ingest.Config{Conn: racingConn{conn}},
 				)
 				id := MustSucceed(e.SetRun(ctx, run))
-				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(rec.runRetryErrors()).To(BeEmpty())
 				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
 					HaveField("RunId", id),
 					HaveField("Name", "hotfire 1"),
@@ -742,20 +756,21 @@ var _ = Describe("Engine", func() {
 				server.FailRuns(status.Error(codes.AlreadyExists, "run exists"))
 				e := open(ctx, channel.Keys{ch.Key()})
 				id := MustSucceed(e.SetRun(ctx, run))
-				Expect(rec.retryErrors()).To(HaveExactElements(
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
 					MatchError("Sift reported a run that it does not list"),
 				))
 				Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
 			},
 		)
 
-		It("Should retry a temporary failure", func(ctx SpecContext) {
+		It("Should report a temporary failure to OnRunRetry", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
 			e := open(ctx, channel.Keys{ch.Key()})
 			MustSucceed(e.SetRun(ctx, run))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
+			Expect(rec.retryErrors()).To(BeEmpty())
 			Expect(server.Runs()).To(HaveLen(1))
 		})
 
@@ -765,7 +780,7 @@ var _ = Describe("Engine", func() {
 			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
 			run.Name = "renamed"
 			Expect(e.SetRun(ctx, run)).To(Equal(id))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
@@ -816,7 +831,7 @@ var _ = Describe("Engine", func() {
 			e := open(ctx, channel.Keys{ch.Key()})
 			Expect(e.SetRun(ctx, run)).Error().
 				To(MatchError(ContainSubstring("no permission")))
-			Expect(rec.retryErrors()).To(BeEmpty())
+			Expect(rec.runRetryErrors()).To(BeEmpty())
 		})
 	})
 

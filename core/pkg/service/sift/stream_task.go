@@ -146,7 +146,8 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 			runs.signal()
 			return nil
 		},
-		OnRetry: func(ctx context.Context, err error) { h.setSend(ctx, err) },
+		OnRetry:    func(ctx context.Context, err error) { h.setSend(ctx, err) },
+		OnRunRetry: func(ctx context.Context, err error) { h.setRun(ctx, err.Error()) },
 	})
 	if err != nil {
 		closeConn()

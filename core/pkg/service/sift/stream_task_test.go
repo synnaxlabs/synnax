@@ -484,6 +484,22 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should warn about a run while Sift retries it", func(ctx SpecContext) {
+			server.FailRuns(grpcstatus.Error(codes.Unavailable, "runs are down"))
+			start(ctx, streamConfig(l.Key))
+			endedRange(ctx, l.Key)
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to set Sift run"),
+				HaveField("Description", ContainSubstring("runs are down")),
+			))
+			Eventually(server.Runs).WithTimeout(5 * time.Second).Should(HaveLen(1))
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Started task"),
+			))
+		})
+
 		It("Should skip a run that Sift rejects until its range changes",
 			func(ctx SpecContext) {
 				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))

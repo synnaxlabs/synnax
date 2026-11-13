@@ -338,6 +338,12 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	}
 	uploading()
 	u.write(ctx, s)
+	retrying := func(ctx context.Context, err error) {
+		s.Variant = status.VariantWarning
+		s.Message = "Retrying upload to Sift"
+		s.Description = err.Error()
+		u.write(ctx, s)
+	}
 	e, err := ingest.New(ctx, ingest.Config{
 		DB:                 u.cfg.DB,
 		Instrumentation:    u.cfg.Child("upload"),
@@ -354,12 +360,8 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 			u.write(ctx, s)
 			return nil
 		},
-		OnRetry: func(ctx context.Context, err error) {
-			s.Variant = status.VariantWarning
-			s.Message = "Retrying upload to Sift"
-			s.Description = err.Error()
-			u.write(ctx, s)
-		},
+		OnRetry:    retrying,
+		OnRunRetry: retrying,
 	})
 	if err != nil {
 		return err
