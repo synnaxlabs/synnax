@@ -482,63 +482,56 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         fail(dev_err.message());
         return;
     }
-    const auto [saved, saved_err] = parse_properties(dev.properties);
+    auto [saved, saved_err] = parse_properties(dev.properties);
     if (saved_err) {
         fail(common::config_err_description(saved_err));
         return;
     }
-    const std::string network = saved.network;
-    const std::string key = dev.key;
-    const auto [engine, engine_err] = this->pool->acquire(network);
+    const auto [engine, engine_err] = this->pool->acquire(saved.network);
     if (engine_err) {
         fail(engine_err.data);
         return;
     }
-    if (engine->opening()) {
-        fail(
-            "A task is starting on " + engine->name() +
-            ". Try again when the start ends, or stop the task."
-        );
-        return;
-    }
-    const auto [slaves, err] = engine->rediscover();
+    saved.name = dev.name;
+    bool wrote = false;
+    const auto err = engine->configure(
+        saved,
+        [&wrote](const slave::DiscoveryResult &found)
+            -> std::pair<std::vector<slave::StartupParameter>, x::errors::Error> {
+            const auto &props = found.properties;
+            if (!props.settings || !props.settings->contains("mode"))
+                return {
+                    {},
+                    x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        "Synnax does not know how to switch this device."
+                    )
+                };
+            std::vector<slave::StartupParameter> parameters;
+            x::json::Parser mode(props.settings->at("mode"));
+            mode.iter("switch", [&parameters](x::json::Parser &param) {
+                parameters.push_back(slave::StartupParameter::parse(param));
+            });
+            if (!mode.ok())
+                return {
+                    {},
+                    x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        common::config_err_description(mode.error())
+                    )
+                };
+            wrote = !parameters.empty();
+            return {std::move(parameters), x::errors::NIL};
+        }
+    );
     if (err) {
         fail(err.data);
         return;
     }
-    const auto slave = std::ranges::find_if(slaves, [&network, &key](const auto &s) {
-        return generate_slave_key(s.properties, network) == key;
-    });
-    if (slave == slaves.end()) {
-        fail(
-            "The device is not on " + engine->name() + ". Check its power and cabling."
-        );
-        return;
-    }
-    const auto &props = slave->properties;
-    if (!props.settings || !props.settings->contains("mode")) {
-        fail("Synnax does not know how to switch this device.");
-        return;
-    }
-    std::vector<slave::StartupParameter> parameters;
-    x::json::Parser switch_parser(props.settings->at("mode"));
-    switch_parser.iter("switch", [&parameters](x::json::Parser &param) {
-        parameters.push_back(slave::StartupParameter::parse(param));
-    });
-    if (!switch_parser.ok()) {
-        fail(common::config_err_description(switch_parser.error()));
-        return;
-    }
-    if (!parameters.empty())
-        if (auto configure_err = engine->configure(props, parameters)) {
-            fail(configure_err.data);
-            return;
-        }
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Switched " + dev.name + " to Synnax only";
-    task_status.description = parameters.empty()
-                                ? "The device already runs Synnax only."
-                                : "Restart the power of the device to finish.";
+    task_status.description = wrote ? "Restart the power of the device to finish."
+                                    : "The device already runs Synnax only.";
     this->ctx->set_status(task_status);
 }
 }

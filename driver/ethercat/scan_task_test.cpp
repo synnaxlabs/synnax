@@ -1286,17 +1286,16 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
 /// @brief it should refuse at once to switch a slave while a task starts its bus.
 TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskStartsTheBus) {
     this->start(true);
-    this->master->set_activate_duration(x::telem::SECOND);
+    this->master->hold_activate();
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
     std::thread opener([&engine, &entry] {
         auto [reader, err] = engine->open_reader({entry}, x::telem::Rate(100), 1);
     });
-    ASSERT_EVENTUALLY_EQ(engine->opening(), true);
+    this->master->wait_until_activating();
     const auto status = this->set_standalone();
-    EXPECT_TRUE(engine->opening());
+    this->master->release_activate();
     opener.join();
-    EXPECT_FALSE(engine->opening());
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
@@ -1333,7 +1332,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
         status.description,
-        "The device is not on Ethernet 2. Check its power and cabling."
+        "Test Slave is not on Ethernet 2. Check its power and cabling."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

@@ -52,6 +52,16 @@ protected:
         return dev;
     }
 
+    /// @brief sets whether the last scan found the device at key.
+    void set_connected(const std::string &key, const bool connected) const {
+        const auto dev = ASSERT_NIL_P(
+            this->client->devices.retrieve(key, {.include_status = true})
+        );
+        auto status = dev.status.value();
+        status.details.connected = connected;
+        ASSERT_NIL(this->client->statuses.set(status));
+    }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -1117,26 +1127,13 @@ TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
     ASSERT_NIL(this->client->devices.create(removed));
-    auto saved = ASSERT_NIL_P(
-        this->client->devices.retrieve(removed.key, {.include_status = true})
-    );
-    ASSERT_TRUE(saved.status.has_value());
-    saved.status->variant = synnax::status::VARIANT_WARNING;
-    saved.status->message = "Device disconnected";
-    saved.status->details.connected = false;
-    ASSERT_NIL(this->client->statuses.set(*saved.status));
+    this->set_connected(removed.key, false);
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
     replacement.name = "EL3102";
     replacement.properties["serial"] = 54321;
     ASSERT_NIL(this->client->devices.create(replacement));
-    auto found = ASSERT_NIL_P(
-        this->client->devices.retrieve(replacement.key, {.include_status = true})
-    );
-    ASSERT_TRUE(found.status.has_value());
-    found.status->variant = synnax::status::VARIANT_SUCCESS;
-    found.status->details.connected = true;
-    ASSERT_NIL(this->client->statuses.set(*found.status));
+    this->set_connected(replacement.key, true);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(

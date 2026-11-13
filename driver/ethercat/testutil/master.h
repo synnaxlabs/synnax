@@ -106,6 +106,12 @@ class Master final : public master::Master {
     std::condition_variable recorded_cv;
     /// @brief what name() returns.
     std::string network_name = "eth0";
+    std::mutex activate_mu;
+    std::condition_variable activate_cv;
+    /// @brief whether each activate() blocks until release_activate().
+    bool activate_held{false};
+    /// @brief whether an activate() is blocked now.
+    bool activating{false};
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
@@ -196,6 +202,27 @@ public:
     void set_activate_duration(const x::telem::TimeSpan span) {
         std::lock_guard lock(this->mu);
         this->activate_duration = span;
+    }
+
+    /// @brief makes activate() wait for release_activate(), which holds a bus start.
+    void hold_activate() {
+        std::lock_guard lock(this->activate_mu);
+        this->activate_held = true;
+    }
+
+    /// @brief waits until an activate() waits after hold_activate().
+    void wait_until_activating() {
+        std::unique_lock lock(this->activate_mu);
+        this->activate_cv.wait(lock, [this] { return this->activating; });
+    }
+
+    /// @brief lets the activate() that hold_activate() holds go on.
+    void release_activate() {
+        {
+            std::lock_guard lock(this->activate_mu);
+            this->activate_held = false;
+        }
+        this->activate_cv.notify_all();
     }
 
     /// @brief makes activate() return err after the bus cycle starts, as when a slave
@@ -404,6 +431,13 @@ public:
             duration = this->activate_duration;
         }
         this->clock.sleep(duration);
+        {
+            std::unique_lock lock(this->activate_mu);
+            this->activating = this->activate_held;
+            this->activate_cv.notify_all();
+            this->activate_cv.wait(lock, [this] { return !this->activate_held; });
+            this->activating = false;
+        }
         size_t sent = 0;
         master::Image image;
         {

@@ -165,8 +165,9 @@ class Engine {
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
-    /// @brief true while a task starts the bus, which holds mu for up to start_timeout.
-    std::atomic<bool> opening_bus{false};
+    /// @brief the number of open_reader and open_writer calls in progress. One that
+    /// starts the bus holds mu for up to start_timeout.
+    std::atomic<size_t> opens{0};
     /// @brief the bus rate in millihertz, or zero when the bus is not running.
     std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
@@ -208,6 +209,9 @@ class Engine {
     );
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief locks mu without waiting behind an open_reader or open_writer.
+    /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
+    std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
@@ -401,12 +405,6 @@ public:
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }
 
-    /// @brief returns true while a task starts the bus. Calls that need the stopped bus
-    /// wait for the start to end. Thread-safe.
-    [[nodiscard]] bool opening() const {
-        return this->opening_bus.load(std::memory_order_acquire);
-    }
-
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
@@ -420,16 +418,21 @@ public:
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover();
 
-    /// @brief finds slave on the bus by its vendor, product, and serial number, or by
-    /// its position when it has no serial number. Then writes parameters to it while
-    /// the bus is stopped, and discovers the slaves again so that they show the change.
-    /// Thread-safe.
-    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus or when slave is
-    /// not on the bus, or the error of the write.
-    [[nodiscard]] x::errors::Error configure(
-        const slave::Properties &slave,
-        const std::vector<slave::StartupParameter> &parameters
-    );
+    /// @brief returns the parameters to write to a slave that configure found, or the
+    /// error that stops the write.
+    using Parameters = std::function<
+        std::pair<std::vector<slave::StartupParameter>, x::errors::Error>(
+            const slave::DiscoveryResult &
+        )>;
+
+    /// @brief finds slave on the stopped bus by its vendor, product, and serial number,
+    /// or by its position when it has no serial number. Then writes what parameters
+    /// returns for it, and discovers the slaves again so that they show the change.
+    /// Writes nothing when parameters returns none. Thread-safe.
+    /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus,
+    /// or when slave is not on the bus. Otherwise the error of parameters or the write.
+    [[nodiscard]] x::errors::Error
+    configure(const slave::Properties &slave, const Parameters &parameters);
 
     /// @brief reads an object of at most four bytes from the slave at position on the
     /// running bus, as an unsigned value. Thread-safe.
