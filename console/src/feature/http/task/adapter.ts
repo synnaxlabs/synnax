@@ -58,9 +58,10 @@ const convertNumber = (
   kind: NumericKind,
   dataType: DataType,
 ): number | string | undefined => {
+  const f = typeof v === "number" ? v : Number(v);
   if (kind === "float") {
-    const f = typeof v === "number" ? v : Number(v);
-    if (typeof v === "string" && BigInt(f) !== BigInt(v)) return undefined;
+    if (typeof v === "string" && Number.isFinite(f) && BigInt(f) !== BigInt(v))
+      return undefined;
     if (
       dataType.equals(DataType.FLOAT32) &&
       Number.isFinite(f) &&
@@ -69,7 +70,7 @@ const convertNumber = (
       return undefined;
     return f;
   }
-  if (typeof v === "number" && !Number.isInteger(v)) return undefined;
+  if (!Number.isInteger(f)) return undefined;
   const n = BigInt(v);
   const bits = BigInt(dataType.density.valueOf() * 8);
   const [min, max] =
@@ -87,7 +88,7 @@ const convertNumber = (
  */
 export const retype = (field: ReadField, dataType: DataType): ReadField => {
   const type = kindOf(dataType);
-  if (type === field.type) return "dataType" in field ? { ...field, dataType } : field;
+  if (type === field.type) return isNumeric(field) ? { ...field, dataType } : field;
   const { key, name, disabled, channel, pointer } = field;
   const converted =
     isNumeric(field) && isNumericKind(type)

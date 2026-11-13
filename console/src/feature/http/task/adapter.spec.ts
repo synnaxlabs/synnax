@@ -85,6 +85,21 @@ describe("adapter", () => {
       expect("fill" in float ? float.fill : undefined).toBeUndefined();
     });
 
+    it("should set the data type of a numeric field that has none", () => {
+      const field = createField({ type: "float" });
+      expect(retype(field, DataType.FLOAT32)).toMatchObject({
+        type: "float",
+        dataType: DataType.FLOAT32,
+      });
+    });
+
+    it("should drop a non-finite float fill held as text on an integer kind", () => {
+      const field = createField({ type: "float", fill: "Infinity" });
+      const integer = retype(field, DataType.INT32);
+      expect(integer.type).toBe("integer");
+      expect("fill" in integer ? integer.fill : undefined).toBeUndefined();
+    });
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({
