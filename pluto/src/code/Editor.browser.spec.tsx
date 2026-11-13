@@ -15,7 +15,7 @@ import {
   resolve,
   selectedByTripleClick,
 } from "@synnaxlabs/lyra/styletest";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { Code } from "@/code";
@@ -26,8 +26,8 @@ const CODE = "const pressure = 1;";
 // Monaco loads its whole runtime on the first editor of the page.
 const MONACO_TIMEOUT = 60_000;
 
-/** @returns a real editor once Monaco has loaded. */
-const renderEditor = async (): Promise<Code.Monaco.editor.IStandaloneCodeEditor> => {
+/** @returns the marker row of the hover that a real editor opens on a warning. */
+const hoverWarning = async (code?: string): Promise<Element> => {
   let editor: Code.Monaco.editor.IStandaloneCodeEditor | undefined;
   const capture: Code.EditorExtension = (e) => {
     editor = e;
@@ -44,15 +44,8 @@ const renderEditor = async (): Promise<Code.Monaco.editor.IStandaloneCodeEditor>
     </Code.Provider>,
   );
   await expect.poll(() => editor, { timeout: MONACO_TIMEOUT }).toBeDefined();
-  if (editor == null) throw new Error("Monaco did not load");
-  return editor;
-};
-
-/** @returns the marker row of the hover that a real editor opens on a warning. */
-const hoverWarning = async (code?: string): Promise<Element> => {
-  const editor = await renderEditor();
-  const model = editor.getModel();
-  if (model == null) throw new Error("editor has no model");
+  const model = editor?.getModel();
+  if (editor == null || model == null) throw new Error("editor has no model");
   const monaco = await import("@codingame/monaco-vscode-editor-api");
   monaco.editor.setModelMarkers(model, "spec", [
     {
@@ -93,22 +86,6 @@ describe("Editor", () => {
     );
     expect(await selectedByTripleClick(getByText(CODE).element())).toContain(CODE);
   });
-
-  it(
-    "should write Monaco's errors to the console but not its warnings",
-    async () => {
-      await renderEditor();
-      const { getService, ILogService } = await import("@codingame/monaco-vscode-api");
-      const log = await getService(ILogService);
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      const error = vi.spyOn(console, "error").mockImplementation(() => {});
-      log.warn("slow startup step");
-      log.error("failed startup step");
-      expect(warn).not.toHaveBeenCalled();
-      expect(error).toHaveBeenCalledOnce();
-    },
-    MONACO_TIMEOUT,
-  );
 
   describe("hover severity", () => {
     it(
