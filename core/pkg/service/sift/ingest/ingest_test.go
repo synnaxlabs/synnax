@@ -893,8 +893,7 @@ var _ = Describe("Engine", func() {
 					_, err := e.SetRun(sCtx, run)
 					set <- err
 				}()
-				// Lets SetRun reach the ingestion config before the cancel.
-				Consistently(set, 50*time.Millisecond).ShouldNot(Receive())
+				Eventually(stalled.Load).Should(BeEquivalentTo(2))
 				cancel()
 				Eventually(set).Should(Receive(MatchError(context.Canceled)))
 				close(release)
