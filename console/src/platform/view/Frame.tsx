@@ -104,10 +104,12 @@ export const Frame = ({
     select(staticViews[0].key);
   };
   PView.useDeleteSynchronizer(deleteSynchronizer);
+  const editing = alwaysEditable || editable;
   const contextValue: ContextValue = {
     resourceType,
     selected,
-    editable: (alwaysEditable || editable) && updatable,
+    editing,
+    editable: editing && updatable,
     staticViews: staticViewKeys,
     select,
     getInitialView,
@@ -122,7 +124,7 @@ export const Frame = ({
         <Selector
           icon={icon}
           showEditButton={!alwaysEditable && updatable}
-          editable={alwaysEditable || editable}
+          editable={editing}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
           onFetchMore={remoteProps.more}

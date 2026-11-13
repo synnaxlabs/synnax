@@ -527,7 +527,7 @@ TEST(RangerTests, testStageProtoRoundTrip) {
         ASSERT_EQ(ASSERT_NIL_P(stage_from_pb(pb)), stage);
     }
     const auto [_, err] = stage_to_pb("bogus");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, x::errors::Error("unrecognized Stage value: bogus"));
     ASSERT_EQ(err.type, "unrecognized Stage value: bogus");
 }
 

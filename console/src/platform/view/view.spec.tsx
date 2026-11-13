@@ -9,9 +9,11 @@
 
 import { ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Flux } from "@synnaxlabs/pluto";
+import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
@@ -51,11 +53,17 @@ const Inner = (): ReactElement => {
     name: "ranges",
     query: { where },
   });
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
         <View.Filter.Menu properties={PROPERTIES} />
         <View.Search />
+        {hasCreatePermission && (
+          <Button.Button tooltip="Create range">
+            <Icon.Add />
+          </Button.Button>
+        )}
       </View.Toolbar>
       <View.Items<ranger.Key>>{item}</View.Items>
     </View.Form>
@@ -355,6 +363,21 @@ describe("View permissions", () => {
       expect(screen.getByText(String(alpha.key))).toBeTruthy();
       expect(screen.queryByText(String(bravo.key))).toBeNull();
     });
+    expect(queryIconButton(document.body, "filter")).toBeNull();
+  });
+
+  it("should keep the toolbar of a saved view a subject cannot update, without its filters", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({ create: [ranger.TYPE_RESOURCE_ID] }), {
+      searchInViews: true,
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
+      ).toBeTruthy(),
+    );
     expect(queryIconButton(document.body, "filter")).toBeNull();
   });
 
