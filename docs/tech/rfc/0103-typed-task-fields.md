@@ -210,12 +210,13 @@ that becomes unbound again takes its channel's name without a `_<data_type>` suf
 suffixes do not stack. A new channel takes the name when it is free, or else the name
 with its data type as a suffix, such as `temp_int32`. When that is taken too, configure
 fails, and the message tells the user to rename the field. Configure never binds by
-name. Each source picks one index: the channel of a bound index field, else the index of
-its first bound channel, else the stored index, else a new one. An unbound index field
-binds to it, each new fixed-density channel takes it, and the device stores it. On HTTP
-and MQTT, a new variable-density channel (string, JSON, or bytes) stays virtual, as
-today. On Kafka it takes the index, as today. `onConfigure` then saves the field as
-bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
+name. Each source picks one index: the channel of a bound index field, else the first
+non-zero index of its bound channels, else the stored index, else a new one. An unbound
+index field binds to it, each new fixed-density channel takes it, and the device stores
+it. On HTTP and MQTT, a new variable-density channel (string, JSON, or bytes) stays
+virtual, as today. On Kafka it takes the index, as today. `onConfigure` then saves the
+field as bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15
+deletes it.
 
 ## 6 Field types
 
