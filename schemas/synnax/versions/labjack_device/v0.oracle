@@ -1,0 +1,77 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/status/v2"
+
+Key = uuid {
+    @doc value "uniquely identifies a LabJack device."
+}
+
+Model enum {
+    t4 = "LJM_dtT4" {
+        @doc value "is a T4."
+    }
+    t7 = "LJM_dtT7" {
+        @doc value "is a T7."
+    }
+    t8 = "LJM_dtT8" {
+        @doc value "is a T8."
+    }
+
+    @doc value "is the model of a LabJack device, named by its LJM device type."
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the device belongs to."
+    }
+    device Key      {
+        @doc value "is the key of the device."
+    }
+
+    @doc value "identifies the device and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a device."
+}
+
+Device struct {
+    key        Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack       rack.Key {
+        @doc value "is the key of the rack the device is connected to."
+    }
+    name       string   {
+        @doc value "is a human-readable name for the device."
+    }
+    serial     string   {
+        @doc value "is the serial number of the device."
+    }
+    model      Model    {
+        @doc value "is the model of the device."
+    }
+    identifier string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    status     Status?  {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+
+    @doc value  "is a LabJack T-series device."
+    @go marshal
+    @go migrate
+}

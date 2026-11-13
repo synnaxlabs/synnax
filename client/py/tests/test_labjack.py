@@ -9,11 +9,13 @@
 
 from collections.abc import Callable, Iterator
 from typing import cast
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+import synnax.labjack.device
 from tests.json_value import obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
@@ -662,3 +664,37 @@ class TestLabJackDevicePropertyUpdates:
         assert obj(props, "DO", "channels") == {
             "DIO4": {"command": fio4_cmd.key, "state": fio4_state.key}
         }
+
+
+@pytest.mark.labjack
+class TestLabJackDeviceResource:
+    """Tests for the typed LabJack device resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+
+    def test_defaults(self) -> None:
+        """Should leave a new device unconfigured."""
+        device = sy.labjack.device.Device(
+            rack=1, name="T7-0001", serial="470010001", model="LJM_dtT7"
+        )
+        assert device.identifier == ""
+        assert device.status is None
+
+    def test_rejects_unknown_model(self) -> None:
+        """Should reject a model that the schema does not name."""
+        with pytest.raises(ValidationError):
+            sy.labjack.device.Device.model_validate(
+                {"rack": 1, "name": "D", "serial": "1", "model": "LJM_dtDIGIT"}
+            )
+
+    def test_requires_serial(self) -> None:
+        """Should reject a device without a serial number."""
+        with pytest.raises(ValidationError):
+            sy.labjack.device.Device.model_validate(
+                {"rack": 1, "name": "T7-0001", "model": "LJM_dtT7"}
+            )
+
+    def test_resource_id(self) -> None:
+        """Should name the device by its key under the labjack_device type."""
+        assert sy.labjack.device.resource_id(self.KEY).type == "labjack_device"
+        assert sy.labjack.device.resource_id(self.KEY).key == str(self.KEY)
