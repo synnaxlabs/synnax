@@ -164,24 +164,32 @@ Device::from_proto(const ::service::ni_device::pb::Device &pb) {
         cpp.analog_input = v;
     }
     for (const auto &[k, v]: pb.analog_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = AnalogOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.analog_output[k] = cpp_v;
+        cpp.analog_output[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.counter_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = CounterInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.counter_input[k] = cpp_v;
+        cpp.counter_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_input[k] = cpp_v;
+        cpp.digital_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_output[k] = cpp_v;
+        cpp.digital_output[key] = cpp_v;
     }
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());
@@ -330,8 +338,11 @@ AnalogInputPorts::from_proto(const ::service::ni_device::pb::AnalogInputPorts &p
     AnalogInputPorts cpp;
     cpp.index = pb.index();
     cpp.temperature = pb.temperature();
-    for (const auto &[k, v]: pb.channels())
-        cpp.channels[k] = v;
+    for (const auto &[k, v]: pb.channels()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
+        cpp.channels[key] = v;
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -388,8 +399,11 @@ DigitalInputChannels::from_proto(
 ) {
     DigitalInputChannels cpp;
     cpp.index = pb.index();
-    for (const auto &[k, v]: pb.lines())
-        cpp.lines[k] = v;
+    for (const auto &[k, v]: pb.lines()) {
+        auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
+        if (key_err) return {{}, key_err};
+        cpp.lines[key] = v;
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -412,9 +426,11 @@ DigitalOutputChannels::from_proto(
     DigitalOutputChannels cpp;
     cpp.state_index = pb.state_index();
     for (const auto &[k, v]: pb.lines()) {
+        auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = CommandStatePair::from_proto(v);
         if (err) return {{}, err};
-        cpp.lines[k] = cpp_v;
+        cpp.lines[key] = cpp_v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -509,24 +525,32 @@ Configuration::from_proto(const ::service::ni_device::pb::Configuration &pb) {
         cpp.analog_input = v;
     }
     for (const auto &[k, v]: pb.analog_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = AnalogOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.analog_output[k] = cpp_v;
+        cpp.analog_output[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.counter_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = CounterInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.counter_input[k] = cpp_v;
+        cpp.counter_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_input[k] = cpp_v;
+        cpp.digital_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_output[k] = cpp_v;
+        cpp.digital_output[key] = cpp_v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -676,24 +700,32 @@ ConfigurationUpdate::from_proto(const ::service::ni_device::pb::Configuration &p
         cpp.analog_input = v;
     }
     for (const auto &[k, v]: pb.analog_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = AnalogOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.analog_output[k] = cpp_v;
+        cpp.analog_output[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.counter_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = CounterInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.counter_input[k] = cpp_v;
+        cpp.counter_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_input()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalInputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_input[k] = cpp_v;
+        cpp.digital_input[key] = cpp_v;
     }
     for (const auto &[k, v]: pb.digital_output()) {
+        auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
+        if (key_err) return {{}, key_err};
         auto [cpp_v, err] = DigitalOutputChannels::from_proto(v);
         if (err) return {{}, err};
-        cpp.digital_output[k] = cpp_v;
+        cpp.digital_output[key] = cpp_v;
     }
     return {cpp, x::errors::NIL};
 }

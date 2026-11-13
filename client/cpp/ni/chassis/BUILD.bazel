@@ -38,6 +38,7 @@ cc_test(
     srcs = ["chassis_test.cpp"],
     deps = [
         ":chassis",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -133,41 +133,57 @@ func DeviceFromPB(pb *Device) (device.Device, error) {
 	if pb.AnalogOutput != nil {
 		r.AnalogOutput = make(map[uint16]device.AnalogOutputChannels, len(pb.AnalogOutput))
 		for k, v := range pb.AnalogOutput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Device{}, err
+			}
 			converted, err := AnalogOutputChannelsFromPB(v)
 			if err != nil {
 				return device.Device{}, err
 			}
-			r.AnalogOutput[uint16(k)] = converted
+			r.AnalogOutput[key] = converted
 		}
 	}
 	if pb.CounterInput != nil {
 		r.CounterInput = make(map[uint16]device.CounterInputChannels, len(pb.CounterInput))
 		for k, v := range pb.CounterInput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Device{}, err
+			}
 			converted, err := CounterInputChannelsFromPB(v)
 			if err != nil {
 				return device.Device{}, err
 			}
-			r.CounterInput[uint16(k)] = converted
+			r.CounterInput[key] = converted
 		}
 	}
 	if pb.DigitalInput != nil {
 		r.DigitalInput = make(map[uint16]device.DigitalInputChannels, len(pb.DigitalInput))
 		for k, v := range pb.DigitalInput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Device{}, err
+			}
 			converted, err := DigitalInputChannelsFromPB(v)
 			if err != nil {
 				return device.Device{}, err
 			}
-			r.DigitalInput[uint16(k)] = converted
+			r.DigitalInput[key] = converted
 		}
 	}
 	if pb.DigitalOutput != nil {
 		r.DigitalOutput = make(map[uint16]device.DigitalOutputChannels, len(pb.DigitalOutput))
 		for k, v := range pb.DigitalOutput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Device{}, err
+			}
 			converted, err := DigitalOutputChannelsFromPB(v)
 			if err != nil {
 				return device.Device{}, err
 			}
-			r.DigitalOutput[uint16(k)] = converted
+			r.DigitalOutput[key] = converted
 		}
 	}
 	if pb.Status != nil {
@@ -582,7 +598,11 @@ func AnalogInputPortsFromPB(pb *AnalogInputPorts) (device.AnalogInputPorts, erro
 	if pb.Channels != nil {
 		r.Channels = make(map[uint16]channel.Key, len(pb.Channels))
 		for k, v := range pb.Channels {
-			r.Channels[uint16(k)] = channel.Key(v)
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.AnalogInputPorts{}, err
+			}
+			r.Channels[key] = channel.Key(v)
 		}
 	}
 	defaults.FillGroups(&r)
@@ -747,7 +767,11 @@ func DigitalInputChannelsFromPB(pb *DigitalInputChannels) (device.DigitalInputCh
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]channel.Key, len(pb.Lines))
 		for k, v := range pb.Lines {
-			r.Lines[uint8(k)] = channel.Key(v)
+			key, err := xpb.Narrow[uint8](k)
+			if err != nil {
+				return device.DigitalInputChannels{}, err
+			}
+			r.Lines[key] = channel.Key(v)
 		}
 	}
 	defaults.FillGroups(&r)
@@ -812,11 +836,15 @@ func DigitalOutputChannelsFromPB(pb *DigitalOutputChannels) (device.DigitalOutpu
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]device.CommandStatePair, len(pb.Lines))
 		for k, v := range pb.Lines {
+			key, err := xpb.Narrow[uint8](k)
+			if err != nil {
+				return device.DigitalOutputChannels{}, err
+			}
 			converted, err := CommandStatePairFromPB(v)
 			if err != nil {
 				return device.DigitalOutputChannels{}, err
 			}
-			r.Lines[uint8(k)] = converted
+			r.Lines[key] = converted
 		}
 	}
 	defaults.FillGroups(&r)
@@ -1041,41 +1069,57 @@ func ConfigurationFromPB(pb *Configuration) (device.Configuration, error) {
 	if pb.AnalogOutput != nil {
 		r.AnalogOutput = make(map[uint16]device.AnalogOutputChannels, len(pb.AnalogOutput))
 		for k, v := range pb.AnalogOutput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Configuration{}, err
+			}
 			converted, err := AnalogOutputChannelsFromPB(v)
 			if err != nil {
 				return device.Configuration{}, err
 			}
-			r.AnalogOutput[uint16(k)] = converted
+			r.AnalogOutput[key] = converted
 		}
 	}
 	if pb.CounterInput != nil {
 		r.CounterInput = make(map[uint16]device.CounterInputChannels, len(pb.CounterInput))
 		for k, v := range pb.CounterInput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Configuration{}, err
+			}
 			converted, err := CounterInputChannelsFromPB(v)
 			if err != nil {
 				return device.Configuration{}, err
 			}
-			r.CounterInput[uint16(k)] = converted
+			r.CounterInput[key] = converted
 		}
 	}
 	if pb.DigitalInput != nil {
 		r.DigitalInput = make(map[uint16]device.DigitalInputChannels, len(pb.DigitalInput))
 		for k, v := range pb.DigitalInput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Configuration{}, err
+			}
 			converted, err := DigitalInputChannelsFromPB(v)
 			if err != nil {
 				return device.Configuration{}, err
 			}
-			r.DigitalInput[uint16(k)] = converted
+			r.DigitalInput[key] = converted
 		}
 	}
 	if pb.DigitalOutput != nil {
 		r.DigitalOutput = make(map[uint16]device.DigitalOutputChannels, len(pb.DigitalOutput))
 		for k, v := range pb.DigitalOutput {
+			key, err := xpb.Narrow[uint16](k)
+			if err != nil {
+				return device.Configuration{}, err
+			}
 			converted, err := DigitalOutputChannelsFromPB(v)
 			if err != nil {
 				return device.Configuration{}, err
 			}
-			r.DigitalOutput[uint16(k)] = converted
+			r.DigitalOutput[key] = converted
 		}
 	}
 	defaults.FillGroups(&r)
