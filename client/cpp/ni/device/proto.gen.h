@@ -55,7 +55,7 @@ uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
 uuid_set_from_proto(const ::service::ni_device::pb::UuidSet &pb) {
     ::x::filter::Set<x::uuid::UUID> cpp;
-    if (!pb.eq().empty()) {
+    if (pb.has_eq()) {
         auto [v, err] = x::uuid::UUID::parse(pb.eq());
         if (err) return {{}, err};
         cpp.eq = v;
@@ -152,7 +152,7 @@ Device::from_proto(const ::service::ni_device::pb::Device &pb) {
     cpp.serial = pb.serial();
     cpp.resource_name = pb.resource_name();
     cpp.model = pb.model();
-    if (!pb.chassis().empty()) {
+    if (pb.has_chassis()) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
@@ -473,7 +473,7 @@ Identity::from_proto(const ::service::ni_device::pb::Identity &pb) {
     cpp.serial = pb.serial();
     cpp.resource_name = pb.resource_name();
     cpp.model = pb.model();
-    if (!pb.chassis().empty()) {
+    if (pb.has_chassis()) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
@@ -648,7 +648,7 @@ IdentityUpdate::from_proto(const ::service::ni_device::pb::Identity &pb) {
     cpp.serial = pb.serial();
     cpp.resource_name = pb.resource_name();
     cpp.model = pb.model();
-    if (!pb.chassis().empty()) {
+    if (pb.has_chassis()) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
