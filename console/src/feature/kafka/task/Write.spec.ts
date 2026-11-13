@@ -74,7 +74,7 @@ describe("Write", () => {
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
     fireEvent.click((await screen.findAllByText(ch.name))[0]);
-    await screen.findByText("Write as");
+    await screen.findByText("Output type");
     await selectFromDropdown("Number", "Boolean");
     fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
     fireEvent.change(await screen.findByPlaceholderText("String (e.g. ON)"), {
@@ -215,7 +215,7 @@ describe("Write", () => {
     fireEvent.click((await screen.findAllByText(ch.name))[0]);
     // The section title and the field label, once the details render.
     await waitFor(() => expect(screen.getAllByText("Channel")).toHaveLength(2));
-    expect(screen.queryByText("Write as")).toBeNull();
+    expect(screen.queryByText("Output type")).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
     const created = await deployAndAwaitTask(
       client,

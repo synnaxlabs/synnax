@@ -181,7 +181,7 @@ interface KindSelectProps {
 }
 
 const KindSelect = ({ path, kinds }: KindSelectProps) => (
-  <PForm.Field<WriteChannel> path={path} label="Write as" padHelpText={false}>
+  <PForm.Field<WriteChannel> path={path} label="Output type" padHelpText={false}>
     {({ value, onChange }) => (
       <Select.Simple<payload.Kind>
         value={value.type}
