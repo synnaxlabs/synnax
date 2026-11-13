@@ -923,7 +923,8 @@ jobs:
     name: Build Core (${{ matrix.os }})
     needs: [setup, sign-macos-driver]
     if: inputs.sign_binaries && inputs.macos && inputs.driver && inputs.core
-    # A failed attempt to upload the Core can take 8 minutes, and two can fail.
+    # The job takes 2 minutes with no stall. Three attempts to upload the Core, each
+    # with one block that stalls four times, take 25 minutes.
     timeout-minutes: 45
     permissions: *build_permissions
     env:
