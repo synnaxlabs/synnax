@@ -294,7 +294,7 @@ describe("View queries", () => {
       });
       const retrieved = await createTestClient().views.retrieve(created.key);
       expect(retrieved.icon).toEqual("Range");
-      expect(retrieved.color).toEqual([255, 0, 0, 1]);
+      expect(retrieved.color).toEqual(color.construct("#FF0000"));
     });
   });
 });
