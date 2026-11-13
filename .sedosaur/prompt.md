@@ -96,7 +96,8 @@ and the bar for a finding stays the same.
   P1.
 - P2: a small problem that is worth a fix.
 
-Give the severity of the worst outcome that you traced. A narrow bug is P2.
+Give the severity of the worst outcome that you traced. A narrow bug is a P2, even when
+it loses or corrupts stored data.
 
 ## Deferrable findings
 
