@@ -2671,8 +2671,11 @@ func (p *Plugin) applyValidation(
 		effectiveType = tsTypeOverride
 	} else if !resolution.IsPrimitive(effectiveType) {
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
-		// constraints on the underlying primitive, so classify by that base.
-		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+		// constraints on the underlying primitive, so classify by that base. A
+		// hand-written schema may not be a zod number, so it keeps its own name.
+		resolved, ok := typeRef.Resolve(table)
+		handWritten := ok && omit.IsSkipped(resolved, "ts")
+		if base := resolution.PrimitiveBase(typeRef, table); base != "" && !handWritten {
 			effectiveType = base
 		}
 	}
@@ -2749,8 +2752,8 @@ func (p *Plugin) applyValidation(
 			}
 		}
 	}
-	// A hand-written number schema such as telem.numericTimeSpanZ has no .min or .max,
-	// so its bounds go through checks.
+	// A hand-written number schema such as telem.numericTimeSpanZ, used directly or
+	// through a @ts type override, has no .min or .max, so its bounds go through checks.
 	if !isNumber && tsTypeOverride != "number" &&
 		!resolution.IsPrimitive(effectiveType) &&
 		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {

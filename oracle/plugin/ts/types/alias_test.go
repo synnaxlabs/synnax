@@ -228,6 +228,11 @@ var _ = Describe("TS aliases", func() {
 			"span: telem.numericTimeSpanZ.default(5),",
 		),
 		Entry(
+			"bounds on an alias hand-written as a number",
+			"span telem.NumericTimeSpan = 5 {\n@validate min 1\n@validate max 9\n}",
+			"span: telem.numericTimeSpanZ.check(z.gte(1), z.lte(9)).default(5),",
+		),
+		Entry(
 			"bounds on a field typed as an alias hand-written as a number",
 			"span telem.TimeSpan = 5 {\n@ts type telem.NumericTimeSpan\n"+
 				"@validate min 1\n@validate max 9\n}",
