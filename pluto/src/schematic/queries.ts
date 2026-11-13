@@ -10,7 +10,7 @@
 import { type project, query, schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { array, compare, deep, verbs } from "@synnaxlabs/x";
+import { compare, deep, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
