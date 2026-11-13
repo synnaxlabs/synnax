@@ -26,11 +26,11 @@
 
 namespace driver::ni {
 namespace {
-using ::synnax::ni::AnalogInputPort;
-using ::synnax::ni::AnalogOutputPort;
-using ::synnax::ni::CounterPort;
-using ::synnax::ni::DigitalPort;
-using ::synnax::ni::Hardware;
+using ::synnax::ni::device::AnalogInputPort;
+using ::synnax::ni::device::AnalogOutputPort;
+using ::synnax::ni::device::CounterPort;
+using ::synnax::ni::device::DigitalPort;
+using ::synnax::ni::device::Hardware;
 using ::x::spatial::Bounds;
 
 /// @brief the channel types of each DAQmx measurement or output type. A DAQmx type with
@@ -95,18 +95,18 @@ const TypeTable CI_TYPES = {
 /// @brief the bits of DAQmx_PhysicalChan_AI_TermCfgs and
 /// DAQmx_PhysicalChan_AO_TermCfgs.
 const std::vector<std::pair<int32, std::string>> TERMINAL_CONFIG_BITS = {
-    {DAQmx_Val_Bit_TermCfg_RSE, ::synnax::ni::TERMINAL_CONFIG_RSE},
-    {DAQmx_Val_Bit_TermCfg_NRSE, ::synnax::ni::TERMINAL_CONFIG_NRSE},
-    {DAQmx_Val_Bit_TermCfg_Diff, ::synnax::ni::TERMINAL_CONFIG_DIFF},
-    {DAQmx_Val_Bit_TermCfg_PseudoDIFF, ::synnax::ni::TERMINAL_CONFIG_PSEUDO_DIFF},
+    {DAQmx_Val_Bit_TermCfg_RSE, ::synnax::ni::device::TERMINAL_CONFIG_RSE},
+    {DAQmx_Val_Bit_TermCfg_NRSE, ::synnax::ni::device::TERMINAL_CONFIG_NRSE},
+    {DAQmx_Val_Bit_TermCfg_Diff, ::synnax::ni::device::TERMINAL_CONFIG_DIFF},
+    {DAQmx_Val_Bit_TermCfg_PseudoDIFF, ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
 };
 
 /// @brief the values of DAQmx_AI_TermCfg.
 const std::unordered_map<int32, std::string> TERMINAL_CONFIGS = {
-    {DAQmx_Val_RSE, ::synnax::ni::TERMINAL_CONFIG_RSE},
-    {DAQmx_Val_NRSE, ::synnax::ni::TERMINAL_CONFIG_NRSE},
-    {DAQmx_Val_Diff, ::synnax::ni::TERMINAL_CONFIG_DIFF},
-    {DAQmx_Val_PseudoDiff, ::synnax::ni::TERMINAL_CONFIG_PSEUDO_DIFF},
+    {DAQmx_Val_RSE, ::synnax::ni::device::TERMINAL_CONFIG_RSE},
+    {DAQmx_Val_NRSE, ::synnax::ni::device::TERMINAL_CONFIG_NRSE},
+    {DAQmx_Val_Diff, ::synnax::ni::device::TERMINAL_CONFIG_DIFF},
+    {DAQmx_Val_PseudoDiff, ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
 };
 
 /// @brief a family of devices in which a differential channel on port n uses port n +
@@ -146,8 +146,8 @@ const float64 EXTERNAL_SHUNT_RESISTANCE = 249;
 const std::string PRODUCT_TYPE_PREFIX = "NI ";
 const std::string AI_VOLTAGE = "ai_voltage";
 const std::string AI_CURRENT = "ai_current";
-const std::string RSE = ::synnax::ni::TERMINAL_CONFIG_RSE;
-const std::string DIFF = ::synnax::ni::TERMINAL_CONFIG_DIFF;
+const std::string RSE = ::synnax::ni::device::TERMINAL_CONFIG_RSE;
+const std::string DIFF = ::synnax::ni::device::TERMINAL_CONFIG_DIFF;
 
 /// @brief a physical channel or port and the number at the end of its name.
 struct Port {
@@ -345,7 +345,7 @@ std::string read_default_terminal_config(
     if (const auto err = dmx.CreateTask("", &task)) {
         VLOG(1) << "[ni] failed to create a task to read the default terminal "
                 << "configuration of " << port.name << ": " << err;
-        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     }
     int32 config = 0;
     auto err = add_readback_channel(dmx, task, port, ai, hw);
@@ -362,10 +362,10 @@ std::string read_default_terminal_config(
     if (err) {
         VLOG(1) << "[ni] failed to read the default terminal configuration of "
                 << port.name << ": " << err;
-        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
-    if (it == TERMINAL_CONFIGS.end()) return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+    if (it == TERMINAL_CONFIGS.end()) return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     return it->second;
 }
 
@@ -538,7 +538,7 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
 bool is_complete(const Hardware &hw) {
     return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
         return reads_back_default(ai) &&
-               ai.default_terminal_config == ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+               ai.default_terminal_config == ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     });
 }
 

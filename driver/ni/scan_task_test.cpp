@@ -537,8 +537,8 @@ struct HardwareScanner {
     }
 
     /// @brief returns the hardware in the stored record of the device.
-    [[nodiscard]] ::synnax::ni::Hardware hardware() const {
-        return ::synnax::ni::Hardware::parse(
+    [[nodiscard]] ::synnax::ni::device::Hardware hardware() const {
+        return ::synnax::ni::device::Hardware::parse(
             x::json::Parser(
                 x::json::json(this->stored.at("01A2B3C4").properties.at(HARDWARE_KEY))
             )
@@ -566,7 +566,7 @@ TEST(ScannerTest, testReadsHardwareOnce) {
 /// @brief it should not read the hardware of a device whose stored record has it.
 TEST(ScannerTest, testSkipsReadWhenStoredRecordHasHardware) {
     HardwareScanner s;
-    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::Hardware{}.to_json();
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::device::Hardware{}.to_json();
     EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
     EXPECT_EQ(s.dmx->reads(), 0);
 }
@@ -642,7 +642,7 @@ TEST(ScannerTest, testStoresIncompleteHardware) {
     );
     EXPECT_EQ(
         hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
     );
     EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
 }

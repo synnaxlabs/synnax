@@ -28,6 +28,12 @@ var _ = Describe("Update", func() {
 			Serial:       "01A",
 			ResourceName: "Mod1",
 			Model:        "PXI-6255",
+			Hardware: &device.Hardware{
+				AnalogInputs: []device.AnalogInputPort{{
+					Port:            0,
+					TerminalConfigs: []device.TerminalConfig{device.TerminalConfigRse},
+				}},
+			},
 		},
 	}}
 	configuration := device.Update{Variant: device.ConfigurationUpdate{

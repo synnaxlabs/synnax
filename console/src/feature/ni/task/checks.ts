@@ -33,7 +33,7 @@ import {
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
-const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (devices: Device[], key: string): ni.device.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 const conflictMessage = (port: string, claim: Claim, enabled: Claim[]): string => {

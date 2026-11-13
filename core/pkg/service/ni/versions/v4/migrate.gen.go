@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -94,10 +95,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageChannel{
 			BaseAIChannel: baseAIChannel,
 			MinMaxVal:     variant.MinMaxVal,
-			Terminal:      variant.Terminal,
+			Terminal:      terminal,
 			CustomScale:   variant.CustomScale,
 		}}, nil
 	case v3.AIAccelChannel:
@@ -105,10 +110,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccelChannel{
 			BaseAIChannel:     baseAIChannel,
 			MinMaxVal:         variant.MinMaxVal,
-			Terminal:          variant.Terminal,
+			Terminal:          terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
 			CustomScale:       variant.CustomScale,
@@ -133,10 +142,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AICurrentChannel{
 			BaseAIChannel:       baseAIChannel,
 			MinMaxVal:           variant.MinMaxVal,
-			Terminal:            variant.Terminal,
+			Terminal:            terminal,
 			CustomScale:         variant.CustomScale,
 			ShuntResistorLoc:    variant.ShuntResistorLoc,
 			ExtShuntResistorVal: variant.ExtShuntResistorVal,
@@ -176,10 +189,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIForceIEPEChannel{
 			BaseAIChannel:     baseAIChannel,
 			MinMaxVal:         variant.MinMaxVal,
-			Terminal:          variant.Terminal,
+			Terminal:          terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
 			CustomScale:       variant.CustomScale,
@@ -191,9 +208,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIMicrophoneChannel{
 			BaseAIChannel:     baseAIChannel,
-			Terminal:          variant.Terminal,
+			Terminal:          terminal,
 			CurrentExcitation: variant.CurrentExcitation,
 			CustomScale:       variant.CustomScale,
 			MicSensitivity:    variant.MicSensitivity,
@@ -332,10 +353,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVelocityIEPEChannel{
 			BaseAIChannel:     baseAIChannel,
 			MinMaxVal:         variant.MinMaxVal,
-			Terminal:          variant.Terminal,
+			Terminal:          terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
 			CustomScale:       variant.CustomScale,
@@ -347,10 +372,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccel4WireDCVoltageChannel{
 			BaseAIChannel:      baseAIChannel,
 			MinMaxVal:          variant.MinMaxVal,
-			Terminal:           variant.Terminal,
+			Terminal:           terminal,
 			Sensitivity:        variant.Sensitivity,
 			VoltageExcitation:  variant.VoltageExcitation,
 			CustomScale:        variant.CustomScale,
@@ -363,10 +392,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccelChargeChannel{
 			BaseAIChannel:    baseAIChannel,
 			MinMaxVal:        variant.MinMaxVal,
-			Terminal:         variant.Terminal,
+			Terminal:         terminal,
 			Sensitivity:      variant.Sensitivity,
 			CustomScale:      variant.CustomScale,
 			Units:            variant.Units,
@@ -377,10 +410,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIChargeChannel{
 			BaseAIChannel: baseAIChannel,
 			MinMaxVal:     variant.MinMaxVal,
-			Terminal:      variant.Terminal,
+			Terminal:      terminal,
 			CustomScale:   variant.CustomScale,
 			Units:         variant.Units,
 		}}, nil
@@ -389,10 +426,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AICurrentRMSChannel{
 			BaseAIChannel:       baseAIChannel,
 			MinMaxVal:           variant.MinMaxVal,
-			Terminal:            variant.Terminal,
+			Terminal:            terminal,
 			CustomScale:         variant.CustomScale,
 			ShuntResistorLoc:    variant.ShuntResistorLoc,
 			ExtShuntResistorVal: variant.ExtShuntResistorVal,
@@ -490,10 +531,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageRMSChannel{
 			BaseAIChannel: baseAIChannel,
 			MinMaxVal:     variant.MinMaxVal,
-			Terminal:      variant.Terminal,
+			Terminal:      terminal,
 			CustomScale:   variant.CustomScale,
 		}}, nil
 	case v3.AIVoltageWithExcitChannel:
@@ -501,10 +546,14 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		terminal, err := MigrateTerminal(ctx, variant.Terminal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageWithExcitChannel{
 			BaseAIChannel:      baseAIChannel,
 			MinMaxVal:          variant.MinMaxVal,
-			Terminal:           variant.Terminal,
+			Terminal:           terminal,
 			VoltageExcitation:  variant.VoltageExcitation,
 			CustomScale:        variant.CustomScale,
 			BridgeConfig:       variant.BridgeConfig,
@@ -754,6 +803,12 @@ func autoMigrateBaseAIChannel(_ context.Context, old v3.BaseAIChannel) (BaseAICh
 		Disabled: old.Disabled,
 		Channel:  old.Channel,
 		Device:   old.Device,
+	}, nil
+}
+
+func autoMigrateTerminal(_ context.Context, old v3.Terminal) (Terminal, error) {
+	return Terminal{
+		TerminalConfig: device.TerminalConfig(old.TerminalConfig),
 	}, nil
 }
 

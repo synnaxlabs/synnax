@@ -16,7 +16,90 @@ import (
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (aip AnalogInputPort) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(aip.Port))
+	w.Bool(aip.TerminalConfigs != nil)
+	if aip.TerminalConfigs != nil {
+		w.Uint32(uint32(len(aip.TerminalConfigs)))
+		for i := range aip.TerminalConfigs {
+			w.String(string(aip.TerminalConfigs[i]))
+		}
+	}
+	w.String(string(aip.DefaultTerminalConfig))
+	w.Bool(aip.Types != nil)
+	if aip.Types != nil {
+		w.Uint32(uint32(len(aip.Types)))
+		for i := range aip.Types {
+			w.String(aip.Types[i])
+		}
+	}
+	w.Uint16(uint16(aip.Negative))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (aip *AnalogInputPort) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if aip.Port, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			aip.TerminalConfigs = make([]TerminalConfig, n)
+			for i := range aip.TerminalConfigs {
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					aip.TerminalConfigs[i] = TerminalConfig(rawV)
+				}
+			}
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		aip.DefaultTerminalConfig = TerminalConfig(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			aip.Types = make([]string, n)
+			for i := range aip.Types {
+				if aip.Types[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if aip.Negative, err = r.Uint16(); err != nil {
+		return err
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (aip AnalogInputPorts) EncodeOrc(w *orc.Writer) error {
@@ -115,6 +198,75 @@ func (aoc *AnalogOutputChannels) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (aop AnalogOutputPort) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(aop.Port))
+	w.Bool(aop.TerminalConfigs != nil)
+	if aop.TerminalConfigs != nil {
+		w.Uint32(uint32(len(aop.TerminalConfigs)))
+		for i := range aop.TerminalConfigs {
+			w.String(string(aop.TerminalConfigs[i]))
+		}
+	}
+	w.Bool(aop.Types != nil)
+	if aop.Types != nil {
+		w.Uint32(uint32(len(aop.Types)))
+		for i := range aop.Types {
+			w.String(aop.Types[i])
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (aop *AnalogOutputPort) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if aop.Port, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			aop.TerminalConfigs = make([]TerminalConfig, n)
+			for i := range aop.TerminalConfigs {
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					aop.TerminalConfigs[i] = TerminalConfig(rawV)
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			aop.Types = make([]string, n)
+			for i := range aop.Types {
+				if aop.Types[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (cic CounterInputChannels) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(cic.Index))
 	w.Uint32(uint32(cic.Channel))
@@ -141,6 +293,46 @@ func (cic *CounterInputChannels) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (cp CounterPort) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(cp.Port))
+	w.Bool(cp.Types != nil)
+	if cp.Types != nil {
+		w.Uint32(uint32(len(cp.Types)))
+		for i := range cp.Types {
+			w.String(cp.Types[i])
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cp *CounterPort) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if cp.Port, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			cp.Types = make([]string, n)
+			for i := range cp.Types {
+				if cp.Types[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.Write(d.Key[:])
 	w.Uint32(uint32(d.Rack))
@@ -151,6 +343,14 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	if d.Chassis != nil {
 		w.Bool(true)
 		w.Write((*d.Chassis)[:])
+	} else {
+		w.Bool(false)
+	}
+	if d.Hardware != nil {
+		w.Bool(true)
+		if err := d.Hardware.EncodeOrc(w); err != nil {
+			return err
+		}
 	} else {
 		w.Bool(false)
 	}
@@ -237,6 +437,19 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			d.Chassis = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Hardware
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			d.Hardware = &hv
 		}
 	}
 	if d.Identifier, err = r.String(); err != nil {
@@ -444,6 +657,351 @@ func (doc *DigitalOutputChannels) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				doc.Lines[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (dp DigitalPort) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(dp.Port))
+	w.Uint8(uint8(dp.Lines))
+	w.Bool(dp.Input)
+	w.Bool(dp.Output)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (dp *DigitalPort) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if dp.Port, err = r.Uint16(); err != nil {
+		return err
+	}
+	if dp.Lines, err = r.Uint8(); err != nil {
+		return err
+	}
+	if dp.Input, err = r.Bool(); err != nil {
+		return err
+	}
+	if dp.Output, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (h Hardware) EncodeOrc(w *orc.Writer) error {
+	w.Bool(h.AnalogInputs != nil)
+	if h.AnalogInputs != nil {
+		w.Uint32(uint32(len(h.AnalogInputs)))
+		for i := range h.AnalogInputs {
+			if err := h.AnalogInputs[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(h.AnalogOutputs != nil)
+	if h.AnalogOutputs != nil {
+		w.Uint32(uint32(len(h.AnalogOutputs)))
+		for i := range h.AnalogOutputs {
+			if err := h.AnalogOutputs[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(h.CounterInputs != nil)
+	if h.CounterInputs != nil {
+		w.Uint32(uint32(len(h.CounterInputs)))
+		for i := range h.CounterInputs {
+			if err := h.CounterInputs[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(h.CounterOutputs != nil)
+	if h.CounterOutputs != nil {
+		w.Uint32(uint32(len(h.CounterOutputs)))
+		for i := range h.CounterOutputs {
+			if err := h.CounterOutputs[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(h.DigitalPorts != nil)
+	if h.DigitalPorts != nil {
+		w.Uint32(uint32(len(h.DigitalPorts)))
+		for i := range h.DigitalPorts {
+			if err := h.DigitalPorts[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(h.Terminals != nil)
+	if h.Terminals != nil {
+		w.Uint32(uint32(len(h.Terminals)))
+		for i := range h.Terminals {
+			w.String(h.Terminals[i])
+		}
+	}
+	w.Float64(float64(h.AiMinRate))
+	w.Float64(float64(h.AiMaxSingleChannelRate))
+	w.Float64(float64(h.AiMaxMultiChannelRate))
+	w.Float64(float64(h.AoMaxRate))
+	w.Bool(h.AiVoltageRanges != nil)
+	if h.AiVoltageRanges != nil {
+		w.Uint32(uint32(len(h.AiVoltageRanges)))
+		for i := range h.AiVoltageRanges {
+			w.Float64(float64(h.AiVoltageRanges[i].Lower))
+			w.Float64(float64(h.AiVoltageRanges[i].Upper))
+		}
+	}
+	w.Bool(h.AiCurrentRanges != nil)
+	if h.AiCurrentRanges != nil {
+		w.Uint32(uint32(len(h.AiCurrentRanges)))
+		for i := range h.AiCurrentRanges {
+			w.Float64(float64(h.AiCurrentRanges[i].Lower))
+			w.Float64(float64(h.AiCurrentRanges[i].Upper))
+		}
+	}
+	w.Bool(h.AoVoltageRanges != nil)
+	if h.AoVoltageRanges != nil {
+		w.Uint32(uint32(len(h.AoVoltageRanges)))
+		for i := range h.AoVoltageRanges {
+			w.Float64(float64(h.AoVoltageRanges[i].Lower))
+			w.Float64(float64(h.AoVoltageRanges[i].Upper))
+		}
+	}
+	w.Bool(h.AoCurrentRanges != nil)
+	if h.AoCurrentRanges != nil {
+		w.Uint32(uint32(len(h.AoCurrentRanges)))
+		for i := range h.AoCurrentRanges {
+			w.Float64(float64(h.AoCurrentRanges[i].Lower))
+			w.Float64(float64(h.AoCurrentRanges[i].Upper))
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (h *Hardware) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AnalogInputs = make([]AnalogInputPort, n)
+			for i := range h.AnalogInputs {
+				if err = h.AnalogInputs[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AnalogOutputs = make([]AnalogOutputPort, n)
+			for i := range h.AnalogOutputs {
+				if err = h.AnalogOutputs[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.CounterInputs = make([]CounterPort, n)
+			for i := range h.CounterInputs {
+				if err = h.CounterInputs[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.CounterOutputs = make([]CounterPort, n)
+			for i := range h.CounterOutputs {
+				if err = h.CounterOutputs[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.DigitalPorts = make([]DigitalPort, n)
+			for i := range h.DigitalPorts {
+				if err = h.DigitalPorts[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.Terminals = make([]string, n)
+			for i := range h.Terminals {
+				if h.Terminals[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		h.AiMinRate = telem.Rate(rawV)
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		h.AiMaxSingleChannelRate = telem.Rate(rawV)
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		h.AiMaxMultiChannelRate = telem.Rate(rawV)
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		h.AoMaxRate = telem.Rate(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AiVoltageRanges = make([]spatial.Bounds, n)
+			for i := range h.AiVoltageRanges {
+				if h.AiVoltageRanges[i].Lower, err = r.Float64(); err != nil {
+					return err
+				}
+				if h.AiVoltageRanges[i].Upper, err = r.Float64(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AiCurrentRanges = make([]spatial.Bounds, n)
+			for i := range h.AiCurrentRanges {
+				if h.AiCurrentRanges[i].Lower, err = r.Float64(); err != nil {
+					return err
+				}
+				if h.AiCurrentRanges[i].Upper, err = r.Float64(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AoVoltageRanges = make([]spatial.Bounds, n)
+			for i := range h.AoVoltageRanges {
+				if h.AoVoltageRanges[i].Lower, err = r.Float64(); err != nil {
+					return err
+				}
+				if h.AoVoltageRanges[i].Upper, err = r.Float64(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			h.AoCurrentRanges = make([]spatial.Bounds, n)
+			for i := range h.AoCurrentRanges {
+				if h.AoCurrentRanges[i].Lower, err = r.Float64(); err != nil {
+					return err
+				}
+				if h.AoCurrentRanges[i].Upper, err = r.Float64(); err != nil {
+					return err
+				}
 			}
 		}
 	}
