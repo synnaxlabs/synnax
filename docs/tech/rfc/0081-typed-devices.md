@@ -330,11 +330,14 @@ in Phase 23.
 
 ### 4.6 Driver
 
-`common::ScanTask` becomes a template over the resource type; `Scanner` returns
-`std::vector<D>` and `ClusterAPI` is parameterized the same way
-(`driver/common/scan_task.h:81-130`). Read and write tasks take the generated struct in
-place of `parser.field` reads. NI looks up the DAQmx alias for physical channel names
-from `resource_name` when a task starts. LabJack opens by `serial`
+`ScanTask` keeps the scan loop, the signal stream, and the commands. A per-resource
+`common::Sync<D>` tracks the stored resources on the rack, matches found hardware to
+them, creates new hardware, writes the identity group, and marks missing hardware as
+disconnected. NI finds chassis and modules in one scan, and a module needs its chassis
+key, so NI runs `Sync<Chassis>` and then `Sync<Device>`. A single-resource integration
+runs one `Sync`. Read and write tasks take the generated struct in place of
+`parser.field` reads. NI looks up the DAQmx alias for physical channel names from
+`resource_name` when a task starts. LabJack opens by `serial`
 (`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
@@ -420,7 +423,7 @@ green at every step. The migration brings 0.59 data forward near the end.
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
-  client. Phase 9 also makes `ScanTask` a template.
+  client. Phase 9 also adds `common::Sync<D>`.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
