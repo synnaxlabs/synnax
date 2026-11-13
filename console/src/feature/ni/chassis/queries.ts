@@ -30,23 +30,6 @@ export const { useResult: useRetrieve } = Flux.createRetrieve<
   getCached: ({ client, query }) => client.ni.chassis.watch(query).getCached(),
 });
 
-export type ListQuery = ni.chassis.RetrieveRequest;
-
-/** Lists NI chassis with their statuses. */
-export const useList = ({
-  query,
-  ...rest
-}: Omit<
-  Flux.UseListParams<ListQuery, ni.chassis.Chassis>,
-  "itemQuery" | "name"
-> = {}): Flux.UseListReturn<ni.chassis.Key, ni.chassis.Chassis> =>
-  Flux.useList((client) => client.ni.chassis, {
-    ...rest,
-    name: RESOURCE_NAME,
-    query: query === null ? null : { ...BASE_QUERY, ...query },
-    itemQuery: (key) => ({ ...BASE_QUERY, key }),
-  });
-
 export interface RenameParams extends Pick<ni.chassis.Chassis, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
