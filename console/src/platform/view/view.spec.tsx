@@ -381,6 +381,20 @@ describe("View permissions", () => {
     expect(queryIconButton(document.body, "filter")).toBeNull();
   });
 
+  it("should let a subject who cannot update a saved view turn editing on and off", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({}));
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    await enableEditing();
+    await screen.findByPlaceholderText("Search ranges...");
+    expect(queryIconButton(document.body, "filter")).toBeNull();
+    fireEvent.click(getIconButton(document.body, "edit-off"));
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull(),
+    );
+  });
+
   it("should withhold the view create button from a subject who cannot create views", async () => {
     await renderHarness(await createSubject({ update: [view.TYPE_RESOURCE_ID] }));
     await enableEditing();
