@@ -183,6 +183,29 @@ var _ = Describe("Read", func() {
 			Expect(changes).To(ConsistOf("an empty enum label was dropped"))
 		})
 
+		It(
+			"Should turn numeric entries and the fill into booleans as value != 0",
+			func() {
+				fill := payload.Float(2)
+				out, changes := floatRead(
+					&fill,
+					payload.FloatEntry{Label: "OFF", Value: 0},
+					payload.FloatEntry{Label: "ON", Value: 0.5},
+					payload.FloatEntry{Label: "NAN", Value: payload.Float(math.NaN())},
+				).Reconcile(telem.BooleanT, false)
+				Expect(out.Kind).To(Equal(payload.KindBoolean))
+				Expect(out.Boolean.EnumValues).To(Equal([]payload.BooleanEntry{
+					{Label: "OFF", Value: false},
+					{Label: "ON", Value: true},
+				}))
+				Expect(out.Boolean.Fill).To(HaveValue(BeTrue()))
+				Expect(changes).To(ConsistOf(
+					"kind float became boolean",
+					`enum label "NAN" was dropped: NaN is not a boolean`,
+				))
+			},
+		)
+
 		It("Should keep the entries of one value under two labels", func() {
 			r := payload.Read{
 				Kind: payload.KindBoolean,
@@ -200,10 +223,10 @@ var _ = Describe("Read", func() {
 			fill := payload.Float(1)
 			out, changes := floatRead(
 				&fill, payload.FloatEntry{Label: "ON", Value: 1},
-			).Reconcile(telem.BooleanT, false)
-			Expect(out).To(Equal(payload.Read{Kind: payload.KindBoolean}))
+			).Reconcile(telem.StringT, false)
+			Expect(out).To(Equal(payload.Read{Kind: payload.KindString}))
 			Expect(changes).To(ConsistOf(
-				"kind float became boolean",
+				"kind float became string",
 				"1 enum entries were dropped",
 				"the fill was dropped",
 			))

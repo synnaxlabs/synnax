@@ -293,12 +293,12 @@ var _ = Describe("Read field", func() {
 		It("Should drop the entries and fill on a change to another kind", func(
 			ctx SpecContext,
 		) {
-			ch := createChannel(ctx, telem.BooleanT)
+			ch := createChannel(ctx, telem.StringT)
 			Expect(normalize(ctx, readField("float", ch, map[string]any{
 				"fill":        1,
 				"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
 			}))).To(SatisfyAll(
-				HaveKeyWithValue("type", "boolean"),
+				HaveKeyWithValue("type", "string"),
 				Not(HaveKey("fill")),
 				HaveKeyWithValue("enum_values", BeEmpty()),
 			))
@@ -409,26 +409,29 @@ var _ = Describe("Read field", func() {
 			))
 		})
 
-		It(
-			"Should import a v1 field on a boolean channel by the rules of Reconcile",
-			func(
-				ctx SpecContext,
-			) {
-				ch := createChannel(ctx, telem.BooleanT)
-				data := MustSucceed(svc.Read.Normalize(ctx, db, 1, readConfig(
-					map[string]any{
-						"key":         "f1",
-						"channel":     ch.Key(),
-						"pointer":     "/v",
-						"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
+		It("Should import numeric v1 entries on a boolean channel as booleans", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, telem.BooleanT)
+			data := MustSucceed(svc.Read.Normalize(ctx, db, 1, readConfig(
+				map[string]any{
+					"key":     "f1",
+					"channel": ch.Key(),
+					"pointer": "/v",
+					"enum_values": []any{
+						map[string]any{"label": "ON", "value": 1},
+						map[string]any{"label": "OFF", "value": 0},
 					},
-				)))
-				Expect(fieldsOf(data)[0]).To(SatisfyAll(
-					HaveKeyWithValue("type", "boolean"),
-					HaveKeyWithValue("enum_values", BeEmpty()),
-				))
-			},
-		)
+				},
+			)))
+			Expect(fieldsOf(data)[0]).To(SatisfyAll(
+				HaveKeyWithValue("type", "boolean"),
+				HaveKeyWithValue("enum_values", HaveExactElements(
+					map[string]any{"label": "ON", "value": true},
+					map[string]any{"label": "OFF", "value": false},
+				)),
+			))
+		})
 
 		It("Should leave a field with no channel unchanged", func(ctx SpecContext) {
 			Expect(normalize(ctx, readField("float", channel.Channel{}, map[string]any{
