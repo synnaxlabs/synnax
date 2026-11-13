@@ -1582,6 +1582,15 @@ describe("createSelector", () => {
     expect(result.current).toEqual("beta");
   });
 
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("cached");
+  });
+
   it("refuses to mint when the definition has no cache read", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
@@ -1719,6 +1728,15 @@ describe("createResultSelector", () => {
     act(() => harness.set({ name: "same", value: 2 }));
     expect(renders.mock.calls.length).toEqual(before);
     expect(result.current).toBe(first);
+  });
+
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.data).toEqual("cached");
   });
 
   it("compares slices with the provided equality", () => {
