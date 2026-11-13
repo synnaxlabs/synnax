@@ -269,7 +269,8 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
   update: async ({ client, value: getPair }) => {
-    const { key, value, range } = getPair();
+    // The form holds the text as typed, so the schema trims it.
+    const { key, value, range } = kvPairFormSchema.parse(getPair());
     await client.ranges.getKV(range).set(key, value);
   },
 });
@@ -293,7 +294,8 @@ export const useCreateAliasForm = Flux.createForm<null, typeof aliasFormSchema>(
   schema: aliasFormSchema,
   initialValues: ZERO_ALIAS_FORM_VALUES,
   update: async ({ client, value: getAlias }) => {
-    const { range, channel, alias } = getAlias();
+    // The form holds the text as typed, so the schema trims it.
+    const { range, channel, alias } = aliasFormSchema.parse(getAlias());
     await client.ranges.setAlias(range, channel, alias);
   },
 });

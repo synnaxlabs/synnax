@@ -31,6 +31,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const path = Ranger.formPath;
 const created = Ranger.createFormPath;
 const pair = Ranger.kvPairFormPath;
+const aliasPath = Ranger.aliasFormPath;
 
 const client = createTestClient();
 
@@ -605,6 +606,100 @@ describe("queries", () => {
       });
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       expect(await rng.kv.get("operator")).toBe("Ada");
+    });
+
+    it("should fail with Key is required for a blank key", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_blank",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set(pair.key, "   ");
+        result.current.form.set(pair.value, "Ada");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      expect(result.current.form.get(pair.key).status.message).toBe("Key is required");
+      expect(await rng.kv.list()).toEqual({});
+    });
+
+    it("should trim the key before it saves", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_trim",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set(pair.key, "  operator  ");
+        result.current.form.set(pair.value, "Ada");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.kv.list()).toEqual({ operator: "Ada" });
+    });
+  });
+
+  describe("useCreateAliasForm", () => {
+    const createChannel = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    it("should set the trimmed alias on the range when it saves", async () => {
+      const ch = await createChannel();
+      const rng = await client.ranges.create({
+        name: "alias_create",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateAliasForm({
+            query: null,
+            initialValues: { range: rng.key, channel: 0, alias: "" },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set(aliasPath.channel, ch.key);
+        result.current.form.set(aliasPath.alias, "  thrust  ");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" });
+    });
+
+    it("should fail with a message for no channel and a blank alias", async () => {
+      const rng = await client.ranges.create({
+        name: "alias_blank",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateAliasForm({
+            query: null,
+            initialValues: { range: rng.key, channel: 0, alias: " " },
+          }),
+        { wrapper },
+      );
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      const { form } = result.current;
+      expect(form.get(aliasPath.channel).status.message).toBe("Channel is required");
+      expect(form.get(aliasPath.alias).status.message).toBe("Alias is required");
+      expect(await rng.listAliases()).toEqual({});
     });
   });
 
