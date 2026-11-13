@@ -20,12 +20,24 @@ const connectionZ = z.object({
 });
 export interface Connection extends z.infer<typeof connectionZ> {}
 
+/** Why a Core exited without a stop request. */
+const reasonZ = z.enum([
+  "failed_to_start",
+  "crashed",
+  "not_ready",
+  "unresponsive",
+  "locked",
+]);
+
 /** The state of the embedded Core, as the Desktop shell reports it. */
 export const statusZ = z.discriminatedUnion("state", [
   z.object({ state: z.literal("starting") }),
   z.object({ state: z.literal("running"), connection: connectionZ }),
   z.object({ state: z.literal("restarting") }),
-  z.object({ state: z.literal("failed"), message: z.string() }),
+  /** Another process holds the data directory. A Core starts once it is free. */
+  z.object({ state: z.literal("waiting") }),
+  z.object({ state: z.literal("failed"), reason: reasonZ, message: z.string() }),
+  /** The Core was asked to stop, and no new one follows. */
   z.object({ state: z.literal("stopping") }),
   z.object({ state: z.literal("stopped") }),
 ]);
@@ -55,6 +67,12 @@ export const restart = async (): Promise<void> => await invoke("supervisor_resta
 export const stop = async (): Promise<void> => await invoke("supervisor_stop");
 
 /**
+ * Stops the embedded Core while the windows stay open, then exits the app. A launch of
+ * the app during the stop starts it again.
+ */
+export const quit = async (): Promise<void> => await invoke("supervisor_quit");
+
+/**
  * Stops the embedded Core, erases everything it stored, and starts the app again. It
  * resolves only when the erase fails, because a success ends this launch.
  */
@@ -66,14 +84,14 @@ export const showLogs = async (): Promise<void> => await invoke("supervisor_show
 /** Opens the data directory in the file manager of the operating system. */
 export const showData = async (): Promise<void> => await invoke("supervisor_show_data");
 
-/** Why a Core exited without a stop request. */
-const reasonZ = z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]);
-
 /** What the embedded Cores of this launch have done. */
 const historyZ = z.object({
   /** The number of Cores started in this launch. */
   starts: z.number(),
-  /** The number of Cores that exited without a stop request. */
+  /**
+   * The number of Cores that exited without a stop request. A wait for the data
+   * directory counts once, when it times out.
+   */
   exits: z.number(),
   /** The number of times the restart policy gave up on the Core. */
   failures: z.number(),
@@ -90,8 +108,14 @@ const historyZ = z.object({
       /** What went wrong, for a person to read. */
       message: z.string(),
       uptimeSeconds: z.number(),
+      /** The exit code of a process that exited on its own. */
+      exitCode: z.number().nullable(),
     })
     .nullable(),
+  /** The number of waits for the data directory that ended. */
+  waits: z.number(),
+  /** How long the last wait for the data directory took. */
+  lastWaitMs: z.number().nullable(),
 });
 export interface History extends z.infer<typeof historyZ> {}
 

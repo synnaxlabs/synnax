@@ -19,6 +19,7 @@ export const follow = async (sink: Analytics.Sink): Promise<void> => {
   let readies = 0;
   let exits = 0;
   let failures = 0;
+  let waits = 0;
   const report = async (): Promise<void> => {
     try {
       const history = await Embedded.retrieveHistory();
@@ -29,6 +30,7 @@ export const follow = async (sink: Analytics.Sink): Promise<void> => {
           sink.capture("core_exited", {
             reason: lastExit.reason,
             uptime_seconds: lastExit.uptimeSeconds,
+            exit_code: lastExit.exitCode,
           });
       }
       if (history.readies > readies && history.timeToReadyMs != null) {
@@ -41,7 +43,14 @@ export const follow = async (sink: Analytics.Sink): Promise<void> => {
       if (history.failures > failures) {
         failures = history.failures;
         if (lastExit != null)
-          sink.capture("core_restart_exhausted", { reason: lastExit.reason });
+          sink.capture("core_restart_exhausted", {
+            reason: lastExit.reason,
+            exit_code: lastExit.exitCode,
+          });
+      }
+      if (history.waits > waits && history.lastWaitMs != null) {
+        waits = history.waits;
+        sink.capture("core_waited", { wait_ms: history.lastWaitMs });
       }
     } catch (err) {
       console.error("failed to report the state of the Core", err);

@@ -187,7 +187,10 @@ mod tests {
                 reason: Reason::Crashed,
                 message: "exited with 3".to_string(),
                 uptime_seconds: 12,
+                exit_code: Some(3),
             }),
+            waits: 0,
+            last_wait_ms: None,
         };
         let dest = dir.path().join("out.zip");
         export(

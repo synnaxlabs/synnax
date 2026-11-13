@@ -25,15 +25,19 @@ const WINDOW_PROPS: Record<string, unknown> = {
   "plugin:window|inner_position": { x: 0, y: 0 },
   "plugin:window|inner_size": { width: 800, height: 600 },
   "plugin:window|available_monitors": [],
+  "plugin:window|get_all_windows": ["main"],
 };
 
 describe("TauriRuntime", () => {
   let created: Record<string, unknown> | undefined;
+  let commands: string[];
   beforeEach(() => {
     created = undefined;
+    commands = [];
     mockWindows("main");
     mockIPC(
       (cmd, args) => {
+        commands.push(cmd);
         if (cmd === "plugin:webview|create_webview_window")
           created = (args as { options: Record<string, unknown> }).options;
         return WINDOW_PROPS[cmd] ?? null;
@@ -59,6 +63,24 @@ describe("TauriRuntime", () => {
       const runtime = new TauriRuntime();
       await runtime.create("child", {});
       expect(created?.trafficLightPosition).toBeUndefined();
+    });
+  });
+
+  describe("close", () => {
+    it("should destroy the window only after the hook before the close", async () => {
+      const runtime = new TauriRuntime({
+        beforeClose: async (label) => {
+          // A timer fires after every pending microtask, so a close that does not
+          // wait for the hook destroys the window first.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          commands.push(`before close ${label}`);
+        },
+      });
+      await runtime.close("main");
+      const DESTROY = "plugin:window|destroy";
+      expect(
+        commands.filter((cmd) => cmd === DESTROY || cmd.startsWith("before close")),
+      ).toEqual(["before close main", DESTROY]);
     });
   });
 

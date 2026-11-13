@@ -38,12 +38,14 @@ const BuildContext = DESKTOP ? Embedded.Provider : Fragment;
 
 const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
+const BEFORE_CLOSE = DESKTOP ? Embedded.beforeClose : undefined;
+
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
     <Errors.OverlayWithoutStore>
       <BuildContext>
-        <Session.Context>
+        <Session.Context beforeClose={BEFORE_CLOSE}>
           <AnalyticsProvider>
             <Pluto.Context workerURL={workerURL}>
               {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}

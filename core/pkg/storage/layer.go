@@ -381,11 +381,18 @@ func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, error) {
 	return backups.checkVersion(cfg.Version, *cfg.UpdateBackupDisabled)
 }
 
+// ErrLocked is returned when another process holds the data directory. An open after
+// that process exits succeeds.
+var ErrLocked = errors.New("data locked")
+
 func acquireLock(dirname string, fs vfs.FS) (io.Closer, error) {
 	fName := filepath.Join(dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
 		return release, nil
+	}
+	if heldByOtherProcess(err) {
+		err = errors.Mark(err, ErrLocked)
 	}
 	return release, errors.Wrapf(err, failedToAcquireLockMsg, dirname)
 }
