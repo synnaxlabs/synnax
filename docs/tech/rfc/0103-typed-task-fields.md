@@ -205,17 +205,17 @@ On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel 
 device stores for it: the pointer's channel for a read field and the target's channel
 for a channel field. It binds only when that channel exists and holds the field's
 `data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
-one, and its key replaces the stored one. `unbound.name` keeps the user's name, and a
-field that becomes unbound again gets that name, never a suffixed one. A new channel
-takes the name when it is free, or else the name with its data type as a suffix, such as
-`temp_int32`. When that is taken too, configure fails, and the message tells the user to
-rename the field. Configure never binds by name. Each source picks one index: the
-channel of a bound index field, else the index of its first bound channel, else the
-stored index, else a new one. An unbound index field binds to it, each new fixed-density
-channel takes it, and the device stores it. On HTTP and MQTT, a new variable-density
-channel (string, JSON, or bytes) stays virtual, as today. On Kafka it takes the index,
-as today. `onConfigure` then saves the field as bound. An adapter keeps the atomic Phase
-13 near 400 lines, and Phase 15 deletes it.
+one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
+that becomes unbound again takes its channel's name without a `_<data_type>` suffix, so
+suffixes do not stack. A new channel takes the name when it is free, or else the name
+with its data type as a suffix, such as `temp_int32`. When that is taken too, configure
+fails, and the message tells the user to rename the field. Configure never binds by
+name. Each source picks one index: the channel of a bound index field, else the index of
+its first bound channel, else the stored index, else a new one. An unbound index field
+binds to it, each new fixed-density channel takes it, and the device stores it. On HTTP
+and MQTT, a new variable-density channel (string, JSON, or bytes) stays virtual, as
+today. On Kafka it takes the index, as today. `onConfigure` then saves the field as
+bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
@@ -276,8 +276,8 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 - **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
   channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
   `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`. The shipped HTTP default is `float64`, so such an HTTP index
-  field or field with a `time_format` takes `data_type: timestamp`.
+  `name` and `data_type`. Each shipped default is `float64`, so such an index field or
+  field with a `time_format` takes `data_type: timestamp`.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
