@@ -191,6 +191,23 @@ describe("range", () => {
       await creating;
       expect(expectLive(local.ranges.watch(key).getCached()).labels).toContain(lbl.key);
     });
+    it("should keep a child that arrives before the create reply", async () => {
+      const key = uuid.create();
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const { responded, release } = holdResponses(local, "/range/create");
+      const creating = local.ranges.create({ key, name: "Parent late", timeRange });
+      await responded;
+      await client.ranges.create({ name: "Child", timeRange, parent: key });
+      await expect
+        .poll(() => expectLive(local.ranges.watch(key).getCached()).hasChildren)
+        .toBe(true);
+      release();
+      expect((await creating).hasChildren).toBe(true);
+      expect(expectLive(local.ranges.watch(key).getCached()).hasChildren).toBe(true);
+    });
   });
 
   describe("delete", () => {
