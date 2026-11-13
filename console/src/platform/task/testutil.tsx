@@ -114,7 +114,7 @@ export const renderTaskFormHook = async <R,>(
   return await renderHookWithConsole(useHarness);
 };
 
-export interface TaskFormProviderProps extends PropsWithChildren {
+interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
   mode?: PForm.Mode;
   formRef?: FormRef;
@@ -122,13 +122,8 @@ export interface TaskFormProviderProps extends PropsWithChildren {
   schema?: z.ZodType;
 }
 
-/**
- * Provides a real pluto Form context to its children so ambient form-context task hooks
- * (e.g. useTare, which reads the "key" and "status" fields without an explicit ctx) can
- * be rendered against seeded form values. When `formRef` is provided, the live form
- * context is exposed through it for reading/writing form state in specs.
- */
-export const TaskFormProvider = ({
+/** Gives its children a real form with the values, exposed through formRef if given. */
+const TaskFormProvider = ({
   values,
   mode,
   formRef,
@@ -542,6 +537,24 @@ export const awaitCommand = async (
 };
 
 /**
+ * Runs the action, then resolves with the arguments of the tare command that it sends
+ * to the task.
+ */
+export const awaitTare = async (
+  client: Client,
+  taskKey: task.Key,
+  action: () => Promise<void>,
+): Promise<unknown> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await action();
+    return (await awaitCommand(streamer, taskKey, "tare")).args;
+  } finally {
+    streamer.close();
+  }
+};
+
+/**
  * Clicks the form's deploy button, waits for the resulting start command, then returns
  * the persisted task. The streamer opens before the click because deploy saves the task
  * and issues the command in one pass.
@@ -645,6 +658,39 @@ export const answerNextCommand = async (
     }
   };
   return { answered: respond() };
+};
+
+/**
+ * Answers each command sent to the tasks as a Driver does, with the answer that answers
+ * holds for its type. Resolves once it listens, with a promise that resolves with the
+ * commands once it answers one of the type last.
+ */
+export const answerCommandsUntil = async (
+  client: Client,
+  tasks: task.Task[],
+  last: string,
+  answers: Record<string, Omit<CommandAnswer, "type">> = {},
+): Promise<{ answered: Promise<task.Command[]> }> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const answer = async (): Promise<task.Command[]> => {
+    const commands: task.Command[] = [];
+    try {
+      for (;;) {
+        const frame = await streamer.read();
+        for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+          const cmd = task.commandZ.parse(sample);
+          const tsk = tasks.find((t) => t.key === cmd.task);
+          if (tsk == null) continue;
+          commands.push(cmd);
+          await answerCommand(client, tsk, cmd, answers[cmd.type]);
+          if (cmd.type === last) return commands;
+        }
+      }
+    } finally {
+      streamer.close();
+    }
+  };
+  return { answered: answer() };
 };
 
 /** Finds the single text input rendered by a task form field. */

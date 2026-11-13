@@ -9,8 +9,9 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
 import { type deep } from "@synnaxlabs/x";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -32,11 +33,18 @@ export interface DetailsProps<C extends Channel> {
   path: deep.Path<C>;
 }
 
+export interface MultiDetailsProps {
+  /** The keys of the selected channels, the first selected first. */
+  keys: string[];
+}
+
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "path" | "resolve"
+  "tareable" | "listItem" | "contextMenuItems" | "path" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps<C>>;
+  /** Edits every selected channel at once while several are selected. */
+  multiDetails?: Component.RenderProp<MultiDetailsProps>;
   /** Names the selected channel in the details header, typically by its port. */
   detailsTitle?: Component.RenderProp<DetailsProps<C>>;
   createChannel: CreateChannel<C>;
@@ -46,6 +54,7 @@ export interface ListAndDetailsProps<C extends Channel> extends Pick<
 
 export const ListAndDetails = <C extends Channel>({
   details,
+  multiDetails,
   detailsTitle,
   createChannel,
   ports,
@@ -54,7 +63,6 @@ export const ListAndDetails = <C extends Channel>({
   const { path } = rest;
   const [selected, setSelected] = useState<string[]>([]);
   const [view, setView] = useState<View>("list");
-  const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];
     keys.forEach((key) => {
@@ -63,13 +71,18 @@ export const ListAndDetails = <C extends Channel>({
     });
     return newlyMade;
   };
-  const handleAdd = useAdd({
-    path,
-    createChannel: handleCreateChannel,
-    onSelect: setSelected,
-  });
+  const handleAdd = useAdd({ path, createChannel, onSelect: setSelected });
   const isPreview = useIsPreview();
   const detailsPath = selected.length > 0 ? path[selected[0]] : null;
+  const multi = multiDetails != null && selected.length > 1;
+  let title: ReactNode = null;
+  if (multi)
+    title = (
+      <Header.Title weight={500} color={10}>
+        {`${selected.length} channels`}
+      </Header.Title>
+    );
+  else if (detailsPath != null) title = detailsTitle?.({ path: detailsPath });
   return (
     <Panes
       listTitle="Channels"
@@ -88,16 +101,16 @@ export const ListAndDetails = <C extends Channel>({
           }
           selected={selected}
           onSelect={setSelected}
-          createChannel={handleCreateChannel}
+          createChannel={createChannel}
           createChannels={handleDuplicateChannels}
         />
       }
       detailsPath={detailsPath}
-      title={detailsPath != null && detailsTitle?.({ path: detailsPath })}
+      title={title}
     >
       {detailsPath != null ? (
         <Flex.Box y className={CSS.BE("details", "form")} empty grow>
-          {details({ path: detailsPath })}
+          {multi ? multiDetails({ keys: selected }) : details({ path: detailsPath })}
         </Flex.Box>
       ) : (
         <Empty.Action

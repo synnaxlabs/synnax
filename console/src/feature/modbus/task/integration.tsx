@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/modbus/task/Read";
-import { PREFIX } from "@/feature/modbus/task/types";
+import { readPlotChannels, ReadSelectable } from "@/feature/modbus/task/Read";
+import { PREFIX, READ_TYPE } from "@/feature/modbus/task/types";
 import { WriteSelectable } from "@/feature/modbus/task/Write";
 import { type Task } from "@/platform/task";
 
@@ -19,4 +19,5 @@ export const INTEGRATION: Task.Integration = {
   name: "Modbus",
   icon: <Icon.Logo.Modbus />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

@@ -67,6 +67,15 @@ export const validateChannels = ({
   });
 };
 
+/**
+ * @returns the channel that an added channel copies: the channel with the given key, or
+ * else the last channel. Returns undefined when there are no channels.
+ */
+export const channelToCopy = <C extends Channel>(
+  channels: C[],
+  copy?: string,
+): C | undefined => channels.find(({ key }) => key === copy) ?? channels.at(-1);
+
 // Spread over a duplicated channel to reset its Synnax channel bindings.
 export const READ_CHANNEL_OVERRIDE = { channel: 0, name: "" } as const;
 export const WRITE_CHANNEL_OVERRIDE = {

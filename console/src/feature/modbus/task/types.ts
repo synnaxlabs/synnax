@@ -141,15 +141,24 @@ const mergeRanges = (spans: [number, number][]): [number, number][] =>
       return merged;
     }, []);
 
+// Bits of one register are apart, so only channels on the same bit can overlap.
+const readGroupOf = (c: Channel): string =>
+  "bit" in c ? `${c.type}.${c.bit}` : spaceOf(c.type);
+
+/** @returns whether two channels of a read task use the same address. */
+export const readsOverlap = (a: ReadChannel, b: ReadChannel): boolean => {
+  if (readGroupOf(a) !== readGroupOf(b)) return false;
+  const [aStart, aEnd] = addressSpan(a);
+  const [bStart, bEnd] = addressSpan(b);
+  return aStart <= bEnd && bStart <= aEnd;
+};
+
 /** @returns where channels of the same type use the same addresses. */
 export const findOverlaps = (channels: Channel[]): Overlaps => {
   const keys = new Set<string>();
   const ranges: Overlaps["ranges"] = {};
   const sharedByType = new Map<ReadChannelType, [number, number][]>();
-  // Bits of one register are apart, so only channels on the same bit can overlap.
-  const groups = Map.groupBy(channels, (c) =>
-    "bit" in c ? `${c.type}.${c.bit}` : spaceOf(c.type),
-  );
+  const groups = Map.groupBy(channels, readGroupOf);
   for (const typed of groups.values()) {
     const type = spaceOf(typed[0].type);
     // A channel stops one address past its last, and a stop comes before a start at
@@ -194,10 +203,27 @@ export const findOverlaps = (channels: Channel[]): Overlaps => {
  * Returns the channel to add after the given one: the next bit of a bit channel, then
  * bit 0 of the next register, or the first address after any other channel.
  */
-export const nextChannel = <C extends Channel>(channel: C): C => {
+const nextChannel = <C extends Channel>(channel: C): C => {
   if (!("bit" in channel)) return { ...channel, address: nextAddress(channel) };
   if (channel.bit < BIT_BOUNDS.upper) return { ...channel, bit: channel.bit + 1 };
   return { ...channel, address: channel.address + 1, bit: 0 };
+};
+
+/**
+ * @returns the channel to add after the channel with the given key, or after the last
+ * channel: the first slot after it that overlaps no channel. Returns null when there
+ * are no channels.
+ */
+export const nextOpenChannel = <C extends Channel>(
+  channels: C[],
+  overlap: (a: C, b: C) => boolean,
+  copy?: string,
+): C | null => {
+  const base = Task.channelToCopy(channels, copy);
+  if (base == null) return null;
+  let next = nextChannel(base);
+  while (channels.some((ch) => overlap(ch, next))) next = nextChannel(next);
+  return next;
 };
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
@@ -261,8 +287,8 @@ const validateReadChannels = ({
 
 const isCoil = (ch: WriteChannel) => ch.type === "coil";
 
-// Bits of one register are written together, so only the same bit overlaps.
-const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
+/** @returns whether two channels of a write task write the same address. */
+export const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
   if (isCoil(a) !== isCoil(b)) return false;
   if (a.type === "holding_register_bit" && b.type === "holding_register_bit")
     return a.address === b.address && a.bit === b.bit;

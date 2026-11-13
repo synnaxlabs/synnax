@@ -21,19 +21,23 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   findDialogTriggerByText,
+  findIconButton,
   getIconButton,
   getInputTable,
   getLabeledInput,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -75,6 +79,30 @@ const renderAnalogRead = async (
 };
 
 describe("AnalogRead", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createNIDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, channel: float.key }),
+      ],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderNITaskForm(NI.Task.AnalogRead, {
+        client,
+        taskKey: draft.key,
+      });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
@@ -438,6 +466,94 @@ describe("AnalogRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+
+  it("should create the task with a channel on each of the given devices", async () => {
+    const devices = [await createNIDevice(client), await createNIDevice(client)];
+    const keys = devices.map((d) => d.key);
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      {
+        deviceKeys: keys,
+      },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual(keys);
+  });
+});
+
+describe("AnalogRead with several selected channels", () => {
+  const renderSelected = async (channels: NI.Task.AIChannel[]) => {
+    const rendered = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels,
+    });
+    fireEvent.click(await findChannelListItem(channels[0].name));
+    withControlHeld(() => {
+      for (const ch of channels.slice(1)) fireEvent.click(screen.getByText(ch.name));
+    });
+    expect(await screen.findByText(`${channels.length} channels`)).toBeTruthy();
+    return rendered;
+  };
+
+  it("should set the range of every selected channel", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", minVal: -10 }),
+      createChannel("ai_voltage", 1, { name: "chan_b", minVal: -5 }),
+    ]);
+    expect(await screen.findByText("Mixed")).toBeTruthy();
+    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Minimum value"), "-2");
+    await waitFor(() => expect(screen.queryByText("Mixed")).toBeNull());
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      const mins = saved.config.channels.map((c) =>
+        c.type === "ai_voltage" ? c.minVal : null,
+      );
+      expect(mins).toEqual([-2, -2]);
+    });
+  });
+
+  const savedChannels = async (key: task.Key) =>
+    (await client.tasks.retrieve({ key, schemas: NI.Task.ANALOG_READ_SCHEMAS })).config
+      .channels;
+
+  it("should give each selected channel a fresh scale of a type picked over mixed scales", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, {
+        name: "chan_a",
+        customScale: NI.Task.SCALE_SCHEMAS.linear.parse({
+          type: "linear",
+          scaledUnits: "Newtons",
+        }),
+      }),
+      createChannel("ai_voltage", 1, {
+        name: "chan_b",
+        customScale: NI.Task.createScale("map"),
+      }),
+    ]);
+    expect((await screen.findAllByText("Mixed")).length).toBeGreaterThan(0);
+    await selectFromDropdown("Linear", "Polynomial");
+    await waitFor(async () =>
+      expect(
+        (await savedChannels(draft.key)).map((c) =>
+          c.type === "ai_voltage" ? c.customScale : null,
+        ),
+      ).toEqual([NI.Task.createScale("polynomial"), NI.Task.createScale("polynomial")]),
+    );
+  });
+
+  it("should ask for channels of one type when the selected types differ", async () => {
+    await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_volts" }),
+      createChannel("ai_thermocouple", 1, { name: "chan_temp" }),
+    ]);
+    expect(
+      await screen.findByText("Select channels of one type to edit them together."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Thermocouple type")).toBeNull();
   });
 });
 

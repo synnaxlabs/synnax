@@ -79,37 +79,22 @@ const channelName = (
 ): string => (primitive.isNonZero(name) ? name : `${identifier}_${port}`);
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  onTare: (channelKey: channel.Key) => void;
   model: Model;
   /** The device's identifier, escaped for channel names. */
   identifier: string;
 }
 
-const ChannelListItem = ({
-  onTare,
-  model,
-  identifier,
-  ...rest
-}: ChannelListItemProps) => {
+const ChannelListItem = ({ model, identifier, ...rest }: ChannelListItemProps) => {
   const entry = root.config.channels[rest.itemKey];
   const channel = PForm.useFieldValue(entry.channel);
   const name = PForm.useFieldValue(entry.name);
   const port = PForm.useFieldValue(entry.port);
-  const disabled = PForm.useFieldValue(entry.disabled);
-  const type = PForm.useFieldValue(entry.type);
-  const isSnapshot = Task.useIsSnapshot();
-  const isRunning = Task.useIsRunning();
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
-  const hasTareButton = channel !== 0 && type === "analog" && !isSnapshot;
-  const canTare = !disabled && isRunning;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
       port={terminalOf(model, port)}
-      canTare={canTare}
-      onTare={onTare}
       path={entry}
-      hasTareButton={hasTareButton}
       channel={channel}
       defaultName={channelName({ name, port }, identifier)}
       skipped={skipped}
@@ -251,10 +236,7 @@ interface ChannelsFormProps {
   device: Device;
 }
 
-const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
-
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
-  const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
   PForm.useCheck(root.config, uniqueTerminalsZ(model));
@@ -262,13 +244,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const createChannel = (channels: ReadChannel[], copy?: string) =>
     createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem
-      key={key}
-      {...p}
-      onTare={tare}
-      model={model}
-      identifier={identifier}
-    />
+    <ChannelListItem key={key} {...p} model={model} identifier={identifier} />
   );
   const details = (p: Task.Views.DetailsProps<ReadChannel>) => (
     <ChannelDetails {...p} device={device} />
@@ -301,8 +277,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
       details={details}
       detailsTitle={detailsTitle}
       createChannel={createChannel}
-      onTare={handleTare}
-      allowTare={allowTare}
+      tareable
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
       ports={ports}
@@ -394,6 +369,10 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, dev.rack];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
+
 export const Read = Task.wrapForm({
   Properties,
   Form,
@@ -401,6 +380,7 @@ export const Read = Task.wrapForm({
   deployConfigZ: deployReadConfigZ,
   type: "labjack_read",
   onConfigure,
+  plotChannels: readPlotChannels,
 });
 
 export const useCreateRead = Task.createUseCreate({

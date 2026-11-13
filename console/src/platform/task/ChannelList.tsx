@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -21,6 +22,7 @@ import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
+import { TareItem } from "@/platform/task/TareItem";
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
@@ -34,20 +36,23 @@ interface ContextMenuProps<C extends Channel> extends Pick<
   "data" | "remove"
 > {
   keys: string[];
-  allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
-  onTare?: (keys: string[], channels: C[]) => void;
+  /** The list's float read channels can tare while the task runs. */
+  tareable?: boolean;
   path: deep.Path<C[]>;
   contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
+/** @returns the Synnax channel a read channel binds, or 0 for any other channel. */
+const boundChannel = (c: Channel): channel.Key =>
+  "channel" in c && typeof c.channel === "number" ? c.channel : 0;
+
 const ContextMenu = <C extends Channel>({
-  allowTare,
   keys,
   onDuplicate,
   onSelect,
-  onTare,
+  tareable = false,
   path,
   remove,
   contextMenuItems,
@@ -65,12 +70,10 @@ const ContextMenu = <C extends Channel>({
     set(deep.widen<Channel[]>(path)[key].disabled, !enabled);
   const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
   const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
-  const handleTare = () => onTare?.(keys, channels);
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
   const canDisable = channels.some(isEnabled);
   const canEnable = channels.some((c) => !isEnabled(c));
-  const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PlatformContextMenu.Menu>
       {!isPreview && (
@@ -97,11 +100,8 @@ const ContextMenu = <C extends Channel>({
           )}
         </>
       )}
-      {canTare && (
-        <Menu.Item itemKey="tare" onClick={handleTare}>
-          <Icon.Tare />
-          Tare
-        </Menu.Item>
+      {tareable && (
+        <TareItem channels={channels.filter((c) => !c.disabled).map(boundChannel)} />
       )}
       {!isPreview && (
         <>
@@ -115,7 +115,10 @@ const ContextMenu = <C extends Channel>({
   );
 };
 
-export interface ChannelListItemProps extends List.ItemProps<string> {}
+export interface ChannelListItemProps extends List.ItemProps<string> {
+  /** The item shows a tare button for a float channel. */
+  tareable?: boolean;
+}
 
 export interface ChannelListProps<C extends Channel>
   extends
@@ -165,7 +168,7 @@ export const ChannelList = <C extends Channel>({
   ports,
   ...rest
 }: ChannelListProps<C>) => {
-  const { onSelect, path, data } = rest;
+  const { onSelect, path, data, tareable = false } = rest;
   const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
@@ -223,7 +226,9 @@ export const ChannelList = <C extends Channel>({
               onContextMenu={menuProps.open}
               onScroll={handleScroll}
             >
-              <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+              <List.Items<string, C> emptyContent={emptyContent}>
+                {tareable ? (p) => listItem({ ...p, tareable }) : listItem}
+              </List.Items>
             </List.Scroll>
           </Select.Frame>
         )}

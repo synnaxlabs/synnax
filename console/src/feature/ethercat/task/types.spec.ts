@@ -221,6 +221,14 @@ describe("createReadChannel", () => {
     expect(ch.key).not.toBe(last.key);
   });
 
+  it("should copy the slave of the given channel, not the last one", () => {
+    const first = EtherCAT.Task.createEntryReadChannel("first", STATUS_ENTRY);
+    const last = EtherCAT.Task.createEntryReadChannel("last", STATUS_ENTRY);
+    const ch = EtherCAT.Task.createReadChannel([first, last], first.key);
+    expect(ch.device).toBe("first");
+    expect(EtherCAT.Task.hasEntry(ch)).toBe(false);
+  });
+
   it("should copy the slave of an unresolved channel without its name", () => {
     const ch = EtherCAT.Task.createReadChannel([
       createUnresolvedReadChannel("dev", "Input"),
@@ -260,6 +268,14 @@ describe("createWriteChannel", () => {
       stopValue: 0,
     });
     expect(ch.key).not.toBe(last.key);
+  });
+
+  it("should copy the slave of the given channel, not the last one", () => {
+    const first = EtherCAT.Task.createEntryWriteChannel("first", STATUS_ENTRY);
+    const last = EtherCAT.Task.createEntryWriteChannel("last", STATUS_ENTRY);
+    const ch = EtherCAT.Task.createWriteChannel([first, last], first.key);
+    expect(ch.device).toBe("first");
+    expect(EtherCAT.Task.hasEntry(ch)).toBe(false);
   });
 
   it("should copy the slave of an unresolved channel without its name", () => {

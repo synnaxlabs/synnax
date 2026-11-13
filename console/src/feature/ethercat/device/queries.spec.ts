@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack as clientRack, task } from "@synnaxlabs/client";
+import { type rack as clientRack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -22,7 +22,7 @@ import {
 } from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
 import {
-  answerCommand,
+  answerCommandsUntil,
   type CommandAnswer,
   reportTaskRunning,
 } from "@/platform/task/testutil";
@@ -396,38 +396,6 @@ describe("useSetStandalone", () => {
       }),
     });
 
-  /**
-   * Answers each command sent to the tasks as a Driver does, with the answer that
-   * answers holds for its type. Resolves with the commands once it answers one of the
-   * type last.
-   */
-  const answerCommandsUntil = async (
-    tasks: task.Task[],
-    last: string,
-    answers: Record<string, Omit<CommandAnswer, "type">> = {},
-  ): Promise<{ answered: Promise<task.Command[]> }> => {
-    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-    const answer = async (): Promise<task.Command[]> => {
-      const commands: task.Command[] = [];
-      try {
-        for (;;) {
-          const frame = await streamer.read();
-          for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
-            const cmd = task.commandZ.parse(sample);
-            const tsk = tasks.find((t) => t.key === cmd.task);
-            if (tsk == null) continue;
-            commands.push(cmd);
-            await answerCommand(client, tsk, cmd, answers[cmd.type]);
-            if (cmd.type === last) return commands;
-          }
-        }
-      } finally {
-        streamer.close();
-      }
-    };
-    return { answered: answer() };
-  };
-
   it("should stop the running tasks on the network of the slave, then switch it", async () => {
     const r = await client.racks.create({ name: uniqueName("ecat_rack") });
     const slave = await createSlaveDevice(r.key, { network: "eth0" });
@@ -451,6 +419,7 @@ describe("useSetStandalone", () => {
     for (const tsk of [readHere, writeHere, readElsewhere])
       await reportTaskRunning(client, tsk);
     const driver = await answerCommandsUntil(
+      client,
       [readHere, writeHere, readElsewhere, stoppedHere, scan],
       "set_standalone",
     );
@@ -487,7 +456,7 @@ describe("useSetStandalone", () => {
       config: {},
     });
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read, scan], "start", answers);
+    const driver = await answerCommandsUntil(client, [read, scan], "start", answers);
     const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
       wrapper,
     });

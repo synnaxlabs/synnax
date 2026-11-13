@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Device } from "@/platform/device";
 import { createTestDevice, renderMenuItem } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -77,5 +78,59 @@ describe("TaskContextMenuItems", () => {
     expect(onConfigure).not.toHaveBeenCalled();
     expect(writeCreate).toHaveBeenCalledWith({ deviceKey: key });
     expect(readCreate).not.toHaveBeenCalled();
+  });
+
+  describe("several selected devices", () => {
+    const multiCreate = vi.fn();
+    const multiItems = [
+      Device.createTaskContextMenuItem({
+        itemKey: "multi",
+        label: "Create Multi Task",
+        useCreate: () => multiCreate,
+        zeroProperties: { rate: 10 },
+      }),
+      ...items,
+    ];
+
+    const renderSeveral = async (configured: boolean) => {
+      const name = uniqueName("Zq Wv");
+      const devices = [
+        await createTestDevice(client, { configured, name }),
+        await createTestDevice(client, { configured, name }),
+      ];
+      const onConfigure = vi.fn();
+      await renderMenuItem(
+        <Device.TaskContextMenuItems
+          client={client}
+          onConfigure={onConfigure}
+          selection={createSelection({
+            ids: devices.map((d) => device.resourceID(d.key)),
+          })}
+          items={multiItems}
+        />,
+        { client },
+      );
+      return { onConfigure, keys: devices.map((d) => d.key) };
+    };
+
+    beforeEach(() => multiCreate.mockClear());
+
+    it("should offer only the items that take several devices", async () => {
+      await renderSeveral(true);
+      expect(await screen.findByText("Create Multi Task")).toBeTruthy();
+      expect(screen.queryByText("Create Read Task")).toBeNull();
+      expect(screen.queryByText("Create Write Task")).toBeNull();
+    });
+
+    it("should configure the devices without a dialog, then create one task", async () => {
+      const { onConfigure, keys } = await renderSeveral(false);
+      fireEvent.click(await screen.findByText("Create Multi Task"));
+      await waitFor(() =>
+        expect(multiCreate).toHaveBeenCalledWith({ deviceKeys: keys }),
+      );
+      expect(onConfigure).not.toHaveBeenCalled();
+      const saved = await client.devices.retrieve({ key: keys });
+      expect(saved.map((d) => d.configured)).toEqual([true, true]);
+    });
   });
 });

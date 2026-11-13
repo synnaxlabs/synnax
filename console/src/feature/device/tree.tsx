@@ -39,6 +39,16 @@ const useRename = Tree.createUseRename({
 
 const retrieve: Tree.Retrieve = async (c, key) => await c.devices.retrieve({ key });
 
+/** @returns the make that every selected device shares, once all of them load. */
+const sharedMake = (
+  devices: device.Device[] | undefined,
+  count: number,
+): string | null => {
+  if (devices == null || devices.length !== count) return null;
+  const makes = new Set(devices.map(({ make }) => make));
+  return makes.size === 1 ? devices[0].make : null;
+};
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
@@ -49,15 +59,21 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
+  // The cache answers the make of one device, but not a query of several.
   const { data: firstMake } = Device.useResultMake(
     singleResource ? { key: ids[0].key } : null,
+  );
+  const { data: selected } = Device.useResultMultiple(
+    ids.length < 2 ? null : { where: { key: { in: ids.map((id) => id.key) } } },
   );
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const integration = singleResource ? getIntegration(firstMake) : null;
+  const integration = getIntegration(
+    singleResource ? firstMake : sharedMake(selected, ids.length),
+  );
   const customMenuItems =
     integration == null ? null : (
       <ContextMenuItems {...props} integration={integration} />

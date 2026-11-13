@@ -34,6 +34,7 @@ import {
   StateIcon,
 } from "@/platform/task/ChannelState";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
+import { TareButton } from "@/platform/task/TareButton";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
@@ -104,6 +105,8 @@ export interface GroupTreeProps<
   emptyPointerLabel?: string;
   /** Lets each group switch off through a `disabled` flag, which it must then hold. */
   groupsSwitchable?: boolean;
+  /** The fields with float channels can tare while the task runs. */
+  tareable?: boolean;
   /** Names a group in the tree and in its details header. */
   groupLabel: Component.RenderProp<GroupProps<G>>;
   groupDetails: Component.RenderProp<GroupProps<G>>;
@@ -318,12 +321,20 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   /** The disabled flag of the field's group, which a group need not hold. */
   groupDisabled: deep.Target<boolean | undefined>;
   emptyLabel: string;
+  tareable: boolean;
 }
 
-const FieldItem = ({ path, groupDisabled, emptyLabel, ...props }: FieldItemProps) => {
+const FieldItem = ({
+  path,
+  groupDisabled,
+  emptyLabel,
+  tareable,
+  ...props
+}: FieldItemProps) => {
   const { disabled: disabledField, channel } = deep.widen(path);
   const disabled = Form.useFieldValue(disabledField);
   const groupOff = Form.useFieldValue(groupDisabled, { optional: true }) === true;
+  const channelKey = Form.useFieldValue(channel);
   return (
     <Tree.Item
       {...props}
@@ -331,6 +342,7 @@ const FieldItem = ({ path, groupDisabled, emptyLabel, ...props }: FieldItemProps
     >
       <FieldLabel path={path} level="small" emptyLabel={emptyLabel} />
       <ChannelIcon channel={channel} skipped={disabled || groupOff} />
+      {tareable && <TareButton channel={channelKey} disabled={disabled || groupOff} />}
       <EnabledCheckbox path={disabledField} />
     </Tree.Item>
   );
@@ -381,6 +393,7 @@ export const GroupTree = <
   createField,
   emptyPointerLabel = "New field",
   groupsSwitchable = false,
+  tareable = false,
   groupLabel,
   groupDetails,
   fieldDetails,
@@ -515,6 +528,13 @@ export const GroupTree = <
     });
     const setEnabled = (enabled: boolean) =>
       toggles.forEach((t) => ctx.set(t.path, !enabled));
+    const tareChannels = keys.flatMap((key) => {
+      const e = entries.get(key);
+      if (e?.kind !== "field") return [];
+      const f = ctx.get(e.path).value;
+      const groupOff = ctx.get(groups[e.groupKey]).value.disabled === true;
+      return f.disabled || groupOff ? [] : [f.channel];
+    });
     return (
       <ContextMenu
         keys={keys}
@@ -529,6 +549,7 @@ export const GroupTree = <
         onDisable={
           toggles.some((t) => !t.disabled) ? () => setEnabled(false) : undefined
         }
+        tareChannels={tareable ? tareChannels : undefined}
       />
     );
   };
@@ -544,6 +565,7 @@ export const GroupTree = <
           path={entry.path}
           groupDisabled={deep.widen<AnyGroup<F>[]>(path)[entry.groupKey].disabled}
           emptyLabel={emptyPointerLabel}
+          tareable={tareable}
         />
       );
     const itemProps = {

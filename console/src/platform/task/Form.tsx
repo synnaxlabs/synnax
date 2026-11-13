@@ -30,6 +30,7 @@ import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
+import { type PlotChannels } from "@/platform/task/plot";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
@@ -45,6 +46,8 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
 export interface getInitialValuesParams {
   client: Synnax;
   deviceKey?: device.Key;
+  /** The devices of a task that reads from several, in place of deviceKey. */
+  deviceKeys?: device.Key[];
   config?: unknown;
 }
 
@@ -75,13 +78,19 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   deployConfigZ: z.ZodType;
   showHeader?: boolean;
   showControls?: boolean;
+  /** Finds the channels of a read task's config, which the header can plot. */
+  plotChannels?: PlotChannels;
 }
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue(formPath.snapshot, { ctx });
 
-const Header = () => (
+interface HeaderProps {
+  plotChannels?: PlotChannels;
+}
+
+const Header = ({ plotChannels }: HeaderProps) => (
   <>
     <div className={CSS.BE("task-configure", "header")}>
       <PForm.Field
@@ -104,7 +113,7 @@ const Header = () => (
         <Rack />
       </div>
       <div className={CSS.BE("task-configure", "actions")}>
-        <UtilityButtons />
+        <UtilityButtons plotChannels={plotChannels} />
       </div>
     </div>
     <ParentRangeButton />
@@ -120,6 +129,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
+  plotChannels,
 }: WrapFormParams<S>): FC<FormTabProps> => {
   const useForm = PTask.createForm({ schemas });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
@@ -194,7 +204,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             {...form}
             mode={isSnapshot || !canEdit ? "preview" : "normal"}
           >
-            {showHeader && <Header />}
+            {showHeader && <Header plotChannels={plotChannels} />}
             {Properties != null && (
               <Flex.Box className={CSS.B("task-properties")} x wrap>
                 <Properties />

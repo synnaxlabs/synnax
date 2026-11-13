@@ -23,6 +23,7 @@ import {
   awaitEditableForm,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -126,6 +127,28 @@ describe("Write", () => {
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
+  });
+
+  it("should copy the selected channel, not the last one, when Add is pressed", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const fio4 = await findChannelListItem("FIO4");
+    fireEvent.click(within(fio4).getByRole("checkbox", { name: "Select" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["digital", "DIO4"],
+        ["analog", "DAC0"],
+        ["digital", "DIO5"],
+      ]),
+    );
   });
 
   it("should update the port from the grid the port button opens", async () => {

@@ -18,12 +18,13 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { deep, type record, strings, verbs } from "@synnaxlabs/x";
+import { deep, type record, verbs } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
+import { useIdentifierSuggestions } from "@/platform/device/identifier";
 import { type Hardware } from "@/platform/device/integration";
 import {
   type ConfigureParams,
@@ -81,7 +82,7 @@ const Internal = ({
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
   const { updateAsync, variant } = useSave();
-  const suggestions = strings.createShortIdentifiers(currentName);
+  const suggestions = useIdentifierSuggestions(currentName, device.key);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({

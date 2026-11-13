@@ -324,9 +324,15 @@ export const getUnresolvedMessage = (
   return `'${pdo}' matches ${found}. Pick an entry.`;
 };
 
-/** Creates a new read channel, copying the slave of the last channel if available. */
-export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
-  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+/**
+ * Creates a new read channel on the slave of the channel to copy, the last channel when
+ * none is given.
+ */
+export const createReadChannel = (
+  channels: ReadChannel[],
+  copy?: string,
+): ReadChannel => {
+  const base: Partial<ReadChannel> = Task.channelToCopy(channels, copy) ?? {};
   return READ_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.READ_CHANNEL_OVERRIDE,
@@ -362,9 +368,15 @@ export const createEntryWriteChannel = (
     dataType,
   });
 
-/** Creates a new write channel, copying the slave of the last channel if available. */
-export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
-  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+/**
+ * Creates a new write channel on the slave of the channel to copy, the last channel
+ * when none is given.
+ */
+export const createWriteChannel = (
+  channels: WriteChannel[],
+  copy?: string,
+): WriteChannel => {
+  const base: Partial<WriteChannel> = Task.channelToCopy(channels, copy) ?? {};
   return WRITE_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.WRITE_CHANNEL_OVERRIDE,

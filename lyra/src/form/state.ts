@@ -27,6 +27,8 @@ export interface FieldState<V = unknown> {
   touched: boolean;
   /** Whether the schema refuses the field emptied: "" for text, [] for a list. */
   required: boolean;
+  /** Whether the subtrees that `Form.Fanout` edits as one differ here. */
+  mixed?: boolean;
 }
 
 // A keyed entry's key can hold the separator, so the parts come from the values. A part

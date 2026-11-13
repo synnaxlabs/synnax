@@ -72,6 +72,7 @@ const ChannelListItem = <C extends Channel>({
   children,
   getChannelKeyAndID,
   path,
+  tareable = false,
   ...rest
 }: ChannelListItemProps<C>) => {
   const item = PForm.useFieldValue(path);
@@ -120,6 +121,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
+        {tareable && <Task.TareButton channel={channel} disabled={item.disabled} />}
         <Task.EnabledCheckbox path={fields.disabled} />
       </Flex.Box>
     </Select.Item>
@@ -299,7 +301,7 @@ const describeMissing = ({ truncated, skipped }: Search): string | null => {
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems" | "path" | "resolve"
+  "contextMenuItems" | "path" | "resolve" | "tareable"
 > {
   children: Component.RenderProp<ExtraItemProps<C>>;
   device: Device;
@@ -465,7 +467,7 @@ export interface FormProps<C extends Channel>
     Required<
       Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems" | "path">
     >,
-    Pick<ChannelListProps<C>, "indexed"> {
+    Pick<ChannelListProps<C>, "indexed" | "tareable"> {
   children?: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
@@ -484,6 +486,7 @@ const Body = <C extends Channel>({
   path,
   resolve,
   indexed,
+  tareable,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
   const resolveOnDevice = (channel: C) => resolve(device, channel);
@@ -498,6 +501,7 @@ const Body = <C extends Channel>({
         path={path}
         resolve={resolveOnDevice}
         indexed={indexed}
+        tareable={tareable}
       >
         {children}
       </ChannelList>

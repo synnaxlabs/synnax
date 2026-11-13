@@ -17,12 +17,19 @@ import { binary, primitive } from "@synnaxlabs/x";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
+import { type PlotChannels, usePlot } from "@/platform/task/plot";
 import { formPath } from "@/platform/task/types";
 import { useKey } from "@/platform/task/useKey";
 import { Session } from "@/session";
 
-export const UtilityButtons = () => {
+export interface UtilityButtonsProps {
+  /** Finds the channels of a read task's config. Shows a button that plots them. */
+  plotChannels?: PlotChannels;
+}
+
+export const UtilityButtons = ({ plotChannels }: UtilityButtonsProps) => {
   const ctx = Form.useContext();
+  const plot = usePlot();
   const taskKey = useKey();
   const getName = () => ctx.get(formPath.name).value;
   const export_ = Export.useResource();
@@ -46,6 +53,13 @@ export const UtilityButtons = () => {
     if (taskKey == null) return;
     copyLink({ name: getName(), resourceID: task.resourceID(taskKey) });
   };
+  const handlePlot =
+    plotChannels == null
+      ? undefined
+      : () =>
+          plot([
+            { name: getName(), config: ctx.get(formPath.config).value, plotChannels },
+          ]);
   const hasKey = !primitive.isZero(taskKey);
   return (
     <Flex.Box x gap="small">
@@ -96,6 +110,17 @@ export const UtilityButtons = () => {
       {hasKey && (
         <>
           <Divider.Divider y />
+          {handlePlot != null && (
+            <Button.Button
+              onClick={handlePlot}
+              tooltip="Plot channels"
+              tooltipLocation="left"
+              variant="text"
+              textColor={9}
+            >
+              <Icon.LinePlot />
+            </Button.Button>
+          )}
           {!Session.Runtime.LINKS_DISABLED && (
             <Button.Button
               onClick={handleCopyLink}

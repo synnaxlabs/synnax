@@ -89,8 +89,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
       nameDirection="y"
       portMaxChars={20}
     />

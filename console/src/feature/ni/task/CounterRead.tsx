@@ -52,29 +52,19 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Task.ChannelListItemProps {
-  onTare: (channelKey: channel.Key) => void;
-}
-
-const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const entry = root.config.channels[rest.itemKey];
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const entry = root.config.channels[itemKey];
   const value = PForm.useFieldValue(entry);
   const device = useChannelDevice(entry);
-  const { port, type, channel, disabled } = value;
-  const isSnapshot = Task.useIsSnapshot();
-  const isRunning = Task.useIsRunning();
-  const hasTareButton = channel !== 0 && !isSnapshot;
-  const canTare = !disabled && isRunning;
-  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
+  const { port, type, channel } = value;
+  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
   const Icon = CI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
-      {...rest}
+      {...props}
       port={port}
-      canTare={canTare}
-      onTare={onTare}
       path={entry}
-      hasTareButton={hasTareButton}
       channel={channel}
       defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
       skipped={skipped}
@@ -119,13 +109,14 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
 
 const detailsTitle = Component.renderProp(DetailsTitle);
 
+const listItem = Component.renderProp(ChannelListItem);
+
 const deviceOf = (c: CIChannel) => c.device;
 
 const hasPortList = (devices: Device[]): boolean =>
   devices.some(({ properties }) => properties.hardware != null);
 
 const Form: FC = () => {
-  const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
   PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
@@ -133,9 +124,6 @@ const Form: FC = () => {
     if (dev == null) return null;
     return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
   };
-  const listItem = ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
-    <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
-  );
   const ports =
     devices != null && hasPortList(devices)
       ? (props: Task.Views.PortsProps<CIChannel>) => (
@@ -160,8 +148,7 @@ const Form: FC = () => {
       createChannel={(channels, copy) =>
         createNextCIChannel(channels, { copy }, devices)
       }
-      onTare={handleTare}
-      allowTare={allowTare}
+      tareable
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
       ports={ports}
@@ -171,13 +158,15 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
   deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = counterReadConfigZ.parse(config ?? {});
   if (config == null) {
-    const first = createNextCIChannel([]);
-    if (deviceKey != null) first.device = deviceKey;
-    cfg.channels = [first];
+    const devices = deviceKeys ?? (deviceKey == null ? [""] : [deviceKey]);
+    cfg.channels = [];
+    for (const device of devices)
+      cfg.channels.push(createNextCIChannel(cfg.channels, { device }));
   }
   return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
 };
@@ -264,6 +253,10 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   return [config, rackKey];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const counterReadPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(COUNTER_READ_SCHEMAS.config.parse(config).channels);
+
 export const CounterRead = Task.wrapForm({
   Properties,
   Form,
@@ -271,6 +264,7 @@ export const CounterRead = Task.wrapForm({
   deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
   onConfigure,
+  plotChannels: counterReadPlotChannels,
 });
 
 export const useCreateCounterRead = Task.createUseCreate({

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/form/Context";
+export * from "@/form/Fanout";
 export * from "@/form/Field";
 export * from "@/form/Form";
 export * from "@/form/Section";

@@ -20,7 +20,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep, strings, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
@@ -280,6 +280,8 @@ const NAME_INPUT_PROPS = {
 
 const General = (): ReactElement => {
   const name = Form.useFieldValue(path.name);
+  const key = Form.useFieldValue(path.key);
+  const suggestions = Device.useIdentifierSuggestions(name ?? "", key);
   const { set } = Form.useContext();
   return (
     <Form.Section title="General">
@@ -295,7 +297,7 @@ const General = (): ReactElement => {
         </Text.Text>
         <Flex.Box x align="center" wrap>
           <Icon.Bolt />
-          {strings.createShortIdentifiers(name ?? "").map((id) => (
+          {suggestions.map((id) => (
             <Button.Button
               key={id}
               onClick={() => set(path.properties.identifier, id)}
