@@ -26,6 +26,29 @@ describe("readOptionsOf", () => {
     });
   });
 
+  it("should drop what does not fit a narrower width of the same kind", () => {
+    expect(
+      Task.Payload.readOptionsOf("int8", {
+        type: "integer",
+        dataType: DataType.INT64,
+        enumValues: [
+          { label: "SMALL", value: "100" },
+          { label: "BIG", value: "200" },
+          { label: "PARTIAL", value: "" },
+        ],
+        fill: "-200",
+      }),
+    ).toEqual({
+      type: "integer",
+      dataType: DataType.INT8,
+      enumValues: [
+        { label: "SMALL", value: "100" },
+        { label: "PARTIAL", value: "" },
+      ],
+      fill: undefined,
+    });
+  });
+
   it("should carry the entries and fill that a new numeric kind holds", () => {
     expect(
       Task.Payload.readOptionsOf("uint8", {

@@ -125,10 +125,49 @@ const convertNumeric = (
   };
 };
 
+// Drops each entry and the fill of previous that parse but do not fit dataType. A value
+// that does not parse yet, such as a half-typed row, stays for the deploy check.
+const narrowNumeric = (
+  dataType: DataType,
+  previous: NumericOptions,
+): NumericOptions => {
+  const fits = (v: number | string): boolean => {
+    if (typeof v === "string" && !DECIMAL.test(v)) return true;
+    if (previous.type === "float") return toFloat(v, dataType) != null;
+    return toDecimal(v, previous.type, dataType) != null;
+  };
+  const keep = <V extends number | string>(fill?: V): V | undefined =>
+    fill == null || fits(fill) ? fill : undefined;
+  switch (previous.type) {
+    case "float":
+      return {
+        ...previous,
+        dataType,
+        enumValues: previous.enumValues.filter(({ value }) => fits(value)),
+        fill: keep(previous.fill),
+      };
+    case "integer":
+      return {
+        ...previous,
+        dataType,
+        enumValues: previous.enumValues.filter(({ value }) => fits(value)),
+        fill: keep(previous.fill),
+      };
+    case "unsigned":
+      return {
+        ...previous,
+        dataType,
+        enumValues: previous.enumValues.filter(({ value }) => fits(value)),
+        fill: keep(previous.fill),
+      };
+  }
+};
+
 /**
  * @returns the options of a read field into a new channel of dataType. A field of the
- * same kind keeps its options. Between numeric kinds, each entry and the fill that the
- * new kind holds exactly, and that fit dataType, carry over.
+ * same kind keeps its options, but a numeric one drops each entry and the fill that
+ * does not fit dataType. Between numeric kinds, each entry and the fill that the new
+ * kind holds exactly, and that fit dataType, carry over.
  * @throws {Error} if dataType is not a known data type.
  */
 export const readOptionsOf = (
@@ -137,15 +176,10 @@ export const readOptionsOf = (
 ): ReadOptions => {
   const kind = payload.kindOf(dataType);
   if (kind == null) throw new Error(`${dataType} is not a known data type`);
-  if (previous?.type === kind) {
-    if (
-      previous.type === "float" ||
-      previous.type === "integer" ||
-      previous.type === "unsigned"
-    )
-      return { ...previous, dataType: new DataType(dataType) };
-    return previous;
-  }
+  if (previous?.type === kind)
+    return isNumeric(previous)
+      ? narrowNumeric(new DataType(dataType), previous)
+      : previous;
   switch (kind) {
     case "float":
     case "integer":
