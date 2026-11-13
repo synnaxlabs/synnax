@@ -209,7 +209,7 @@ var _ = Describe("Migrate", func() {
 				BaseChannelField: base(telem.Float64T),
 				EnumValues:       []payload.StringEntry{},
 			}),
-		Entry("a bound timestamp as a timestamp that falls back to its JSON type",
+		Entry("a bound timestamp as a timestamp that keeps its data type",
 			v1.ChannelField{
 				Channel:    7,
 				JSONType:   payload.JSONTypeNumber,
@@ -220,7 +220,7 @@ var _ = Describe("Migrate", func() {
 				Pointer:    "/v",
 				Channel:    7,
 				Name:       "cmd",
-				DataType:   new(telem.Float64T),
+				DataType:   new(telem.TimestampT),
 				TimeFormat: payload.TimeFormatUnixMs,
 			}),
 		Entry("a bound string with entries and a stale timestamp data type as a string",

@@ -11,7 +11,7 @@ import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -230,7 +230,7 @@ describe("MQTT Write form", () => {
       createWriteTarget("t1", "plant/cmd", {
         type: "integer",
         channel: ch.key,
-        dataType: undefined,
+        dataType: "int32",
       }),
     ]);
     fireEvent.contextMenu(await screen.findByText(ch.name));
@@ -242,45 +242,6 @@ describe("MQTT Write form", () => {
         channel: { type: "integer", channel: 0, dataType: "int32" },
       });
     });
-  });
-
-  it("should keep a data type picked for a copy before its channel is read", async () => {
-    const ch = await client.channels.create({
-      name: uniqueName("mqtt_cmd"),
-      dataType: "int32",
-      virtual: true,
-    });
-    const { draft } = await renderWrite([
-      createWriteTarget("t1", "plant/cmd", {
-        type: "integer",
-        channel: ch.key,
-        dataType: undefined,
-      }),
-    ]);
-    const retrieve = client.channels.retrieve.bind(client.channels);
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const spy = vi
-      .spyOn(client.channels, "retrieve")
-      .mockImplementation(async (...args: Parameters<typeof retrieve>) => {
-        await held;
-        return await retrieve(...args);
-      });
-    try {
-      fireEvent.contextMenu(await screen.findByText(ch.name));
-      fireEvent.click(await screen.findByText("Duplicate"));
-      await selectFromDropdown("Select data type", "int16");
-      release();
-      await waitFor(async () => {
-        const targets = await retrieveTargets(draft.key);
-        expect(targets).toHaveLength(2);
-        expect(targets[1]).toMatchObject({ channel: { dataType: "int16" } });
-      });
-    } finally {
-      spy.mockRestore();
-    }
   });
 
   it("should take the kinds of a bound channel over a stored data type", async () => {

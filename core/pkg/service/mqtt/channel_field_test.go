@@ -190,7 +190,7 @@ var _ = Describe("Channel fields", func() {
 		)
 
 		It(
-			"Should narrow a float entry and clear the data type",
+			"Should narrow a float entry and take the data type of the channel",
 			func(ctx SpecContext) {
 				ch := create(ctx, telem.Float32T)
 				f := firstField(MustSucceed(prepare(ctx, config(
@@ -199,7 +199,7 @@ var _ = Describe("Channel fields", func() {
 				Expect(f["enum_values"]).To(HaveExactElements(HaveKeyWithValue(
 					"value", BeNumerically("==", float64(float32(0.1))),
 				)))
-				Expect(f).ToNot(HaveKey("data_type"))
+				Expect(f).To(HaveKeyWithValue("data_type", "float32"))
 			},
 		)
 
@@ -264,7 +264,7 @@ var _ = Describe("Channel fields", func() {
 				HaveKeyWithValue("label", "ONE"),
 				HaveKeyWithValue("value", "1"),
 			)))
-			Expect(f).ToNot(HaveKey("data_type"))
+			Expect(f).To(HaveKeyWithValue("data_type", "int32"))
 		})
 
 		It("Should import a version 1 field as the kind of its channel", func(
@@ -485,7 +485,7 @@ var _ = Describe("Stored write configs", func() {
 			Expect(targets).To(HaveLen(8))
 			Expect(field(targets[0])).To(SatisfyAll(
 				HaveKeyWithValue("type", "unsigned"),
-				Not(HaveKey("data_type")),
+				HaveKeyWithValue("data_type", "uint8"),
 			))
 			Expect(field(targets[1])).To(SatisfyAll(
 				HaveKeyWithValue("type", "string"),
