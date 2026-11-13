@@ -225,7 +225,9 @@ class ViewLifecycle(ConsoleCase):
             if v.name == view_b
         ]
         where = saved[0].where if len(saved) == 1 else None
-        assert where is not None and where.labels, (
+        # Each chip saves its condition as one node under a top-level and.
+        nodes = where.and_ if where is not None else None
+        assert nodes is not None and any(node.labels for node in nodes), (
             f"'{view_b}' should be saved to the server with its label filter"
         )
 

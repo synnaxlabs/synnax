@@ -91,6 +91,33 @@ describe("View.Filter", () => {
     });
   });
 
+  describe("two conditions on one property", () => {
+    const TWO: status.Where = {
+      and: [{ variant: { in: ["error"] } }, { variant: { in: ["info"] } }],
+    };
+
+    it("should edit only the condition of the chip", async () => {
+      await renderFixture(TWO);
+      await enableEditing();
+      fireEvent.click(await screen.findByRole("button", { name: "Info" }));
+      const picker = await screen.findByRole("dialog", { name: "Variants" });
+      fireEvent.click(within(picker).getByText("Warning"));
+      await expectWhere({
+        and: [{ variant: { in: ["error"] } }, { variant: { in: ["info", "warning"] } }],
+      });
+    });
+
+    it("should remove only the condition of the chip", async () => {
+      await renderFixture(TWO);
+      await enableEditing();
+      const removes = await screen.findAllByRole("button", {
+        name: "Remove Variants filter",
+      });
+      fireEvent.click(removes[1]);
+      await expectWhere({ and: [{ variant: { in: ["error"] } }] });
+    });
+  });
+
   it("should show a chip for each field of one node", async () => {
     await renderFixture({ variant: { in: ["error"] }, key: { in: [uuid.create()] } });
     expect(await screen.findByText("Variants")).toBeTruthy();

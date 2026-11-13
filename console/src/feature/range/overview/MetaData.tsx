@@ -33,9 +33,10 @@ interface RangeKeyProps {
 
 interface PairProps extends RangeKeyProps {
   pair: ranger.kv.Pair;
+  preview: boolean;
 }
 
-const Pair = ({ rangeKey, pair }: PairProps): ReactElement => {
+const Pair = ({ rangeKey, pair, preview }: PairProps): ReactElement => {
   const { update } = Ranger.useUpdateKV();
   const { update: remove } = Ranger.useDeleteKV();
   const isLink = link.is(pair.value);
@@ -64,7 +65,9 @@ const Pair = ({ rangeKey, pair }: PairProps): ReactElement => {
             textColor={9}
             tooltip="Copy value"
           />
-          <RemoveButton onClick={() => remove({ rangeKey, key: pair.key })} />
+          {!preview && (
+            <RemoveButton onClick={() => remove({ rangeKey, key: pair.key })} />
+          )}
         </>
       }
     >
@@ -73,6 +76,7 @@ const Pair = ({ rangeKey, pair }: PairProps): ReactElement => {
         value={pair.value}
         placeholder="Value"
         onlyChangeOnBlur
+        preview={preview}
         className={CSS.BE("range-overview", "field-value")}
         textColor={isLink ? "var(--pluto-primary-z)" : undefined}
         onChange={(value) =>
@@ -146,6 +150,8 @@ interface MetaDataProps extends RangeKeyProps {
   pairs: ranger.kv.Pair[];
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
+  /** Shows the pairs without the controls that change them. */
+  preview: boolean;
 }
 
 export const MetaData = ({
@@ -153,15 +159,20 @@ export const MetaData = ({
   pairs,
   adding,
   onAddingChange,
+  preview,
 }: MetaDataProps): ReactElement => (
   <Section
     title="Metadata"
     icon={<Icon.Details />}
-    actions={<AddButton tooltip="Add metadata" onClick={() => onAddingChange(true)} />}
+    actions={
+      preview ? undefined : (
+        <AddButton tooltip="Add metadata" onClick={() => onAddingChange(true)} />
+      )
+    }
   >
     <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
       {pairs.toSorted(byKey).map((pair) => (
-        <Pair key={pair.key} rangeKey={rangeKey} pair={pair} />
+        <Pair key={pair.key} rangeKey={rangeKey} pair={pair} preview={preview} />
       ))}
       {adding && (
         <PairDraft rangeKey={rangeKey} onClose={() => onAddingChange(false)} />

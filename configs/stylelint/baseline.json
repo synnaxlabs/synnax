@@ -90,7 +90,6 @@
       "pluto-error-fallback__container",
       "pluto-error-fallback__content"
     ],
-    "console/src/platform/label/Edit.css": ["lyra--hidden", "lyra-input", "lyra-modal"],
     "console/src/platform/multiedit/Sections.css": ["lyra-input-label"],
     "console/src/platform/nav/Nav.css": [
       "lyra--direction-x",

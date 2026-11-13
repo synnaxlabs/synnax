@@ -160,7 +160,6 @@ inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() c
     }
     pb.set_config_hash(this->config_hash);
     pb.set_internal(this->internal);
-    pb.set_snapshot(this->snapshot);
     if (this->status.has_value()) {
         auto [v, err] = this->status->to_proto();
         if (err) return {{}, err};
@@ -187,7 +186,6 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
     }
     cpp.config_hash = pb.config_hash();
     cpp.internal = pb.internal();
-    cpp.snapshot = pb.snapshot();
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
@@ -244,11 +242,6 @@ inline std::pair<::service::task::pb::Where, x::errors::Error> Where::to_proto()
         if (err) return {{}, err};
         *pb.mutable_internal() = v;
     }
-    if (this->snapshot.has_value()) {
-        auto [v, err] = this->snapshot->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_snapshot() = v;
-    }
     return {pb, x::errors::NIL};
 }
 
@@ -294,11 +287,6 @@ Where::from_proto(const ::service::task::pb::Where &pb) {
         auto [v, err] = ::x::filter::Bool::from_proto(pb.internal());
         if (err) return {{}, err};
         cpp.internal = v;
-    }
-    if (pb.has_snapshot()) {
-        auto [v, err] = ::x::filter::Bool::from_proto(pb.snapshot());
-        if (err) return {{}, err};
-        cpp.snapshot = v;
     }
     return {cpp, x::errors::NIL};
 }

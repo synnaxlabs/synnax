@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { deep, uuid } from "@synnaxlabs/x";
+import { color, deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -158,6 +158,45 @@ describe("View queries", () => {
           name: "edited-view",
           where: { variant: { in: ["warning"] } },
         });
+      });
+    });
+    it("should save the icon, color, sort, and layout of a range view", async () => {
+      const view = await client.views.create({ name: "styled-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const range = deep.variant(path, "type", "range");
+      act(() => {
+        result.current.form.set(path.icon, "star");
+        result.current.form.set(path.color, color.construct("#ff0000"));
+        result.current.form.set(range.sort, "oldest");
+        result.current.form.set(range.layout, "timeline");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await createTestClient().views.retrieve(view.key)).toEqual({
+        ...view,
+        icon: "star",
+        color: color.construct("#ff0000"),
+        sort: "oldest",
+        layout: "timeline",
+      });
+    });
+    it("should save the icon and color of a status view", async () => {
+      const view = await client.views.create({ name: "styled-view", type: "status" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.icon, "bell");
+        result.current.form.set(path.color, color.construct("#00ff00"));
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await createTestClient().views.retrieve(view.key)).toEqual({
+        ...view,
+        icon: "bell",
+        color: color.construct("#00ff00"),
       });
     });
     it("should update the form when the view is updated externally", async () => {

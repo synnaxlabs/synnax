@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -469,6 +469,25 @@ describe("range/explorer/Explorer", () => {
       const item = await findItem(planned.name);
       const when = within(item).getByRole("group", { name: "Time range" });
       expect(when.textContent).toBe("Planned");
+    });
+  });
+
+  describe("color", () => {
+    it("should set the color of a range from the swatch of its item", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} colored`);
+      await renderExplorer();
+      await search(token);
+      fireEvent.click(
+        within(await findItem(rng.name)).getByRole("button", { name: "Color" }),
+      );
+      const hex = await screen.findByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "123456" } });
+      fireEvent.keyDown(hex, { code: "Escape" });
+      await waitFor(async () => {
+        const { color: stored } = await client.ranges.retrieve(rng.key);
+        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+      });
     });
   });
 

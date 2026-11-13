@@ -133,6 +133,7 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
+    SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
@@ -756,6 +757,17 @@ class LayoutClient:
         :param name: The name/title of the tab to wait for.
         """
         self.get_tab(name).wait_for(state="visible", timeout=5000)
+
+    def open_settings(self) -> Locator:
+        """Open the Settings tab, or show it if it is already open.
+
+        :returns: The section list of Settings.
+        """
+        nav = self.page.locator(self.SETTINGS_NAV_SELECTOR)
+        if not nav.is_visible():
+            self.command_palette("Open settings")
+            nav.wait_for(state="visible", timeout=5000)
+        return nav
 
     def close_tab(self, name: str) -> None:
         """Close a tab using a randomly selected modality.

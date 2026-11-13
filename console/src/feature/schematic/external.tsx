@@ -45,11 +45,10 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(
       client.schematics.watch(resource.key).getCached(),
     );
-    // A restored record comes back in the project, as its range or group may be gone.
+    // A restored record comes back in the project, as its group may be gone.
     await client.schematics.create({
       ...corpse,
       project,
-      range: undefined,
       group: undefined,
     });
   },

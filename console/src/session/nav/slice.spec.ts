@@ -338,6 +338,17 @@ describe("Nav Slice", () => {
     });
   });
 
+  describe("selectSettingsSection", () => {
+    it("should keep the Settings section of each window apart", () => {
+      const s = run(
+        Nav.selectSettingsSection({ section: "labels" }),
+        Nav.selectSettingsSection({ windowKey: "window-2", section: "license" }),
+      );
+      expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("labels");
+      expect(s.windows()["window-2"]?.settings.section).toBe("license");
+    });
+  });
+
   describe("MIDDLEWARE", () => {
     it("should inject the active window key when the payload omits one", () => {
       const s = run(Nav.selectLeft({ key: "a" }));

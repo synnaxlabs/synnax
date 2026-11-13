@@ -24,14 +24,12 @@ from console.range.toolbar import Toolbar
 
 
 class Overview(Surface):
-    """A range's overview page: times, stage, labels, child ranges, metadata, channel
-    aliases, and attached documents."""
+    """A range's overview page: times, stage, labels, metadata, and child
+    ranges."""
 
     SECTION_SELECTOR = ".console-section"
     FIELD_SELECTOR = ".console-range-overview__field"
     ADD_LINE_SELECTOR = ".console-range-overview__add"
-    DOCUMENT_SELECTOR = ".console-range-overview__document"
-    DOCUMENT_NAME_SELECTOR = ".console-range-overview__document-name"
 
     def __init__(self, *, layout: LayoutClient, toolbar: Toolbar, explorer: Explorer):
         super().__init__(layout)
@@ -607,64 +605,3 @@ class Overview(Surface):
         self._deselect_all_child_ranges()
         for name in names:
             self.toolbar.wait_for_removed(name)
-
-    # ── Snapshots ────────────────────────────────────────────────────────
-
-    def _get_snapshots(self) -> Locator:
-        """Get the snapshots in the Attached section: the documents with a Snapshot
-        badge."""
-        return (
-            self._section("Attached")
-            .locator(self.DOCUMENT_SELECTOR)
-            .filter(has=self.layout.page.get_by_text("Snapshot", exact=True))
-        )
-
-    def get_snapshot(self, name: str) -> Locator:
-        """Get a snapshot in the Attached section by name.
-
-        :param name: The name of the snapshot to find.
-        :returns: Locator for the snapshot.
-        """
-        return self._get_snapshots().filter(
-            has=self.layout.page.locator(
-                self.DOCUMENT_NAME_SELECTOR,
-                has_text=re.compile(rf"^{re.escape(name)}$"),
-            )
-        )
-
-    def snapshot_exists(self, name: str) -> bool:
-        """Check if a snapshot exists in the Attached section of the overview."""
-        return self.layout.locator_exists(self.get_snapshot(name))
-
-    def open_snapshot(self, name: str) -> None:
-        """Open a snapshot from the Attached section in the range overview.
-
-        :param name: The name of the snapshot to open.
-        """
-        item = self.get_snapshot(name)
-        item.wait_for(state="visible", timeout=5000)
-        item.click()
-
-    def get_snapshot_names(self) -> list[str]:
-        """Get all snapshot names in the Attached section.
-
-        :returns: List of snapshot names.
-        """
-        names = self._get_snapshots().locator(self.DOCUMENT_NAME_SELECTOR)
-        return [names.nth(i).inner_text().strip() for i in range(names.count())]
-
-    def delete_snapshot(self, name: str) -> None:
-        """Delete a snapshot from the Attached section through its context menu.
-
-        :param name: The name of the snapshot to delete.
-        """
-        item = self.get_snapshot(name)
-        item.wait_for(state="visible", timeout=5000)
-        self.layout.delete_with_confirmation(item)
-
-    def wait_for_snapshot_removed(self, name: str) -> None:
-        """Wait for a snapshot to be removed from the Attached section.
-
-        :param name: The name of the snapshot that should be removed.
-        """
-        self.get_snapshot(name).wait_for(state="hidden", timeout=5000)

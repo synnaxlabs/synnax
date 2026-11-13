@@ -51,7 +51,7 @@ func (g versionsGate) Run(
 	}
 	chains, resolver := res.Chains, res.Versions
 	if env.Shipped != nil {
-		checkShipped(ctx, &r, chains, resolver, *env.Shipped)
+		checkShipped(ctx, &r, env.RepoRoot, chains, resolver, *env.Shipped)
 	}
 	if len(chains) == 0 || resolver == nil {
 		return r

@@ -19,7 +19,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

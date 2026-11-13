@@ -16,6 +16,7 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 )
 
 // Migrations is the ordered migration chain for stored line plots.
@@ -29,4 +30,6 @@ var Migrations = []gorp.Migration{
 	v8.StrokeWidthMigration,
 	v8.MembersMigration,
 	v8.OwnersMigration,
+	v9.RangeMigration,
+	v9.Migration,
 }

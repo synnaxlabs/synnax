@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  channel,
   label,
   query as clientQuery,
   ranger,
@@ -36,8 +35,6 @@ const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PARENT_RESOURCE_NAME = "parent range";
 const PLURAL_PARENT_RESOURCE_NAME = "parent ranges";
-const ALIAS_RESOURCE_NAME = "channel alias";
-const PLURAL_ALIAS_RESOURCE_NAME = "channel aliases";
 
 export type RetrieveQuery = {
   key: ranger.Key;
@@ -233,24 +230,6 @@ export const { useResult: useResultMetaData } = Flux.createRetrieve<
     client.ranges.kv.watch(rangeKey).getCached(),
 });
 
-export type AliasesQuery = {
-  rangeKey: ranger.Key;
-};
-
-/** The channel aliases of a range: its own and those of the ranges above it. */
-export const { useResult: useResultAliases } = Flux.createRetrieve<
-  AliasesQuery,
-  ranger.ResolvedAliases
->({
-  name: PLURAL_ALIAS_RESOURCE_NAME,
-  retrieve: async ({ client, query: { rangeKey } }) =>
-    await client.ranges.resolvedAliases.retrieve(rangeKey),
-  onChange: ({ client, query: { rangeKey } }, handler) =>
-    client.ranges.resolvedAliases.watch(rangeKey).onChange(handler),
-  getCached: ({ client, query: { rangeKey } }) =>
-    client.ranges.resolvedAliases.watch(rangeKey).getCached(),
-});
-
 export const kvPairFormSchema = ranger.kv.pairZ.extend({
   key: z.string().trim().min(1, "Key is required"),
 });
@@ -272,31 +251,6 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
     // The form holds the text as typed, so the schema trims it.
     const { key, value, range } = kvPairFormSchema.parse(getPair());
     await client.ranges.getKV(range).set(key, value);
-  },
-});
-
-export const aliasFormSchema = ranger.alias.aliasZ.extend({
-  channel: channel.keyZ.refine(primitive.isNonZero, "Channel is required"),
-  alias: z.string().trim().min(1, "Alias is required"),
-});
-
-export const aliasFormPath = deep.path<z.infer<typeof aliasFormSchema>>();
-
-const ZERO_ALIAS_FORM_VALUES: z.infer<typeof aliasFormSchema> = {
-  range: "",
-  channel: 0,
-  alias: "",
-};
-
-/** A form that sets the alias of a channel on a range when it saves. */
-export const useCreateAliasForm = Flux.createForm<null, typeof aliasFormSchema>({
-  name: ALIAS_RESOURCE_NAME,
-  schema: aliasFormSchema,
-  initialValues: ZERO_ALIAS_FORM_VALUES,
-  update: async ({ client, value: getAlias }) => {
-    // The form holds the text as typed, so the schema trims it.
-    const { range, channel, alias } = aliasFormSchema.parse(getAlias());
-    await client.ranges.setAlias(range, channel, alias);
   },
 });
 

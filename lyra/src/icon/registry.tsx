@@ -158,7 +158,6 @@ import {
   MdPause,
   MdPeople,
   MdPerson,
-  MdPictureInPicture,
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
@@ -439,7 +438,6 @@ export const User = wrapSVGIcon(MdPerson, "user");
 export const Role = wrapSVGIcon(MdPeople, "role");
 export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
-export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
 export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
@@ -673,7 +671,6 @@ const icons = {
   Role,
   Policy,
   Rename,
-  Snapshot,
   Sync,
   Search,
   Auto,

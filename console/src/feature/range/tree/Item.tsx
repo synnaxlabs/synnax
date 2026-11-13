@@ -155,6 +155,7 @@ const Swatch = ({ range, preview }: RangeProps): ReactElement => {
           onChange={preview ? undefined : (color) => update({ key: range.key, color })}
           onlyChangeOnBlur
           tooltip="Color"
+          aria-label="Color"
         />
       )}
     </Field>

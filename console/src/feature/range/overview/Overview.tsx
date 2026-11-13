@@ -14,17 +14,13 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
-import { Aliases } from "@/feature/range/overview/Aliases";
 import { Children } from "@/feature/range/overview/Children";
-import { Documents, useDocuments } from "@/feature/range/overview/Documents";
 import { Header } from "@/feature/range/overview/Header";
 import { MetaData } from "@/feature/range/overview/MetaData";
 import { AddLine } from "@/feature/range/overview/Section";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-
-type Adding = "metadata" | "alias" | null;
 
 const NO_PAIRS: ranger.kv.Pair[] = [];
 
@@ -35,16 +31,11 @@ interface BodyProps {
 const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
   const range = Ranger.use({ key });
   const pairs = Ranger.useResultMetaData({ rangeKey: key }).data ?? NO_PAIRS;
-  const aliases = Ranger.useResultAliases({ rangeKey: key }).data;
-  const documents = useDocuments(key);
-  const [adding, setAdding] = useState<Adding>(null);
+  const [adding, setAdding] = useState(false);
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
-  const showMetaData = pairs.length > 0 || adding === "metadata";
-  const aliasCount = aliases == null ? 0 : Object.keys(aliases.aliases).length;
-  const showAliases = aliasCount > 0 || adding === "alias";
-  const setAddingTo = (to: Adding) => (next: boolean) => setAdding(next ? to : null);
+  const showMetaData = pairs.length > 0 || adding;
   return (
     <div className={CSS.BE("range-overview", "scroll")}>
       <Flex.Box y empty className={CSS.B("range-overview")}>
@@ -58,24 +49,12 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
           <MetaData
             rangeKey={key}
             pairs={pairs}
-            adding={adding === "metadata"}
-            onAddingChange={setAddingTo("metadata")}
+            adding={adding}
+            onAddingChange={setAdding}
           />
         ) : (
-          <AddLine onClick={() => setAdding("metadata")}>Metadata</AddLine>
+          <AddLine onClick={() => setAdding(true)}>Metadata</AddLine>
         )}
-        {aliases != null &&
-          (showAliases ? (
-            <Aliases
-              rangeKey={key}
-              aliases={aliases}
-              adding={adding === "alias"}
-              onAddingChange={setAddingTo("alias")}
-            />
-          ) : (
-            <AddLine onClick={() => setAdding("alias")}>Channel alias</AddLine>
-          ))}
-        {documents.documents.length > 0 && <Documents {...documents} />}
       </Flex.Box>
     </div>
   );
