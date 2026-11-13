@@ -149,11 +149,12 @@ describe("queries", () => {
         () => Ranger.useResultAliases({ rangeKey: child.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.data).toEqual({}));
+      await waitFor(() => expect(result.current.data?.aliases).toEqual({}));
       await client.ranges.setAlias(parent.key, ch.key, "inherited");
       await waitFor(() =>
-        expect(result.current.data).toEqual({ [ch.key]: "inherited" }),
+        expect(result.current.data?.aliases).toEqual({ [ch.key]: "inherited" }),
       );
+      expect(result.current.data?.own).toEqual([]);
     });
   });
 

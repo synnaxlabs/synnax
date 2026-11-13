@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Ranger } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto";
 import { type KeyboardEvent, type ReactElement, useState } from "react";
 
 import {
@@ -32,8 +32,6 @@ interface RangeKeyProps {
 interface DraftProps extends RangeKeyProps {
   onClose: () => void;
 }
-
-const NO_ALIASES: Record<channel.Key, string> = {};
 
 interface AliasProps extends RangeKeyProps {
   channel: channel.Key;
@@ -137,23 +135,17 @@ const AliasDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
 };
 
 interface AliasesProps extends RangeKeyProps {
-  /** The range above, whose aliases the range inherits. */
-  parent?: ranger.Key;
-  aliases: Record<channel.Key, string>;
+  aliases: ranger.ResolvedAliases;
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
 }
 
 export const Aliases = ({
   rangeKey,
-  parent,
-  aliases,
+  aliases: { aliases, own },
   adding,
   onAddingChange,
 }: AliasesProps): ReactElement => {
-  const fromParent =
-    Ranger.useResultAliases(parent == null ? null : { rangeKey: parent }).data ??
-    NO_ALIASES;
   const keys = Object.keys(aliases).map(Number);
   const channels = Channel.useResultMultiple(
     keys.length === 0 ? null : query.keysRequest(keys),
@@ -175,7 +167,7 @@ export const Aliases = ({
               channel={Number(key)}
               name={names.get(Number(key))}
               alias={alias}
-              inherited={fromParent[Number(key)] === alias}
+              inherited={!own.includes(Number(key))}
             />
           ))}
         {adding && (
