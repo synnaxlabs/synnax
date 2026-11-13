@@ -137,8 +137,7 @@ func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "method" field. A null or a
-// missing "method" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "method" field.
 func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -158,8 +157,6 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case MethodPassword:
 		var v struct {
 			Type Method `json:"method"`

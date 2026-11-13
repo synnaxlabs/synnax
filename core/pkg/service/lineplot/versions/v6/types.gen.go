@@ -155,8 +155,7 @@ func (u CustomRange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -176,8 +175,6 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case DynamicCustomRangeType:
 		var v struct {
 			Type CustomRangeType `json:"variant"`

@@ -223,14 +223,16 @@ func (u Update) Group() UpdateType {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case IdentityUpdate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ConfigurationUpdate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }

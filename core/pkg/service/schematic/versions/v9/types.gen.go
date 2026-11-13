@@ -252,8 +252,7 @@ func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -273,8 +272,6 @@ func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case PipeEdgeConfigType:
 		var v struct {
 			Type EdgeConfigType `json:"variant"`
@@ -4786,8 +4783,7 @@ func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -4807,8 +4803,6 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case CapNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
@@ -10403,8 +10397,7 @@ func (u ElementConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -10424,8 +10417,6 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case CapElementConfigType:
 		var v struct {
 			Type ElementConfigType `json:"variant"`

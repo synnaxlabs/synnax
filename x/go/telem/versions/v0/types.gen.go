@@ -95,8 +95,7 @@ func (u Window) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -116,8 +115,6 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case DynamicWindowType:
 		var v struct {
 			Type WindowType `json:"variant"`

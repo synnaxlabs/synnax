@@ -113,8 +113,7 @@ func (u Source) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "mode" field. A null or a
-// missing "mode" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "mode" field.
 func (u *Source) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -134,8 +133,6 @@ func (u *Source) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case ModeText:
 		var v struct {
 			Type Mode `json:"mode"`
@@ -355,8 +352,7 @@ func (u Arc) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -376,8 +372,6 @@ func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case TypeAutomation:
 		var v struct {
 			Type Type `json:"type"`

@@ -114,8 +114,7 @@ func (u Tab) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -135,8 +134,6 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case ResourceTabType:
 		var v struct {
 			Type TabType `json:"variant"`
@@ -289,8 +286,7 @@ func (u Node) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -310,8 +306,6 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case LeafNodeType:
 		var v struct {
 			Type NodeType `json:"variant"`

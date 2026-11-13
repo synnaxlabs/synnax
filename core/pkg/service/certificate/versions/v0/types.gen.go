@@ -131,8 +131,7 @@ func (u Certificate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "source" field. A null or a
-// missing "source" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "source" field.
 func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -152,8 +151,6 @@ func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case secret.SourceStored:
 		var v struct {
 			Type secret.Source `json:"source"`

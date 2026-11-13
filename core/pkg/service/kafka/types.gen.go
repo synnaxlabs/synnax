@@ -156,8 +156,7 @@ func (u SASL) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "mechanism" field. A null or a
-// missing "mechanism" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "mechanism" field.
 func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -177,8 +176,6 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case NoneSASLType:
 		var v struct {
 			Type SASLType `json:"mechanism"`

@@ -593,8 +593,7 @@ func (u CJC) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "source" field. A null or a
-// missing "source" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "source" field.
 func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -614,8 +613,6 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case BuiltInCJCType:
 		var v struct {
 			Type CJCType `json:"source"`
@@ -994,8 +991,7 @@ func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -1015,8 +1011,6 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case LinearScaleType:
 		var v struct {
 			Type ScaleType `json:"type"`
@@ -3611,8 +3605,7 @@ func (u AIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -3632,8 +3625,6 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case AIVoltageChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
@@ -5361,8 +5352,7 @@ func (u CIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -5382,8 +5372,6 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case CIFrequencyChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
@@ -5900,8 +5888,7 @@ func (u AOChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -5921,8 +5908,6 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case AOCurrentChannelType:
 		var v struct {
 			Type AOChannelType `json:"type"`

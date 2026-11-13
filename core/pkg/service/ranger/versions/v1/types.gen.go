@@ -126,8 +126,7 @@ func (u Ref) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field. A null or a
-// missing "variant" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
 func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -147,8 +146,6 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case KeyRefType:
 		var v struct {
 			Type RefType `json:"variant"`

@@ -271,8 +271,7 @@ func (u ReadEntry) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -292,8 +291,6 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case PlainReadEntryType:
 		var v struct {
 			Type ReadEntryType `json:"type"`
@@ -589,8 +586,7 @@ func (u WriteField) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -610,8 +606,6 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case StaticWriteFieldType:
 		var v struct {
 			Type WriteFieldType `json:"type"`
@@ -841,8 +835,7 @@ func (u WriteTarget) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -862,8 +855,6 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case PlainWriteTargetType:
 		var v struct {
 			Type WriteTargetType `json:"type"`

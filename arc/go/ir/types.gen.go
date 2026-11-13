@@ -153,8 +153,7 @@ func (u Target) MarshalJSONTo(enc *jsontext.Encoder) error {
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field. A null or a
-// missing "type" decodes to no variant, which Validate rejects.
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
 func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
@@ -174,8 +173,6 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case "":
-		u.Variant = nil
 	case ExitTargetType:
 		var v struct {
 			Type TargetType `json:"type"`
@@ -315,6 +312,16 @@ type Scope struct {
 // schema constraints.
 func (s Scope) Validate() error {
 	v := validate.New("Scope")
+	for i := range s.Strata {
+		for j := range s.Strata[i] {
+			v.Exec(func() error {
+				return validate.PathedError(s.Strata[i][j].Validate(), "strata", strconv.Itoa(i), strconv.Itoa(j))
+			})
+		}
+	}
+	for i := range s.Steps {
+		v.Exec(func() error { return validate.PathedError(s.Steps[i].Validate(), "steps", strconv.Itoa(i)) })
+	}
 	for i := range s.Transitions {
 		v.Exec(func() error { return validate.PathedError(s.Transitions[i].Validate(), "transitions", strconv.Itoa(i)) })
 	}
