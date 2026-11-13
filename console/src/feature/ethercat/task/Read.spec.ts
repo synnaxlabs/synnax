@@ -47,7 +47,12 @@ import {
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, findIconButton, uniqueName } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  findIconButton,
+  uniqueName,
+  withControlHeld,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -390,6 +395,98 @@ describe("Read", () => {
     });
   });
 
+  describe("several selected channels", () => {
+    /** Renders a channel on each of two strain slaves and selects both channels. */
+    const renderTwoSelected = async (
+      startupParameters: (slaves: device.Key[]) => ethercat.SlaveStartupParameters[],
+      createSecond = createStrainSlave,
+    ) => {
+      const slaves = [await createStrainSlave(), await createSecond()];
+      const rendered = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: slaves.map((s) =>
+          EtherCAT.Task.createEntryReadChannel(s.key, STRAIN_ENTRY),
+        ),
+        startupParameters: startupParameters(slaves.map((s) => s.key)),
+      });
+      const [first, second] = await screen.findAllByRole("option", {
+        name: /0x6030:01/,
+      });
+      fireEvent.click(first);
+      withControlHeld(() => fireEvent.click(second));
+      expect(await screen.findByText("2 channels")).toBeTruthy();
+      return { ...rendered, slaves };
+    };
+
+    const retrieveSaved = async (key: task.Key) =>
+      await client.tasks.retrieve({ key, schemas: EtherCAT.Task.READ_SCHEMAS });
+
+    it("should save a setting picked once to the input of each channel", async () => {
+      const { draft, slaves } = await renderTwoSelected(() => []);
+      fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual(
+          slaves.map((device) => ({
+            device: device.key,
+            parameters: [
+              { ...MEASUREMENT, value: 6 },
+              { ...RANGE, value: 0 },
+              { ...EXCITATION, value: 0 },
+            ],
+          })),
+        );
+      });
+    });
+
+    it("should show Mixed for a setting that the inputs hold apart", async () => {
+      await renderTwoSelected(([bridged]) => [
+        { device: bridged, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ]);
+      const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+      expect(await within(measurement).findByText("Mixed")).toBeTruthy();
+      expect(screen.queryByText("Excitation voltage")).toBeNull();
+    });
+
+    it("should edit only the inputs Synnax sets up in a mixed selection", async () => {
+      const { draft, slaves } = await renderTwoSelected(() => [], createSharedSlave);
+      expect(
+        await screen.findByText(
+          "DewesoftX sets the settings of some selected devices.",
+        ),
+      ).toBeTruthy();
+      fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual([
+          {
+            device: slaves[0].key,
+            parameters: [
+              { ...MEASUREMENT, value: 6 },
+              { ...RANGE, value: 0 },
+              { ...EXCITATION, value: 0 },
+            ],
+          },
+        ]);
+      });
+    });
+
+    it("should save a scale picked once to each channel", async () => {
+      const { draft } = await renderTwoSelected(() => []);
+      fireEvent.click(screen.getByRole("button", { name: /None/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.channels).toMatchObject([
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+        ]);
+      });
+    });
+  });
+
   it("should name a channel in the list by its entry, then its address", async () => {
     const slave = await createSharedSlave();
     await renderRead({
@@ -401,17 +498,34 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
-    const slave = await createSharedSlave();
+  it("should show the settings that DewesoftX holds for a channel of a slave it sets up", async () => {
+    const settings = createDewesoftXSettings(true);
+    settings.channels = settings.channels.map((input) => ({
+      ...input,
+      settings: input.settings.map((f) =>
+        f.index === MEASUREMENT.index && f.subIndex === MEASUREMENT.subIndex
+          ? { ...f, value: 6 }
+          : f,
+      ),
+    }));
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings,
+    });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
-      await screen.findByText("DewesoftX sets the settings of this device."),
+      await screen.findByText(
+        "DewesoftX sets these values. Synnax does not change them.",
+      ),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    const measurement = screen.getByRole("button", { name: /^Measurement.*Bridge/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
     expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
   });
 
@@ -446,7 +560,7 @@ describe("Read", () => {
     ).join(", ");
     expect(
       await screen.findByText(
-        `'Input' matches more than one input entry on slave ${slave.name}: ` +
+        `'Input' matches more than one input entry on module ${slave.name}: ` +
           `${addresses}. Pick an entry.`,
       ),
     ).toBeTruthy();
@@ -736,7 +850,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `More than one channel uses entry 0x6030:01 on slave ${slave.name}\\. ` +
+        `More than one channel uses entry 0x6030:01 on module ${slave.name}\\. ` +
           "Pick a different entry for one of them\\.$",
       ),
     );
@@ -758,7 +872,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${slave.name} has no input entry at 0x6030:01\\. Pick an entry\\.$`,
+        `Module ${slave.name} has no input entry at 0x6030:01\\. Pick an entry\\.$`,
       ),
     );
     const updated = await client.devices.retrieve({
@@ -901,7 +1015,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `^Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+        `^Entry 0x6030:01 on module ${slave.name}: A bridge needs an excitation ` +
           "voltage above 0 V\\.$",
       ),
     );
@@ -937,7 +1051,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      /'Input' matches more than one input entry on slave .+\. Pick an entry\.$/,
+      /'Input' matches more than one input entry on module .+\. Pick an entry\.$/,
     );
   });
 
@@ -950,7 +1064,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
+      new RegExp(`A channel on module ${slave.name} has no entry\\. Pick an entry\\.$`),
     );
   });
 
@@ -1056,7 +1170,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
+        `Module ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -1129,7 +1243,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
+        `Module ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
           "identifier",
       ),
     );
@@ -1180,7 +1294,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
+        `Module ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -1730,8 +1844,8 @@ describe("Read", () => {
   });
 
   it.each([
-    ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
-    ["switched but not restarted", false, "Restart the power of the slave"],
+    ["in DewesoftX mode", true, "In Configure, switch the module to Synnax"],
+    ["switched but not restarted", false, "Restart the power of the module"],
   ])(
     "should reject a channel of an input that only DewesoftX reads on a slave %s",
     async (_, shared, step) => {
@@ -1751,7 +1865,7 @@ describe("Read", () => {
       await awaitStatus(
         statuses,
         new RegExp(
-          `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+          `^Entry 0x6040:01 on module ${slave.name} sends data that only DewesoftX ` +
             `reads\\. ${step}\\.$`,
         ),
       );
@@ -1909,7 +2023,7 @@ describe("Read", () => {
         statuses,
         new RegExp(
           `A channel named ${taken.name} already exists and is not an index\\. ` +
-            `Change the identifier of slave ${slave.name}\\.`,
+            `Change the identifier of module ${slave.name}\\.`,
         ),
       );
     });
@@ -1949,7 +2063,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      /Data type float64 does not fit entry 0x6000:01 on slave .+, which holds 16 bits\. Pick a 2 byte number type\./,
+      /Data type float64 does not fit entry 0x6000:01 on module .+, which holds 16 bits\. Pick a 2 byte number type\./,
     );
     const updated = await client.devices.retrieve({
       key: slave.key,

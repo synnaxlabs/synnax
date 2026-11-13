@@ -83,6 +83,9 @@ TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
     EXPECT_FALSE(result["nested"].contains("b"));
 }
 
+/// @brief the command that MockScanner answers with its own status.
+const std::string ANSWERED_CMD_TYPE = "answered";
+
 class MockScanner final : public Scanner {
 public:
     size_t scan_count = 0;
@@ -95,8 +98,33 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
+    /// @brief the status data after each scan.
+    std::vector<std::optional<x::json::json::object_t>> data;
+
     [[nodiscard]] ScannerConfig config() const override {
         return ScannerConfig{.make = "", .log_prefix = "[mock] "};
+    }
+
+    [[nodiscard]] std::optional<x::json::json::object_t> status_data() const override {
+        if (this->scan_count == 0 || this->scan_count > this->data.size())
+            return std::nullopt;
+        return this->data[this->scan_count - 1];
+    }
+
+    /// @brief answers a command of ANSWERED_CMD_TYPE with its own status.
+    bool exec(
+        synnax::task::Command &cmd,
+        const synnax::task::Task &task,
+        const std::shared_ptr<task::Context> &ctx
+    ) override {
+        if (cmd.type != ANSWERED_CMD_TYPE) return false;
+        synnax::task::Status status;
+        status.owner = synnax::task::resource_id(task.key);
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Answered";
+        status.details.cmd = cmd.key;
+        ctx->set_status(status);
+        return true;
     }
 
     MockScanner(
@@ -394,7 +422,7 @@ TEST(TestScanTask, testSingleScan) {
         std::move(cluster_api)
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 2);
     if (created_devices->size() >= 2) {
@@ -449,7 +477,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 1);
     if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
@@ -519,7 +547,7 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched[0].first, "device1");
@@ -528,7 +556,7 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
         actions_json({synnax::device::set_rack({.rack = 2})})
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
 }
 
@@ -588,7 +616,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -654,7 +682,7 @@ TEST(TestScanTask, TestUpdateWhenModelChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -717,9 +745,9 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
@@ -727,7 +755,7 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
             {synnax::device::set({.path = {"location"}, .value = "new_location"})}
         )
     );
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_TRUE(created_devices->empty());
 }
@@ -762,12 +790,12 @@ TEST(TestScanTask, TestRetryFailedCreate) {
         std::move(cluster_api)
     );
 
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
     EXPECT_TRUE(created->empty());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).key, "device1");
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(created->size(), 1);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
@@ -813,7 +841,7 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
         std::move(cluster_api)
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created->empty());
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
@@ -830,7 +858,7 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
         })
     );
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->retrieved.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
 }
@@ -869,8 +897,8 @@ TEST(TestScanTask, TestRetryFailedTakeOver) {
         std::move(cluster_api)
     );
 
-    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_OCCURRED_AS(scan_task.scan().err, unreachable);
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
         (std::vector<std::vector<std::string>>{{"device1"}, {"device1"}})
@@ -922,15 +950,15 @@ TEST(TestScanTask, TestRecreateDeviceMissingFromCore) {
 
     ASSERT_NIL(scan_task.init());
     remote->clear();
-    ASSERT_OCCURRED_AS(scan_task.scan(), x::errors::NOT_FOUND);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_OCCURRED_AS(scan_task.scan().err, x::errors::NOT_FOUND);
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(
         cluster_api_ptr->retrieved,
         std::vector<std::vector<std::string>>{{"device1"}}
     );
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).location, "new_location");
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(created->size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatch_attempts, 1);
 }
@@ -1123,7 +1151,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_EQ(created_devices->size(), 0);
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
@@ -1176,7 +1204,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
@@ -1229,7 +1257,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
@@ -1295,7 +1323,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -1365,7 +1393,7 @@ TEST(TestScanTask, TestStatePropagation) {
     );
 
     // First scan - both devices should be available
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
 
     auto &first_states = cluster_api_ptr->propagated_statuses[0];
@@ -1382,7 +1410,7 @@ TEST(TestScanTask, TestStatePropagation) {
             FAIL() << "Unexpected device status: " << status.name;
     }
 
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 2);
     auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
@@ -1431,7 +1459,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
     ASSERT_EQ(cluster_api_ptr->propagated_statuses[0].size(), 1);
     const auto &status = cluster_api_ptr->propagated_statuses[0][0];
@@ -1496,7 +1524,8 @@ inline std::unique_ptr<ScanTask> new_test_task(
     const std::shared_ptr<task::MockContext> &ctx,
     const synnax::task::Task &task,
     const std::vector<x::errors::Error> &scan_errors = {},
-    const std::vector<x::errors::Error> &start_errors = {}
+    const std::vector<x::errors::Error> &start_errors = {},
+    const std::vector<std::optional<x::json::json::object_t>> &data = {}
 ) {
     auto cluster_api = std::make_unique<MockClusterAPI>(
         std::make_shared<std::vector<synnax::device::Device>>(),
@@ -1515,13 +1544,15 @@ inline std::unique_ptr<ScanTask> new_test_task(
             }}
         )
     );
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{},
+        scan_errors,
+        start_errors,
+        std::vector<x::errors::Error>{}
+    );
+    scanner->data = data;
     return std::make_unique<ScanTask>(
-        std::make_unique<MockScanner>(
-            std::vector<std::vector<synnax::device::Device>>{},
-            scan_errors,
-            start_errors,
-            std::vector<x::errors::Error>{}
-        ),
+        std::move(scanner),
         ctx,
         task,
         x::breaker::Config{},
@@ -1737,7 +1768,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
 
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -1803,9 +1834,9 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_TRUE(created_devices->empty());
 }
@@ -1854,7 +1885,7 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
@@ -1906,7 +1937,7 @@ TEST(TestScanTask, TestUpdateKeepsStoredParent) {
     );
 
     ASSERT_NIL(scan_task.init());
-    ASSERT_NIL(scan_task.scan());
+    ASSERT_NIL(scan_task.scan().err);
     EXPECT_TRUE(created_devices->empty());
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
@@ -2204,7 +2235,7 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
             created
         )
     );
-    const auto err = scan_task.scan();
+    const auto err = scan_task.scan().err;
     ASSERT_OCCURRED_AS(err, PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, "eth1: cannot open");
     ASSERT_EQ(created->size(), 1);
@@ -2232,6 +2263,86 @@ TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(ctx->statuses[1].message, "Failed to scan for devices");
     EXPECT_EQ(ctx->statuses[1].description, "eth1: cannot open");
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+}
+
+/// @brief it should send the data of the scanner with a scan warning, and warn again
+/// when only the data changes.
+TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const x::json::json::object_t first{{"filtered", x::json::json::array({"eth1"})}};
+    const x::json::json::object_t second{{"filtered", x::json::json::array()}};
+    const auto scan_task = new_test_task(
+        ctx,
+        new_test_task_record(),
+        {partial, partial, partial},
+        {},
+        {first, first, second}
+    );
+    scan_task->start();
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        3,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[1].details.data, first);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[2].details.data, second);
+}
+
+/// @brief it should send the scan warning again after the scanner answers a command
+/// with its own status.
+TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const auto scan_task = new_test_task(ctx, task, {partial, partial, partial});
+    scan_task->start();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = ANSWERED_CMD_TYPE,
+        .key = "answered_cmd",
+    };
+    scan_task->exec(cmd);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        4,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[2].message, "Answered");
+    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[3].description, "eth1: cannot open");
+}
+/// @brief it should send the running status again after the scanner answers a command
+/// with its own status.
+TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+    scan_task->start();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = ANSWERED_CMD_TYPE,
+        .key = "answered_cmd",
+    };
+    scan_task->exec(cmd);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        3,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[1].message, "Answered");
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
 }

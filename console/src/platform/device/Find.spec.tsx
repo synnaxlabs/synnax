@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, task } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
+import {
+  createRunningRack,
+  createTestDevice,
+  createWarningScanner,
+} from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { createTaskStatus } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -58,25 +61,21 @@ describe("Device.useFindModal", () => {
   it("should show a warning from the scanner", async () => {
     // The Core creates only the task types it knows.
     const hardware = { ...createHardware(), scanType: "ethercat_scan" };
-    const rack = await createRunningRack(client, hardware.key);
-    const scanner = await rack.createTask({
-      name: uniqueName("scanner"),
-      type: hardware.scanType,
-      config: {},
-      internal: true,
-    });
-    await client.statuses.set(
-      createTaskStatus({
-        owner: task.resourceID(scanner.key),
-        variant: "warning",
-        message: "Failed to scan for devices",
-        description: "Cannot open en1 for raw Ethernet access.",
-        details: { running: true, rack: rack.key },
-      }),
-    );
+    await createWarningScanner(client, hardware);
     await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
     expect(await screen.findByText("Failed to scan for devices")).toBeTruthy();
     expect(screen.getByText("Cannot open en1 for raw Ethernet access.")).toBeTruthy();
+  });
+
+  it("should show the scan action beside a scanner warning", async () => {
+    const hardware: Device.Hardware = {
+      ...createHardware(),
+      scanType: "ethercat_scan",
+      ScanAction: ({ scanner }) => <span>{`Fix ${scanner.name}`}</span>,
+    };
+    const scanner = await createWarningScanner(client, hardware);
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    expect(await screen.findByText(`Fix ${scanner.name}`)).toBeTruthy();
   });
 
   it("should turn on a disabled scanner", async () => {
@@ -98,6 +97,20 @@ describe("Device.useFindModal", () => {
       const { config } = await createTestClient().tasks.retrieve(scanner.key);
       expect(config).toMatchObject({ disabled: false });
     });
+  });
+
+  it("should show the name that the integration gives a model", async () => {
+    const hardware = { ...createHardware(), modelNames: { raw_model: "Module" } };
+    const rack = await createRunningRack(client, hardware.key);
+    await createTestDevice(client, {
+      make: hardware.make,
+      model: "raw_model",
+      configured: false,
+      rack: rack.key,
+    });
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    expect(await screen.findByText("Module")).toBeTruthy();
+    expect(screen.queryByText("raw_model")).toBeNull();
   });
 
   it("should list only the devices the filter accepts", async () => {

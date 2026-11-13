@@ -167,7 +167,7 @@ TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
         EXPECT_EQ(
             res.second.data,
             std::format(
-                "the slave does not list mode {} with AssignActivate 0x{:04X}. "
+                "the module does not list mode {} with AssignActivate 0x{:04X}. "
                 "It lists 0 \"SM-Synchron\" (AssignActivate 0x0000), 1 \"DC\" "
                 "(AssignActivate 0x0700).",
                 choice.index,
@@ -179,7 +179,7 @@ TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
     ASSERT_OCCURRED_AS_P(none, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         none.second.data,
-        "the slave does not list mode 0 with AssignActivate 0x0000. It lists no modes."
+        "the module does not list mode 0 with AssignActivate 0x0000. It lists no modes."
     );
 }
 

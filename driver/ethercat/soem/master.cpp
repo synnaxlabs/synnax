@@ -127,7 +127,7 @@ uint32_t pop_sdo_abort(
 /// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
 x::errors::Error
 no_slaves_error(API &api, const std::string &iface, const std::string &name) {
-    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT modules found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
@@ -318,7 +318,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
 
     std::string failures;
     for (const auto &[pos, failure]: session.startup_failures)
-        failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
+        failures += (failures.empty() ? "" : "; ") + std::string("module ") +
                     std::to_string(pos) + " (" + this->slave_name(pos) + ") " + failure;
     if (!failures.empty())
         return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
@@ -357,7 +357,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         return {
             .err = x::errors::Error(
                 errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+                "failed to reach OP: no process data passed the modules in SAFE-OP"
             )
         };
     return this->request_state(EC_STATE_OPERATIONAL, timeout);
@@ -430,7 +430,7 @@ x::errors::Error Master::send() {
         if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
         session.held_err = x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
+            "no process data passes the modules until they reach SAFE-OP"
         );
         return x::errors::NIL;
     }
@@ -490,7 +490,7 @@ x::errors::Error Master::write(
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+            "Module " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
     if (this->session)
@@ -624,7 +624,7 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "Module {} ({}) maps {} input and {} output bits, but its "
                     "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
@@ -764,8 +764,9 @@ void Master::discover_slave_pdos(
             props.input_pdos.clear();
             props.output_pdos.clear();
             slave.status.pdo_discovery_error = std::format(
-                "SOEM cannot map this slave because sync manager {} has fixed PDOs and "
-                "the other sync managers have assigned PDOs. Use IgH for this slave",
+                "SOEM cannot map this module because sync manager {} has fixed PDOs "
+                "and the other sync managers have assigned PDOs. Use IgH for this "
+                "module",
                 fixed->index
             );
             // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
@@ -910,7 +911,7 @@ Master::write_dc_register(const uint16_t pos, const uint16_t address, const T va
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) did not take a write to DC register 0x{:04X}",
+            "module {} ({}) did not take a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
             address
@@ -929,7 +930,7 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) did not answer a read of DC register 0x{:04X}",
+                "module {} ({}) did not answer a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
                 address
@@ -976,7 +977,7 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
+                        "module {} ({}) cannot use its chosen mode: {}",
                         props.position,
                         props.name,
                         select_err.data
@@ -995,7 +996,8 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
+                        "module {} ({}) cannot run its DC mode at a bus cycle of {}: "
+                        "{}",
                         props.position,
                         props.name,
                         period.to_string(),
@@ -1009,7 +1011,7 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
         cycles.emplace_back(regs.sync0_cycle);
         if (!events.empty()) events += ", ";
         events += std::format(
-            "slave {} ({}) every {}",
+            "module {} ({}) every {}",
             props.position,
             props.name,
             cycles.back().to_string()
@@ -1050,7 +1052,7 @@ x::errors::Error Master::wait_for_dc_settle(
         if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no frame carried the reference clock to the slaves within " +
+            "no frame carried the reference clock to the modules within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
     }
@@ -1076,7 +1078,7 @@ x::errors::Error Master::wait_for_dc_settle(
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
-                    "the clock of slave {} ({}) is {} off the reference clock after "
+                    "the clock of module {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
                     this->slave_name(worst_pos),
@@ -1146,7 +1148,7 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
     if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no slave latched its receive time"
+            "no module latched its receive time"
         );
     const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
     if (local_err) return local_err;
@@ -1270,7 +1272,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->slave_name(pos) +
+        msg += "module " + std::to_string(pos) + " (" + this->slave_name(pos) +
                ") is in " +
                slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;

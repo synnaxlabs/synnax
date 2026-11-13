@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -111,7 +112,15 @@ struct Scanner {
     virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
-    /// @brief Optional: Handle custom commands. Return true if handled.
+    /// @brief returns the data that the status of the scan task carries, such as a
+    /// problem of the last scan that the user can fix from the Console. The scan task
+    /// reads it right after each scan(), and sends it with the result of that scan.
+    [[nodiscard]] virtual std::optional<x::json::json::object_t> status_data() const {
+        return std::nullopt;
+    }
+
+    /// @brief handles a command that the scan task does not know. Returns true when it
+    /// handled the command and answered it with its own status.
     virtual bool exec(
         synnax::task::Command &cmd,
         const synnax::task::Task &task,
@@ -225,6 +234,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
+    /// @brief whether the scanner answered a command with a status of its own since the
+    /// last scan started.
+    std::atomic<bool> status_replaced = false;
+    /// @brief the error of a scan, with the scanner data read right after it.
+    struct ScanResult {
+        x::errors::Error err;
+        std::optional<x::json::json::object_t> data;
+    };
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
@@ -256,32 +273,38 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
-    /// @brief sets the status variant and text, then sends it.
+    /// @brief sets the variant, text, and scanner data of the status, then sends it.
     void send_status(
         const std::string &variant,
         const std::string &message,
-        const std::string &description = ""
+        const std::string &description = "",
+        const std::optional<x::json::json::object_t> &data = std::nullopt
     ) {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
+        this->status.details.data = data;
         this->send_status();
     }
 
     /// @brief sends a warning when the scan error changes, and a success once scans
-    /// recover.
-    void report_scan(const x::errors::Error &err) {
+    /// recover. replaced is whether a command answer replaced the status before the
+    /// scan started, since a scan that started earlier can report stale data.
+    void report_scan(const ScanResult &res, const bool replaced) {
+        const auto &[err, data] = res;
         if (err) {
-            if (this->status.variant == synnax::status::VARIANT_WARNING &&
-                this->status.description == err.data)
+            if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
+                this->status.description == err.data &&
+                this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
-                err.data
+                err.data,
+                data
             );
-        } else if (this->status.variant != synnax::status::VARIANT_SUCCESS)
+        } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
             this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
     }
 
@@ -576,7 +599,8 @@ public:
         this->status.details.running = true;
         this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
-            this->report_scan(this->scan());
+            const bool replaced = this->status_replaced.exchange(false);
+            this->report_scan(this->scan(), replaced);
             this->timer.wait(this->breaker);
         }
 
@@ -614,12 +638,13 @@ public:
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
-            if (const auto err = this->scan())
+            if (const auto [err, data] = this->scan(); err)
                 this->send_status(
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
-                    err.data
+                    err.data,
+                    data
                 );
             else
                 this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
@@ -628,6 +653,7 @@ public:
         // The scanner answers the commands it handles with its own status.
         if (this->scanner->exec(cmd, this->task, this->ctx)) {
             this->status.details.cmd = driver::task::NO_COMMAND;
+            this->status_replaced = true;
             return;
         }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
@@ -638,8 +664,9 @@ public:
         );
     }
 
-    x::errors::Error scan() {
+    ScanResult scan() {
         x::errors::Error scan_err;
+        std::optional<x::json::json::object_t> data;
         std::vector<synnax::device::Device> to_create;
         std::vector<Update> to_update;
         std::vector<synnax::device::Status> statuses;
@@ -649,7 +676,8 @@ public:
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
+            data = this->scanner->status_data();
+            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return {err, data};
             scan_err = err;
             this->scanner_ctx.count++;
 
@@ -675,7 +703,7 @@ public:
             std::unordered_map<std::string, synnax::device::Device> stored;
             if (!untracked.empty()) {
                 auto [devs, retrieve_err] = this->client->retrieve_devices(untracked);
-                if (retrieve_err) return retrieve_err;
+                if (retrieve_err) return {retrieve_err, data};
                 stored = synnax::device::map_device_keys(devs);
             }
 
@@ -739,9 +767,9 @@ public:
 
         const auto create_err = this->create(to_create);
         const auto update_err = this->update(to_update);
-        if (create_err) return create_err;
-        if (update_err) return update_err;
-        return scan_err;
+        if (create_err) return {create_err, data};
+        if (update_err) return {update_err, data};
+        return {scan_err, data};
     }
 
     std::string name() const override { return this->task.name; }

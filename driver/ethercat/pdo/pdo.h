@@ -147,7 +147,7 @@ find_offset(const Offsets &offsets, const Entry &entry) {
             x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "PDO {} on slave {} is {} bits, not {}. Scan the network again.",
+                    "PDO {} on module {} is {} bits, not {}. Scan the network again.",
                     telem::format_index_sub_index(entry.index, entry.sub_index),
                     entry.slave_position,
                     it->second.bit_length,
@@ -161,7 +161,7 @@ find_offset(const Offsets &offsets, const Entry &entry) {
         x::errors::Error(
             errors::PDO_NOT_MAPPED,
             std::format(
-                "PDO {} is not in the process image of slave {}.",
+                "PDO {} is not in the process image of module {}.",
                 telem::format_index_sub_index(entry.index, entry.sub_index),
                 entry.slave_position
             )

@@ -73,16 +73,16 @@ const State = ({ variant, message, description, action }: StateProps): ReactElem
   </Pane.Item>
 );
 
-interface ScannerStateProps {
+interface ScannerStateProps extends Pick<Hardware, "name" | "ScanAction"> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
-  name: string;
 }
 
 const ScannerState = ({
   rack: r,
   scanner,
   name,
+  ScanAction,
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -131,6 +131,7 @@ const ScannerState = ({
         variant={scanStatus.variant}
         message={scanStatus.message}
         description={scanStatus.description}
+        action={ScanAction != null && <ScanAction scanner={scanner} />}
       />
     );
   return null;
@@ -142,19 +143,23 @@ const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
 
-interface DeviceItemProps {
+interface DeviceItemProps extends Pick<Hardware, "modelNames"> {
   device: device.Device;
   onConfigure: (key: device.Key) => void;
 }
 
-const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
+const DeviceItem = ({
+  device: d,
+  modelNames,
+  onConfigure,
+}: DeviceItemProps): ReactElement => (
   <Pane.Item>
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
       </Text.Text>
       <Text.Text level="small" color={9}>
-        {d.model}
+        {modelNames?.[d.model] ?? d.model}
         {d.location.length > 0 && (
           <span className={CSS.BE("device-find", "location")}>{d.location}</span>
         )}
@@ -178,26 +183,22 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
   </Pane.Item>
 );
 
-interface RackCardProps {
-  rack: rack.Rack;
-  scanner: task.Task | undefined;
+interface RackCardProps extends ScannerStateProps, Pick<Hardware, "modelNames"> {
   devices: device.Device[];
-  name: string;
   onConfigure: (key: device.Key) => void;
 }
 
 const RackCard = ({
-  rack: r,
-  scanner,
   devices,
-  name,
+  modelNames,
   onConfigure,
+  ...props
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
     <Pane.Header level="p">
       <Header.Title weight={500} color={11}>
         <Icon.Rack />
-        {r.name}
+        {props.rack.name}
       </Header.Title>
       <Header.Actions>
         {devices.length > 0 && (
@@ -205,15 +206,20 @@ const RackCard = ({
             {devices.length === 1 ? "1 device" : `${devices.length} devices`}
           </Text.Text>
         )}
-        <Rack.StatusIndicator status={r.status} />
+        <Rack.StatusIndicator status={props.rack.status} />
       </Header.Actions>
     </Pane.Header>
-    <ScannerState rack={r} scanner={scanner} name={name} />
+    <ScannerState {...props} />
     {devices.map((d) => (
-      <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
+      <DeviceItem
+        key={d.key}
+        device={d}
+        modelNames={modelNames}
+        onConfigure={onConfigure}
+      />
     ))}
-    {devices.length === 0 && isScanning(r, scanner) && (
-      <State variant="loading" message={`Looking for ${name} hardware`} />
+    {devices.length === 0 && isScanning(props.rack, props.scanner) && (
+      <State variant="loading" message={`Looking for ${props.name} hardware`} />
     )}
   </Pane.Pane>
 );
@@ -256,7 +262,7 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks },
+  hardware: { key, name, title, icon, make, scanType, checks, ScanAction, modelNames },
   rack: rackKey,
   filter,
   onBack,
@@ -330,6 +336,8 @@ export const Find = ({
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
+            ScanAction={ScanAction}
+            modelNames={modelNames}
             onConfigure={onConfigure}
           />
         ))}

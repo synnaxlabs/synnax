@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  ethercat,
+  NotFoundError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 import {
@@ -58,9 +64,9 @@ const entryWidth = (bitLength: number): number => {
 
 /** @returns what the user must do before Synnax can read an entry of the slave. */
 const onlyReaderStep = (props: SlaveProperties): string => {
-  if (of(props).kind === "switched") return "Restart the power of the slave.";
+  if (of(props).kind === "switched") return "Restart the power of the module.";
   return canSwitch(props)
-    ? "In Configure, switch the slave to Synnax."
+    ? "In Configure, switch the module to Synnax."
     : "Pick another entry.";
 };
 
@@ -78,19 +84,19 @@ const validateEntries = <C extends Channel>(
         throw new Error(getUnresolvedMessage(ch.pdo, slave, pdoType));
       if (!hasEntry(ch))
         throw new Error(
-          `A channel on slave ${slave.name} has no entry. Pick an entry.`,
+          `A channel on module ${slave.name} has no entry. Pick an entry.`,
         );
       const address = ethercat.formatAddress(ch);
       const entry = entryAt(entries, ch);
       if (entry == null)
         throw new Error(
-          `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
+          `Module ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
             "Pick an entry.",
         );
       const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
       if (reader != null)
         throw new Error(
-          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+          `Entry ${address} on module ${slave.name} sends data that only ${reader} ` +
             `reads. ${onlyReaderStep(slave.properties)}`,
         );
       const dataType = new DataType(ch.dataType);
@@ -100,14 +106,14 @@ const validateEntries = <C extends Channel>(
         dataType.density.valueOf() !== width
       )
         throw new Error(
-          `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
+          `Data type ${ch.dataType} does not fit entry ${address} on module ` +
             `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
             "byte number type.",
         );
       const key = addressKey(ch);
       if (used.has(key))
         throw new Error(
-          `More than one channel uses entry ${address} on slave ${slave.name}. ` +
+          `More than one channel uses entry ${address} on module ${slave.name}. ` +
             "Pick a different entry for one of them.",
         );
       used.add(key);
@@ -116,28 +122,32 @@ const validateEntries = <C extends Channel>(
 };
 
 /**
- * @returns a channel from create for each usable entry on the side of the slave with
- * the key, or the empty channel on the slave when it has none. When the catalog of the
- * slave describes some of its entries, only those can get a channel, so status entries
- * stay out of the task.
+ * @returns a channel from create for each usable entry on the side of the slaves with
+ * the keys, in bus order, or the empty channel on the first slave when they have none.
+ * When the catalog of a slave describes some of its entries, only those can get a
+ * channel, so status entries stay out of the task.
  */
 export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
-  key: string,
+  keys: device.Key[],
   pdoType: PDOType,
   create: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C,
   empty: C,
 ): Promise<C[]> => {
-  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const { properties } = slave;
-  const described = (entry: ethercat.PDOEntry) =>
-    findInput(properties.settings, entry) != null;
-  const usable = usableEntries(properties, pdoType);
-  const entries = properties.pdos[pdoType].some(described)
-    ? usable.filter(described)
-    : usable;
-  if (entries.length === 0) return [{ ...empty, device: key }];
-  return entries.map((entry) => create(slave, entry));
+  const slaves = await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const channels = slaves
+    .sort((a, b) => a.properties.position - b.properties.position)
+    .flatMap((slave) => {
+      const { properties } = slave;
+      const described = (entry: ethercat.PDOEntry) =>
+        findInput(properties.settings, entry) != null;
+      const usable = usableEntries(properties, pdoType);
+      const entries = properties.pdos[pdoType].some(described)
+        ? usable.filter(described)
+        : usable;
+      return entries.map((entry) => create(slave, entry));
+    });
+  return channels.length === 0 ? [{ ...empty, device: keys[0] }] : channels;
 };
 
 /**
@@ -164,12 +174,12 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)
     throw new Error(
-      `All slaves must be on the same network. Found: ${networks.join(", ")}. ` +
-        "Pick slaves on one network.",
+      `All modules must be on the same network. Found: ${networks.join(", ")}. ` +
+        "Pick modules on one network.",
     );
   if (networks.length === 0 || !networks[0])
     throw new Error(
-      "No network found for the selected slaves. Scan the network again.",
+      "No network found for the selected modules. Scan the network again.",
     );
 
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
@@ -212,10 +222,10 @@ export const fillStartupParameters = (
       if (ch == null) continue;
       const filledInput = fill(input.settings, prior);
       const [problem] = check(input, filledInput);
-      if (problem != null)
-        throw new Error(
-          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
-        );
+      if (problem != null) {
+        const entry = `Entry ${ethercat.formatAddress(ch)} on module ${slave.name}`;
+        throw new Error(`${entry}: ${problem.message}`);
+      }
       parameters.push(...filledInput);
     }
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
@@ -286,8 +296,8 @@ const checkIndexFree = async (
   );
   if (owner != null)
     throw new Error(
-      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
-        `identifier of slave ${slave.name}.`,
+      `Module ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of module ${slave.name}.`,
     );
 };
 
@@ -325,7 +335,7 @@ export const checkOrCreateIndex = async (
       if (!idx.isIndex)
         throw new Error(
           `A channel named ${name} already exists and is not an index. Change the ` +
-            `identifier of slave ${slave.name}.`,
+            `identifier of module ${slave.name}.`,
         );
       await checkIndexFree(client, slave, idx);
     } else

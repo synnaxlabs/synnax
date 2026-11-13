@@ -98,6 +98,8 @@ class Master final : public master::Master {
     bool blocked{false};
     /// @brief whether the next receive() stalls, set by step().
     bool stall_next{false};
+    /// @brief runs at the start of each scan(), set by on_scan().
+    std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
     /// @brief how many more frames record_dc() asked for.
@@ -165,6 +167,12 @@ public:
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.settings_error = error;
+    }
+
+    /// @brief runs fn at the start of each scan(), so a test can act during a scan.
+    void on_scan(std::function<void()> fn) {
+        std::lock_guard lock(this->mu);
+        this->scan_hook = std::move(fn);
     }
 
     /// @brief injects an error to be returned by scan().
@@ -355,6 +363,12 @@ public:
     }
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
+        std::function<void()> hook;
+        {
+            std::lock_guard lock(this->mu);
+            hook = this->scan_hook;
+        }
+        if (hook) hook();
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
@@ -689,7 +703,7 @@ private:
     slave::DiscoveryResult &slave(const uint16_t position) {
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position) return slave;
-        throw std::out_of_range("no slave at position " + std::to_string(position));
+        throw std::out_of_range("no module at position " + std::to_string(position));
     }
 
     void cache_pdo_offsets() {

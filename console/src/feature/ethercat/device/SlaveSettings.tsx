@@ -10,7 +10,7 @@
 import { type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep } from "@synnaxlabs/x";
+import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
@@ -19,6 +19,7 @@ import {
   sameAddress,
   visibleFields,
 } from "@/feature/ethercat/device/settings";
+import { setUpBy } from "@/feature/ethercat/device/setup";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 
 const PATH = deep.path<SlaveDevice>().properties;
@@ -42,27 +43,39 @@ const setParameter = (
 
 /**
  * Edits the fields of the whole slave that its catalog describes. Each field is a
- * startup parameter. Renders nothing for a slave whose catalog describes none.
+ * startup parameter. For a slave that other software sets up, shows the values that the
+ * slave held at the scan, read only. Renders nothing for a slave whose catalog
+ * describes none.
  */
 export const SlaveSettings = (): ReactElement | null => {
   const settings = Form.useFieldValue(PATH.settings, { optional: true });
-  const { value: parameters, onChange } = Form.useField(PATH.startupParameters);
+  const { value: stored, onChange } = Form.useField(PATH.startupParameters);
+  const reader = setUpBy(settings);
   const fields = settings?.device ?? [];
   if (fields.length === 0) return null;
+  const parameters = reader == null ? stored : [];
   return (
     <Form.Section title="Settings">
       {visibleFields(fields, parameters).map((field) => (
         <SettingInput
           key={`${field.index}_${field.subIndex}_${field.name}`}
           field={field}
-          value={parameters.find((p) => sameAddress(p, field))?.value}
+          value={
+            reader == null
+              ? parameters.find((p) => sameAddress(p, field))?.value
+              : field.value
+          }
           onChange={(value) => onChange(setParameter(parameters, field, value))}
+          disabled={reader != null}
           allowNone
         />
       ))}
       <Text.Text level="small" color={9}>
-        The Driver writes each set value as a startup parameter. A field not set keeps
-        the value on the device.
+        {reader == null
+          ? "The Driver writes each set value as a startup parameter. A field not " +
+            "set keeps the value on the device."
+          : `${caseconv.capitalize(reader)} sets these values. Synnax does not ` +
+            "change them."}
       </Text.Text>
     </Form.Section>
   );

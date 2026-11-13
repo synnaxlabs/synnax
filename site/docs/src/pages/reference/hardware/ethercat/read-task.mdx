@@ -185,6 +185,17 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
 <Divider.Divider x />
 
+## Tare channels
+
+Tare sets the current value of a `float32` or `float64` channel to zero, such as a
+[scaled](#scales) channel. The task must be running.
+
+1. In the channel list, click **Tare** on a float channel. To tare several channels,
+   select them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
+
+<Divider.Divider x />
+
 ## Task options
 
 | Setting                                           | Default | Notes                                                     |
@@ -319,7 +330,7 @@ is the one that the task read before, and it keeps the old channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"A channel on slave ... has no entry. Pick an entry."}>
+<Problem.Item message={"A channel on module ... has no entry. Pick an entry."}>
 <Problem.Cause>
 
 A channel has no entry selected.
@@ -332,7 +343,7 @@ Select an entry in **Entry**, or remove the channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Item message={"Module ... has no input entry at ..."}>
 <Problem.Cause>
 
 The module has no input entry at the address of the channel.
@@ -402,7 +413,7 @@ Set another name in **Channel**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The index channel name `<identifier>_time` belongs to another module, or to a channel
@@ -479,5 +490,5 @@ which module is lost. Check its power and its cable.
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

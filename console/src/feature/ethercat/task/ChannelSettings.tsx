@@ -10,24 +10,26 @@
 import { type ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, primitive, unique } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
 import {
   check,
+  type Field,
   findInput,
+  type Input,
   problemAt,
   set,
   valueAt,
   visibleFields,
 } from "@/feature/ethercat/device/settings";
 import { setUpBy } from "@/feature/ethercat/device/setup";
-import { type EntryReadChannel, type ReadSchemas } from "@/feature/ethercat/task/types";
+import { hasEntry, type ReadSchemas } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
-const PARAMETERS_PATH = deep.path<Task.Values<ReadSchemas>>().config.startupParameters;
+const ROOT = deep.path<Task.Values<ReadSchemas>>();
 
 /** @returns the startup parameters with those of the slave replaced. */
 const withParameters = (
@@ -39,51 +41,121 @@ const withParameters = (
   { device, parameters },
 ];
 
+const parametersOf = (
+  held: ethercat.SlaveStartupParameters[],
+  device: string,
+): ethercat.StartupParameter[] =>
+  held.find((s) => s.device === device)?.parameters ?? [];
+
+/** One input of a slave that the selected channels read. */
+interface Target {
+  device: string;
+  input: Input;
+}
+
+/** @returns whether the two fields set the same thing in the same way. */
+const sameSetting = (a: Field, b: Field): boolean =>
+  a.name === b.name && a.unit === b.unit && deep.equal(a.options, b.options);
+
 export interface ChannelSettingsProps {
-  path: deep.Path<EntryReadChannel>;
+  /** The keys of the channels whose inputs to edit. */
+  keys: string[];
 }
 
 /**
- * Edits the settings that the read task writes to the input that the channel reads, as
- * the catalog of the channel's slave describes them. Channels that read one input share
- * its settings. Renders nothing for an entry that the catalog does not describe, and a
- * note for a slave that other software sets up.
+ * Edits the settings that every input of the channels shows, as the catalogs describe
+ * them. A value that the inputs hold differently shows as mixed. When other software
+ * sets up every input, shows the values held at the scan, read only.
  */
 export const ChannelSettings = ({
-  path,
+  keys,
 }: ChannelSettingsProps): ReactElement | null => {
-  const ch = PForm.useFieldValue(path);
-  const { value: held, onChange } = PForm.useField(PARAMETERS_PATH);
-  const { data: slave } = useResultSlave(
-    primitive.isZero(ch.device) ? null : { key: ch.device },
+  const channels = PForm.useFieldValue(ROOT.config.channels)
+    .filter(hasEntry)
+    .filter((c) => keys.includes(c.key));
+  const { value: held, onChange } = PForm.useField(ROOT.config.startupParameters);
+  const slaves = useSlavesByKeys(
+    unique.unique(channels.map((c) => c.device).filter(primitive.isNonZero)),
   );
-  const input = findInput(slave?.properties.settings, ch);
-  if (input == null || slave == null) return null;
-  const reader = setUpBy(slave.properties);
-  if (reader != null)
-    return (
-      <PForm.Section title="Settings">
-        <Text.Text level="small" color={9}>
-          {caseconv.capitalize(reader)} sets the settings of this device.
-        </Text.Text>
-      </PForm.Section>
-    );
-  const fields = input.settings;
-  const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
-  const problems = check(input, values);
+  const targets: Target[] = [];
+  const shared: Target[] = [];
+  const readers = new Set<string>();
+  for (const ch of channels) {
+    const slave = slaves?.find((s) => s.key === ch.device);
+    const input = findInput(slave?.properties.settings, ch);
+    if (slave == null || input == null) continue;
+    const reader = setUpBy(slave.properties.settings);
+    if (reader != null) readers.add(reader);
+    const list = reader == null ? targets : shared;
+    if (!list.some((t) => t.device === ch.device && t.input === input))
+      list.push({ device: ch.device, input });
+  }
+  const disabled = targets.length === 0;
+  const shown = disabled ? shared : targets;
+  if (shown.length === 0) return null;
+  const valuesOf = (device: string) => (disabled ? [] : parametersOf(held, device));
+  const [reader] = readers;
+  const note =
+    reader != null &&
+    (disabled ? (
+      <Text.Text level="small" color={9}>
+        {caseconv.capitalize(reader)} sets these values. Synnax does not change them.
+      </Text.Text>
+    ) : (
+      <Text.Text level="small" color={9}>
+        {caseconv.capitalize(reader)} sets the settings of some selected devices.
+      </Text.Text>
+    ));
+  const [lead, ...others] = shown;
+  const problems = disabled
+    ? []
+    : targets.map(({ input, device }) => check(input, parametersOf(held, device)));
+  const matched = visibleFields(lead.input.settings, valuesOf(lead.device)).flatMap(
+    (field) => {
+      const matches = others.map(({ input, device }) =>
+        visibleFields(input.settings, valuesOf(device)).find((f) =>
+          sameSetting(f, field),
+        ),
+      );
+      return matches.every((m) => m != null) ? [[field, ...matches]] : [];
+    },
+  );
   return (
     <PForm.Section title="Settings">
-      {visibleFields(fields, values).map((field) => (
-        <SettingInput
-          key={`${field.index}_${field.subIndex}_${field.name}`}
-          field={field}
-          value={valueAt(fields, values, field)}
-          problem={problemAt(problems, field)?.message}
-          onChange={(value) =>
-            onChange(withParameters(held, ch.device, set(fields, values, field, value)))
-          }
-        />
-      ))}
+      {note}
+      {matched.map((fields) => {
+        const values = shown.map(({ input, device }, i) =>
+          valueAt(input.settings, valuesOf(device), fields[i]),
+        );
+        const problem = problems
+          .map((found, i) => problemAt(found, fields[i]))
+          .find((p) => p != null);
+        const handleChange = (value: number) => {
+          let next = held;
+          targets.forEach(({ input, device }, i) => {
+            const parameters = set(
+              input.settings,
+              parametersOf(next, device),
+              fields[i],
+              value,
+            );
+            next = withParameters(next, device, parameters);
+          });
+          onChange(next);
+        };
+        const [field] = fields;
+        return (
+          <SettingInput
+            key={`${field.index}_${field.subIndex}_${field.name}`}
+            field={field}
+            value={values[0]}
+            mixed={values.some((v) => v !== values[0])}
+            problem={problem?.message}
+            onChange={handleChange}
+            disabled={disabled}
+          />
+        );
+      })}
     </PForm.Section>
   );
 };

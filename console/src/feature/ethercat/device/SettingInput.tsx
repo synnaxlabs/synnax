@@ -18,7 +18,11 @@ interface BaseProps {
   field: Field;
   /** Undefined shows the field as not set. */
   value: number | undefined;
+  /** Whether the inputs that the field sets hold different values. */
+  mixed?: boolean;
   problem?: string;
+  /** Shows the value read only. */
+  disabled?: boolean;
 }
 
 interface RequiredProps extends BaseProps {
@@ -55,12 +59,14 @@ export type SettingInputProps = RequiredProps | OptionalProps;
 
 /**
  * A select for a field with options, or a number input with its unit. A field not set
- * shows the value that the slave held at the scan as its placeholder.
+ * shows the value that the slave held at the scan as its placeholder. A mixed field
+ * shows "Mixed" until the user sets it.
  */
 export const SettingInput = (props: SettingInputProps): ReactElement => {
-  const { field, value, problem, onChange } = props;
+  const { field, mixed = false, problem, disabled, onChange } = props;
+  const value = mixed ? undefined : props.value;
   const status = problem == null ? undefined : "error";
-  const held = heldText(field);
+  const held = mixed ? "Mixed" : heldText(field);
   const clear = props.allowNone === true ? () => props.onChange(null) : undefined;
   return (
     <Input.Item
@@ -78,6 +84,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
           status={status}
           placeholder={held}
           aria-label={field.name}
+          disabled={disabled}
         />
       ) : (
         <Select.Simple<number>
@@ -86,6 +93,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
             next == null ? clear?.() : onChange(next)
           }
           resourceName={inSentence(field.name)}
+          disabled={disabled}
           searchHidden
           allowNone={clear != null}
           triggerProps={held == null ? { status } : { status, placeholder: held }}

@@ -251,10 +251,10 @@ def find_entry(
     if pdo_name is not None:
         target += f" in PDO {pdo_name!r}"
     if len(matches) == 0:
-        raise NotFoundError(f"no {target} on slave {slave.name!r}")
+        raise NotFoundError(f"no {target} on module {slave.name!r}")
     if len(matches) > 1:
         found = ", ".join(_format(e) for e in matches.values())
-        message = f"{target} on slave {slave.name!r} matches {found}"
+        message = f"{target} on module {slave.name!r} matches {found}"
         if pdo_name is None:
             message += ". Pass pdo_name to pick one"
         raise MultipleFoundError(message)

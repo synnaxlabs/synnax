@@ -734,7 +734,10 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
         1
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_NOT_MAPPED);
-    EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0.");
+    EXPECT_EQ(
+        res.second.data,
+        "PDO 0x9999:01 is not in the process image of module 0."
+    );
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -748,7 +751,7 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         res.second.data,
-        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again."
+        "PDO 0x6000:04 on module 0 is 4 bits, not 32. Scan the network again."
     );
     EXPECT_FALSE(this->engine->running());
 }
@@ -805,7 +808,7 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(
         err.data,
-        "PDO 0x6000:01 is not in the process image of slave 1. Stop every task on "
+        "PDO 0x6000:01 is not in the process image of module 1. Stop every task on "
         "Ethernet 2, then start them again."
     );
     EXPECT_TRUE(this->engine->running());
@@ -1305,7 +1308,7 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
+        "Module 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
         "configuration. Fix the device, then stop every task on the network to try it "
         "again. To fix \"Invalid DC SYNC configuration\", right-click the device, "
         "select Configure, and pick another sync mode."
@@ -1321,7 +1324,7 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
+        "Module 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
         "settings. Fix the device, then stop every task on the network to try it "
         "again."
     );
@@ -1341,7 +1344,7 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Inconsistent settings."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
@@ -1360,7 +1363,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -1381,8 +1384,8 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
-        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out module 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -1409,9 +1412,9 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
-        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
-        "refused SAFE-OP: Invalid output configuration. The Driver left out slave 3 "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out module 2 because it "
+        "refused SAFE-OP: Invalid output configuration. The Driver left out module 3 "
         "because it refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE) + " " +
             std::string(slave::MODE_RESTART_ADVICE)
@@ -1617,9 +1620,9 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(
         reader->warning(),
-        "Bus cycles failed: working counter mismatch: expected 9, got 3. Slave 1 "
-        "(Slave1) is not in OP: not responding. Slave 2 (Slave2) is not in OP: SAFE-OP "
-        "+ ERROR: Sync manager watchdog."
+        "Bus cycles failed: working counter mismatch: expected 9, got 3. Module 1 "
+        "(Slave1) is not in OP: not responding. Module 2 (Slave2) is not in OP: "
+        "SAFE-OP + ERROR: Sync manager watchdog."
     );
 }
 
@@ -1763,7 +1766,7 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );
@@ -1786,7 +1789,7 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );

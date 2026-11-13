@@ -42,42 +42,28 @@ const renderListener = async (): Promise<{
 describe("device/useListenForChanges", () => {
   it("notifies once when a new unconfigured device connects", async () => {
     const { statuses } = await renderListener();
-    const model = uniqueName("model");
-    const dev = await createTestDevice(client, { configured: false, model });
-    await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${model} connected`),
-      ).toBeDefined(),
-    );
+    const name = uniqueName("device");
+    const dev = await createTestDevice(client, { configured: false, name });
+    await waitFor(() => expect(statuses().find((s) => s.name === name)).toBeDefined());
     await client.devices.dispatch(
       dev.key,
       device.set({ path: ["location"], value: uniqueName("location") }),
     );
-    const other = uniqueName("model");
-    await createTestDevice(client, { configured: false, model: other });
-    await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${other} connected`),
-      ).toBeDefined(),
-    );
-    const first = statuses().find((s) => s.message === `New ${model} connected`);
+    const other = uniqueName("device");
+    await createTestDevice(client, { configured: false, name: other });
+    await waitFor(() => expect(statuses().find((s) => s.name === other)).toBeDefined());
+    const first = statuses().find((s) => s.name === name);
     expect(first?.count).toBe(1);
-    expect(first?.name).toBe(dev.name);
+    expect(first?.message).toBe("New device connected");
   });
 
   it("does not notify for devices that are already configured", async () => {
     const { statuses } = await renderListener();
-    const configuredModel = uniqueName("model");
-    await createTestDevice(client, { configured: true, model: configuredModel });
-    const model = uniqueName("model");
-    await createTestDevice(client, { configured: false, model });
-    await waitFor(() =>
-      expect(
-        statuses().find((s) => s.message === `New ${model} connected`),
-      ).toBeDefined(),
-    );
-    expect(
-      statuses().find((s) => s.message === `New ${configuredModel} connected`),
-    ).toBeUndefined();
+    const configuredName = uniqueName("device");
+    await createTestDevice(client, { configured: true, name: configuredName });
+    const name = uniqueName("device");
+    await createTestDevice(client, { configured: false, name });
+    await waitFor(() => expect(statuses().find((s) => s.name === name)).toBeDefined());
+    expect(statuses().find((s) => s.name === configuredName)).toBeUndefined();
   });
 });

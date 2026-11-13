@@ -254,7 +254,7 @@ is the one that the task wrote before, and it keeps the old channels.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Found no device with key ...", "A channel on slave ... has no entry. Pick an entry."]}>
+<Problem.Item message={["Found no device with key ...", "A channel on module ... has no entry. Pick an entry."]}>
 <Problem.Cause>
 
 A channel has no module or no entry selected, such as the empty channel that the task
@@ -268,7 +268,7 @@ Select the module in **Device** and an entry in **Entry**, or remove the channel
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no output entry at ..."}>
+<Problem.Item message={"Module ... has no output entry at ..."}>
 <Problem.Cause>
 
 The module has no output entry at the address of the channel.
@@ -309,7 +309,7 @@ Select an integer type of the same size as the entry.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"stop value ... does not fit entry ... on slave .... Pick ..."}>
+<Problem.Item message={"stop value ... does not fit entry ... on module .... Pick ..."}>
 <Problem.Cause>
 
 The **Stop value** of a channel is out of range for its entry, or it is not a whole
@@ -351,7 +351,7 @@ it again.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The state index name `<identifier>_state_time` belongs to another module, or to a
@@ -368,5 +368,5 @@ Change the [identifier](/reference/hardware/devices#identifiers) of the module.
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).
