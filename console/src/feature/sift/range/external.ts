@@ -9,4 +9,5 @@
 
 export * from "@/feature/sift/range/types";
 export * from "@/feature/sift/range/UploadMenuItem";
+export * from "@/feature/sift/range/Uploads";
 export * from "@/feature/sift/range/useUploadModal";
