@@ -18,14 +18,14 @@ Synnax is an observability and control platform for hardware telemetry. Monorepo
 ## Release model
 
 `main` is the only long-lived branch. Nothing publishes on push: a person dispatches
-every release, candidates included, from `main` or a `release/<product>-X.Y` branch
-only. A release from `main` is always the next minor of the Console, Core, and Driver. A
-patch releases only from `release/<product>-X.Y`, cut from the `X.Y.0` tag when train
-`X.Y` needs one. The TypeScript and Python packages share the Core's minor: from `main`
-they release only with the Core, at the next patch on its minor. Candidates (`-rc.N`
-tags) never count as shipped. Backward compatibility — file formats, stored shapes, wire
-quirks, migrations — is owed only to what a stable release shipped; candidate-era
-formats may be dropped freely. See RFC 0058.
+every release, candidates included, from `main` or a `release/X.Y` branch only. A
+release from `main` is always the next minor of the Console, Core, and Driver. A patch
+releases only from `release/X.Y`, the one branch of train `X.Y`, cut from the `X.Y.0`
+tag when the train needs one. The TypeScript and Python packages share the Core's minor:
+from `main` they release only with the Core, at the next patch on its minor. Candidates
+(`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
+shapes, wire quirks, migrations — is owed only to what a stable release shipped;
+candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
@@ -236,8 +236,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 ### Rule 2: Pull request conventions
 
 1. **Confirm the base branch.** Every PR targets `main`. A hotfix lands on `main` first,
-   then a cherry-pick PR targets `release/<product>-X.Y`. A PR based on another unmerged
-   branch is the exception, not the pattern (Rule 3).
+   then a cherry-pick PR targets `release/X.Y`. A PR based on another unmerged branch is
+   the exception, not the pattern (Rule 3).
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
