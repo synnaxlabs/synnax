@@ -45,9 +45,6 @@ var errTabNotFound = errors.New("tab not found in tree")
 // tab count.
 var errIndexOutOfRange = errors.New("index out of range")
 
-// errInvalidSize is returned when a split size ratio falls outside [0, 1].
-var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
-
 // resourceTabTypes is the set of resource types a tab may display: the resource subset
 // of the Console renderer registry, promoted to a schema invariant.
 var resourceTabTypes = set.New(
