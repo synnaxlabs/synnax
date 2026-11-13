@@ -814,8 +814,8 @@ func (p *Plugin) setPtrConversion(
 func (p *Plugin) buildMapValueConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
+	keyName := dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name
 	mvc := p.buildMapElementConversion(typeRef, data)
-	keyName := typeRef.TypeArgs[0].Name
 	if !resolution.IsPrimitive(keyName) || !primitiveNeedsConversion(keyName) {
 		return mvc
 	}
@@ -824,27 +824,37 @@ func (p *Plugin) buildMapValueConversion(
 		Name: keyName, Form: resolution.PrimitiveForm{},
 	}, data)
 	if mvc == nil {
-		valName := typeRef.TypeArgs[1].Name
-		if !resolution.IsPrimitive(valName) {
+		valName := dealiasPrimitive(typeRef.TypeArgs[1], data.table).Name
+		if !castablePrimitive(valName) {
 			return nil
 		}
-		goValType := p.goTypeName(resolution.Type{
-			Name: valName, Form: resolution.PrimitiveForm{},
-		}, data)
 		mvc = &mapValueConversionData{
-			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
-			PBMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
+			PBMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
 			ForwardValueExpr:  "v",
 			BackwardValueExpr: "v",
 		}
 	}
+	data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
 	mvc.GoMapType = "map[" + goKeyType + strings.TrimPrefix(
 		mvc.GoMapType,
 		"map["+keyType,
 	)
 	mvc.ForwardKeyExpr = keyType + "(k)"
-	mvc.BackwardKeyExpr = goKeyType + "(k)"
+	mvc.NarrowKeyType = goKeyType
 	return mvc
+}
+
+// castablePrimitive reports whether a primitive has the same Go type as its proto
+// type, or converts to it by a plain cast.
+func castablePrimitive(name string) bool {
+	switch name {
+	case "bool", "string", "float32", "float64",
+		"int8", "int16", "int32", "int64",
+		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64":
+		return true
+	}
+	return false
 }
 
 // buildMapElementConversion returns the per-value conversion data of a Map field, with
@@ -852,7 +862,9 @@ func (p *Plugin) buildMapValueConversion(
 func (p *Plugin) buildMapElementConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
-	keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
+	keyType := primitiveToProtoType(
+		dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name,
+	)
 	valArg := typeRef.TypeArgs[1]
 
 	if resolution.IsPrimitive(valArg.Name) {
@@ -912,7 +924,7 @@ func (p *Plugin) buildMapElementConversion(
 	}
 	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 		base := dealiasPrimitive(form.Base, data.table)
-		if !resolution.IsPrimitive(base.Name) || base.Name == "uuid" {
+		if !castablePrimitive(base.Name) {
 			return nil
 		}
 		goValType, ok := p.qualifiedDistinctGoName(resolved, data)
@@ -2419,8 +2431,9 @@ type mapValueConversionData struct {
 	// ForwardKeyExpr converts a Go key to a proto key, using "k" as placeholder. Empty
 	// when the key types match.
 	ForwardKeyExpr string // e.g., "uint32(k)"
-	// BackwardKeyExpr converts a proto key to a Go key. Empty when the key types match.
-	BackwardKeyExpr string // e.g., "uint16(k)"
+	// NarrowKeyType is the Go key type that a proto key narrows to, with a range
+	// check. Empty when the key types match.
+	NarrowKeyType string // e.g., "uint16"
 	// ForwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.

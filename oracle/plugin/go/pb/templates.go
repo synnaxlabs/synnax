@@ -208,14 +208,20 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.NarrowKeyType}}
+			key, err := xpb.Narrow[{{.MapValueConversion.NarrowKeyType}}](k)
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+{{- end}}
 {{- if .MapValueConversion.BackwardHasError}}
 			converted, err := {{.MapValueConversion.BackwardValueExpr}}
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = converted
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = converted
 {{- else}}
-			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -590,14 +596,20 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.NarrowKeyType}}
+			key, err := xpb.Narrow[{{.MapValueConversion.NarrowKeyType}}](k)
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+{{- end}}
 {{- if .MapValueConversion.BackwardHasError}}
 			converted, err := {{.MapValueConversion.BackwardValueExpr}}
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = converted
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = converted
 {{- else}}
-			r.{{.GoName}}[{{or .MapValueConversion.BackwardKeyExpr "k"}}] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -75,6 +76,18 @@ TEST(TestPB, testFromProtoRepeatedErrorOnMiddleItem) {
     );
     ASSERT_EQ(dst.size(), 1);
     ASSERT_EQ(dst[0].value, 1);
+}
+
+/// @brief it should convert a value that fits in the narrower type.
+TEST(Narrow, ConvertsValueInRange) {
+    ASSERT_EQ(ASSERT_NIL_P(narrow<std::uint8_t>(std::uint32_t{255})), 255);
+    ASSERT_EQ(ASSERT_NIL_P(narrow<std::int16_t>(std::int32_t{-32768})), -32768);
+}
+
+/// @brief it should reject a value that does not fit in the narrower type.
+TEST(Narrow, RejectsValueOutOfRange) {
+    ASSERT_OCCURRED_AS_P(narrow<std::uint8_t>(std::uint32_t{256}), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(narrow<std::int8_t>(std::int32_t{-129}), errors::VALIDATION);
 }
 
 }
