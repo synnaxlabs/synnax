@@ -129,6 +129,40 @@ describe("queries", () => {
         }),
       );
     });
+
+    it("should follow a move of a range above to a parent it lacks", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const first = await client.ranges.create({ name: "first", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: first.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const second = await client.ranges.create({ name: "second", timeRange });
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Ranger.useResultAncestors({ keys: [bottom.key] }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      await waitFor(() => expect(result.current.data?.[middle.key]).toEqual(first.key));
+      await waitForStreamLive(reader.connection);
+      await client.ranges.dispatch(
+        middle.key,
+        ranger.set({ path: ["parent"], value: second.key }),
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          [bottom.key]: middle.key,
+          [middle.key]: second.key,
+          [second.key]: null,
+        }),
+      );
+    });
   });
 
   describe("useResultAliases", () => {

@@ -287,6 +287,30 @@ describe("range/next/Explorer", () => {
       expect(itemOf(kept.name)).toBeTruthy();
     });
 
+    it("should regroup a match when another client moves the range above it", async () => {
+      const token = uniqueToken();
+      const first = await createRange(uniqueRangeName("first"));
+      const second = await createRange(uniqueRangeName("second"));
+      const holder = await createRange(uniqueRangeName("holder"), {
+        parent: first.key,
+      });
+      const match = await createRange(`${token} match`, { parent: holder.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(match.name);
+      await findItem(first.name);
+      expect(screen.queryByRole("listitem", { name: second.name })).toBeNull();
+      const remote = createTestClient();
+      // A dispatch applies only to a range that the client holds.
+      await remote.ranges.retrieve(holder.key);
+      await remote.ranges.dispatch(
+        holder.key,
+        ranger.set({ path: ["parent"], value: second.key }),
+      );
+      await findItem(second.name);
+      expect(screen.queryByRole("listitem", { name: first.name })).toBeNull();
+    });
+
     it("should reorder the ranges above the matches when another client retimes one", async () => {
       const token = uniqueToken();
       const now = TimeStamp.now();
