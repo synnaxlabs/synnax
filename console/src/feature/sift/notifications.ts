@@ -11,11 +11,11 @@ import { Range } from "@/feature/sift/range";
 import { Task } from "@/feature/sift/task";
 import { type Notifications } from "@/platform/notifications";
 
-const RULE: Notifications.Rule = { kind: () => "state" };
+const RULE: Notifications.Rule = { kind: () => "state", warningsDelayed: true };
 
 /**
  * The notification rules of the Sift statuses that no thing owns. They notify only on
- * a problem, never on progress.
+ * a problem, never on progress, and on a retry warning only if it lasts 5 s.
  */
 export const NOTIFICATION_KEY_RULES: Notifications.KeyRules = {
   [Task.PROGRESS_KEY_PREFIX]: RULE,
