@@ -194,10 +194,10 @@ Device struct {
     chassis    Chassis.Key?       { @ref }
     identifier string = ""
     analog_input    AnalogInputPorts
-    analog_output   AnalogOutputPorts
-    counter_input   CounterInputPorts
-    digital_input   DigitalPorts
-    digital_output  DigitalPorts
+    analog_output   map<uint16, AnalogOutputChannels>
+    counter_input   map<uint16, CounterInputChannels>
+    digital_input   map<uint16, DigitalInputChannels>
+    digital_output  map<uint16, DigitalOutputChannels>
     status     Status?            { @go marshal omit }
     ...
 }

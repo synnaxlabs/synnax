@@ -23,12 +23,12 @@ Device struct {
         @doc value "uniquely identifies the device."
         @key
     }
-    rack           rack.Key        {
+    rack           rack.Key                           {
         @doc value     "is the key of the rack the device is connected to."
         @ref kind      place
         @ref on_delete restrict
     }
-    name           string          {
+    name           string                             {
         @doc value         "is a human-readable name for the device."
         @filter
         @search
@@ -39,7 +39,7 @@ Device struct {
         @filter
         @index lookup
     }
-    resource_name  string          {
+    resource_name  string                             {
         @doc value         """
             is the NI-MAX resource name of the device, a GUID that survives renames.
         """
@@ -47,12 +47,12 @@ Device struct {
         @index lookup
         @validate required
     }
-    model          string          {
+    model          string                             {
         @doc value         "is the product name of the device."
         @filter
         @validate required
     }
-    chassis        ni_chassis.Key? {
+    chassis        ni_chassis.Key?                    {
         @doc value     """
             is the chassis that holds the device. Absent for a standalone device.
         """
@@ -65,22 +65,22 @@ Device struct {
             while it is empty.
         """
     }
-    analog_input   InputPorts = {} {
+    analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."
     }
-    analog_output  OutputPorts = {} {
-        @doc value "are the channels of the analog output ports."
+    analog_output  map<uint16, AnalogOutputChannels> = {} {
+        @doc value "maps an analog output port number to its channels."
     }
-    counter_input  InputPorts = {} {
-        @doc value "are the channels of the counter input ports."
+    counter_input  map<uint16, CounterInputChannels> = {} {
+        @doc value "maps a counter number to its channels."
     }
-    digital_input  InputPorts = {} {
-        @doc value "are the channels of the digital input lines."
+    digital_input  map<uint16, DigitalInputChannels> = {} {
+        @doc value "maps a digital port number to its input channels."
     }
-    digital_output OutputPorts = {} {
-        @doc value "are the channels of the digital output lines."
+    digital_output map<uint16, DigitalOutputChannels> = {} {
+        @doc value "maps a digital port number to its output channels."
     }
-    status         Status?         {
+    status         Status?                            {
         @doc value  "is the current operational status of the device."
         @go marshal omit
         @include
@@ -110,18 +110,6 @@ Where filter Device {
     @go request_output "core/pkg/api/ni/device"
 }
 
-InputPorts struct {
-    index    channel.Key = 0 {
-        @doc value "is the index channel of the channels that read the ports."
-    }
-    channels map<string, channel.Key> = {} {
-        @doc value "maps a port to the channel that holds its samples."
-    }
-
-    @doc value  "holds the channels that a device reads into."
-    @go marshal
-}
-
 CommandStatePair struct {
     command channel.Key = 0 {
         @doc value "is the channel that commands the port."
@@ -134,15 +122,69 @@ CommandStatePair struct {
     @go marshal
 }
 
-OutputPorts struct {
+AnalogInputPorts struct {
+    index       channel.Key = 0 {
+        @doc value "is the index channel of the analog input channels."
+    }
+    temperature channel.Key = 0 {
+        @doc value "is the channel that holds the built-in temperature of the device."
+    }
+    channels    map<uint16, channel.Key> = {} {
+        @doc value "maps a port number to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels that a device reads analog input into."
+    @go marshal
+}
+
+AnalogOutputChannels struct {
+    state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channel."
+    }
+    command     channel.Key = 0 {
+        @doc value "is the channel that commands the port."
+    }
+    state       channel.Key = 0 {
+        @doc value "is the channel that holds the state of the port."
+    }
+
+    @doc value  "holds the channels of one analog output port."
+    @go marshal
+}
+
+CounterInputChannels struct {
+    index   channel.Key = 0 {
+        @doc value "is the index channel of the counter."
+    }
+    channel channel.Key = 0 {
+        @doc value "is the channel that holds the samples of the counter."
+    }
+
+    @doc value  "holds the channels of one counter input."
+    @go marshal
+}
+
+DigitalInputChannels struct {
+    index channel.Key = 0 {
+        @doc value "is the index channel of the port."
+    }
+    lines map<uint8, channel.Key> = {} {
+        @doc value "maps a line number to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels of one digital input port."
+    @go marshal
+}
+
+DigitalOutputChannels struct {
     state_index channel.Key = 0 {
         @doc value "is the index channel of the state channels."
     }
-    channels    map<string, CommandStatePair> = {} {
-        @doc value "maps a port to the channels that write to it."
+    lines       map<uint8, CommandStatePair> = {} {
+        @doc value "maps a line number to the channels that write to it."
     }
 
-    @doc value  "holds the channels that a device writes through."
+    @doc value  "holds the channels of one digital output port."
     @go marshal
 }
 
@@ -189,7 +231,7 @@ Identity struct {
 }
 
 Configuration struct {
-    name           string      {
+    name           string                             {
         @doc value         "is a human-readable name for the device."
         @validate required
     }
@@ -199,20 +241,20 @@ Configuration struct {
             while it is empty.
         """
     }
-    analog_input   InputPorts = {} {
+    analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."
     }
-    analog_output  OutputPorts = {} {
-        @doc value "are the channels of the analog output ports."
+    analog_output  map<uint16, AnalogOutputChannels> = {} {
+        @doc value "maps an analog output port number to its channels."
     }
-    counter_input  InputPorts = {} {
-        @doc value "are the channels of the counter input ports."
+    counter_input  map<uint16, CounterInputChannels> = {} {
+        @doc value "maps a counter number to its channels."
     }
-    digital_input  InputPorts = {} {
-        @doc value "are the channels of the digital input lines."
+    digital_input  map<uint16, DigitalInputChannels> = {} {
+        @doc value "maps a digital port number to its input channels."
     }
-    digital_output OutputPorts = {} {
-        @doc value "are the channels of the digital output lines."
+    digital_output map<uint16, DigitalOutputChannels> = {} {
+        @doc value "maps a digital port number to its output channels."
     }
 
     @doc value "holds the device fields that the user owns."

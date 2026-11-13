@@ -19,14 +19,23 @@ type Device = v1.Device
 // Key uniquely identifies an NI device.
 type Key = v1.Key
 
-// InputPorts holds the channels that a device reads into.
-type InputPorts = v1.InputPorts
-
 // CommandStatePair is the pair of channels that writes to one port.
 type CommandStatePair = v1.CommandStatePair
 
-// OutputPorts holds the channels that a device writes through.
-type OutputPorts = v1.OutputPorts
+// AnalogInputPorts holds the channels that a device reads analog input into.
+type AnalogInputPorts = v1.AnalogInputPorts
+
+// AnalogOutputChannels holds the channels of one analog output port.
+type AnalogOutputChannels = v1.AnalogOutputChannels
+
+// CounterInputChannels holds the channels of one counter input.
+type CounterInputChannels = v1.CounterInputChannels
+
+// DigitalInputChannels holds the channels of one digital input port.
+type DigitalInputChannels = v1.DigitalInputChannels
+
+// DigitalOutputChannels holds the channels of one digital output port.
+type DigitalOutputChannels = v1.DigitalOutputChannels
 
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails = v1.StatusDetails

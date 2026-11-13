@@ -19,17 +19,12 @@ import (
 
 func autoMigrateDevice(_ context.Context, old v0.Device) (Device, error) {
 	return Device{
-		Key:           old.Key,
-		Rack:          old.Rack,
-		Name:          old.Name,
-		Serial:        old.Serial,
-		Model:         old.Model,
-		Chassis:       old.Chassis,
-		Identifier:    old.Identifier,
-		AnalogInput:   old.AnalogInput,
-		AnalogOutput:  old.AnalogOutput,
-		CounterInput:  old.CounterInput,
-		DigitalInput:  old.DigitalInput,
-		DigitalOutput: old.DigitalOutput,
+		Key:        old.Key,
+		Rack:       old.Rack,
+		Name:       old.Name,
+		Serial:     old.Serial,
+		Model:      old.Model,
+		Chassis:    old.Chassis,
+		Identifier: old.Identifier,
 	}, nil
 }

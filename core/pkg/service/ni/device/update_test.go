@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -30,7 +31,22 @@ var _ = Describe("Update", func() {
 		},
 	}}
 	configuration := device.Update{Variant: device.ConfigurationUpdate{
-		Configuration: device.Configuration{Name: "Module", Identifier: "dev1"},
+		Configuration: device.Configuration{
+			Name:       "Module",
+			Identifier: "dev1",
+			AnalogInput: device.AnalogInputPorts{
+				Index:    1,
+				Channels: map[uint16]channel.Key{0: 2},
+			},
+			CounterInput: map[uint16]device.CounterInputChannels{
+				1: {Index: 3, Channel: 4},
+			},
+			DigitalOutput: map[uint16]device.DigitalOutputChannels{
+				2: {StateIndex: 5, Lines: map[uint8]device.CommandStatePair{
+					7: {Command: 6, State: 7},
+				}},
+			},
+		},
 	}}
 
 	DescribeTable("Should keep the group through msgpack",

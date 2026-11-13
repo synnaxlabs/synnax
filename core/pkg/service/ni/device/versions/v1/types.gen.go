@@ -12,6 +12,7 @@
 package v1
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
@@ -22,14 +23,52 @@ import (
 // Key uniquely identifies an NI device.
 type Key = v0.Key
 
-// InputPorts holds the channels that a device reads into.
-type InputPorts = v0.InputPorts
-
 // CommandStatePair is the pair of channels that writes to one port.
 type CommandStatePair = v0.CommandStatePair
 
-// OutputPorts holds the channels that a device writes through.
-type OutputPorts = v0.OutputPorts
+// AnalogInputPorts holds the channels that a device reads analog input into.
+type AnalogInputPorts struct {
+	// Index is the index channel of the analog input channels.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Temperature is the channel that holds the built-in temperature of the device.
+	Temperature channel.Key `json:"temperature" msgpack:"temperature"`
+	// Channels maps a port number to the channel that holds its samples.
+	Channels map[uint16]channel.Key `json:"channels" msgpack:"channels"`
+}
+
+// AnalogOutputChannels holds the channels of one analog output port.
+type AnalogOutputChannels struct {
+	// StateIndex is the index channel of the state channel.
+	StateIndex channel.Key `json:"state_index" msgpack:"state_index"`
+	// Command is the channel that commands the port.
+	Command channel.Key `json:"command" msgpack:"command"`
+	// State is the channel that holds the state of the port.
+	State channel.Key `json:"state" msgpack:"state"`
+}
+
+// CounterInputChannels holds the channels of one counter input.
+type CounterInputChannels struct {
+	// Index is the index channel of the counter.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Channel is the channel that holds the samples of the counter.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// DigitalInputChannels holds the channels of one digital input port.
+type DigitalInputChannels struct {
+	// Index is the index channel of the port.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Lines maps a line number to the channel that holds its samples.
+	Lines map[uint8]channel.Key `json:"lines" msgpack:"lines"`
+}
+
+// DigitalOutputChannels holds the channels of one digital output port.
+type DigitalOutputChannels struct {
+	// StateIndex is the index channel of the state channels.
+	StateIndex channel.Key `json:"state_index" msgpack:"state_index"`
+	// Lines maps a line number to the channels that write to it.
+	Lines map[uint8]CommandStatePair `json:"lines" msgpack:"lines"`
+}
 
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails struct {
@@ -63,15 +102,15 @@ type Device struct {
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
 	// AnalogInput are the channels of the analog input ports.
-	AnalogInput InputPorts `json:"analog_input" msgpack:"analog_input"`
-	// AnalogOutput are the channels of the analog output ports.
-	AnalogOutput OutputPorts `json:"analog_output" msgpack:"analog_output"`
-	// CounterInput are the channels of the counter input ports.
-	CounterInput InputPorts `json:"counter_input" msgpack:"counter_input"`
-	// DigitalInput are the channels of the digital input lines.
-	DigitalInput InputPorts `json:"digital_input" msgpack:"digital_input"`
-	// DigitalOutput are the channels of the digital output lines.
-	DigitalOutput OutputPorts `json:"digital_output" msgpack:"digital_output"`
+	AnalogInput AnalogInputPorts `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port number to its channels.
+	AnalogOutput map[uint16]AnalogOutputChannels `json:"analog_output" msgpack:"analog_output"`
+	// CounterInput maps a counter number to its channels.
+	CounterInput map[uint16]CounterInputChannels `json:"counter_input" msgpack:"counter_input"`
+	// DigitalInput maps a digital port number to its input channels.
+	DigitalInput map[uint16]DigitalInputChannels `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port number to its output channels.
+	DigitalOutput map[uint16]DigitalOutputChannels `json:"digital_output" msgpack:"digital_output"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }

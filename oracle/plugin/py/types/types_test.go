@@ -3253,7 +3253,35 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"channels: dict[int, int] = Field(default_factory=dict)",
+				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], int] = Field(default_factory=dict)",
+			)
+		},
+	)
+
+	It(
+		"Should bound sized integer map keys to the range of their type",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Lines struct {
+				small  map<uint8, string>
+				port   map<uint16, string>
+				signed map<int8, string>
+				wide   map<int64, string>
+				name   map<string, uint8>
+			}
+		`
+			resp := MustGenerate(ctx, source, "lines", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"small: dict[Annotated[int, Field(ge=0, le=255)], str]",
+				"port: dict[Annotated[int, Field(ge=0, le=65535)], str]",
+				"signed: dict[Annotated[int, Field(ge=-128, le=127)], str]",
+				"wide: dict[Annotated[int, Field(ge=-9223372036854775808, "+
+					"le=9223372036854775807)], str]",
+				"name: dict[str, int]",
 			)
 		},
 	)
@@ -3335,7 +3363,9 @@ var _ = Describe("Collection type aliases and maps", func() {
 			ExpectContent(
 				resp,
 				"types_gen.py",
-			).ToContain("channels: dict[int, int] | None = None")
+			).ToContain(
+				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], int] | None = None",
+			)
 		},
 	)
 
@@ -3374,7 +3404,9 @@ var _ = Describe("Collection type aliases and maps", func() {
 			ExpectContent(
 				resp,
 				"types_gen.py",
-			).ToContain("Authorities: TypeAlias = dict[int, int]")
+			).ToContain(
+				"Authorities: TypeAlias = dict[Annotated[int, Field(ge=0, le=4294967295)], int]",
+			)
 		},
 	)
 

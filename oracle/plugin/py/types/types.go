@@ -609,7 +609,7 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -1621,6 +1621,28 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// mapKeyToPython returns the Python type of a map key. A sized integer key carries
+// its range in its type, since the bounds of a field do not reach its dict keys.
+func mapKeyToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	keyType := typeToPython(typeRef, table, data)
+	bounds, ok := sizedIntBounds(typeRef, table)
+	if !ok {
+		return keyType
+	}
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("Field")
+	return fmt.Sprintf(
+		"Annotated[%s, Field(ge=%s, le=%s)]",
+		keyType,
+		bounds.min,
+		bounds.max,
+	)
+}
+
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. It returns the name to reference, which is an alias when the
@@ -1707,7 +1729,7 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -1812,7 +1834,7 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			typeToPython(typeRef.TypeArgs[0], table, data),
+			mapKeyToPython(typeRef.TypeArgs[0], table, data),
 			typeToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}

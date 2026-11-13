@@ -32,30 +32,22 @@
 
 namespace synnax::ni::device {
 
-struct InputPorts;
 struct CommandStatePair;
+struct AnalogInputPorts;
+struct AnalogOutputChannels;
+struct CounterInputChannels;
+struct DigitalInputChannels;
 struct Identity;
 struct Where;
 struct StatusDetails;
 struct Cursor;
-struct OutputPorts;
+struct DigitalOutputChannels;
 struct RetrieveRequest;
 struct Configuration;
 struct Device;
 struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
-
-/// @brief InputPorts holds the channels that a device reads into.
-struct InputPorts {
-    /// @brief index is the index channel of the channels that read the ports.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
-    /// @brief channels maps a port to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> channels = {};
-
-    static InputPorts parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 /// @brief CommandStatePair is the pair of channels that writes to one port.
 struct CommandStatePair {
@@ -65,6 +57,55 @@ struct CommandStatePair {
     ::synnax::channel::Key state = ::synnax::channel::Key(0);
 
     static CommandStatePair parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnalogInputPorts holds the channels that a device reads analog input into.
+struct AnalogInputPorts {
+    /// @brief index is the index channel of the analog input channels.
+    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    /// @brief temperature is the channel that holds the built-in temperature of the
+    /// device.
+    ::synnax::channel::Key temperature = ::synnax::channel::Key(0);
+    /// @brief channels maps a port number to the channel that holds its samples.
+    std::unordered_map<std::uint16_t, ::synnax::channel::Key> channels = {};
+
+    static AnalogInputPorts parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnalogOutputChannels holds the channels of one analog output port.
+struct AnalogOutputChannels {
+    /// @brief state_index is the index channel of the state channel.
+    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+    /// @brief command is the channel that commands the port.
+    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    /// @brief state is the channel that holds the state of the port.
+    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+
+    static AnalogOutputChannels parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CounterInputChannels holds the channels of one counter input.
+struct CounterInputChannels {
+    /// @brief index is the index channel of the counter.
+    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    /// @brief channel is the channel that holds the samples of the counter.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+
+    static CounterInputChannels parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalInputChannels holds the channels of one digital input port.
+struct DigitalInputChannels {
+    /// @brief index is the index channel of the port.
+    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    /// @brief lines maps a line number to the channel that holds its samples.
+    std::unordered_map<std::uint8_t, ::synnax::channel::Key> lines = {};
+
+    static DigitalInputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -158,14 +199,14 @@ struct Cursor {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputPorts holds the channels that a device writes through.
-struct OutputPorts {
+/// @brief DigitalOutputChannels holds the channels of one digital output port.
+struct DigitalOutputChannels {
     /// @brief state_index is the index channel of the state channels.
     ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
-    /// @brief channels maps a port to the channels that write to it.
-    std::unordered_map<std::string, CommandStatePair> channels = {};
+    /// @brief lines maps a line number to the channels that write to it.
+    std::unordered_map<std::uint8_t, CommandStatePair> lines = {};
 
-    static OutputPorts parse(x::json::Parser parser);
+    static DigitalOutputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -220,15 +261,15 @@ struct Configuration {
     /// unconfigured while it is empty.
     std::string identifier = "";
     /// @brief analog_input are the channels of the analog input ports.
-    InputPorts analog_input = {};
-    /// @brief analog_output are the channels of the analog output ports.
-    OutputPorts analog_output = {};
-    /// @brief counter_input are the channels of the counter input ports.
-    InputPorts counter_input = {};
-    /// @brief digital_input are the channels of the digital input lines.
-    InputPorts digital_input = {};
-    /// @brief digital_output are the channels of the digital output lines.
-    OutputPorts digital_output = {};
+    AnalogInputPorts analog_input = {};
+    /// @brief analog_output maps an analog output port number to its channels.
+    std::unordered_map<std::uint16_t, AnalogOutputChannels> analog_output = {};
+    /// @brief counter_input maps a counter number to its channels.
+    std::unordered_map<std::uint16_t, CounterInputChannels> counter_input = {};
+    /// @brief digital_input maps a digital port number to its input channels.
+    std::unordered_map<std::uint16_t, DigitalInputChannels> digital_input = {};
+    /// @brief digital_output maps a digital port number to its output channels.
+    std::unordered_map<std::uint16_t, DigitalOutputChannels> digital_output = {};
 
     static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -256,15 +297,15 @@ struct Device {
     /// unconfigured while it is empty.
     std::string identifier = "";
     /// @brief analog_input are the channels of the analog input ports.
-    InputPorts analog_input = {};
-    /// @brief analog_output are the channels of the analog output ports.
-    OutputPorts analog_output = {};
-    /// @brief counter_input are the channels of the counter input ports.
-    InputPorts counter_input = {};
-    /// @brief digital_input are the channels of the digital input lines.
-    InputPorts digital_input = {};
-    /// @brief digital_output are the channels of the digital output lines.
-    OutputPorts digital_output = {};
+    AnalogInputPorts analog_input = {};
+    /// @brief analog_output maps an analog output port number to its channels.
+    std::unordered_map<std::uint16_t, AnalogOutputChannels> analog_output = {};
+    /// @brief counter_input maps a counter number to its channels.
+    std::unordered_map<std::uint16_t, CounterInputChannels> counter_input = {};
+    /// @brief digital_input maps a digital port number to its input channels.
+    std::unordered_map<std::uint16_t, DigitalInputChannels> digital_input = {};
+    /// @brief digital_output maps a digital port number to its output channels.
+    std::unordered_map<std::uint16_t, DigitalOutputChannels> digital_output = {};
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
 
