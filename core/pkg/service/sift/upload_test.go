@@ -255,6 +255,23 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(BeEmpty())
 	})
 
+	It("Should finish without a run when its range is deleted during the upload",
+		func(ctx SpecContext) {
+			server.Pause()
+			key := upload(ctx)
+			Eventually(server.Streams).Should(Equal(1))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Delete(ctx, rng.Key)
+			})).To(Succeed())
+			server.Resume()
+			statusOf(ctx, key).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Uploaded to Sift"),
+			))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
 	It("Should not write back the status of an upload deleted as it ends",
 		func(ctx SpecContext) {
 			server.FailRuns(grpcstatus.Error(codes.Unavailable, "runs are down"))
