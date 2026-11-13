@@ -205,7 +205,12 @@ var _ = Describe("Layer", func() {
 			"device",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
-				d := device.Device{Rack: layer.Rack.EmbeddedKey, Name: "PXI-6255"}
+				d := device.Device{
+					Rack:         layer.Rack.EmbeddedKey,
+					Name:         "PXI-6255",
+					ResourceName: "Mod1",
+					Model:        "PXI-6255",
+				}
 				Expect(layer.NI.Devices.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 				return d.Key
 			},
@@ -609,9 +614,11 @@ var _ = Describe("Resource search", Ordered, func() {
 			Model:        "PXIe-1071",
 		}
 		d := device.Device{
-			Rack:    layer.Rack.EmbeddedKey,
-			Name:    "Pump Module",
-			Chassis: &c.Key,
+			Rack:         layer.Rack.EmbeddedKey,
+			Name:         "Pump Module",
+			ResourceName: "Mod1",
+			Model:        "NI 9205",
+			Chassis:      &c.Key,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			if err := layer.NI.Chassis.NewWriter(tx).Create(ctx, &c); err != nil {

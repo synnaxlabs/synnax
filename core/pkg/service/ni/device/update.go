@@ -92,9 +92,8 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		return w.Update(ctx, key, func(d Device) (Device, error) {
 			d.Rack = v.Rack
 			d.Serial = v.Serial
+			d.ResourceName = v.ResourceName
 			d.Model = v.Model
-			d.Alias = v.Alias
-			d.Simulated = v.Simulated
 			d.Chassis = v.Chassis
 			return d, nil
 		})

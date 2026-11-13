@@ -80,7 +80,13 @@ var _ = Describe("Service", func() {
 	}
 	createModule := func(ctx SpecContext, c chassis.Chassis) device.Device {
 		GinkgoHelper()
-		d := device.Device{Rack: c.Rack, Name: "PXI-6255", Chassis: &c.Key}
+		d := device.Device{
+			Rack:         c.Rack,
+			Name:         "PXI-6255",
+			ResourceName: uuid.New().String(),
+			Model:        "PXI-6255",
+			Chassis:      &c.Key,
+		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NI.Devices.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())

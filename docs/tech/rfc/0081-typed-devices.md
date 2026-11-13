@@ -104,7 +104,7 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, model, alias, simulation flag, bus topology.
+  serial, NI-MAX resource name, model, chassis, bus topology.
 - **Configuration group**: The fields a user owns: name, identifier, index channel keys,
   channel maps, enabled flags, connection settings.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
@@ -188,10 +188,9 @@ Device struct {
     key        Key = create       { @key }
     rack       rack.Key           { @ref }
     name       string             { @filter @search }
-    serial     string             { @index lookup }
+    serial     string = ""        { @filter @index lookup }
+    resource_name string          { @filter @index lookup }
     model      string             { @filter }
-    alias      string
-    simulated  bool = false
     chassis    Chassis.Key?       { @ref }
     identifier string = ""
     analog_input    AnalogInputPorts
@@ -275,13 +274,11 @@ path is `Update` over the configuration group. The shallow merge in
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
-- **NI chassis**: `serial` through the lookup index when set, else `resource_name`
-  through its lookup index. A simulated chassis has no serial, and its resource name
-  survives renames.
-- **NI device, LabJack device**: `serial` through the lookup index. A vendor serial is
-  unique within its make. A simulated NI resource has no serial, so the scanner stores
-  its NI-MAX resource name in `serial`, as it does for the key today
-  (`driver/ni/scan_task.cpp:49-64,106`).
+- **NI chassis, NI device**: `serial` through the lookup index when set, else
+  `resource_name` through its lookup index. Simulated hardware has no serial, and its
+  resource name survives renames.
+- **LabJack device**: `serial` through the lookup index. A vendor serial is unique
+  within its make.
 - **EtherCAT slave**: `serial` through the lookup index, then `vendor_id` and
   `product_code` must match; today's key already carries all three
   (`driver/ethercat/scan_task.cpp:190-201`). A slave with serial zero matches by
@@ -336,8 +333,9 @@ in Phase 23.
 `common::ScanTask` becomes a template over the resource type; `Scanner` returns
 `std::vector<D>` and `ClusterAPI` is parameterized the same way
 (`driver/common/scan_task.h:81-130`). Read and write tasks take the generated struct in
-place of `parser.field` reads. NI keeps `alias` for physical channel names. LabJack
-opens by `serial` (`driver/labjack/read_task.h:535` uses the key today).
+place of `parser.field` reads. NI looks up the DAQmx alias for physical channel names
+from `resource_name` when a task starts. LabJack opens by `serial`
+(`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
 

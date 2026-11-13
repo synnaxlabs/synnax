@@ -27,6 +27,11 @@ export const matches = (record: Device, where?: Where): boolean => {
     return false;
   if (where.serial != null && !filter.matchesString(where.serial, record.serial))
     return false;
+  if (
+    where.resourceName != null &&
+    !filter.matchesString(where.resourceName, record.resourceName)
+  )
+    return false;
   if (where.model != null && !filter.matchesString(where.model, record.model))
     return false;
   if (where.rack != null && !filter.matchesSet(where.rack, record.rack)) return false;
@@ -44,6 +49,7 @@ export const serverComputed = (where?: Where): boolean =>
     (where.not != null && serverComputed(where.not)) ||
     where.name?.regex != null ||
     where.serial?.regex != null ||
+    where.resourceName?.regex != null ||
     where.model?.regex != null);
 
 const inputs = {
@@ -53,6 +59,8 @@ const inputs = {
   name: filter.stringInputZ.exactOptional(),
   /** serial selects by serial. */
   serial: filter.stringInputZ.exactOptional(),
+  /** resourceName selects by resource_name. */
+  resourceName: filter.stringInputZ.exactOptional(),
   /** model selects by model. */
   model: filter.stringInputZ.exactOptional(),
   /** rack selects by rack. */
@@ -101,6 +109,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "key",
         "name",
         "serial",
+        "resourceName",
         "model",
         "rack",
       ]),

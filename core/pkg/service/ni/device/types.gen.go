@@ -57,6 +57,8 @@ type Where struct {
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Serial selects by serial.
 	Serial *filter.String `json:"serial,omitzero" msgpack:"serial,omitempty"`
+	// ResourceName selects by resource_name.
+	ResourceName *filter.String `json:"resource_name,omitzero" msgpack:"resource_name,omitempty"`
 	// Model selects by model.
 	Model *filter.String `json:"model,omitzero" msgpack:"model,omitempty"`
 	// Rack selects by rack.
@@ -67,15 +69,13 @@ type Where struct {
 type Identity struct {
 	// Rack is the key of the rack the device is connected to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Serial is the serial number of the device, or its NI-MAX resource name when it is
-	// simulated.
+	// Serial is the serial number of the device. Empty on simulated hardware.
 	Serial string `json:"serial" msgpack:"serial"`
+	// ResourceName is the NI-MAX resource name of the device, a GUID that survives
+	// renames.
+	ResourceName string `json:"resource_name" msgpack:"resource_name"`
 	// Model is the product name of the device.
 	Model string `json:"model" msgpack:"model"`
-	// Alias is the DAQmx alias of the device.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Simulated is true when the device is simulated in NI-MAX.
-	Simulated bool `json:"simulated" msgpack:"simulated"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
 }
@@ -85,7 +85,8 @@ type Identity struct {
 func (i Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", i.Rack)
-	v.NotEmptyString("serial", i.Serial)
+	v.NotEmptyString("resource_name", i.ResourceName)
+	v.NotEmptyString("model", i.Model)
 	return v.Error()
 }
 

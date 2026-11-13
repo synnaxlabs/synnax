@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -66,15 +68,18 @@ var _ = Describe("Service", func() {
 		tx = DeferClose(db.OpenTx())
 	})
 
+	newDevice := func() device.Device {
+		return device.Device{
+			Rack:         rackKey,
+			Name:         "PXI-6255",
+			Serial:       uuid.New().String(),
+			ResourceName: uuid.New().String(),
+			Model:        "PXI-6255",
+		}
+	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
-		d := device.Device{
-			Rack:   rackKey,
-			Name:   "PXI-6255",
-			Serial: uuid.New().String(),
-			Model:  "PXI-6255",
-			Alias:  "Mod1",
-		}
+		d := newDevice()
 		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
 	}
@@ -139,22 +144,45 @@ var _ = Describe("Service", func() {
 
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
-			d := device.Device{Key: key, Rack: rackKey, Name: "Module"}
+			d := newDevice()
+			d.Key = key
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(d.Key).To(Equal(key))
 		})
 
-		It("Should reject a device without a name", func(ctx SpecContext) {
-			d := device.Device{Rack: rackKey}
-			Expect(svc.NewWriter(tx).Create(ctx, &d)).
-				To(MatchError(ContainSubstring("name: required")))
+		DescribeTable("Should reject a device without a required field",
+			func(ctx SpecContext, field string, clear func(*device.Device)) {
+				d := newDevice()
+				clear(&d)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).
+					To(MatchError(ContainSubstring(field + ": required")))
+			},
+			Entry("name", "name", func(d *device.Device) { d.Name = "" }),
+			Entry("resource name", "resource_name", func(d *device.Device) {
+				d.ResourceName = ""
+			}),
+			Entry("model", "model", func(d *device.Device) { d.Model = "" }),
+		)
+
+		It("Should store a simulated device without a serial", func(ctx SpecContext) {
+			d := newDevice()
+			d.Serial = ""
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			var got device.Device
+			Expect(svc.NewRetrieve().
+				Where(device.MatchResourceNames(d.ResourceName)).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Key).To(Equal(d.Key))
+			Expect(got.Serial).To(BeEmpty())
 		})
 
 		It("Should refuse a device in a chassis that does not exist", func(
 			ctx SpecContext,
 		) {
 			missing := uuid.New()
-			d := device.Device{Rack: rackKey, Name: "PXI-6255", Chassis: &missing}
+			d := newDevice()
+			d.Chassis = &missing
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
 				"chassis: ni_chassis %s does not exist: validation error",
 				missing,
@@ -204,7 +232,8 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			missing := rack.NewKey(1, 999)
-			d := device.Device{Rack: missing, Name: "Module"}
+			d := newDevice()
+			d.Rack = missing
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
 				"rack: rack %d does not exist: validation error",
 				missing,
@@ -367,13 +396,15 @@ var _ = Describe("Service", func() {
 			)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
 				Variant: device.IdentityUpdate{Identity: device.Identity{
-					Rack:   rackKey,
-					Serial: "02B",
-					Model:  "PXI-6259",
+					Rack:         rackKey,
+					Serial:       "02B",
+					ResourceName: "Mod2",
+					Model:        "PXI-6259",
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(Equal("02B"))
+			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXI-6259"))
 			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
@@ -453,6 +484,96 @@ var _ = Describe("Service", func() {
 				"required",
 			),
 		)
+
+		newIdentity := func() device.Identity {
+			return device.Identity{
+				Rack:         rackKey,
+				Serial:       "02B",
+				ResourceName: "Mod2",
+				Model:        "PXI-6259",
+			}
+		}
+
+		DescribeTable("Should reject an identity without a required field",
+			func(ctx SpecContext, field string, clear func(*device.Identity)) {
+				d := create(ctx)
+				identity := newIdentity()
+				clear(&identity)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+					Variant: device.IdentityUpdate{Identity: identity},
+				})).To(MatchError(ContainSubstring(field + ": required")))
+			},
+			Entry("resource name", "resource_name", func(i *device.Identity) {
+				i.ResourceName = ""
+			}),
+			Entry("model", "model", func(i *device.Identity) { i.Model = "" }),
+		)
+
+		It("Should accept an identity without a serial", func(ctx SpecContext) {
+			d := create(ctx)
+			identity := newIdentity()
+			identity.Serial = ""
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Serial).To(BeEmpty())
+			Expect(got.ResourceName).To(Equal("Mod2"))
+		})
+	})
+
+	Describe("Migration", func() {
+		It("Should require an identity update before a migrated physical device is "+
+			"configured", func(ctx SpecContext) {
+			mDB := DeferClose(gorp.Wrap(memkv.New()))
+			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
+			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))
+			mRole := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: mDB}))
+			mRack := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:         mDB,
+				HostKey:    1,
+				Status:     mStat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, mDB, mRole)),
+			}))
+			MustOpen(chassis.OpenService(ctx, chassis.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			old := v0.Device{
+				Key:    uuid.New(),
+				Rack:   mRack.EmbeddedKey,
+				Name:   "PXI-6255",
+				Serial: "01A",
+				Model:  "PXI-6255",
+			}
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: mDB}))
+			Expect(gorp.NewCreate[v0.Key, v0.Device]().Entry(&old).Exec(ctx, mDB)).
+				To(Succeed())
+			mSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			apply := func(update device.Update) error {
+				return mDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return mSvc.NewWriter(tx).Apply(ctx, old.Key, update)
+				})
+			}
+			configure := device.Update{Variant: device.ConfigurationUpdate{
+				Configuration: device.Configuration{Name: "Renamed"},
+			}}
+			Expect(apply(configure)).
+				To(MatchError(ContainSubstring("resource_name: required")))
+			Expect(apply(device.Update{Variant: device.IdentityUpdate{
+				Identity: device.Identity{
+					Rack:         old.Rack,
+					Serial:       old.Serial,
+					ResourceName: "Mod1",
+					Model:        old.Model,
+				},
+			}})).To(Succeed())
+			Expect(apply(configure)).To(Succeed())
+		})
 	})
 
 	Describe("Delete", func() {
@@ -491,7 +612,8 @@ var _ = Describe("Service", func() {
 	Describe("Chassis", func() {
 		It("Should match devices by chassis", func(ctx SpecContext) {
 			key := createChassis(ctx)
-			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
+			d := newDevice()
+			d.Chassis = &key
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			create(ctx)
 			var got []device.Device
@@ -507,7 +629,8 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := createChassis(ctx)
-			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
+			d := newDevice()
+			d.Chassis = &key
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(chassisSvc.NewWriter(tx).Delete(ctx, key)).To(Succeed())
 			Expect(svc.NewRetrieve().

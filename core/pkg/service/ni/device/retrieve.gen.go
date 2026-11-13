@@ -36,10 +36,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial  *gorp.LookupIndex[Key, Device, string]
-	rack    *gorp.KeyReference[Key, Device, rack.Key]
-	chassis *gorp.KeyReference[Key, Device, chassis.Key]
-	search  *gorp.SearchIndex[Key, Device]
+	serial       *gorp.LookupIndex[Key, Device, string]
+	resourceName *gorp.LookupIndex[Key, Device, string]
+	rack         *gorp.KeyReference[Key, Device, rack.Key]
+	chassis      *gorp.KeyReference[Key, Device, chassis.Key]
+	search       *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -50,6 +51,10 @@ func newIndexes() indexes {
 		serial: gorp.NewLookupIndex[Key, Device, string](
 			"serial",
 			func(e *Device) string { return e.Serial },
+		),
+		resourceName: gorp.NewLookupIndex[Key, Device, string](
+			"resource_name",
+			func(e *Device) string { return e.ResourceName },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
 			Name:     "rack",
@@ -86,6 +91,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Device] {
 	return []gorp.Index[Key, Device]{
 		i.serial,
+		i.resourceName,
 		i.search,
 	}
 }
@@ -186,6 +192,15 @@ func MatchNames(vals ...string) Filter {
 func MatchSerials(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.serial.Filter(vals...)
+	}
+}
+
+// MatchResourceNames returns a filter for
+// devices whose ResourceName matches any of the
+// provided values.
+func MatchResourceNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.resourceName.Filter(vals...)
 	}
 }
 

@@ -1650,24 +1650,24 @@
         "rack": 65538,
         "name": "Mod 1",
         "serial": "01A1",
-        "model": "NI 9205",
-        "alias": ""
+        "resource_name": "cDAQ1Mod1",
+        "model": "NI 9205"
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
         "rack": 65538,
         "name": "Mod 2",
         "serial": "01A2",
-        "model": "NI 9263",
-        "alias": ""
+        "resource_name": "cDAQ1Mod2",
+        "model": "NI 9263"
       },
       "c": {
         "key": "00000000-0000-4000-8000-00000000000c",
         "rack": 131073,
         "name": "USB DAQ",
-        "serial": "02B1",
-        "model": "USB-6001",
-        "alias": ""
+        "serial": "",
+        "resource_name": "Dev1",
+        "model": "USB-6001"
       }
     },
     "cases": [
@@ -1796,7 +1796,16 @@
         "name": "serial eq",
         "where": {
           "serial": {
-            "eq": "02B1"
+            "eq": "01A2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "serial eq empty",
+        "where": {
+          "serial": {
+            "eq": ""
           }
         },
         "expected": ["c"]
@@ -1819,6 +1828,25 @@
           }
         },
         "expected": ["b"]
+      },
+      {
+        "name": "resource_name eq",
+        "where": {
+          "resource_name": {
+            "eq": "Dev1"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "resource_name starts_with ignores case",
+        "where": {
+          "resource_name": {
+            "starts_with": "cdaq1",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a", "b"]
       },
       {
         "name": "model eq",

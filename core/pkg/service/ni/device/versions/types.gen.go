@@ -11,25 +11,25 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
-type Device = v0.Device
+type Device = v1.Device
 
 // Key uniquely identifies an NI device.
-type Key = v0.Key
+type Key = v1.Key
 
 // InputPorts holds the channels that a device reads into.
-type InputPorts = v0.InputPorts
+type InputPorts = v1.InputPorts
 
 // CommandStatePair is the pair of channels that writes to one port.
-type CommandStatePair = v0.CommandStatePair
+type CommandStatePair = v1.CommandStatePair
 
 // OutputPorts holds the channels that a device writes through.
-type OutputPorts = v0.OutputPorts
+type OutputPorts = v1.OutputPorts
 
 // StatusDetails identifies the device and rack that a status pertains to.
-type StatusDetails = v0.StatusDetails
+type StatusDetails = v1.StatusDetails
 
 // Status is the operational status of a device.
-type Status = v0.Status
+type Status = v1.Status

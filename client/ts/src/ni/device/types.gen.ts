@@ -40,17 +40,15 @@ export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
 export const identityZ = z.object({
   /** rack is the key of the rack the device is connected to. */
   rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** serial is the serial number of the device. Empty on simulated hardware. */
+  serial: z.string().default(""),
   /**
-   * serial is the serial number of the device, or its NI-MAX resource name when it is
-   * simulated.
+   * resourceName is the NI-MAX resource name of the device, a GUID that survives
+   * renames.
    */
-  serial: z.string().min(1, "serial is required"),
+  resourceName: z.string().min(1, "resource_name is required"),
   /** model is the product name of the device. */
-  model: z.string(),
-  /** alias is the DAQmx alias of the device. */
-  alias: z.string(),
-  /** simulated is true when the device is simulated in NI-MAX. */
-  simulated: z.boolean().default(false),
+  model: z.string().min(1, "model is required"),
   /** chassis is the chassis that holds the device. Absent for a standalone device. */
   chassis: niChassis.keyZ.optional(),
 });
@@ -76,6 +74,7 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
   serial?: filter.String;
+  resourceName?: filter.String;
   model?: filter.String;
   rack?: filter.Set<typeof rack.keyZ>;
 };
@@ -98,6 +97,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   name: filter.stringZ.optional(),
   /** serial selects by serial. */
   serial: filter.stringZ.optional(),
+  /** resourceName selects by resource_name. */
+  resourceName: filter.stringZ.optional(),
   /** model selects by model. */
   model: filter.stringZ.optional(),
   /** rack selects by rack. */
@@ -203,17 +204,15 @@ export const deviceZ = z.object({
   rack: rack.keyZ,
   /** name is a human-readable name for the device. */
   name: z.string().min(1, "name is required"),
+  /** serial is the serial number of the device. Empty on simulated hardware. */
+  serial: z.string().default(""),
   /**
-   * serial is the serial number of the device, or its NI-MAX resource name when it is
-   * simulated.
+   * resourceName is the NI-MAX resource name of the device, a GUID that survives
+   * renames.
    */
-  serial: z.string(),
+  resourceName: z.string().min(1, "resource_name is required"),
   /** model is the product name of the device. */
-  model: z.string(),
-  /** alias is the DAQmx alias of the device. */
-  alias: z.string(),
-  /** simulated is true when the device is simulated in NI-MAX. */
-  simulated: z.boolean().default(false),
+  model: z.string().min(1, "model is required"),
   /** chassis is the chassis that holds the device. Absent for a standalone device. */
   chassis: niChassis.keyZ.optional(),
   /**
