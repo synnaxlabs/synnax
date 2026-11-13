@@ -719,7 +719,7 @@ class WriteConfig(task.WriteConfig):
         state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
     """
 
-    state_rate: telem.Rate = telem.Rate(10)
+    state_rate: telem.Rate = Field(default=telem.Rate(10), gt=0, allow_inf_nan=False)
 
     @_override
     def __hash__(self) -> int:

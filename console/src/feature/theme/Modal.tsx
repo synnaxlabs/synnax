@@ -18,25 +18,14 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { type Option, OPTIONS } from "@/feature/theme/options";
 import { CSS } from "@/platform/css";
 import { create } from "@/platform/modals/factory";
 import { type Session } from "@/session";
 import { Theme } from "@/session/theme";
 
-interface Entry {
-  key: Theme.Mode;
-  name: string;
-  icon: Icon.ReactElement;
-}
-
-const OPTIONS: Entry[] = [
-  { key: "light", name: "Light", icon: <Icon.LightMode /> },
-  { key: "dark", name: "Dark", icon: <Icon.DarkMode /> },
-  { key: "system", name: "System", icon: <Icon.Sync /> },
-];
-
 const ListItem = (props: List.ItemProps<Theme.Mode>): ReactElement | null => {
-  const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
+  const entry = List.useItem<Theme.Mode, Option>(props.itemKey);
   if (entry == null) return null;
   return (
     <Select.Item {...props} align="center" gap="medium">
@@ -57,14 +46,14 @@ const Content = ({
     dispatch(Theme.set(next));
     close();
   };
-  const { data, getItem } = List.useStaticData<Theme.Mode, Entry>({ data: OPTIONS });
+  const { data, getItem } = List.useStaticData<Theme.Mode, Option>({ data: OPTIONS });
   return (
     <Modal.Frame className={CSS.B("theme-modal")} bordered rounded="small" pack>
       <Modal.Header closeHidden icon={<Icon.DarkMode />}>
         Color theme
       </Modal.Header>
       <Modal.Body pack>
-        <Select.Frame<Theme.Mode, Entry>
+        <Select.Frame<Theme.Mode, Option>
           data={data}
           getItem={getItem}
           allowNone
