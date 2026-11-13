@@ -19,7 +19,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { type deep, unique } from "@synnaxlabs/x";
 import { type RefObject, useRef, useState } from "react";
 
-import { list } from "@/feature/sift/asset/list";
+import { list, type ListResult } from "@/feature/sift/asset/list";
 import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { Modals } from "@/platform/modals";
 
@@ -70,7 +70,15 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
       setAssets([]);
       if (client == null || deviceKey === "" || mode === "preview") return;
       handleError(async () => {
-        const res = await list(client, deviceKey);
+        let res: ListResult;
+        try {
+          res = await list(client, deviceKey);
+        } catch (e) {
+          // A failure after the user moved to another connection or closed the form
+          // is stale.
+          if (!signal.aborted) handleError(e, "Failed to list Sift assets");
+          return;
+        }
         if (signal.aborted) return;
         setAssets(res.assets);
         const fill = !listed.current || picked.current;
