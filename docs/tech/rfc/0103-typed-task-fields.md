@@ -336,23 +336,26 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `Decoded` carries the map to `ReconcileEntry`, which now runs before `DropDangling`
   and turns each bound key into `unbound` from the map when no local channel has that
   key, or when `cluster` is another Core's, because two Cores hand out the same channel
-  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's
-  `command_channel` become 0, and the import writes the target's `name` or the tag's
-  `command_channel_name` from `$channels`, or else the name that the Console derives
-  today, such as `<tag>_cmd`. Configure then binds the device's stored channel for the
-  tag, or else creates one under the §5 rename rule. Phase 30 applies that rule in
-  `configureCommandChannel`, to the channel and its `_time` index, so HTTP write
+  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's a
+  non-zero `command_channel` become 0, and the import writes the target's `name` or the
+  tag's `command_channel_name` from `$channels`, or else the name that the Console
+  derives today, such as `<tag>_cmd`. Configure then binds the device's stored channel
+  for the tag, or else creates one under the §5 rename rule. Phase 30 applies that rule
+  in `configureCommandChannel`, to the channel and its `_time` index, so HTTP write
   configure changes too. A Kafka write channel or an edge tag's published `channel`
-  becomes disabled, because configure cannot create it. A disabled edge tag gets its
-  command channel when the user enables it again. The import logs each one, with any
-  name it set. A map built from a version before `Binding` holds no real channel values,
-  so it unbinds only a missing key, and a command channel with no stored name takes the
-  derived one. With no map entry for a missing `Binding` key, `ReconcileEntry` removes
-  the field, or for a channel field its target or endpoint, and logs what it removed.
-  `ReconcileEntry` skips a missing key that is not a `Binding`, such as a Kafka write
-  channel, and `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27
-  adds `ChannelKeys`, the `Decode` and hook arguments, the order, and a
-  `cluster.Identity` input to the task service. Phases 28 to 31 apply the rule.
+  becomes disabled with key 0, because configure cannot create it, and the user picks a
+  channel before it runs again. A task with an enabled key 0 fails validation, as today.
+  A disabled edge tag gets its command channel when the user enables it again. The
+  import logs each one, with any name it set. A map built from a version before
+  `Binding` holds no real channel values, so it unbinds only a missing key, and a
+  non-zero command channel with no stored name takes the derived one. A tag whose
+  `command_channel` is 0 rejects writes and keeps `command_channel_name` absent. With no
+  map entry for a missing `Binding` key, `ReconcileEntry` removes the field, or for a
+  channel field its target or endpoint, and logs what it removed. `ReconcileEntry` skips
+  a missing key that is not a `Binding`, such as a Kafka write channel, and
+  `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
+  `ChannelKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
+  input to the task service. Phases 28 to 31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
