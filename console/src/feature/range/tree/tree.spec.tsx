@@ -119,7 +119,7 @@ describe("range tree", () => {
     },
   );
 
-  it("should mount each child once on expand and render no other item", async () => {
+  it("should render no other item on expand", async () => {
     const { label, ranges } = await createRanges();
     // The ranges below an expanded range move, so the last range keeps all still.
     const c = ranges[2];
@@ -163,7 +163,7 @@ describe("range tree", () => {
     expect(changes).toEqual([]);
   });
 
-  it("should mount an added range once and render no other item", async () => {
+  it("should render no existing item when a range is added", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
     const end = TimeStamp.now().sub(TimeSpan.days(1));
