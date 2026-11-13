@@ -440,6 +440,21 @@ describe("use", () => {
       });
       expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
     });
+
+    it("should replay a cached read that comes before a suspending read", async () => {
+      const { use: useCached } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 4,
+      });
+      const useBoth = ({ key }: { key: string }): number =>
+        useCached({ key }) + useFetched({ key });
+      expect(await mountThroughTransition(useBoth, "replay-cached-first")).toEqual([]);
+    });
   });
 
   describe("suspended mount retry", () => {

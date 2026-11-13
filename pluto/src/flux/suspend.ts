@@ -309,6 +309,21 @@ export const fulfilled = <Data>(value: Data): Promise<Data> =>
   Object.assign(Promise.resolve(value), { status: "fulfilled" as const, value });
 
 /**
+ * @returns a function that wraps a value as {@link fulfilled} does, but returns the
+ * same promise while the value stays the same. A replay must pass each `use` the
+ * promise its suspended attempt read, or React flags the promise as uncached.
+ */
+export const useFulfilled = <Data>(): ((value: Data) => Promise<Data>) => {
+  "use no memo";
+  const held = useRef<{ value: Data; promise: Promise<Data> } | null>(null);
+  return (value) => {
+    if (held.current?.value !== value)
+      held.current = { value, promise: fulfilled(value) };
+    return held.current.promise;
+  };
+};
+
+/**
  * @returns the promise a suspending read passes to `use`: the one the replayed attempt
  * suspended on, the settled answer, or a new fetch.
  * @throws the error the query last settled to.
