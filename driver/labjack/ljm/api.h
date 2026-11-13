@@ -51,6 +51,8 @@ class API {
         decltype(&LJM_eStreamStart) eStreamStart;
         decltype(&LJM_TCVoltsToTemp) TCVoltsToTemp;
         decltype(&LJM_ReadLibraryConfigS) ReadLibraryConfigS;
+        decltype(&LJM_WriteLibraryConfigS) WriteLibraryConfigS;
+        decltype(&LJM_SetStreamCallback) SetStreamCallback;
     };
 
     /// @brief Shared library handle.
@@ -111,6 +113,14 @@ public:
         func_ptrs
             .ReadLibraryConfigS = reinterpret_cast<decltype(&LJM_ReadLibraryConfigS)>(
             const_cast<void *>(lib->get_func_ptr("LJM_ReadLibraryConfigS"))
+        );
+        func_ptrs
+            .WriteLibraryConfigS = reinterpret_cast<decltype(&LJM_WriteLibraryConfigS)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_WriteLibraryConfigS"))
+        );
+        func_ptrs
+            .SetStreamCallback = reinterpret_cast<decltype(&LJM_SetStreamCallback)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_SetStreamCallback"))
         );
     }
 
@@ -256,6 +266,19 @@ public:
     [[nodiscard]] LJM_ERROR_RETURN
     read_library_config(const char *parameter, double *value) const {
         return this->func_ptrs.ReadLibraryConfigS(parameter, value);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN
+    write_library_config(const char *parameter, const double value) const {
+        return this->func_ptrs.WriteLibraryConfigS(parameter, value);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN set_stream_callback(
+        const int dev_handle,
+        const LJM_StreamReadCallback callback,
+        void *arg
+    ) const {
+        return this->func_ptrs.SetStreamCallback(dev_handle, callback, arg);
     }
 };
 }

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <functional>
 #include <map>
 #include <memory>
@@ -24,10 +26,16 @@
 #include "driver/labjack/ljm/errors.h"
 
 namespace driver::labjack::device {
+/// @brief how often a stream read that waits for scans reads again. LJM calls back on
+/// a 4 ms tick, and never when the device stops sending.
+constexpr auto STREAM_POLL_INTERVAL = std::chrono::milliseconds(1);
+
 class Device {
 public:
     virtual ~Device() = default;
 
+    /// @brief reads the next scans_per_read scans of the stream, and waits for them
+    /// when they have not arrived.
     virtual x::errors::Error
     e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
 
@@ -112,6 +120,21 @@ class LJMDevice final : public Device {
     mutable std::atomic<bool> streaming = false;
     /// @brief true once LJM returns LJME_USING_DEFAULT_CALIBRATION for the handle.
     mutable std::atomic<bool> default_calibration;
+    mutable std::mutex scans_mu;
+    mutable std::condition_variable scans_cv;
+    /// @brief set by the stream callback, and cleared by the read that it wakes.
+    mutable bool scans_arrived = false;
+
+    /// @brief the stream callback, which LJM calls from its stream thread when scans
+    /// arrive.
+    static void on_scans(void *arg) {
+        const auto *dev = static_cast<const LJMDevice *>(arg);
+        {
+            std::lock_guard lock(dev->scans_mu);
+            dev->scans_arrived = true;
+        }
+        dev->scans_cv.notify_one();
+    }
 
     /// @brief converts an LJM code into an error, and records a default calibration.
     x::errors::Error check(const int code) const {
@@ -135,17 +158,27 @@ public:
             LOG(WARNING) << "[labjack] failed to close device: " << err;
     }
 
+    /// A blocking LJM read can sleep about 100 ms past the arrival of its scans, so the
+    /// read waits on the stream callback and STREAM_POLL_INTERVAL instead.
     x::errors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
         int *ljm_scan_backlog
     ) const override {
-        return this->check(this->ljm->e_stream_read(
-            this->dev_handle,
-            data,
-            dev_scan_backlog,
-            ljm_scan_backlog
-        ));
+        while (true) {
+            const int code = this->ljm->e_stream_read(
+                this->dev_handle,
+                data,
+                dev_scan_backlog,
+                ljm_scan_backlog
+            );
+            if (code != LJME_NO_SCANS_RETURNED) return this->check(code);
+            std::unique_lock lock(this->scans_mu);
+            this->scans_cv.wait_for(lock, STREAM_POLL_INTERVAL, [this] {
+                return this->scans_arrived;
+            });
+            this->scans_arrived = false;
+        }
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
@@ -262,6 +295,12 @@ public:
                 "from this device. Add these channels to the running task."
             );
         auto err = configure();
+        // Makes an LJM stream read return no scans instead of sleeping.
+        if (!err)
+            err = this->check(this->ljm->write_library_config(
+                LJM_STREAM_SCANS_RETURN,
+                LJM_STREAM_SCANS_RETURN_ALL_OR_NONE
+            ));
         if (!err)
             err = this->check(this->ljm->e_stream_start(
                 this->dev_handle,
@@ -269,6 +308,12 @@ public:
                 static_cast<int>(num_addrs),
                 scan_list,
                 scan_rate
+            ));
+        if (!err)
+            err = this->check(this->ljm->set_stream_callback(
+                this->dev_handle,
+                &LJMDevice::on_scans,
+                const_cast<LJMDevice *>(this)
             ));
         if (err) this->streaming = false;
         return err;

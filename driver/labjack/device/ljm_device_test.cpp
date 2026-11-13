@@ -97,6 +97,30 @@ TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     ASSERT_NIL(start_stream(dev));
 }
 
+/// @brief it should wait for scans that have not arrived.
+TEST(LJMDeviceTest, testStreamReadWaitsForScans) {
+    const LJMDevice dev(open_fake_api(), LATE_SCANS_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    ASSERT_NIL(dev.e_stream_read(&value, &dev_backlog, &ljm_backlog));
+    EXPECT_EQ(value, READ_VALUE);
+}
+
+/// @brief it should report a lost stream, for which LJM never calls back.
+TEST(LJMDeviceTest, testStreamReadReportsLostStream) {
+    const LJMDevice dev(open_fake_api(), LOST_STREAM_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    ASSERT_OCCURRED_AS(
+        dev.e_stream_read(&value, &dev_backlog, &ljm_backlog),
+        ljm::UNREACHABLE
+    );
+}
+
 /// @brief it should keep the value of a read that warns of a default calibration, and
 /// report the calibration as invalid from then on.
 TEST(LJMDeviceTest, testReadWarnsOfDefaultCalibration) {

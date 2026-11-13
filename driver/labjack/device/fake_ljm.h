@@ -22,4 +22,11 @@ constexpr int DEFAULT_CALIBRATION_HANDLE = 3;
 constexpr const char *DEFAULT_CALIBRATION_SERIAL = "470000003";
 /// @brief the value that every read of the fake library returns.
 constexpr double READ_VALUE = 1.5;
+/// @brief a device handle whose stream reads return LJME_NO_SCANS_RETURNED for the
+/// first 10 ms. The fake library then calls the stream callback.
+constexpr int LATE_SCANS_HANDLE = 4;
+/// @brief a device handle whose first stream read returns LJME_NO_SCANS_RETURNED, and
+/// whose next reads return LJME_NO_RESPONSE_BYTES_RECEIVED. The fake library never
+/// calls the stream callback.
+constexpr int LOST_STREAM_HANDLE = 5;
 }
