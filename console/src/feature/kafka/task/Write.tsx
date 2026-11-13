@@ -9,14 +9,15 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import { kafka } from "@synnaxlabs/client";
+import { DisconnectedError, kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel as PChannel } from "@synnaxlabs/pluto";
+import { Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep, id, type payload, primitive } from "@synnaxlabs/x";
 import { type FC, useEffect } from "react";
 
@@ -159,12 +160,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const renderSelectChannel = Component.renderProp(
-  (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-    <PChannel.SelectSingle {...p} />
-  ),
-);
-
 type NumericKind = "float" | "integer" | "unsigned";
 
 const isNumericKind = (kind: payload.Kind): kind is NumericKind =>
@@ -297,6 +292,29 @@ const EntriesSection = ({ path, type }: EntriesSectionProps) => {
   }
 };
 
+/**
+ * Selects the channel of the write channel at path. It sets the channel and an output
+ * type that the channel allows in one change, so the Core never sees a pair it rejects.
+ */
+const ChannelField = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const { get, set } = PForm.useContext();
+  const handleChange = (key: number) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const { dataType } = await client.channels.retrieve(key);
+      const kinds = Task.Payload.channelKinds(dataType);
+      const ch = { ...get<WriteChannel>(path).value, channel: key };
+      set(path, kinds.includes(ch.type) ? ch : asKind(ch, kinds[0]));
+    }, "Failed to select the channel");
+  return (
+    <PForm.Field path={path.channel} label="Channel" required>
+      {({ value }) => <PChannel.SelectSingle value={value} onChange={handleChange} />}
+    </PForm.Field>
+  );
+};
+
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const ch = PForm.useFieldValue(path);
   const { set } = PForm.useContext();
@@ -310,9 +328,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
-        <PForm.Field path={path.channel} label="Channel" required>
-          {renderSelectChannel}
-        </PForm.Field>
+        <ChannelField path={path} />
         {kinds != null && kinds.length > 1 && <KindSelect path={path} kinds={kinds} />}
         {ch.type === "timestamp" && (
           <Task.Payload.TimeFormatField
