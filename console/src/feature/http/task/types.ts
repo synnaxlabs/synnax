@@ -22,7 +22,7 @@ export const PREFIX = "http";
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends http.ReadField {}
+export type ReadField = http.ReadField;
 
 export interface ReadEndpoint extends http.ReadEndpoint {}
 
@@ -30,13 +30,38 @@ const readMethodZ = z.enum(["GET", "POST"]);
 
 const readConfigZ = http.readConfigZ;
 
-const deployReadFieldZ = http.readFieldZ.extend({
-  pointer: json.pointerZ,
-  enumValues: payload.enumEntryZ
+const deployEntries = <E extends z.ZodType<{ label: string }>>(entry: E) =>
+  entry
     .array()
     .check(checkDuplicateKeys("label", "enum label"))
-    .default(() => []),
-});
+    .default(() => []);
+
+const deployReadFieldZ = z.discriminatedUnion("type", [
+  http.floatReadFieldZ.extend({
+    pointer: json.pointerZ,
+    enumValues: deployEntries(payload.floatEntryZ),
+  }),
+  http.integerReadFieldZ.extend({
+    pointer: json.pointerZ,
+    enumValues: deployEntries(payload.integerEntryZ),
+  }),
+  http.unsignedReadFieldZ.extend({
+    pointer: json.pointerZ,
+    enumValues: deployEntries(payload.unsignedEntryZ),
+  }),
+  http.stringReadFieldZ.extend({
+    pointer: json.pointerZ,
+    enumValues: deployEntries(payload.stringEntryZ),
+  }),
+  http.booleanReadFieldZ.extend({
+    pointer: json.pointerZ,
+    enumValues: deployEntries(payload.booleanEntryZ),
+  }),
+  http.timestampReadFieldZ.extend({ pointer: json.pointerZ }),
+  http.jsonReadFieldZ.extend({ pointer: json.pointerZ }),
+  http.uuidReadFieldZ.extend({ pointer: json.pointerZ }),
+  http.bytesReadFieldZ.extend({ pointer: json.pointerZ }),
+]);
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,

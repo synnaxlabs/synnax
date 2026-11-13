@@ -39,15 +39,13 @@ struct GroupField {
     synnax::channel::Key channel = 0;
     /// @brief JSON Pointer to the value in the response.
     x::json::json::json_pointer pointer;
-    /// @brief if the Synnax channel is a timestamp, the format of the JSON value.
-    std::optional<x::json::TimeFormat> time_format;
-    /// @brief mapping of string values to numbers for enum-style parsing
-    /// (e.g., "ON" -> 1, "OFF" -> 0).
+    /// @brief the format of the JSON value when the channel is a timestamp.
+    x::json::TimeFormat time_format = x::json::TimeFormat::ISO8601;
+    /// @brief the samples that string labels in the response stand for.
     x::json::EnumMap enum_values;
-    /// @brief true when a missing value is filled with no warning.
-    bool optional = false;
-    /// @brief the sample to write for a missing value. Unset writes NaN.
-    std::optional<x::telem::SampleValue> fill_value;
+    /// @brief the sample to write with no warning when the value is absent. Unset
+    /// requires the value.
+    std::optional<x::telem::SampleValue> fill;
 };
 
 /// @brief a group of fields that share the same index channel and must be
@@ -73,8 +71,8 @@ struct ReadTaskConfig : ::synnax::http::ReadConfig {
     std::map<synnax::channel::Key, int> software_timed_indexes;
     /// @brief mapping of channel keys to their Synnax channel definitions.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
-    /// @brief the fill value of each field that sets one, converted to the data type
-    /// of its channel and keyed by channel.
+    /// @brief the fill of each field that sets one, converted to the data type of its
+    /// channel and keyed by channel.
     std::map<synnax::channel::Key, x::telem::SampleValue> fill_values;
 
     /// @brief parses a read task config from a Synnax task definition.

@@ -13,26 +13,62 @@ import { type ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
 
-export interface EnumMappingSectionProps {
+interface NumberEntries {
   /** The path of the enum values. */
   path: deep.Target<PlatformForm.Entry<"label", number>[]>;
-  /** Puts the channel value before its label, for a write that sends the label. */
-  valueFirst?: boolean;
+  valueType?: "number";
 }
 
-/** Maps string labels in a payload to numeric channel values. */
+interface TextEntries {
+  /** The path of the enum values, held as text, such as 64-bit integers. */
+  path: deep.Target<PlatformForm.Entry<"label", string>[]>;
+  valueType: "string";
+  /** The value of an added entry, such as "0" for an integer. Defaults to "". */
+  defaultValue?: string;
+}
+
+export type EnumMappingSectionProps = (NumberEntries | TextEntries) & {
+  /** Puts the channel value before its label, for a write that sends the label. */
+  valueFirst?: boolean;
+};
+
+/**
+ * @returns a label that none of labels holds, for an added enum entry. The Core rejects
+ * a repeated or empty label.
+ */
+export const createLabel = (labels: string[]): string => {
+  let n = labels.length + 1;
+  while (labels.includes(`LABEL_${n}`)) n++;
+  return `LABEL_${n}`;
+};
+
+/** Maps string labels in a payload to channel values. */
 export const EnumMappingSection = ({
-  path,
   valueFirst,
+  ...rest
 }: EnumMappingSectionProps): ReactElement => (
   <Form.Section title="Enum mapping">
-    <PlatformForm.KeyValueEditor
-      path={path}
-      resourceName="mapping"
-      keyField="label"
-      keyPlaceholder="String (e.g. ON)"
-      valueType="number"
-      valueFirst={valueFirst}
-    />
+    {rest.valueType === "string" ? (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="string"
+        valueFirst={valueFirst}
+        createKey={createLabel}
+        defaultValue={rest.defaultValue}
+      />
+    ) : (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="number"
+        valueFirst={valueFirst}
+        createKey={createLabel}
+      />
+    )}
   </Form.Section>
 );

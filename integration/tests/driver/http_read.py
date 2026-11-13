@@ -43,12 +43,12 @@ class HTTPReadFloat(HTTPReadTaskCase):
                 path="/api/v1/data",
                 method="GET",
                 fields=[
-                    http.ReadField(
+                    http.FloatReadField(
                         pointer="/temperature",
                         channel=temp_key,
                         data_type=sy.DataType.FLOAT64,
                     ),
-                    http.ReadField(
+                    http.FloatReadField(
                         pointer="/pressure",
                         channel=pressure_key,
                         data_type=sy.DataType.FLOAT64,
@@ -85,7 +85,7 @@ class HTTPReadMultipleEndpoints(HTTPReadTaskCase):
                 path="/api/v1/data",
                 method="GET",
                 fields=[
-                    http.ReadField(
+                    http.FloatReadField(
                         pointer="/temperature",
                         channel=temp_key,
                         data_type=sy.DataType.FLOAT64,
@@ -96,7 +96,7 @@ class HTTPReadMultipleEndpoints(HTTPReadTaskCase):
                 path="/api/v1/metrics",
                 method="GET",
                 fields=[
-                    http.ReadField(
+                    http.FloatReadField(
                         pointer="/sensors/sensor_0",
                         channel=sensor_key,
                         data_type=sy.DataType.FLOAT64,
@@ -164,7 +164,7 @@ class HTTPReadCappedFanOut(HTTPReadTaskCase):
                     path=path,
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer=pointer, channel=key, data_type=sy.DataType.FLOAT64
                         )
                     ],
