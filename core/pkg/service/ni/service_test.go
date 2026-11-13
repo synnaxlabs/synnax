@@ -317,12 +317,18 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject a frequency that is not positive",
 			func(ctx SpecContext, frequency float64, reason string) {
 				Expect(
-					svc.AnalogWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
-						"channels": []any{map[string]any{
-							"type":      "ao_func_gen",
-							"frequency": frequency,
-						}},
-					}),
+					svc.AnalogWrite.Prepare(
+						ctx,
+						db,
+						uuid.New(),
+						"",
+						msgpack.EncodedJSON{
+							"channels": []any{map[string]any{
+								"type":      "ao_func_gen",
+								"frequency": frequency,
+							}},
+						},
+					),
 				).Error().To(MatchError(ContainSubstring(reason)))
 			},
 			Entry("zero", 0.0, "must be greater than 0"),
@@ -334,7 +340,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(
-				svc.AnalogWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				svc.AnalogWrite.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
 						"type":      "ao_func_gen",
 						"frequency": 2.5,
