@@ -44,7 +44,7 @@ const useUses = (key: secret.Key): resource.ID[] =>
 
 /**
  * Returns the count of the resources that use the secret and that the caller can read,
- * or zero while the uses load. Never suspends.
+ * or zero while the uses load or after their read fails. Never suspends or throws.
  */
 export const useUsesCount = (key: secret.Key): number =>
   Secret.useResultMultiple(ALL_USES).data?.find((s) => s.key === key)?.uses?.length ??
