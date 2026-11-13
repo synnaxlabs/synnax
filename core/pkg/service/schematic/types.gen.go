@@ -1021,6 +1021,6 @@ type Where struct {
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the schematics in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
-	// Projects matches the schematics owned by any of the given projects.
+	// Projects matches the schematics in any of the given projects.
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 }

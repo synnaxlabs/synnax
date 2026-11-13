@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ValidateOwner checks the owner of a visualization, which belongs to a project. It
-// returns a validation error on the project field when proj is nil.
-func ValidateOwner(proj *Key) error {
+// CheckMember returns a validation error on the project field when proj is nil, as
+// every visualization belongs to a project.
+func CheckMember(proj *Key) error {
 	if proj != nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func ValidateGroup(
 type Placement struct {
 	// Group is the group that holds the visualization, or nil.
 	Group *group.Key
-	// Project is the project that owns the visualization.
+	// Project is the project that holds the visualization.
 	Project *Key
 }
 

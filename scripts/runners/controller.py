@@ -69,6 +69,9 @@ than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled)
 runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
 runner_scaler_log carries its log.
 
+Seats (seats.py): starts a stopped agent seat when a job that asks for its labels
+queues. The scaler switch holds these starts too, and they log to runner_scaler_log.
+
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
 runner_gh_global_set and runner_gh_log as above.
@@ -82,8 +85,8 @@ while the last 3 polls all failed), runner_controller_log (every line logged her
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-cloudwatch:GetMetricData, ce:GetCostAndUsage, ce:GetCostForecast, pricing:GetProducts,
-and ssm:GetParameter on /runners/*.
+StartInstances on the agent seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, and ssm:GetParameter on /runners/*.
 """
 
 import argparse
@@ -129,6 +132,7 @@ from log import Log
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
 from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
+from seats import Seats
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -169,6 +173,7 @@ class Controller:
         jobs: Jobs,
         cost: Cost,
         scaler: Scaler,
+        seats: Seats,
         gate: Gate,
         log: Log,
         webhook: Webhook,
@@ -180,6 +185,7 @@ class Controller:
         self.jobs = jobs
         self.cost = cost
         self.scaler = scaler
+        self.seats = seats
         self.gate = gate
         self.log = log
         self.webhook = webhook
@@ -257,6 +263,11 @@ class Controller:
             running=set(self.jobs.active),
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
+        )
+        self.seats.step(
+            queued=list(self.jobs.queued.values()),
+            found=found,
+            enabled=self.scaler.enabled,
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
@@ -420,11 +431,12 @@ def main() -> None:
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
+    scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
     scaler = Scaler(
         client=client,
         cooldown=args.idle_cooldown,
         boot_grace=args.boot_grace,
-        log=Log(client=client, channels=channels, channel=SCALER_LOG),
+        log=scaler_log,
         enabled=args.scale == "enabled",
     )
     gate = Gate(
@@ -478,6 +490,7 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
+        seats=Seats(aws=aws, log=scaler_log),
         gate=gate,
         log=log,
         webhook=webhook,

@@ -82,5 +82,5 @@ type SplitNode = v4.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = v4.Key
 
-// Panel is a project-owned tree of visualization tabs.
+// Panel is a tree of visualization tabs in a project.
 type Panel = v4.Panel

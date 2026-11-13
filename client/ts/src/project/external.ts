@@ -9,7 +9,7 @@
 
 export * from "@/project/actions.gen";
 export * from "@/project/client";
-export * from "@/project/owner";
-export { type MovePayload } from "@/project/owner";
+export * from "@/project/member";
+export { type MovePayload } from "@/project/member";
 export * from "@/project/types.gen";
 export { type WhereInput } from "@/project/where.gen";

@@ -116,6 +116,10 @@ and stops. Its own uv project and CI job. A pool in `scaler.py` must use the lab
 workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
 instance.
 
+`seats.py` starts a stopped agent seat (`infra/agent-runner`) when a job that asks for
+its labels queues. It finds a seat by its instance tags, because the seat runners belong
+to the organization. A seat stops itself when it is idle.
+
 Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
 Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
 the scripts by hand on the box.
