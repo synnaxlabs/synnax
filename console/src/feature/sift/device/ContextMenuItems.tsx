@@ -7,8 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Menu } from "@synnaxlabs/lyra/menu";
+
+import { Task } from "@/feature/sift/task";
 import { Device } from "@/platform/device";
 
+const TASK_CONTEXT_MENU_ITEMS = [
+  Device.createTaskContextMenuItem({
+    itemKey: "sift.streamTask",
+    label: "Create stream task",
+    useCreate: Task.useCreateStream,
+  }),
+];
+
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => (
-  <Device.EditConnectionMenuItem {...props} />
+  <>
+    <Device.EditConnectionMenuItem {...props} />
+    <Menu.Divider />
+    <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+  </>
 );

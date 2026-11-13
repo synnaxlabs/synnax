@@ -10,5 +10,6 @@
 export * from "@/feature/sift/device/commands";
 export * from "@/feature/sift/device/ContextMenuItems";
 export * from "@/feature/sift/device/network";
+export * from "@/feature/sift/device/Select";
 export * from "@/feature/sift/device/types";
 export * from "@/feature/sift/device/useConnectModal";
