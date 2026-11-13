@@ -23,19 +23,14 @@ import (
 )
 
 // validateReadConfig checks the rules of cfg that need no other resource: each field
-// has a kind, the enum labels of a field are valid, and a bytes field with an empty
-// pointer is the only enabled field of its entry.
+// has a kind, the enum labels of a field are valid, and an enabled bytes field has a
+// pointer, because the read task does not read a raw payload.
 func validateReadConfig(cfg *ReadConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
 	return v2.PlainFields(cfg, func(path string, entry PlainReadEntry) error {
-		fields := entry.Fields
-		enabled := lo.CountBy(
-			fields,
-			func(f ReadField) bool { return !f.Base().Disabled },
-		)
-		for i, f := range fields {
+		for i, f := range entry.Fields {
 			fieldPath := path + "." + strconv.Itoa(i)
 			if f.Variant == nil {
 				return errors.Wrapf(
@@ -48,12 +43,10 @@ func validateReadConfig(cfg *ReadConfig) error {
 				return errors.Wrap(err, fieldPath)
 			}
 			base := f.Base()
-			if f.Type() == payload.KindBytes && base.Pointer == "" &&
-				!base.Disabled && enabled > 1 {
+			if f.Type() == payload.KindBytes && base.Pointer == "" && !base.Disabled {
 				return errors.Wrapf(
 					validate.ErrValidation,
-					"%s: a bytes field with an empty pointer must be the only "+
-						"enabled field",
+					"%s: a bytes field requires a JSON pointer",
 					fieldPath,
 				)
 			}
