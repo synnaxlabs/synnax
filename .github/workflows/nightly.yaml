@@ -108,7 +108,7 @@ jobs:
     # The plain success() check would see the failed ci job and skip this one.
     if: always() && needs.triage-prompt.result == 'success'
     permissions:
-      actions: read
+      actions: write
       contents: write
       id-token: write
       issues: write

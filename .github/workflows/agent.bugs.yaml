@@ -104,7 +104,7 @@ jobs:
       group: agent-bug-hunt-${{ matrix.area }}
       cancel-in-progress: false
     permissions:
-      actions: read
+      actions: write
       contents: write
       issues: write
       pull-requests: write

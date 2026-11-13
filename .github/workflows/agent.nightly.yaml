@@ -105,7 +105,7 @@ jobs:
       group: agent-nightly-${{ matrix.theme }}
       cancel-in-progress: false
     permissions:
-      actions: read
+      actions: write
       contents: write
       id-token: write
       issues: write

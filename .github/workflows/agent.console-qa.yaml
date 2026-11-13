@@ -62,7 +62,7 @@ jobs:
     name: Agent
     needs: prompt
     permissions:
-      actions: read
+      actions: write
       contents: write
       id-token: write
       issues: write

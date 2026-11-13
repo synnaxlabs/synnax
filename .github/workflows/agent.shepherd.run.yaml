@@ -99,6 +99,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     permissions:
+      actions: write
       contents: read
       id-token: write
     # The agent pushes and replies itself, as its GitHub App. The App token expires an

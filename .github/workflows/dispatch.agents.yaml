@@ -79,6 +79,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       id-token: write

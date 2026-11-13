@@ -9,7 +9,8 @@
 
 # Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
 # writes to GitHub as its own GitHub App, never as a person. Callers must grant
-# `id-token: write`, which starts a stopped runner through AWS.
+# `id-token: write`, which starts a stopped runner through AWS, and `actions: write`,
+# which cancels the run when the runners do not take the job.
 name: Agent
 
 on:
@@ -113,6 +114,79 @@ jobs:
             previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
               --query 'StartingInstances[0].PreviousState.Name')
             if [ "$previous" = stopped ]; then exit 0; fi
+          done
+
+  # A seat can halt from idle before a runner takes the job, and nothing else starts it
+  # again. This job starts a seat when none is up, until the job leaves the queue. It
+  # cancels the run when the runners of a seat stay idle and do not take the job.
+  watch:
+    needs: start
+    name: Keep a runner up
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      actions: write
+      id-token: write
+    steps:
+      - name: Assume the runner start role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Start a seat until the job leaves the queue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
+          JOBS:
+            repos/${{ github.repository }}/actions/runs/${{ github.run_id
+            }}/attempts/${{ github.run_attempt }}/jobs?per_page=100
+          JOB: ${{ job.check_run_id }}
+        # This shell sets pipefail, so a failed API call fails its pipeline.
+        shell: bash
+        run: |
+          jobs() {
+            gh api "$JOBS" --paginate --jq '.jobs[] | [.id, .name, .status] | @tsv'
+          }
+          # The run job of this call has the same name prefix as this job.
+          until name=$(jobs | awk -F '\t' -v id="$JOB" '$1 == id { print $2 }') &&
+            [ -n "$name" ]; do
+            sleep 20
+          done
+          run="${name% / *} / Run ($AGENT)"
+          up=false
+          # A seat that stays idle from its start stops in about 23 minutes. A seat that
+          # other jobs keep busy can stop after this watch ends, and then the job stays
+          # in the queue. A call that fails is done again on the next pass.
+          while [ "$SECONDS" -lt 1800 ]; do
+            sleep 60
+            status=$(jobs | awk -F '\t' -v name="$run" '$2 == name { print $3 }') ||
+              continue
+            if [ -z "$status" ]; then continue; fi
+            if [ "$status" != queued ]; then exit 0; fi
+            seats=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=agent "Name=tag:agent,Values=$AGENT" \
+              Name=instance-state-name,Values=pending,running,stopping,stopped \
+              --query 'Reservations[].Instances[].[InstanceId,State.Name]') || continue
+            if grep -qE 'pending|running' <<< "$seats"; then
+              up=true
+              continue
+            fi
+            # Only a seat with idle runners stops. A stop this long after the job went
+            # into the queue shows that the runners were online and did not take it.
+            if [ "$up" = true ] && [ "$SECONDS" -gt 180 ]; then
+              echo "::error::The agent-$AGENT runners were idle and did not take the" \
+                "job. Check their labels and the workflows their runner group accepts."
+              gh run cancel "$GITHUB_RUN_ID"
+              exit 1
+            fi
+            mapfile -t ids < <(cut -f 1 <<< "$seats")
+            # The waiter fails when another job starts an instance first.
+            aws ec2 wait instance-stopped --instance-ids "${ids[@]}" || continue
+            up=false
+            aws ec2 start-instances --instance-ids "${ids[0]}" > /dev/null || continue
           done
 
   run:

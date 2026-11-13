@@ -177,7 +177,7 @@ jobs:
   migration-audit:
     name: Migration audit
     permissions:
-      actions: read
+      actions: write
       contents: read
       id-token: write
     if: inputs.migration_audit
