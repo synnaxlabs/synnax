@@ -268,13 +268,23 @@ export interface UseResult<Query extends query.Params, Data extends state.State>
 }
 
 /**
+ * Projects a cached answer onto the slice a selector returns. It receives the client
+ * that owns the answer, so a projection can reuse work cached on that client.
+ */
+export type Select<Data, Query, Selected> = (
+  data: Data,
+  query: Query,
+  client: Client,
+) => Selected;
+
+/**
  * Mints a {@link UseSelect} sharing the definition's cache wiring. ExtendedQuery adds
  * selector-only fields (a node key, a tab key) the select projection needs; the cache
  * layer ignores them when addressing the record.
  */
 export interface CreateSelector<Query extends query.Params, Data extends query.Data> {
   <Selected, ExtendedQuery extends Query = Query>(
-    select: (data: Data, query: ExtendedQuery) => Selected,
+    select: Select<Data, ExtendedQuery, Selected>,
     equal?: (a: Selected, b: Selected) => boolean,
   ): UseSelect<ExtendedQuery, Selected>;
 }
@@ -291,7 +301,7 @@ export interface CreateResultSelector<
   Data extends query.Data,
 > {
   <Selected extends state.State, ExtendedQuery extends Query = Query>(
-    select: (data: Data, query: ExtendedQuery) => Selected,
+    select: Select<Data, ExtendedQuery, Selected>,
     equal?: (a: Selected, b: Selected) => boolean,
   ): UseResult<ExtendedQuery, Selected>;
 }
@@ -607,7 +617,7 @@ const createSelector = <
     normalizeQuery,
   }: CreateRetrieveParams<Query, Data> &
     Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
-  select: (data: Data, query: ExtendedQuery) => Selected,
+  select: Select<Data, ExtendedQuery, Selected>,
   selectedEqual?: (a: Selected, b: Selected) => boolean,
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
@@ -645,7 +655,7 @@ const createSelector = <
       const cached = computed.current;
       if (cached != null && cached.raw === raw && cached.query === memoQuery)
         return cached.out;
-      const out = select(raw, memoQuery);
+      const out = select(raw, memoQuery, client);
       computed.current = { raw, query: memoQuery, out };
       return out;
     };
@@ -676,7 +686,7 @@ const createResultSelector = <
   ExtendedQuery extends Query = Query,
 >(
   context: Context<Query, Data>,
-  select: (data: Data, query: ExtendedQuery) => Selected,
+  select: Select<Data, ExtendedQuery, Selected>,
   selectedEqual: (a: Selected, b: Selected) => boolean = Object.is,
 ): UseResult<ExtendedQuery, Selected> => {
   const {
@@ -716,9 +726,9 @@ const createResultSelector = <
       return next;
     };
     const selector = (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {
-      if (memoQuery == null || raw === undefined) return NONE_SLICE;
+      if (client == null || memoQuery == null || raw === undefined) return NONE_SLICE;
       if (Deleted.matches<Data>(raw)) return { kind: "deleted", corpse: raw.corpse };
-      return { kind: "live", selected: select(raw, memoQuery) };
+      return { kind: "live", selected: select(raw, memoQuery, client) };
     };
     const slice = useSyncExternalStoreWithSelector(
       subscribe,
@@ -763,7 +773,7 @@ const createResultSelector = <
       );
     if (settled != null)
       return "data" in settled
-        ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
+        ? successResult(`retrieved ${name}`, select(settled.data, memoQuery, client))
         : errorResult(`retrieve ${name}`, settled.error);
     return loadingResult<Selected>(`retrieving ${name}`);
   };
@@ -784,7 +794,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useRefresh: () => useRefresh<Query, Data>(context),
     useTombstone: (query: Query) => useTombstone(context, query),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
-      select: (data: Data, query: ExtendedQuery) => Selected,
+      select: Select<Data, ExtendedQuery, Selected>,
       equal?: (a: Selected, b: Selected) => boolean,
     ) => {
       const { getCached } = createParams;
@@ -798,7 +808,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
       Selected extends state.State,
       ExtendedQuery extends Query = Query,
     >(
-      select: (data: Data, query: ExtendedQuery) => Selected,
+      select: Select<Data, ExtendedQuery, Selected>,
       equal?: (a: Selected, b: Selected) => boolean,
     ) => {
       if (createParams.getCached == null)
