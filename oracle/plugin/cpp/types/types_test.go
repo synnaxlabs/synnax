@@ -2231,6 +2231,33 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should skip the header of a cross-namespace string enum with no default",
+				func(ctx SpecContext) {
+					loader.Add("schemas/wiring", `
+					@cpp output "client/cpp/wiring"
+
+					Mode enum {
+						rse  = "RSE"
+						diff = "Diff"
+					}
+				`)
+					source := `
+					import "schemas/wiring"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						mode wiring.Mode
+					}
+				`
+					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					ExpectContent(resp, "client/cpp/channel/types.gen.h").
+						ToContain(`std::string mode;`).
+						ToNotContain(`#include "client/cpp/wiring/types.gen.h"`)
+				},
+			)
+
+			It(
 				"Should generate default for cross-namespace enum variant",
 				func(ctx SpecContext) {
 					loader.Add("schemas/control", `
