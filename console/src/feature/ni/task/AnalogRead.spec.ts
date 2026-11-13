@@ -516,6 +516,35 @@ describe("AnalogRead with several selected channels", () => {
     });
   });
 
+  const savedChannels = async (key: task.Key) =>
+    (await client.tasks.retrieve({ key, schemas: NI.Task.ANALOG_READ_SCHEMAS })).config
+      .channels;
+
+  it("should give each selected channel a fresh scale of a type picked over mixed scales", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, {
+        name: "chan_a",
+        customScale: NI.Task.SCALE_SCHEMAS.linear.parse({
+          type: "linear",
+          scaledUnits: "Newtons",
+        }),
+      }),
+      createChannel("ai_voltage", 1, {
+        name: "chan_b",
+        customScale: NI.Task.createScale("map"),
+      }),
+    ]);
+    expect((await screen.findAllByText("Mixed")).length).toBeGreaterThan(0);
+    await selectFromDropdown("Linear", "Polynomial");
+    await waitFor(async () =>
+      expect(
+        (await savedChannels(draft.key)).map((c) =>
+          c.type === "ai_voltage" ? c.customScale : null,
+        ),
+      ).toEqual([NI.Task.createScale("polynomial"), NI.Task.createScale("polynomial")]),
+    );
+  });
+
   it("should ask for channels of one type when the selected types differ", async () => {
     await renderSelected([
       createChannel("ai_voltage", 0, { name: "chan_volts" }),
