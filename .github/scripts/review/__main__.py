@@ -55,6 +55,7 @@ from review import (
     dismissed,
     gh,
     load,
+    outside_findings,
     parse,
     post,
     reviewed,
@@ -143,13 +144,14 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     )
     # A replay of an old commit must not see the threads that came after it.
     found = [] if replay else threads(target, gh)
+    held = set() if replay else outside_findings(target, gh)
     pr = PullRequest(
         number=target.pr,
         title=meta["title"],
         body=meta["body"],
         head=head,
         diff=diff,
-        open={(th.path, th.title) for th in found if not th.resolved},
+        open={(th.path, th.title) for th in found if not th.resolved} | held,
         dismissed=dismissed(found),
         new=new,
         dropped=dropped,

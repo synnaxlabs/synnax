@@ -327,7 +327,14 @@ def _anchor(f: Finding) -> dict[str, Any]:
     return anchor
 
 
-def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
+def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding that the bot's comment of findings
+    outside the diff lists."""
+    c = _outside(t, gh)
+    return set() if c is None else render.outside_listed(c["body"])
+
+
+def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
     out = gh(
         "api",
         "--paginate",
@@ -335,12 +342,18 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
         "--jq",
         ".[] | {id, login: .user.login, body} | tojson",
     )
-    for c in (json.loads(line) for line in out.splitlines() if line):
+    comments: list[dict[str, Any]] = [json.loads(s) for s in out.splitlines() if s]
+    for c in comments:
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
-            path = f"repos/{t.repo}/issues/comments/{c['id']}"
-            write(gh, "PATCH", path, {"body": body})
-            return
-    if created:
+            return c
+    return None
+
+
+def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
+    c = _outside(t, gh)
+    if c is not None:
+        write(gh, "PATCH", f"repos/{t.repo}/issues/comments/{c['id']}", {"body": body})
+    elif created:
         write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
 
 

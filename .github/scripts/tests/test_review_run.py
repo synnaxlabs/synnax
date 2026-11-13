@@ -27,6 +27,7 @@ from review import (
     PullRequest,
     Window,
     load,
+    render,
     run,
 )
 from review.__main__ import claude as launch, main
@@ -849,7 +850,9 @@ class TestMain:
         executable(
             bindir / "gh",
             f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "    pass\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
         )
         prompt = tmp_path / "prompt.txt"
@@ -938,16 +941,24 @@ class TestMain:
             json.dumps(n) + "\n"
             for n in [node("Open bug"), node("Meant", "@sedosaur dismiss, on purpose")]
         )
+        far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
+        body = render.outside([far], blob="https://github.com/o/r/blob/h")
+        comment = json.dumps({"id": 3, "login": "sedosaur[bot]", "body": body})
         executable(
             tmp_path / "bin" / "gh",
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            f"    print({comment!r})\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('reviewThreads' in a for a in sys.argv):\n"
             f"    print({nodes!r}, end='')\n",
         )
         main(["run", str(tmp_path / "review.json")])
         text = (tmp_path / "prompt.txt").read_text()
-        assert "# Earlier findings still open\n\n- `a.go`: Open bug\n" in text
+        held = (
+            "# Earlier findings still open\n\n- `a.go`: Open bug\n- `b.md`: Stale doc\n"
+        )
+        assert held in text
         assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
@@ -977,7 +988,9 @@ class TestMain:
         )
         executable(
             tmp_path / "bin" / "gh",
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "    pass\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('userContentEdits' in a for a in sys.argv):\n"
             f"    print({edits!r}, end='')\n",

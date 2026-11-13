@@ -15,7 +15,17 @@ from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, gh as call_gh, parse, post, render, reviewed
+from review import (
+    Finding,
+    Review,
+    Target,
+    gh as call_gh,
+    outside_findings,
+    parse,
+    post,
+    render,
+    reviewed,
+)
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(
@@ -358,6 +368,13 @@ class TestOutsideFindings:
         [edit] = gh.written("PATCH", "issues/comments/9")
         assert "No findings outside the diff remain." in edit["body"]
         assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_read_back_the_findings_the_comment_lists(self, gh: FakeGH) -> None:
+        later = finding(path="b/c d.go", title="Later [x]", deferrable=True)
+        body = render.outside([finding(line=10), later], blob="https://github.com/b")
+        gh.comments = [{"id": 9, "login": "sedosaur[bot]", "body": body}]
+        found = outside_findings(TARGET, gh)
+        assert found == {("a.go", "Samples return old data"), ("b/c d.go", "Later [x]")}
 
     def test_should_post_no_comment_when_none_is_needed(self, gh: FakeGH) -> None:
         post(review(finding()), target=TARGET, gh=gh)

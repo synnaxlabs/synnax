@@ -22,6 +22,9 @@ SUMMARY_END = "<!-- /sedosaur_comment -->"
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
+_OUTSIDE_ITEM = re.compile(
+    r"(?m)^- .*?\*\*(.+?)\*\*(?: \(follow-up\))? \[`(.+):\d+`\]\("
+)
 VOTE = "<sub>React 👍 if this is a real problem or 👎 if it is noise.</sub>"
 SUBJECT_CHARS = 48
 
@@ -93,6 +96,12 @@ def outside(findings: list[Finding], *, blob: str) -> str:
         body = f.body.replace("\n", "\n  ")
         lines += [f"- {heading(f)} {where}", "", f"  {body}", ""]
     return "\n".join(lines)
+
+
+def outside_listed(body: str) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding in a comment that `outside`
+    rendered."""
+    return {(m[2], m[1]) for m in _OUTSIDE_ITEM.finditer(body)}
 
 
 def subject(message: str) -> str:
