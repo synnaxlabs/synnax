@@ -71,7 +71,6 @@ const kvDeleteZ = z
 
 const aliasDeleteZ = z.string().transform((val) => alias.decodeDeleteChange(val));
 
-/** The aliases a range resolves: its own and those of the ranges above it. */
 /** The channel aliases of a range: its own and those of the ranges above it. */
 export interface ResolvedAliases {
   range: Key;

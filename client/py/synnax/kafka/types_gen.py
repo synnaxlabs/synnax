@@ -17,7 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, http, task
-from x import telem
+from x import payload, telem
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
 
@@ -78,8 +78,8 @@ class ReadField(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")
-    time_format: http.TimeFormat | None = None
-    enum_values: list[http.EnumEntry] = Field(default_factory=list)
+    time_format: payload.TimeFormat | None = None
+    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -103,9 +103,9 @@ class WriteChannel(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    json_type: http.JSONType = "number"
-    time_format: http.TimeFormat | None = None
-    enum_values: list[http.EnumEntry] = Field(default_factory=list)
+    json_type: payload.JSONType = "number"
+    time_format: payload.TimeFormat | None = None
+    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -128,7 +128,7 @@ class Record(BaseModel):
     value_pointer: str = "/value"
     channel_pointer: str | None = None
     timestamp_pointer: str | None = None
-    time_format: http.TimeFormat = "unix_ns"
+    time_format: payload.TimeFormat = "unix_ns"
     fields: list[http.WriteField] = Field(default_factory=list)
 
 
