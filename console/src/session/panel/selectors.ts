@@ -82,7 +82,7 @@ const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);
  * is the order they see everywhere. Suspends until the panels resolve.
  */
 export const useSelectOrderedKeys = (): panel.Key[] => {
-  const user = User.useKey({});
+  const { key: user } = User.use({});
   const keys = Panel.useKeysByProject({ project: Project.useSelectSelected(), user });
   const order = useSelectOrder();
   // The query answers membership, the session answers order. A key the session has

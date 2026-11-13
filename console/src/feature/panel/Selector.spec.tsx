@@ -456,8 +456,6 @@ describe("Panel.Selector", () => {
     });
   });
 
-  // Deleting the selected panel hands the window to the panel beside it in the
-  // strip, the way closing a browser tab does.
   describe("drafts", () => {
     it("should mark the user's drafts and hide the drafts of others", async () => {
       const proj = await client.projects.create({ name: uniqueName("project") });
@@ -484,6 +482,8 @@ describe("Panel.Selector", () => {
     });
   });
 
+  // Deleting the selected panel hands the window to the panel beside it in the
+  // strip, the way closing a browser tab does.
   describe("delete", () => {
     const createStrip = async (): Promise<{ store: TestStore; row: panel.Panel[] }> => {
       const { key: projectKey } = await client.projects.create({

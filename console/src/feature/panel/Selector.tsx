@@ -10,6 +10,7 @@
 import "@/feature/panel/Selector.css";
 
 import { panel, query } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
@@ -210,11 +211,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
         onChange={handleChange}
         disabled={!canEdit}
       />
-      {draft && (
-        <Text.Text level="small" color={9}>
-          Draft
-        </Text.Text>
-      )}
+      {draft && <Badge.Badge>Draft</Badge.Badge>}
     </Tabs.Tab>
   );
 };

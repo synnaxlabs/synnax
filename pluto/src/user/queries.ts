@@ -72,26 +72,25 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-export const { use, useResult, createSelector, createResultSelector } =
-  Flux.createRetrieve<Partial<RetrieveQuery>, user.User>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key } }) =>
-      key == null
-        ? await client.users.current.retrieve()
-        : await client.users.retrieve(key),
-    onChange: ({ client, query: { key } }, handler) =>
-      key == null
-        ? client.users.current.watch().onChange(handler)
-        : client.users.watch(key).onChange(handler),
-    getCached: ({ client, query: { key } }) =>
-      key == null
-        ? client.users.current.watch().getCached()
-        : client.users.watch(key).getCached(),
-  });
+export const { use, useResult, createResultSelector } = Flux.createRetrieve<
+  Partial<RetrieveQuery>,
+  user.User
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key } }) =>
+    key == null
+      ? await client.users.current.retrieve()
+      : await client.users.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    key == null
+      ? client.users.current.watch().onChange(handler)
+      : client.users.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) =>
+    key == null
+      ? client.users.current.watch().getCached()
+      : client.users.watch(key).getCached(),
+});
 
 export const useResultKey = createResultSelector(({ key }) => key);
-
-/** Returns the user's key, suspending until the user resolves. */
-export const useKey = createSelector(({ key }) => key);
 
 export const useResultName = createResultSelector(({ name }) => name);
