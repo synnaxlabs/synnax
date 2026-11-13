@@ -490,6 +490,8 @@ const Frame = ({
           <div
             ref={axisRefs}
             className={CSS.BE("range-timeline", "axis")}
+            role="group"
+            aria-label="Time axis"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

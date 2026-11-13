@@ -22,6 +22,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Overview } from "@/feature/range/next/overview/Overview";
+import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createPanelWrapper,
@@ -126,6 +127,38 @@ describe("range/next/overview", () => {
         const { color: stored } = await client.ranges.retrieve(rng.key);
         expect(stored == null ? null : color.hex(stored)).toBe("#123456");
       });
+    });
+
+    it("should rename the range from its name", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      const name = await screen.findByPlaceholderText("Name");
+      await waitFor(() => expect(name).toHaveProperty("value", rng.name));
+      const renamed = uniqueRangeName("renamed");
+      fireEvent.focus(name);
+      fireEvent.change(name, { target: { value: renamed } });
+      fireEvent.blur(name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
+      );
+    });
+
+    it("should add and remove a label from the picker of the range", async () => {
+      const rng = await createTestRange(client);
+      const label = await client.labels.create({
+        name: uniqueName("label"),
+        color: "#000000",
+      });
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Labels" }));
+      await searchAndClickLabelOption(label.name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([label.key]),
+      );
+      fireEvent.click(await screen.findByLabelText(`Remove ${label.name}`));
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([]),
+      );
     });
 
     it("should copy Python and TypeScript code that retrieves the range", async () => {
