@@ -11,6 +11,7 @@ package sift
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -28,9 +29,13 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // ScanTaskType is the type of the internal task that checks Sift devices and answers
@@ -74,6 +79,11 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
+	// Task follows the deletes and renames of stream tasks, which their progress
+	// statuses follow.
+	//
+	// [REQUIRED]
+	Task *task.Service
 	// Timeout bounds one call to Sift from a check or a command.
 	//
 	// [OPTIONAL] - Defaults to 10 s.
@@ -104,6 +114,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Task = override.Nil(c.Task, other.Task)
 	c.Timeout = override.Numeric(c.Timeout, other.Timeout)
 	c.CheckpointInterval = override.Numeric(
 		c.CheckpointInterval,
@@ -123,12 +134,16 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("label", c.Label)
+	v.NotNil("task", c.Task)
 	v.Positive("timeout", c.Timeout)
 	v.Positive("checkpoint_interval", c.CheckpointInterval)
 	return v.Error()
 }
 
-type factory struct {
+// Factory configures the Sift task types. It also deletes and renames the progress
+// status of each stream task as the task is deleted or renamed, whether or not the task
+// runs, and repairs the changes it missed when it opens. Safe for concurrent use.
+type Factory struct {
 	cfg FactoryConfig
 	mu  sync.Mutex
 	// uploaders holds the scan task that runs the uploads of each rack.
@@ -136,28 +151,125 @@ type factory struct {
 	// stopping holds, for each rack whose scan task stops, a channel that closes when
 	// the task releases the rack.
 	stopping map[rack.Key]chan struct{}
+	// wake signals that a task was deleted or a stream task was set.
+	wake       chan struct{}
+	disconnect observe.Disconnect
+	shutdown   io.Closer
 }
 
-var _ driver.Factory = (*factory)(nil)
+var _ driver.Factory = (*Factory)(nil)
 
-// NewFactory returns a driver factory for Sift tasks.
-func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
+// OpenFactory opens the factory for the Sift task types. The caller must Close it after
+// the last of its tasks stops.
+func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &factory{
+	f := &Factory{
 		cfg:       cfg,
 		uploaders: make(map[rack.Key]task.Key),
 		stopping:  make(map[rack.Key]chan struct{}),
-	}, nil
+		wake:      make(chan struct{}, 1),
+	}
+	f.disconnect = cfg.Task.Observe().OnChange(f.onTaskChange)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx.Go(f.followTasks, signal.RecoverWithErrOnPanic())
+	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	return f, nil
+}
+
+// Close stops following the deletes and renames of stream tasks.
+func (f *Factory) Close() error {
+	f.disconnect()
+	return f.shutdown.Close()
+}
+
+// onTaskChange runs in the commit of a task change, so it wakes followTasks and never
+// waits.
+func (f *Factory) onTaskChange(
+	_ context.Context,
+	r gorp.TxReader[task.Key, task.Task],
+) {
+	for ch := range r {
+		if ch.Kind == gorp.ChangeDelete || ch.Value.Type == StreamTaskType {
+			select {
+			case f.wake <- struct{}{}:
+			default:
+			}
+			return
+		}
+	}
+}
+
+// followTasks repairs the progress statuses at once and after each wake until ctx is
+// cancelled.
+func (f *Factory) followTasks(ctx context.Context) error {
+	for {
+		f.repairProgress(ctx)
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-f.wake:
+		}
+	}
+}
+
+// repairProgress deletes each progress status that no stream task has, and gives each
+// other one the name of its task. It logs each status it fails to repair, which the
+// next repair tries again.
+func (f *Factory) repairProgress(ctx context.Context) {
+	var (
+		statuses []status.Status[any]
+		tasks    []task.Task
+	)
+	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := f.cfg.Status.NewRetrieve[any]().
+			WherePrefix(streamKeyPrefix).
+			Entries(&statuses).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		return f.cfg.Task.NewRetrieve().
+			Where(task.MatchTypes(StreamTaskType)).
+			Entries(&tasks).
+			Exec(ctx, snap)
+	}); err != nil {
+		f.cfg.L.Error("failed to read stream progress", zap.Error(err))
+		return
+	}
+	names := make(map[status.Key]string, len(tasks))
+	for _, t := range tasks {
+		names[ProgressKey(t.Key)] = t.Name
+	}
+	for _, s := range statuses {
+		name, ok := names[s.Key]
+		if ok && name == s.Name {
+			continue
+		}
+		err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			w := f.cfg.Status.NewWriter(tx)
+			if !ok {
+				return w.Delete(ctx, s.Key)
+			}
+			return w.Rename(ctx, s.Key, name)
+		})
+		// A user can delete the progress status of a task that still exists.
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			f.cfg.L.Error(
+				"failed to repair stream progress",
+				zap.String("key", s.Key),
+				zap.Error(err),
+			)
+		}
+	}
 }
 
 // Name implements driver.Factory.
-func (f *factory) Name() string { return Make }
+func (f *Factory) Name() string { return Make }
 
 // InitialTasks implements driver.Factory.
-func (f *factory) InitialTasks() []task.Task {
+func (f *Factory) InitialTasks() []task.Task {
 	return []task.Task{{
 		Name:   scanTaskName,
 		Type:   ScanTaskType,
@@ -166,7 +278,7 @@ func (f *factory) InitialTasks() []task.Task {
 }
 
 // ConfigureTask implements driver.Factory.
-func (f *factory) ConfigureTask(
+func (f *Factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
@@ -181,7 +293,7 @@ func (f *factory) ConfigureTask(
 	}
 }
 
-func (f *factory) reporter() driver.ConfigReporter {
+func (f *Factory) reporter() driver.ConfigReporter {
 	return driver.ConfigReporter{
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
@@ -189,7 +301,7 @@ func (f *factory) reporter() driver.ConfigReporter {
 	}
 }
 
-func (f *factory) configureStreamTask(
+func (f *Factory) configureStreamTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
@@ -215,7 +327,7 @@ func (f *factory) configureStreamTask(
 	return st, nil
 }
 
-func (f *factory) configureScanTask(
+func (f *Factory) configureScanTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
@@ -245,7 +357,7 @@ func (f *factory) configureScanTask(
 // claim makes t the scan task that runs the uploads of its rack. It waits for a scan
 // task that stops to release the rack, and fails when another scan task runs the
 // uploads, since two would send each upload twice.
-func (f *factory) claim(ctx context.Context, t task.Task) error {
+func (f *Factory) claim(ctx context.Context, t task.Task) error {
 	for {
 		f.mu.Lock()
 		key, held := f.uploaders[t.Rack]
@@ -268,7 +380,7 @@ func (f *factory) claim(ctx context.Context, t task.Task) error {
 }
 
 // releasing makes claim wait for t to release its rack instead of failing.
-func (f *factory) releasing(t task.Task) {
+func (f *Factory) releasing(t task.Task) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.uploaders[t.Rack] == t.Key && f.stopping[t.Rack] == nil {
@@ -276,7 +388,7 @@ func (f *factory) releasing(t task.Task) {
 	}
 }
 
-func (f *factory) release(t task.Task) {
+func (f *Factory) release(t task.Task) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.uploaders[t.Rack] != t.Key {
@@ -315,7 +427,7 @@ func validateScanConfig(cfg *ScanConfig) error {
 }
 
 // configureScan returns the scan task of t, and whether the factory starts it.
-func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
+func (f *Factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 	var cfg ScanConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err
