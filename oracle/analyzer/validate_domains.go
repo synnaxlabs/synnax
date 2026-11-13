@@ -519,7 +519,9 @@ func ownedFields(
 }
 
 // validateRuleRanges errors on a field or a type whose merged rules no value can
-// satisfy, and on a length rule on a type that is not a string.
+// satisfy, and on a length rule on a type that is not a string. It reports where a rule
+// first empties the range, so a field or type without rules of its own never reports.
+// It does not check the type arguments of a generic struct used as a field type.
 func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		switch form := t.Form.(type) {
@@ -536,7 +538,9 @@ func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
 					t.QualifiedName,
 				))
 			}
-			if isEmptyRange(validation.TypeRules(validation.TypeChain(ref, table))) {
+			chain := validation.TypeChain(ref, table)
+			if len(chain) > 0 &&
+				emptiesRange(own, validation.TypeRules(chain[1:])) {
 				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
 					"%s has rules that no value can satisfy",
 					t.QualifiedName,
@@ -544,7 +548,9 @@ func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
 			}
 		case resolution.StructForm:
 			for _, f := range ownedFields(t, form, table) {
-				if isEmptyRange(validation.FieldRules(f, table)) {
+				own := validation.Parse(f.Domains["validate"])
+				inherited := validation.TypeRules(validation.TypeChain(f.Type, table))
+				if emptiesRange(own, inherited) {
 					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
 						"%s.%s has rules that no value can satisfy",
 						t.QualifiedName, f.Name,
@@ -555,14 +561,19 @@ func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
+// emptiesRange reports whether own rules empty the range that inherited rules leave.
+func emptiesRange(own, inherited *validation.Rules) bool {
+	return !validation.IsEmpty(own) && !isEmptyRange(inherited) &&
+		isEmptyRange(validation.Merge(own, inherited))
+}
+
 // isEmptyRange reports whether a lower bound of rules exceeds its upper bound.
 func isEmptyRange(rules *validation.Rules) bool {
 	if rules.Max != nil {
-		upper := rules.Max.Value()
-		if rules.Min != nil && rules.Min.Value() > upper {
+		if rules.Min != nil && rules.Min.Compare(*rules.Max) > 0 {
 			return true
 		}
-		if rules.GT != nil && rules.GT.Value() >= upper {
+		if rules.GT != nil && rules.GT.Compare(*rules.Max) >= 0 {
 			return true
 		}
 	}

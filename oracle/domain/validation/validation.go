@@ -13,6 +13,8 @@
 package validation
 
 import (
+	"cmp"
+
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -144,7 +146,7 @@ func Merge(a, b *Rules) *Rules {
 	out.GT = tighterNumber(a.GT, b.GT, true)
 	out.Max = tighterNumber(a.Max, b.Max, false)
 	if out.Min != nil && out.GT != nil {
-		if out.GT.Value() >= out.Min.Value() {
+		if out.GT.Compare(*out.Min) >= 0 {
 			out.Min = nil
 		} else {
 			out.GT = nil
@@ -164,15 +166,22 @@ func tighterLength(a, b *int64, lower bool) *int64 {
 }
 
 func tighterNumber(a, b *Number, lower bool) *Number {
-	if a == nil || (b != nil && (b.Value() > a.Value()) == lower &&
-		b.Value() != a.Value()) {
+	if a == nil || (b != nil && b.Compare(*a) != 0 && (b.Compare(*a) > 0) == lower) {
 		return b
 	}
 	return a
 }
 
-// Value returns n as a float64.
-func (n Number) Value() float64 {
+// Compare returns -1, 0, or 1 when n is less than, equal to, or greater than o. Two
+// integers compare exactly.
+func (n Number) Compare(o Number) int {
+	if n.IsInt && o.IsInt {
+		return cmp.Compare(n.Int, o.Int)
+	}
+	return cmp.Compare(n.float(), o.float())
+}
+
+func (n Number) float() float64 {
 	if n.IsInt {
 		return float64(n.Int)
 	}
