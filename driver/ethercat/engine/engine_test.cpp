@@ -2015,13 +2015,35 @@ const std::vector<slave::StartupParameter> STANDALONE{
     {.index = 0x8020, .sub_index = 2, .data_type = x::telem::UINT16_T, .value = 2},
 };
 
+/// @brief picks STANDALONE for any slave that configure finds.
+std::pair<std::vector<slave::StartupParameter>, x::errors::Error>
+standalone(const slave::DiscoveryResult &) {
+    return {STANDALONE, x::errors::NIL};
+}
+
 /// @brief it should write to a slave on a stopped bus, then discover the slaves again.
 TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
-    ASSERT_NIL(this->engine->configure(io_slave(0), STANDALONE));
+    ASSERT_NIL(this->engine->configure(io_slave(0), standalone));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"scan", "write", "deactivate", "scan"})
+        (std::vector<std::string>{"deactivate", "scan", "write", "deactivate", "scan"})
     );
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {0, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should scan the bus again before it looks for the slave, so a slave that
+/// restarted since the last scan is not looked up in that old scan.
+TEST_F(EngineTest, ConfigureScansTheBusAgainBeforeItLooksForTheSlave) {
+    ASSERT_NIL_P(this->engine->discover());
+    auto restarted = io_slave(0);
+    restarted.serial = 5;
+    this->master->replace_slave(0, restarted);
+    ASSERT_NIL(this->engine->configure(restarted, standalone));
     EXPECT_EQ(
         this->master->written(),
         (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
@@ -2043,7 +2065,7 @@ TEST_F(EngineTest, ConfigureFindsTheSlaveInItsOwnScan) {
     this->engine = std::make_shared<Engine>("eth0", this->master);
     auto seen = second;
     seen.position = 0;
-    ASSERT_NIL(this->engine->configure(seen, STANDALONE));
+    ASSERT_NIL(this->engine->configure(seen, standalone));
     EXPECT_EQ(
         this->master->written(),
         (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
@@ -2056,7 +2078,7 @@ TEST_F(EngineTest, ConfigureFindsTheSlaveInItsOwnScan) {
 TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
     auto gone = io_slave(0);
     gone.serial = 9;
-    const auto err = this->engine->configure(gone, STANDALONE);
+    const auto err = this->engine->configure(gone, standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling.");
     EXPECT_EQ(this->master->call_count("write"), 0);
@@ -2068,10 +2090,42 @@ TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     this->master->clear_call_log();
-    const auto err = this->engine->configure(io_slave(0), STANDALONE);
+    const auto err = this->engine->configure(io_slave(0), standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "A task uses eth0. Stop the tasks that use it first.");
     EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
+/// @brief it should refuse at once to write while a task starts the bus, without
+/// waiting for the start to end.
+TEST_F(EngineTest, ConfigureRefusesAtOnceWhileATaskStartsTheBus) {
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine
+                                 ->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    });
+    this->master->wait_until_activating();
+    const auto err = this->engine->configure(io_slave(0), standalone);
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "A task is starting on eth0. Try again when the start ends, or stop the task."
+    );
+    EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
+/// @brief it should write nothing and scan only once when the parameters for the slave
+/// are empty.
+TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
+    ASSERT_NIL(this->engine->configure(io_slave(0), [](const auto &) {
+        return std::pair{std::vector<slave::StartupParameter>{}, x::errors::NIL};
+    }));
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{"deactivate", "scan"})
+    );
 }
 
 /// @brief it should call the network by the name of its master, not by its interface.
@@ -2082,7 +2136,7 @@ TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    const auto err = this->engine->configure(io_slave(0), STANDALONE);
+    const auto err = this->engine->configure(io_slave(0), standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "A task uses Ethernet 2. Stop the tasks that use it first.");
 }
@@ -2093,7 +2147,7 @@ TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
         x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected")
     );
     ASSERT_OCCURRED_AS(
-        this->engine->configure(io_slave(0), STANDALONE),
+        this->engine->configure(io_slave(0), standalone),
         errors::STARTUP_PARAMETER_ERROR
     );
 }
