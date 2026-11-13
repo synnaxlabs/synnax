@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  holdRequests,
   rejectRequests,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
@@ -799,6 +800,43 @@ describe("range/next/Explorer", () => {
   });
 
   describe("stored view", () => {
+    it("should save a layout change made once the update grant lands", async () => {
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+      });
+      const parent = await createRange(uniqueRangeName("parent"));
+      const child = await createRange(uniqueRangeName("child"), { parent: parent.key });
+      const as = await createTestClientWithGrants(client, {
+        retrieve: [
+          view.TYPE_RESOURCE_ID,
+          ranger.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+          group.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+        ],
+        update: [view.TYPE_RESOURCE_ID],
+      });
+      const grants = holdRequests(as, "/access/policy/retrieve");
+      await renderExplorer({ as });
+      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await findItem(parent.name);
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await findItem(child.name);
+      grants.release();
+      // The view shows its saved tree again once the grant lands.
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: child.name })).toBeNull(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(async () => {
+        const saved = await client.views.retrieve({ key: stored.key });
+        if (saved.type !== "range") throw new Error("not a range view");
+        expect(saved.layout).toBe("list");
+      });
+      await findItem(child.name);
+    });
+
     it("should switch the layout of a view the user may not update, and save nothing", async () => {
       const stored = await client.views.create({
         name: uniqueName("view"),
