@@ -216,7 +216,8 @@ const NO_KEYS: ranger.Key[] = [];
 
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
- * saves a change to it. A static view holds it here.
+ * saves a change to it. A static view, or a stored view the user may not edit, holds
+ * it here until the user opens another view.
  */
 const useViewField = <F extends "sort" | "layout">(
   field: F,
@@ -224,15 +225,19 @@ const useViewField = <F extends "sort" | "layout">(
   const { selected, staticViews, editable, getInitialView } = View.useContext();
   const stored = !staticViews.includes(selected);
   const [local, setLocal] = useState(() => (getInitialView() as view.RangeView)[field]);
+  const [held, setHeld] = useState(false);
   const live = PView.useResult(stored ? { key: selected } : null).data;
   const { update } = PView.useSetFields();
-  if (!stored) return [local, setLocal];
-  const value = live?.type === "range" ? live[field] : local;
+  if (!stored || held) return [local, setLocal];
   return [
-    value,
+    live?.type === "range" ? live[field] : local,
     (next) => {
-      if (editable)
+      if (editable) {
         update({ key: selected, actions: view.set({ path: [field], value: next }) });
+        return;
+      }
+      setLocal(next);
+      setHeld(true);
     },
   ];
 };

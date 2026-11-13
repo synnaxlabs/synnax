@@ -8,14 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type label,
+  group,
+  label,
   lineplot,
   NotFoundError,
-  type project,
+  project,
   ranger,
   type Synnax,
+  view,
 } from "@synnaxlabs/client";
-import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  rejectRequests,
+  spyOnSend,
+} from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -33,6 +39,7 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   createConsoleWrapper,
+  createTestClientWithGrants,
   openContextMenu,
   renderSuspended,
   resolveFocusedTab,
@@ -792,6 +799,37 @@ describe("range/next/Explorer", () => {
   });
 
   describe("stored view", () => {
+    it("should switch the layout of a view the user may not update, and save nothing", async () => {
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+      });
+      const parent = await createRange(uniqueRangeName("parent"));
+      const child = await createRange(uniqueRangeName("child"), { parent: parent.key });
+      const as = await createTestClientWithGrants(client, {
+        retrieve: [
+          view.TYPE_RESOURCE_ID,
+          ranger.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+          group.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+        ],
+      });
+      const send = spyOnSend(as);
+      onTestFinished(() => send.mockRestore());
+      await renderExplorer({ as });
+      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await findItem(parent.name);
+      expect(screen.queryByRole("listitem", { name: child.name })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await findItem(child.name);
+      expect(send.mock.calls.map(([target]) => target)).not.toContain("/view/dispatch");
+      fireEvent.click(screen.getByRole("tab", { name: "All ranges" }));
+      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await findItem(parent.name);
+      expect(screen.queryByRole("listitem", { name: child.name })).toBeNull();
+    });
+
     it("should save the sort and the layout to the view", async () => {
       const stored = await client.views.create({
         name: uniqueName("view"),
