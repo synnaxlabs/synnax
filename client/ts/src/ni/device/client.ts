@@ -187,7 +187,16 @@ export class Client extends query.Retriever<
             createReqZ,
             createResZ,
           );
-          this.store.ingest(res.devices.map(stripStatus), { since, mode: "set" });
+          const stored = res.devices.map(stripStatus);
+          // Only a set revives a key this client deleted.
+          const revived = stored.filter(
+            ({ key }) => this.store.getTombstone(key) != null,
+          );
+          this.store.set(revived);
+          this.store.ingest(
+            stored.filter((d) => !revived.includes(d)),
+            { since, mode: "set", changed: true },
+          );
           res.devices.forEach(({ status: st }) => {
             if (st != null) statuses.ingest(st, { since: statusSince });
           });
