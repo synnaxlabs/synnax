@@ -336,7 +336,7 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `Decoded` carries the map to `ReconcileEntry`, which now runs before `DropDangling`
   and turns each bound key into `unbound` from the map when no local channel has that
   key, or when `cluster` is another Core's, because two Cores hand out the same channel
-  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's a
+  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's
   non-zero `command_channel` become 0, and the import writes the target's `name` or the
   tag's `command_channel_name` from `$channels`, or else the name that the Console
   derives today, such as `<tag>_cmd`. Configure then binds the device's stored channel
@@ -348,9 +348,9 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   A disabled edge tag gets its command channel when the user enables it again. The
   import logs each one, with any name it set. A map built from a version before
   `Binding` holds no real channel values, so it unbinds only a missing key, and a
-  non-zero command channel with no stored name takes the derived one. A tag whose
-  `command_channel` is 0 rejects writes and keeps `command_channel_name` absent. With no
-  map entry for a missing `Binding` key, `ReconcileEntry` removes the field, or for a
+  non-zero command channel with no stored name takes the derived one. A tag stored with
+  `command_channel` 0 and no `command_channel_name` still rejects writes. With no map
+  entry for a missing `Binding` key, `ReconcileEntry` removes the field, or for a
   channel field its target or endpoint, and logs what it removed. `ReconcileEntry` skips
   a missing key that is not a `Binding`, such as a Kafka write channel, and
   `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
