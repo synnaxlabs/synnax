@@ -89,18 +89,63 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-const enumLabelsOf = (field: ReadField): string[] => {
-  switch (field.type) {
-    case "float":
-    case "integer":
-    case "unsigned":
-    case "string":
-    case "boolean":
-      return field.enumValues.map(({ label }) => label);
-    default:
-      return [];
-  }
-};
+// The Core refuses a repeated label, and an empty one on any kind but string, when it
+// saves a config. The form holds a list that breaks either rule until it is fixed.
+const enumValuesZ = <E extends z.ZodType<{ label: string }>>(
+  entry: E,
+  emptyLabel: boolean,
+) =>
+  entry
+    .array()
+    .default(() => [])
+    .check((ctx) => {
+      const seen = new Set<string>();
+      ctx.value.forEach(({ label }, i) => {
+        if (label === "" && !emptyLabel)
+          ctx.issues.push({
+            code: "custom",
+            input: ctx.value,
+            message: "Enum label cannot be empty",
+            path: [i, "label"],
+          });
+        else if (seen.has(label))
+          ctx.issues.push({
+            code: "custom",
+            input: ctx.value,
+            message: `Duplicate enum label "${label}"`,
+            path: [i, "label"],
+          });
+        else seen.add(label);
+      });
+    });
+
+const readFieldZ = z.discriminatedUnion("type", [
+  mqtt.floatReadFieldZ.extend({ enumValues: enumValuesZ(payload.floatEntryZ, false) }),
+  mqtt.integerReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.integerEntryZ, false),
+  }),
+  mqtt.unsignedReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.unsignedEntryZ, false),
+  }),
+  mqtt.stringReadFieldZ.extend({ enumValues: enumValuesZ(payload.stringEntryZ, true) }),
+  mqtt.booleanReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.booleanEntryZ, false),
+  }),
+  mqtt.timestampReadFieldZ,
+  mqtt.jsonReadFieldZ,
+  mqtt.uuidReadFieldZ,
+  mqtt.bytesReadFieldZ,
+]);
+
+const readConfigZ = mqtt.readConfigZ.extend({
+  entries: z
+    .discriminatedUnion("type", [
+      mqtt.plainReadEntryZ.extend({ fields: readFieldZ.array().default(() => []) }),
+      mqtt.sparkplugReadEntryZ,
+    ])
+    .array()
+    .default(() => []),
+});
 
 const validateReadField = (ctx: z.core.ParsePayload<ReadField>) => {
   const { value } = ctx;
@@ -108,27 +153,9 @@ const validateReadField = (ctx: z.core.ParsePayload<ReadField>) => {
   if (!pointer.success)
     for (const { message } of pointer.error.issues)
       ctx.issues.push({ code: "custom", input: value, message, path: ["pointer"] });
-  const seen = new Set<string>();
-  enumLabelsOf(value).forEach((label, i) => {
-    if (label === "" && value.type !== "string")
-      ctx.issues.push({
-        code: "custom",
-        input: value,
-        message: "Enum label cannot be empty",
-        path: ["enumValues", i, "label"],
-      });
-    else if (seen.has(label))
-      ctx.issues.push({
-        code: "custom",
-        input: value,
-        message: `Duplicate enum label "${label}"`,
-        path: ["enumValues", i, "label"],
-      });
-    else seen.add(label);
-  });
 };
 
-const deployReadFieldZ = mqtt.readFieldZ.check(validateReadField);
+const deployReadFieldZ = readFieldZ.check(validateReadField);
 
 const isVariable = (field: ReadField): boolean =>
   new DataType(Task.Payload.dataTypeOf(field)).isVariable;
@@ -221,7 +248,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   });
 };
 
-export const deployReadConfigZ = mqtt.readConfigZ.extend({
+export const deployReadConfigZ = readConfigZ.extend({
   device: Task.deviceKeyZ,
   entries: mqtt.readEntryZ
     .array()
@@ -230,7 +257,7 @@ export const deployReadConfigZ = mqtt.readConfigZ.extend({
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
-  config: mqtt.readConfigZ,
+  config: readConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 

@@ -410,6 +410,30 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
+    it("should hold a field whose labels the Core would refuse", () => {
+      const config = (fieldOverrides: object) =>
+        readConfig({ ...entry, fields: [{ ...field, ...fieldOverrides }] });
+      const { config: shape } = MQTT.Task.READ_SCHEMAS;
+      expect(
+        shape.safeParse(config({ enumValues: [{ label: "", value: 0 }] })).success,
+      ).toBe(false);
+      expect(
+        shape.safeParse(
+          config({
+            enumValues: [
+              { label: "ON", value: 1 },
+              { label: "ON", value: 2 },
+            ],
+          }),
+        ).success,
+      ).toBe(false);
+      expect(
+        shape.safeParse(
+          config({ type: "string", enumValues: [{ label: "", value: "none" }] }),
+        ).success,
+      ).toBe(true);
+    });
+
     it("should reject an empty enum label on a numeric field", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig({
