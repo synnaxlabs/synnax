@@ -290,7 +290,7 @@ var _ = Describe("Migrations", func() {
 			"v61_strip_arc_explorer_tabs",
 			"v62_panel_delete_range_owned",
 			"v62_panel_drop_range",
-			"v61_color_alpha_byte",
+			"v62_color_alpha_byte",
 		}))
 	})
 })

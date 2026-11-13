@@ -22,4 +22,4 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 }
 
 // Migration lifts stored tables from v5 to v6.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateTable)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateTable)

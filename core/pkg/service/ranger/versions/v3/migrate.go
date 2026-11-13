@@ -23,4 +23,4 @@ func MigrateRange(ctx context.Context, old v2.Range) (Range, error) {
 }
 
 // Migration lifts stored ranges from v2 to v3.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateRange)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateRange)
