@@ -106,6 +106,29 @@ jobs:
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
 
+      # The station's own services hold the hardware. The last step starts them again.
+      - name: Stop the station's Synnax services
+        id: services
+        shell: powershell
+        run: |
+          $running = @(Get-Service | Where-Object {
+            $_.Name -in 'SynnaxDriver', 'SynnaxCore' -and $_.Status -ne 'Stopped'
+          } | ForEach-Object { $_.Name })
+          # The output comes first, so a stop that fails still leaves the list.
+          $names = $running -join ','
+          [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "running=$names`n")
+          foreach ($name in $running) {
+            try {
+              Stop-Service -Name $name
+            } catch {
+              Write-Output ("::error title=Cannot stop $name::The account $(whoami) " +
+                "cannot stop the service ${name}: $($_.Exception.Message) Give the " +
+                "account the right to stop and start the service, then run the " +
+                "workflow again.")
+              exit 1
+            }
+          }
+
       # The run needs the hardware to itself. A Core without a Driver holds none.
       - name: Check that the hardware is free
         id: hardware
@@ -206,6 +229,13 @@ jobs:
         if: always()
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
+
+      - name: Start the station's Synnax services
+        if: always() && steps.services.outputs.running != ''
+        shell: powershell
+        env:
+          RUNNING: ${{ steps.services.outputs.running }}
+        run: Start-Service -Name ($env:RUNNING -split ',')
 
   # A run that finds the hardware in use posts only on the last attempt of the day.
   notify:
