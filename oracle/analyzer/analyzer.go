@@ -363,6 +363,7 @@ func analyze(c *analysisCtx) {
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
 	checkUnionDefaultConstructible(c)
+	checkArrayDefaultSize(c)
 	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
 	synthesizeRetrieveTypes(c)
@@ -810,13 +811,18 @@ func collectStructDecl(
 	c *analysisCtx, def *parser.StructFullContext, below int,
 ) (structDecl, bool) {
 	decl := structDecl{
-		form:    resolution.StructForm{TypeParams: collectTypeParams(def.TypeParams())},
+		form: resolution.StructForm{
+			TypeParams: collectTypeParams(c, def.TypeParams()),
+		},
 		domains: make(map[string]resolution.Domain),
 	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
-				decl.form.Extends = append(decl.form.Extends, collectTypeRef(tr, nil))
+				decl.form.Extends = append(
+					decl.form.Extends,
+					collectTypeRef(c, tr, nil),
+				)
 			}
 		}
 	}
@@ -891,7 +897,7 @@ func collectAction(
 			))
 			return action
 		}
-		action.Alias = collectTypeRef(tr, nil)
+		action.Alias = collectTypeRef(c, tr, nil)
 		if body := def.AliasBody(); body != nil {
 			for _, d := range body.AllDomain() {
 				addDomain(action.Domains, collectDomain(c, d))
@@ -902,7 +908,10 @@ func collectAction(
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
-				action.Extends = append(action.Extends, collectTypeRef(tr, typeParams))
+				action.Extends = append(
+					action.Extends,
+					collectTypeRef(c, tr, typeParams),
+				)
 			}
 		}
 	}
@@ -939,24 +948,9 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		return
 	}
 
-	typeParams := collectTypeParams(def.TypeParams())
+	typeParams := collectTypeParams(c, def.TypeParams())
 	tr := def.TypeRef()
-	target := collectTypeRef(tr, typeParams)
-
-	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
-		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
-			var arraySize *int64
-			if intLit := arrMod.INT_LIT(); intLit != nil {
-				size := parseInt(c, arrMod, intLit.GetText())
-				arraySize = &size
-			}
-			target = resolution.TypeRef{
-				Name:      "Array",
-				TypeArgs:  []resolution.TypeRef{target},
-				ArraySize: arraySize,
-			}
-		}
-	}
+	target := collectTypeRef(c, tr, typeParams)
 
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
@@ -985,7 +979,10 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	}))
 }
 
-func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam {
+func collectTypeParams(
+	c *analysisCtx,
+	params parser.ITypeParamsContext,
+) []resolution.TypeParam {
 	if params == nil {
 		return nil
 	}
@@ -999,7 +996,7 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 		hasExtends := p.EXTENDS() != nil
 		hasEquals := p.EQUALS() != nil
 		if hasExtends && len(typeRefs) > 0 {
-			ref := collectTypeRef(typeRefs[0], nil)
+			ref := collectTypeRef(c, typeRefs[0], nil)
 			tp.Constraint = &ref
 		}
 		if hasEquals {
@@ -1008,7 +1005,7 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 				idx = 1
 			}
 			if idx < len(typeRefs) {
-				ref := collectTypeRef(typeRefs[idx], nil)
+				ref := collectTypeRef(c, typeRefs[idx], nil)
 				tp.Default = &ref
 			}
 		}
@@ -1018,11 +1015,12 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 }
 
 func collectTypeRef(
+	c *analysisCtx,
 	tr parser.ITypeRefContext,
 	typeParams []resolution.TypeParam,
 ) resolution.TypeRef {
 	if mapCtx, ok := tr.(*parser.TypeRefMapContext); ok {
-		return collectMapTypeRef(mapCtx, typeParams)
+		return collectMapTypeRef(c, mapCtx, typeParams)
 	}
 
 	normalCtx := tr.(*parser.TypeRefNormalContext)
@@ -1040,11 +1038,20 @@ func collectTypeRef(
 
 	if args := normalCtx.TypeArgs(); args != nil {
 		for _, arg := range args.AllTypeRef() {
-			ref.TypeArgs = append(ref.TypeArgs, collectTypeRef(arg, typeParams))
+			ref.TypeArgs = append(ref.TypeArgs, collectTypeRef(c, arg, typeParams))
 		}
 	}
 
-	return ref
+	arrMod := normalCtx.ArrayModifier()
+	if arrMod == nil {
+		return ref
+	}
+	array := resolution.TypeRef{Name: "Array", TypeArgs: []resolution.TypeRef{ref}}
+	if intLit := arrMod.INT_LIT(); intLit != nil {
+		size := parseInt(c, arrMod, intLit.GetText())
+		array.ArraySize = &size
+	}
+	return array
 }
 
 // plainTypeRef reports whether tr names a type with no type arguments, array
@@ -1056,6 +1063,7 @@ func plainTypeRef(tr parser.ITypeRefContext) bool {
 }
 
 func collectMapTypeRef(
+	c *analysisCtx,
 	mapCtx *parser.TypeRefMapContext,
 	typeParams []resolution.TypeParam,
 ) resolution.TypeRef {
@@ -1064,8 +1072,8 @@ func collectMapTypeRef(
 
 	ref := resolution.TypeRef{Name: "Map"}
 	if len(typeRefs) >= 2 {
-		keyRef := collectTypeRef(typeRefs[0], typeParams)
-		valueRef := collectTypeRef(typeRefs[1], typeParams)
+		keyRef := collectTypeRef(c, typeRefs[0], typeParams)
+		valueRef := collectTypeRef(c, typeRefs[1], typeParams)
 		ref.TypeArgs = []resolution.TypeRef{keyRef, valueRef}
 	}
 	return ref
@@ -1084,33 +1092,12 @@ func collectField(c *analysisCtx,
 	// A field may omit its type to partially override an inherited field, in which case
 	// the type and optionality are resolved from the parent later.
 	if tr := def.TypeRef(); tr != nil {
-		normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
-		mapCtx, isMap := tr.(*parser.TypeRefMapContext)
-		var isArray bool
-		var arraySize *int64
-
-		if isNormal {
+		if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
 			field.Optional = extractTypeModifiersNormal(normalCtx)
-			if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
-				isArray = true
-				if intLit := arrMod.INT_LIT(); intLit != nil {
-					size := parseInt(c, arrMod, intLit.GetText())
-					arraySize = &size
-				}
-			}
-		} else if isMap {
+		} else if mapCtx, ok := tr.(*parser.TypeRefMapContext); ok {
 			field.Optional = extractTypeModifiersMap(mapCtx)
 		}
-
-		typeRef := collectTypeRef(tr, typeParams)
-		if isArray {
-			typeRef = resolution.TypeRef{
-				Name:      "Array",
-				TypeArgs:  []resolution.TypeRef{typeRef},
-				ArraySize: arraySize,
-			}
-		}
-		field.Type = typeRef
+		field.Type = collectTypeRef(c, tr, typeParams)
 	} else if mods := def.TypeModifiers(); mods != nil {
 		// Typeless override that overrides only nullability (key?); the type is
 		// inherited from the parent during override resolution.
@@ -1378,7 +1365,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 			))
 			return
 		}
-		form.Enum = collectTypeRef(tr, nil)
+		form.Enum = collectTypeRef(c, tr, nil)
 	}
 
 	decl, ok := collectUnionDecl(c, name, def, fileVersion(c))
@@ -1429,7 +1416,7 @@ func collectUnionDecl(
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
-				decl.extends = append(decl.extends, collectTypeRef(tr, nil))
+				decl.extends = append(decl.extends, collectTypeRef(c, tr, nil))
 			}
 		}
 	}
@@ -1454,7 +1441,7 @@ func collectVariantDecl(
 	case *parser.NamedVariantContext:
 		variant := resolution.UnionVariant{
 			Name:    v.VariantName().GetText(),
-			Type:    collectTypeRef(v.TypeRef(), nil),
+			Type:    collectTypeRef(c, v.TypeRef(), nil),
 			Domains: make(map[string]resolution.Domain),
 			AST:     def,
 		}
@@ -1489,7 +1476,7 @@ func collectInlineVariantDecl(
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
-				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+				form.Extends = append(form.Extends, collectTypeRef(c, tr, nil))
 			}
 		}
 	}
@@ -1616,7 +1603,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
-				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+				form.Extends = append(form.Extends, collectTypeRef(c, tr, nil))
 			}
 		}
 	}
@@ -1681,24 +1668,9 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		return
 	}
 
-	typeParams := collectTypeParams(def.TypeParams())
+	typeParams := collectTypeParams(c, def.TypeParams())
 	tr := def.TypeRef()
-	base := collectTypeRef(tr, typeParams)
-
-	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
-		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
-			var arraySize *int64
-			if intLit := arrMod.INT_LIT(); intLit != nil {
-				size := parseInt(c, arrMod, intLit.GetText())
-				arraySize = &size
-			}
-			base = resolution.TypeRef{
-				Name:      "Array",
-				TypeArgs:  []resolution.TypeRef{base},
-				ArraySize: arraySize,
-			}
-		}
-	}
+	base := collectTypeRef(c, tr, typeParams)
 
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)

@@ -519,6 +519,49 @@ func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string,
 	return "", false
 }
 
+// ArraySize returns the size of the fixed-size array that ref ultimately resolves to.
+// Like CollectionKind, it follows type-parameter constraints and defaults, alias
+// targets, and distinct bases. ok is false when ref is not a fixed-size array.
+func ArraySize(ref TypeRef, table *Table) (size int64, ok bool) {
+	return arraySize(ref, table, set.New[string]())
+}
+
+func arraySize(ref TypeRef, table *Table, visited set.Set[string]) (int64, bool) {
+	if ref.IsTypeParam() {
+		if ref.TypeParam == nil {
+			return 0, false
+		}
+		if ref.TypeParam.Constraint != nil {
+			return arraySize(*ref.TypeParam.Constraint, table, visited)
+		}
+		if ref.TypeParam.Default != nil {
+			return arraySize(*ref.TypeParam.Default, table, visited)
+		}
+		return 0, false
+	}
+	if ref.Name == "Array" {
+		if ref.ArraySize == nil {
+			return 0, false
+		}
+		return *ref.ArraySize, true
+	}
+	if visited.Contains(ref.Name) {
+		return 0, false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return 0, false
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return arraySize(form.Base, table, visited)
+	case AliasForm:
+		return arraySize(form.Target, table, visited)
+	}
+	return 0, false
+}
+
 type TypeParam struct {
 	Constraint *TypeRef
 	Default    *TypeRef

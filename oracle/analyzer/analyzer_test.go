@@ -3783,6 +3783,80 @@ Node union on variant {
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
 			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
+
+		It(
+			"Should keep an array inside a map or a type argument",
+			func(ctx SpecContext) {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					ports  map<string, uint16[]>
+					pairs  map<string, uint8[2]>
+					boxed  Box<string[]>
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form := table.MustGet("test.Config").Form.(resolution.StructForm)
+
+				ports, _ := form.Field("ports")
+				Expect(ports.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(ports.Type.TypeArgs[1].ArraySize).To(BeNil())
+				Expect(ports.Type.TypeArgs[1].TypeArgs[0].Name).To(Equal("uint16"))
+
+				pairs, _ := form.Field("pairs")
+				Expect(pairs.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(
+					pairs.Type.TypeArgs[1].ArraySize,
+				).To(HaveValue(BeEquivalentTo(2)))
+
+				boxed, _ := form.Field("boxed")
+				Expect(boxed.Type.TypeArgs[0].Name).To(Equal("Array"))
+				Expect(boxed.Type.TypeArgs[0].TypeArgs[0].Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should keep an array on a type parameter constraint and default",
+			func(ctx SpecContext) {
+				source := `
+				Box struct<T extends uint16[], U = uint8[2]> {
+					a T
+					b U
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form := table.MustGet("test.Box").Form.(resolution.StructForm)
+				Expect(form.TypeParams).To(HaveLen(2))
+				constraint := form.TypeParams[0].Constraint
+				Expect(constraint.Name).To(Equal("Array"))
+				Expect(constraint.TypeArgs[0].Name).To(Equal("uint16"))
+				def := form.TypeParams[1].Default
+				Expect(def.Name).To(Equal("Array"))
+				Expect(def.ArraySize).To(HaveValue(BeEquivalentTo(2)))
+			},
+		)
+
+		It("Should reject an array as a union variant", func(ctx SpecContext) {
+			source := `
+				Line struct {
+					a string
+				}
+
+				Shape union on kind {
+					lines Line[]
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`union Shape variant "lines" must reference a struct type`,
+			))
+		})
 	})
 
 	Describe("Recursive Types", func() {
@@ -4014,6 +4088,40 @@ Node union on variant {
 					def.Elements[1],
 				).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 			},
+		)
+
+		It(
+			"Should accept a fixed-size array default of the array's size",
+			func(ctx SpecContext) {
+				def := defaultOf(ctx, "coords float64[3] = [1.5, 2.5, 3.5]")
+				Expect(def.Elements).To(HaveLen(3))
+			},
+		)
+
+		DescribeTable(
+			"Should reject a fixed-size array default of another size",
+			func(ctx SpecContext, fieldDecl, msg string) {
+				source := "Pair = uint8[2]\n\nItem struct {\n\t" + fieldDecl + "\n}\n"
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry(
+				"fewer elements",
+				"coords float64[3] = [1.5]",
+				`default of field "coords" in "Item" has 1 elements, but its type `+
+					"holds exactly 3",
+			),
+			Entry(
+				"no elements",
+				"coords float64[3] = []",
+				"has 0 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an alias",
+				"pair Pair = [1, 2, 3]",
+				"has 3 elements, but its type holds exactly 2",
+			),
 		)
 	})
 

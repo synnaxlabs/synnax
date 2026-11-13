@@ -2657,6 +2657,71 @@ ChannelStatus = status.Status<nil>
 						ToContain(`Tuple[float, float, float]`)
 				},
 			)
+
+			It(
+				"Should require a fixed-size array field with no default",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Pair = uint8[2]
+
+					Point struct {
+						coords float64[3]
+						pair   Pair
+					}
+				`
+					resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							"coords: Tuple[float, float, float]\n",
+							"pair: Pair\n",
+						).
+						ToNotContain("default_factory=list")
+				},
+			)
+
+			It(
+				"Should require a field typed by a fixed-size array type parameter",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Bounded struct<T extends uint8[2]> {
+						pair T
+					}
+
+					Defaulted struct<T = uint8[2]> {
+						pair T
+					}
+				`
+					resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("pair: T\n").
+						ToNotContain("default_factory=list")
+				},
+			)
+
+			It(
+				"Should default a fixed-size array field to a tuple",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Point struct {
+						coords float64[3] = [1.5, 2.5, 3.5]
+						one    int32[1] = [7]
+					}
+				`
+					resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							"coords: Tuple[float, float, float] = "+
+								"(1.500000, 2.500000, 3.500000)\n",
+							"le=2147483647)]] = (7,)\n",
+						)
+				},
+			)
 		})
 
 		Context("@py name directive", func() {
@@ -3361,8 +3426,8 @@ var _ = Describe("Collection type aliases and maps", func() {
 					"Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=255)]]",
-				"Tuple[Annotated[int, Field(ge=0, le=255)], "+
-					"Annotated[int, Field(ge=0, le=255)]]",
+				"pair: Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]\n",
 				"small: list[Annotated[int, Field(ge=0, le=255)]]",
 				"port: list[Annotated[int, Field(ge=0, le=65535)]]",
 				"wide: list[Annotated[int, Field(ge=-9223372036854775808, "+
@@ -3403,6 +3468,53 @@ var _ = Describe("Collection type aliases and maps", func() {
 				"nested: dict[str, dict[Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=65535)]]]",
 				"name: dict[str, str]",
+			)
+		},
+	)
+
+	It(
+		"Should keep lists inside map values, list elements, and type arguments",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Key uint32
+
+			KeysByPort map<uint16, Key[]>
+
+			Row<T> = T[]
+
+			Box struct<T> {
+				value T
+			}
+
+			Lists struct {
+				bytes   map<string, uint8[]>
+				keys    map<uint16, Key[]>
+				names   map<string, string[]>
+				opt     map<string, uint8[]>?
+				rows    Row<uint16>[]
+				rowMap  map<string, Row<Key>[]>
+				pairs   map<string, uint8[2]>
+				boxed   Box<uint8[]>
+			}
+		`
+			resp := MustGenerate(ctx, source, "lists", loader, typesPlugin)
+			u8 := "Annotated[int, Field(ge=0, le=255)]"
+			u16 := "Annotated[int, Field(ge=0, le=65535)]"
+			key := "Annotated[Key, Field(ge=0, le=4294967295)]"
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"KeysByPort: TypeAlias = dict["+u16+", list["+key+"]]",
+				"bytes: dict[str, list["+u8+"]] = Field(default_factory=dict)",
+				"keys: dict["+u16+", list["+key+"]] = Field(default_factory=dict)",
+				"names: dict[str, list[str]] = Field(default_factory=dict)",
+				"opt: dict[str, list["+u8+"]] | None = None",
+				"rows: list[list["+u16+"]] = Field(default_factory=list)",
+				"row_map: dict[str, list[list["+key+"]]] = Field(default_factory=dict)",
+				"pairs: dict[str, Tuple["+u8+", "+u8+"]] = Field(default_factory=dict)",
+				"boxed: Box[list["+u8+"]]",
 			)
 		},
 	)

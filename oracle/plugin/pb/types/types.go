@@ -456,6 +456,7 @@ func (p *Plugin) processField(
 	number int,
 	data *templateData,
 ) (fieldData, error) {
+	field.Type = protoShape(field.Type)
 	if arrays.IsFixedSizeUint8(field.Type, data.table) {
 		return fieldData{
 			Name:       casing.FieldSnake(field.Name),
@@ -586,6 +587,15 @@ func (p *Plugin) generateNestedArrayWrapper(
 	}
 
 	return wrapperName, nil
+}
+
+// protoShape follows a type parameter to its default, the type typeToProto renders for
+// it. A type parameter with no default stays as it is and renders as Any.
+func protoShape(ref resolution.TypeRef) resolution.TypeRef {
+	for ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
+		ref = *ref.TypeParam.Default
+	}
+	return ref
 }
 
 func (p *Plugin) typeToProto(
@@ -828,6 +838,17 @@ func (p *Plugin) resolveMapType(
 		)
 	}
 
+	for _, arg := range typeRef.TypeArgs[:2] {
+		arg = protoShape(arg)
+		if arg.IsTypeParam() {
+			continue
+		}
+		if kind, _ := resolution.CollectionKind(arg, data.table); kind == "Array" {
+			return "", errors.New(
+				"protobuf map keys and values cannot be lists; wrap the list in a struct",
+			)
+		}
+	}
 	keyType, err := p.typeToProto(typeRef.TypeArgs[0], data)
 	if err != nil {
 		return "", errors.Wrap(err, "map key type")
