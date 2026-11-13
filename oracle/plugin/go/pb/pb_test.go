@@ -118,8 +118,13 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(
 						"pb.Value = &StringList{Values: r.Value}",
 						"r.Value = xpb.ListValues(pb.Value.Values)",
+						"Value: lo.Map(r.Value, func(v uint8, _ int) uint32 { "+
+							"return uint32(v) }),",
+						"r.Value = lo.Map(pb.Value, func(v uint32, _ int) uint8 { "+
+							"return uint8(v) })",
 						"Value: r.Value[:],",
-						"r.Value = pb.Value",
+						"r.Value = func() (a [2]uint8) { copy(a[:], pb.Value); "+
+							"return a }()",
 					)
 			},
 		)
