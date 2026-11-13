@@ -95,6 +95,13 @@ lighter step or the base step in dark mode.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
 
+### Top bar
+
+- The right end of the top bar holds what applies to the whole Console. It ends with
+  docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
+- The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
+  goes in the left bar.
+
 ### Toolbar search
 
 - A search action in a resource toolbar header turns the title into a field. The search

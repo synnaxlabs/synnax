@@ -174,8 +174,10 @@ class WriteConfig(task.PersistConfig):
         channels: Are the channels the task drives.
     """
 
-    state_rate: telem.Rate = telem.Rate(25)
-    execution_rate: telem.Rate = telem.Rate(1000)
+    state_rate: telem.Rate = Field(default=telem.Rate(25), gt=0, allow_inf_nan=False)
+    execution_rate: telem.Rate = Field(
+        default=telem.Rate(1000), gt=0, allow_inf_nan=False
+    )
     channels: list[WriteChannel] = Field(default_factory=list)
 
     @_override

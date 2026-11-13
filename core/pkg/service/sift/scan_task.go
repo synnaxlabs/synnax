@@ -86,11 +86,7 @@ func (s scanner) Exec(
 	case listAssetsCommand:
 		return s.listAssets(ctx, cmd)
 	case uploadCommand:
-		var args uploadArgs
-		if err := cmd.Args.Unmarshal(&args); err != nil {
-			return nil, errors.Wrap(err, "invalid arguments")
-		}
-		key, err := queueUpload(ctx, s.cfg, s.rack, args)
+		key, err := queueUpload(ctx, s.cfg, s.rack, cmd.Args)
 		if err != nil {
 			return nil, driver.Failure{
 				Message:     "Failed to upload to Sift",
