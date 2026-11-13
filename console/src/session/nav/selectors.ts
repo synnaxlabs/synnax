@@ -46,3 +46,10 @@ const selectBottomVisible = (state: StoreState): boolean => selectBottom(state).
 
 export const useSelectBottomVisible = (): boolean =>
   Select.useMemo(selectBottomVisible, []);
+
+const selectSettingsSection = (state: StoreState): string | undefined =>
+  selectWindowState(state).settings.section;
+
+/** Returns the Settings section this window last showed, if any. */
+export const useSelectSettingsSection = (): string | undefined =>
+  Select.useMemo(selectSettingsSection, []);

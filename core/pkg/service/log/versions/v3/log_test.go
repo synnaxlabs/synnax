@@ -137,15 +137,6 @@ var _ = Describe("Log", func() {
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
 		})
 
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v3.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-
 		It("Should path an invalid notation to its channel", func() {
 			l := v3.Log{
 				Name:     "valid",

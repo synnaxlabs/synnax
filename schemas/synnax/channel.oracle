@@ -248,11 +248,6 @@ APIChannel struct {
             with a timestamp.
         """
     }
-    alias       string?             {
-        @doc value """
-            is an optional alternate name for the channel within a specific context.
-        """
-    }
     virtual     bool = false {
         @cpp name  "is_virtual"
         @doc value """

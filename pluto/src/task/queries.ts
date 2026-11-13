@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
+import { query, rack, type Synnax, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -88,8 +88,6 @@ export interface KeyParams {
 
 export const useName = createSelector(({ name }) => name);
 
-export const useRange = createSelector(({ range }) => range);
-
 export type ListQuery = task.RetrieveMultipleParams;
 
 /**
@@ -134,7 +132,6 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     name: z.string(),
     rack: rack.keyZ,
     type: schemas.type,
-    snapshot: z.boolean(),
     config: schemas.config,
     configHash: z.string(),
     status: task.statusZ(schemas.statusData).optional().nullable(),
@@ -145,7 +142,6 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
   name: string;
   rack: rack.Key;
   type: z.infer<S["type"]>;
-  snapshot: boolean;
   config: z.infer<S["config"]>;
   configHash: string;
   status?: task.Status<S["statusData"]>;
@@ -159,7 +155,7 @@ export interface InitialValues<
   S extends task.Schemas = task.Schemas,
 > extends optional.Optional<
   task.Payload<S>,
-  "key" | "rack" | "internal" | "snapshot" | "configHash"
+  "key" | "rack" | "internal" | "configHash"
 > {}
 
 /** Builds the hook for a task's form. */
@@ -181,7 +177,6 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       config: payload.config as z.infer<S["config"]>,
       configHash: payload.configHash ?? "",
       status: payload.status,
-      snapshot: payload.snapshot ?? false,
     }),
   });
 
@@ -194,30 +189,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
     await client.tasks.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
-    return data;
-  },
-});
-
-export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
-
-export interface SnapshotParams {
-  tasks: SnapshotPair | SnapshotPair[];
-  /** The range the snapshots sit in. */
-  range: ranger.Key;
-}
-
-export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SNAPSHOT,
-  update: async ({ client, data }) => {
-    const { tasks, range } = data;
-    await Promise.all(
-      array
-        .toArray(tasks)
-        .map(({ key, name }) =>
-          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
-        ),
-    );
     return data;
   },
 });

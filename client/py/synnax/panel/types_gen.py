@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_, project as project_, ranger, resource as resource_
+from synnax import group as group_, project as project_, resource as resource_
 from synnax.resource import ID
 from x import color as color_, filter, spatial
 from x.filter import shorthand
@@ -77,7 +77,6 @@ class Where(BaseModel):
         groups: Matches the panels in any of the given groups.
         grouped: Matches the panels in a group, or in no group when false.
         projects: Matches the panels owned by any of the given projects.
-        ranges: Matches the panels owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -89,9 +88,8 @@ class Where(BaseModel):
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
     projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", "projects", "ranges", mode="before")
+    @field_validator("groups", "projects", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -109,7 +107,6 @@ WhereInput = TypedDict(
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
         "projects": project_.Key | list[project_.Key],
-        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -212,10 +209,7 @@ class Panel(BaseModel):
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
         group: Is the group the panel sits in, if any.
-        project: Is the project that owns the panel, if any. Exactly one of project and
-            range is set.
-        range: Is the range that owns the panel, if any. Exactly one of project and
-            range is set.
+        project: Is the project that owns the panel.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -225,7 +219,6 @@ class Panel(BaseModel):
     color: color_.Color | None = None
     group: group_.Key | None = None
     project: project_.Key | None = None
-    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

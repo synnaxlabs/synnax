@@ -221,13 +221,12 @@ class TestTaskClient:
         with pytest.raises(sy.ValidationError, match="rack is None"):
             client.tasks.retrieve(rack=None)  # type: ignore[call-overload]
 
-    def test_retrieve_by_internal_and_snapshot(self, client: sy.Synnax) -> None:
-        """Should exclude user tasks when filtering for internal or snapshot tasks."""
+    def test_retrieve_by_internal(self, client: sy.Synnax) -> None:
+        """Should exclude user tasks when filtering for internal tasks."""
         rack = client.racks.create(name=str(uuid4()))
         task = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         assert client.tasks.retrieve(rack=rack.key, internal=True) == []
-        assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
-        res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
+        res = client.tasks.retrieve(rack=rack.key, internal=False)
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_where(self, client: sy.Synnax) -> None:
@@ -835,46 +834,6 @@ class TestTaskClient:
         assert copied.name == copy_name
         assert copied.type == original.type
         assert copied.config["routing_key"] == original.config["routing_key"]
-
-    def test_copy_snapshot_into_range(self, client: sy.Synnax) -> None:
-        """Should place a snapshot copy in a range and retrieve it by that range."""
-        rng = client.ranges.create(
-            name=str(uuid4()),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        snap = client.tasks.copy(
-            original.key, str(uuid4()), snapshot=True, range_key=rng.key
-        )
-        assert snap.snapshot
-        assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
-        assert [t.key for t in rng.snapshots()] == [snap.key]
-
-    def test_configure_rejects_snapshot(self, client: sy.Synnax) -> None:
-        """Should refuse to configure a snapshot."""
-        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        snap = client.tasks.copy(original.key, str(uuid4()), snapshot=True)
-        with pytest.raises(
-            sy.ValidationError,
-            match=f"task {snap.key} is a snapshot, so only its name can change",
-        ):
-            client.tasks.configure(snap)
-
-    def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
-        """Should delete the snapshots in a range when the range is deleted."""
-        rng = client.ranges.create(
-            name=str(uuid4()),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        snap = client.tasks.copy(
-            original.key, str(uuid4()), snapshot=True, range_key=rng.key
-        )
-        client.ranges.delete(rng.key)
-        with pytest.raises(
-            sy.NotFoundError, match=f'Found no task where key = "{snap.key}"'
-        ):
-            client.tasks.retrieve(key=snap.key)
 
 
 @pytest.mark.task

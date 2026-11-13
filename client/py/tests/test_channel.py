@@ -974,60 +974,6 @@ class TestChannelRetrieveFilters:
         """Should retrieve a list of channels when no key or name is given"""
         assert len(client.channels.retrieve(limit=1)) == 1
 
-    def test_range_key(
-        self,
-        client: sy.Synnax,
-        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
-    ) -> None:
-        """Should set the alias of the channel in the range without caching it"""
-        data = create_channels[1]
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(data.key, "aliased")
-        assert client.channels.retrieve(data.key, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.name, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.key).alias is None
-
-    def test_range_key_search(self, client: sy.Synnax) -> None:
-        """Should put the channels whose alias in the range matches the search term
-        first, keeping only those that match the other filters
-        """
-        term = random_name()
-        named = client.channels.create(
-            name=f"{term}_named", data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        aliased = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        excluded = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT64, virtual=True
-        )
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(aliased.key, f"{term}_alias")
-        rng.set_alias(excluded.key, f"{term}_excluded")
-
-        def check() -> None:
-            res = client.channels.retrieve(
-                search_term=term,
-                range_key=rng.key,
-                data_types=[sy.DataType.FLOAT32],
-            )
-            assert [(ch.key, ch.alias) for ch in res] == [
-                (aliased.key, f"{term}_alias"),
-                (named.key, None),
-            ]
-
-        assert_eventually(check)
-
     def test_include_status(
         self,
         client: sy.Synnax,

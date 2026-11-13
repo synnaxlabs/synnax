@@ -103,10 +103,6 @@ x::errors::Error Manager::configure_initial_tasks() {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         for (const auto &task: tasks) {
-            if (task.snapshot) {
-                VLOG(1) << "ignoring snapshot task " << task;
-                continue;
-            }
             VLOG(1) << "queuing configure for task " << task;
             const auto entry = this->entry_for(task.key);
             {
@@ -245,13 +241,11 @@ void Manager::process_task_set(const x::telem::Series &series) {
         const auto name = parser.field<std::string>("name", "");
         const auto type = parser.field<std::string>("type", "");
         const auto config_hash = parser.field<std::string>("config_hash", "");
-        const auto snapshot = parser.field<bool>("snapshot", false);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse task metadata: "
                          << parser.error_json().dump();
             continue;
         }
-        if (snapshot) continue;
         std::lock_guard<std::mutex> lock(this->mu);
         // An untracked task becomes ours only when its row lands on this rack.
         if (!this->entries.contains(task_key) && rack_key != this->rack.key) continue;
@@ -547,12 +541,6 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     break;
                 }
                 tsk = std::move(fetched);
-                if (tsk.snapshot) {
-                    VLOG(1) << "ignoring start for snapshot task " << tsk;
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
-                    break;
-                }
                 if (tsk.rack != this->rack.key) {
                     // The start deploys the task on its new rack and doubles as
                     // the teardown signal for the instance held here.

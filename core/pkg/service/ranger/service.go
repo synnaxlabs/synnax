@@ -14,7 +14,6 @@ package ranger
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -23,11 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -167,28 +164,4 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
-}
-
-// RetrieveParentKey returns the parent range key for the given range key. Returns
-// query.ErrNotFound if the range has no parent.
-func (s *Service) RetrieveParentKey(
-	ctx context.Context,
-	key Key,
-	snap gorp.Snapshot,
-) (Key, error) {
-	var r Range
-	if err := s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&r).
-		Exec(ctx, snap); err != nil {
-		return uuid.Nil(), err
-	}
-	if r.Parent == nil {
-		return uuid.Nil(), errors.Wrapf(
-			query.ErrNotFound,
-			"range %s has no parent",
-			key,
-		)
-	}
-	return *r.Parent, nil
 }
