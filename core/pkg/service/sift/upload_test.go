@@ -112,7 +112,27 @@ var _ = Describe("Upload", func() {
 			),
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+		Expect(
+			uploadStatus(ctx, key),
+		).To(HaveField("Details.Range", HaveValue(Equal(rng.Key))))
+	})
+
+	It("Should send a plain time span without a run", func(ctx SpecContext) {
+		stat := execCommand(ctx, dt, t, "upload", map[string]any{
+			"device":     dev.Key,
+			"time_range": telem.TimeRange{Start: at(2), End: at(4)},
+			"channels":   []channel.Key{ch.Key()},
+			"asset":      "stand",
+		})
+		Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		key := stat.Details.Data["status"].(string)
+		statusOf(ctx, key).Should(SatisfyAll(
+			HaveField("Name", "stand"),
+			HaveField("Variant", status.VariantSuccess),
+			HaveField("Description", "Sent 2 samples to asset stand."),
+		))
+		Expect(server.Runs()).To(BeEmpty())
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", BeNil()))
 	})
 
 	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
@@ -222,7 +242,7 @@ var _ = Describe("Upload", func() {
 				Time:    telem.Now(),
 				Details: sift.UploadDetails{
 					Device:    moved.Key,
-					Range:     foreign.Key,
+					Range:     &foreign.Key,
 					TimeRange: foreign.TimeRange,
 					Channels:  []channel.Key{ch.Key()},
 					Asset:     "stand",
@@ -265,7 +285,7 @@ var _ = Describe("Upload", func() {
 				Time:    telem.Now(),
 				Details: sift.UploadDetails{
 					Device:    moved.Key,
-					Range:     rng.Key,
+					Range:     &rng.Key,
 					TimeRange: rng.TimeRange,
 					Channels:  []channel.Key{ch.Key()},
 					Asset:     "stand",
@@ -519,13 +539,6 @@ var _ = Describe("Upload", func() {
 				"asset":    "stand",
 			}
 		}, "device: required"),
-		Entry("no range", func() map[string]any {
-			return map[string]any{
-				"device":   dev.Key,
-				"channels": []channel.Key{ch.Key()},
-				"asset":    "stand",
-			}
-		}, "range: required"),
 		Entry("a device that does not exist", func() map[string]any {
 			return map[string]any{
 				"device":   missingDevice,
@@ -572,6 +585,33 @@ var _ = Describe("Upload", func() {
 				"asset":  "stand",
 			}
 		}, "channels: must be non-empty"),
+		Entry("no range or time range", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "a range or a time range is required"),
+		Entry("a range and a time range", func() map[string]any {
+			return map[string]any{
+				"device":     dev.Key,
+				"range":      rng.Key,
+				"time_range": telem.TimeRange{Start: at(1), End: at(2)},
+				"channels":   []channel.Key{ch.Key()},
+				"asset":      "stand",
+			}
+		}, "cannot be set with a range"),
+		Entry("a time range in the future", func() map[string]any {
+			return map[string]any{
+				"device": dev.Key,
+				"time_range": telem.TimeRange{
+					Start: telem.Now().Add(telem.Hour),
+					End:   telem.Now().Add(2 * telem.Hour),
+				},
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "time range starts in the future, so it has no data yet"),
 		Entry("a channel that Sift cannot take", func() map[string]any {
 			GinkgoHelper()
 			ctx := context.Background()

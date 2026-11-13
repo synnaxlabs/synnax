@@ -56,8 +56,9 @@ type ChannelPosition struct {
 type UploadDetails struct {
 	// Device is the key of the Sift device the upload sends to.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Range is the key of the range whose data the upload sends.
-	Range ranger.Key `json:"range" msgpack:"range"`
+	// Range is the key of the range whose data the upload sends. An upload of a plain
+	// time span has none.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 	// TimeRange is the span of data the upload sends.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Channels are the channels the upload sends.
