@@ -734,6 +734,32 @@ TEST(HTTPWriteTask, ParseConfigNestedPointersError) {
     }
 }
 
+/// @brief it should fail when a field pointer uses the array append token.
+TEST(HTTPWriteTask, ParseConfigAppendTokenErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {
+                  {{"type", "string"}, {"pointer", "/a/0"}, {"value", "x"}},
+                  {{"type", "json"}, {"pointer", "/a/-"}, {"value", "{}"}},
+                  {{"type", "uuid"}, {"pointer", "/a/1"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("must not use the '-' token"), std::string::npos)
+        << err.data;
+}
+
 /// @brief it should place the exact value of each kind of fixed field in the body.
 TEST(HTTPWriteTask, FixedFieldKinds) {
     testutil::Server server(

@@ -16,14 +16,12 @@ import (
 	xjson "github.com/synnaxlabs/x/json"
 )
 
-// maxExactFloat is the largest magnitude up to which a float64 holds every integer.
-const maxExactFloat = 1 << 53
-
 // LiftStaticWriteField returns the write field at base that places value, the value of
 // a static write field of a released Core. The kind comes from the stored Go type, not
-// the JSON type, because the Driver sent the value as stored. A whole float64 within
-// 2^53 becomes integer and another number float. A string or boolean keeps its kind,
-// and any other value, null included, becomes JSON text.
+// the JSON type, because the Driver sent the value as stored. A whole float64 becomes
+// integer within int64 range, or unsigned within uint64 range, so it keeps its digits.
+// Another number becomes float. A string or boolean keeps its kind, and any other
+// value, null included, becomes JSON text.
 func LiftStaticWriteField(base BaseWriteField, value any) (WriteField, error) {
 	var v WriteFieldVariant
 	switch x := value.(type) {
@@ -44,9 +42,14 @@ func LiftStaticWriteField(base BaseWriteField, value any) (WriteField, error) {
 	case float32:
 		return LiftStaticWriteField(base, float64(x))
 	case float64:
-		if x == math.Trunc(x) && math.Abs(x) <= maxExactFloat {
+		switch {
+		case x != math.Trunc(x) || math.IsInf(x, 0):
+			v = FloatWriteField{BaseWriteField: base, Value: Float(x)}
+		case x >= -(1<<63) && x < 1<<63:
 			v = IntegerWriteField{BaseWriteField: base, Value: Integer(x)}
-		} else {
+		case x >= 0 && x < 1<<64:
+			v = UnsignedWriteField{BaseWriteField: base, Value: Unsigned(x)}
+		default:
 			v = FloatWriteField{BaseWriteField: base, Value: Float(x)}
 		}
 	default:
