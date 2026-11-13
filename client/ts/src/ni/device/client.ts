@@ -169,45 +169,26 @@ export class Client extends query.Retriever<
 
   /**
    * Creates the devices, or replaces the devices whose keys exist. The Core gives each
-   * new device an unknown status.
+   * new device an unknown status. The cache takes the devices from the stream.
    * @throws {ValidationError} if a device is invalid or its rack does not exist.
    */
-  async create(device: New, opts?: query.WriteOptions): Promise<Device>;
-  async create(devices: New[], opts?: query.WriteOptions): Promise<Device[]>;
-  async create(
-    devices: New | New[],
-    opts: query.WriteOptions = {},
-  ): Promise<Device | Device[]> {
+  async create(device: New): Promise<Device>;
+  async create(devices: New[]): Promise<Device[]>;
+  async create(devices: New | New[]): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const normalized = array.toArray(devices).map((d) => deviceZ.parse(d));
-    const apply = () => [this.store.set(normalized.map(stripStatus))];
-    const { store: statuses } = this.cfg.statuses;
-    // A status streamed during the request is newer than the reply.
-    const res = await statuses.track(async (since) => {
-      const res = await query.optimistic({
-        rollbacks: apply(),
-        onOptimistic: opts.onOptimistic,
-        commit: async () =>
-          await this.cfg.unary.send(
-            "/ni/device/create",
-            { devices: normalized },
-            createReqZ,
-            createResZ,
-          ),
-      });
-      res.devices.forEach(({ status: st }) => {
-        if (st != null) statuses.ingest(st, { since });
-      });
-      return res;
-    });
-    this.store.set(res.devices.map(stripStatus));
+    const res = await this.cfg.unary.send(
+      "/ni/device/create",
+      { devices: array.toArray(devices).map((d) => deviceZ.parse(d)) },
+      createReqZ,
+      createResZ,
+    );
     return isSingle ? res.devices[0] : res.devices;
   }
 
   /**
    * Writes one field group to the device and keeps the other as stored. The update
    * replaces the whole group, so a field it leaves out is cleared, such as the chassis
-   * of an identity update.
+   * of an identity update. The cache takes the change from the stream.
    * @throws {NotFoundError} if the device does not exist.
    * @throws {ValidationError} if the update is invalid.
    */
@@ -218,25 +199,19 @@ export class Client extends query.Retriever<
       updateReqZ,
       emptyResZ,
     );
-    await this.fetchThrough(query.keysRequest([key]));
   }
 
-  /** Deletes the devices with their statuses. */
-  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
-    const keysArr = array.toArray(keys);
-    const drop = () => [this.store.delete(keysArr)];
-    await query.optimistic({
-      rollbacks: drop(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/ni/device/delete",
-          { keys: keysArr },
-          deleteReqZ,
-          emptyResZ,
-        ),
-    });
-    drop();
+  /**
+   * Deletes the devices with their statuses. The cache drops them when the stream
+   * delivers the deletes.
+   */
+  async delete(keys: Key | Key[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/ni/device/delete",
+      { keys: array.toArray(keys) },
+      deleteReqZ,
+      emptyResZ,
+    );
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
