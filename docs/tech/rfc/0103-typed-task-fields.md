@@ -323,11 +323,13 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   any version before `Binding`, legacy input included, each integration's store builds
   the map from the raw body after the legacy rewrite and before the ladder runs, with
   the timestamp rule of **Binding**. `Decoded` carries the map to `ReconcileEntry`,
-  which now runs before `DropDangling` and turns each bound key with no local channel
-  into `unbound` from the map. `DropDangling` then removes a field whose key has no map
-  entry, and the store logs it. `bound.key` 0 is invalid. Phase 7 adds `BoundKeys`, the
-  `Decode` and hook arguments, and the order, and each integration phase applies the
-  rule.
+  which now runs before `DropDangling` and turns each bound key into `unbound` from the
+  map when no local channel has that key, or when the local channel's name or data type
+  differs from the map. With no map entry for a missing key, `ReconcileEntry` removes
+  the field, or for a channel field its target or endpoint, and logs what it removed.
+  `DropDangling` then finds no dangling key. `bound.key` 0 is invalid. Phase 7 adds
+  `BoundKeys`, the `Decode` and hook arguments, and the order, and each integration
+  phase applies the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
