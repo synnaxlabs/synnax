@@ -52,6 +52,16 @@ protected:
         return dev;
     }
 
+    /// @brief sets whether the last scan found the device at key.
+    void set_connected(const std::string &key, const bool connected) const {
+        const auto dev = ASSERT_NIL_P(
+            this->client->devices.retrieve(key, {.include_status = true})
+        );
+        auto status = dev.status.value();
+        status.details.connected = connected;
+        ASSERT_NIL(this->client->statuses.set(status));
+    }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -1109,6 +1119,44 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
         "The Driver could not read the slave settings for eth0 from the Core: invalid "
         "credentials: auth error"
     );
+}
+
+/// @brief it should start with the connected device when a disconnected device is saved
+/// at its position with different settings.
+TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
+    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    removed.name = "EL3102";
+    ASSERT_NIL(this->client->devices.create(removed));
+    this->set_connected(removed.key, false);
+    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
+    replacement.key += "_replacement";
+    replacement.name = "EL3102";
+    replacement.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    this->set_connected(replacement.key, true);
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_TRUE(this->mock_master->config(2).enabled);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
 }
 
 /// @brief it should fail to start, naming both devices, when two devices at one
