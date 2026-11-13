@@ -165,7 +165,51 @@ const renderSelectChannel = Component.renderProp(
   ),
 );
 
-/** Returns ch written as kind, with the defaults of kind. */
+type NumericKind = "float" | "integer" | "unsigned";
+
+const isNumericKind = (kind: payload.Kind): kind is NumericKind =>
+  kind === "float" || kind === "integer" || kind === "unsigned";
+
+interface NumericEntry {
+  label: string;
+  value: number | string;
+}
+
+const numericEntries = (ch: WriteChannel): NumericEntry[] =>
+  ch.type === "float" || ch.type === "integer" || ch.type === "unsigned"
+    ? ch.enumValues
+    : [];
+
+const MAX_EXACT_FLOAT = 2n ** 53n;
+
+const RANGES: Record<"integer" | "unsigned", [bigint, bigint]> = {
+  integer: [-(2n ** 63n), 2n ** 63n - 1n],
+  unsigned: [0n, 2n ** 64n - 1n],
+};
+
+const exactInteger = (value: number | string): bigint | null => {
+  if (typeof value === "number") return Number.isInteger(value) ? BigInt(value) : null;
+  return /^-?[0-9]+$/.test(value) ? BigInt(value) : null;
+};
+
+/** Returns value as an entry value of kind, or null when it does not stay exact. */
+const convertValue = (
+  value: number | string,
+  kind: NumericKind,
+): number | string | null => {
+  if (kind === "float" && typeof value === "number") return value;
+  const n = exactInteger(value);
+  if (n == null) return null;
+  if (kind === "float")
+    return n >= -MAX_EXACT_FLOAT && n <= MAX_EXACT_FLOAT ? Number(n) : null;
+  const [min, max] = RANGES[kind];
+  return n >= min && n <= max ? n.toString() : null;
+};
+
+/**
+ * Returns ch written as kind, with the defaults of kind. Between numeric kinds, each
+ * entry that stays exact carries over.
+ */
 const asKind = (ch: WriteChannel, kind: payload.Kind): WriteChannel =>
   kafka.writeChannelZ.parse({
     key: ch.key,
@@ -173,6 +217,14 @@ const asKind = (ch: WriteChannel, kind: payload.Kind): WriteChannel =>
     channel: ch.channel,
     type: kind,
     ...(kind === "timestamp" ? { timeFormat: "iso8601" } : {}),
+    ...(isNumericKind(kind)
+      ? {
+          enumValues: numericEntries(ch).flatMap(({ label, value }) => {
+            const converted = convertValue(value, kind);
+            return converted == null ? [] : [{ label, value: converted }];
+          }),
+        }
+      : {}),
   });
 
 interface KindSelectProps {

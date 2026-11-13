@@ -229,6 +229,51 @@ describe("Write", () => {
     });
   });
 
+  it("should keep the exact entries of a float row moved to a uint8 channel", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "uint8",
+      virtual: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      channels: [
+        kafka.writeChannelZ.parse({
+          type: "float",
+          key: "c1",
+          channel: ch.key,
+          disabled: true,
+          enumValues: [
+            { label: "OFF", value: 0 },
+            { label: "HALF", value: 0.5 },
+            { label: "ON", value: 1 },
+          ],
+        }),
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click((await screen.findAllByText(ch.name))[0]);
+    await screen.findByText("Output type");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels[0]).toMatchObject({
+      type: "unsigned",
+      enumValues: [
+        { label: "OFF", value: "0" },
+        { label: "ON", value: "1" },
+      ],
+    });
+  });
+
   it("should write a timestamp channel in a time format", async () => {
     const dev = await createKafkaDevice(client);
     const ch = await client.channels.create({

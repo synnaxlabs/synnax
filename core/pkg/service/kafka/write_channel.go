@@ -240,9 +240,9 @@ func checkWriteChannel(wc WriteChannel, dt telem.DataType) error {
 
 // reconcileWriteConfig changes each channel of cfg to agree with its Synnax channel,
 // read through tx, and logs each change. A kind the channel's data type does not allow
-// becomes the first numeric kind it allows when the kind is numeric, and the data
-// type's own kind otherwise. Entries convert between numeric kinds when they stay
-// exact, and drop on other kinds. An entry that does not fit the channel, or whose
+// becomes the first numeric kind it allows when the kind is numeric or timestamp, and
+// the data type's own kind otherwise. Entries convert between numeric kinds when they
+// stay exact, and drop on other kinds. An entry that does not fit the channel, or whose
 // value collides with an earlier one's, drops.
 func reconcileWriteConfig(
 	ctx context.Context,
@@ -321,7 +321,9 @@ func reconcileWriteChannel(
 	}
 	if !slices.Contains(kinds, wc.Type()) {
 		kind := kinds[0]
-		if numeric(wc.Type()) {
+		// A v0 row that kept a time format after it moved off a timestamp channel
+		// wrote numbers there.
+		if numeric(wc.Type()) || wc.Type() == payload.KindTimestamp {
 			if i := slices.IndexFunc(kinds, numeric); i >= 0 {
 				kind = kinds[i]
 			}

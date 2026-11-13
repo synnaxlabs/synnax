@@ -23,11 +23,15 @@ import (
 // v0 ran, becomes a timestamp channel. Another number becomes a float channel. A
 // string stays a string, and its entries take the decimal text of their values, so a
 // numeric sample writes the same JSON string as in v0. A boolean becomes a boolean with
-// no entries. The kind may not fit the Synnax channel, so the caller reconciles it
-// against the channel.
+// no entries. An entry whose value repeats an earlier one's drops, because v0 wrote
+// the first label. The kind may not fit the Synnax channel, so the caller reconciles
+// it against the channel.
 func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, error) {
 	old.ApplyDefaults()
 	base := BaseWriteChannel{Key: old.Key, Disabled: old.Disabled, Channel: old.Channel}
+	entries := lo.UniqBy(old.EnumValues, func(e payload.EnumEntry) string {
+		return valueText(e.Value)
+	})
 	var v WriteChannelVariant
 	switch {
 	case old.TimeFormat != nil && old.JSONType == payload.JSONTypeNumber &&
@@ -39,16 +43,11 @@ func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, 
 		v = StringWriteChannel{
 			BaseWriteChannel: base,
 			EnumValues: lo.Map(
-				old.EnumValues,
+				entries,
 				func(e payload.EnumEntry, _ int) payload.StringEntry {
-					v := e.Value
-					// -0 would format as "-0", which no unsigned channel parses.
-					if v == 0 {
-						v = 0
-					}
 					return payload.StringEntry{
 						Label: e.Label,
-						Value: strconv.FormatFloat(v, 'f', -1, 64),
+						Value: valueText(e.Value),
 					}
 				},
 			),
@@ -57,7 +56,7 @@ func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, 
 		v = FloatWriteChannel{
 			BaseWriteChannel: base,
 			EnumValues: lo.Map(
-				old.EnumValues,
+				entries,
 				func(e payload.EnumEntry, _ int) payload.FloatEntry {
 					return payload.FloatEntry{
 						Label: e.Label,
@@ -68,6 +67,14 @@ func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, 
 		}
 	}
 	return WriteChannel{Variant: v}, nil
+}
+
+func valueText(v float64) string {
+	// -0 would format as "-0", which no unsigned channel parses.
+	if v == 0 {
+		v = 0
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // MigrateWriteConfig lifts a v0 write config and each of its channels to v1.
