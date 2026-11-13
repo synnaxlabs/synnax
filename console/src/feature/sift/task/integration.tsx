@@ -11,12 +11,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { StreamSelectable } from "@/feature/sift/task/Stream";
 import { PREFIX } from "@/feature/sift/task/types";
-import { FLAGS } from "@/flags";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "Sift",
   icon: <Icon.Logo.Sift />,
-  selectables: FLAGS.sift ? [StreamSelectable] : [],
+  selectables: [StreamSelectable],
 };

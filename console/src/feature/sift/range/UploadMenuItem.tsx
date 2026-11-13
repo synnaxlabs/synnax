@@ -13,14 +13,14 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
-import { FLAGS } from "@/flags";
 
 export interface UploadMenuItemProps {
   rangeKey: ranger.Key;
   rangeName: string;
 }
 
-const Item = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
+/** Opens a modal that uploads the data of a range to Sift. */
+export const UploadMenuItem = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
   const open = useUploadModal();
   return (
     <Menu.Item
@@ -40,7 +40,11 @@ export interface UploadRegionMenuItemProps {
   getTimeRange: () => Promise<TimeRange>;
 }
 
-const RegionItem = ({ name, getTimeRange }: UploadRegionMenuItemProps) => {
+/** Opens a modal that uploads a plain time span to Sift. */
+export const UploadRegionMenuItem = ({
+  name,
+  getTimeRange,
+}: UploadRegionMenuItemProps) => {
   const open = useUploadModal();
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
@@ -55,11 +59,3 @@ const RegionItem = ({ name, getTimeRange }: UploadRegionMenuItemProps) => {
     </Menu.Item>
   );
 };
-
-const Hidden = (): null => null;
-
-/** Opens a modal that uploads the data of a range to Sift. */
-export const UploadMenuItem = FLAGS.sift ? Item : Hidden;
-
-/** Opens a modal that uploads a plain time span to Sift. */
-export const UploadRegionMenuItem = FLAGS.sift ? RegionItem : Hidden;

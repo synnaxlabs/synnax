@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/sift/device/useConnectModal";
-import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(device.TYPE_RESOURCE_ID);
@@ -25,4 +24,4 @@ const ConnectCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = FLAGS.sift ? [ConnectCommand] : [];
+export const COMMANDS = [ConnectCommand];

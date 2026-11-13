@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useCreateStream } from "@/feature/sift/task/Stream";
-import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
@@ -25,4 +24,4 @@ const CreateStreamCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = FLAGS.sift ? [CreateStreamCommand] : [];
+export const COMMANDS = [CreateStreamCommand];

@@ -14,7 +14,6 @@ import { Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
 import { Sift } from "@/feature/sift";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -30,7 +29,7 @@ export const Overview: Panel.Content = () => {
         <Range.Details rangeKey={key} />
         <ChildRanges rangeKey={key} />
         <Range.MetaData rangeKey={key} />
-        {FLAGS.sift && <Sift.Range.Uploads rangeKey={key} />}
+        <Sift.Range.Uploads rangeKey={key} />
       </Flex.Box>
     </Flex.Box>
   );

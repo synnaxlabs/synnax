@@ -16,9 +16,6 @@
  * expression is true when `DESKTOP` is. Each entry names its owner, its Linear
  * umbrella issue, and the release that removes it.
  */
-export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-3591. Removed in v0.62.0.
-  sift: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
-} as const satisfies Record<string, boolean>;
+export const FLAGS = {} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
