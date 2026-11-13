@@ -36,12 +36,16 @@ const isPlainObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** @returns the channel keys that binding the patch to the entry would set. */
-const boundKeys = (entry: object, patch: object): channel.Key[] =>
+// The keys the patch binds. unchanged also takes a key the entry already holds, for a
+// match that reads every bound channel.
+const boundKeys = (entry: object, patch: object, unchanged: boolean): channel.Key[] =>
   Object.entries(patch).flatMap(([k, value]) => {
     const current: unknown = (entry as Record<string, unknown>)[k];
     if (isPlainObject(value) && isPlainObject(current))
-      return boundKeys(current, value);
-    return typeof value === "number" && value !== 0 && value !== current ? [value] : [];
+      return boundKeys(current, value, unchanged);
+    return typeof value === "number" && value !== 0 && (unchanged || value !== current)
+      ? [value]
+      : [];
   });
 
 /** Sets each key the patch would bind that is not in found to zero. */
@@ -115,7 +119,9 @@ export const BindChannels = <C extends record.Keyed<string>>({
   const patches = entries?.map(resolve) ?? [];
   const keys = unique.unique(
     patches.flatMap((patch, i) =>
-      patch == null || entries == null ? [] : boundKeys(entries[i], patch),
+      patch == null || entries == null
+        ? []
+        : boundKeys(entries[i], patch, match != null),
     ),
   );
   const { data: channels } = Channel.useResultMultiple(
