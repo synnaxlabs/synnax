@@ -13,13 +13,10 @@ package device
 
 import "github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
 
-// Device is a LabJack T-series device.
-type Device = versions.Device
-
 // Key uniquely identifies a LabJack device.
 type Key = versions.Key
 
-// Model is the model of a LabJack device, named by its LJM device type.
+// Model is the model of a LabJack device.
 type Model = versions.Model
 
 const (
@@ -46,3 +43,21 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a device.
 type Status = versions.Status
+
+// Base carries the fields that every LabJack device shares.
+type Base = versions.Base
+
+// Device is a LabJack T-series device. Its model selects the ports it has.
+type Device = versions.Device
+
+// DeviceVariant is implemented by every Device variant.
+type DeviceVariant = versions.DeviceVariant
+
+// T4Device is a T4.
+type T4Device = versions.T4Device
+
+// T7Device is a T7.
+type T7Device = versions.T7Device
+
+// T8Device is a T8.
+type T8Device = versions.T8Device
