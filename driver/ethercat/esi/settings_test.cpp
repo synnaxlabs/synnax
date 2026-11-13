@@ -51,15 +51,11 @@ coe::Read stg(const uint32_t mode, const uint32_t power_on = 1) {
     return testutil::read_of(testutil::stg_objects(mode, power_on));
 }
 
-/// @brief returns a read of a 6xSTG in mode that aborts with abort_code at
+/// @brief returns a read of a standalone 6xSTG that aborts with abort_code at
 /// index:sub_index.
-coe::Read aborting_at(
-    const uint16_t index,
-    const uint8_t sub_index,
-    const uint32_t abort_code,
-    const uint32_t mode = 0
-) {
-    return [read = stg(mode),
+coe::Read
+aborting_at(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
+    return [read = stg(0),
             index,
             sub_index,
             abort_code](const uint16_t i, const uint8_t s) {
@@ -351,21 +347,6 @@ TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
     const auto settings = ASSERT_NIL_P(
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(1, 0))
     );
-    ASSERT_TRUE(settings.has_value());
-    const auto &change = settings.value()["mode"]["switch"];
-    ASSERT_EQ(change.size(), 1);
-    EXPECT_EQ(change[0]["sub_index"], 9);
-}
-
-/// @brief it should switch a card that has no save object without the save write.
-TEST(ReadSettings, SwitchesACardWithNoSaveObjectWithoutTheSaveWrite) {
-    const auto settings = ASSERT_NIL_P(read_settings(
-        DEWESOFT,
-        IOLITE_6XSTG,
-        STG_REVISION,
-        STG_OP_MODES,
-        aborting_at(0x8020, 2, 0x06090011, 1)
-    ));
     ASSERT_TRUE(settings.has_value());
     const auto &change = settings.value()["mode"]["switch"];
     ASSERT_EQ(change.size(), 1);

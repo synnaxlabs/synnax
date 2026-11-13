@@ -192,9 +192,6 @@ std::pair<x::json::json, x::errors::Error> read_mode(
         save["index"].get<uint16_t>(),
         save["sub_index"].get<uint8_t>()
     );
-    if (save_err.matches(coe::OBJECT_MISSING) ||
-        save_err.matches(coe::SUBINDEX_MISSING))
-        return {result, x::errors::NIL};
     if (save_err) return {{}, save_err};
     const double flag = held_flag;
     if (std::ranges::any_of(save["when"], [flag](const auto &w) {
