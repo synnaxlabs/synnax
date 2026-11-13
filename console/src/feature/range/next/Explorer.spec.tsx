@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, NotFoundError, type ranger } from "@synnaxlabs/client";
+import { type label, NotFoundError, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -285,6 +285,39 @@ describe("range/next/Explorer", () => {
         expect(screen.queryByRole("listitem", { name: holder.name })).toBeNull(),
       );
       expect(itemOf(kept.name)).toBeTruthy();
+    });
+
+    it("should reorder the ranges above the matches when another client retimes one", async () => {
+      const token = uniqueToken();
+      const now = TimeStamp.now();
+      const older = await createRange(uniqueRangeName("older"), {
+        timeRange: new TimeRange(now.sub(TimeSpan.hours(1)), now),
+      });
+      const newer = await createRange(uniqueRangeName("newer"));
+      await createRange(`${token} a`, { parent: older.key });
+      await createRange(`${token} b`, { parent: newer.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(`${token} b`);
+      await findItem(`${token} a`);
+      const holders = () =>
+        screen
+          .getAllByRole("listitem")
+          .map((el) => el.getAttribute("aria-label"))
+          .filter((name) => name === older.name || name === newer.name);
+      expect(holders()).toEqual([newer.name, older.name]);
+      const remote = createTestClient();
+      // A dispatch applies only to a range that the client holds.
+      await remote.ranges.retrieve(newer.key);
+      await remote.ranges.dispatch(
+        newer.key,
+        ranger.set({
+          path: ["timeRange"],
+          value: new TimeRange(now.sub(TimeSpan.hours(2)), now.sub(TimeSpan.hours(1)))
+            .numeric,
+        }),
+      );
+      await waitFor(() => expect(holders()).toEqual([older.name, newer.name]));
     });
 
     it("should show the first 100 matches and say so", async () => {

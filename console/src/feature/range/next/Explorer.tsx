@@ -273,6 +273,7 @@ const Internal = (): ReactElement => {
     scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
     order: ORDERS[sort],
     getItem: root.getItem,
+    subscribe: root.subscribe,
   });
   const [expanded, toggle] = useExpanded();
   const tree = useTree(
