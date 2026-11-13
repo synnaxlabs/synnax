@@ -468,12 +468,26 @@ describe("range/overview", () => {
   describe("tab", () => {
     it("should list the children of the range that the tab swaps to", async () => {
       const parent = await createTestRange(client);
+      const other = await createTestRange(client);
+      const { setTabResource } = await renderOverview(other.key);
+      await screen.findByDisplayValue(other.name);
+      // The client marks a parent only from the creates that it streams, so the child
+      // comes after the render.
       const child = await createChild(parent);
-      const { setTabResource } = await renderOverview(child.key);
-      await screen.findByDisplayValue(child.name);
       await setTabResource(parent.key);
       await screen.findByDisplayValue(parent.name);
       await screen.findByRole("listitem", { name: child.name });
+    });
+
+    it("should drop an open draft when the tab swaps to another range", async () => {
+      const rng = await createTestRange(client);
+      const other = await createTestRange(client);
+      const { setTabResource } = await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Metadata" }));
+      await screen.findByPlaceholderText("Key");
+      await setTabResource(other.key);
+      await screen.findByDisplayValue(other.name);
+      expect(screen.queryByPlaceholderText("Key")).toBeNull();
     });
 
     it("should show the tombstone in place of the overview once the range is deleted", async () => {

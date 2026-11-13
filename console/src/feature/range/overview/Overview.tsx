@@ -12,7 +12,7 @@ import "@/feature/range/overview/Overview.css";
 import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Aliases } from "@/feature/range/overview/Aliases";
 import { Children } from "@/feature/range/overview/Children";
@@ -28,8 +28,11 @@ type Adding = "metadata" | "alias" | null;
 
 const NO_PAIRS: ranger.kv.Pair[] = [];
 
-export const Overview: Panel.Content = () => {
-  const { key } = PlutoPanel.useTabResource();
+interface BodyProps {
+  rangeKey: ranger.Key;
+}
+
+const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
   const range = Ranger.use({ key });
   const pairs = Ranger.useResultMetaData({ rangeKey: key }).data ?? NO_PAIRS;
   const aliases = Ranger.useResultAliases({ rangeKey: key }).data;
@@ -43,7 +46,7 @@ export const Overview: Panel.Content = () => {
   const showAliases = aliasCount > 0 || adding === "alias";
   const setAddingTo = (to: Adding) => (next: boolean) => setAdding(next ? to : null);
   return (
-    <div key={key} className={CSS.BE("range-overview", "scroll")}>
+    <div className={CSS.BE("range-overview", "scroll")}>
       <Flex.Box y empty className={CSS.B("range-overview")}>
         <Header range={range} />
         {range.hasChildren ? (
@@ -76,4 +79,10 @@ export const Overview: Panel.Content = () => {
       </Flex.Box>
     </div>
   );
+};
+
+export const Overview: Panel.Content = () => {
+  const { key } = PlutoPanel.useTabResource();
+  // A tab can swap its range in place, so the key drops the state of the last range.
+  return <Body key={key} rangeKey={key} />;
 };
