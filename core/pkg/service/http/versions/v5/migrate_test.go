@@ -217,6 +217,17 @@ var _ = Describe("Read field migration", func() {
 			},
 		)
 
+		It("Should keep the kind of a field with a left-over time format", func() {
+			old := untypedField(
+				telem.Int16T, payload.EnumEntry{Label: "ON", Value: 1},
+			)
+			old.TimeFormat = new(payload.TimeFormatUnixSec)
+			integer := v5.MigrateReadField(old).Variant.(v5.IntegerReadField)
+			Expect(integer.EnumValues).To(Equal(
+				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
+			))
+		})
+
 		It("Should give a timestamp field with no time format ISO 8601", func(
 			ctx SpecContext,
 		) {
