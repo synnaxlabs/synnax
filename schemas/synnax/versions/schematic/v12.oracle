@@ -24,13 +24,51 @@ Node = v8.Node
 
 Handle = v7.Handle
 
-Edge = v7.Edge
-
 Segment = v9.Segment
 
-SegmentedEdgeConfig = v9.SegmentedEdgeConfig
+EdgeVariant enum {
+    pipe      = "pipe" {
+        @doc value "draws a fluid pipe."
+    }
+    electric  = "electric" {
+        @doc value "draws an electrical wire."
+    }
+    secondary = "secondary" {
+        @doc value "draws a secondary line."
+    }
+    jacketed  = "jacketed" {
+        @doc value "draws a jacketed pipe."
+    }
+    hydraulic = "hydraulic" {
+        @doc value "draws a hydraulic line."
+    }
+    pneumatic = "pneumatic" {
+        @doc value "draws a pneumatic line."
+    }
+    data      = "data" {
+        @doc value "draws a data link."
+    }
 
-EdgeConfig = v9.EdgeConfig
+    @doc value "is the visual style of a schematic edge."
+}
+
+Edge struct extends v7.Edge {
+    variant      EdgeVariant = EdgeVariantPipe {
+        @doc value "is the visual style of the edge."
+    }
+    stroke_color color.Color? {
+        @doc value "is the stroke color of the edge."
+    }
+    stroke_width uint8 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
+    }
+    segments     Segment[]    {
+        @doc value """
+            is the ordered list of orthogonal runs that trace the connector path from
+            the source handle to the target handle.
+        """
+    }
+}
 
 FlexAlignment = v9.FlexAlignment
 
@@ -73,14 +111,39 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig union on variant extends v10.NodeConfig {}
-
-ElementConfig union on variant extends v10.ElementConfig {}
+NodeConfig union on variant extends v10.NodeConfig {
+    box {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    circle {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    line {
+        stroke_width uint8 = 2 {
+            @doc value "is the stroke width of the line in pixels."
+        }
+    }
+    polygon {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+}
 
 Schematic struct extends v11.Schematic {
     -snapshot
     -range
-    project project.Key? {
+    project project.Key?            {
         @doc value "is the project that holds the schematic."
+    }
+    configs map<string, NodeConfig> = {} {
+        @doc value """
+            contains per-node configuration keyed by node key. The variant of each value
+            selects the symbol it configures.
+        """
     }
 }

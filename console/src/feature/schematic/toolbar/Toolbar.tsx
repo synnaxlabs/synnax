@@ -66,11 +66,7 @@ const useChangeableSymbols = (
   );
   const out = new Map<string, Schematic.Node.Config>();
   configs.forEach((config, key) => {
-    if (
-      Schematic.Node.isConfig(config) &&
-      config.variant !== Schematic.Node.GroupBox.VARIANT &&
-      !shielded.has(key)
-    )
+    if (config.variant !== Schematic.Node.GroupBox.VARIANT && !shielded.has(key))
       out.set(key, config);
   });
   return out;
@@ -162,7 +158,7 @@ const Internal = (): ReactElement => {
   const changeSymbol = Schematic.useChangeSymbol();
   const setChanging = (changing: boolean) =>
     dispatch(Session.Schematic.setChanging({ key, changing }));
-  const singleSelectedConfig = Schematic.useElementConfig({
+  const singleSelectedConfig = Schematic.useNodeConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
   const change: SymbolsChangeProps | undefined = changing

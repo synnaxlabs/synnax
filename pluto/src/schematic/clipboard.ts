@@ -40,7 +40,7 @@ export const useClipboard = ({
   const adapter: Diagram.ClipboardAdapter<
     schematic.Node,
     schematic.Edge,
-    schematic.ElementConfig
+    schematic.NodeConfig
   > = {
     mime: MIME,
     edgeKey: (edge) => edge.key,
@@ -56,11 +56,8 @@ export const useClipboard = ({
         actions.push(
           schematic.setNode({ node, config: Group.remapMembers(config, remap) }),
         );
-      for (const { edge, config } of edges) {
-        const edgeKey = uuid.create();
-        actions.push(schematic.addEdge({ edge: { ...edge, key: edgeKey } }));
-        if (config != null) actions.push(schematic.setConfig({ key: edgeKey, config }));
-      }
+      for (const { edge } of edges)
+        actions.push(schematic.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch(actions);
       if (actions.length > 0) onPaste?.(Object.values(remap));
     },

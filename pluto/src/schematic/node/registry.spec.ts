@@ -16,7 +16,6 @@ import {
   createConfig,
   CUSTOM_VARIANTS,
   customVariant,
-  isConfig,
   isCustomConfig,
   isCustomVariant,
   REGISTRY,
@@ -42,20 +41,6 @@ describe("Schematic.Node.resolveSpec", () => {
 
   it("should throw NotFoundError for an unknown variant", () => {
     expect(() => resolveSpec("not-a-symbol")).toThrow(NotFoundError);
-  });
-});
-
-describe("Schematic.Node.isConfig", () => {
-  it("should accept a node config", () => {
-    expect(isConfig(createConfig({ variant: "tank" }))).toBe(true);
-  });
-
-  it("should accept a group box config", () => {
-    expect(isConfig(createConfig({ variant: GroupBox.VARIANT }))).toBe(true);
-  });
-
-  it("should reject an edge config", () => {
-    expect(isConfig(schematic.pipeEdgeConfigZ.parse({ variant: "pipe" }))).toBe(false);
   });
 });
 

@@ -224,7 +224,7 @@ func validateScales(prev, next Schematic) error {
 }
 
 // scaleOf returns the scale that cfg carries, and false when its variant has none.
-func scaleOf(cfg ElementConfig) (float64, bool) {
+func scaleOf(cfg NodeConfig) (float64, bool) {
 	v := reflect.ValueOf(cfg.Variant)
 	if v.Kind() == reflect.Pointer {
 		v = v.Elem()

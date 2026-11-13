@@ -558,6 +558,94 @@ describe("Schematic toolbar Properties", () => {
     });
   });
 
+  describe("edges", () => {
+    const renderWithEdge = async (selected: string[], stroke?: string) => {
+      const Harness = (): ReactElement => <Toolbar />;
+      return await renderSchematic(Harness, {
+        schematic: {
+          nodes: [
+            { key: "n1", position: { x: 0, y: 0 } },
+            { key: "n2", position: { x: 100, y: 0 } },
+          ],
+          edges: [
+            {
+              key: "e1",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              strokeColor: stroke,
+            },
+          ],
+          configs: {
+            n1: {
+              ...PSchematic.Node.createConfig({ variant: "box" }),
+              strokeColor: stroke,
+            },
+            n2: PSchematic.Node.createConfig({ variant: "box" }),
+          },
+        },
+        sessionState: {
+          editable: true,
+          selected,
+          toolbar: {
+            selectedTab: "properties",
+            selectedSymbolGroup: "general",
+            changing: false,
+          },
+        },
+      });
+    };
+
+    const retrieveEdge = async (key: string): Promise<schematic.Edge | undefined> =>
+      (await client.schematics.retrieve(key)).edges.find((e) => e.key === "e1");
+
+    it("writes a stroke width edit to the edge through set_edge_style", async () => {
+      const { key } = await renderWithEdge(["e1"]);
+      const width = await screen.findByLabelText("Stroke width");
+      const send = spyOnSend(client);
+      fireEvent.change(width, { target: { value: "6" } });
+      fireEvent.blur(width);
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
+        ).toMatchObject({
+          actions: [
+            { type: "set_edge_style", setEdgeStyle: { key: "e1", strokeWidth: 6 } },
+          ],
+        }),
+      );
+      await expect.poll(async () => (await retrieveEdge(key))?.strokeWidth).toBe(6);
+    });
+
+    it("sets a stroke on a selected edge and symbol", async () => {
+      const { key } = await renderWithEdge(["n1", "e1"]);
+      await screen.findByText("Colors");
+      setRoleColor("Stroke", RED);
+      await expect
+        .poll(async () => [
+          hexOf((await retrieveConfig(key, "n1")).strokeColor),
+          hexOf((await retrieveEdge(key))?.strokeColor),
+        ])
+        .toEqual([RED, RED]);
+    });
+
+    it("recolors a selection color held by a symbol and an edge", async () => {
+      const { key } = await renderWithEdge(["n1", "e1"], RED);
+      await screen.findByText("Selection");
+      const [red] = selectionSwatches();
+      fireEvent.click(red);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () => [
+          hexOf((await retrieveConfig(key, "n1")).strokeColor),
+          hexOf((await retrieveEdge(key))?.strokeColor),
+        ])
+        .toEqual([BLUE, BLUE]);
+    });
+  });
+
   describe("multiple selection", () => {
     it("hides the spacing controls for fewer than three selections", async () => {
       await renderProperties({ nodeKeys: ["n1", "n2"] });

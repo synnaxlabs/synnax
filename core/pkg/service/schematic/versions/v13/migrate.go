@@ -38,12 +38,12 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 // "the theme picks the color".
 var themeColors = map[reflect.Type][]string{
 	reflect.TypeFor[StalenessConfig](): {"StalenessColor"},
-	reflect.TypeFor[TankElementConfig](): {
+	reflect.TypeFor[TankNodeConfig](): {
 		"StalenessColor", "LevelColor", "AxisColor", "TextColor",
 	},
 	reflect.TypeFor[ScaleIndicatorConfig](): {"LevelColor", "AxisColor", "TextColor"},
-	reflect.TypeFor[ValueElementConfig]():   {"TextColor"},
-	reflect.TypeFor[GaugeElementConfig]():   {"StrokeColor"},
+	reflect.TypeFor[ValueNodeConfig]():      {"TextColor"},
+	reflect.TypeFor[GaugeNodeConfig]():      {"StrokeColor"},
 }
 
 // clearThemeColors sets each color under v that themeColors names and that holds the
@@ -87,14 +87,6 @@ func clearThemeColors(v reflect.Value) {
 
 // Migration lifts stored schematics from v12 to v13.
 var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSchematic)
-
-// MigrateElementConfig lifts a v12 element config to v13.
-func MigrateElementConfig(
-	ctx context.Context,
-	old v12.ElementConfig,
-) (ElementConfig, error) {
-	return autoMigrateElementConfig(ctx, old)
-}
 
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.
 func MigrateStaticSymbolConfig(
@@ -152,10 +144,7 @@ func MigrateToggleConfig(
 	return autoMigrateToggleConfig(ctx, old)
 }
 
-// MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13.
-func MigrateSegmentedEdgeConfig(
-	ctx context.Context,
-	old v12.SegmentedEdgeConfig,
-) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
+// MigrateEdge lifts a v12 edge to v13.
+func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
+	return autoMigrateEdge(ctx, old)
 }

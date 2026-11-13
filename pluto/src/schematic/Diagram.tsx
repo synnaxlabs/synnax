@@ -20,12 +20,11 @@ import {
 } from "react";
 
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import {
   useAllEdges,
-  useConfigs,
-  useElementConfig,
+  useEdge,
+  useNodeConfig,
   useSingleDispatch,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -34,24 +33,21 @@ import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 // The partial merges against the latest config through a ref, not the render's
 // closure, so two changes in one tick both land.
-const useConfig = <T extends ElementConfig>(
-  key: string,
-): [T | undefined, (config: Partial<T>) => void] => {
-  const config = useElementConfig({ elKey: key });
+const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
+  const config = useNodeConfig({ elKey: rest.nodeKey });
   const configRef = useSyncedRef(config);
   const dispatch = useSingleDispatch();
-  const handleChange = (partial: Partial<T>) => {
+  const handleChange = (partial: Partial<object>) => {
     const current = configRef.current;
     if (current == null) return;
     dispatch(
-      schematic.setChanged({ key, base: current, next: { ...current, ...partial } }),
+      schematic.setChanged({
+        key: rest.nodeKey,
+        base: current,
+        next: { ...current, ...partial },
+      }),
     );
   };
-  return [config as T | undefined, handleChange];
-};
-
-const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
-  const [config, handleChange] = useConfig<Node.Config>(rest.nodeKey);
   // React Flow re-measures handles only on a resize. A symbol change may not resize.
   const updateNodeInternals = useUpdateNodeInternals();
   const symbolKey = config == null ? null : Node.symbolKey(config);
@@ -75,20 +71,19 @@ const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | nul
 };
 
 const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
-  const [config, handleChange] = useConfig(props.edgeKey);
-  // React flow takes time to unmount, so the config can be temporarily undefined.
-  if (config == null) return null;
-  const Spec = Edge.resolveSpec(config.variant);
-  return (
-    <Spec.Edge config={config as Edge.Config} onChange={handleChange} {...props} />
-  );
+  const edge = useEdge({ elKey: props.edgeKey });
+  const dispatch = useSingleDispatch();
+  const handleSegmentsChange = (segments: schematic.Segment[]) =>
+    dispatch(schematic.setEdgeSegments({ key: props.edgeKey, segments }));
+  // React flow takes time to unmount, so the edge can be temporarily undefined.
+  if (edge == null) return null;
+  const Spec = Edge.resolveSpec(edge.variant);
+  return <Spec.Edge edge={edge} onSegmentsChange={handleSegmentsChange} {...props} />;
 };
 
 const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const key = useKey();
   const edges = useAllEdges({ key });
-  const edgeKeys = edges.map((e) => e.key);
-  const configs = useConfigs({ key, keys: edgeKeys });
   const rfStore = useStoreApi();
   const [jumpStore] = useState(Edge.Jumps.createStore);
 
@@ -103,13 +98,12 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       const source = resolveEndpoint(sourceNode.internals, edge.source.param);
       const target = resolveEndpoint(targetNode.internals, edge.target.param);
       if (source == null || target == null) return;
-      const cfg = configs.get(edge.key) as Edge.Config | undefined;
       const segments = Edge.Segmented.build({
         source,
         target,
         sourceBox: internalNodeBox(sourceNode),
         targetBox: internalNodeBox(targetNode),
-        middleSegments: cfg?.segments ?? [],
+        middleSegments: edge.segments,
       });
       const points = Edge.Segmented.segmentsToPoints(
         source.position,
@@ -117,7 +111,10 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         zoom,
         true,
       );
-      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+      if (points.length < 2) return;
+      const { strokeWidth } = edge;
+      const width = Edge.resolveSpec(edge.variant).renderedWidth(strokeWidth);
+      polylines.push({ key: edge.key, points, order, strokeWidth, width });
     });
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };
@@ -184,13 +181,7 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
   changes.flatMap((ch) => {
     switch (ch.type) {
       case "add":
-        return [
-          schematic.addEdge({ edge: ch.edge }),
-          schematic.setConfig({
-            key: ch.edge.key,
-            config: Edge.REGISTRY.pipe.defaultConfig(),
-          }),
-        ];
+        return [schematic.addEdge({ edge: ch.edge })];
       case "remove":
         return [schematic.removeEdge({ key: ch.key })];
       default:

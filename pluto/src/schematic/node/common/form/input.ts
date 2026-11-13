@@ -23,7 +23,8 @@ export const PERCENT_BORDER_RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
 
 export const STROKE_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { y: 0.1, x: 0.02 },
-  bounds: { lower: 0, upper: 21 },
+  bounds: { lower: 0, upper: 20 },
+  integer: true,
   endContent: "px",
 };
 

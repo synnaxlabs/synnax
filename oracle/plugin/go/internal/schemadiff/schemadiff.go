@@ -315,6 +315,14 @@ func diffWalk(
 		) != TypeUnchanged {
 			hasDescendantChange = true
 		}
+		nf := findField(newStruct.Fields, f.Name)
+		if nf == nil {
+			continue
+		}
+		for _, t := range Retyped(f.Type, nf.Type, oldTable, newTable, counterpart) {
+			nt, _ := newTable.Get(counterpart(t.QualifiedName))
+			diffWalk(t, nt, oldTable, newTable, counterpart, result, visiting)
+		}
 	}
 	for _, ext := range oldStruct.Extends {
 		if diffRefWalk(
@@ -547,4 +555,39 @@ func diffRefWalk(
 		}
 	}
 	return kind
+}
+
+// Retyped returns, for each position where a field's new type names another
+// declaration than its old type, the outgoing version's type of the new name. No copy
+// carries such a field, but a hand-written migration can convert through that type.
+func Retyped(
+	oldRef, newRef resolution.TypeRef,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+) []resolution.Type {
+	var out []resolution.Type
+	for i := range min(len(oldRef.TypeArgs), len(newRef.TypeArgs)) {
+		out = append(out, Retyped(
+			oldRef.TypeArgs[i], newRef.TypeArgs[i], oldTable, newTable, counterpart,
+		)...)
+	}
+	oldResolved, oldOk := oldRef.Resolve(oldTable)
+	newResolved, newOk := newRef.Resolve(newTable)
+	if !oldOk || !newOk || oldResolved.Name == newResolved.Name {
+		return out
+	}
+	prev, ok := oldTable.Lookup(oldResolved.Namespace, newResolved.Name)
+	if !ok || counterpart(prev.QualifiedName) != newResolved.QualifiedName {
+		return out
+	}
+	return append(out, prev)
+}
+
+func findField(fields []resolution.Field, name string) *resolution.Field {
+	for i := range fields {
+		if fields[i].Name == name {
+			return &fields[i]
+		}
+	}
+	return nil
 }

@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type project, query, schematic } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { compare, deep, verbs } from "@synnaxlabs/x";
+import { useEffect } from "react";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig, elementConfigZ } from "@/schematic/element";
 import { Group } from "@/schematic/group";
+import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
@@ -71,20 +74,26 @@ export interface ConfigParams extends KeyParams {
   elKey: string;
 }
 
-export const useElementConfig = Scope.bindHook(
-  createSelector<ElementConfig | undefined, ConfigParams>(
-    ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
+export const useNodeConfig = Scope.bindHook(
+  createSelector<Node.Config | undefined, ConfigParams>(
+    ({ configs }, { elKey }) => configs[elKey],
   ),
 );
+
+const useEdgeBase = createSelector<schematic.Edge | undefined, ConfigParams>(
+  ({ edges }, { elKey }) => edges.find((e) => e.key === elKey),
+);
+
+export const useEdge = Scope.bindHook(useEdgeBase);
 
 const useDocumentConfigForm = Flux.createDocumentForm<
   schematic.Key,
   schematic.Schematic,
-  typeof elementConfigZ,
+  typeof Node.configZ,
   ConfigParams
 >({
-  name: "schematic element",
-  schema: elementConfigZ,
+  name: "schematic symbol",
+  schema: Node.configZ,
   domain: (client) => client.schematics,
   useEnsure,
   toValues: ({ configs }, { elKey }) => configs[elKey],
@@ -93,16 +102,52 @@ const useDocumentConfigForm = Flux.createDocumentForm<
 
 const useConfigFormBase = (query: ConfigParams) => useDocumentConfigForm({ query });
 
-/** A form over one element's config in the cached schematic. */
+/** A form over one node's config in the cached schematic. */
 export const useConfigForm = Scope.bindHook(useConfigFormBase);
+
+const EMPTY_HANDLE: schematic.Handle = { node: "", param: "" };
+const EMPTY_EDGE = schematic.edgeZ.parse({
+  key: "",
+  source: EMPTY_HANDLE,
+  target: EMPTY_HANDLE,
+});
+
+const useEdgeFormBase = (
+  query: ConfigParams,
+): Form.UseReturn<typeof schematic.edgeZ> => {
+  const edge = useEdgeBase(query);
+  const edgeRef = useSyncedRef(edge);
+  const dispatch = useSingleDispatchBase({ key: query.key });
+  const form = Form.use({
+    values: edge ?? EMPTY_EDGE,
+    schema: schematic.edgeZ,
+    onChange: ({ values, valid, path }) => {
+      const base = edgeRef.current;
+      // A reset reports an empty path. Dispatching on it would echo the stored edge.
+      if (!valid || path === "" || base == null) return;
+      const actions = schematic.setEdgeChanged({ base, next: values });
+      if (actions.length > 0) dispatch(actions);
+    },
+  });
+  useEffect(() => {
+    if (edge != null && !deep.equal(form.value(), edge)) form.reset(edge);
+  }, [edge, form]);
+  return form;
+};
+
+/**
+ * A form over one edge in the cached schematic. Each edit writes only the edge fields
+ * that it changes.
+ */
+export const useEdgeForm = Scope.bindHook(useEdgeFormBase);
 
 export interface ConfigsParams extends KeyParams {
   keys: string[];
 }
 
 export const useConfigs = Scope.bindHook(
-  createSelector<Map<string, ElementConfig>, ConfigsParams>(({ configs }, { keys }) => {
-    const result = new Map<string, ElementConfig>();
+  createSelector<Map<string, Node.Config>, ConfigsParams>(({ configs }, { keys }) => {
+    const result = new Map<string, Node.Config>();
     for (const elKey of keys) {
       const cfg = configs?.[elKey];
       if (cfg != null) result.set(elKey, cfg);
@@ -124,6 +169,13 @@ export const useNodes = Scope.bindHook(
     },
     (a, b) => compare.arraysEqual(a, b),
   ),
+);
+
+export const useEdges = Scope.bindHook(
+  createSelector<Map<string, schematic.Edge>, NodesParams>(({ edges }, { keys }) => {
+    const keySet = new Set(keys);
+    return new Map(edges.filter((e) => keySet.has(e.key)).map((e) => [e.key, e]));
+  }, compare.mapsEqual),
 );
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
@@ -183,49 +235,33 @@ const augmentWithEdgeSegments = (
   const updates = Edge.Segmented.updateSegmentsForPositionChanges({
     nodes: current.nodes,
     edges: current.edges,
-    props: current.configs,
     changes,
   });
   if (updates.length === 0) return actions;
+  const edges = new Map(current.edges.map((e) => [e.key, e]));
   const extra = updates.flatMap((u) => {
-    const existing = current.configs[u.key];
-    if (existing == null || !("segments" in existing)) return [];
-    return schematic.setChanged({
-      key: u.key,
-      base: existing,
-      next: { ...existing, segments: u.segments },
-    });
+    const existing = edges.get(u.key);
+    if (existing == null) return [];
+    return [schematic.setEdgeSegments({ key: u.key, segments: u.segments })];
   });
   return [...actions, ...extra];
 };
 
-const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
-  c.variant in schematic.EDGE_CONFIG_SCHEMAS;
-
-// An edge added in this batch whose config names no stroke takes its source symbol's
-// stroke, so a pipe drawn out of a colored symbol matches it.
+// An edge added with no stroke color takes its source symbol's stroke, so a pipe drawn
+// out of a colored symbol matches it.
 const inheritEdgeColor = (
   current: schematic.Schematic,
   actions: schematic.Action[],
-): schematic.Action[] => {
-  const added = new Map<string, schematic.Edge>();
-  for (const a of actions)
-    if (a.type === "add_edge") added.set(a.addEdge.edge.key, a.addEdge.edge);
-  if (added.size === 0) return actions;
-  return actions.map((a) => {
-    if (a.type !== "set_config") return a;
-    const { key, config } = a.setConfig;
-    const edge = added.get(key);
-    if (edge == null || !isEdgeConfig(config) || config.strokeColor != null) return a;
+): schematic.Action[] =>
+  actions.map((a) => {
+    if (a.type !== "add_edge") return a;
+    const { edge } = a.addEdge;
+    if (edge.strokeColor != null) return a;
     const source = current.configs[edge.source.node];
     if (source == null || !("strokeColor" in source) || source.strokeColor == null)
       return a;
-    return schematic.setConfig({
-      key,
-      config: { ...config, strokeColor: source.strokeColor },
-    });
+    return schematic.addEdge({ edge: { ...edge, strokeColor: source.strokeColor } });
   });
-};
 
 export const {
   useDispatch,

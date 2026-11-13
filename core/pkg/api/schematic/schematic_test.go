@@ -262,6 +262,8 @@ var _ = Describe("Service", func() {
 												Node:  "n2",
 												Param: "in",
 											},
+											Variant:     schematic.EdgeVariantPipe,
+											StrokeWidth: 2,
 										}},
 									),
 								},

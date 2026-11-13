@@ -155,9 +155,6 @@ const createSchematic = (ch: Channels): schematic.New => ({
       label: { label: "Abort" },
       commandChannel: ch[ABORT_CMD],
     },
-    press_vlv_to_tank: { variant: "pipe" },
-    tank_to_vent_vlv: { variant: "pipe" },
-    vent_vlv_to_vent: { variant: "pipe" },
   },
 });
 

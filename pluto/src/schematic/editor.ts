@@ -68,7 +68,7 @@ export const useChangeSymbol = () => {
     if (client == null || !query.isLive(s)) return;
     const actions = keys.flatMap((k) => {
       const config = s.configs[k];
-      if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+      if (config == null) throw new Error(`Node ${k} has no config`);
       const next = Node.changeConfig(config, input);
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
       if (

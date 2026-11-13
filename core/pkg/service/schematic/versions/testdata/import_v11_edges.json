@@ -1,0 +1,30 @@
+{
+  "version": 11,
+  "type": "schematic",
+  "name": "Edges",
+  "nodes": [
+    { "key": "n1", "position": { "x": 0, "y": 0 } },
+    { "key": "n2", "position": { "x": 100, "y": 0 } }
+  ],
+  "edges": [
+    {
+      "key": "e1",
+      "source": { "node": "n1", "param": "out" },
+      "target": { "node": "n2", "param": "in" }
+    },
+    {
+      "key": "e2",
+      "source": { "node": "n2", "param": "out" },
+      "target": { "node": "n1", "param": "in" }
+    }
+  ],
+  "configs": {
+    "n1": { "variant": "cap" },
+    "e1": {
+      "variant": "hydraulic",
+      "stroke_color": "#ff0000",
+      "segments": [{ "direction": "x", "length": 40 }]
+    },
+    "ghost": { "variant": "pipe" }
+  }
+}

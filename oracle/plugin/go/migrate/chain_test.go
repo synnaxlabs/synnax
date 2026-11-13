@@ -2461,6 +2461,99 @@ Node struct {
 	})
 })
 
+var _ = Describe("Retyped field", func() {
+	It("Should queue the conversion of the old type of the new name", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", `
+Circle struct {
+	radius float64
+
+	@go marshal
+}
+
+Small union on variant {
+	circle Circle
+
+	@go marshal
+}
+
+Shape union on variant extends Small {
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	shapes map<string, Shape>
+
+	@go marshal
+	@go migrate
+}
+`)
+		write("schemas/synnax/versions/doc/v1.oracle", `
+Circle struct {
+	radius uint8
+
+	@go marshal
+}
+
+Small union on variant extends v0.Small {}
+
+Doc struct {
+	key uuid @key
+	shapes map<string, Small>
+
+	@go marshal
+	@go migrate
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `
+@go output "core/pkg/service/doc"
+
+Circle struct {
+	radius uint8
+}
+
+Small union on variant {
+	circle Circle
+}
+
+Doc struct {
+	key uuid @key
+	shapes map<string, Small>
+}
+`,
+			"schemas/synnax/doc.oracle", "doc",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(migrate.New().Generate(&plugin.Request{
+			Resolutions: table, RepoRoot: root, Versions: resolver,
+		}))
+		var content string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/doc/versions/v1/migrate.gen.go" {
+				content = string(f.Content)
+			}
+		}
+		Expect(content).To(ContainSubstring(
+			"func autoMigrateSmall(ctx context.Context, old v0.Small) (Small, error)",
+		))
+		Expect(content).ToNot(ContainSubstring("Shapes:"))
+	})
+})
+
 var _ = Describe("Plugin", func() {
 	It("Should describe itself", func() {
 		p := migrate.New()

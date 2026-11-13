@@ -156,7 +156,6 @@
       "lyra-tabs__selector--scrollable",
       "lyra-tabs__tab"
     ],
-    "pluto/src/schematic/Schematic.css": ["lyra--thin"],
     "pluto/src/schematic/Tooltip.css": ["lyra-icon"],
     "pluto/src/schematic/node/common/form/StateMapping.css": [
       "lyra-btn",

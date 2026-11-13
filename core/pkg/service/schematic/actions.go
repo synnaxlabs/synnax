@@ -61,16 +61,15 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	}
 	if p.Config != nil {
 		if state.Configs == nil {
-			state.Configs = make(map[string]ElementConfig)
+			state.Configs = make(map[string]NodeConfig)
 		}
 		state.Configs[p.Node.Key] = *p.Config
 	}
 	return state, nil
 }
 
-// Handle removes the node with the matching key, its config, the edges that connect to
-// it and their configs, and splices the key out of every group's members. No-op if no
-// node matches.
+// Handle removes the node with the matching key, its config, and the edges that connect
+// to it, and splices the key out of every group's members. No-op if no node matches.
 func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
 	i := slices.IndexFunc(state.Nodes, func(n Node) bool { return n.Key == p.Key })
 	if i == -1 {
@@ -81,14 +80,13 @@ func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
 	kept := make([]Edge, 0, len(state.Edges))
 	for _, e := range state.Edges {
 		if e.Source.Node == p.Key || e.Target.Node == p.Key {
-			delete(state.Configs, e.Key)
 			continue
 		}
 		kept = append(kept, e)
 	}
 	state.Edges = kept
 	for key, cfg := range state.Configs {
-		group, ok := cfg.Variant.(GroupBoxElementConfig)
+		group, ok := cfg.Variant.(GroupBoxNodeConfig)
 		if !ok {
 			continue
 		}
@@ -100,7 +98,7 @@ func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
 			continue
 		}
 		group.Members = members
-		state.Configs[key] = ElementConfig{Variant: group}
+		state.Configs[key] = NodeConfig{Variant: group}
 	}
 	return state, nil
 }
@@ -117,30 +115,89 @@ func (p AddEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle removes the edge with the matching key and its config. No-op if no edge
-// matches.
+// Handle removes the edge with the matching key. No-op if no edge matches.
 func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
 	if i == -1 {
 		return state, nil
 	}
 	state.Edges = slices.Delete(slices.Clone(state.Edges), i, i+1)
-	delete(state.Configs, p.Key)
+	return state, nil
+}
+
+// Handle inserts the edge if no edge with the same key exists, otherwise replaces the
+// existing edge in place. No-op when the source or target node does not exist.
+func (p SetEdgePayload) Handle(state Schematic) (Schematic, error) {
+	if !hasNode(state, p.Edge.Source.Node) || !hasNode(state, p.Edge.Target.Node) {
+		return state, nil
+	}
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Edge.Key })
+	state.Edges = slices.Clone(state.Edges)
+	if i == -1 {
+		state.Edges = append(state.Edges, p.Edge)
+	} else {
+		state.Edges[i] = p.Edge
+	}
+	return state, nil
+}
+
+// Handle replaces the segments of the edge with the matching key. No-op if no edge
+// matches.
+func (p SetEdgeSegmentsPayload) Handle(state Schematic) (Schematic, error) {
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
+	if i == -1 {
+		return state, nil
+	}
+	state.Edges = slices.Clone(state.Edges)
+	state.Edges[i].Segments = p.Segments
+	return state, nil
+}
+
+// Handle sets each style field that the payload holds on the edge with the matching
+// key. No-op if no edge matches.
+func (p SetEdgeStylePayload) Handle(state Schematic) (Schematic, error) {
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
+	if i == -1 {
+		return state, nil
+	}
+	state.Edges = slices.Clone(state.Edges)
+	e := &state.Edges[i]
+	if p.Variant != nil {
+		e.Variant = *p.Variant
+	}
+	if p.StrokeColor != nil {
+		e.StrokeColor = p.StrokeColor
+	}
+	if p.StrokeWidth != nil {
+		e.StrokeWidth = *p.StrokeWidth
+	}
+	return state, nil
+}
+
+// Handle removes the stroke color of the edge with the matching key. No-op if no edge
+// matches.
+func (p ClearEdgeStrokeColorPayload) Handle(state Schematic) (Schematic, error) {
+	i := slices.IndexFunc(state.Edges, func(e Edge) bool { return e.Key == p.Key })
+	if i == -1 {
+		return state, nil
+	}
+	state.Edges = slices.Clone(state.Edges)
+	state.Edges[i].StrokeColor = nil
 	return state, nil
 }
 
 // Handle replaces the configs entry stored under the given key. A config naming no
 // variant is rejected: stored, it would be a null entry no client can read back. No-op
-// when no node or edge has the key.
+// when no node has the key.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if p.Config.Variant == nil {
 		return Schematic{}, noVariantError(p.Key)
 	}
-	if !hasElement(state, p.Key) {
+	if !hasNode(state, p.Key) {
 		return state, nil
 	}
 	if state.Configs == nil {
-		state.Configs = make(map[string]ElementConfig)
+		state.Configs = make(map[string]NodeConfig)
 	}
 	state.Configs[p.Key] = p.Config
 	return state, nil
@@ -152,12 +209,6 @@ func hasNode(state Schematic, key string) bool {
 
 func hasEdge(state Schematic, key string) bool {
 	return slices.ContainsFunc(state.Edges, func(e Edge) bool { return e.Key == key })
-}
-
-// hasElement reports whether a node or edge has the key. Only an element's key can name
-// a config.
-func hasElement(state Schematic, key string) bool {
-	return hasNode(state, key) || hasEdge(state, key)
 }
 
 func noVariantError(key string) error {
@@ -180,7 +231,7 @@ type rawSetNodePayload struct {
 
 // rawSetConfigPayload is the wire shape of SetConfigPayload. See rawSetNodePayload.
 type rawSetConfigPayload struct {
-	// Key is the node or edge key the config is stored under.
+	// Key is the node key the config is stored under.
 	Key string `json:"key" msgpack:"key"`
 	// Config is the config as the client sent it. It must name a variant.
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
@@ -246,45 +297,43 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 	return nil
 }
 
-func decodeConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+func decodeConfig(raw msgpack.EncodedJSON) (NodeConfig, error) {
 	b, err := json.Marshal(raw)
 	if err != nil {
-		return ElementConfig{}, errors.Wrapf(
-			validate.ErrValidation, "invalid element config: %s", err,
+		return NodeConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid node config: %s", err,
 		)
 	}
-	var cfg ElementConfig
+	var cfg NodeConfig
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		return ElementConfig{}, errors.Wrapf(
-			validate.ErrValidation, "invalid element config: %s", err,
+		return NodeConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid node config: %s", err,
 		)
 	}
 	return cfg, nil
 }
 
-// Handle applies the set to the schematic's name, group, project, or element configs.
+// Handle applies the set to the schematic's name, group, project, or node configs.
 func (p SetPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Set(p))
 }
 
-// Handle applies the remove to the schematic's name, group, project, or element
-// configs.
+// Handle applies the remove to the schematic's name, group, project, or node configs.
 func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, append(slices.Clone(p.Path), p.Key), patch.Remove(p))
 }
 
-// Handle applies the insert to the schematic's name, group, project, or element
-// configs.
+// Handle applies the insert to the schematic's name, group, project, or node configs.
 func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Insert(p))
 }
 
-// Handle applies the move to the schematic's name, group, project, or element configs.
+// Handle applies the move to the schematic's name, group, project, or node configs.
 func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Move(p))
 }
 
-// document is the part of a schematic, outside its element configs, that path actions
+// document is the part of a schematic, outside its node configs, that path actions
 // edit.
 type document struct {
 	Name    string       `json:"name"`
@@ -292,10 +341,10 @@ type document struct {
 	Project *project.Key `json:"project,omitzero"`
 }
 
-// edit applies a path action to the schematic's name, group, or project, or to the
-// element config that its path names. An action on the config of a node or edge that
-// does not exist does nothing. A config that names no variant or fails its schema is
-// rejected, as is a path to another field.
+// edit applies a path action to the schematic's name, group, or project, or to the node
+// config that its path names. An action on the config of a node that does not exist
+// does nothing. A config that names no variant or fails its schema is rejected, as is a
+// path to another field.
 func edit(state Schematic, path []string, a patch.Action) (Schematic, error) {
 	if patch.Field(a) != configsField {
 		d, err := patch.Edit(
@@ -308,7 +357,7 @@ func edit(state Schematic, path []string, a patch.Action) (Schematic, error) {
 		state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 		return state, nil
 	}
-	if len(path) > 1 && !hasElement(state, path[1]) {
+	if len(path) > 1 && !hasNode(state, path[1]) {
 		return state, nil
 	}
 	configs, err := patch.EditMap(state.Configs, []string{configsField}, a, checkConfig)
@@ -323,7 +372,7 @@ func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
 
 func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
-func checkConfig(key string, cfg ElementConfig) error {
+func checkConfig(key string, cfg NodeConfig) error {
 	if cfg.Variant == nil {
 		return noVariantError(key)
 	}

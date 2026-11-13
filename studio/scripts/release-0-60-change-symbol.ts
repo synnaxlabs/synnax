@@ -96,11 +96,13 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
   for (const [k, , config] of nodes) configs[k] = config;
   const edges = pipes.map(([source, sp, target, tp]) => {
     const k = `${source}-${target}`;
-    configs[k] = { variant: "pipe", strokeColor: PURPLE, segments: [] };
     return {
       key: k,
       source: { node: source, param: sp },
       target: { node: target, param: tp },
+      variant: "pipe" as const,
+      strokeColor: PURPLE,
+      segments: [],
     };
   });
   return {

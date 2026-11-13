@@ -271,8 +271,7 @@ export const Schematic = ({
         !tooltipsDisabled &&
         hovered != null &&
         !contextMenu.visible &&
-        hoveredConfig != null &&
-        Node.isConfig(hoveredConfig) && (
+        hoveredConfig != null && (
           <Tooltip
             key={hovered.nodeKey}
             anchor={hovered.anchor}

@@ -11,7 +11,6 @@ import { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { edgeChangesToActions, nodeChangesToActions } from "@/schematic/Diagram";
-import { Edge } from "@/schematic/edge";
 import { type Diagram as Base } from "@/vis/diagram";
 
 describe("nodeChangesToActions", () => {
@@ -60,30 +59,26 @@ describe("nodeChangesToActions", () => {
 });
 
 describe("edgeChangesToActions", () => {
-  const newEdge = (key: string): schematic.Edge => ({
-    key,
-    source: { node: "n1", param: "out" },
-    target: { node: "n2", param: "in" },
-  });
+  const newEdge = (key: string): schematic.Edge =>
+    schematic.edgeZ.parse({
+      key,
+      source: { node: "n1", param: "out" },
+      target: { node: "n2", param: "in" },
+    });
 
   it("returns an empty array for empty input", () => {
     expect(edgeChangesToActions([])).toEqual([]);
   });
 
-  it("translates an add change into addEdge followed by setConfig", () => {
+  it("translates an add change into an addEdge of a default pipe", () => {
     const edge = newEdge("e1");
     const out = edgeChangesToActions([{ type: "add", edge }]);
-    expect(out).toHaveLength(2);
-    expect(out[0]).toEqual(schematic.addEdge({ edge }));
-    expect(out[1].type).toBe("set_config");
-    expect(out[1].type === "set_config" && out[1].setConfig.key).toBe("e1");
-  });
-
-  it("initializes the new edge's config with the pipe variant's default", () => {
-    const edge = newEdge("e1");
-    const [, setCfg] = edgeChangesToActions([{ type: "add", edge }]);
-    const expected = Edge.REGISTRY.pipe.defaultConfig();
-    expect(setCfg).toEqual(schematic.setConfig({ key: "e1", config: expected }));
+    expect(out).toEqual([schematic.addEdge({ edge })]);
+    expect(out[0].type === "add_edge" && out[0].addEdge.edge).toMatchObject({
+      variant: "pipe",
+      strokeWidth: 2,
+      segments: [],
+    });
   });
 
   it("translates a remove change to a removeEdge action", () => {
@@ -100,7 +95,7 @@ describe("edgeChangesToActions", () => {
     expect(edgeChangesToActions(changes)).toEqual([]);
   });
 
-  it("preserves input order and emits a separate pair for each add", () => {
+  it("preserves input order and emits one action for each add", () => {
     const e1 = newEdge("e1");
     const e3 = newEdge("e3");
     const changes: Base.EdgeChange[] = [
@@ -109,13 +104,10 @@ describe("edgeChangesToActions", () => {
       { type: "remove", key: "e2" },
       { type: "add", edge: e3 },
     ];
-    const pipeDefault = Edge.REGISTRY.pipe.defaultConfig();
     expect(edgeChangesToActions(changes)).toEqual([
       schematic.addEdge({ edge: e1 }),
-      schematic.setConfig({ key: "e1", config: pipeDefault }),
       schematic.removeEdge({ key: "e2" }),
       schematic.addEdge({ edge: e3 }),
-      schematic.setConfig({ key: "e3", config: pipeDefault }),
     ]);
   });
 });

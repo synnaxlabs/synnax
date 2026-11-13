@@ -44,26 +44,28 @@ import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 
 const path = deep.path<{
-  variant: Schematic.ElementConfig["variant"];
+  variant: Schematic.Node.Variant;
   specKey?: schematic.symbol.Key;
 }>();
+
+const edgePath = deep.path<schematic.Edge>();
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
-  if (selected.length === 0 || configByKey.size === 0)
+  const edgeByKey = Schematic.useEdges({ keys: selected });
+  if (selected.length === 0 || configByKey.size + edgeByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
         Select a schematic element to configure its properties
       </Text.Text>
     );
-  if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
+  if (selected.length > 1)
+    return <MultiConfig configByKey={configByKey} edgeByKey={edgeByKey} />;
   const elKey = selected[0];
+  if (edgeByKey.has(elKey)) return <EdgeProperties key={elKey} elKey={elKey} />;
   const config = configByKey.get(elKey);
-  const symbolKey =
-    config != null && Schematic.Node.isConfig(config)
-      ? Schematic.Node.symbolKey(config)
-      : "";
+  const symbolKey = config != null ? Schematic.Node.symbolKey(config) : "";
   // A symbol's form holds that symbol's config, so a change remounts it.
   return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
 });
@@ -72,6 +74,19 @@ Properties.displayName = "PropertiesControls";
 interface IndividualConfigProps {
   elKey: string;
 }
+
+const EdgeProperties = ({ elKey }: IndividualConfigProps): ReactElement => {
+  const form = Schematic.useEdgeForm({ elKey });
+  const variant = Form.useFieldValue(edgePath.variant, { ctx: form });
+  const C = Schematic.Edge.resolveSpec(variant).Form;
+  return (
+    <Flex.Box className={CSS.BE("schematic", "properties")} y>
+      <Form.Form<typeof schematic.edgeZ> {...form}>
+        <C />
+      </Form.Form>
+    </Flex.Box>
+  );
+};
 
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const schematicKey = Schematic.useKey();
@@ -97,7 +112,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
       </Button.Button>
     );
 
-  const C = Schematic.ELEMENT_REGISTRY[variant];
+  const C = Schematic.Node.REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,
@@ -106,7 +121,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   };
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
-      <Form.Form<typeof Schematic.elementConfigZ> {...form}>
+      <Form.Form<typeof Schematic.Node.configZ> {...form}>
         {isCustom ? (
           <CustomVariantForm
             specKey={specKey}
@@ -140,7 +155,11 @@ const CustomVariantForm = ({
   return <VariantForm key={elKey} {...formProps} />;
 };
 
-const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
+const FIELDS = MultiEdit.fieldsByVariant(schematic.NODE_CONFIG_SCHEMAS);
+
+const EDGE_FIELDS = MultiEdit.fieldsByVariant(
+  Object.fromEntries(schematic.EDGE_VARIANTS.map((v) => [v, schematic.edgeZ])),
+);
 
 // Every stored color field, role or not, that Selection lists.
 const COLOR_FIELDS = [
@@ -155,7 +174,7 @@ const COLOR_FIELDS = [
 
 const selectionColorRefs = (
   key: string,
-  cfg: Schematic.ElementConfig,
+  cfg: Schematic.Node.Config,
 ): MultiEdit.ColorRef[] => {
   const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
   if (cfg.variant === "state_indicator")
@@ -169,13 +188,14 @@ const selectionColorRefs = (
 const SCALE_BOUNDS = { lower: 5, upper: 1000 };
 
 interface MultiElementPropertiesProps {
-  configByKey: Map<string, Schematic.ElementConfig>;
+  configByKey: Map<string, Schematic.Node.Config>;
+  edgeByKey: Map<string, schematic.Edge>;
 }
 
 const removeShielded = (
-  configs: Map<string, Schematic.ElementConfig>,
+  configs: Map<string, Schematic.Node.Config>,
   parentOf: Map<string, string>,
-): Map<string, Schematic.ElementConfig> => {
+): Map<string, Schematic.Node.Config> => {
   const shielded = Schematic.Group.shielded(
     [...configs.keys()],
     parentOf,
@@ -187,7 +207,10 @@ const removeShielded = (
   return m;
 };
 
-const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement => {
+const MultiConfig = ({
+  configByKey,
+  edgeByKey,
+}: MultiElementPropertiesProps): ReactElement => {
   const schematicKey = Schematic.useKey();
   const handleError = Status.useErrorHandler();
   const selected = Session.Schematic.useSelectSelected();
@@ -215,9 +238,24 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
+  const edges = MultiEdit.selection({
+    configs: edgeByKey,
+    fields: EDGE_FIELDS,
+    onChange: (updates) => dispatch(updates.flatMap(schematic.setEdgeChanged)),
+  });
+
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
     selectionColorRefs(key, cfg),
   );
+  const edgeRefs = Array.from(edgeByKey).flatMap(([key, edge]) =>
+    MultiEdit.colorRefs(key, edge, ["strokeColor"]),
+  );
+  const handleSetColors = (refs: MultiEdit.ColorRef[], value: color.Color): void => {
+    const nodeRefs = refs.filter((r) => !edgeByKey.has(r.key));
+    const toEdges = refs.filter((r) => edgeByKey.has(r.key));
+    if (nodeRefs.length > 0) selection.setColors(nodeRefs, value);
+    if (toEdges.length > 0) edges.setColors(toEdges, value);
+  };
 
   const handleLayouts = (
     nodeEl: Element,
@@ -392,10 +430,11 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     if (actions.length > 0) dispatch(actions);
   };
 
-  const hasStroke = selection.has("strokeColor");
+  const hasStroke = selection.has("strokeColor") || edges.has("strokeColor");
   const hasFill = selection.has("fillColor");
   const hasText = selection.has("textColor");
-  const hasColors = hasStroke || hasFill || hasText || selectionRefs.length > 0;
+  const allRefs = [...selectionRefs, ...edgeRefs];
+  const hasColors = hasStroke || hasFill || hasText || allRefs.length > 0;
 
   return (
     <Form.Sections x>
@@ -497,10 +536,18 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={selection.colors("strokeColor", (c) =>
-                Schematic.colorFallback("strokeColor", c.variant, theme),
-              )}
-              onChange={(c) => selection.set("strokeColor", c)}
+              values={[
+                ...selection.colors("strokeColor", (c) =>
+                  Schematic.colorFallback("strokeColor", c.variant, theme),
+                ),
+                ...edges.colors("strokeColor", (e) =>
+                  Schematic.colorFallback("strokeColor", e.variant, theme),
+                ),
+              ]}
+              onChange={(c) => {
+                selection.set("strokeColor", c);
+                edges.set("strokeColor", c);
+              }}
             />
           )}
           {hasFill && (
@@ -521,10 +568,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               onChange={(c) => selection.set("textColor", c)}
             />
           )}
-          <MultiEdit.SelectionColors
-            refs={selectionRefs}
-            onChange={selection.setColors}
-          />
+          <MultiEdit.SelectionColors refs={allRefs} onChange={handleSetColors} />
         </MultiEdit.ColorsSection>
       )}
       {selection.has("label") && (

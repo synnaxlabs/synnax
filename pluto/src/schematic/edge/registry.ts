@@ -26,14 +26,12 @@ export const REGISTRY = {
   hydraulic: Hydraulic.spec,
   pneumatic: Pneumatic.spec,
   data: Data.spec,
-} as const satisfies Record<schematic.EdgeConfigType, unknown>;
+} as const satisfies Record<schematic.EdgeVariant, Spec>;
 
-export type Variant = schematic.EdgeConfigType;
+export type Variant = schematic.EdgeVariant;
 
-export type Config = schematic.EdgeConfig;
-
-export const resolveSpec = (variant: string): Spec<Variant, Config> => {
-  const spec = REGISTRY[variant as Variant];
+export const resolveSpec = (variant: Variant): Spec => {
+  const spec = REGISTRY[variant];
   if (spec == null) throw new NotFoundError(`Edge with variant ${variant} not found`);
   return spec;
 };

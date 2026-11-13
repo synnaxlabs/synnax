@@ -119,7 +119,7 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(cfg.OnClickDelay).To(HaveValue(Equal(2.0)))
 			},
@@ -144,7 +144,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Edges[0].Target).To(
 					Equal(schematic.Handle{Node: "n2", Param: "b"}),
 				)
-				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(cfg.StrokeColor).
 					To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
@@ -191,7 +191,7 @@ var _ = Describe("ImEx", func() {
 				"versions/testdata/import_v10_zero_scale.json",
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
-			valve, ok := res.Configs["v1"].Variant.(schematic.ValveElementConfig)
+			valve, ok := res.Configs["v1"].Variant.(schematic.ValveNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(valve.Scale).To(Equal(1.0))
 		})
@@ -254,9 +254,13 @@ var _ = Describe("ImEx", func() {
 					Name:    "round-trip",
 					Nodes:   []schematic.Node{{Key: "n1", ZIndex: 5}},
 					Edges: []schematic.Edge{{
-						Key:    "e1",
-						Source: schematic.Handle{Node: "n1", Param: "out"},
-						Target: schematic.Handle{Node: "n2", Param: "in"},
+						Key:         "e1",
+						Source:      schematic.Handle{Node: "n1", Param: "out"},
+						Target:      schematic.Handle{Node: "n2", Param: "in"},
+						Variant:     schematic.EdgeVariantHydraulic,
+						StrokeColor: new(MustSucceed(color.Parse("#ff0000"))),
+						StrokeWidth: 4,
+						Segments:    []schematic.Segment{{Direction: "x", Length: 40}},
 					}},
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { act, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { Profiler, type ReactElement } from "react";
@@ -33,18 +34,29 @@ const updateNode = (store: Store, id: string, change: Partial<Node>): void => {
   setNodes(nodes.map((n) => (n.id === id ? { ...n, ...change } : n)));
 };
 
-const Line = ({ points, crossings }: Segmented.PathProps): ReactElement => (
-  <path d={Path.rounded(points, crossings)} />
+const Line = ({
+  points,
+  crossings,
+  strokeWidth,
+}: Segmented.PathProps): ReactElement => (
+  <path d={Path.rounded(points, crossings)} strokeWidth={strokeWidth} />
 );
 
 const spec = Segmented.createSpec("electric", "Electric", Line);
+
+const EDGE = schematic.edgeZ.parse({
+  key: "e1",
+  source: { node: "a", param: "out" },
+  target: { node: "b", param: "in" },
+  variant: "electric",
+});
 
 const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
   onStore(useStoreApi());
   return null;
 };
 
-const renderEdge = () => {
+const renderEdge = (config: { strokeWidth?: number } = {}) => {
   let store!: Store;
   let renders = 0;
   const jumps = Jumps.createStore();
@@ -62,8 +74,8 @@ const renderEdge = () => {
               sourceNode="a"
               targetNode="b"
               selected={false}
-              config={spec.defaultConfig()}
-              onChange={vi.fn()}
+              edge={{ ...EDGE, ...config }}
+              onSegmentsChange={vi.fn()}
             />
           </Profiler>
         </svg>
@@ -76,6 +88,8 @@ const renderEdge = () => {
   return {
     store: () => store,
     path,
+    strokeWidth: (): string | null =>
+      container.querySelector("path")?.getAttribute("stroke-width") ?? null,
     renders: () => renders,
     remount: () => rerender(ui("second")),
   };
@@ -100,6 +114,14 @@ describe("Segmented", () => {
     remount();
     expect(resized).toEqual(path());
     expect(resized).not.toEqual(atStart);
+  });
+
+  it("should draw an edge with no stroke width at the default", () => {
+    expect(renderEdge().strokeWidth()).toBe("2");
+  });
+
+  it("should draw an edge at its stroke width", () => {
+    expect(renderEdge({ strokeWidth: 6 }).strokeWidth()).toBe("6");
   });
 
   it("should not re-render when a node it does not connect moves", () => {

@@ -606,15 +606,14 @@ export interface UpdateSegmentsForPositionChangesProps {
     key: string;
     source: { node: string };
     target: { node: string };
+    segments: Segment[];
   }>;
-  props: Record<string, schematic.ElementConfig | undefined>;
   changes: NodePositionChange[];
 }
 
 export const updateSegmentsForPositionChanges = ({
   nodes,
   edges,
-  props,
   changes,
 }: UpdateSegmentsForPositionChangesProps): EdgeSegmentUpdate[] => {
   const deltas = new Map<string, xy.XY>();
@@ -634,8 +633,7 @@ export const updateSegmentsForPositionChanges = ({
       xy.equals(sourceDelta, targetDelta, 0.001)
     )
       continue;
-    const cfg = props[edge.key];
-    let segments = (cfg != null && "segments" in cfg ? cfg.segments : undefined) ?? [];
+    let { segments } = edge;
     if (segments.length === 0) continue;
     if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
       segments = moveSourceNode({ delta: sourceDelta, segments });

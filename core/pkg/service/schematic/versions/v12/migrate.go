@@ -14,31 +14,144 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// MigrateSchematic lifts a v11 schematic into v12. It keeps the precision of each
-// numeric symbol as a whole number.
+// MigrateSchematic lifts a v11 schematic into v12. Each edge takes the variant, stroke
+// color, and segments of the edge config stored under its key, and the default stroke
+// width. An edge with no edge config takes the defaults. An edge config whose key names
+// no edge is dropped. Every other config migrates through MigrateNodeConfig.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	// A tank declares its numeric fields inline, so the generated copy skips the
-	// precision whose type changed.
-	for k, cfg := range old.Configs {
-		if o, ok := cfg.Variant.(v10.TankElementConfig); ok {
-			n := out.Configs[k].Variant.(TankElementConfig)
-			n.Precision = migratePrecision(o.Precision)
-			out.Configs[k] = ElementConfig{Variant: n}
+	edges := make(map[string]Edge, len(old.Configs))
+	out.Configs = make(map[string]NodeConfig, len(old.Configs))
+	for key, cfg := range old.Configs {
+		if e, ok := edgeStyle(cfg); ok {
+			edges[key] = e
+			continue
 		}
+		node, err := nodeConfig(cfg)
+		if err != nil {
+			return Schematic{}, err
+		}
+		if out.Configs[key], err = MigrateNodeConfig(ctx, node); err != nil {
+			return Schematic{}, err
+		}
+	}
+	for i, e := range out.Edges {
+		style, ok := edges[e.Key]
+		if !ok {
+			continue
+		}
+		out.Edges[i].Variant = style.Variant
+		out.Edges[i].StrokeColor = style.StrokeColor
+		out.Edges[i].Segments = style.Segments
 	}
 	return out, nil
 }
 
-// Migration lifts stored schematics from v11 to v12, which stores the precision as an
-// optional byte.
+// MigrateEdge lifts a v11 edge into v12 with the default variant and stroke width.
+func MigrateEdge(ctx context.Context, old v11.Edge) (Edge, error) {
+	e, err := autoMigrateEdge(ctx, old)
+	if err != nil {
+		return Edge{}, err
+	}
+	e.ApplyDefaults()
+	return e, nil
+}
+
+// edgeStyle returns the style that an edge config of cfg gives an edge, and false when
+// cfg is not an edge config.
+func edgeStyle(cfg v11.ElementConfig) (Edge, bool) {
+	var (
+		variant EdgeVariant
+		seg     v11.SegmentedEdgeConfig
+	)
+	switch v := cfg.Variant.(type) {
+	case v11.PipeElementConfig:
+		variant, seg = EdgeVariantPipe, v.SegmentedEdgeConfig
+	case v11.ElectricElementConfig:
+		variant, seg = EdgeVariantElectric, v.SegmentedEdgeConfig
+	case v11.SecondaryElementConfig:
+		variant, seg = EdgeVariantSecondary, v.SegmentedEdgeConfig
+	case v11.JacketedElementConfig:
+		variant, seg = EdgeVariantJacketed, v.SegmentedEdgeConfig
+	case v11.HydraulicElementConfig:
+		variant, seg = EdgeVariantHydraulic, v.SegmentedEdgeConfig
+	case v11.PneumaticElementConfig:
+		variant, seg = EdgeVariantPneumatic, v.SegmentedEdgeConfig
+	case v11.DataElementConfig:
+		variant, seg = EdgeVariantData, v.SegmentedEdgeConfig
+	default:
+		return Edge{}, false
+	}
+	return Edge{
+		Variant:     variant,
+		StrokeColor: seg.StrokeColor,
+		Segments:    seg.Segments,
+	}, true
+}
+
+// nodeConfig converts a v11 element config that is not an edge config to the v11 node
+// config of the same variant. Both unions encode a node variant with the same bytes.
+func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
+	if cfg.Variant == nil {
+		return v11.NodeConfig{}, nil
+	}
+	w := orc.NewWriter(0)
+	if err := cfg.EncodeOrc(w); err != nil {
+		return v11.NodeConfig{}, err
+	}
+	r := orc.NewReader(nil)
+	r.ResetBytes(w.Bytes())
+	var node v11.NodeConfig
+	if err := node.DecodeOrc(r); err != nil {
+		return v11.NodeConfig{}, err
+	}
+	return node, nil
+}
+
+// MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
+// pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
+// width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig.
+func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
+	out, err := autoMigrateNodeConfig(ctx, old)
+	if err != nil {
+		return NodeConfig{}, err
+	}
+	switch o := old.Variant.(type) {
+	case v11.BoxNodeConfig:
+		n := out.Variant.(BoxNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v11.CircleNodeConfig:
+		n := out.Variant.(CircleNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v11.LineNodeConfig:
+		n := out.Variant.(LineNodeConfig)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		out.Variant = n
+	case v11.PolygonNodeConfig:
+		n := out.Variant.(PolygonNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v11.TankNodeConfig:
+		// A tank declares its numeric fields inline, so the generated copy skips the
+		// precision whose type changed.
+		n := out.Variant.(TankNodeConfig)
+		n.Precision = migratePrecision(o.Precision)
+		out.Variant = n
+	}
+	return out, nil
+}
+
+// Migration lifts stored schematics from v11 to v12, which stores the precision and
+// stroke widths as bytes and the style of each edge on the edge.
 var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
 // MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
@@ -64,4 +177,11 @@ func migratePrecision(p float64) *uint8 {
 		return new(uint8(0))
 	}
 	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
+}
+
+func migrateStrokeWidth(w float64) uint8 {
+	if math.IsNaN(w) || w <= 0 {
+		return 0
+	}
+	return uint8(min(max(math.Round(w), 1), 20))
 }
