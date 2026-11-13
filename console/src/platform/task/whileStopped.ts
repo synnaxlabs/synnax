@@ -21,12 +21,13 @@ export interface WhileStoppedParams {
  * after a success unless keepStopped is set. A task that fails to start shows its own
  * error.
  *
- * @throws the error of a stop that fails, or of the action.
+ * @returns what the action returns.
+ * @throws {Error} if a task fails to stop, or the action fails.
  */
-export const whileStopped = async (
+export const whileStopped = async <T>(
   { tasks, keepStopped = false }: WhileStoppedParams,
-  action: () => Promise<void>,
-): Promise<void> => {
+  action: () => Promise<T>,
+): Promise<T> => {
   let succeeded = false;
   try {
     await Promise.all(
@@ -35,8 +36,9 @@ export const whileStopped = async (
         if (res.variant === "error") throw status.toError(res);
       }),
     );
-    await action();
+    const result = await action();
     succeeded = true;
+    return result;
   } finally {
     if (!succeeded || !keepStopped)
       await Promise.allSettled(

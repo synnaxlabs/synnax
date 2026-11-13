@@ -158,7 +158,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
     for (let line = 0; line < lines; line++)
       if (!taken.has(lineName(port, line))) return { ...next, port, line };
   }
-  const source = channels.find(({ key }) => key === placement.copy) ?? channels.at(-1);
+  const source = Task.channelToCopy(channels, placement.copy);
   const port = placement.port ?? source?.port ?? next.port;
   let line = 0;
   while (taken.has(lineName(port, line))) line++;

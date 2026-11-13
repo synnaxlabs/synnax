@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type Synnax } from "@synnaxlabs/client";
+import { DataType, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,8 +18,12 @@ import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { CaptureStatuses, uniqueName } from "@/testutil";
+import {
+  awaitTare,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
+import { CaptureStatuses, getIconButtons, uniqueName } from "@/testutil";
 
 type Field = Task.Views.GroupField;
 
@@ -81,11 +85,13 @@ interface RenderOptions extends Partial<Task.Views.GroupTreeProps<Item, Field>> 
   mode?: "preview";
   /** Resolves the channels of the groups and fields. */
   client?: Synnax;
+  /** The key of a running task that the form edits. */
+  runningTask?: task.Key;
 }
 
 const renderTree = async (
   groups: Item[],
-  { mode, client, ...props }: RenderOptions = {},
+  { mode, client, runningTask, ...props }: RenderOptions = {},
   onStatuses?: (statuses: Status.NotificationSpec[]) => void,
 ) => {
   const ui = (
@@ -106,7 +112,11 @@ const renderTree = async (
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </>
   );
-  const options = { values: { config: { groups } }, mode };
+  const running =
+    runningTask == null
+      ? {}
+      : { key: runningTask, status: { details: { running: true } } };
+  const options = { values: { ...running, config: { groups } }, mode };
   if (client == null) return await renderInTaskForm(ui, options);
   return await renderInTaskFormWithClient(ui, { ...options, client });
 };
@@ -422,6 +432,67 @@ describe("GroupTree", () => {
         "Channel not foundIt may have been deleted. Deploying the task does not " +
           "create a disabled channel.",
       );
+    });
+
+    describe("tare", () => {
+      const createChannel = async (dataType: DataType) =>
+        (
+          await client.channels.create({
+            name: uniqueName("tare"),
+            dataType,
+            virtual: true,
+          })
+        ).key;
+
+      // Renders a float and an integer field of a running task, then resolves with the
+      // tare command that the action sends.
+      const tareThrough = async (
+        trigger: (container: HTMLElement) => Promise<void>,
+      ): Promise<{ args: unknown; float: number }> => {
+        const [float, integer] = await Promise.all([
+          createChannel(DataType.FLOAT32),
+          createChannel(DataType.UINT8),
+        ]);
+        const group: Group = {
+          ...GROUP,
+          fields: [
+            field("ts", "/time"),
+            field("f", "/float", float),
+            field("i", "/integer", integer),
+          ],
+        };
+        const rack = await client.racks.create({ name: uniqueName("rack") });
+        const tsk = await rack.createTask({
+          name: uniqueName("tsk"),
+          type: "http_read",
+          config: {},
+        });
+        const args = await awaitTare(client, tsk.key, async () => {
+          const { container } = await renderTree([group], {
+            client,
+            tareable: true,
+            runningTask: tsk.key,
+          });
+          await trigger(container);
+        });
+        return { args, float };
+      };
+
+      it("should tare from the one button, which a float field shows", async () => {
+        const { args, float } = await tareThrough(async (container) => {
+          await waitFor(() => expect(getIconButtons(container, "tare")).toHaveLength(1));
+          fireEvent.click(getIconButtons(container, "tare")[0]);
+        });
+        expect(args).toEqual({ keys: [float] });
+      });
+
+      it("should tare the channel of a field from its menu", async () => {
+        const { args, float } = await tareThrough(async () => {
+          fireEvent.contextMenu(await screen.findByText("/float"));
+          fireEvent.click(await screen.findByText("Tare"));
+        });
+        expect(args).toEqual({ keys: [float] });
+      });
     });
   });
 });

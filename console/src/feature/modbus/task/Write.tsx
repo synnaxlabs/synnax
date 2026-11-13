@@ -32,6 +32,7 @@ import {
 import {
   deployWriteConfigZ,
   nextOpenChannel,
+  writesOverlap,
   UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
@@ -161,7 +162,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 };
 
 const getOpenChannel = (channels: WriteChannel[], copy?: string): WriteChannel => {
-  const next = nextOpenChannel(channels, copy);
+  const next = nextOpenChannel(channels, writesOverlap, copy);
   if (next == null)
     return {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),

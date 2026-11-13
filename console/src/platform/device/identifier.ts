@@ -11,7 +11,7 @@ import { actions, channel, device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { deep, type record, strings, unique, verbs } from "@synnaxlabs/x";
 
-const MAX_LENGTH = 12;
+import { identifierZ } from "@/platform/device/types";
 
 /** @returns the channel name prefixes that the identifiers of the devices give. */
 const prefixesOf = (devices: device.Device[]): Set<string> =>
@@ -32,7 +32,7 @@ const suggest = (name: string, taken: ReadonlySet<string>): string[] =>
     strings.createShortIdentifiers(name).flatMap((id) => {
       for (let n = 1; ; n++) {
         const candidate = n === 1 ? id : `${id}_${n}`;
-        if (candidate.length > MAX_LENGTH) return [];
+        if (!identifierZ.safeParse(candidate).success) return [];
         if (!taken.has(channel.escapeInvalidName(candidate))) return [candidate];
       }
     }),

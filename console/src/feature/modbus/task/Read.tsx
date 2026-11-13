@@ -35,6 +35,7 @@ import {
   isStringReadChannel,
   isVariableDensityReadChannel,
   nextOpenChannel,
+  readsOverlap,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -121,7 +122,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 };
 
 const getOpenChannel = (channels: ReadChannel[], copy?: string): ReadChannel => {
-  const next = nextOpenChannel(channels, copy);
+  const next = nextOpenChannel(channels, readsOverlap, copy);
   if (next == null)
     return {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),

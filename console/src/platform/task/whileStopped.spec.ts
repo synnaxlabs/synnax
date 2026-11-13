@@ -16,20 +16,39 @@ import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const createRunningTask = async () => {
+  const rack = await client.racks.create({ name: uniqueName("rack") });
+  const tsk = await rack.createTask({
+    name: uniqueName("tsk"),
+    type: "opc_read",
+    config: {},
+  });
+  await reportTaskRunning(client, tsk);
+  return tsk;
+};
+
 describe("whileStopped", () => {
   it("should run the action between the stop and the start of the tasks", async () => {
-    const rack = await client.racks.create({ name: uniqueName("rack") });
-    const tsk = await rack.createTask({
-      name: uniqueName("tsk"),
-      type: "opc_read",
-      config: {},
-    });
-    await reportTaskRunning(client, tsk);
+    const tsk = await createRunningTask();
     const driver = await answerCommandsUntil(client, [tsk], "start");
-    await Task.whileStopped({ tasks: [tsk] }, async () => {
+    const result = await Task.whileStopped({ tasks: [tsk] }, async () => {
       await tsk.executeCommandSync({ type: "action" });
+      return "done";
     });
+    expect(result).toBe("done");
     const commands = await driver.answered;
     expect(commands.map(({ type }) => type)).toEqual(["stop", "action", "start"]);
+  });
+
+  it("should start the tasks again and throw when the action fails", async () => {
+    const tsk = await createRunningTask();
+    const driver = await answerCommandsUntil(client, [tsk], "start");
+    await expect(
+      Task.whileStopped({ tasks: [tsk], keepStopped: true }, async () => {
+        throw new Error("action failed");
+      }),
+    ).rejects.toThrow("action failed");
+    const commands = await driver.answered;
+    expect(commands.map(({ type }) => type)).toEqual(["stop", "start"]);
   });
 });

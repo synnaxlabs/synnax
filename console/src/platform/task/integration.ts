@@ -21,6 +21,6 @@ export interface Integration {
   icon: Icon.ReactElement;
   /** The task types a user can create. */
   selectables: Selector.Selectable[];
-  /** The read task types that a plot can show, by type. */
+  /** Finds the channels to plot, by read task type. */
   plotChannels?: Record<string, PlotChannels>;
 }

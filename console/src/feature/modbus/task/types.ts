@@ -141,15 +141,24 @@ const mergeRanges = (spans: [number, number][]): [number, number][] =>
       return merged;
     }, []);
 
+// Bits of one register are apart, so only channels on the same bit can overlap.
+const readGroupOf = (c: Channel): string =>
+  "bit" in c ? `${c.type}.${c.bit}` : spaceOf(c.type);
+
+/** @returns whether two channels of a read task use the same address. */
+export const readsOverlap = (a: ReadChannel, b: ReadChannel): boolean => {
+  if (readGroupOf(a) !== readGroupOf(b)) return false;
+  const [aStart, aEnd] = addressSpan(a);
+  const [bStart, bEnd] = addressSpan(b);
+  return aStart <= bEnd && bStart <= aEnd;
+};
+
 /** @returns where channels of the same type use the same addresses. */
 export const findOverlaps = (channels: Channel[]): Overlaps => {
   const keys = new Set<string>();
   const ranges: Overlaps["ranges"] = {};
   const sharedByType = new Map<ReadChannelType, [number, number][]>();
-  // Bits of one register are apart, so only channels on the same bit can overlap.
-  const groups = Map.groupBy(channels, (c) =>
-    "bit" in c ? `${c.type}.${c.bit}` : spaceOf(c.type),
-  );
+  const groups = Map.groupBy(channels, readGroupOf);
   for (const typed of groups.values()) {
     const type = spaceOf(typed[0].type);
     // A channel stops one address past its last, and a stop comes before a start at
@@ -200,27 +209,20 @@ const nextChannel = <C extends Channel>(channel: C): C => {
   return { ...channel, address: channel.address + 1, bit: 0 };
 };
 
-const takesSlotOf = (a: Channel, b: Channel): boolean => {
-  if (a.type !== b.type) return false;
-  if ("bit" in a && "bit" in b) return a.address === b.address && a.bit === b.bit;
-  const [aStart, aEnd] = addressSpan(a);
-  const [bStart, bEnd] = addressSpan(b);
-  return aStart <= bEnd && bStart <= aEnd;
-};
-
 /**
  * @returns the channel to add after the channel with the given key, or after the last
- * channel: the first slot after it that no channel of the same type takes. Returns null
- * when there are no channels.
+ * channel: the first slot after it that overlaps no channel. Returns null when there are
+ * no channels.
  */
 export const nextOpenChannel = <C extends Channel>(
   channels: C[],
+  overlap: (a: C, b: C) => boolean,
   copy?: string,
 ): C | null => {
-  const base = channels.find(({ key }) => key === copy) ?? channels.at(-1);
+  const base = Task.channelToCopy(channels, copy);
   if (base == null) return null;
   let next = nextChannel(base);
-  while (channels.some((ch) => takesSlotOf(ch, next))) next = nextChannel(next);
+  while (channels.some((ch) => overlap(ch, next))) next = nextChannel(next);
   return next;
 };
 
@@ -285,8 +287,8 @@ const validateReadChannels = ({
 
 const isCoil = (ch: WriteChannel) => ch.type === "coil";
 
-// Bits of one register are written together, so only the same bit overlaps.
-const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
+/** @returns whether two channels of a write task write the same address. */
+export const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
   if (isCoil(a) !== isCoil(b)) return false;
   if (a.type === "holding_register_bit" && b.type === "holding_register_bit")
     return a.address === b.address && a.bit === b.bit;

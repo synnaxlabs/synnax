@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -16,18 +16,15 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { array, deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
-import { useIsSnapshot } from "@/platform/task/Form";
+import { TareItem } from "@/platform/task/TareItem";
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
-import { useIsRunning } from "@/platform/task/useStatus";
-import { useTare } from "@/platform/task/useTare";
 
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];
@@ -50,33 +47,6 @@ interface ContextMenuProps<C extends Channel> extends Pick<
 /** @returns the Synnax channel a read channel binds, or 0 for any other channel. */
 const boundChannel = (c: Channel): channel.Key =>
   "channel" in c && typeof c.channel === "number" ? c.channel : 0;
-
-interface TareItemProps {
-  channels: Channel[];
-}
-
-const TareItem = ({ channels }: TareItemProps) => {
-  const keys = channels
-    .filter(({ disabled }) => !disabled)
-    .map(boundChannel)
-    .filter((key) => key !== 0);
-  const { data } = PChannel.useResultMultiple(
-    keys.length === 0 ? null : query.keysRequest(keys),
-  );
-  const isSnapshot = useIsSnapshot();
-  const isRunning = useIsRunning();
-  const tare = useTare();
-  const floats = (data ?? []).filter(
-    ({ key, dataType }) => keys.includes(key) && dataType.isFloat,
-  );
-  if (isSnapshot || !isRunning || floats.length === 0) return null;
-  return (
-    <Menu.Item itemKey="tare" onClick={() => tare(floats.map(({ key }) => key))}>
-      <Icon.Tare />
-      Tare
-    </Menu.Item>
-  );
-};
 
 const ContextMenu = <C extends Channel>({
   keys,
@@ -130,7 +100,9 @@ const ContextMenu = <C extends Channel>({
           )}
         </>
       )}
-      {tareable && <TareItem channels={channels} />}
+      {tareable && (
+        <TareItem channels={channels.filter((c) => !c.disabled).map(boundChannel)} />
+      )}
       {!isPreview && (
         <>
           <Menu.Divider />
@@ -144,7 +116,7 @@ const ContextMenu = <C extends Channel>({
 };
 
 export interface ChannelListItemProps extends List.ItemProps<string> {
-  /** The item shows a tare button for a float channel, as the list is tareable. */
+  /** The item shows a tare button for a float channel. */
   tareable?: boolean;
 }
 

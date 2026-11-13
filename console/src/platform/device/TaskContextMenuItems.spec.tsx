@@ -87,12 +87,12 @@ describe("TaskContextMenuItems", () => {
         itemKey: "multi",
         label: "Create Multi Task",
         useCreate: () => multiCreate,
-        multiDevice: { zeroProperties: { rate: 10 } },
+        zeroProperties: { rate: 10 },
       }),
       ...items,
     ];
 
-    const setupSeveral = async (configured: boolean) => {
+    const renderSeveral = async (configured: boolean) => {
       const name = uniqueName("Zq Wv");
       const devices = [
         await createTestDevice(client, { configured, name }),
@@ -116,14 +116,14 @@ describe("TaskContextMenuItems", () => {
     beforeEach(() => multiCreate.mockClear());
 
     it("should offer only the items that take several devices", async () => {
-      await setupSeveral(true);
+      await renderSeveral(true);
       expect(await screen.findByText("Create Multi Task")).toBeTruthy();
       expect(screen.queryByText("Create Read Task")).toBeNull();
       expect(screen.queryByText("Create Write Task")).toBeNull();
     });
 
     it("should configure the devices without a dialog, then create one task", async () => {
-      const { onConfigure, keys } = await setupSeveral(false);
+      const { onConfigure, keys } = await renderSeveral(false);
       fireEvent.click(await screen.findByText("Create Multi Task"));
       await waitFor(() =>
         expect(multiCreate).toHaveBeenCalledWith({ deviceKeys: keys }),
