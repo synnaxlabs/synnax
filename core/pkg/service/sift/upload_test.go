@@ -285,7 +285,7 @@ var _ = Describe("Upload", func() {
 				Time:    telem.Now(),
 				Details: sift.UploadDetails{
 					Device:    moved.Key,
-					Range:     rng.Key,
+					Range:     &rng.Key,
 					TimeRange: rng.TimeRange,
 					Channels:  []channel.Key{ch.Key()},
 					Asset:     "stand",
