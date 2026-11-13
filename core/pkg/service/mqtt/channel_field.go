@@ -224,7 +224,7 @@ func reconcileWriteConfig(
 		}
 		c := channelOf(t.Channel)
 		var changes []string
-		if ok && c.Kind == payload.KindTimestamp && dt != telem.TimestampT &&
+		if c.Kind == payload.KindTimestamp && dt != telem.TimestampT &&
 			base.DataType != nil {
 			if k, known := payload.KindOf(*base.DataType); known &&
 				k != payload.KindTimestamp {
