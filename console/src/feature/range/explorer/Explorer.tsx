@@ -86,6 +86,8 @@ const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
 
 const NO_MORE = (): void => {};
 
+const NO_KEYS: ranger.Key[] = [];
+
 /** @returns whether a tree shows only the first matches, so that it holds still. */
 const isCapped = (
   term: string,
@@ -164,7 +166,11 @@ const Internal = (): ReactElement => {
           fixed: search.fixed,
           order: Tree.ORDERS[sort],
         }
-      : { roots: root.data, expanded, order: Tree.ORDERS[sort] },
+      : {
+          roots: root.data,
+          expanded: flat ? NO_KEYS : expanded,
+          order: Tree.ORDERS[sort],
+        },
   );
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);

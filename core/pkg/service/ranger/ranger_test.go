@@ -113,13 +113,14 @@ var _ = Describe("Ranger", func() {
 			Expect(withChildren(ctx, tx, hidden)).To(Equal(set.New("Parent")))
 		})
 
-		It("Should not store the derived field", func(ctx SpecContext) {
+		It("Should neither store nor echo the derived field", func(ctx SpecContext) {
 			stored := ranger.Range{
 				Name:        "Stored",
 				TimeRange:   telem.SecondTS.SpanRange(telem.Second),
 				HasChildren: true,
 			}
 			Expect(w.Create(ctx, &stored)).To(Succeed())
+			Expect(stored.HasChildren).To(BeFalse())
 			var res ranger.Range
 			Expect(svc.NewRetrieve().
 				Where(ranger.MatchKeys(stored.Key)).

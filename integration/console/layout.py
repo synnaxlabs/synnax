@@ -1104,13 +1104,13 @@ class LayoutClient:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
             f"{item_selector}:has(input.lyra-input__checkbox-input:checked"
-            ":not([aria-label='Favorite']))"
+            ":not([aria-label='Pin']))"
         )
         # Wait out each unchecking before the next. Clicking again while the row is
         # still checked re-selects the box that was just cleared.
         while (remaining := checked.count()) > 0:
             checked.first.locator(
-                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Pin']))"
             ).dispatch_event("click")
             expect(checked).to_have_count(remaining - 1, timeout=5000)
 
@@ -1122,10 +1122,10 @@ class LayoutClient:
         for name in names:
             item = get_item_fn(name)
             item.wait_for(state="visible", timeout=5000)
-            # List items also carry a favorite checkbox; the unlabeled one is
+            # List items also carry a pin checkbox; the unlabeled one is
             # the selection control.
             checkbox = item.locator(
-                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Pin']))"
             ).first
             if not checkbox.locator("input").is_checked():
                 checkbox.dispatch_event("click")

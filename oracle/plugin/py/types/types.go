@@ -609,7 +609,7 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -1065,8 +1065,9 @@ func optionalInPython(field resolution.Field) bool {
 	return field.Optional || domain.HasExprFromField(field, "py", "optional")
 }
 
-// orderBounds moves the lower bounds and then le to the end of constraints, so the
-// output does not depend on which bounds a schema states and which its type implies.
+// orderBounds moves the lower bounds, then le, then allow_inf_nan to the end of
+// constraints, so the output does not depend on which bounds a schema states and which
+// its type implies.
 func orderBounds(constraints []string) {
 	rank := func(c string) int {
 		switch {
@@ -1074,6 +1075,8 @@ func orderBounds(constraints []string) {
 			return 1
 		case strings.HasPrefix(c, "le="):
 			return 2
+		case c == "allow_inf_nan=False":
+			return 3
 		default:
 			return 0
 		}
@@ -1154,8 +1157,8 @@ func collectValidation(
 	var constraints []string
 	isString := resolution.IsPrimitive(typeRef.Name) &&
 		resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsNumberPrimitive(typeRef.Name)
+	primitive := key.ResolvePrimitive(typeRef, table)
+	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
 			constraints = append(
@@ -1191,6 +1194,10 @@ func collectValidation(
 			} else {
 				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
+		}
+		isFloat := primitive == "float32" || primitive == "float64"
+		if isFloat && len(constraints) > 0 {
+			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
 	if defaultVal != nil {
@@ -1621,6 +1628,28 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// mapKeyToPython returns the Python type of a map key. A sized integer key carries
+// its range in its type, since the bounds of a field do not reach its dict keys.
+func mapKeyToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	keyType := typeToPython(typeRef, table, data)
+	bounds, ok := sizedIntBounds(typeRef, table)
+	if !ok {
+		return keyType
+	}
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("Field")
+	return fmt.Sprintf(
+		"Annotated[%s, Field(ge=%s, le=%s)]",
+		keyType,
+		bounds.min,
+		bounds.max,
+	)
+}
+
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. It returns the name to reference, which is an alias when the
@@ -1707,7 +1736,7 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -1812,7 +1841,7 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			typeToPython(typeRef.TypeArgs[0], table, data),
+			mapKeyToPython(typeRef.TypeArgs[0], table, data),
 			typeToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}

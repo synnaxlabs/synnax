@@ -9,11 +9,12 @@
 
 import { type channel, query, type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel } from "@synnaxlabs/pluto";
-import { type KeyboardEvent, type ReactElement, useState } from "react";
+import { Channel, Ranger } from "@synnaxlabs/pluto";
+import { type KeyboardEvent, type ReactElement } from "react";
 
 import {
   AddButton,
@@ -91,46 +92,58 @@ const Alias = ({
   );
 };
 
+const aliasPath = Ranger.aliasFormPath;
+
 /** A new alias. It closes once the alias saves, so a failed save keeps the text. */
 const AliasDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
-  const [channel, setChannel] = useState<channel.Key | undefined>(undefined);
-  const [alias, setAlias] = useState("");
-  const { update } = Channel.useUpdateAlias({ afterSuccess: onClose });
-  const save = () => {
-    if (channel == null || alias.trim() === "") return;
-    update({ range: rangeKey, channel, alias: alias.trim() });
-  };
+  const { form, save } = Ranger.useCreateAliasForm({
+    query: null,
+    initialValues: { range: rangeKey, channel: 0, alias: "" },
+    afterSave: onClose,
+  });
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
     if (e.key === "Enter") save();
   };
   return (
-    <Field
-      name={
-        <Channel.SelectSingle
-          value={channel}
-          onChange={setChannel}
-          triggerProps={{ variant: "shadow", placeholder: "Channel" }}
-          dialogProps={{ className: CSS.BE("range-overview", "channel-dialog") }}
-          className={CSS.BE("range-overview", "field-input")}
+    <Form.Form<typeof Ranger.aliasFormSchema> {...form}>
+      <Field
+        name={
+          <Form.Field<channel.Key>
+            path={aliasPath.channel}
+            showLabel={false}
+            showHelpText={false}
+          >
+            {(p) => (
+              <Channel.SelectSingle
+                {...p}
+                triggerProps={{ variant: "shadow", placeholder: "Channel" }}
+                dialogProps={{ className: CSS.BE("range-overview", "channel-dialog") }}
+                className={CSS.BE("range-overview", "field-input")}
+              />
+            )}
+          </Form.Field>
+        }
+        actions={
+          <>
+            <SaveButton onClick={() => save()} />
+            <RemoveButton onClick={onClose} />
+          </>
+        }
+      >
+        <Form.TextField
+          path={aliasPath.alias}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={{
+            variant: "shadow",
+            placeholder: "Alias",
+            onKeyDown: handleKeyDown,
+            className: CSS.BE("range-overview", "field-value"),
+          }}
         />
-      }
-      actions={
-        <>
-          <SaveButton onClick={save} />
-          <RemoveButton onClick={onClose} />
-        </>
-      }
-    >
-      <Input.Text
-        variant="shadow"
-        placeholder="Alias"
-        value={alias}
-        onChange={setAlias}
-        onKeyDown={handleKeyDown}
-        className={CSS.BE("range-overview", "field-value")}
-      />
-    </Field>
+      </Field>
+    </Form.Form>
   );
 };
 
