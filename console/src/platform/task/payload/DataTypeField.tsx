@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, Telem } from "@synnaxlabs/pluto";
-import { DataType, type deep } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { isMissing } from "@/platform/task/ChannelState";
@@ -78,12 +78,21 @@ export const ReadDataTypeField = <F extends ReadOptions>({
 }: ReadDataTypeFieldProps<F>): ReactElement => {
   const { get, set } = Form.useContext();
   const field = Form.useFieldValue(path);
+  // The deploy check reports a kind that does not suit the field at its type.
+  const kind = Form.useFieldState(deep.widen<ReadOptions>(path).type, {
+    optional: true,
+  });
   const handleChange = (dataType: string) => {
     const current = get(path).value;
     set(path, create(current, readOptionsOf(dataType, current)));
   };
   const unbound = (
-    <Input.Item label="Data type" padHelpText={false}>
+    <Input.Item
+      label="Data type"
+      padHelpText={false}
+      helpText={kind?.status.message}
+      status={kind?.status.variant}
+    >
       <Select value={dataTypeOf(field)} onChange={handleChange} {...rest} />
     </Input.Item>
   );
