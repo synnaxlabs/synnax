@@ -74,8 +74,8 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
         try {
           res = await list(client, deviceKey);
         } catch (e) {
-          // A failure after the user moved to another connection or closed the form
-          // is stale.
+          // A failure after the user moved to another connection or closed the form is
+          // stale.
           if (!signal.aborted) handleError(e, "Failed to list Sift assets");
           return;
         }
