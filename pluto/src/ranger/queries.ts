@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, label, ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import {
   color,
   deep,
@@ -207,7 +207,7 @@ export type AliasesQuery = {
 /** The channel aliases of a range: its own and those of the ranges above it. */
 export const { useResult: useResultAliases } = Flux.createRetrieve<
   AliasesQuery,
-  Record<channel.Key, string>
+  ranger.ResolvedAliases
 >({
   name: PLURAL_ALIAS_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) =>

@@ -190,33 +190,41 @@ export const holdResponses = (
   return { responded, release, sent: () => sent };
 };
 
+/** A response that a spec holds. */
+export interface HeldResponse {
+  /** Sends the response on. */
+  release: () => void;
+  /** Rejects the request with the error in place of the response. */
+  fail: (error: Error) => void;
+}
+
 /**
- * Holds the first response to target until release is called, and sends the others on.
- * responded resolves when the held response arrives. Call it inside a test: the hold
- * ends when that test finishes.
+ * Holds each response to target until the spec releases or fails it. held resolves
+ * with the nth response, counted from zero, once it arrives. Call it inside a test:
+ * each hold ends when that test finishes.
  */
-export const holdFirstResponse = (
+export const holdEachResponse = (
   client: Synnax,
   target: string,
   field: "transport" = "transport",
 ) => {
   const { unary } = client[field];
   const send = unary.send.bind(unary);
-  const responded = Promise.withResolvers<void>();
-  const released = Promise.withResolvers<void>();
-  let held = false;
+  const arrivals: Array<PromiseWithResolvers<HeldResponse>> = [];
+  const arrival = (n: number) => (arrivals[n] ??= Promise.withResolvers());
+  const gates: Array<PromiseWithResolvers<void>> = [];
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
     const res = await send(...args);
-    if (args[0] === target && !held) {
-      held = true;
-      responded.resolve();
-      await released.promise;
-    }
+    if (args[0] !== target) return res;
+    const gate = Promise.withResolvers<void>();
+    arrival(gates.length).resolve({ release: () => gate.resolve(), fail: gate.reject });
+    gates.push(gate);
+    await gate.promise;
     return res;
   });
   onTestFinished(() => {
-    released.resolve();
+    gates.forEach((gate) => gate.resolve());
     spy.mockRestore();
   });
-  return { responded: responded.promise, release: () => released.resolve() };
+  return { held: async (n: number) => await arrival(n).promise };
 };

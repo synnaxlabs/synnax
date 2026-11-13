@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  openContextMenu,
   renderSuspended,
   resolveFocusedTab,
   selectRange,
@@ -78,11 +79,10 @@ const createPlanned = async (name: string): Promise<ranger.Range> => {
   return rng;
 };
 
-/**
- * Creates a label, one range with it, and one range without it. Both start years ahead
- * of the ranges other specs create, so they lead the newest-first list.
- */
-const createLabeled = async (): Promise<{
+/** Creates a label, one range with it, and one without it, each named after token. */
+const createLabeled = async (
+  token: string,
+): Promise<{
   label: label.Label;
   labeled: ranger.Range;
   other: ranger.Range;
@@ -91,13 +91,8 @@ const createLabeled = async (): Promise<{
     name: uniqueName("label"),
     color: "#000000",
   });
-  const start = TimeStamp.now().add(TimeSpan.days(3650));
-  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-  const labeled = await createRange(uniqueRangeName("labeled"), {
-    labels: [label.key],
-    timeRange,
-  });
-  const other = await createRange(uniqueRangeName("other"), { timeRange });
+  const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
+  const other = await createRange(`${token} other`);
   return { label, labeled, other };
 };
 
@@ -117,7 +112,8 @@ const findItem = async (name: string): Promise<HTMLElement> =>
 /** Searches for the range, then opens the context menu on it. */
 const openMenuOf = async (rng: ranger.Range): Promise<void> => {
   await search(rng.name);
-  fireEvent.contextMenu(await findItem(rng.name));
+  await findItem(rng.name);
+  await openContextMenu(() => itemOf(rng.name));
 };
 
 const menuItem = async (name: string): Promise<HTMLElement> =>
@@ -175,9 +171,12 @@ const aimAtLabels = async (): Promise<void> => {
 describe("range/explorer/Explorer", () => {
   describe("filter", () => {
     it("should keep the ranges with a picked label and restore the rest when its chip goes", async () => {
-      const { label, labeled, other } = await createLabeled();
+      const token = uniqueToken();
+      const { label, labeled, other } = await createLabeled(token);
       await renderExplorer();
-      await screen.findByText(other.name);
+      // Other specs make ranges that sort above these, so a search shows them alone.
+      await search(token);
+      await findItem(other.name);
       fireEvent.click(await screen.findByRole("button", { name: "Filter" }));
       const labels = await screen.findByRole("button", {
         name: "Labels",
@@ -189,15 +188,15 @@ describe("range/explorer/Explorer", () => {
       });
       fireEvent.click(await screen.findByRole("option", { name: label.name }));
       await waitFor(() => {
-        expect(screen.queryByText(other.name)).toBeNull();
-        expect(screen.getByText(labeled.name)).toBeTruthy();
+        expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
+        expect(itemOf(labeled.name)).toBeTruthy();
       });
       fireEvent.click(screen.getByRole("button", { name: "Remove Labels filter" }));
-      await screen.findByText(other.name);
+      await findItem(other.name);
     });
 
     it("should show the chip of a stored view that filters by one label", async () => {
-      const { label, labeled, other } = await createLabeled();
+      const { label, labeled, other } = await createLabeled(uniqueToken());
       // A 0.61 view stores a sole labels filter outside an and.
       const stored = await client.views.create({
         name: uniqueName("view"),
@@ -387,7 +386,7 @@ describe("range/explorer/Explorer", () => {
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)?.variant).toBe("persisted"),
       );
-      fireEvent.contextMenu(itemOf(rng.name));
+      await openContextMenu(() => itemOf(rng.name));
       fireEvent.click(await menuItem("Unpin"));
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
@@ -432,7 +431,7 @@ describe("range/explorer/Explorer", () => {
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      // The search keeps the ranges that other specs start years ahead off the axis.
+      // The search keeps the ranges of other specs off the axis.
       await search(token);
       await waitFor(() =>
         expect(
@@ -447,12 +446,11 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should offer Fit all once a zoom or Now moves the window", async () => {
-      const rng = await createRange(uniqueRangeName("running"));
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
-      await findItem(rng.name);
+      const zoomIn = await screen.findByRole("button", { name: "Zoom in" });
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(zoomIn);
       fireEvent.click(screen.getByRole("button", { name: "Fit all" }));
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Now" }));
@@ -535,7 +533,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should show a stored view read-only to a subject who cannot update views", async () => {
-      const { label: lbl, labeled } = await createLabeled();
+      const { label: lbl, labeled } = await createLabeled(uniqueToken());
       const stored = await client.views.create({
         name: uniqueName("view"),
         type: "range",

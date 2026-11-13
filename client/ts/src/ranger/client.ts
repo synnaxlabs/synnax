@@ -72,9 +72,13 @@ const kvDeleteZ = z
 const aliasDeleteZ = z.string().transform((val) => alias.decodeDeleteChange(val));
 
 /** The aliases a range resolves: its own and those of the ranges above it. */
-interface ResolvedAliases {
+/** The channel aliases of a range: its own and those of the ranges above it. */
+export interface ResolvedAliases {
   range: Key;
+  /** The alias of each channel, from the range or else the nearest range above. */
   aliases: Record<channel.Key, string>;
+  /** The channels whose alias the range sets itself. */
+  own: channel.Key[];
 }
 
 interface Stores {
@@ -326,11 +330,8 @@ export class Client extends query.Retriever<
   readonly parent: query.Retrieves<Key, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
-  /**
-   * Cached queries for the channel aliases a range resolves, its own and those of the
-   * ranges above it, keyed by the range's key.
-   */
-  readonly resolvedAliases: query.Retrieves<Key, Record<channel.Key, string>>;
+  /** Cached queries for the channel aliases a range resolves, keyed by its key. */
+  readonly resolvedAliases: query.Retrieves<Key, ResolvedAliases>;
   private readonly cfg: ClientConfig;
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
@@ -442,27 +443,31 @@ export class Client extends query.Retriever<
       compose: (records) => records,
       matches: (pair, query) => pair.range === query,
     });
-    // Only the newest fetch of a range writes, so a late answer cannot replace it.
-    const newest = new Map<Key, object>();
-    this.resolvedAliases = cache.queries<
-      Key,
-      Record<channel.Key, string>,
-      Key,
-      ResolvedAliases
-    >({
+    // Orders the fetches in flight for each range by start, so an answer lands only
+    // over an older one.
+    const inFlight = new Map<Key, { started: number; landed: number; open: number }>();
+    this.resolvedAliases = cache.queries<Key, ResolvedAliases, Key, ResolvedAliases>({
       name: "range aliases",
       table: resolvedAliases,
       fetch: async (range) => {
-        const token = {};
-        newest.set(range, token);
-        const aliases = await this.listAliases(range);
-        if (newest.get(range) === token) {
-          newest.delete(range);
-          resolvedAliases.set(range, { range, aliases });
+        const fetches = inFlight.get(range) ?? { started: 0, landed: 0, open: 0 };
+        inFlight.set(range, fetches);
+        const order = ++fetches.started;
+        fetches.open++;
+        try {
+          const aliaser = this.createAliasClient(range);
+          const aliases = await aliaser.list();
+          const own = await aliaser.own(Object.keys(aliases).map(Number));
+          if (order > fetches.landed) {
+            fetches.landed = order;
+            resolvedAliases.set(range, { range, aliases, own });
+          }
+        } finally {
+          if (--fetches.open === 0) inFlight.delete(range);
         }
         return [range];
       },
-      compose: ([resolved]) => resolved.aliases,
+      compose: ([resolved]) => resolved,
       matches: (resolved, range) => resolved.range === range,
       // The Core resolves the aliases of every range above, so a change to the aliases
       // of any of them, or a move of any of them, changes the answer.

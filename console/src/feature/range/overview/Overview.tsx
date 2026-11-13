@@ -39,7 +39,7 @@ export const Overview: Panel.Content = () => {
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
   const showMetaData = pairs.length > 0 || adding === "metadata";
-  const aliasCount = aliases == null ? 0 : Object.keys(aliases).length;
+  const aliasCount = aliases == null ? 0 : Object.keys(aliases.aliases).length;
   const showAliases = aliasCount > 0 || adding === "alias";
   const setAddingTo = (to: Adding) => (next: boolean) => setAdding(next ? to : null);
   return (
@@ -65,7 +65,6 @@ export const Overview: Panel.Content = () => {
           (showAliases ? (
             <Aliases
               rangeKey={key}
-              parent={range.parent}
               aliases={aliases}
               adding={adding === "alias"}
               onAddingChange={setAddingTo("alias")}

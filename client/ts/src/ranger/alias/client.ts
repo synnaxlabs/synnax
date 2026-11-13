@@ -13,7 +13,9 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
+import { createKey, resourceID } from "@/ranger/alias/payload";
 import { type Key, keyZ } from "@/ranger/types.gen";
+import { resource } from "@/resource";
 
 const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
 const resolveResZ = z.object({ aliases: z.record(z.string(), channel.keyZ) });
@@ -32,6 +34,11 @@ const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
 const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
 const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
+
+const ownReqZ = z.object({ ids: resource.idZ.array() });
+const ownResZ = z.object({
+  resources: resource.resourceZ.array().default(() => []),
+});
 
 export class Client {
   private readonly client: UnaryClient;
@@ -106,6 +113,24 @@ export class Client {
     if (!Object.hasOwn(res.aliases, alias))
       throw new NotFoundError(`alias not found matching channel ${alias}`);
     return res.aliases[alias];
+  }
+
+  /**
+   * @returns the channels, of those given, whose alias the range sets itself instead
+   * of inheriting it from a range above.
+   */
+  async own(channels: channel.Key[]): Promise<channel.Key[]> {
+    if (channels.length === 0) return [];
+    const { resources } = await this.client.send(
+      "/resource/retrieve",
+      { ids: channels.map((ch) => resourceID(this.rangeKey, ch)) },
+      ownReqZ,
+      ownResZ,
+    );
+    const owned = new Set(resources.map(({ id }) => id.key));
+    return channels.filter((ch) =>
+      owned.has(createKey({ range: this.rangeKey, channel: ch })),
+    );
   }
 
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {

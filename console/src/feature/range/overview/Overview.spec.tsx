@@ -306,6 +306,21 @@ describe("range/overview", () => {
       await screen.findByDisplayValue("thrust");
       await screen.findByText("Inherited");
     });
+
+    it("should let a range remove its own alias that equals the parent's", async () => {
+      const parent = await createTestRange(client);
+      const child = await createChild(parent);
+      const ch = await createChannel();
+      await parent.setAlias(ch.key, "thrust");
+      await child.setAlias(ch.key, "thrust");
+      // The overview of the parent was open, so the cache holds its aliases.
+      await client.ranges.resolvedAliases.retrieve(parent.key);
+      await renderOverview(child.key);
+      await screen.findByDisplayValue("thrust");
+      expect(screen.queryByText("Inherited")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+      await screen.findByText("Inherited");
+    });
   });
 
   describe("attached", () => {

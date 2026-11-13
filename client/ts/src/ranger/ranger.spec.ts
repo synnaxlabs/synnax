@@ -18,7 +18,7 @@ import {
   TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -27,7 +27,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
-  holdFirstResponse,
+  holdEachResponse,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -1269,9 +1269,20 @@ describe("cached reads", () => {
       await parent.setAlias(inherited.key, "from parent");
       await child.setAlias(own.key, "own");
       expect(await client.ranges.resolvedAliases.retrieve(child.key)).toEqual({
-        [own.key]: "own",
-        [inherited.key]: "from parent",
+        range: child.key,
+        aliases: { [own.key]: "own", [inherited.key]: "from parent" },
+        own: [own.key],
       });
+    });
+
+    it("should name an alias as own when it equals the alias of a range above", async () => {
+      const ch = await createChannel();
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      await parent.setAlias(ch.key, "thrust");
+      await child.setAlias(ch.key, "thrust");
+      const resolved = await client.ranges.resolvedAliases.retrieve(child.key);
+      expect(resolved.own).toEqual([ch.key]);
     });
 
     it("should read the aliases again when a range above sets one", async () => {
@@ -1281,11 +1292,14 @@ describe("cached reads", () => {
       const child = await createRange(client, { parent: parent.key });
       const off = client.ranges.resolvedAliases.watch(child.key).onChange(vi.fn());
       try {
-        expect(await client.ranges.resolvedAliases.retrieve(child.key)).toEqual({});
+        const watched = client.ranges.resolvedAliases.watch(child.key);
+        expect(
+          (await client.ranges.resolvedAliases.retrieve(child.key)).aliases,
+        ).toEqual({});
         const remoteGrandparent = await remote.ranges.retrieve(grandparent.key);
         await remoteGrandparent.setAlias(ch.key, "far");
         await expect
-          .poll(() => client.ranges.resolvedAliases.watch(child.key).getCached())
+          .poll(() => expectLive(watched.getCached()).aliases)
           .toEqual({ [ch.key]: "far" });
       } finally {
         off();
@@ -1301,19 +1315,59 @@ describe("cached reads", () => {
       const watched = local.ranges.resolvedAliases.watch(rng.key);
       const off = watched.onChange(vi.fn());
       try {
-        expect(await local.ranges.resolvedAliases.retrieve(rng.key)).toEqual({});
-        const { responded, release } = holdFirstResponse(local, "/range/alias/list");
+        expect((await local.ranges.resolvedAliases.retrieve(rng.key)).aliases).toEqual(
+          {},
+        );
+        const { held } = holdEachResponse(local, "/range/alias/list");
         await rng.setAlias(ch.key, "old");
-        await responded;
+        const older = await held(0);
         await rng.setAlias(ch.key, "new");
-        await expect.poll(() => watched.getCached()).toEqual({ [ch.key]: "new" });
-        release();
+        (await held(1)).release();
+        await expect
+          .poll(() => expectLive(watched.getCached()).aliases)
+          .toEqual({ [ch.key]: "new" });
+        older.release();
         // A timer runs only after the late answer's microtasks.
         await sleep.sleep(TimeSpan.ZERO);
-        expect(watched.getCached()).toEqual({ [ch.key]: "new" });
+        expect(expectLive(watched.getCached()).aliases).toEqual({ [ch.key]: "new" });
       } finally {
         off();
       }
+    });
+
+    /**
+     * Starts the first read of the aliases on a fresh client, then holds it while the
+     * change stream comes live and refetches the answer.
+     */
+    const overtakeFirstRead = async (rng: ranger.Range) => {
+      const local = createTestClient();
+      const { held } = holdEachResponse(local, "/range/alias/list");
+      const off = local.ranges.resolvedAliases.watch(rng.key).onChange(vi.fn());
+      onTestFinished(off);
+      const read = local.ranges.resolvedAliases.retrieve(rng.key);
+      const first = await held(0);
+      await waitForStreamLive(local.connection);
+      return { read, first, refetch: await held(1) };
+    };
+
+    it("should answer the first read when a refetch overtakes it", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      await rng.setAlias(ch.key, "first");
+      const { read, first, refetch } = await overtakeFirstRead(rng);
+      first.release();
+      expect((await read).aliases).toEqual({ [ch.key]: "first" });
+      refetch.release();
+    });
+
+    it("should answer the first read when the refetch that overtakes it fails", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      await rng.setAlias(ch.key, "first");
+      const { read, first, refetch } = await overtakeFirstRead(rng);
+      refetch.fail(new Error("refetch failed"));
+      first.release();
+      expect((await read).aliases).toEqual({ [ch.key]: "first" });
     });
   });
 });
