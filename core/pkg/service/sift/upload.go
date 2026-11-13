@@ -501,11 +501,13 @@ func retrieveUploads(
 	statuses *status.Service,
 ) ([]UploadStatus, error) {
 	var uploads []UploadStatus
-	err := statuses.NewRetrieve[UploadDetails]().
+	if err := statuses.NewRetrieve[UploadDetails]().
 		WherePrefix(uploadKeyPrefix).
 		Entries(&uploads).
-		Exec(ctx, db)
-	return uploads, err
+		Exec(ctx, db); err != nil {
+		return nil, err
+	}
+	return uploads, nil
 }
 
 // lastAsset returns the asset of the newest upload from dev, or "" when there is none.
