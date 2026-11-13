@@ -120,8 +120,8 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
 // width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
 // button, input, select, setpoint, or state indicator keeps its rendered text size. A
-// button whose label did not wrap in v11 gets a wrap width of 65535. A button width of 0
-// becomes 1, since v11 wrapped that label at every word.
+// button label migrates as in MigrateLabelConfig, except that a width of 150, which
+// did not wrap in v11, becomes 65535.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -231,9 +231,10 @@ func MigrateToggleConfig(
 	return autoMigrateToggleConfig(ctx, old)
 }
 
-// MigrateLabelConfig lifts a v11 label config into v12. It rounds the wrap width to
-// whole pixels and clamps it to 1 through 65535. A NaN width, or one of 0 or less,
-// becomes 150.
+// MigrateLabelConfig lifts a v11 label config into v12 and keeps the label's v11
+// layout. It rounds the wrap width to whole pixels and clamps it to 1 through 65535. A
+// NaN width becomes 150, a width of 0 becomes 1, and a negative width, which did not
+// wrap, becomes 65535.
 func MigrateLabelConfig(ctx context.Context, old v11.LabelConfig) (LabelConfig, error) {
 	cfg, err := autoMigrateLabelConfig(ctx, old)
 	if err != nil {
@@ -246,17 +247,17 @@ func MigrateLabelConfig(ctx context.Context, old v11.LabelConfig) (LabelConfig, 
 const defaultMaxInlineSize = 150
 
 func migrateMaxInlineSize(w float64) uint16 {
-	if math.IsNaN(w) || w <= 0 {
+	if math.IsNaN(w) {
 		return defaultMaxInlineSize
+	}
+	if w < 0 {
+		return math.MaxUint16
 	}
 	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
 }
 
 func migrateButtonMaxInlineSize(w float64) uint16 {
-	if w == 0 {
-		return 1
-	}
-	if math.IsNaN(w) || w < 0 || w == defaultMaxInlineSize {
+	if w == defaultMaxInlineSize {
 		return math.MaxUint16
 	}
 	return migrateMaxInlineSize(w)

@@ -222,6 +222,8 @@ var _ = Describe("MigrateSchematic", func() {
 			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
 		Entry("a value with the default", "value",
 			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a value with a negative width", "value",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
 		Entry("a value with a chosen width", "value",
 			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
 		Entry("a cap with a fractional width", "cap",
@@ -229,11 +231,11 @@ var _ = Describe("MigrateSchematic", func() {
 		Entry("a valve with a fractional width", "valve",
 			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
 		Entry("a valve with a width of 0", "valve",
-			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(150)),
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
 		Entry("a relief valve with a fractional width", "relief_valve",
 			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
 		Entry("a relief valve with a width of 0", "relief_valve",
-			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(150)),
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
 	)
 
 	DescribeTable("Should keep the rendered text size of a saved state indicator",
@@ -402,11 +404,11 @@ var _ = Describe("MigrateLabelConfig", func() {
 		Entry("round up", 80.6, uint16(81)),
 		Entry("round down", 80.4, uint16(80)),
 		Entry("below 1", 0.3, uint16(1)),
-		Entry("negative", -20.0, uint16(150)),
-		Entry("negative infinite", math.Inf(-1), uint16(150)),
+		Entry("negative", -20.0, uint16(65535)),
+		Entry("negative infinite", math.Inf(-1), uint16(65535)),
 		Entry("too large", 1e9, uint16(65535)),
 		Entry("infinite", math.Inf(1), uint16(65535)),
-		Entry("zero", 0.0, uint16(150)),
+		Entry("zero", 0.0, uint16(1)),
 		Entry("NaN", math.NaN(), uint16(150)),
 	)
 })
@@ -426,7 +428,7 @@ var _ = Describe("MigrateToggleConfig", func() {
 		cfg := MustSucceed(v12.MigrateToggleConfig(ctx, v11.ToggleConfig{
 			Label: v11.LabelConfig{Label: "P1", MaxInlineSize: 0},
 		}))
-		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(1))
 		Expect(cfg.Label.Label).To(Equal("P1"))
 	})
 })
@@ -473,7 +475,7 @@ var _ = Describe("MigrateNodeConfig", func() {
 		Entry(
 			"0",
 			msgpack.EncodedJSON{"label": "P1", "max_inline_size": 0.0},
-			uint16(150),
+			uint16(1),
 		),
 	)
 
