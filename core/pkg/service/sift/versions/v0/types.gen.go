@@ -19,7 +19,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )

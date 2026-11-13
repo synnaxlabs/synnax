@@ -21,15 +21,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Retrieve by snapshot and page", func() {
+var _ = Describe("Retrieve by page", func() {
 	var (
-		u              user.User
-		paged          project.Project
-		editable, snap schematic.Schematic
+		u             user.User
+		paged         project.Project
+		first, second schematic.Schematic
 	)
 	BeforeEach(func(ctx SpecContext) {
 		u = newUser(ctx)
@@ -43,13 +42,12 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return projectSvc.NewWriter(tx).Create(ctx, &paged)
 		})).To(Succeed())
-		editable = schematic.Schematic{Project: &paged.Key, Name: "editable"}
+		first = schematic.Schematic{Project: &paged.Key, Name: "first"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return schematicSvc.NewWriter(tx).Create(ctx, &editable)
+			return schematicSvc.NewWriter(tx).Create(ctx, &first)
 		})).To(Succeed())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return schematicSvc.NewWriter(tx).
-				Copy(ctx, editable.Key, "snap", true, nil, &snap)
+			return schematicSvc.NewWriter(tx).Copy(ctx, first.Key, "second", &second)
 		})).To(Succeed())
 	})
 	retrieve := func(ctx SpecContext, req apischematic.RetrieveRequest) []string {
@@ -64,30 +62,17 @@ var _ = Describe("Retrieve by snapshot and page", func() {
 		})
 	}
 
-	DescribeTable("Should filter on snapshot", func(
-		ctx SpecContext,
-		snapshot bool,
-		name string,
-	) {
-		Expect(retrieve(ctx, apischematic.RetrieveRequest{
-			Where: &schematic.Where{Snapshot: &filter.Bool{Eq: &snapshot}},
-		})).To(Equal([]string{name}))
-	},
-		Entry("snapshots", true, "snap"),
-		Entry("editable schematics", false, "editable"),
-	)
-
 	It("Should page the matching schematics", func(ctx SpecContext) {
 		order := &apischematic.Order{Field: apischematic.OrderFieldName}
 		Expect(retrieve(ctx, apischematic.RetrieveRequest{
 			Order: order,
 			Limit: new(uint32(1)),
-		})).To(Equal([]string{"editable"}))
+		})).To(Equal([]string{"first"}))
 		Expect(retrieve(ctx, apischematic.RetrieveRequest{
 			Order: order,
-			After: &apischematic.Cursor{Key: editable.Key, Name: new("editable")},
+			After: &apischematic.Cursor{Key: first.Key, Name: new("first")},
 			Limit: new(uint32(1)),
-		})).To(Equal([]string{"snap"}))
+		})).To(Equal([]string{"second"}))
 	})
 })
 

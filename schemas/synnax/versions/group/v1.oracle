@@ -12,7 +12,9 @@ import "schemas/synnax/versions/resource/v0"
 Key = v0.Key
 
 Group struct extends v0.Group {
-    name
+    name   {
+        @validate required
+    }
     scope  resource.Type {
         @doc value """
             is the type of resource the group's tree holds. It stays the same down a

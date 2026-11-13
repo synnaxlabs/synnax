@@ -24,6 +24,11 @@
     border-radius: var(--pluto-border-radius-medium);
 }
 
+.console-settings__card--flush {
+    padding: 0;
+    overflow: hidden;
+}
+
 .console-settings__entry {
     min-height: 10rem;
     padding: 2.5rem 0;

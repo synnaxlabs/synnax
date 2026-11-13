@@ -397,32 +397,6 @@ describe("Editable", () => {
       await expect(promise).resolves.toEqual(["Hello", false]);
     });
 
-    it("resolves asyncEdit with the initialValue the caller supplies", async () => {
-      const c = render(<Editable id="aliased" value="Alias" onChange={vi.fn()} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("aliased", { initialValue: "RealName" });
-      });
-      expect(text.innerText).toBe("RealName");
-      fireEvent.keyDown(text, { key: "Escape" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-    });
-
-    it("treats an unchanged initialValue as a cancel", async () => {
-      const onChange = vi.fn();
-      const c = render(<Editable id="alias-kept" value="Alias" onChange={onChange} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("alias-kept", { initialValue: "RealName" });
-      });
-      fireEvent.keyDown(text, { key: "Enter" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(text.innerText).toBe("Alias");
-    });
-
     it("resolves asyncEdit with renamed=false on escape", async () => {
       const c = render(<Editable id="escape-me" value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");

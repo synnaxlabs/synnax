@@ -178,47 +178,15 @@ var _ = Describe("UpdateTask", func() {
 			To(MatchError(query.ErrNotFound))
 	})
 
-	It(
-		"Should keep the snapshots of its task when the rack is cleared",
-		func(ctx SpecContext) {
-			createArc(ctx, "a -> b")
-			w := svc.NewWriter(tx)
-			tsk := MustSucceed(
-				w.UpdateTask(
-					ctx,
-					a.Base().Key,
-					arc.TaskUpdate{Rack: new(testRack.Key)},
-				),
-			)
-			snap := MustSucceed(
-				taskSvc.NewWriter(tx).Copy(ctx, tsk.Key, "Snapshot", true, nil),
-			)
-			Expect(
-				MustSucceed(
-					w.UpdateTask(
-						ctx,
-						a.Base().Key,
-						arc.TaskUpdate{Rack: new(rack.Key(0))},
-					),
-				),
-			).To(BeNil())
-			Expect(retrieveTask(ctx, snap.Key).Snapshot).To(BeTrue())
-			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(tsk.Key)).Exec(ctx, tx)).
-				To(MatchError(query.ErrNotFound))
-		},
-	)
-
-	It("Should delete the snapshots of its task with the Arc", func(ctx SpecContext) {
+	It("Should delete the copies of its task with the Arc", func(ctx SpecContext) {
 		createArc(ctx, "a -> b")
 		w := svc.NewWriter(tx)
 		tsk := MustSucceed(
 			w.UpdateTask(ctx, a.Base().Key, arc.TaskUpdate{Rack: new(testRack.Key)}),
 		)
-		snap := MustSucceed(
-			taskSvc.NewWriter(tx).Copy(ctx, tsk.Key, "Snapshot", true, nil),
-		)
+		cpy := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, tsk.Key, "Copy"))
 		Expect(w.Delete(ctx, a.Base().Key)).To(Succeed())
-		Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(snap.Key)).Exec(ctx, tx)).
+		Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(cpy.Key)).Exec(ctx, tx)).
 			To(MatchError(query.ErrNotFound))
 	})
 

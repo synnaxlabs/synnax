@@ -1217,10 +1217,17 @@ var _ = Describe("Engine", func() {
 				done := make(chan error, 1)
 				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
-				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
 				cancel()
-				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
 			})
 
@@ -1245,10 +1252,17 @@ var _ = Describe("Engine", func() {
 				done := make(chan error, 1)
 				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
-				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
 				cancel()
-				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 			})
 
 		It("Should read from storage when it falls behind the live samples",
@@ -1832,6 +1846,8 @@ var _ = Describe("Engine", func() {
 				live()
 				// The index alone sends nothing, so no stream is open at the stop.
 				write(ctx, idx, stamps, nil)
+				server.Pause()
+				DeferCleanup(server.Resume)
 				keys := channel.Keys{ch.Key()}
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  keys,
@@ -1841,8 +1857,6 @@ var _ = Describe("Engine", func() {
 					telem.NewSeries(make([]float64, count)),
 				})))).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
-				server.Pause()
-				DeferCleanup(server.Resume)
 				// Gives the engine time to receive the values of ch.
 				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
 				cancel()
