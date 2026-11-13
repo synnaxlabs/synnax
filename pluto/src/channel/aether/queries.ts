@@ -7,22 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type ranger } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 
 import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "channel";
 export const PLURAL_RESOURCE_NAME = "channels";
 
-export type RetrieveQuery = {
-  key: channel.Key;
-  rangeKey?: ranger.Key;
-};
+export type RetrieveQuery = channel.RetrieveSingleParams;
 
 export const retrieveDefinition: flux.Definition<RetrieveQuery, channel.Channel> = {
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, rangeKey } }) =>
-    await client.channels.retrieve(key, { rangeKey }),
+  retrieve: async ({ client, query: { key } }) => await client.channels.retrieve(key),
   onChange: ({ client, query }, handler) =>
     client.channels.watch(query).onChange(handler),
   getCached: ({ client, query }) => client.channels.watch(query).getCached(),

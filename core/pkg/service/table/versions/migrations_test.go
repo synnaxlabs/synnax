@@ -29,7 +29,7 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			v2Chain := versions.Migrations[:len(versions.Migrations)-4]
+			v2Chain := versions.Migrations[:len(versions.Migrations)-6]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,

@@ -7,18 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { license } from "@synnaxlabs/client";
+import { label, license } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { LABELS_SECTION } from "@/app/settings/tab";
 import { Account } from "@/feature/account";
 import { Core } from "@/feature/core";
+import { Label } from "@/feature/label";
 import { License } from "@/feature/license";
 import { Persist } from "@/feature/persist";
 import { Theme } from "@/feature/theme";
 import { Version } from "@/feature/version";
 import { Settings } from "@/platform/settings";
+
+const Labels = (): ReactElement => (
+  <Settings.Page title="Labels">
+    <Label.Settings />
+  </Settings.Page>
+);
+
+const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
 
 const Appearance = (): ReactElement => (
   <Settings.Page title="Appearance">
@@ -80,6 +90,13 @@ export const GROUPS: Settings.Group[] = [
     name: "Core",
     sections: [
       { key: "general", name: "General", icon: <Icon.Core />, Content: General },
+      {
+        key: LABELS_SECTION,
+        name: "Labels",
+        icon: <Icon.Label />,
+        Content: Labels,
+        useVisible: useLabelsVisible,
+      },
       {
         key: "license",
         name: "License",
