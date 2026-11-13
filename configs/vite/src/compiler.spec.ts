@@ -14,7 +14,7 @@ import path from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { reactCompiler } from "./compiler.js";
+import { reactCompiler } from "./index.js";
 
 const UNCOMPILABLE =
   'import { useState } from "react";\n' +
