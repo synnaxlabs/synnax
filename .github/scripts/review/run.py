@@ -202,6 +202,9 @@ class PullRequest:
     dismissed: list[Dismissal] = field(default_factory=list)
     new: str = ""
     """The patches of the changes since the last review, if any."""
+    dropped: list[str] = field(default_factory=list)
+    """The files that the pull request changed at the last review but no longer
+    changes."""
     reviewed: bool = False
     """Whether the bot reviewed another commit of the pull request."""
 
@@ -301,9 +304,12 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
         ]
     if pr.reviewed:
         parts.append("# Changes since your last review")
-        if not pr.new:
+        if pr.dropped:
+            listed = "\n".join(f"- `{p}`" for p in pr.dropped)
+            parts.append(f"The pull request no longer changes these files:\n{listed}")
+        if not pr.new and not pr.dropped:
             parts.append("None: the changes of the pull request are the same.")
-        else:
+        elif pr.new:
             parts.append(
                 "Review these changes first, as new code: a fix for an earlier finding "
                 "can add a bug. Anchor findings to the line numbers of the full diff."
@@ -420,8 +426,9 @@ def _merge(
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
     review keeps the more severe of joined findings, then the one that blocks merge,
-    then the one that continues an open thread. The verdict and summary come from the
-    pass with the lowest score."""
+    then the one that continues an open thread. A joined finding blocks merge when any
+    finding it joins does. The verdict and summary come from the pass with the lowest
+    score."""
 
     def rank(f: Finding) -> tuple[int, bool, bool]:
         return SEVERITIES.index(f.severity), not f.blocks, (f.path, f.title) not in open
@@ -431,12 +438,21 @@ def _merge(
     ) -> list[tuple[set[int], Finding]]:
         kept: list[tuple[set[int], Finding]] = []
         for passes, f in found:
-            hits = (q for q, k in kept if k.path == f.path and same(k, f))
-            hit = next((q for q in hits if not q & passes), None)
-            if hit is None:
+            i = next(
+                (
+                    i
+                    for i, (q, k) in enumerate(kept)
+                    if k.path == f.path and same(k, f) and not q & passes
+                ),
+                None,
+            )
+            if i is None:
                 kept.append((set(passes), f))
-            else:
-                hit |= passes
+                continue
+            q, k = kept[i]
+            if f.blocks and not k.blocks:
+                k = replace(k, deferrable=False)
+            kept[i] = (q | passes, k)
         return kept
 
     every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
@@ -444,10 +460,9 @@ def _merge(
     found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
     found = join(found, lambda k, f: k.title == f.title)
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
-    lead = min(reviews, key=lambda r: _score(r, caps).score)
-    return replace(
-        lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
-    )
+    scored = [_score(r, caps) for r in reviews]
+    lead = min(scored, key=lambda r: r.score)
+    return replace(lead, findings=[f for _, f in found])
 
 
 def _pass(

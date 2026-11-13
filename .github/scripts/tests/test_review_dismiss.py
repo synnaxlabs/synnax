@@ -123,6 +123,8 @@ class TestDismissed:
             id="T",
             path="a.go",
             title="Samples",
+            heading="<picture></picture> **Samples**",
+            comment=1,
             resolved=True,
             replies=[comment(2, "Meant. @Sedosaur  Dismiss")],
         )
@@ -143,7 +145,13 @@ class TestDismissed:
     )
     def test_should_ignore_any_other_reply(self, reply: dict[str, Any]) -> None:
         th = Thread(
-            id="T", path="a.go", title="Samples", resolved=False, replies=[reply]
+            id="T",
+            path="a.go",
+            title="Samples",
+            heading="<picture></picture> **Samples**",
+            comment=1,
+            resolved=False,
+            replies=[reply],
         )
         assert dismissed([th]) == []
 

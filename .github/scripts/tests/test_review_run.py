@@ -564,6 +564,18 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [f.blocks for f in got.findings] == [True]
 
+    def test_should_block_when_any_joined_finding_blocks(self) -> None:
+        races = FakeClaude(5, [at("P1", 12) | {"title": "Race", "deferrable": True}])
+        edges = FakeClaude(4, [at("P2", 12) | {"title": "Race"}])
+        _, (got, _) = self.lenses(races, edges)
+        assert [(f.severity, f.blocks) for f in got.findings] == [("P1", True)]
+        assert got.score == 4
+
+    def test_should_not_lower_the_score_for_a_pass_of_follow_ups(self) -> None:
+        races = FakeClaude(3, [at("P2", 30) | {"deferrable": True}])
+        _, (got, _) = self.lenses(races, rules=FakeClaude(4, [at("P2", 12)]))
+        assert got.score == 4
+
     def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
         both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
         _, (got, _) = self.lenses(FakeClaude(5, both))
@@ -908,7 +920,7 @@ class TestMain:
     ) -> None:
         def node(title: str, *replies: str) -> dict[str, Any]:
             bot = {"__typename": "Bot", "login": "sedosaur"}
-            first = {"author": bot, "body": f"<img> **{title}**"}
+            first = {"databaseId": 1, "author": bot, "body": f"<img> **{title}**"}
             person = {"__typename": "User", "login": "m"}
             later = [
                 {"author": person, "authorAssociation": "MEMBER", "body": r}
@@ -1048,6 +1060,39 @@ class TestMain:
             compare={dropped: [a | {"patch": None}], env["HEAD_SHA"]: [a]},
         )
         assert "diff --git a/a.go b/a.go" in new
+
+    def test_should_show_the_files_that_a_merge_changed(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        git(head, "checkout", "-qb", "side", env["BASE_SHA"])
+        (head / "b.go").write_text("three\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "side")
+        git(head, "checkout", "-q", "-")
+        git(head, "merge", "-q", "--no-ff", "-m", "merge", "side")
+        tip = git(head, "rev-parse", "HEAD")
+        monkeypatch.setenv("HEAD_SHA", tip)
+        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
+        b = {"filename": "b.go", "status": "added", "patch": "@@ -0,0 +1 @@\n+three"}
+        reviewed = env["HEAD_SHA"]
+        new = self.prompt_after_reviews_of(
+            tmp_path, reviewed, compare={reviewed: [a], tip: [a, b]}
+        )
+        assert "diff --git a/b.go b/b.go" in new
+        assert "a.go" not in new
+
+    def test_should_name_the_files_that_left_the_pull_request(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        dropped = "d" * 40
+        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
+        b = {"filename": "b.go", "status": "added", "patch": "@@ -0,0 +1 @@\n+three"}
+        new = self.prompt_after_reviews_of(
+            tmp_path, dropped, compare={dropped: [a, b], env["HEAD_SHA"]: [a]}
+        )
+        assert "no longer changes these files:\n- `b.go`" in new
+        assert "None:" not in new
 
     def test_should_show_no_new_commits_without_an_earlier_review(
         self, tmp_path: Path, env: dict[str, str]

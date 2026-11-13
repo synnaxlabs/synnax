@@ -116,9 +116,9 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     # A replay cannot tell a commit that a force push dropped from a later one.
     rewritten = since is None and bool(earlier) and not replay
     new = ""
-    if rewritten:
-        new = _changes(target, diff, earlier[0])
-    elif since is not None:
+    dropped: list[str] = []
+    # A merge can change the diff without a commit of its own in the log.
+    if since is not None and not _merges(head, since, target.head):
         new = subprocess.run(
             [
                 *("git", "-C", str(head), "log", "--first-parent", "--no-merges"),
@@ -134,6 +134,8 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
             text=True,
             check=True,
         ).stdout
+    elif since is not None or rewritten:
+        new, dropped = _changes(target, diff, since or earlier[0])
     meta = json.loads(
         gh(
             "api",
@@ -153,6 +155,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         open={(th.path, th.title) for th in found if not th.resolved},
         dismissed=dismissed(found),
         new=new,
+        dropped=dropped,
         reviewed=since is not None or rewritten,
     )
     with tempfile.TemporaryDirectory() as workdir:
@@ -170,16 +173,26 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     path.write_text(json.dumps(record))
 
 
-def _changes(target: Target, diff: str, old: str) -> str:
+def _changes(target: Target, diff: str, old: str) -> tuple[str, list[str]]:
     """Returns the files of a diff whose changes differ from those at an older commit,
-    or the whole diff when GitHub cannot compare every file."""
-    files = changed(target, gh, old)
-    if files is None:
-        return diff
+    and the files that only the older commit changes. Returns the whole diff when GitHub
+    cannot compare every file."""
+    found = changed(target, gh, old)
+    if found is None:
+        return diff, []
+    files, dropped = found
     chunks = re.split(r"(?m)^(?=diff --git )", diff)
-    return "".join(
-        c for c in chunks if (m := _FILE.match(c)) is not None and m[1] in files
+    kept = (c for c in chunks if (m := _FILE.match(c)) is not None and m[1] in files)
+    return "".join(kept), sorted(dropped)
+
+
+def _merges(head: Path, since: str, tip: str) -> bool:
+    """Reports whether a merge commit lies between two commits of a checkout."""
+    log = ("git", "-C", str(head), "rev-list", "--first-parent", "--merges")
+    out = subprocess.run(
+        [*log, f"{since}..{tip}"], capture_output=True, text=True, check=True
     )
+    return bool(out.stdout.strip())
 
 
 def _before(head: Path, commit: str, tip: str) -> bool:

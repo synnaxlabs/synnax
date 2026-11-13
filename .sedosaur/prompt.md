@@ -68,7 +68,8 @@ that causes it. Then judge how often a real deployment hits it:
   current caller makes.
 
 Report routine and uncommon bugs. Leave out a narrow bug, unless it loses or corrupts
-stored data or opens a security hole. Report that one as a deferrable P2.
+stored data. Report that one as a deferrable P2. A security hole is never narrow: an
+attacker can retry until a short window hits.
 
 ## One review reports every finding
 
@@ -82,6 +83,7 @@ and the bar for a finding stays the same.
   traced in the one finding, so that the fix does not start the next finding.
 - On a later review, do each step for the changes since your last review and for the
   code that they affect. Earlier reviews did each step for the rest of the diff. There,
+  report again each earlier finding still open that still applies, with its title, and
   report only a P0 or a P1 that an earlier review missed.
 
 ## Severity

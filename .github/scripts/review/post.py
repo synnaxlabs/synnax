@@ -90,8 +90,9 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     """Posts a review, without the findings that a member dismissed. A review with no
     blocking finding left scores 5, and so does the head when the rest are dismissed
     while the review posts. Findings on lines of the diff become one review of inline
-    threads, skipping any finding an unresolved thread of the bot already holds. The
-    rest go in one comment the bot edits on each review. The summary in the pull
+    threads, skipping any finding an unresolved thread of the bot already holds. Such a
+    thread gets the finding's new heading when its severity or follow-up mark changed.
+    The rest go in one comment the bot edits on each review. The summary in the pull
     request body is replaced, and the check run completes.
     """
     t = target
@@ -100,8 +101,13 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
-    posted = {(th.path, th.title) for th in found if not th.resolved}
+    posted = {(th.path, th.title): th for th in found if not th.resolved}
     fresh = [f for f in inline if (f.path, f.title) not in posted]
+    for f in inline:
+        th = posted.get((f.path, f.title))
+        if th is not None and th.heading != render.heading(f):
+            comment = f"repos/{t.repo}/pulls/comments/{th.comment}"
+            write(gh, "PATCH", comment, {"body": render.comment(f, blob=blob)})
     if fresh:
         comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
         payload = {
@@ -179,6 +185,10 @@ class Thread:
     id: str
     path: str
     title: str
+    heading: str
+    """The first line of the finding's comment."""
+    comment: int
+    """The database ID of the finding's comment."""
     resolved: bool
     replies: list[dict[str, Any]]
     """The comments after the finding, oldest first, as GraphQL serves them."""
@@ -216,6 +226,8 @@ def threads(t: Target, gh: GH) -> list[Thread]:
                     id=node["id"],
                     path=node["path"],
                     title=title,
+                    heading=first["body"].split("\n", 1)[0],
+                    comment=first["databaseId"],
                     resolved=node["resolved"],
                     replies=replies,
                 )

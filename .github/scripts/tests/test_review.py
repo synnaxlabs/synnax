@@ -215,6 +215,22 @@ class TestInlineFindings:
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
 
+    def test_should_mark_an_open_thread_whose_finding_became_a_follow_up(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [posted(finding())]
+        post(review(finding(deferrable=True)), target=TARGET, gh=gh)
+        [edit] = gh.written("PATCH", "pulls/comments/9")
+        assert "**Samples return old data** (follow-up)\n" in edit["body"]
+        assert gh.written("POST", "pulls/7/reviews") == []
+
+    def test_should_leave_an_open_thread_whose_heading_is_the_same(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [posted(finding())]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert gh.written("PATCH", "pulls/comments/9") == []
+
     def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
         post(review(finding()), target=TARGET, gh=gh)
@@ -446,12 +462,24 @@ class TestListing:
 def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
     def comment(body: str, kind: str, author: str) -> dict[str, Any]:
         who = {"__typename": kind, "login": author}
-        return {"author": who, "authorAssociation": "MEMBER", "body": body}
+        return {
+            "databaseId": 9,
+            "author": who,
+            "authorAssociation": "MEMBER",
+            "body": body,
+        }
 
     body = "<picture></picture> **Samples return old data**\n\nOld text."
     comments = [comment(body, "Bot", login)]
     comments += [comment(r, "User", "member") for r in replies]
     return {"id": "T", "path": "a.go", "resolved": resolved, "comments": comments}
+
+
+def posted(f: Finding) -> dict[str, Any]:
+    """An open thread of the bot that holds a finding as the poster wrote it."""
+    th = thread("sedosaur")
+    th["comments"][0]["body"] = render.comment(f, blob="https://github.com/b")
+    return th
 
 
 def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:
