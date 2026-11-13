@@ -100,6 +100,15 @@ const createLabeled = async (
   return { label, labeled, other };
 };
 
+/** @returns the time as the date time editor reads it, such as 2026-08-23 14:05. */
+const localMinute = (time: TimeStamp): string => {
+  const d = time.date();
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+};
+
 const search = async (term: string): Promise<void> => {
   const input =
     await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
@@ -152,6 +161,41 @@ describe("range/next/Explorer", () => {
         expect(itemOf(recent.name)).toBeTruthy();
       });
       expect(screen.getByRole("button", { name: "last 7 days" })).toBeTruthy();
+    });
+
+    it("should keep the ranges in a custom time range and show it in its chip", async () => {
+      const token = uniqueToken();
+      // The editor reads minutes, so the bounds fall on whole minutes.
+      const date = new Date(TimeStamp.now().sub(TimeSpan.days(60)).date());
+      date.setSeconds(0, 0);
+      const from = new TimeStamp(date);
+      const to = from.add(TimeSpan.hours(1));
+      const inside = await createRange(`${token} inside`, {
+        timeRange: new TimeRange(from.add(TimeSpan.minutes(10)), to),
+      });
+      const outside = await createRange(`${token} outside`);
+      await renderExplorer();
+      await search(token);
+      await findItem(outside.name);
+      const time = await openFilterProperty("Time");
+      const setBound = async (name: string, value: TimeStamp): Promise<void> => {
+        fireEvent.click(within(time).getByRole("button", { name }));
+        const field = await waitFor(() => {
+          const el = document.activeElement;
+          if (!(el instanceof HTMLInputElement)) throw new Error("no open editor");
+          return el;
+        });
+        fireEvent.change(field, { target: { value: localMinute(value) } });
+        fireEvent.keyDown(field, { key: "Enter" });
+      };
+      await setBound("From", from);
+      await setBound("To", to);
+      await waitFor(() => {
+        expect(screen.queryByRole("listitem", { name: outside.name })).toBeNull();
+        expect(itemOf(inside.name)).toBeTruthy();
+      });
+      const shown = new TimeRange(from, to).toPrettyString();
+      expect(screen.getByRole("button", { name: shown })).toBeTruthy();
     });
 
     it("should keep the children of a picked parent", async () => {
