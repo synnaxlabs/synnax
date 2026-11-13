@@ -10,6 +10,7 @@
 package patch_test
 
 import (
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"testing"
@@ -122,6 +123,40 @@ func (sv *scalars) Patch(c patch.Cursor) error {
 		return patch.Value(&sv.U32, c.Next())
 	case "u64":
 		return patch.Value(&sv.U64, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// hexByte writes a JSON string and reads a string or an object, as color.Color does.
+type hexByte struct{ V uint8 }
+
+func (h hexByte) MarshalJSON() ([]byte, error) {
+	return fmt.Appendf(nil, `"%02x"`, h.V), nil
+}
+
+func (h *hexByte) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		_, err = fmt.Sscanf(s, "%02x", &h.V)
+		return err
+	}
+	var o struct{ V uint8 }
+	if err := json.Unmarshal(b, &o); err != nil {
+		return err
+	}
+	h.V = o.V
+	return nil
+}
+
+type hexDocument struct {
+	Hex hexByte `json:"hex"`
+}
+
+func (hv *hexDocument) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "hex":
+		return patch.Value(&hv.Hex, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -317,6 +352,19 @@ var _ = Describe("Patch", func() {
 				}
 				return entries
 			}(),
+		)
+	})
+
+	Describe("A value that writes a string", func() {
+		DescribeTable("Should set the value from any form its decoder reads",
+			func(value any) {
+				doc := hexDocument{}
+				Expect(apply(&doc, patch.Set{Path: []string{"hex"}, Value: value})).
+					To(Succeed())
+				Expect(doc.Hex.V).To(Equal(uint8(0x80)))
+			},
+			Entry("a string", "80"),
+			Entry("an object", map[string]any{"V": 128}),
 		)
 	})
 

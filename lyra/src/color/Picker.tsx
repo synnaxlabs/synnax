@@ -51,7 +51,7 @@ export const Picker = ({
   className,
   ...rest
 }: PickerProps): ReactElement => {
-  const shown = value ?? fallback ?? color.ZERO;
+  const shown = value ?? fallback ?? color.TRANSPARENT;
   const hsva = useHSVA(shown);
   const [h, s, v, a] = hsva.value;
   const updateFrequent = useFrequentUpdater();
@@ -74,7 +74,7 @@ export const Picker = ({
   // Moving the plane or the hue of a fully transparent color would change nothing
   // visible, so those moves make it opaque.
   const visibleAlpha = a === 0 ? 1 : a;
-  const opaqueCSS = color.rgbaCSS(color.fromHSVA([h, s, v, 1]));
+  const opaqueCSS = color.cssString(color.fromHSVA([h, s, v, 1]));
 
   return (
     <Flex.Box
@@ -95,7 +95,7 @@ export const Picker = ({
           value={h / 360}
           valueText={`${Math.round(h)} degrees`}
           track={HUE_TRACK}
-          thumb={color.rgbaCSS(color.fromHSVA([h, 100, 100, 1]))}
+          thumb={color.cssString(color.fromHSVA([h, 100, 100, 1]))}
           onChange={(nextH) => handleHSVAChange([nextH * 360, s, v, visibleAlpha])}
         />
         <Slider
@@ -104,7 +104,7 @@ export const Picker = ({
           value={a}
           valueText={`${Math.round(a * 100)}%`}
           track={`linear-gradient(to right, transparent, ${opaqueCSS})`}
-          thumb={color.rgbaCSS(color.fromHSVA(hsva.value))}
+          thumb={color.cssString(color.fromHSVA(hsva.value))}
           onChange={(nextA) => handleHSVAChange([h, s, v, nextA])}
         />
       </Flex.Box>
@@ -141,7 +141,7 @@ interface InputRowProps {
 }
 
 const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
-  const alpha = color.aValue(value);
+  const alpha = color.opacity(value);
   return (
     <Flex.Box x gap="small" align="center">
       <HexText
@@ -149,7 +149,7 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
         size="small"
         grow
         startContent="#"
-        text={color.hex(color.setAlpha(value, 1)).slice(1)}
+        text={color.hex(color.setOpacity(value, 1)).slice(1)}
         alpha={alpha}
         onChange={onChange}
       />
@@ -162,7 +162,7 @@ const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
         endContent="%"
         startContent={<Icon.Opacity />}
         showDragHandle={false}
-        onChange={(pct) => onChange(color.setAlpha(value, pct / 100))}
+        onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
       />
       <Button.Copy
         size="small"

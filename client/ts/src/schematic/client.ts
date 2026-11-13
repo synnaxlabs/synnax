@@ -51,7 +51,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({ key: keyZ, name: z.string() });
 
-const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.MEMBER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),

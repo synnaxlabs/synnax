@@ -13,5 +13,5 @@ package v0
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// Version is the portable schema version of the ScanConfig shape this package defines.
+// Version is the portable schema version of the shapes this package defines.
 const Version imex.Version = 0

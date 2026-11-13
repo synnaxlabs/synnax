@@ -93,7 +93,7 @@ type SplitNode = v3.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = v3.Key
 
-// Panel is a project-owned tree of visualization tabs.
+// Panel is a tree of visualization tabs in a project.
 type Panel struct {
 	// Key is the unique identifier for this panel.
 	Key Key `json:"key" msgpack:"key"`
@@ -108,7 +108,7 @@ type Panel struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Group is the group the panel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the panel.
+	// Project is the project that holds the panel.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 
@@ -151,7 +151,6 @@ func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

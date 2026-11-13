@@ -96,18 +96,14 @@ const renderToolbar = async (
 ) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   let statuses: Status.NotificationSpec[] = [];
-  // A list the client already holds renders its secrets at once, and each one
-  // suspends to read its uses.
-  await act(async () => {
-    render(
-      <Tree.Provider items={items}>
-        {Secret.TOOLBAR.content}
-        <Modals.Stack />
-        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
-      </Tree.Provider>,
-      { wrapper },
-    );
-  });
+  render(
+    <Tree.Provider items={items}>
+      {Secret.TOOLBAR.content}
+      <Modals.Stack />
+      <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+    </Tree.Provider>,
+    { wrapper },
+  );
   return { statuses: () => statuses, store };
 };
 
@@ -119,14 +115,6 @@ const confirmDelete = async (name: string): Promise<void> => {
   await clickAndSettle("Delete");
   await screen.findByText(`Are you sure you want to delete ${name}?`);
   fireEvent.click(findButton("Delete"));
-};
-
-// A secret suspends while its uses load, which only an awaited act waits out.
-const openMenu = async (name: string): Promise<void> => {
-  const target = await screen.findByText(name);
-  await act(async () => {
-    fireEvent.contextMenu(target);
-  });
 };
 
 const getOption = (name: string): HTMLElement => {
@@ -141,10 +129,7 @@ describe("secret/Toolbar", () => {
   it("creates a secret from the header action", async () => {
     await renderToolbar();
     const add = await waitFor(() => getIconButton(document.body, "add"));
-    // Secrets left on the Core can still be reading their uses.
-    await act(async () => {
-      fireEvent.click(add);
-    });
+    fireEvent.click(add);
     const name = uniqueName("created");
     fireEvent.change(await screen.findByLabelText("Secret name"), {
       target: { value: name },
@@ -219,7 +204,7 @@ describe("secret/Toolbar", () => {
       update: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(editor);
-    await openMenu(s.name);
+    await openContextMenu(s.name);
     await screen.findByText("Replace value");
   });
 
@@ -281,10 +266,18 @@ describe("secret/Toolbar", () => {
     );
   });
 
+  it("counts the users of a secret that arrives after the list loads", async () => {
+    const s = await createSecret(client, createdSecrets);
+    await renderToolbar();
+    await screen.findByText(s.name);
+    const { privateKey } = await createCertificate();
+    await waitFor(() => within(getOption(privateKey.name)).getByText("Used by 1"));
+  });
+
   it("opens the users of a secret from the context menu", async () => {
     const s = await createSecret(client, createdSecrets);
     await renderToolbar();
-    await openMenu(s.name);
+    await openContextMenu(s.name);
     await clickAndSettle("Used by");
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Nothing uses this secret.");

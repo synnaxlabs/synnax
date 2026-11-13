@@ -149,7 +149,7 @@ export const Swatch = ({
               onChange(c);
             }
       }
-      value={shownValue ?? fallback ?? color.ZERO}
+      value={shownValue ?? fallback ?? color.TRANSPARENT}
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),

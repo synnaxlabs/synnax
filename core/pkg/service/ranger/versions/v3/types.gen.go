@@ -14,7 +14,7 @@ package v3
 import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

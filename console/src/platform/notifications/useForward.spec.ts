@@ -198,6 +198,23 @@ describe("Notifications.useForward", () => {
     });
   });
 
+  describe("key rules", () => {
+    const KEY_RULES: Notifications.KeyRules = { "progress:": STATE };
+
+    it("should not notify a status that matches a state rule by key", async () => {
+      await renderForward(client, {}, KEY_RULES);
+      const [info] = await write({ key: uniqueName("progress:"), variant: "info" });
+      await settleWrites(client);
+      expect(screen.queryByText(info.message)).toBeNull();
+    });
+
+    it("should notify a problem on a status that matches a rule by key", async () => {
+      await renderForward(client, {}, KEY_RULES);
+      const [error] = await write({ key: uniqueName("progress:"), variant: "error" });
+      expect(await screen.findByText(error.message)).toBeTruthy();
+    });
+  });
+
   describe("delayed warnings", () => {
     const fakeTimers = () =>
       vi.useFakeTimers({

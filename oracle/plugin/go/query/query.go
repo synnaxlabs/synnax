@@ -272,20 +272,33 @@ func (r retrieveInfo) HasIndexes() bool {
 // HasRefs reports whether the type holds any reference.
 func (r retrieveInfo) HasRefs() bool { return len(r.Refs) > 0 || len(r.NestedRefs) > 0 }
 
+// idRef returns the first @ref field that holds resource IDs. A union's base fields
+// declare their references through NestedRefs, so their filters carry the field.
+func (r retrieveInfo) idRef() (refInfo, bool) {
+	for _, ref := range r.Refs {
+		if ref.IsID {
+			return ref, true
+		}
+	}
+	for _, f := range r.Filters {
+		if f.Ref != nil && f.Ref.IsID {
+			return *f.Ref, true
+		}
+	}
+	return refInfo{}, false
+}
+
 // IDGoType returns the Go type of a resource ID, as the first @ref field that holds
 // resource IDs resolves it.
 func (r retrieveInfo) IDGoType() string {
-	for _, ref := range r.Refs {
-		if ref.IsID {
-			return ref.ElemGoType
-		}
-	}
-	return ""
+	ref, _ := r.idRef()
+	return ref.ElemGoType
 }
 
 // HasIDRefs reports whether any @ref field holds resource IDs.
 func (r retrieveInfo) HasIDRefs() bool {
-	return lo.SomeBy(r.Refs, func(ref refInfo) bool { return ref.IsID })
+	_, ok := r.idRef()
+	return ok
 }
 
 // needsSlices reports whether the generated code calls the slices package.
@@ -549,18 +562,26 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
-				return nil, errors.Newf(
-					"%s: @ref is not supported on union fields (%s)",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
 			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
-			refs = append(refs, info)
+			// The walk over a union's variants declares the reference, because each
+			// variant holds the base field.
+			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+				if info.OnDelete == "Detach" {
+					return nil, errors.Newf(
+						"%s: @ref on_delete detach is not supported on the base fields "+
+							"of a union (%s)",
+						typ.QualifiedName,
+						field.Name,
+					)
+				}
+				// The variant walk names the index after the field, ignoring @go name.
+				info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
+			} else {
+				refs = append(refs, info)
+			}
 			filters = append(filters, filterInfo{
 				FieldName:  field.Name,
 				GoName:     info.GoName,
@@ -658,8 +679,8 @@ func extractRetrieveInfo(
 	if err != nil {
 		return nil, err
 	}
-	// The loop above declares the references of a struct's own fields. A union's own
-	// fields hold none, so every reference it holds is in a variant.
+	// The loop above declares the references of a struct's own fields. The walk
+	// declares every reference of a union, its base fields included.
 	if _, ok := typ.Form.(resolution.StructForm); ok {
 		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
 			return strings.Contains(ref.path, ".")

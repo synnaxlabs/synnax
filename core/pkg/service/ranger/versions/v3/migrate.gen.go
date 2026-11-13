@@ -15,14 +15,23 @@ import (
 	"context"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-func autoMigrateRange(_ context.Context, old v2.Range) (Range, error) {
+func autoMigrateRange(ctx context.Context, old v2.Range) (Range, error) {
+	var colorVal *color.Color
+	if old.Color != nil {
+		v, err := color.MigrateColor(ctx, *old.Color)
+		if err != nil {
+			return Range{}, err
+		}
+		colorVal = &v
+	}
 	return Range{
 		Key:       old.Key,
 		Name:      old.Name,
 		TimeRange: old.TimeRange,
-		Color:     old.Color,
+		Color:     colorVal,
 		Labels:    old.Labels,
 		Parent:    old.Parent,
 	}, nil

@@ -14,7 +14,17 @@ from review import compare
 from review.carry import carry
 from review.dismiss import dismiss
 from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
-from review.post import GH, Target, Thread, dismissed, gh, post, reviewed, threads
+from review.post import (
+    GH,
+    Target,
+    Thread,
+    dismissed,
+    gh,
+    outside_findings,
+    post,
+    reviewed,
+    threads,
+)
 from review.run import (
     Claude,
     Config,
@@ -50,6 +60,7 @@ __all__ = [
     "dismissed",
     "gh",
     "load",
+    "outside_findings",
     "parse",
     "post",
     "reviewed",

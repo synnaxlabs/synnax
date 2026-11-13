@@ -580,6 +580,14 @@ describe("range/explorer/Explorer", () => {
       });
     });
 
+    it("should open the Sift upload modal on Upload to Sift", async () => {
+      const rng = await createRange(uniqueRangeName("sift"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Upload to Sift"));
+      expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
+    });
+
     it("should copy a link to the range on Copy link", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createRange(uniqueRangeName("linked"));

@@ -20,6 +20,7 @@ import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { useStart, useStop } from "@/feature/range/tree/Item";
+import { Sift } from "@/feature/sift";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -129,6 +130,11 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           Unpin
         </Menu.Item>
       )}
+      <Menu.Divider />
+      {single != null && (
+        <Sift.Range.UploadMenuItem rangeKey={single.key} rangeName={single.name} />
+      )}
+      <Menu.Divider />
       {single != null && (
         <Link.CopyContextMenuItem
           onClick={() =>

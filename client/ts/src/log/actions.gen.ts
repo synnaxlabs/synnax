@@ -59,13 +59,12 @@ export const setChannelEntryPayloadZ = z.object({
 export type SetChannelEntryPayload = z.infer<typeof setChannelEntryPayloadZ>;
 
 /**
- * SetChannelColor sets the display color of the entry identified by channel. The zero
- * color resets it to the text color of the log. No-op when no entry references the
- * channel.
+ * SetChannelColor sets the display color of the entry identified by channel. Absent
+ * resets it to the text color of the log. No-op when no entry references the channel.
  */
 export const setChannelColorPayloadZ = z.object({
   channel: channel.keyZ,
-  color: color.colorZ,
+  color: color.colorZ.optional(),
 });
 
 export type SetChannelColorPayload = z.infer<typeof setChannelColorPayloadZ>;

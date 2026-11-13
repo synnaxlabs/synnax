@@ -18,6 +18,7 @@ import { Children } from "@/feature/range/overview/Children";
 import { Header } from "@/feature/range/overview/Header";
 import { MetaData } from "@/feature/range/overview/MetaData";
 import { AddLine } from "@/feature/range/overview/Section";
+import { Sift } from "@/feature/sift";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -57,6 +58,7 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
         ) : (
           canEdit && <AddLine onClick={() => setAdding(true)}>Metadata</AddLine>
         )}
+        <Sift.Range.Uploads rangeKey={key} />
       </Flex.Box>
     </div>
   );

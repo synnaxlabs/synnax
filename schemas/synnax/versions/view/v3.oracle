@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/ranger/v3"
 import "schemas/synnax/versions/status/v2"
-import "schemas/x/versions/color/v1"
+import "schemas/x/versions/color/v2"
 
 Key = v0.Key
 

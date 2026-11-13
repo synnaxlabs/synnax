@@ -46,8 +46,10 @@ export type Key = z.infer<typeof keyZ>;
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
   channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
-  /** color is the display color for the channel. */
-  color: color.colorZ,
+  /**
+   * color is the display color for the channel. Absent uses the text color of the log.
+   */
+  color: color.colorZ.optional(),
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**
@@ -97,7 +99,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the logs in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the logs owned by any of the given projects. */
+  /** projects matches the logs in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -131,7 +133,7 @@ export const logZ = z.object({
   timeZone: telem.timeZoneZ.default("local"),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the log. */
+  /** project is the project that holds the log. */
   project: project.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}

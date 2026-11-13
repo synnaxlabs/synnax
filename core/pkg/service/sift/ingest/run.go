@@ -89,7 +89,7 @@ func (e *Engine) putRun(ctx context.Context, r Run, create bool) (string, error)
 		if permanent {
 			return "", err
 		}
-		e.cfg.OnRetry(ctx, err)
+		e.cfg.OnRunRetry(ctx, err)
 		if !brk.Wait() {
 			if ctx.Err() != nil {
 				return "", ctx.Err()

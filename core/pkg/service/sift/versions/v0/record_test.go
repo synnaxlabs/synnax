@@ -16,7 +16,16 @@ import (
 )
 
 var _ = Describe("Record", func() {
-	It("Should name the scan config table", func() {
-		Expect(v0.ScanConfig{}.CustomTypeName()).To(Equal("sift_scan_config"))
-	})
+	DescribeTable(
+		"CustomTypeName",
+		func(name, expected string) {
+			Expect(name).To(Equal(expected))
+		},
+		Entry("scan config", v0.ScanConfig{}.CustomTypeName(), "sift_scan_config"),
+		Entry(
+			"stream config",
+			v0.StreamConfig{}.CustomTypeName(),
+			"sift_stream_config",
+		),
+	)
 })
