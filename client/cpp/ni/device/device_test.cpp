@@ -7,96 +7,74 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/device/json.gen.h"
-#include "client/cpp/ni/device/proto.gen.h"
+#include "client/cpp/synnax.h"
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ni::device {
-/// @brief it should round trip a port map keyed by port and line number through JSON.
-TEST(DigitalOutputChannels, RoundTripsLines) {
-    Configuration config{.name = "Module"};
-    config.digital_output[2] = DigitalOutputChannels{
-        .state_index = 1,
-        .lines = {{7, CommandStatePair{.command = 2, .state = 3}}},
+namespace {
+/// @brief creates a rack and a device on it with the given resource name.
+std::pair<Device, rack::Rack>
+create_device(const Synnax &client, const std::string &resource_name) {
+    auto r = rack::Rack{.name = "ni_device_rack"};
+    EXPECT_NIL(client.racks.create(r));
+    auto dev = Device{
+        .rack = r.key,
+        .name = "NI 9205",
+        .resource_name = resource_name,
+        .model = "9205",
     };
-    const auto j = config.to_json();
-    ASSERT_EQ(j["digital_output"]["2"]["lines"]["7"]["command"], 2);
-    x::json::Parser parser(j);
-    const auto parsed = Configuration::parse(parser);
-    ASSERT_NIL(parser.error());
-    const auto &port = parsed.digital_output.at(2);
-    ASSERT_EQ(port.state_index, 1);
-    ASSERT_EQ(port.lines.at(7).command, 2);
-    ASSERT_EQ(port.lines.at(7).state, 3);
+    EXPECT_NIL(client.ni.devices.create(dev));
+    return {dev, r};
+}
 }
 
-/// @brief it should round trip the analog input channels keyed by port number.
-TEST(AnalogInputPorts, RoundTripsChannels) {
-    const AnalogInputPorts ports{.index = 1, .temperature = 2, .channels = {{3, 4}}};
-    x::json::Parser parser(ports.to_json());
-    const auto parsed = AnalogInputPorts::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.temperature, 2);
-    ASSERT_EQ(parsed.channels.at(3), 4);
+/// @brief it should create a device and retrieve it by key.
+TEST(Client, CreatesAndRetrievesByKey) {
+    const auto client = new_test_client();
+    const auto [dev, r] = create_device(client, x::uuid::create().to_string());
+    ASSERT_FALSE(dev.key.is_nil());
+    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    ASSERT_EQ(got.name, "NI 9205");
+    ASSERT_EQ(got.rack, r.key);
 }
 
-/// @brief it should default the port groups of a configuration that omits them.
-TEST(Configuration, ParsesMissingPortGroups) {
-    x::json::Parser parser(x::json::json{{"name", "Module"}});
-    const auto parsed = Configuration::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.name, "Module");
-    ASSERT_TRUE(parsed.analog_input.channels.empty());
-    ASSERT_TRUE(parsed.digital_output.empty());
+/// @brief it should retrieve a device by its resource name.
+TEST(Client, RetrievesByResourceName) {
+    const auto client = new_test_client();
+    const auto resource_name = x::uuid::create().to_string();
+    const auto [dev, r] = create_device(client, resource_name);
+    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(
+        Where{.resource_name = resource_name},
+        x::filter::one
+    ));
+    ASSERT_EQ(got.key, dev.key);
 }
 
-/// @brief it should keep the field group of an update through JSON.
-TEST(Update, RoundTripsGroup) {
+/// @brief it should write the identity group and keep the name as stored.
+TEST(Client, UpdatesIdentityAndKeepsName) {
+    const auto client = new_test_client();
+    const auto [dev, r] = create_device(client, x::uuid::create().to_string());
     IdentityUpdate identity;
-    identity.rack = 1;
+    identity.rack = r.key;
     identity.serial = "01A";
-    identity.resource_name = "Mod1";
-    const auto j = to_json(Update(identity));
-    ASSERT_EQ(j["group"], "identity");
-    x::json::Parser parser(j);
-    const auto parsed = parse_update(parser);
-    ASSERT_TRUE(parser.ok());
-    ASSERT_EQ(std::get<IdentityUpdate>(parsed).serial, "01A");
+    identity.resource_name = dev.resource_name;
+    identity.model = "9205";
+    ASSERT_NIL(client.ni.devices.update(dev.key, Update(identity)));
+    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    ASSERT_EQ(got.serial, "01A");
+    ASSERT_EQ(got.name, "NI 9205");
 }
 
-/// @brief it should write an empty object for a port map with no ports.
-TEST(Configuration, SerializesEmptyPortMapsAsObjects) {
-    const auto j = Configuration{}.to_json();
-    ASSERT_TRUE(j["analog_input"]["channels"].is_object());
-    ASSERT_TRUE(j["digital_output"].is_object());
-}
-
-/// @brief it should round trip a device with its port maps through protobuf.
-TEST(Device, RoundTripsProto) {
-    Device dev{
-        .key = x::uuid::create(),
-        .rack = 65537,
-        .name = "Module",
-        .serial = "01A",
-        .resource_name = "{GUID}",
-        .model = "NI 9205",
-        .chassis = x::uuid::create(),
-        .identifier = "mod1",
-    };
-    dev.analog_input.channels[3] = 4;
-    dev.counter_input[2] = CounterInputChannels{.index = 8, .channel = 9};
-    dev.digital_output[1].lines[255] = CommandStatePair{.command = 13, .state = 14};
-    const auto pb = ASSERT_NIL_P(dev.to_proto());
-    const auto parsed = ASSERT_NIL_P(Device::from_proto(pb));
-    ASSERT_EQ(parsed.to_json(), dev.to_json());
-}
-
-/// @brief it should reject a line number that does not fit in a byte.
-TEST(DigitalInputChannels, RejectsOutOfRangeLineFromProto) {
-    ::service::ni_device::pb::DigitalInputChannels pb;
-    (*pb.mutable_lines())[256] = 1;
-    ASSERT_OCCURRED_AS_P(DigitalInputChannels::from_proto(pb), x::errors::VALIDATION);
+/// @brief it should delete a device.
+TEST(Client, Deletes) {
+    const auto client = new_test_client();
+    const auto [dev, r] = create_device(client, x::uuid::create().to_string());
+    ASSERT_NIL(client.ni.devices.del({dev.key}));
+    ASSERT_OCCURRED_AS_P(client.ni.devices.retrieve(dev.key), x::errors::NOT_FOUND);
 }
 }

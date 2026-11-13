@@ -19,6 +19,7 @@
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/ni/client.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
@@ -134,6 +135,8 @@ public:
     rack::Client racks;
     /// @brief Client for managing devices.
     device::Client devices;
+    /// @brief Clients for managing NI devices and chassis.
+    ::synnax::ni::Client ni;
     /// @brief Client for managing statuses.
     status::Client statuses;
     /// @brief Client for managing Arc automation programs.
@@ -205,6 +208,20 @@ public:
             std::move(this->t.device_delete),
             std::move(this->t.device_dispatch)
         ),
+        ni{
+            .devices = ::synnax::ni::device::Client(
+                std::move(this->t.ni_device_create),
+                std::move(this->t.ni_device_retrieve),
+                std::move(this->t.ni_device_update),
+                std::move(this->t.ni_device_delete)
+            ),
+            .chassis = ::synnax::ni::chassis::Client(
+                std::move(this->t.ni_chassis_create),
+                std::move(this->t.ni_chassis_retrieve),
+                std::move(this->t.ni_chassis_update),
+                std::move(this->t.ni_chassis_delete)
+            ),
+        },
         statuses(
             this->t.status_retrieve,
             this->t.status_set,
