@@ -442,7 +442,13 @@ Channel struct {
 			})
 
 		It("Should pass a shipped chain removed with its live file", func() {
-			write(root, "schemas/synnax/versions/other/v0.oracle", shippedV0)
+			write(root, "schemas/synnax/versions/other/v0.oracle", `
+Other struct {
+    key uuid @key
+
+    @go marshal
+}
+`)
 			Expect(messages()).To(BeEmpty())
 		})
 	})
@@ -1041,6 +1047,32 @@ Channel struct {
 			write(root, "schemas/synnax", "")
 			Expect(messages()).To(ConsistOf(ContainSubstring("not a directory")))
 		})
+
+		It("Should fail a removed chain whose stored type a current chain stores",
+			func() {
+				write(root, "schemas/synnax/versions/chan/v0.oracle", shippedV0)
+				Expect(messages()).To(ConsistOf(
+					"schemas/synnax/channel is gone, but schemas/synnax/chan still " +
+						"stores Channel, which core/v0.60.1 shipped",
+				))
+			})
+
+		It("Should fail a removed chain when a current chain does not resolve",
+			func() {
+				write(root, "schemas/synnax/versions/other/v0.oracle", `
+import "schemas/x/versions/text/v0"
+
+Other struct {
+    level text.Level
+
+    @go marshal
+}
+`)
+				Expect(messages()).To(HaveExactElements(
+					"no version chain for schemas/x/text",
+					"no version chain for schemas/x/text",
+				))
+			})
 
 		It("Should fail a removed chain that a remaining stored type imports", func() {
 			const holder = `
