@@ -20,10 +20,8 @@ export interface UploadMenuItemProps {
   rangeName: string;
 }
 
-/** Opens a modal that uploads the data of a range to Sift. */
-export const UploadMenuItem = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
+const Item = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
   const open = useUploadModal();
-  if (!FLAGS.sift) return null;
   return (
     <Menu.Item
       itemKey="siftUpload"
@@ -42,14 +40,9 @@ export interface UploadRegionMenuItemProps {
   getTimeRange: () => Promise<TimeRange>;
 }
 
-/** Opens a modal that uploads a plain time span to Sift. */
-export const UploadRegionMenuItem = ({
-  name,
-  getTimeRange,
-}: UploadRegionMenuItemProps) => {
+const RegionItem = ({ name, getTimeRange }: UploadRegionMenuItemProps) => {
   const open = useUploadModal();
   const handleError = Status.useErrorHandler();
-  if (!FLAGS.sift) return null;
   const handleClick = () =>
     handleError(async () => {
       const tr = await getTimeRange();
@@ -62,3 +55,11 @@ export const UploadRegionMenuItem = ({
     </Menu.Item>
   );
 };
+
+const Hidden = (): null => null;
+
+/** Opens a modal that uploads the data of a range to Sift. */
+export const UploadMenuItem = FLAGS.sift ? Item : Hidden;
+
+/** Opens a modal that uploads a plain time span to Sift. */
+export const UploadRegionMenuItem = FLAGS.sift ? RegionItem : Hidden;

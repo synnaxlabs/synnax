@@ -101,4 +101,25 @@ describe("Notifications.useForward", () => {
     expect(screen.queryByText(progress)).toBeNull();
     expect(await screen.findByText(await write("error"))).toBeTruthy();
   });
+
+  it("should notify a Sift upload only on an error", async () => {
+    await renderForward();
+    const key = `${Sift.Range.KEY_PREFIX}${uniqueName("upload")}`;
+    const write = async (variant: "loading" | "success" | "error"): Promise<string> => {
+      const { message } = await client.statuses.set({
+        key,
+        name: "",
+        variant,
+        message: uniqueName("upload"),
+        time: TimeStamp.now(),
+      });
+      return message;
+    };
+    const loading = await write("loading");
+    const success = await write("success");
+    await settleWrites(client);
+    expect(screen.queryByText(loading)).toBeNull();
+    expect(screen.queryByText(success)).toBeNull();
+    expect(await screen.findByText(await write("error"))).toBeTruthy();
+  });
 });
