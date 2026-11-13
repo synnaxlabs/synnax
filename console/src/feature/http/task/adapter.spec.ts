@@ -125,6 +125,25 @@ describe("adapter", () => {
       });
     });
 
+    it("should drop a fill and entries that a narrower data type cannot hold", () => {
+      const field = createField({
+        type: "integer",
+        dataType: "int64",
+        fill: "1000",
+        enumValues: [
+          { label: "LOW", value: "-5" },
+          { label: "HIGH", value: "300" },
+        ],
+      });
+      const integer = retype(field, DataType.INT8);
+      expect(integer).toMatchObject({
+        type: "integer",
+        dataType: DataType.INT8,
+        enumValues: [{ label: "LOW", value: "-5" }],
+      });
+      expect("fill" in integer ? integer.fill : undefined).toBeUndefined();
+    });
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({
