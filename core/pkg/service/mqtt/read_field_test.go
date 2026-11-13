@@ -208,16 +208,15 @@ var _ = Describe("Read field", func() {
 			Entry("a timestamp with no time format",
 				[]map[string]any{readField("timestamp", channel.Channel{}, nil)},
 				"invalid time_format"),
-			Entry("a raw bytes field beside another field",
+			Entry("a bytes field with an empty pointer",
 				[]map[string]any{
 					readField(
 						"bytes",
 						channel.Channel{},
 						map[string]any{"pointer": ""},
 					),
-					readField("float", channel.Channel{}, nil),
 				},
-				"a bytes field with an empty pointer must be the only enabled field"),
+				"a bytes field requires a JSON pointer"),
 		)
 	})
 
