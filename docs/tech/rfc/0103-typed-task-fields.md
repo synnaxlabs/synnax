@@ -275,17 +275,16 @@ writes. The old Python client writes `swap_bytes`, and an old Driver requires it
 
 ## 7 Migration
 
-`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`. A
+`MigrateReadField` is pure, for the envelope ladder, and uses the stored `data_type`. It
+cannot see channels, so a key it binds can dangle on import (see **Dangling keys**). A
 numeric type picks its kind. `boolean` entries become `value != 0`. `string` drops its
 entries, as no conversion read them. `timestamp` with no `time_format` takes `iso8601`.
 
 - **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
   channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
   `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`. This step runs with the channels, as
-  `NewReadMigrations(channels)` does, on every migration path, so a key with no local
-  channel also becomes `unbound`. Each shipped default is `float64`, so such an index
-  field or field with a `time_format` takes `data_type: timestamp`.
+  `name` and `data_type`. Each shipped default is `float64`, so such an index field or
+  field with a `time_format` takes `data_type: timestamp`.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -317,6 +316,13 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `task/versions/v3/migrate.go:137`). A new `ReconcileEntry` hook runs in it at each
   version. Without it, the task migration quarantines a mismatch. Client writes do not
   reconcile.
+- **Dangling keys**: Export adds a `channels` map, from each bound key to its channel's
+  `name` and `data_type`, next to `type` and `name` in the envelope body
+  (`task/imex.go`). For a shipped version, import builds the same map from each field's
+  flat `channel`, `name`, and `data_type`. `Normalize` runs `ReconcileEntry` before
+  `DropDangling`, and `ReconcileEntry` turns each bound key with no local channel into
+  `unbound` from the map. Phase 7 adds the map and the order, and each integration phase
+  applies the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
