@@ -211,23 +211,24 @@ rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel that the
 device stores for it: the pointer's channel for a read field and the target's channel
 for a channel field. It binds only when that channel exists, holds the field's
-`data_type`, and, if it is fixed-density, is on the index that the source picks below.
-Otherwise, and always on Kafka, whose devices store no channels, it creates one, and its
-key replaces the stored one. `unbound.name` holds the user's name. A field that becomes
-unbound again takes its channel's name without a `_<data_type>` or `_<data_type>_<n>`
-suffix whose type is the channel's own, so suffixes do not stack. A user name of that
-form loses the suffix too, which changes only the name of the new channel. An empty name
-first takes the name the Console generates today. A new channel takes the name when it
-is free, else the name with its data type as a suffix, such as `temp_int32`, else that
-name with a counter, such as `temp_int32_2`, until a name is free. A taken name never
-fails configure, and configure never binds by name. Each source picks one index: the
-channel of a bound index field, else the first non-zero index of its bound channels, on
-HTTP and MQTT the stored index when it still exists, else a new one. An unbound index
-field binds to it, and each new fixed-density channel takes it. On HTTP and MQTT the
-device stores it. On HTTP and MQTT, a new variable-density channel (string, JSON, or
-bytes) stays virtual, as today. On Kafka it takes the index, as today. `onConfigure`
-then saves the field as bound. An adapter keeps the atomic Phase 12 near 400 lines, and
-Phase 14 deletes it.
+`data_type`, and, for a fixed-density read channel, is on the index that the source
+picks below. Otherwise, and always on Kafka, whose devices store no channels, it creates
+one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
+that becomes unbound again takes its channel's name without a `_<data_type>` or
+`_<data_type>_<n>` suffix whose type is the channel's own, so suffixes do not stack. A
+user name of that form loses the suffix too, which changes only the name of the new
+channel. An empty name first takes the name the Console generates today. A new channel
+takes the name when it is free, else the name with its data type as a suffix, such as
+`temp_int32`, else that name with a counter, such as `temp_int32_2`, until a name is
+free. A taken name never fails configure, and configure never binds by name. Each source
+picks one index: the channel of a bound index field, else the first non-zero index of
+its bound channels, on HTTP and MQTT the stored index when it still exists, else a new
+one. An unbound index field binds to it, and each new fixed-density read channel takes
+it. A command channel keeps its own `_time` index, as today. On HTTP and MQTT the device
+stores it. On HTTP and MQTT, a new variable-density channel (string, JSON, or bytes)
+stays virtual, as today. On Kafka it takes the index, as today. `onConfigure` then saves
+the field as bound. An adapter keeps the atomic Phase 12 near 400 lines, and Phase 14
+deletes it.
 
 ## 6 Field types
 
@@ -291,9 +292,10 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   and drops `name` and `data_type`. One with `channel == 0` becomes `unbound` with the
   stored `name` and `data_type`. Each shipped default is `float64`, so
   `MigrateReadField`, the first step from a shipped version, gives such an index field
-  or field with a `time_format` the `timestamp` kind and keeps its `time_format`. A
-  later step takes the data type from the kind when the field stores none: `float64`,
-  `int64`, or `uint64` for a numeric kind, and the kind's own type otherwise.
+  or field with a `time_format` the `timestamp` kind and `timestamp` data type, and
+  keeps its `time_format`. A later step takes the data type from the kind when the field
+  stores none: `float64`, `int64`, or `uint64` for a numeric kind, and the kind's own
+  type otherwise.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -336,26 +338,27 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `Decoded` carries the map to `ReconcileEntry`, which now runs before `DropDangling`
   and turns each bound key into `unbound` from the map when no local channel has that
   key, or when `cluster` is another Core's, because two Cores hand out the same channel
-  keys. From another Core, a Sparkplug write target's `channel` and an edge tag's
-  non-zero `command_channel` become 0, and the import writes the target's `name` or the
-  tag's `command_channel_name` from `$channels`, or else the name that the Console
-  derives today, such as `<tag>_cmd`. Configure then binds the device's stored channel
-  for the tag, or else creates one under the §5 rename rule. Phase 30 applies that rule
-  in `configureCommandChannel`, to the channel and its `_time` index, so HTTP write
-  configure changes too. A Kafka write channel or an edge tag's published `channel`
-  becomes disabled with key 0, because configure cannot create it, and the user picks a
-  channel before it runs again. A task with an enabled key 0 fails validation, as today.
-  A disabled edge tag gets its command channel when the user enables it again. The
-  import logs each one, with any name it set. A map built from a version before
-  `Binding` holds no real channel values, so it unbinds only a missing key, and a
-  non-zero command channel with no stored name takes the derived one. A tag stored with
-  `command_channel` 0 and no `command_channel_name` still rejects writes. With no map
-  entry for a missing `Binding` key, `ReconcileEntry` removes the field, or for a
-  channel field its target or endpoint, and logs what it removed. `ReconcileEntry` skips
-  a missing key that is not a `Binding`, such as a Kafka write channel, and
+  keys. From another Core, or when its channel is missing, a Sparkplug write target's
+  `channel` and an edge tag's non-zero `command_channel` become 0, and the import writes
+  the target's `name` or the tag's `command_channel_name` from `$channels`, or else the
+  name that the Console derives today, such as `<tag>_cmd`. Configure then binds the
+  device's stored channel for the tag, or else creates one under the §5 rename rule.
+  Phase 30 applies that rule in `configureCommandChannel`, to the channel and its
+  `_time` index, so HTTP write configure changes too. A Kafka write channel or an edge
+  tag's published `channel` becomes disabled with key 0, because configure cannot create
+  it, and the user picks a channel before it runs again. A task with an enabled key 0
+  fails validation, as today. A disabled edge tag gets its command channel when the user
+  enables it again. The import logs each one, with any name it set. A map built from a
+  version before `Binding` holds no real channel values, so it unbinds only a missing
+  key, and a non-zero command channel with no stored name takes the derived one. A tag
+  stored with `command_channel` 0 and no `command_channel_name` still rejects writes.
+  With no map entry for a missing `Binding` key, `ReconcileEntry` removes the field, or
+  for a channel field its target or endpoint, and logs what it removed. `ReconcileEntry`
+  skips a missing key that is not a `Binding`, such as a Kafka write channel, and
   `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
   `ChannelKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
-  input to the task service. Phases 28 to 31 apply the rule.
+  input to the task service. Phases 28 to 31 apply the rule. Phase 29 changes the shared
+  `configureReadChannels`, and Phase 31 uses it.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
@@ -409,6 +412,6 @@ carries a config keeps the `Float` text form; check C++ `to_json`.
 | 26    | Update the task docs for typed fields                 | `site/docs/src/pages/reference/hardware`                                                                                                                                            | 14, 15, 19, 20, 21, 23, 24, 25 |
 | 27    | Add `task.Binding` and the payload `*Options` types   | `schemas/x`, `schemas/synnax/task.oracle`, `schemas/synnax/versions/task`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `core/pkg/service/task`, `client` | 11                             |
 | 28    | Bind Kafka read fields to `task.Binding`              | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/task`, `console/src/feature/kafka`, `client`, `site/docs/src/pages/reference/hardware`                                | 7, 27                          |
-| 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`, `site/docs/src/pages/reference/hardware`                                             | 9, 27                          |
+| 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                | 9, 27                          |
 | 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                | 10, 27                         |
-| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27                 |
+| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27, 29             |
