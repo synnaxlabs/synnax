@@ -31,6 +31,16 @@ const (
 	ModelT8 Model = v0.ModelT8
 )
 
+// Connection is the connection of a LabJack device, named by its LJM connection type.
+type Connection = v0.Connection
+
+const (
+	// ConnectionUSB is a USB connection.
+	ConnectionUSB Connection = v0.ConnectionUSB
+	// ConnectionTCP is a TCP connection over Ethernet or Wi-Fi.
+	ConnectionTCP Connection = v0.ConnectionTCP
+)
+
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails = v0.StatusDetails
 
