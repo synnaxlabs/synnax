@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	. "github.com/synnaxlabs/x/testutil"
@@ -115,6 +116,79 @@ var _ = Describe("MigrateBaseAOChannel", func() {
 	})
 })
 
+var _ = Describe("MigrateAOChannel", func() {
+	oldBase := v2.BaseAOChannel{
+		Key:              "ch",
+		Port:             3,
+		CmdChannel:       11,
+		StateChannel:     12,
+		CmdChannelName:   "ch_cmd",
+		StateChannelName: "ch_state",
+	}
+	newBase := v3.BaseAOChannel{Key: "ch", Port: 3}
+	commanded := v3.CommandedAOChannel{
+		CmdChannel:       11,
+		StateChannel:     12,
+		CmdChannelName:   "ch_cmd",
+		StateChannelName: "ch_state",
+	}
+
+	It("Should drop the command and state channels of a function generator",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOFuncGenChannel{
+					BaseAOChannel: oldBase,
+					WaveType:      v2.WaveTypeTriangle,
+					Frequency:     50,
+					Amplitude:     2,
+					Offset:        0.5,
+				},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOFuncGenChannel{
+				BaseAOChannel: newBase,
+				WaveType:      v3.WaveTypeTriangle,
+				Frequency:     50,
+				Amplitude:     2,
+				Offset:        0.5,
+			}))
+		},
+	)
+
+	It("Should keep the command and state channels of a voltage output",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOVoltageChannel{BaseAOChannel: oldBase},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOVoltageChannel{
+				BaseAOChannel:      newBase,
+				CommandedAOChannel: commanded,
+			}))
+		},
+	)
+
+	It("Should keep the command and state channels of a current output",
+		func(ctx SpecContext) {
+			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+				Variant: v2.AOCurrentChannel{BaseAOChannel: oldBase},
+			}))
+			Expect(got.Variant).To(Equal(v3.AOCurrentChannel{
+				BaseAOChannel:      newBase,
+				CommandedAOChannel: commanded,
+			}))
+		},
+	)
+
+	It("Should clamp a negative port and disable the channel", func(ctx SpecContext) {
+		base := oldBase
+		base.Port = -1
+		got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
+			Variant: v2.AOVoltageChannel{BaseAOChannel: base},
+		}))
+		Expect(got.Base().Port).To(BeZero())
+		Expect(got.Base().Disabled).To(BeTrue())
+	})
+})
+
 var _ = Describe("MigrateBaseCIChannel", func() {
 	It("Should clamp a negative port and disable the channel", func(ctx SpecContext) {
 		got := MustSucceed(v3.MigrateBaseCIChannel(ctx, v2.BaseCIChannel{Port: -1}))
@@ -136,14 +210,14 @@ var _ = Describe("MigrateCJC", func() {
 })
 
 var _ = Describe("MigrateCIChannel", func() {
-	DescribeTable("Should clamp the divisor to at least 1",
+	DescribeTable("Should clamp the divisor to at least 1 or default it",
 		func(ctx SpecContext, divisor int32, want uint32) {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIFrequencyChannel{Divisor: divisor},
 			}))
 			Expect(got.Variant.(v3.CIFrequencyChannel).Divisor).To(Equal(want))
 		},
-		Entry("absent", int32(0), uint32(0)),
+		Entry("absent", int32(0), uint32(4)),
 		Entry("negative", int32(-5), uint32(1)),
 		Entry("at the maximum", int32(math.MaxInt32), uint32(math.MaxInt32)),
 	)
@@ -163,7 +237,7 @@ var _ = Describe("MigrateCIChannel", func() {
 			Expect(got.Variant.(v3.CIPositionAngularChannel).PulsesPerRev).
 				To(Equal(want))
 		},
-		Entry("absent", 0.0, uint32(0)),
+		Entry("absent", 0.0, uint32(24)),
 		Entry("below 1", 0.5, uint32(1)),
 		Entry("a fraction", 24.9, uint32(24)),
 		Entry("above uint32", 1e12, uint32(math.MaxUint32)),
@@ -306,6 +380,26 @@ var _ = Describe("CounterReadMigration", func() {
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
+
+	It("Should log a narrowed divisor and initial count", func(ctx SpecContext) {
+		_, fields := runStored[v2.CounterReadConfig, v3.CounterReadConfig](
+			ctx,
+			"ni_counter_read_config",
+			v3.CounterReadMigration,
+			v2.CounterReadConfig{Key: uuid.New(), Channels: []v2.CIChannel{
+				{Variant: v2.CIFrequencyChannel{
+					BaseCIChannel: v2.BaseCIChannel{Key: "freq"},
+					CustomScale:   noScale,
+					Divisor:       -2,
+				}},
+				{Variant: v2.CIEdgeCountChannel{
+					BaseCIChannel: v2.BaseCIChannel{Key: "edge"},
+					InitialCount:  2.5,
+				}},
+			}},
+		)
+		Expect(fields).To(Equal([]any{"Divisor", "InitialCount"}))
+	})
 })
 
 var _ = Describe("AnalogReadMigration", func() {
@@ -340,6 +434,24 @@ var _ = Describe("AnalogReadMigration", func() {
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
+
+	It("Should log a clamped port and skip a built-in temperature channel",
+		func(ctx SpecContext) {
+			_, fields := runStored[v2.AnalogReadConfig, v3.AnalogReadConfig](
+				ctx,
+				"ni_analog_read_config",
+				v3.AnalogReadMigration,
+				v2.AnalogReadConfig{Key: uuid.New(), Channels: []v2.AIChannel{
+					{Variant: v2.AITempBuiltinChannel{Key: "temp"}},
+					{Variant: v2.AIVoltageChannel{
+						BaseAIChannel: v2.BaseAIChannel{Key: "volt", Port: -1},
+						CustomScale:   noScale,
+					}},
+				}},
+			)
+			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
+		},
+	)
 })
 
 // runStored stores old under namespace, runs migration over it, and returns the
@@ -443,6 +555,76 @@ var _ = Describe("AnalogWriteMigration", func() {
 		Expect(ch.Disabled).To(BeTrue())
 		Expect(fields).To(ConsistOf("Port", "Disabled"))
 	})
+
+	It("Should drop the Synnax channels of a function generator and keep the others",
+		func(ctx SpecContext) {
+			oldBase := func(key string, port int32) v2.BaseAOChannel {
+				return v2.BaseAOChannel{
+					Key:              key,
+					Port:             port,
+					CmdChannel:       channel.Key(port + 10),
+					StateChannel:     channel.Key(port + 20),
+					CmdChannelName:   key + "_cmd",
+					StateChannelName: key + "_state",
+				}
+			}
+			commanded := func(key string, port int32) v3.CommandedAOChannel {
+				return v3.CommandedAOChannel{
+					CmdChannel:       channel.Key(port + 10),
+					StateChannel:     channel.Key(port + 20),
+					CmdChannelName:   key + "_cmd",
+					StateChannelName: key + "_state",
+				}
+			}
+			bounds := v2.MinMaxVal{MinVal: -5, MaxVal: 5}
+			got, fields := runStored[v2.AnalogWriteConfig, v3.AnalogWriteConfig](
+				ctx,
+				"ni_analog_write_config",
+				v3.AnalogWriteMigration,
+				v2.AnalogWriteConfig{Key: uuid.New(), Channels: []v2.AOChannel{
+					{Variant: v2.AOFuncGenChannel{
+						BaseAOChannel: oldBase("gen", 0),
+						WaveType:      v2.WaveTypeSquare,
+						Frequency:     100,
+						Amplitude:     2,
+						Offset:        1,
+					}},
+					{Variant: v2.AOVoltageChannel{
+						BaseAOChannel: oldBase("voltage", 1),
+						MinMaxVal:     bounds,
+						CustomScale:   noScale,
+					}},
+					{Variant: v2.AOCurrentChannel{
+						BaseAOChannel: oldBase("current", 2),
+						MinMaxVal:     bounds,
+						CustomScale:   noScale,
+					}},
+				}},
+			)
+			Expect(got.Channels).To(Equal([]v3.AOChannel{
+				{Variant: v3.AOFuncGenChannel{
+					BaseAOChannel: v3.BaseAOChannel{Key: "gen", Port: 0},
+					WaveType:      v3.WaveTypeSquare,
+					Frequency:     100,
+					Amplitude:     2,
+					Offset:        1,
+				}},
+				{Variant: v3.AOVoltageChannel{
+					BaseAOChannel:      v3.BaseAOChannel{Key: "voltage", Port: 1},
+					MinMaxVal:          bounds,
+					CustomScale:        noScale,
+					CommandedAOChannel: commanded("voltage", 1),
+				}},
+				{Variant: v3.AOCurrentChannel{
+					BaseAOChannel:      v3.BaseAOChannel{Key: "current", Port: 2},
+					MinMaxVal:          bounds,
+					CustomScale:        noScale,
+					CommandedAOChannel: commanded("current", 2),
+				}},
+			}))
+			Expect(fields).To(BeEmpty())
+		},
+	)
 })
 
 var _ = Describe("DigitalWriteMigration", func() {

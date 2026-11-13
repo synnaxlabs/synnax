@@ -29,6 +29,9 @@ export class StreamClosed extends FreighterError.sub("stream_closed") {
 /** Error thrown when a stream holds more unread messages than its limit allows. */
 export class ReceiveOverflow extends FreighterError.sub("receive_overflow") {}
 
+/** Thrown when a target sends no response within the timeout. */
+export class Timeout extends FreighterError.sub("timeout") {}
+
 /** Arguments for constructing an Unreachable error */
 export interface UnreachableParams {
   message?: string;
@@ -58,6 +61,7 @@ const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
     return { type: Unreachable.TYPE, data: "Unreachable" };
   if (ReceiveOverflow.matches(error))
     return { type: ReceiveOverflow.TYPE, data: error.message };
+  if (Timeout.matches(error)) return { type: Timeout.TYPE, data: error.message };
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
@@ -72,6 +76,8 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
       return new Unreachable();
     case ReceiveOverflow.TYPE:
       return new ReceiveOverflow(encoded.data);
+    case Timeout.TYPE:
+      return new Timeout(encoded.data);
     default:
       throw new errors.Unknown(`Unknown error type: ${encoded.data}`);
   }

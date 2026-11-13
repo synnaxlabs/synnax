@@ -9,6 +9,7 @@
 
 import { ni, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { bounds, type spatial } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -104,6 +105,22 @@ export const createScale = (type: ScaleType): Scale =>
 export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
+
+const widest = (ranges: spatial.Bounds[]): spatial.Bounds | undefined =>
+  ranges.reduce<spatial.Bounds | undefined>(
+    (w, r) => (w == null || bounds.span(r) > bounds.span(w) ? r : w),
+    undefined,
+  );
+
+/**
+ * The range a channel switched to the type takes on the device: the widest current
+ * range for a current channel. Undefined when the channel keeps its range.
+ */
+export const defaultAIRange = (
+  type: AIChannelType,
+  hardware?: ni.Hardware,
+): spatial.Bounds | undefined =>
+  type === "ai_current" ? widest(hardware?.aiCurrentRanges ?? []) : undefined;
 
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
   ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
@@ -233,8 +250,25 @@ export type AOChannelType = ni.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
 export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 
+/**
+ * The range a channel switched to the type takes on the device: the widest current
+ * range for a current channel. Undefined when the channel keeps its range.
+ */
+export const defaultAORange = (
+  type: AOChannelType,
+  hardware?: ni.Hardware,
+): spatial.Bounds | undefined =>
+  type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
+
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
   ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
+
+/**
+ * Whether the hardware generates the channel's output from its config. The channel
+ * runs with the task and has no command or state channel.
+ */
+export const isGenerated = (c: AOChannel): c is ni.AOFuncGenChannel =>
+  c.type === AO_FUNC_GEN_CHAN_TYPE;
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",

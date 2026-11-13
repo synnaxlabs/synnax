@@ -7,6 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Deploys docs versions, each to its own host, and updates their search indexes. A push
+# to main deploys next. A person can deploy any version at any time.
+
 name: Deploy - Docs
 
 on:
@@ -16,9 +19,11 @@ on:
     paths:
       - .github/workflows/deploy.docs.yaml
       - alamos/ts/**
+      - arc/go/analyzer/codes/codes.gen.json
       - client/ts/**
       - configs/ts/**
       - configs/vite/**
+      - site/common/**
       - site/docs/**
       - freighter/ts/**
       - lyra/**
@@ -29,24 +34,161 @@ on:
       - turbo.json
       - x/ts/**
   workflow_dispatch:
+    inputs:
+      versions:
+        description:
+          "Space-separated versions: trains such as 0.61, next, latest, or previous"
+        required: true
+        type: string
+        default: latest
+      ref:
+        description:
+          "Ref to build one version from (default: main for next, release/docs-X.Y for
+          0.60 and 0.61, else the train's newest Core tag, or its release branch if the
+          branch holds that tag)"
+        type: string
+        default: ""
+  workflow_call:
+    inputs:
+      versions:
+        description:
+          "Space-separated versions: trains such as 0.61, next, latest, or previous"
+        required: true
+        type: string
+      train:
+        description:
+          "A train a release changed. It deploys if it has a stable Core release."
+        type: string
+        default: ""
+    secrets:
+      DOCS_ALGOLIA_APP_ID:
+        required: true
+      DOCS_ALGOLIA_WRITE_API_KEY:
+        required: true
+      VERCEL_TOKEN:
+        required: true
 
 permissions:
   contents: read
 
 jobs:
-  update:
-    name: Update docs search index
+  plan:
+    name: Plan deployments
     runs-on: ubuntu-latest
-    env:
-      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
-      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+    outputs:
+      deployments: ${{ steps.plan.outputs.deployments }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      - name: Update docs search index
+      - name: Build X
+        run: pnpm build:x
+
+      - name: Plan deployments
+        id: plan
         working-directory: site/docs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERSIONS: ${{ github.event_name == 'push' && 'next' || inputs.versions }}
+          # A push builds main as it is when the deploy runs, so the last deploy of a
+          # burst of pushes builds the newest commit.
+          REF: ${{ github.event_name != 'push' && inputs.ref || '' }}
+          RELEASED: ${{ inputs.train }}
+        run: |
+          deployments=$(pnpm --silent plan-deploy)
+          echo "deployments=$deployments" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy ${{ matrix.version }}
+    needs: plan
+    if: needs.plan.outputs.deployments != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.deployments) }}
+    # Runs that deploy one host, such as a push and a release that both deploy next,
+    # take turns in arrival order. The default queue cancels a waiting deploy.
+    concurrency:
+      group: deploy-docs-${{ matrix.host }}
+      cancel-in-progress: false
+      queue: max
+    env:
+      DOCS_VERSION: ${{ matrix.version }}
+      HOST: ${{ matrix.host }}
+      REF: ${{ matrix.ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ matrix.ref }}
+          persist-credentials: false
+
+      # An older ref never passes DOCS_VERSION to the build, so it would serve an
+      # unversioned site.
+      - name: Require versioned docs
+        run: |
+          grep -q DOCS_VERSION site/docs/turbo.json ||
+            { echo "::error::$REF predates versioned docs"; exit 1; }
+
+      # Every version deploys without the production domains, then takes its own host,
+      # so no deployment moves another version's host. The CLI runs outside the
+      # repository: npm rejects the repository's devEngines.
+      - name: Deploy
+        working-directory: ${{ runner.temp }}
+        env:
+          VERCEL_ORG_ID: team_Ct3QPGNmHHaqBqa5BBIAv2x9
+          VERCEL_PROJECT_ID: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
+          set -o pipefail
+          log=$(mktemp)
+          deployment=$(mktemp)
+          for attempt in 1 2 3; do
+            if npx --yes vercel@63.1.2 deploy --cwd "$GITHUB_WORKSPACE" \
+              --archive=tgz --format=json --prod --skip-domain \
+              --build-env "DOCS_VERSION=$DOCS_VERSION" \
+              2>&1 > "$deployment" | tee "$log" >&2; then
+              break
+            fi
+            # A build failure repeats, so only a dropped connection gets a retry.
+            grep -q "fetch failed" "$log" && [ "$attempt" -lt 3 ] || exit 1
+            echo "Deploy attempt $attempt lost its connection"
+            sleep 10
+          done
+          url=$(jq -er '.deployment.url // .url' "$deployment")
+
+          # The first deployment of a train adds its host to the project.
+          api="https://api.vercel.com"
+          project="$api/v10/projects/$VERCEL_PROJECT_ID/domains"
+          team="teamId=$VERCEL_ORG_ID"
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "$auth" "$api/v9/projects/$VERCEL_PROJECT_ID/domains/$HOST?$team")
+          case "$status" in
+            200) ;;
+            404)
+              curl --fail-with-body --silent --show-error --request POST \
+                --header "$auth" --header "Content-Type: application/json" \
+                --data "{\"name\":\"$HOST\"}" "$project?$team"
+              ;;
+            *) echo "::error::Vercel returned $status for $HOST"; exit 1 ;;
+          esac
+
+          npx --yes vercel@63.1.2 alias set "$url" "$HOST" --scope "$VERCEL_ORG_ID"
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Update the search index
+        working-directory: site/docs
+        env:
+          DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+          DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
         run: pnpm algolia

@@ -151,11 +151,9 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 		cf, err := compileItem(
 			compCtx,
-			i.Key,
-			i.Body.AST,
+			i,
 			params,
 			returnType,
-			i.Outputs,
 			outputMemoryBase,
 		)
 		if err != nil {
@@ -167,12 +165,16 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	for _, t := range batchTargets {
 		compiled = append(compiled, compileBatchWrapper(compCtx, t))
 	}
+	indexFunctions := compileIndexFunctions(compCtx, len(compiled))
 
 	resolver.FinalizeAndPatch(compCtx.Module)
 
 	for _, cf := range compiled {
 		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 		compCtx.Module.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
+	}
+	for _, cf := range indexFunctions {
+		compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 	}
 
 	compCtx.Module.EnableMemory()
@@ -186,14 +188,13 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 func compileItem(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
-	key string,
-	body antlr.ParserRuleContext,
+	fn ir.Function,
 	params types.Params,
 	results types.Type,
-	outputs types.Params,
 	outputMemoryBase uint32,
 ) (compiledFunction, error) {
-	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
+	key, body, outputs := fn.Key, fn.Body.AST, fn.Outputs
+	scope, err := functionScope(fn)
 	if err != nil {
 		return compiledFunction{}, err
 	}
@@ -251,11 +252,20 @@ func compileItem(
 	}
 
 	return compiledFunction{
-		scopeName: ctx.Scope.Name,
+		scopeName: key,
 		typeIdx:   typeIdx,
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// functionScope returns the symbol fn compiles in. A function lowered from a module
+// keeps its own root, so resolving fn.Key against the program root would miss it.
+func functionScope(fn ir.Function) (*symbol.Symbol, error) {
+	if fn.Symbol == nil {
+		return nil, errors.Newf("function %q has no symbol", fn.Key)
+	}
+	return fn.Symbol, nil
 }
 
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
@@ -270,7 +280,7 @@ func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
+	scope, err := functionScope(fn)
 	if err != nil {
 		return compiledFunction{}, err
 	}

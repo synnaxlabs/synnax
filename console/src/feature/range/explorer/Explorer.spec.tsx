@@ -41,6 +41,7 @@ import {
   queryIconButton,
   renderSuspended,
   resolveFocusedTab,
+  selectRange,
   selectTestProject,
   type TestStore,
 } from "@/testutil";
@@ -179,14 +180,16 @@ describe("range/Explorer", () => {
     const [first, second] = listedNames(word);
     const moved = created.find(({ name }) => name === first);
     assertDefined(moved);
-    await client.ranges.create({
-      key: moved.key,
-      name: moved.name,
-      timeRange: new TimeRange(
-        TimeStamp.now().add(TimeSpan.seconds(2)),
-        TimeStamp.now().add(TimeSpan.minutes(1)),
-      ),
-    });
+    await client.ranges.dispatch(
+      moved.key,
+      ranger.set({
+        path: ["timeRange"],
+        value: new TimeRange(
+          TimeStamp.now().add(TimeSpan.seconds(2)),
+          TimeStamp.now().add(TimeSpan.minutes(1)),
+        ).numeric,
+      }),
+    );
     await waitFor(() => expect(listedNames(word)).toEqual([second, first]), {
       timeout: 5000,
     });
@@ -256,7 +259,7 @@ describe("range/Explorer", () => {
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Favorite"));
       await waitFor(() => {
-        const state = Session.Range.selectState(store.getState(), rng.key);
+        const state = selectRange(store.getState(), rng.key);
         expect(state?.variant).toBe("persisted");
       });
     });
@@ -291,7 +294,7 @@ describe("range/Explorer", () => {
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );
       await waitFor(async () => {
         await expect(client.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>

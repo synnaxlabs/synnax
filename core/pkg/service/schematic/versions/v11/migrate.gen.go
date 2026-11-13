@@ -19,10 +19,11 @@ import (
 
 func autoMigrateSchematic(_ context.Context, old v10.Schematic) (Schematic, error) {
 	return Schematic{
-		Key:     old.Key,
-		Name:    old.Name,
-		Nodes:   old.Nodes,
-		Edges:   old.Edges,
-		Configs: old.Configs,
+		Key:      old.Key,
+		Name:     old.Name,
+		Snapshot: old.Snapshot,
+		Nodes:    old.Nodes,
+		Edges:    old.Edges,
+		Configs:  old.Configs,
 	}, nil
 }

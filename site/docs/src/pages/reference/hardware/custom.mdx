@@ -21,13 +21,16 @@ them to channels, and streams commands from channels and sends them to the devic
 page uses an Arduino on a serial port. The same steps work for each device that your
 code can read from and write to.
 
+When the Driver supports your device, use a [task](/reference/hardware/tasks) instead.
+Tasks need no code, and you start and stop them from the Console.
+
 <Divider.Divider x />
 
 ## Prerequisites
 
-- A [Synnax Enterprise](/reference/enterprise) Core that the computer of the device can
-  reach. Scripts cannot connect to Synnax Desktop.
-- The [Console](/reference/enterprise/console), logged in to the same Core.
+- Synnax Desktop on the computer of the device, or a Synnax Core that the computer can
+  reach.
+- The Console, connected to the same Core. Synnax Desktop includes the Console.
 - An Arduino board and the [Arduino IDE](https://www.arduino.cc/en/software).
 
 <Client.Tabs exclude={["console"]}>
@@ -58,10 +61,13 @@ Run each script with `npx tsx <file>`.
 
 </Client.Tabs>
 
-The scripts connect to `localhost:9090` with the username `synnax` and the password
-`seldon`, the defaults of a new Enterprise Core. Change these values to match your Core.
-See [Connect to a Core](/reference/client/connect). Set `PORT` to the serial port of
-your Arduino, which the Arduino IDE shows.
+The scripts connect to Synnax Desktop on the same computer. In Python, `sy.Synnax()`
+with no arguments finds it, unless `sy login` saved a Core, which it then uses. In
+TypeScript, copy the host, the port, and the API key from the **Connect from code**
+dialog of Synnax Desktop. To connect to a Synnax Core instead, pass its address and a
+login. See [Connect to a Core](/reference/client/connect).
+
+Set `PORT` to the serial port of your Arduino, which the Arduino IDE shows.
 
 <Divider.Divider x />
 
@@ -100,12 +106,8 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+# Finds Synnax Desktop, unless sy login saved a Core.
+client = sy.Synnax()
 
 time = client.channels.create(
     name="arduino_time",
@@ -144,11 +146,11 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
+// Copy these values from the Connect from code dialog of Synnax Desktop.
 const client = new Synnax({
   host: "localhost",
   port: 9090,
-  username: "synnax",
-  password: "seldon",
+  apiKey: "<API key>",
 });
 
 const time = await client.channels.create(
@@ -235,12 +237,8 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+# Finds Synnax Desktop, unless sy login saved a Core.
+client = sy.Synnax()
 
 client.channels.create(
     name="arduino_command",
@@ -266,11 +264,11 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
+// Copy these values from the Connect from code dialog of Synnax Desktop.
 const client = new Synnax({
   host: "localhost",
   port: 9090,
-  username: "synnax",
-  password: "seldon",
+  apiKey: "<API key>",
 });
 
 await client.channels.create(
@@ -361,12 +359,8 @@ import synnax as sy
 
 PORT = "/dev/ttyACM0"
 
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+# Finds Synnax Desktop, unless sy login saved a Core.
+client = sy.Synnax()
 
 client.channels.create(
     name="arduino_command",
@@ -425,11 +419,11 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
+// Copy these values from the Connect from code dialog of Synnax Desktop.
 const client = new Synnax({
   host: "localhost",
   port: 9090,
-  username: "synnax",
-  password: "seldon",
+  apiKey: "<API key>",
 });
 
 await client.channels.create(
@@ -496,12 +490,3 @@ on when the Arduino reports the new state:
 <Video id="client/resources/build-device-driver/console-setup" />
 
 To plot `arduino_value`, add it to a line plot, as in the first section.
-
-<Divider.Divider x />
-
-## When to use the Driver
-
-A script is the fastest way to connect one device. When the Driver supports your device,
-use a [task](/reference/hardware/tasks) instead. Tasks need no code, and you start and
-stop them from the Console. See
-[Supported integrations](/reference/hardware#supported-integrations).

@@ -17,10 +17,11 @@ export const components = mdxOverrides;
 The `time` module has timers and the clock. Import it with `import time`. `interval` and
 `wait` are flow functions: a function body cannot call them.
 
-The `period` and `duration` parameters have the type `i64 ns`. They take a literal, such
-as `500ms` or `10hz`, or a variable of type `i64 ns`. A variable declared as
-`hold := 5s` has the type `i64 s`, and gives error ARC3002 `expected i64 ns, got i64 s`.
-Declare it with the type:
+The `period` and `duration` parameters have the type `i64 ns`. They take a duration
+literal, such as `500ms`, or a variable of type `i64 ns`. A frequency such as `10hz`
+fails with `cannot convert time^-1 to time^1: incompatible: dimensions`. For 10 times a
+second, use `100ms`. A variable declared as `hold := 5s` has the type `i64 s`, and gives
+error ARC3002 `expected i64 ns, got i64 s`. Declare it with the type:
 
 ```arc channels="ign_cmd" bodies="fire"
 import time

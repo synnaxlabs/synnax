@@ -68,36 +68,14 @@ var _ = Describe("Actions", func() {
 		}))
 	})
 
-	It("Should attach a create that holds the stored status", func(ctx SpecContext) {
-		var live rack.Status
-		Expect(s.status.NewRetrieve[struct{}]().
-			Where(status.MatchOwners[struct{}](r.ResourceID())).
-			Entry(&live).
-			Exec(ctx, db)).To(Succeed())
-		live.Variant = status.VariantSuccess
-		live.Message = "Rack is connected"
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.status.NewWriter(tx).Set(ctx, &live)
-		})).To(Succeed())
-		recreated := rack.Rack{Key: r.Key, Name: r.Name, Integrations: r.Integrations}
-		Expect(write(ctx, func(w rack.Writer) error {
-			return w.Create(ctx, &recreated)
-		})).To(Succeed())
-		expected := recreated
-		expected.Status = &live
-		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{
-			rack.NewCreateAction(rack.CreatePayload{Rack: expected}),
-		}))
-	})
-
 	It("Should rename the rack and its status", func(ctx SpecContext) {
 		Expect(write(ctx, func(w rack.Writer) error {
 			return w.Rename(ctx, r.Key, "Renamed")
 		})).To(Succeed())
 		Expect(retrieve(ctx).Name).To(Equal("Renamed"))
 		var stat rack.Status
-		Expect(s.status.NewRetrieve[struct{}]().
-			Where(status.MatchOwners[struct{}](r.ResourceID())).
+		Expect(s.status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, db)).To(Succeed())
 		Expect(stat.Name).To(Equal("Renamed"))
@@ -118,6 +96,42 @@ var _ = Describe("Actions", func() {
 		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{set("group", &g.Key)}))
 	})
 
+	DescribeTable("Should store an editable field", func(
+		ctx SpecContext,
+		path string,
+		value any,
+		expect func(*rack.Rack),
+	) {
+		act := set(path, value)
+		Expect(write(ctx, func(w rack.Writer) error {
+			return w.Apply(ctx, r.Key, act)
+		})).To(Succeed())
+		expected := r
+		expected.Status = nil
+		expect(&expected)
+		Expect(retrieve(ctx)).To(Equal(expected))
+		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{act}))
+	},
+		Entry("integrations", "integrations", []string{"ni", "opc"}, func(
+			r *rack.Rack,
+		) {
+			r.Integrations = []string{"ni", "opc"}
+		}),
+		Entry("version", "version", "0.50.0", func(r *rack.Rack) {
+			r.Version = new("0.50.0")
+		}),
+	)
+
+	It("Should refuse integrations that are not a list", func(ctx SpecContext) {
+		Expect(write(ctx, func(w rack.Writer) error {
+			return w.Apply(ctx, r.Key, set("integrations", nil))
+		})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("integrations")),
+		))
+		Expect(retrieve(ctx).Integrations).To(Equal([]string{"ni"}))
+	})
+
 	DescribeTable("Should refuse a path outside the editable fields", func(
 		ctx SpecContext,
 		path string,
@@ -130,7 +144,6 @@ var _ = Describe("Actions", func() {
 		Expect(rec.Snapshot()).To(HaveLen(1))
 	},
 		Entry("key", "key", 7),
-		Entry("integrations", "integrations", []string{"opc"}),
 		Entry("embedded", "embedded", true),
 		Entry("role", "role", "00000000-0000-0000-0000-000000000000"),
 	)

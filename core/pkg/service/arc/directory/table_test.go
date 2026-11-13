@@ -76,6 +76,22 @@ var _ = Describe("Table", func() {
 		})
 	})
 
+	Describe("Observe", func() {
+		It("Should notify observers of a created directory", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(table.Observe().OnChange(func(
+				_ context.Context,
+				r gorp.TxReader[directory.Key, directory.Directory],
+			) {
+				for ch := range r {
+					names = append(names, ch.Value.Name)
+				}
+			}))
+			create(ctx, "lib", nil)
+			Eventually(func() []string { return names }).Should(Equal([]string{"lib"}))
+		})
+	})
+
 	Describe("Create", func() {
 		It("Should give a directory with no key a new key", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
@@ -84,14 +100,17 @@ var _ = Describe("Table", func() {
 				To(ConsistOf(HaveField("Name", "lib")))
 		})
 
-		It("Should reject a key in use", func(ctx SpecContext) {
+		It("Should refuse a directory whose key exists", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
 			dup := directory.Directory{Key: d.Key, Name: "other"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return table.NewWriter(tx).Create(ctx, &dup)
-			})).To(MatchError(ContainSubstring(
-				"directory " + d.Key.String() + " already exists",
-			)))
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("arc_directory %s already exists", d.Key)),
+			))
+			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).
+				To(ConsistOf(HaveField("Name", "lib")))
 		})
 
 		It("Should reject a directory with no name", func(ctx SpecContext) {

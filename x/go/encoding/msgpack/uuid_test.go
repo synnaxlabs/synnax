@@ -29,17 +29,17 @@ var _ = Describe("UUID", func() {
 	}
 
 	It("Should encode a UUID as its 16 raw bytes", func(ctx SpecContext) {
-		Expect(xmsgpack.Codec.Encode(ctx, key)).To(Equal(raw))
+		Expect(xmsgpack.Codec.Encode(key)).To(Equal(raw))
 	})
 	It("Should decode a UUID from its 16 raw bytes", func(ctx SpecContext) {
 		var decoded uuid.UUID
-		Expect(xmsgpack.Codec.Decode(ctx, raw, &decoded)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(raw, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(key))
 	})
 	It("Should decode a UUID from its textual form", func(ctx SpecContext) {
 		b := MustSucceed(msgpack.Marshal([]byte(key.String())))
 		var decoded uuid.UUID
-		Expect(xmsgpack.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(b, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(key))
 	})
 	It("Should return an error for an unparseable UUID", func() {

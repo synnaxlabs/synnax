@@ -10,14 +10,19 @@
 package service_test
 
 import (
+	"context"
+	"encoding/json/v2"
 	"fmt"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
@@ -32,6 +37,8 @@ import (
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -48,7 +55,10 @@ import (
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -96,6 +106,122 @@ var _ = Describe("Layer", func() {
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
 	})
+
+	DescribeTable(
+		"Should publish NI resource changes on signal channels",
+		func(
+			ctx SpecContext,
+			name string,
+			create func(context.Context, gorp.Tx, *service.Layer) uuid.UUID,
+			remove func(context.Context, gorp.Tx, *service.Layer, uuid.UUID) error,
+		) {
+			node := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			openStreamer := func(
+				name string,
+			) confluence.Outlet[framer.StreamerResponse] {
+				GinkgoHelper()
+				var ch channel.Channel
+				Expect(layer.Channel.NewRetrieve().
+					Where(channel.MatchNames(name)).
+					Entry(&ch).
+					Exec(ctx, node.DB)).To(Succeed())
+				Expect(ch.Virtual).To(BeTrue())
+				Expect(ch.Internal).To(BeTrue())
+				streamer := MustSucceed(layer.Framer.NewStreamer(
+					ctx,
+					framer.StreamerConfig{
+						Keys:        channel.Keys{ch.Key()},
+						SendOpenAck: true,
+					},
+				))
+				requests, responses := confluence.Attach(streamer, 2)
+				sCtx, cancel := signal.Isolated()
+				shutdown := signal.NewHardShutdown(sCtx, cancel)
+				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					requests.Close()
+					confluence.Drain(responses)
+					Expect(shutdown.Close()).To(Succeed())
+				})
+				Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
+				return responses
+			}
+			sets := openStreamer("sy_ni_" + name + "_set")
+			deletes := openStreamer("sy_ni_" + name + "_delete")
+
+			var key uuid.UUID
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				key = create(ctx, tx, layer)
+				return nil
+			})).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(sets.Outlet(), 5*time.Second).Should(Receive(&res))
+			var written struct {
+				Key uuid.UUID `json:"key"`
+			}
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				Expect(json.Unmarshal(sample, &written)).To(Succeed())
+			}
+			Expect(written.Key).To(Equal(key))
+
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return remove(ctx, tx, layer, key)
+			})).To(Succeed())
+			Eventually(deletes.Outlet(), 5*time.Second).Should(Receive(&res))
+			var removed []uuid.UUID
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				removed = append(removed, uuid.UUID(sample))
+			}
+			Expect(removed).To(ContainElement(key))
+		},
+		Entry(
+			"chassis",
+			"chassis",
+			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				c := chassis.Chassis{
+					Rack:         layer.Rack.EmbeddedKey,
+					Name:         "PXIe-1071",
+					ResourceName: "Mod1",
+					Model:        "PXIe-1071",
+				}
+				Expect(layer.NI.Chassis.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+				return c.Key
+			},
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				layer *service.Layer,
+				key uuid.UUID,
+			) error {
+				return layer.NI.Chassis.NewWriter(tx).Delete(ctx, key)
+			},
+		),
+		Entry(
+			"device",
+			"device",
+			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				d := device.Device{
+					Rack:         layer.Rack.EmbeddedKey,
+					Name:         "PXI-6255",
+					ResourceName: "Mod1",
+					Model:        "PXI-6255",
+				}
+				Expect(layer.NI.Devices.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+				return d.Key
+			},
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				layer *service.Layer,
+				key uuid.UUID,
+			) error {
+				return layer.NI.Devices.NewWriter(tx).Delete(ctx, key)
+			},
+		),
+	)
 
 	It("Should refuse a framer writer on a change channel", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
@@ -208,7 +334,7 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			plot := lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"}
+			plot := defaults.Fill(lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"})
 			lpKey := plot.Key.String()
 			lpID := resource.ID{Type: resource.TypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
@@ -451,6 +577,8 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
+		Entry("NiChassis", resource.TypeNiChassis),
+		Entry("NiDevice", resource.TypeNiDevice),
 		Entry("Node", resource.TypeNode),
 		Entry("Panel", resource.TypePanel),
 		Entry("Policy", resource.TypePolicy),
@@ -467,6 +595,35 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("User", resource.TypeUser),
 		Entry("View", resource.TypeView),
 	)
+
+	It("Should find NI chassis and devices by name", func(ctx SpecContext) {
+		c := chassis.Chassis{
+			Rack:         layer.Rack.EmbeddedKey,
+			Name:         "Pump Chassis",
+			ResourceName: "PXI1",
+			Model:        "PXIe-1071",
+		}
+		d := device.Device{
+			Rack:         layer.Rack.EmbeddedKey,
+			Name:         "Pump Module",
+			ResourceName: "Mod1",
+			Model:        "NI 9205",
+			Chassis:      &c.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := layer.NI.Chassis.NewWriter(tx).Create(ctx, &c); err != nil {
+				return err
+			}
+			return layer.NI.Devices.NewWriter(tx).Create(ctx, &d)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "pump",
+			Types: []resource.Type{resource.TypeNiChassis, resource.TypeNiDevice},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(c.ResourceID(), d.ResourceID()))
+	})
 })
 
 var _ = Describe("Group moves", Ordered, func() {
@@ -500,11 +657,11 @@ var _ = Describe("Group moves", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.Schematic.NewWriter(tx).Create(ctx, &sch)
 		})).To(Succeed())
-		lp := lineplot.LinePlot{Name: "Plot", Group: &g.Key}
+		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Group: &g.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.LinePlot.NewWriter(tx).Create(ctx, &lp)
 		})).To(Succeed())
-		lg := log.Log{Name: "Log", Group: &g.Key}
+		lg := defaults.Fill(log.Log{Name: "Log", Group: &g.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.Log.NewWriter(tx).Create(ctx, &lg)
 		})).To(Succeed())
@@ -570,4 +727,16 @@ var _ = Describe("Group moves", Ordered, func() {
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
 		},
 	)
+})
+
+var _ = Describe("LayerConfig", func() {
+	It("Should require a secrets key", func() {
+		cfg := service.LayerConfig{
+			Distribution: &distribution.Layer{},
+			Security: MustSucceed(security.NewProvider(security.ProviderConfig{
+				Insecure: new(true),
+			})),
+		}
+		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
+	})
 })

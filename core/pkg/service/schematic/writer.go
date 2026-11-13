@@ -11,15 +11,17 @@ package schematic
 
 import (
 	"context"
+	"maps"
+	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -39,40 +41,39 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
-// schematic must belong to a project. An existing schematic keeps its group and
-// project. A new schematic in a group belongs to the project that holds the group.
-func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
-	var exists bool
+// schematic must belong to a project. A schematic in a group
+// belongs to the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a schematic with s.Key exists.
+func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	return w.create(ctx, s, nil)
+}
+
+// create creates s. A copy passes its source, whose scales s may keep.
+func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
-	} else {
-		var stored Schematic
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			s.Group, s.Project = stored.Group, stored.Project
-		}
 	}
-	if !exists && s.Group != nil {
+	if s.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, s.Group, resource.TypeSchematic)
 		if err != nil {
 			return err
 		}
 		s.Project = proj
 	}
-	s.ApplyDefaults()
-	if err = s.Validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(s.Project); err != nil {
+	var prev Schematic
+	if source != nil {
+		prev = *source
+	}
+	if err := validateScales(prev, *s); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err := project.ValidateOwner(s.Project); err != nil {
+		return err
+	}
+	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -81,32 +82,6 @@ func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 		NewCreateAction(CreatePayload{Schematic: *s}),
 	)
 	return nil
-}
-
-// SetGroup moves the schematics with keys into g, or out of their group when g is nil.
-// A schematic in a group belongs to the project that holds the group.
-func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeSchematic)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
-}
-
-// SetProject moves the schematics with keys out of their group and into the project p.
-func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(nil, keys)
-	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the schematics with keys that are not in the project p into p, and
@@ -138,20 +113,8 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// attachGroup attaches a set of the group of each schematic with keys, or a remove of
-// the group when g is nil.
-func (w Writer) attachGroup(g *group.Key, keys []Key) {
-	for _, k := range keys {
-		a := NewRemoveAction(RemovePayload{Key: "group"})
-		if g != nil {
-			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
-		}
-		w.dispatcher.Attach(w.tx, k, a)
-	}
-}
-
-// CreateMany creates the given schematics. If schematics with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given schematics. It returns an error wrapping
+// validate.ErrValidation when a schematic with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 	for i := range *schematics {
 		if err := w.Create(ctx, &(*schematics)[i]); err != nil {
@@ -175,10 +138,11 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	source := *result
 	result.Key = uuid.New()
 	result.Name = name
 	result.Group = nil
-	return w.Create(ctx, result)
+	return w.create(ctx, result, &source)
 }
 
 // Delete deletes the schematics with the given keys.
@@ -193,22 +157,84 @@ func (w Writer) Delete(
 
 // Apply applies a sequence of actions to the schematic with the given key and attaches
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. Returns a validation error, and stores nothing, if the actions leave the schematic
-// invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// w. A move into a group also moves the schematic into the project that holds the
+// group, and a move into another project moves it out of its group. Apply attaches the
+// actions of each such move after acts and returns them. It returns a validation error,
+// and stores nothing, if the actions leave the schematic invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-			reduced, err := Reduce(sch, acts...)
+		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
+			// Reduce edits the configs map in place, so keep the stored ones.
+			stored := maps.Clone(prev.Configs)
+			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
 			}
-			if err = reduced.Validate(); err != nil {
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeSchematic,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
 				return Schematic{}, err
 			}
-			return reduced, nil
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = next.Validate(); err != nil {
+				return Schematic{}, err
+			}
+			if err = validateScales(Schematic{Configs: stored}, next); err != nil {
+				return Schematic{}, err
+			}
+			return next, project.ValidateOwner(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
+}
+
+// validateScales returns an error wrapping validate.ErrValidation when a config of next
+// carries a scale that is not positive and differs from the scale prev stores for it. A
+// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
+// a stored zero does not block an edit to another field.
+func validateScales(prev, next Schematic) error {
+	for key, cfg := range next.Configs {
+		scale, ok := scaleOf(cfg)
+		if !ok || scale > 0 {
+			continue
+		}
+		if old, stored := prev.Configs[key]; stored {
+			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
+				continue
+			}
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"configs.%s.scale: must be positive, got %v",
+			key,
+			scale,
+		)
+	}
 	return nil
+}
+
+// scaleOf returns the scale that cfg carries, and false when its variant has none.
+func scaleOf(cfg ElementConfig) (float64, bool) {
+	v := reflect.ValueOf(cfg.Variant)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return 0, false
+	}
+	f := v.FieldByName("Scale")
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return 0, false
+	}
+	return f.Float(), true
 }

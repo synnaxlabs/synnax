@@ -283,6 +283,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
@@ -404,7 +405,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair =

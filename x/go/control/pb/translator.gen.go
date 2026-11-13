@@ -13,6 +13,7 @@ package pb
 
 import (
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -27,14 +28,19 @@ func SubjectToPB(r control.Subject) (*Subject, error) {
 }
 
 // SubjectFromPB converts Subject to Subject.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func SubjectFromPB(pb *Subject) (control.Subject, error) {
 	var r control.Subject
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Key = pb.Key
 	r.Name = pb.Name
 	r.Group = pb.Group
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

@@ -198,11 +198,9 @@ export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.tasks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.tasks.rename(key, name);
     return data;
   },
 });

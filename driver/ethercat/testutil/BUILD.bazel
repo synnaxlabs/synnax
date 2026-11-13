@@ -15,11 +15,22 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/errors",
         "//x/cpp/loop",
         "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "stg",
+    hdrs = ["stg.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/coe",
+        "//x/cpp/errors",
     ],
 )
 

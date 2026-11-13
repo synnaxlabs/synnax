@@ -9,15 +9,23 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-// target is "service" to update a Core service, or "binary" to replace the binary.
+
+export interface Props {
+    os: string;
+    /** Download the update, update a Core service from a downloaded file, or replace
+        the binary. */
+    target: "release" | "service" | "binary";
+}
+
 const { os, target } = Astro.props;
 
-const version = await Astro.locals.releases.latest("core");
+const version = await Astro.locals.releases.documented("core");
 const file = `./synnax-v${version}-${os.toLowerCase()}`;
-const code =
-    target === "service"
-        ? `chmod +x ${file} && sudo ${file} update --file ${file}`
-        : `chmod +x ${file} && sudo mv ${file} "$(command -v synnax)"`;
+const codes: Record<Props["target"], string> = {
+    release: `sudo synnax update ${version}`,
+    service: `chmod +x ${file} && sudo ${file} update --file ${file}`,
+    binary: `chmod +x ${file} && sudo mv ${file} "$(command -v synnax)"`,
+};
 ---
 
-<Inline lang="bash" code={code} theme="css-variables" />
+<Inline lang="bash" code={codes[target]} theme="css-variables" />

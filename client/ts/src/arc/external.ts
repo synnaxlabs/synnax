@@ -13,6 +13,7 @@ export * from "@/arc/client";
 export * from "@/arc/compiler";
 export * from "@/arc/directory";
 export * from "@/arc/graph";
+export * from "@/arc/identifier";
 export * from "@/arc/ir";
 export * from "@/arc/module";
 export * from "@/arc/program";

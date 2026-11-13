@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
+from collections.abc import Callable
 from typing import Any, assert_type
 from uuid import UUID, uuid4
 
@@ -17,6 +18,7 @@ from pydantic import BaseModel, Field
 import synnax as sy
 from synnax import task
 from x import filter
+from x.strings import random_name
 from x.testutil import assert_eventually
 
 
@@ -25,6 +27,18 @@ def _device(rack: sy.rack.Key) -> sy.Device:
     return sy.Device(
         key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
     )
+
+
+def _ai_channel(
+    client: sy.Synnax, port: int, *, device: str = ""
+) -> sy.ni.AIVoltageChannel:
+    idx = client.channels.create(
+        name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+    )
+    ch = client.channels.create(
+        name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+    )
+    return sy.ni.AIVoltageChannel(port=port, channel=ch.key, device=device)
 
 
 def _reply_to_next_command(
@@ -66,18 +80,21 @@ class TestTaskClient:
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
-    def test_rename(self, client: sy.Synnax) -> None:
+    def test_rename(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should rename a task and keep its config."""
+        routing_key = str(create_routing_key())
         task = client.tasks.create(
             name="Before Rename",
             type="pagerduty_alert",
-            config={"routing_key": "abc"},
+            config={"routing_key": routing_key},
         )
         client.tasks.rename(task.key, "After Rename")
         renamed = client.tasks.retrieve(key=task.key)
         assert renamed.name == "After Rename"
         assert renamed.config == task.config
-        assert renamed.config["routing_key"] == "abc"
+        assert renamed.config["routing_key"] == routing_key
 
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         name = str(uuid4())
@@ -327,7 +344,7 @@ class TestTaskClient:
                         variant=sy.status.VARIANT_WARNING,
                         message="Driver not running",
                         description="The Core has not heard from the Driver.",
-                        details={},
+                        details=sy.rack.StatusDetails(),
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
@@ -346,13 +363,14 @@ class TestTaskClient:
         t.join()
 
     @pytest.mark.parametrize(
-        "variant", [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_ERROR]
+        "variant",
+        [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_WARNING, sy.status.VARIANT_ERROR],
     )
     def test_execute_command_sync_waits_through_a_live_rack(
         self, client: sy.Synnax, variant: sy.status.Variant
     ) -> None:
-        """A rack status from a live Driver, an error included, does not end the
-        wait."""
+        """A rack status from a running Driver, a warning or an error included, does
+        not end the wait."""
         rack = client.racks.create(name=f"alive-{uuid4()}")
         tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
@@ -366,7 +384,7 @@ class TestTaskClient:
                     sy.rack.Status(
                         variant=variant,
                         message="Driver is running",
-                        details={},
+                        details=sy.rack.StatusDetails(running=True),
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
@@ -554,22 +572,26 @@ class TestTaskClient:
                     break
             assert matches[0]["args"] == {"target": str(target)}
 
-    def test_create_converts_dict_config_to_json(self, client: sy.Synnax) -> None:
+    def test_create_converts_dict_config_to_json(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a UUID in a dict config as a string."""
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config={"routing_key": ref}
         )
         res = client.tasks.retrieve(key=task.key)
         assert res.config["routing_key"] == str(ref)
 
-    def test_create_converts_model_config_by_alias(self, client: sy.Synnax) -> None:
+    def test_create_converts_model_config_by_alias(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a model config by its field aliases."""
 
         class Config(BaseModel):
             ref: UUID = Field(alias="routing_key")
 
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config=Config(routing_key=ref)
         )
@@ -588,27 +610,39 @@ class TestTaskClient:
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}
 
-    def test_task_configure_saves_without_ack(self, client: sy.Synnax) -> None:
+    def test_task_configure_saves_without_ack(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should save the task without waiting for a driver acknowledgement."""
+        routing_key = str(create_routing_key())
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-50"}
+            name="test", type="pagerduty_alert", config={"routing_key": routing_key}
         )
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.key == tsk.key
         assert res.rack != 0
-        assert res.config["routing_key"] == "rk-50"
+        assert res.config["routing_key"] == routing_key
 
-    def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
-        """Should overwrite the stored config when configured again."""
+    def test_task_configure_updates_config(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
+        """Should set the name and config of a task that exists, and take its new
+        config hash."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
-        tsk.config = {"routing_key": "rk-2"}
+        routing_key = str(create_routing_key())
+        tsk.name = "renamed"
+        tsk.config = {"routing_key": routing_key}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
-        assert res.config["routing_key"] == "rk-2"
+        assert res.name == "renamed"
+        assert res.config["routing_key"] == routing_key
+        assert tsk.config_hash == res.config_hash
 
     def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
         """Should configure a task with no rack onto the rack of its device."""
@@ -619,29 +653,140 @@ class TestTaskClient:
         assert tsk.rack == rack.key
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
-    def test_configure_puts_task_without_device_on_embedded_rack(
+    def test_configure_puts_task_on_rack_of_channel_devices(
         self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task whose channels name its devices onto their rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test",
+            device=dev.key,
+            channels=[_ai_channel(client, 0), _ai_channel(client, 1)],
+        )
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_moves_task_to_rack_of_new_channel_devices(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should move a configured task to the rack of the devices that its channels
+        name after a change."""
+        a = client.devices.create(_device(client.racks.create(name="a").key))
+        rack = client.racks.create(name=str(uuid4()))
+        b = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test", device=a.key, channels=[_ai_channel(client, 0)]
+        )
+        client.tasks.configure(tsk)
+        tsk.config.channels[0].device = b.key
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_moves_task_to_rack_of_first_channel_device(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should move a task configured with no channels to the rack of the device
+        that its first channel names."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(name="test", channels=[])
+        client.tasks.configure(tsk)
+        tsk.config.channels.append(_ai_channel(client, 0, device=dev.key))
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_rejects_devices_on_different_racks(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when the channels of a task name devices on different
+        racks."""
+        a = client.devices.create(_device(client.racks.create(name="a").key))
+        b = client.devices.create(_device(client.racks.create(name="b").key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test",
+            channels=[
+                _ai_channel(client, 0, device=a.key),
+                _ai_channel(client, 1, device=b.key),
+            ],
+        )
+        with pytest.raises(sy.ValidationError, match="must be on one rack"):
+            client.tasks.configure(tsk)
+
+    def test_configure_puts_task_without_device_on_embedded_rack(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should configure a task whose config names no device onto the embedded
         rack."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-e"}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
 
-    def test_configure_keeps_set_rack(self, client: sy.Synnax) -> None:
-        """Should keep a rack set on the task over the rack of its device."""
-        dev = client.devices.create(_device(client.racks.create(name="a").key))
+    def test_configure_puts_task_on_rack_of_device_over_set_rack(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task onto the rack of its device when the caller sets
+        another rack."""
         rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
         tsk = sy.Task(
             name="test",
             type="modbus_read",
-            rack=rack.key,
+            rack=client.racks.create(name=str(uuid4())).key,
             config={"device": dev.key},
         )
         client.tasks.configure(tsk)
-        assert tsk.rack == rack.key
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_moves_stale_task_to_rack_of_moved_device(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task object that holds an old rack onto the rack that
+        its device moved to."""
+        dev = client.devices.create(_device(client.racks.create(name="a").key))
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
+        client.tasks.configure(tsk)
+        rack = client.racks.create(name=str(uuid4()))
+        client.devices.dispatch(
+            dev.key, sy.device.set_rack(sy.device.SetRackPayload(rack=rack.key))
+        )
+        client.tasks.configure(client.tasks.retrieve(key=tsk.key))
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_moves_task_off_a_wrong_rack(self, client: sy.Synnax) -> None:
+        """Should move a stored task that is not on the rack of its device onto that
+        rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        created = client.tasks.create(
+            name="test",
+            type="modbus_read",
+            rack=client.racks.retrieve_embedded_rack().key,
+            config={"device": dev.key},
+        )
+        tsk = client.tasks.retrieve(key=created.key)
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_keeps_rack_of_task_without_device(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
+        """Should keep the rack of a configured task whose config names no device."""
+        rack = client.racks.create(name=str(uuid4()))
+        tsk = sy.Task(
+            name="test",
+            type="pagerduty_alert",
+            rack=rack.key,
+            config={"routing_key": str(create_routing_key())},
+        )
+        client.tasks.configure(tsk)
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
         """Should raise when the config names a device that does not exist."""
@@ -665,12 +810,16 @@ class TestTaskClient:
         assert task1.key in task_keys
         assert task2.key in task_keys
 
-    def test_copy_task(self, client: sy.Synnax) -> None:
+    def test_copy_task(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should copy a task with a new name."""
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="pagerduty_alert", config={"routing_key": "rk-c"}
+            name=original_name,
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
 
         # Copy the task

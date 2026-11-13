@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  actions,
   type group,
   project,
   query,
@@ -56,11 +57,9 @@ export interface RenameParams {
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.projects.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.projects.rename(key, name);
     return data;
   },
 });
@@ -82,9 +81,15 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     const cached = client.projects.watch(key).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
-  update: async ({ client, value, set }) => {
-    const res = await client.projects.create(value());
-    set(formPath.key, res.key);
+  update: async ({ client, value, set, stored }) => {
+    const values = value();
+    if (values.key == null) {
+      const created = await client.projects.create(values);
+      set(formPath.key, created.key);
+      return;
+    }
+    const edits = actions.diffFields(formSchema, stored, values, ["name"]);
+    if (edits.length > 0) await client.projects.dispatch(values.key, edits);
   },
 });
 

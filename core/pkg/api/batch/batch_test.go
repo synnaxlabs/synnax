@@ -64,7 +64,7 @@ var _ = Describe("Batch", func() {
 	decode := func(ctx context.Context, body string) batch.ExecRequest {
 		GinkgoHelper()
 		var req batch.ExecRequest
-		Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
+		Expect(json.Codec.Decode([]byte(body), &req)).To(Succeed())
 		return req
 	}
 	exec := func(ctx context.Context, req batch.ExecRequest) (batch.ExecResponse, error) {
@@ -102,14 +102,14 @@ var _ = Describe("Batch", func() {
 	)
 
 	It("Should decode MessagePack payloads", func(ctx SpecContext) {
-		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
 			"requests": []map[string]any{{
 				"endpoint": "/set",
 				"payload":  map[string]any{"key": "b", "value": "3"},
 			}},
 		}))
 		var req batch.ExecRequest
-		Expect(msgpack.Codec.Decode(ctx, body, &req)).To(Succeed())
+		Expect(msgpack.Codec.Decode(body, &req)).To(Succeed())
 		MustSucceed(exec(ctx, req))
 		Expect(stored(ctx, "b")).To(Equal("3"))
 	})

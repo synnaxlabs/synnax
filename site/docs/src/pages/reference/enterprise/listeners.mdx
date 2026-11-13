@@ -92,7 +92,8 @@ Set `cert.source` on each listener. Listeners can use different sources.
 
 The embedded Driver connects to one address: the address of the advertised listener. Set
 `advertise: true` on one listener. If no listener sets it, the first listener is
-advertised.
+advertised. The Core also prints this address in `Synnax is running and available at`,
+and in the Console address of its warning when it has no license.
 
 The certificate of the advertised listener must cover its host, and must be signed by
 the Core CA or be the `node.crt` of the Core.

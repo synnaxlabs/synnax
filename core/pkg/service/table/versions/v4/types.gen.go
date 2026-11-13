@@ -16,6 +16,7 @@ import (
 
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,8 +85,12 @@ type Table struct {
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 	// Group is the group the table sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the table.
+	// Project is the project that owns the table, if any. Exactly one of project and
+	// range is set.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the table, if any. Exactly one of project and range
+	// is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -106,7 +111,6 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
 	for i := range t.Rows {
 		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
 	}

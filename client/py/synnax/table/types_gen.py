@@ -51,7 +51,7 @@ class Row(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(default=36, ge=1)
+    size: float = Field(default=36, ge=1, allow_inf_nan=False)
     cells: list[str] = Field(default_factory=list)
 
 
@@ -64,7 +64,7 @@ class Column(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(default=72, ge=1)
+    size: float = Field(default=72, ge=1, allow_inf_nan=False)
 
 
 class Order(BaseModel):
@@ -85,7 +85,7 @@ class TextCellConfig(BaseModel):
     variant: Literal["text"] = "text"
     value: str = ""
     level: text.Level = "h5"
-    weight: float = Field(default=400, ge=1, le=1000)
+    weight: float = Field(default=400, ge=1, le=1000, allow_inf_nan=False)
     align: FlexAlignment = "center"
     fill_color: color.Color | None = None
     text_color: color.Color | None = None
@@ -104,7 +104,7 @@ class ValueCellConfig(BaseModel):
     level: text.Level = "h5"
     text_color: color.Color | None = None
     units: str = ""
-    staleness_timeout: float = Field(default=5, ge=1)
+    staleness_timeout: float = Field(default=5, ge=1, allow_inf_nan=False)
     staleness_color: color.Color | None = None
 
 

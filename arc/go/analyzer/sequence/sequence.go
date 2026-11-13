@@ -25,9 +25,9 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive
-// scope; a flow must be used instead.
-func rejectReactiveAssignment(
+// RejectReactiveAssignment reports that '=' cannot write to name in a reactive scope.
+// A flow must be used instead.
+func RejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
 ) {
@@ -35,7 +35,7 @@ func rejectReactiveAssignment(
 	d.Add(
 		diagnostics.Errorf(
 			assign,
-			"cannot use '=' here; write to '%s' with a flow: <value> -> %s",
+			"use '<value> -> %s' to write to '%s'",
 			name,
 			name,
 		),
@@ -60,7 +60,12 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	}
 	switch {
 	case sym.IsChannelReadWrite():
-		analyzeChannelReadWriteRebind(ctx, assign, sym)
+		target, ok := channelRebindTarget(ctx, assign.Expression())
+		if !ok {
+			RejectReactiveAssignment(ctx.Diagnostics, assign)
+			return
+		}
+		analyzeRebind(ctx.Child(assign), sym, target)
 	case sym.IsValueVariable():
 		statement.AnalyzeAssignment(ctx.Child(assign))
 		if expr := assign.Expression(); expr != nil &&
@@ -69,48 +74,35 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 			flow.BindOutput(ctx, expr, sym.Type.UnwrapChan())
 		}
 	default:
-		rejectReactiveAssignment(ctx.Diagnostics, assign)
+		RejectReactiveAssignment(ctx.Diagnostics, assign)
 	}
 }
 
-// analyzeChannelReadWriteRebind checks that the channel read/write variable can be
-// rebound to the channel named by assign's right-hand side: the RHS must reference a
-// channel whose value type matches the channel read/write variable.
-func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
-	ctx context.Context[T],
-	assign parser.IAssignmentContext,
-	channelReadWrite *symbol.Symbol,
+// analyzeRebind re-points a channel alias at the channel rhs, recording rhs for read
+// and write routing. It rejects a top-level alias and a channel of another type.
+func analyzeRebind(
+	ctx context.Context[parser.IAssignmentContext],
+	alias, rhs *symbol.Symbol,
 ) {
-	name := assign.IDENTIFIER().GetText()
-	target, ok := channelRebindTarget(ctx, assign.Expression())
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			assign,
-			"cannot rebind channel read/write variable %s; the right-hand side must be a channel",
-			name,
-		))
+	if ctx.RejectTopLevel(alias, alias.Name) {
 		return
 	}
-	if !types.Equal(channelReadWrite.Type.Unwrap(), target.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			assign,
-			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
-			name,
-			channelReadWrite.Type.Unwrap(),
-			target.Type.Unwrap(),
-		))
+	if !types.Equal(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
+			alias.Name, alias.Type, rhs.Name, rhs.Type))
 		return
 	}
-	channelReadWrite.Reassigned = true
-	if channelReadWrite.Channels.Write == nil {
-		channelReadWrite.Channels = types.NewChannels()
+	alias.Reassigned = true
+	if alias.Channels.Write == nil {
+		alias.Channels = types.NewChannels()
 	}
-	key := uint32(target.ID)
-	if target.SourceID != nil {
-		key = uint32(*target.SourceID)
+	key := uint32(rhs.ID)
+	if rhs.SourceID != nil {
+		key = uint32(*rhs.SourceID)
 	}
-	channelReadWrite.Channels.Read[key] = target.Name
-	channelReadWrite.Channels.Write[key] = target.Name
+	alias.Channels.Read[key] = rhs.Name
+	alias.Channels.Write[key] = rhs.Name
 }
 
 // channelRebindTarget resolves expr to the global channel a channel read/write rebind
@@ -122,11 +114,11 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil, false
 	}
-	sym, err := ctx.Resolve(primary.IDENTIFIER().GetText())
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		return nil, false
 	}
@@ -380,10 +372,7 @@ func warnLateDeclarations[T antlr.ParserRuleContext, I interface {
 			continue
 		}
 		if sawStep {
-			ctx.Diagnostics.Add(diagnostics.Warningf(
-				decl,
-				"declare variables at the top of a stage or sequence",
-			).WithCode(codes.DeclarationAfterStep))
+			ctx.Diagnostics.Add(codes.DeclarationAfterStep.At(decl))
 		}
 	}
 }

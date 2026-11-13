@@ -686,6 +686,104 @@ describe("line", () => {
         expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
       });
     });
+
+    describe("findDrawnByXValue", () => {
+      const X = series(
+        Array.from({ length: 30 }, (_, i) => i),
+        0n,
+        { start: 0, end: 100 },
+      );
+      const Y = series(
+        Array.from({ length: 30 }, (_, i) => i * 10),
+        0n,
+        { start: 0, end: 100 },
+      );
+
+      // Renders the line across props, then finds the drawn point nearest target.
+      const find = (m: ReturnType<typeof mount>, target: number, props = PROPS) => {
+        m.line.render(props);
+        return m.line.findDrawnByXValue(props, target).value;
+      };
+
+      // 4000 samples in [0, 4), then 10 in [100, 1000] that reduce as one group.
+      const mountBursty = () => {
+        const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
+        const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
+        const x = series([...dense, ...sparse], 0n, { start: 0, end: 100 });
+        const y = series([...dense.map(() => 0), 0, 5, 10, 5, 3, 2, 1, -10, 0, 1], 0n, {
+          start: 0,
+          end: 100,
+        });
+        return mount([x], [y]);
+      };
+      const BURSTY_PROPS: LineProps = {
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(0, 1000).scale(0, 1),
+        ),
+      };
+
+      it("should return no point before the line draws", () => {
+        expect(mount([X], [Y]).line.findDrawnByXValue(PROPS, 3).value.x).toBeNaN();
+      });
+
+      it("should return the sample nearest the target", () => {
+        const m = mount([X], [Y]);
+        expect(find(m, 3)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.4)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
+      });
+
+      it("should return the nearest sample across domains and past either end", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        expect(find(m, 3)).toEqual({ x: 2, y: 30 });
+        expect(find(m, 4)).toEqual({ x: 5, y: 40 });
+        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
+        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
+      });
+
+      it("should skip an x sample that is NaN", () => {
+        const x = series([0, 1, NaN], 0n, { start: 0, end: 100 });
+        expect(find(mount([x, X2], [Y1, Y2]), 1.9)).toEqual({ x: 1, y: 20 });
+      });
+
+      it("should return the drawn point nearest a sample that reduction drops", () => {
+        expect(find(mountBursty(), 500, BURSTY_PROPS)).toEqual({ x: 300, y: 10 });
+      });
+
+      it("should return the y bounds of every point the line drew", () => {
+        const m = mountBursty();
+        m.line.render(BURSTY_PROPS);
+        const { bounds } = m.line.findDrawnByXValue(BURSTY_PROPS, 2);
+        expect(bounds).toEqual({ lower: -10, upper: 10 });
+      });
+
+      it("should leave samples the line cut out of view out of the y bounds", () => {
+        // A spike of 1000 at sample 4500 lies past the samples that [0, 100] draws.
+        const length = 5000;
+        const x = series(
+          Array.from({ length }, (_, i) => i),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const y = series(
+          Array.from({ length }, (_, i) => (i === 4500 ? 1000 : i % 2)),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const m = mount([x], [y]);
+        m.xSource.sorted = true;
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(0, 100).scale(0, 1),
+          ),
+        };
+        m.line.render(props);
+        const { bounds } = m.line.findDrawnByXValue(props, 50);
+        expect(bounds).toEqual({ lower: 0, upper: 1 });
+      });
+    });
   });
 
   describe("ChannelData against a Core", () => {

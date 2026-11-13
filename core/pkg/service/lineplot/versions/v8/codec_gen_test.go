@@ -205,6 +205,7 @@ var _ = Describe("Codec", func() {
 				},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 			}),
 			Entry("zero values", v8.LinePlot{
 				Key:   uuid.Nil(),
@@ -294,6 +295,7 @@ var _ = Describe("Codec", func() {
 				Rules:   []v8.Rule{},
 				Group:   nil,
 				Project: nil,
+				Range:   nil,
 			}),
 			Entry("empty collections", v8.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -386,6 +388,7 @@ var _ = Describe("Codec", func() {
 				Rules:   []v8.Rule{},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
 			}),
 		)
 	})
@@ -548,6 +551,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		},
 		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -754,6 +758,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -850,6 +855,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Rules:   []v8.Rule{},
 			Group:   nil,
 			Project: nil,
+			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -949,6 +955,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Rules:   []v8.Rule{},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

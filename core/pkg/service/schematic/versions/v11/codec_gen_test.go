@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -40,64 +41,70 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v11.Schematic{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Snapshot: true,
 				Nodes: []v11.Node{
 					{
-						Key:      "test_4",
-						Position: spatial.XY{X: 6.5, Y: 7.5},
-						ZIndex:   9,
+						Key:      "test_5",
+						Position: spatial.XY{X: 7.5, Y: 8.5},
+						ZIndex:   10,
 					},
 				},
 				Edges: []v11.Edge{
 					{
-						Key:    "test_10",
-						Source: v11.Handle{Node: "test_12", Param: "test_13"},
-						Target: v11.Handle{Node: "test_15", Param: "test_16"},
+						Key:    "test_11",
+						Source: v11.Handle{Node: "test_13", Param: "test_14"},
+						Target: v11.Handle{Node: "test_16", Param: "test_17"},
 					},
 				},
 				Configs: map[string]v11.ElementConfig{
-					"test_17": {Variant: v11.CapElementConfig{
+					"test_18": {Variant: v11.CapElementConfig{
 						StaticSymbolConfig: v11.StaticSymbolConfig{
 							Label: v11.LabelConfig{
-								Label:         "test_19",
+								Label:         "test_20",
 								Level:         text.Level("h1"),
 								Orientation:   spatial.Location("top"),
 								Direction:     spatial.Direction("x"),
-								MaxInlineSize: 23.5,
+								MaxInlineSize: 24.5,
 								Align:         v11.FlexAlignment("start"),
 							},
 							Orientation: spatial.OuterLocation("top"),
-							Scale:       26.5,
+							Scale:       27.5,
 							StrokeColor: new(color.Color{
-								R: 29,
-								G: 30,
-								B: 31,
-								A: 31.5,
+								R: 30,
+								G: 31,
+								B: 32,
+								A: 32.5,
 							}),
 						},
 					}},
 				},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 			}),
 			Entry("zero values", v11.Schematic{
-				Key:     uuid.Nil(),
-				Name:    "",
-				Nodes:   []v11.Node{},
-				Edges:   []v11.Edge{},
-				Configs: map[string]v11.ElementConfig{},
-				Group:   nil,
-				Project: nil,
+				Key:      uuid.Nil(),
+				Name:     "",
+				Snapshot: false,
+				Nodes:    []v11.Node{},
+				Edges:    []v11.Edge{},
+				Configs:  map[string]v11.ElementConfig{},
+				Group:    nil,
+				Project:  nil,
+				Range:    nil,
 			}),
 			Entry("empty collections", v11.Schematic{
-				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:    "test_2",
-				Nodes:   []v11.Node{},
-				Edges:   []v11.Edge{},
-				Configs: map[string]v11.ElementConfig{},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Snapshot: true,
+				Nodes:    []v11.Node{},
+				Edges:    []v11.Edge{},
+				Configs:  map[string]v11.ElementConfig{},
+				Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+				Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 		)
 	})
@@ -105,46 +112,48 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	seed := v11.Schematic{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:     "test_2",
+		Snapshot: true,
 		Nodes: []v11.Node{
 			{
-				Key:      "test_4",
-				Position: spatial.XY{X: 6.5, Y: 7.5},
-				ZIndex:   9,
+				Key:      "test_5",
+				Position: spatial.XY{X: 7.5, Y: 8.5},
+				ZIndex:   10,
 			},
 		},
 		Edges: []v11.Edge{
 			{
-				Key:    "test_10",
-				Source: v11.Handle{Node: "test_12", Param: "test_13"},
-				Target: v11.Handle{Node: "test_15", Param: "test_16"},
+				Key:    "test_11",
+				Source: v11.Handle{Node: "test_13", Param: "test_14"},
+				Target: v11.Handle{Node: "test_16", Param: "test_17"},
 			},
 		},
 		Configs: map[string]v11.ElementConfig{
-			"test_17": {Variant: v11.CapElementConfig{
+			"test_18": {Variant: v11.CapElementConfig{
 				StaticSymbolConfig: v11.StaticSymbolConfig{
 					Label: v11.LabelConfig{
-						Label:         "test_19",
+						Label:         "test_20",
 						Level:         text.Level("h1"),
 						Orientation:   spatial.Location("top"),
 						Direction:     spatial.Direction("x"),
-						MaxInlineSize: 23.5,
+						MaxInlineSize: 24.5,
 						Align:         v11.FlexAlignment("start"),
 					},
 					Orientation: spatial.OuterLocation("top"),
-					Scale:       26.5,
+					Scale:       27.5,
 					StrokeColor: new(color.Color{
-						R: 29,
-						G: 30,
-						B: 31,
-						A: 31.5,
+						R: 30,
+						G: 31,
+						B: 32,
+						A: 32.5,
 					}),
 				},
 			}},
 		},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -164,46 +173,48 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 func FuzzDecodeSchematic(f *testing.F) {
 	{
 		seed := v11.Schematic{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Snapshot: true,
 			Nodes: []v11.Node{
 				{
-					Key:      "test_4",
-					Position: spatial.XY{X: 6.5, Y: 7.5},
-					ZIndex:   9,
+					Key:      "test_5",
+					Position: spatial.XY{X: 7.5, Y: 8.5},
+					ZIndex:   10,
 				},
 			},
 			Edges: []v11.Edge{
 				{
-					Key:    "test_10",
-					Source: v11.Handle{Node: "test_12", Param: "test_13"},
-					Target: v11.Handle{Node: "test_15", Param: "test_16"},
+					Key:    "test_11",
+					Source: v11.Handle{Node: "test_13", Param: "test_14"},
+					Target: v11.Handle{Node: "test_16", Param: "test_17"},
 				},
 			},
 			Configs: map[string]v11.ElementConfig{
-				"test_17": {Variant: v11.CapElementConfig{
+				"test_18": {Variant: v11.CapElementConfig{
 					StaticSymbolConfig: v11.StaticSymbolConfig{
 						Label: v11.LabelConfig{
-							Label:         "test_19",
+							Label:         "test_20",
 							Level:         text.Level("h1"),
 							Orientation:   spatial.Location("top"),
 							Direction:     spatial.Direction("x"),
-							MaxInlineSize: 23.5,
+							MaxInlineSize: 24.5,
 							Align:         v11.FlexAlignment("start"),
 						},
 						Orientation: spatial.OuterLocation("top"),
-						Scale:       26.5,
+						Scale:       27.5,
 						StrokeColor: new(color.Color{
-							R: 29,
-							G: 30,
-							B: 31,
-							A: 31.5,
+							R: 30,
+							G: 31,
+							B: 32,
+							A: 32.5,
 						}),
 					},
 				}},
 			},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"))),
+			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567823"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -213,13 +224,15 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v11.Schematic{
-			Key:     uuid.Nil(),
-			Name:    "",
-			Nodes:   []v11.Node{},
-			Edges:   []v11.Edge{},
-			Configs: map[string]v11.ElementConfig{},
-			Group:   nil,
-			Project: nil,
+			Key:      uuid.Nil(),
+			Name:     "",
+			Snapshot: false,
+			Nodes:    []v11.Node{},
+			Edges:    []v11.Edge{},
+			Configs:  map[string]v11.ElementConfig{},
+			Group:    nil,
+			Project:  nil,
+			Range:    nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -229,13 +242,15 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v11.Schematic{
-			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:    "test_2",
-			Nodes:   []v11.Node{},
-			Edges:   []v11.Edge{},
-			Configs: map[string]v11.ElementConfig{},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Snapshot: true,
+			Nodes:    []v11.Node{},
+			Edges:    []v11.Edge{},
+			Configs:  map[string]v11.ElementConfig{},
+			Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
+			Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -190,3 +190,37 @@ const Connect = ({
 
 /** Opens a picker of every integration, each leading to its connect or find view. */
 export const useConnectModal = Modals.create<ConnectModalParams>(Connect);
+
+interface EditConnectionParams extends PlatformDevice.ConnectParams {
+  /** The key of an entry in {@link NETWORK}. */
+  integration: string;
+}
+
+const EditConnection = ({
+  integration,
+  ...rest
+}: Session.Modals.ContentProps<EditConnectionParams, device.Key>): ReactElement => {
+  const network = NETWORK.find(({ key }) => key === integration);
+  if (network == null) throw new Error(`No network integration named ${integration}`);
+  const { Connect: NetworkConnect } = network;
+  return <NetworkConnect {...rest} />;
+};
+
+const useEditConnectionPrompt = Modals.createPrompt<device.Key, EditConnectionParams>(
+  EditConnection,
+);
+
+/** Returns an opener for the connect form of a network integration's device. */
+export const useEditConnectionModal = (): ((
+  integration: string,
+  deviceKey: device.Key,
+) => void) => {
+  const prompt = useEditConnectionPrompt();
+  const { data: racks } = Rack.useResultMultiple({});
+  return (integration, deviceKey) =>
+    void prompt({
+      integration,
+      deviceKey,
+      rack: PlatformDevice.getDefaultRack(racks ?? [], integration),
+    });
+};

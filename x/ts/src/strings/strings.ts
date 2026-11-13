@@ -40,7 +40,8 @@ export const naturalLanguageJoin = (
  * Creates a list of short identifiers from a given name.
  *
  * @param name - The name to create identifiers from.
- * @returns An array of unique short identifiers.
+ * @returns An array of unique short identifiers. Each starts with a letter and holds
+ * only letters, digits, and underscores.
  *
  * @example
  * ```typescript
@@ -81,7 +82,7 @@ export const createShortIdentifiers = (name: string): string[] => {
   identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
 
   const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
+    (id) => id.length >= 2 && id.length <= 12 && /^[a-zA-Z]\w*$/.test(id),
   );
 
   return filteredIdentifiers;

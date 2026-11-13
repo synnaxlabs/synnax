@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -44,6 +45,8 @@ var _ = Describe("Codec", func() {
 				Config:     msgpack.EncodedJSON{"key_5": "value_5"},
 				ConfigHash: "test_6",
 				Internal:   true,
+				Snapshot:   false,
+				Range:      new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 			Entry("zero values", v3.Task{
 				Key:        uuid.Nil(),
@@ -53,6 +56,8 @@ var _ = Describe("Codec", func() {
 				Config:     msgpack.EncodedJSON{},
 				ConfigHash: "",
 				Internal:   false,
+				Snapshot:   false,
+				Range:      nil,
 			}),
 		)
 	})
@@ -67,6 +72,8 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		Config:     msgpack.EncodedJSON{"key_5": "value_5"},
 		ConfigHash: "test_6",
 		Internal:   true,
+		Snapshot:   false,
+		Range:      new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -93,6 +100,8 @@ func FuzzDecodeTask(f *testing.F) {
 			Config:     msgpack.EncodedJSON{"key_5": "value_5"},
 			ConfigHash: "test_6",
 			Internal:   true,
+			Snapshot:   false,
+			Range:      new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -109,6 +118,8 @@ func FuzzDecodeTask(f *testing.F) {
 			Config:     msgpack.EncodedJSON{},
 			ConfigHash: "",
 			Internal:   false,
+			Snapshot:   false,
+			Range:      nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

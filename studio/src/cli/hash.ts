@@ -55,6 +55,13 @@ const modules = async (file: string, root: string): Promise<string[]> => {
   return [file, ...[...found].sort()];
 };
 
+/** versionOf hashes named files, so their CDN keys change with their content. */
+export const versionOf = (files: Record<string, Buffer>): string => {
+  const hash = createHash("sha256");
+  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]);
+  return hash.digest("hex").slice(0, 12);
+};
+
 /**
  * entryHash hashes what a manifest entry's media depends on: its script, the modules
  * under `<root>/scripts` that the script imports, the entry's options, and the draft

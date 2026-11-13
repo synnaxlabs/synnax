@@ -20,11 +20,12 @@ import {
   tag,
 } from "@/util/releases";
 
-const release = (tag_name: string, prerelease = false, draft = false): Release => ({
-  tag_name,
-  prerelease,
-  draft,
-});
+const release = (
+  tag_name: string,
+  prerelease = false,
+  draft = false,
+  published_at: string | null = null,
+): Release => ({ tag_name, prerelease, draft, published_at });
 
 const RELEASES: Release[] = [
   release("console/v0.58.3"),
@@ -104,6 +105,22 @@ describe("releases", () => {
     });
   });
 
+  describe("highest on a train", () => {
+    const releases = [
+      ...RELEASES,
+      release("console/v0.59.3"),
+      release("console/v0.60.1"),
+    ];
+
+    it("should keep to the train", () => {
+      expect(highest(releases, "console", "stable", "0.59")).toEqual("0.59.3");
+    });
+
+    it("should return null for a train with no release", () => {
+      expect(highest(releases, "console", "stable", "0.57")).toBeNull();
+    });
+  });
+
   describe("Releases", () => {
     const respond = (body: unknown, status = 200, next?: string): Response =>
       new Response(JSON.stringify(body), {
@@ -159,10 +176,108 @@ describe("releases", () => {
       expect(fetch.mock.calls[2]?.[0]).toEqual("p3");
     });
 
+    describe("publishedAt", () => {
+      const PUBLISHED = "2026-10-08T01:18:23Z";
+
+      it("should return when the stable release was published", async () => {
+        const fetch = vi.fn(async () =>
+          respond([release("core/v0.59.0", false, false, PUBLISHED)]),
+        );
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toEqual(
+          new Date(PUBLISHED),
+        );
+      });
+
+      it("should find a release on a later page", async () => {
+        const fetch = vi
+          .fn()
+          .mockResolvedValueOnce(respond([release("core/v0.61.0")], 200, "p2"))
+          .mockResolvedValueOnce(
+            respond([release("core/v0.59.0", false, false, PUBLISHED)], 200, "p3"),
+          )
+          .mockResolvedValueOnce(respond([release("synnax-v0.58.2")]));
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toEqual(
+          new Date(PUBLISHED),
+        );
+      });
+
+      it("should return null for a version with no release", async () => {
+        const fetch = vi.fn(async () => respond(RELEASES));
+        expect(await new Releases({ fetch }).publishedAt("core", "0.62.0")).toBeNull();
+      });
+
+      it("should return null for a draft, a candidate, and a pre-release", async () => {
+        const fetch = vi.fn(async () =>
+          respond([
+            release("core/v0.62.0", false, true),
+            release("core/v0.63.0-rc.1", false, false, PUBLISHED),
+            release("core/v0.64.0", true, false, PUBLISHED),
+          ]),
+        );
+        const releases = new Releases({ fetch });
+        expect(await releases.publishedAt("core", "0.62.0")).toBeNull();
+        expect(await releases.publishedAt("core", "0.63.0-rc.1")).toBeNull();
+        expect(await releases.publishedAt("core", "0.64.0")).toBeNull();
+      });
+
+      it("should return null for another product's release", async () => {
+        const fetch = vi.fn(async () =>
+          respond([release("console/v0.59.0", false, false, PUBLISHED)]),
+        );
+        expect(await new Releases({ fetch }).publishedAt("core", "0.59.0")).toBeNull();
+      });
+    });
+
     it("should stop at the last page", async () => {
       const fetch = vi.fn().mockResolvedValueOnce(respond([release("core/v0.59.0")]));
       expect(await new Releases({ fetch }).latest("core")).toEqual("0.59.0");
       expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep documented lookups to the train", async () => {
+      const listing = [
+        release("core/v0.59.3"),
+        release("core/v0.60.1"),
+        release("desktop/v1.0.4"),
+      ];
+      const releases = new Releases({
+        fetch: vi.fn(async () => respond(listing)),
+        train: "0.59",
+      });
+      expect(await releases.documented("core")).toEqual("0.59.3");
+      expect(await releases.documented("desktop")).toEqual("1.0.4");
+      expect(await releases.latest("core")).toEqual("0.60.1");
+      expect(await releases.onTrain("core", "0.60")).toEqual("0.60.1");
+      expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
+    });
+
+    it("should list each train with a stable release once, newest first", async () => {
+      const listing = [
+        release("core/v0.59.3"),
+        release("core/v0.60.1"),
+        release("core/v0.59.0"),
+        release("core/v0.61.0-rc.1", true),
+        release("core/v0.60.0"),
+        release("console/v0.62.0"),
+      ];
+      const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
+      expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
+    });
+
+    it("should take the newest release without a train", async () => {
+      const listing = [release("core/v0.59.3"), release("core/v0.60.1")];
+      const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
+      expect(await releases.documented("core")).toEqual("0.60.1");
+    });
+
+    it("should throw when the train has no documented release", async () => {
+      const releases = new Releases({
+        fetch: vi.fn(async () => respond([release("core/v0.60.1")])),
+        train: "0.59",
+      });
+      await expect(releases.documented("core")).rejects.toThrow(
+        "GitHub lists no stable core release on train 0.59",
+      );
     });
 
     it("should throw when the product has no release", async () => {

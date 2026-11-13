@@ -80,8 +80,8 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
 };
 
 const handlers: Handlers = {
-  // The Core keeps the stored labels on the create of an existing range, so a create
-  // echo that arrives after a label write must not undo it.
+  // A fetch can cache a label write that commits after the create, before the create
+  // echo arrives. The echo keeps the cached labels so it does not undo that write.
   create: (state, { range }) => {
     for (const key of Object.keys(state) as Array<keyof Payload>)
       if (!(key in range)) delete state[key];

@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -18,8 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/task/pb"
+	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -48,6 +53,12 @@ type (
 		task.CopyResponse,
 		*CopyResponse,
 	]
+	dispatchServer = grpc.UnaryServer[
+		task.DispatchRequest,
+		*DispatchRequest,
+		task.DispatchResponse,
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -58,6 +69,8 @@ type (
 	deleteRequestTranslator    struct{}
 	copyRequestTranslator      struct{}
 	copyResponseTranslator     struct{}
+	dispatchRequestTranslator  struct{}
+	dispatchResponseTranslator struct{}
 )
 
 var (
@@ -68,6 +81,8 @@ var (
 	_ grpc.Translator[task.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
 	_ grpc.Translator[task.CopyRequest, *CopyRequest]              = copyRequestTranslator{}
 	_ grpc.Translator[task.CopyResponse, *CopyResponse]            = copyResponseTranslator{}
+	_ grpc.Translator[task.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
+	_ grpc.Translator[task.DispatchResponse, *emptypb.Empty]       = dispatchResponseTranslator{}
 )
 
 func (createRequestTranslator) Forward(
@@ -213,6 +228,65 @@ func (copyResponseTranslator) Backward(
 	return task.CopyResponse{Task: t}, nil
 }
 
+func (dispatchRequestTranslator) Forward(
+	ctx context.Context,
+	req task.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(a); err != nil {
+			return nil, err
+		}
+	}
+	return &DispatchRequest{
+		Key:         req.Key.String(),
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	ctx context.Context,
+	req *DispatchRequest,
+) (task.DispatchRequest, error) {
+	key, err := uuid.Parse(req.Key)
+	if err != nil {
+		return task.DispatchRequest{}, err
+	}
+	acts := make([]svctask.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return task.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
+	}
+	return task.DispatchRequest{
+		Key:         key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+// Forward drops the actions that the Core computed, as a gRPC client holds no cached
+// task to apply them to.
+func (dispatchResponseTranslator) Forward(
+	context.Context,
+	task.DispatchResponse,
+) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (dispatchResponseTranslator) Backward(
+	context.Context,
+	*emptypb.Empty,
+) (task.DispatchResponse, error) {
+	return task.DispatchResponse{}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
@@ -238,6 +312,12 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &TaskCopyService_ServiceDesc,
 	}
 	t.TaskCopy = cpy
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: dispatchResponseTranslator{},
+		ServiceDesc:        &TaskDispatchService_ServiceDesc,
+	}
+	t.TaskDispatch = dispatch
 
-	return grpc.CompoundBindableTransport{create, retrieve, del, cpy}
+	return grpc.CompoundBindableTransport{create, retrieve, del, cpy, dispatch}
 }

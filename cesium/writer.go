@@ -77,7 +77,7 @@ func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 // the max across that index's data channels, unless the index is named explicitly.
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
 	_, err := w.exec(
-		WriterRequest{Config: cfg, Command: WriterCommandSetAuthority},
+		WriterRequest{Config: cfg, Command: writerCommandSetAuthority},
 		true,
 	)
 	return err
@@ -94,7 +94,7 @@ func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
 	res, err := w.exec(
 		WriterRequest{
 			Config:  WriterConfig{Channels: indexes},
-			Command: WriterCommandEndDomain,
+			Command: writerCommandEndDomain,
 		},
 		true,
 	)

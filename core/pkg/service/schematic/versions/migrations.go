@@ -14,6 +14,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
+	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
@@ -29,8 +30,9 @@ var Migrations = []gorp.Migration{
 	v9.Migration,
 	v9.ScaleMigration,
 	v10.Migration,
-	v11.SnapshotMigration,
 	v11.Migration,
 	v11.MembersMigration,
 	v11.OwnersMigration,
+	v12.SnapshotMigration,
+	v12.Migration,
 }

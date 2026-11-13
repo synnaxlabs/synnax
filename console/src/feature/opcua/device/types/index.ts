@@ -16,7 +16,7 @@ import { v0, v1, v2 } from "@/feature/opcua/device/types/versions";
 export const MAKE = v0.MAKE;
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
-export const INTEGRATION = "opc";
+export const INTEGRATION_KEY = "opc";
 export const makeZ = v0.makeZ;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;

@@ -14,14 +14,17 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
@@ -45,42 +48,6 @@ func (q QoS) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// TimeFormat is the encoding of a timestamp value within a JSON payload.
-type TimeFormat string
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = "iso8601"
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = "unix_sec"
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = "unix_ms"
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = "unix_us"
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = "unix_ns"
-)
-
-// IsValid reports whether t is one of the defined TimeFormat
-// values.
-func (t TimeFormat) IsValid() bool {
-	switch t {
-	case TimeFormatISO8601, TimeFormatUnixSec, TimeFormatUnixMs, TimeFormatUnixUs, TimeFormatUnixNs:
-		return true
-	default:
-		return false
-	}
-}
-
-// EnumEntry maps a string label in a JSON payload to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry struct {
-	// Label is the string label in the JSON payload.
-	Label string `json:"label" msgpack:"label"`
-	// Value is the numeric channel value the label maps to.
-	Value float64 `json:"value" msgpack:"value"`
 }
 
 // SparkplugDataType is the Sparkplug B data type of a tag.
@@ -144,9 +111,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the payload to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -154,6 +121,30 @@ func (r *ReadField) ApplyDefaults() {
 	if r.DataType == "" {
 		r.DataType = "float64"
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadField) SetDefaults() {
+	r.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // BaseReadEntry carries the fields every read entry shares.
@@ -198,6 +189,11 @@ type PlainReadEntry struct {
 
 func (PlainReadEntry) isReadEntryVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainReadEntry) SetDefaults() {
+	p.Qos = QoSAtMostOnce
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PlainReadEntry) ApplyDefaults() {
 	if p.Qos == "" {
@@ -236,6 +232,11 @@ type SparkplugReadEntry struct {
 }
 
 func (SparkplugReadEntry) isReadEntryVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugReadEntry) SetDefaults() {
+	s.DataType = "float64"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SparkplugReadEntry) ApplyDefaults() {
@@ -295,6 +296,7 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadEntryType `json:"type"`
 			PlainReadEntry
 		}
+		v.PlainReadEntry.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -304,6 +306,7 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadEntryType `json:"type"`
 			SparkplugReadEntry
 		}
+		v.SparkplugReadEntry.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -404,50 +407,6 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType string
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = "number"
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = "string"
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = "boolean"
-)
-
-// IsValid reports whether j is one of the defined JSONType
-// values.
-func (j JSONType) IsValid() bool {
-	switch j {
-	case JSONTypeNumber, JSONTypeString, JSONTypeBoolean:
-		return true
-	default:
-		return false
-	}
-}
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType string
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each message.
-	GeneratorTypeUUID GeneratorType = "uuid"
-	// GeneratorTypeTimestamp produces the time of the message.
-	GeneratorTypeTimestamp GeneratorType = "timestamp"
-)
-
-// IsValid reports whether g is one of the defined GeneratorType
-// values.
-func (g GeneratorType) IsValid() bool {
-	switch g {
-	case GeneratorTypeUUID, GeneratorTypeTimestamp:
-		return true
-	default:
-		return false
-	}
-}
-
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField struct {
 	// Pointer is the JSON Pointer where the channel value is placed in the payload. An
@@ -455,7 +414,7 @@ type ChannelField struct {
 	// target may not declare any additional fields.
 	Pointer string `json:"pointer" msgpack:"pointer"`
 	// JSONType is the JSON type the channel value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Channel is the Synnax command channel that triggers the publish.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Name is the human-readable name of the command channel.
@@ -464,20 +423,45 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps. An
 	// unset format is ISO 8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *ChannelField) ApplyDefaults() {
 	if c.JSONType == "" {
-		c.JSONType = JSONTypeNumber
+		c.JSONType = payload.JSONTypeNumber
 	}
 	if c.DataType == "" {
 		c.DataType = "float64"
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelField) SetDefaults() {
+	c.JSONType = payload.JSONTypeNumber
+	c.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -516,17 +500,22 @@ type WriteFieldVariant interface {
 type StaticWriteField struct {
 	BaseWriteField
 	// JSONType is the JSON type the value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Value is the fixed JSON value placed at the pointer.
 	Value any `json:"value" msgpack:"value"`
 }
 
 func (StaticWriteField) isWriteFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticWriteField) SetDefaults() {
+	s.JSONType = payload.JSONTypeNumber
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticWriteField) ApplyDefaults() {
 	if s.JSONType == "" {
-		s.JSONType = JSONTypeNumber
+		s.JSONType = payload.JSONTypeNumber
 	}
 }
 
@@ -542,17 +531,22 @@ func (s StaticWriteField) Validate() error {
 type GeneratedWriteField struct {
 	BaseWriteField
 	// Generator is the generator that produces a fresh value per publish.
-	Generator GeneratorType `json:"generator" msgpack:"generator"`
+	Generator payload.GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GeneratedWriteField) SetDefaults() {
+	g.Generator = payload.GeneratorTypeUUID
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GeneratedWriteField) ApplyDefaults() {
 	if g.Generator == "" {
-		g.Generator = GeneratorTypeUUID
+		g.Generator = payload.GeneratorTypeUUID
 	}
 }
 
@@ -615,6 +609,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			StaticWriteField
 		}
+		v.StaticWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -624,6 +619,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			GeneratedWriteField
 		}
+		v.GeneratedWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -739,6 +735,12 @@ type PlainWriteTarget struct {
 
 func (PlainWriteTarget) isWriteTargetVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainWriteTarget) SetDefaults() {
+	p.Channel.SetDefaults()
+	p.Qos = QoSAtLeastOnce
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PlainWriteTarget) ApplyDefaults() {
 	if p.Qos == "" {
@@ -782,6 +784,11 @@ type SparkplugWriteTarget struct {
 }
 
 func (SparkplugWriteTarget) isWriteTargetVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugWriteTarget) SetDefaults() {
+	s.TagType = SparkplugDataTypeDouble
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SparkplugWriteTarget) ApplyDefaults() {
@@ -849,6 +856,7 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteTargetType `json:"type"`
 			PlainWriteTarget
 		}
+		v.PlainWriteTarget.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -858,6 +866,7 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteTargetType `json:"type"`
 			SparkplugWriteTarget
 		}
+		v.SparkplugWriteTarget.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -970,6 +979,38 @@ func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
+}
+
 // EdgeTag is a single tag published by a Sparkplug B edge node task.
 type EdgeTag struct {
 	// Key uniquely identifies the tag within the task.
@@ -995,6 +1036,30 @@ func (e *EdgeTag) ApplyDefaults() {
 	if e.TagType == "" {
 		e.TagType = SparkplugDataTypeDouble
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EdgeTag) SetDefaults() {
+	e.TagType = SparkplugDataTypeDouble
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (e *EdgeTag) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain EdgeTag
+	if reflect.ValueOf(*e).IsZero() {
+		e.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(e))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (e *EdgeTag) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain EdgeTag
+	if reflect.ValueOf(*e).IsZero() {
+		e.SetDefaults()
+	}
+	return dec.Decode((*plain)(e))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

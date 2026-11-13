@@ -36,9 +36,9 @@ tank_pt -> scale(k=6.895) -> tank_pt_kpa
 | `->`     | Each new value              | `tank_pt -> scale(k=6.895)` |
 | `=>`     | Each new value that is true | `tank_pt > 500 => vent`     |
 
-A `=>` after a numeric value compiles with the warning
-`numeric conditions are deprecated; use an explicit comparison like x != 0`. For when a
-transition fires, see
+A `=>` after a non-boolean value gives the warning
+[ARC2005](/reference/control/arc/reference/errors#arc2005). For when a transition fires,
+see
 [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 
 <Divider.Divider x />
@@ -76,7 +76,7 @@ flow.
 | Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
 | Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
-- A top-level variable is not a sink: `cannot write to top-level variable 'peak'`.
+- A top-level variable is not a sink: `cannot reassign top-level variable 'peak'`.
 - A function name without parentheses is not a sink: `f is not a channel`. Write `f()`.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not

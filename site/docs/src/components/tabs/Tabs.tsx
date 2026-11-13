@@ -13,7 +13,6 @@ import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Edition } from "@/components/edition";
 import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
 
 /**
@@ -27,7 +26,6 @@ export interface TabEntry<K extends string = string> {
   tabKey: K;
   name: string;
   icon?: ReactElement;
-  edition?: Edition.Edition;
   /** Shows only in blocks that fill its slot. */
   optional?: boolean;
 }
@@ -70,9 +68,6 @@ export const Tabs = <K extends string>({
         !exclude.includes(tabKey) && (!optional || rest[slotName(tabKey)] != null),
     )
     .sort((a, b) => rank(a.tabKey) - rank(b.tabKey));
-  const editions = [
-    ...new Set(shown.flatMap(({ edition }) => (edition == null ? [] : [edition]))),
-  ];
   return (
     <Base.Frame
       initialValue={shown[0].tabKey}
@@ -80,24 +75,13 @@ export const Tabs = <K extends string>({
     >
       <div className="docs-tabs__header">
         <Base.Selector sizing="content">
-          {shown.map(({ tabKey, name, icon, edition }) => (
-            <Base.Tab key={tabKey} itemKey={tabKey} data-edition={edition}>
+          {shown.map(({ tabKey, name, icon }) => (
+            <Base.Tab key={tabKey} itemKey={tabKey}>
               {icon}
               <Text.Text>{name}</Text.Text>
             </Base.Tab>
           ))}
         </Base.Selector>
-        {editions.map((edition) => (
-          <a
-            key={edition}
-            className="docs-tabs__edition"
-            data-edition={edition}
-            href="/reference/get-started/editions"
-            title={`Needs Synnax ${Edition.NAMES[edition]}`}
-          >
-            <Edition.Badge edition={edition} />
-          </a>
-        ))}
       </div>
       {shown.map(({ tabKey }) => (
         <Base.Content key={tabKey} itemKey={tabKey} keepMounted>

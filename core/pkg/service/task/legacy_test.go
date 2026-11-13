@@ -44,6 +44,8 @@ import (
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -98,6 +100,12 @@ var legacyDiscarded = map[string]set.Set[string]{
 	"ni_digital_write": set.New("type"),
 }
 
+// legacySecrets maps each task type whose import moves a plain value into a new secret
+// to the config field that holds the secret's key and the field the value came in.
+var legacySecrets = map[string]struct{ key, plain string }{
+	"pagerduty_alert": {key: "routing_key", plain: "plain_routing_key"},
+}
+
 // legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
 // returns.
@@ -128,6 +136,10 @@ var legacyVariantDiscarded = map[string]set.Set[string]{
 	"ai_voltage_with_excit": set.New("units"),
 	"ao_current":            set.New("units"),
 	"ao_voltage":            set.New("units"),
+	// A function generator runs with the task and has no Synnax channels.
+	"ao_func_gen": set.New(
+		"cmd_channel", "state_channel", "cmd_channel_name", "state_channel_name",
+	),
 	// An EtherCAT entry channel reads its bit length from the slave's discovered
 	// entry.
 	"manual": set.New("bit_length"),
@@ -360,9 +372,9 @@ func rekeyed(raw []byte, keys map[float64]float64) []byte {
 	return MustSucceed(json.Marshal(v))
 }
 
-// createFixtureTargets creates the channels, devices, and statuses that the stored
-// fixtures in testdata/legacy/expected reference, so an import keeps every key. It
-// returns the key of the channel created for each channel key in the fixtures.
+// createFixtureTargets creates the channels, devices, and statuses that the fixtures in
+// testdata reference, so an import keeps every key. It returns the key of the channel
+// created for each channel key in the fixtures.
 func createFixtureTargets(
 	ctx context.Context,
 	db *gorp.DB,
@@ -382,7 +394,7 @@ func createFixtureTargets(
 			for k, f := range v {
 				switch key := f.(type) {
 				case float64:
-					if channelFields.Contains(k) && key != 0 {
+					if isChannelField(k) && key != 0 {
 						fixtureChannels.Add(key)
 					}
 				case string:
@@ -401,9 +413,14 @@ func createFixtureTargets(
 			}
 		}
 	}
-	paths := MustSucceed(
-		filepath.Glob(filepath.Join("testdata", "legacy", "expected", "*.json")),
-	)
+	var paths []string
+	for _, pattern := range []string{
+		filepath.Join("testdata", "legacy", "*.json"),
+		filepath.Join("testdata", "legacy", "expected", "*.json"),
+		filepath.Join("testdata", "released", "*", "*.json"),
+	} {
+		paths = append(paths, MustSucceed(filepath.Glob(pattern))...)
+	}
 	for _, path := range paths {
 		var stored any
 		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
@@ -435,6 +452,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		// toCreated maps each channel key in the fixtures to the key of the channel
 		// created for it, and toFixture maps it back.
 		toCreated, toFixture map[float64]float64
+		secretSvc            *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -463,6 +481,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Status: statusSvc,
 			Rack:   rackSvc,
 		}))
+		secretSvc = secrettestutil.OpenService(ctx, db)
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		// The Arcs the Arc fixtures run.
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entries(&[]arc.Arc{
@@ -513,7 +532,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			})).Stores()...,
 		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB: db,
+			DB:      db,
+			Channel: channelSvc,
 		})).Stores()...)
 		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
@@ -522,7 +542,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: statusSvc,
 		})).Stores()...)
 		stores = append(stores, MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
@@ -530,7 +551,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		stores = append(
 			stores,
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-				DB: db,
+				DB:     db,
+				Secret: secretSvc,
 			})).Stores()...,
 		)
 		stores = append(
@@ -622,6 +644,23 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		return env, imported
 	}
 
+	// reveal returns the config of imported with the key of each secret it holds
+	// swapped for the value the import read.
+	reveal := func(ctx context.Context, imported task.Task) map[string]any {
+		GinkgoHelper()
+		config := maps.Clone(map[string]any(imported.Config))
+		fields, ok := legacySecrets[imported.Type]
+		if !ok {
+			return config
+		}
+		Expect(config[fields.key]).To(BeAssignableToTypeOf(""))
+		key := uuid.MustParse(config[fields.key].(string))
+		values := MustSucceed(secretSvc.Reveal(ctx, db, key))
+		delete(config, fields.key)
+		config[fields.plain] = string(values[key])
+		return config
+	}
+
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := rekeyed(MustSucceed(os.ReadFile(
@@ -651,16 +690,17 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			expectSubset(
-				"config",
-				map[string]any(expected),
-				map[string]any(imported.Config),
-			)
+			revealed := reveal(ctx, imported)
+			expectSubset("config", map[string]any(expected), revealed)
 
-			// The rewrite and the ladder must leave their own output unchanged.
-			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
+			// The rewrite and the ladder must leave their own output unchanged. An
+			// unversioned copy of a config reads each secret key as a plain value.
+			reimportErr, unreadable := legacyReimportErrors[env.Type]
+			if unreadable {
 				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
+			}
+			if _, moved := legacySecrets[env.Type]; unreadable || moved {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
@@ -673,8 +713,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// field passes the subset check above (the expected side loses the field
 			// too) but diffs here. Regenerate deliberately with
 			// UPDATE_LEGACY_GOLDENS=1 after reviewing the diff.
-			canonical := make(map[string]any, len(imported.Config))
-			for k, v := range imported.Config {
+			canonical := make(map[string]any, len(revealed))
+			for k, v := range revealed {
 				if k != "key" {
 					canonical[k] = v
 				}
@@ -742,7 +782,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				filepath.Join("testdata", "released", release, fixture+".json"),
 			)), toCreated)
 			_, imported := importFile(ctx, raw, fixture)
-			config := map[string]any(imported.Config)
+			config := reveal(ctx, imported)
 			delete(config, "key")
 			rekey(config, toFixture)
 			golden := MustSucceed(os.ReadFile(

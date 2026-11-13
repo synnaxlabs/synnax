@@ -12,11 +12,17 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -103,8 +109,12 @@ type Panel struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Group is the group the panel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the panel.
+	// Project is the project that owns the panel, if any. Exactly one of project and
+	// range is set.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the panel, if any. Exactly one of project and range
+	// is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -115,11 +125,37 @@ func (p *Panel) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Panel) SetDefaults() {
+	{
+		v0 := LeafNode{}
+		p.Root.Variant = v0
+	}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

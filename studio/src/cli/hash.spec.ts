@@ -14,7 +14,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { entryHash } from "@/cli/hash";
+import { entryHash, versionOf } from "@/cli/hash";
 import { type Entry } from "@/manifest";
 
 describe("cli.hash", () => {
@@ -161,5 +161,24 @@ describe("cli.hash", () => {
         await entryHash(entry, false, root),
       );
     });
+  });
+});
+
+describe("cli.versionOf", () => {
+  const files = { "dark.mp4": Buffer.from("dark"), "light.mp4": Buffer.from("light") };
+
+  it("should give the same files the same version in any order", () => {
+    const reversed = { "light.mp4": files["light.mp4"], "dark.mp4": files["dark.mp4"] };
+    expect(versionOf(reversed)).toEqual(versionOf(files));
+    expect(versionOf(files)).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("should change the version with a file's content or name", () => {
+    expect(versionOf({ ...files, "dark.mp4": Buffer.from("new") })).not.toEqual(
+      versionOf(files),
+    );
+    expect(versionOf({ "dark.mp4": files["light.mp4"] })).not.toEqual(
+      versionOf({ "light.mp4": files["light.mp4"] }),
+    );
   });
 });

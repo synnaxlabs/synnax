@@ -798,6 +798,34 @@ describe("Cache", () => {
     });
   });
 
+  describe("stream down", () => {
+    it("notifies its listeners when the stream drops", async () => {
+      const first = new MockStreamer();
+      let opens = 0;
+      const cache = makeEngine(async () => {
+        opens++;
+        return opens === 1 ? first : new MockStreamer();
+      });
+      const down = vi.fn();
+      cache.onStreamDown(down);
+      await cache.ensureStreaming();
+      expect(down).not.toHaveBeenCalled();
+      first.drop();
+      await expect.poll(() => down.mock.calls.length).toBe(1);
+      await expect.poll(() => cache.epoch).toBe(2);
+      await cache.close();
+    });
+
+    it("notifies its listeners when the cache closes", async () => {
+      const cache = makeEngine();
+      const down = vi.fn();
+      cache.onStreamDown(down);
+      await cache.ensureStreaming();
+      await cache.close();
+      expect(down).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("dead change stream", () => {
     it("stops maintaining answers once reconnects run out", async () => {
       const cache = makeEngine(async () => failingStreamer(), { maxRetries: 1 });

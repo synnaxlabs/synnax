@@ -7,10 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
+import synnax.ni.chassis
+import synnax.ni.device
+from x.strings import random_name
 
 
 @pytest.mark.ni
@@ -827,7 +832,7 @@ class TestNIDeviceHelpers:
     def test_device_with_explicit_key(self, client: sy.Synnax) -> None:
         """Test that Device class accepts an explicit key."""
         rack = client.racks.retrieve_embedded_rack()
-        explicit_key = "my-explicit-ni-key"
+        explicit_key = f"my-explicit-ni-key-{random_name()}"
 
         device = sy.ni.Device(
             identifier="dev_mod3",
@@ -888,3 +893,71 @@ class TestNIDeviceHelpers:
         )
         assert isinstance(device.properties, dict)
         assert device.properties["identifier"] == "test_id"
+
+
+@pytest.mark.ni
+class TestNIResources:
+    """Tests for the NI device and chassis resources."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+
+    def test_device_defaults(self) -> None:
+        device = sy.ni.device.Device(
+            rack=1, name="PXI-6255", resource_name="Mod1", model="PXI-6255"
+        )
+        assert device.serial == ""
+        assert device.identifier == ""
+        assert device.chassis is None
+        assert device.analog_input == sy.ni.device.AnalogInputPorts()
+        assert device.analog_output == {}
+
+    def test_device_requires_a_resource_name(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.device.Device.model_validate(
+                {"rack": 1, "name": "PXI-6255", "model": "PXI-6255"}
+            )
+
+    def test_device_port_maps_parse_integer_keys(self) -> None:
+        device = sy.ni.device.Device.model_validate(
+            {
+                "rack": 1,
+                "name": "PXI-6255",
+                "resource_name": "Mod1",
+                "model": "PXI-6255",
+                "analog_input": {"index": 1, "channels": {"3": 2}},
+                "digital_output": {
+                    "0": {"state_index": 4, "lines": {"7": {"command": 5, "state": 6}}}
+                },
+            }
+        )
+        assert device.analog_input.channels == {3: 2}
+        assert device.digital_output[0].lines[7].state == 6
+
+    def test_update_selects_its_group(self) -> None:
+        adapter = TypeAdapter(sy.ni.device.Update)
+        update = adapter.validate_python(
+            {"group": "identity", "rack": 1, "resource_name": "Mod1", "model": "1"}
+        )
+        assert isinstance(update, sy.ni.device.IdentityUpdate)
+        update = adapter.validate_python({"group": "configuration", "name": "Module"})
+        assert isinstance(update, sy.ni.device.ConfigurationUpdate)
+
+    def test_device_resource_id(self) -> None:
+        assert sy.ni.device.resource_id(self.KEY).type == "ni_device"
+        assert sy.ni.device.resource_id(self.KEY).key == str(self.KEY)
+
+    def test_chassis_resource_id(self) -> None:
+        assert sy.ni.chassis.resource_id(self.KEY).type == "ni_chassis"
+        assert sy.ni.chassis.resource_id(self.KEY).key == str(self.KEY)
+
+    def test_chassis_requires_a_resource_name(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.chassis.Chassis.model_validate(
+                {"rack": 1, "name": "PXIe-1071", "model": "1071", "serial": "01A"}
+            )
+
+    def test_chassis_serial_defaults_to_empty(self) -> None:
+        chassis = sy.ni.chassis.Chassis(
+            rack=1, name="PXIe-1071", model="1071", resource_name="Mod1"
+        )
+        assert chassis.serial == ""

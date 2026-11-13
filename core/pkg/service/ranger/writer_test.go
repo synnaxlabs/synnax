@@ -91,6 +91,18 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(k))
 		})
+		It("Should refuse a range whose key exists", func(ctx SpecContext) {
+			r := &ranger.Range{
+				Name:      "Range",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			again := ranger.Range{Key: r.Key, Name: "Renamed", TimeRange: r.TimeRange}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("range %s already exists", r.Key)),
+			))
+		})
 		Context("Parent", func() {
 			create := func(ctx SpecContext, name string, parent *ranger.Key) ranger.Range {
 				GinkgoHelper()
@@ -111,40 +123,22 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx)).To(Succeed())
 				return r
 			}
+			setParent := func(key ranger.Key) ranger.Action {
+				return ranger.NewSetAction(
+					ranger.SetPayload{Path: []string{"parent"}, Value: key},
+				)
+			}
 			It("Should store the parent of the range", func(ctx SpecContext) {
 				parent := create(ctx, "Parent", nil)
 				r := create(ctx, "Range", &parent.Key)
 				Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(parent.Key)))
 			})
-			It(
-				"Should keep the stored parent when a create has none",
-				func(ctx SpecContext) {
-					parent := create(ctx, "Parent", nil)
-					r := create(ctx, "Range", &parent.Key)
-					r.Parent = nil
-					Expect(w.Create(ctx, &r)).To(Succeed())
-					Expect(r.Parent).To(HaveValue(Equal(parent.Key)))
-					Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(parent.Key)))
-				},
-			)
-			It(
-				"Should replace the parent when a create has a new one",
-				func(ctx SpecContext) {
-					first, second := create(
-						ctx,
-						"First",
-						nil,
-					), create(
-						ctx,
-						"Second",
-						nil,
-					)
-					r := create(ctx, "Range", &first.Key)
-					r.Parent = &second.Key
-					Expect(w.Create(ctx, &r)).To(Succeed())
-					Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(second.Key)))
-				},
-			)
+			It("Should move the range to a new parent", func(ctx SpecContext) {
+				first, second := create(ctx, "First", nil), create(ctx, "Second", nil)
+				r := create(ctx, "Range", &first.Key)
+				Expect(w.Apply(ctx, r.Key, setParent(second.Key))).To(Succeed())
+				Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(second.Key)))
+			})
 			It("Should find the children of a range", func(ctx SpecContext) {
 				parent := create(ctx, "Parent", nil)
 				a, b := create(ctx, "A", &parent.Key), create(ctx, "B", &parent.Key)
@@ -175,8 +169,7 @@ var _ = Describe("Writer", func() {
 				grandparent := create(ctx, "Grandparent", nil)
 				parent := create(ctx, "Parent", &grandparent.Key)
 				child := create(ctx, "Child", &parent.Key)
-				grandparent.Parent = &child.Key
-				err := w.Create(ctx, &grandparent)
+				err := w.Apply(ctx, grandparent.Key, setParent(child.Key))
 				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
 				Expect(err).To(MatchError(
 					"parent: range " + grandparent.Key.String() +
@@ -200,23 +193,6 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx)).To(Succeed())
 				return r.Labels
 			}
-			It(
-				"Should keep the stored labels on an update and ignore the carried ones",
-				func(ctx SpecContext) {
-					a, b := createLabel(ctx, "A"), createLabel(ctx, "B")
-					r := &ranger.Range{
-						Name:      "Range",
-						TimeRange: telem.SecondTS.SpanRange(telem.Second),
-						Labels:    []label.Key{a},
-					}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
-					r.Labels = []label.Key{b}
-					Expect(w.Create(ctx, r)).To(Succeed())
-					Expect(r.Labels).To(Equal([]label.Key{a}))
-					Expect(labelsOf(ctx, r.Key)).To(Equal([]label.Key{a}))
-				},
-			)
 			It("Should reject a label that does not exist", func(ctx SpecContext) {
 				missing := uuid.New()
 				r := &ranger.Range{
@@ -546,7 +522,7 @@ var _ = Describe("Writer broadcasts", func() {
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should keep the labels that adds write during concurrent creates",
+		"Should keep the labels that adds write during concurrent edits",
 		func(ctx SpecContext) {
 			labels := make([]label.Key, 20)
 			for i := range labels {
@@ -579,10 +555,13 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			var wg sync.WaitGroup
 			wg.Go(func() {
 				defer GinkgoRecover()
-				for range 100 {
-					update := r
+				for i := range 100 {
+					rename := ranger.NewSetAction(ranger.SetPayload{
+						Path:  []string{"name"},
+						Value: fmt.Sprintf("Concurrent %d", i),
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &update)
+						return svc.NewWriter(tx).Apply(ctx, r.Key, rename)
 					})).To(Succeed())
 				}
 			})

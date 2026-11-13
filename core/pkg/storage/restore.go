@@ -50,7 +50,12 @@ type Restored struct {
 // returns query.ErrNotFound when there is no complete backup with the name, and an
 // error without changing the data when the backup lacks a part. A failed Restore can
 // run again, and OpenLayer does not open the data until one finishes.
-func (b *Backups) Restore(name string) (res Restored, err error) {
+func (b *Backups) Restore(name string) (Restored, error) {
+	return b.locked(func() (Restored, error) { return b.restore(name) })
+}
+
+// locked runs f while it holds the lock on the data directory.
+func (b *Backups) locked(f func() (Restored, error)) (res Restored, err error) {
 	lock, err := acquireLock(b.cfg.Dirname, b.cfg.LockFS)
 	if err != nil {
 		return Restored{}, err
@@ -60,7 +65,7 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 			res = Restored{}
 		}
 	}()
-	return b.restore(name)
+	return f()
 }
 
 // restore is Restore for a caller that holds the lock on the data directory.
@@ -117,32 +122,37 @@ func (b *Backups) restore(name string) (res Restored, err error) {
 	return res, nil
 }
 
-// Undo restores the newest backup. It returns an error when there is no backup, or
-// when an earlier undo already restored the newest backup.
+// ErrUndone is returned when an earlier undo already restored the newest backup.
+var ErrUndone = errors.New("update already undone")
+
+// Undo restores the newest backup, as Restore does. It returns an error when there is
+// no backup, and ErrUndone when an earlier undo already restored the newest backup.
 func (b *Backups) Undo() (Restored, error) {
-	backups, err := b.List()
-	if err != nil {
-		return Restored{}, err
-	}
-	if len(backups) == 0 {
-		return Restored{}, errors.New(
-			"there is no update to undo: the data has no backups",
-		)
-	}
-	newest := backups[len(backups)-1]
-	recorded, err := b.readVersion()
-	if err != nil {
-		return Restored{}, err
-	}
-	if recorded == newest.Version {
-		return Restored{}, errors.Newf(
-			"The last update is already undone. To restore backup %s again, run "+
-				"`synnax update undo %s`.",
-			newest.Name,
-			newest.Name,
-		)
-	}
-	return b.Restore(newest.Name)
+	return b.locked(func() (Restored, error) {
+		backups, err := b.List()
+		if err != nil {
+			return Restored{}, err
+		}
+		if len(backups) == 0 {
+			return Restored{}, errors.New(
+				"there is no update to undo: the data has no backups",
+			)
+		}
+		newest := backups[len(backups)-1]
+		recorded, err := b.readVersion()
+		if err != nil {
+			return Restored{}, err
+		}
+		if recorded == newest.Version {
+			return Restored{}, errors.Mark(errors.Newf(
+				"The last update is already undone. To restore backup %s again, "+
+					"run `synnax update undo %s`.",
+				newest.Name,
+				newest.Name,
+			), ErrUndone)
+		}
+		return b.restore(newest.Name)
+	})
 }
 
 // extract unpacks the archive of the named backup into an empty directory and returns

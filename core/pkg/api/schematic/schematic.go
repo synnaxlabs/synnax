@@ -15,8 +15,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
@@ -75,7 +73,8 @@ type (
 	}
 )
 
-// Create creates the schematics, and overwrites each one whose key exists.
+// Create creates the schematics. It returns an error wrapping validate.ErrValidation
+// when a schematic with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -95,16 +94,24 @@ func (s *Service) Create(
 // broadcast frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
 
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the project that a move into a group of another project needs.
+type DispatchResponse = actions.DispatchResponse[schematic.Action]
+
 // Dispatch applies the action sequence to the target schematic atomically. Subscribers
 // to the schematic action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
+) (DispatchResponse, error) {
+	added, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: added}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -178,37 +185,4 @@ func (s *Service) Copy(
 		return CopyResponse{}, err
 	}
 	return res, nil
-}
-
-// SetGroupRequest moves schematics into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key      `json:"group" msgpack:"group"`
-	Keys  []schematic.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the schematics with the given keys into a group. A move into a group
-// under another project moves the schematics into that project.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
-}
-
-// SetProjectRequest moves schematics into Project.
-type SetProjectRequest struct {
-	Project project.Key     `json:"project" msgpack:"project"`
-	Keys    []schematic.Key `json:"keys"    msgpack:"keys"`
-}
-
-// SetProject moves the schematics with the given keys out of their group and into a
-// project.
-func (s *Service) SetProject(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetProjectRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		SetProject(ctx, req.Project, req.Keys...)
 }

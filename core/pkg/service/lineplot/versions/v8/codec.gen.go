@@ -174,6 +174,12 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if lp.Range != nil {
+		w.Bool(true)
+		w.Write((*lp.Range)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -276,6 +282,19 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			lp.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lp.Range = &hv
 		}
 	}
 	return nil

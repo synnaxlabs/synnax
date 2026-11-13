@@ -113,7 +113,11 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 	if out.Expr == nil {
 		return
 	}
+	errs := len(ctx.Diagnostics.Errors())
 	Analyze(ctx.Child(out.Expr))
+	if len(ctx.Diagnostics.Errors()) > errs || readsFailedImport(ctx, out.Expr) {
+		return
+	}
 	t := types.InferFromExpression(ctx.Child(out.Expr)).UnwrapChan()
 	if !t.IsNumeric() && t.Kind != basetypes.KindString &&
 		t.Kind != basetypes.KindBool {
@@ -166,4 +170,22 @@ func bodyPositions(base protocol.Position, body string) []protocol.Position {
 	}
 	at[len(body)] = p
 	return at
+}
+
+// readsFailedImport returns whether expr reads a name whose import failed. The import
+// reports the error.
+func readsFailedImport[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) bool {
+	for _, primary := range parser.CollectNamedPrimaries(expr) {
+		head, tail := parser.PrimaryNameParts(primary)
+		if _, err := ctx.ResolveQualified(head, tail); errors.Is(
+			err,
+			diagnostics.ErrReported,
+		) {
+			return true
+		}
+	}
+	return false
 }

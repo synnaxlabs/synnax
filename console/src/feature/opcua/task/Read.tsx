@@ -9,13 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import {
-  channel,
-  device as clientDevice,
-  NotFoundError,
-  type opcua,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -48,6 +42,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
+import { Device as PlatformDevice } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -250,10 +245,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
-  const device = await client.devices.create(
-    { ...previous, properties: migrateProperties(previous.properties) },
-    SCHEMAS,
-  );
+  const before = deep.copy(previous.properties);
+  const device = { ...previous, properties: migrateProperties(previous.properties) };
 
   const index = await determineIndexChannel({
     client,
@@ -296,7 +289,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannel(device.properties, c),
   }));
-  await client.devices.create(clientDevice.toUpdate(device), SCHEMAS);
+  await PlatformDevice.setProperties(client, device, before, SCHEMAS);
   return [config, device.rack];
 };
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -63,6 +65,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -113,6 +118,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
 	License license.ServiceConfig
+	// SecretsKey protects the value of every stored secret. It encrypts the random data
+	// key that encrypts each value.
+	//
+	// [REQUIRED]
+	SecretsKey secret.EncryptionKey
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -149,6 +159,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
+	c.SecretsKey = override.If(
+		c.SecretsKey,
+		other.SecretsKey,
+		other.SecretsKey != secret.EncryptionKey{},
+	)
 	return c
 }
 
@@ -157,6 +172,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
 	v.NotNil("security", c.Security)
+	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	return v.Error()
 }
 
@@ -202,7 +218,8 @@ type Layer struct {
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
-	// NI owns the stored configuration records of the NI task types.
+	// NI owns the NI chassis, devices, and stored configuration records of the NI task
+	// types.
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
@@ -216,6 +233,8 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// TaskStopper stops running tasks ahead of a delete.
+	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -225,6 +244,8 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
+	// Sift owns the stored configuration records of the Sift task types.
+	Sift *sift.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
@@ -244,6 +265,12 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Grant stores the grants that let a rack read secrets.
+	Grant *grant.Service
+	// Secret stores the hidden values that devices and tasks connect with.
+	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node serves the host node of the Core as a resource.
@@ -710,18 +737,38 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Table) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
+		References: []gorp.Reference[device.Key, device.Device]{
+			sift.APIKeyReference(),
+		},
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
@@ -753,12 +800,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
 	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -766,6 +815,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
+		Parser: parser.Config{
+			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+		},
 	})
 	if !ok(err, arcTable) {
 		return nil, err
@@ -785,19 +837,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
 	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.MQTT) {
+		return nil, err
+	}
+	if l.Sift, err = sift.OpenService(ctx, sift.ServiceConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Sift) {
 		return nil, err
 	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -817,6 +877,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
+		return nil, err
+	}
+	if l.TaskStopper, err = task.NewStopper(task.StopperConfig{
+		DB:     cfg.Distribution.DB,
+		Task:   l.Task,
+		Status: l.Status,
+		Framer: l.Framer,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(
@@ -854,16 +922,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+	}); !ok(err, l.Certificate) {
+		return nil, err
+	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
+			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
+			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
@@ -874,6 +954,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeRole:            l.RBAC.Role.Resources(),
 			resource.TypeSchematic:       l.Schematic.Resources(),
 			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
+			resource.TypeSecret:          l.Secret.Resources(),
 			resource.TypeStatus:          l.Status.Resources(),
 			resource.TypeTable:           l.Table.Resources(),
 			resource.TypeTask:            l.Task.Resources(),
@@ -952,6 +1033,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
 	})
 	if !ok(err, nil) {
 		return nil, err
@@ -978,6 +1060,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
+	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Status:          l.Status,
+		Secret:          l.Secret,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -991,6 +1083,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			pdFactory,
 			kafkaFactory,
 			mqttFactory,
+			siftFactory,
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {

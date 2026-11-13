@@ -16,7 +16,8 @@ import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
 import { Synnax } from "@/synnax";
 
-const PLACEHOLDER = "Start typing to write your automation";
+const AUTOMATION_PLACEHOLDER = "Start typing to write your automation";
+const MODULE_PLACEHOLDER = "Start typing to write your module";
 
 export interface EditorProps extends Pick<
   Code.EditorProps,
@@ -70,7 +71,7 @@ export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
       language={NAME}
       isModule={isModule}
       background={0}
-      placeholder={PLACEHOLDER}
+      placeholder={isModule ? MODULE_PLACEHOLDER : AUTOMATION_PLACEHOLDER}
       autoFocus={autoFocus && value.length === 0}
       extraMenuItems={extraMenuItems}
       scrollBeyondLastLine

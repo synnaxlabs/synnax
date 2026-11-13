@@ -17,6 +17,51 @@ import (
 )
 
 // Patch applies the path action at c, which is not done, to the value.
+func (cf *ChannelField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "pointer":
+		return patch.Value(&cf.Pointer, c.Next())
+	case "json_type":
+		return patch.Defaulted(&cf.JSONType, c.Next(), func(def *ChannelField) {
+			cf.JSONType = def.JSONType
+		})
+	case "channel":
+		return patch.Value(&cf.Channel, c.Next())
+	case "name":
+		return patch.Value(&cf.Name, c.Next())
+	case "data_type":
+		return patch.Defaulted(&cf.DataType, c.Next(), func(def *ChannelField) {
+			cf.DataType = def.DataType
+		})
+	case "time_format":
+		return patch.OptionalValue(&cf.TimeFormat, c.Next())
+	case "enum_values":
+		return patch.Value(&cf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (cf *ChannelField) HashContent(h *content.Hash) {
+	h.String(cf.Pointer)
+	h.String(string(cf.JSONType))
+	h.Uint(uint64(cf.Channel))
+	h.String(cf.Name)
+	h.String(string(cf.DataType))
+	if cf.TimeFormat == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*cf.TimeFormat))
+	}
+	h.Len(len(cf.EnumValues))
+	for i0 := range cf.EnumValues {
+		cf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
@@ -28,7 +73,9 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "rate":
-		return patch.Value(&rc.Rate, c.Next())
+		return patch.Defaulted(&rc.Rate, c.Next(), func(def *ReadConfig) {
+			rc.Rate = def.Rate
+		})
 	case "endpoints":
 		return patch.List(&rc.Endpoints, c.Next())
 	case "nan_fill_enabled":
@@ -57,7 +104,9 @@ func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&re.Key, c.Next())
 	case "method":
-		return patch.Value(&re.Method, c.Next())
+		return patch.Defaulted(&re.Method, c.Next(), func(def *ReadEndpoint) {
+			re.Method = def.Method
+		})
 	case "path":
 		return patch.Value(&re.Path, c.Next())
 	case "headers":
@@ -116,7 +165,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":
@@ -152,5 +203,199 @@ func (rf *ReadField) HashContent(h *content.Hash) {
 	h.Len(len(rf.EnumValues))
 	for i0 := range rf.EnumValues {
 		rf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
+	case "device":
+		return patch.Value(&wc.Device, c.Next())
+	case "endpoints":
+		return patch.List(&wc.Endpoints, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteConfig) HashContent(h *content.Hash) {
+	h.Bool(wc.StartConfig.AutoStart)
+	h.String(wc.Device)
+	h.Len(len(wc.Endpoints))
+	for i0 := range wc.Endpoints {
+		wc.Endpoints[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (we *WriteEndpoint) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&we.Key, c.Next())
+	case "disabled":
+		return patch.Value(&we.Disabled, c.Next())
+	case "method":
+		return patch.Defaulted(&we.Method, c.Next(), func(def *WriteEndpoint) {
+			we.Method = def.Method
+		})
+	case "path":
+		return patch.Value(&we.Path, c.Next())
+	case "headers":
+		return patch.Value(&we.Headers, c.Next())
+	case "query_params":
+		return patch.Value(&we.QueryParams, c.Next())
+	case "channel":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&we.Channel, c, func(def *WriteEndpoint) {
+				we.Channel = def.Channel
+			})
+		}
+		return we.Channel.Patch(c)
+	case "fields":
+		return patch.List(&we.Fields, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (we *WriteEndpoint) PatchKey() string { return we.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (we *WriteEndpoint) HashContent(h *content.Hash) {
+	h.Bool(we.Disabled)
+	h.String(string(we.Method))
+	h.String(we.Path)
+	h.Len(len(we.Headers))
+	for i0 := range we.Headers {
+		we.Headers[i0].HashContent(h)
+	}
+	h.Len(len(we.QueryParams))
+	for i0 := range we.QueryParams {
+		we.QueryParams[i0].HashContent(h)
+	}
+	we.Channel.HashContent(h)
+	h.Len(len(we.Fields))
+	for i0 := range we.Fields {
+		we.Fields[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wf *WriteField) Patch(c patch.Cursor) error {
+	switch v := wf.Variant.(type) {
+	case StaticWriteField:
+		c, ok := c.Guard("type", "static")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wf.Variant = v
+		return nil
+	case GeneratedWriteField:
+		c, ok := c.Guard("type", "generated")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wf, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wf.Variant = v
+		return nil
+	default:
+		return patch.Absent(wf, c, "type")
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (wf *WriteField) PatchKey() string {
+	switch v := wf.Variant.(type) {
+	case StaticWriteField:
+		return v.BaseWriteField.Key
+	case GeneratedWriteField:
+		return v.BaseWriteField.Key
+	}
+	return ""
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wf *WriteField) HashContent(h *content.Hash) {
+	switch v := wf.Variant.(type) {
+	case StaticWriteField:
+		h.String("static")
+		v.HashContent(h)
+	case GeneratedWriteField:
+		h.String("generated")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (swf *StaticWriteField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&swf.BaseWriteField.Key, c.Next())
+	case "pointer":
+		return patch.Value(&swf.BaseWriteField.Pointer, c.Next())
+	case "json_type":
+		return patch.Defaulted(&swf.JSONType, c.Next(), func(def *StaticWriteField) {
+			swf.JSONType = def.JSONType
+		})
+	case "value":
+		return patch.Any(&swf.Value, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (swf *StaticWriteField) HashContent(h *content.Hash) {
+	h.String(swf.BaseWriteField.Pointer)
+	h.String(string(swf.JSONType))
+	h.Any(swf.Value)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (gwf *GeneratedWriteField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&gwf.BaseWriteField.Key, c.Next())
+	case "pointer":
+		return patch.Value(&gwf.BaseWriteField.Pointer, c.Next())
+	case "generator":
+		return patch.Defaulted(&gwf.Generator, c.Next(), func(def *GeneratedWriteField) {
+			gwf.Generator = def.Generator
+		})
+	case "time_format":
+		return patch.OptionalValue(&gwf.TimeFormat, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (gwf *GeneratedWriteField) HashContent(h *content.Hash) {
+	h.String(gwf.BaseWriteField.Pointer)
+	h.String(string(gwf.Generator))
+	if gwf.TimeFormat == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*gwf.TimeFormat))
 	}
 }

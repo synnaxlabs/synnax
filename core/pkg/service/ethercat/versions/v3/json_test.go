@@ -28,6 +28,7 @@ var _ = Describe("JSON", func() {
 				Index:           0x6000,
 				SubIndex:        1,
 				DataType:        telem.Int16T,
+				Calibrated:      true,
 				Scale: task.Scale{
 					Variant: task.LinearScale{Slope: 2, Offset: 1},
 				},
@@ -40,7 +41,7 @@ var _ = Describe("JSON", func() {
 		encoded := `[
 			{"type": "entry", "key": "a", "name": "", "disabled": false, "channel": 5,
 			 "device": "d", "index": 24576, "sub_index": 1, "data_type": "int16",
-			 "scale": {"type": "linear", "slope": 2, "offset": 1}},
+			 "calibrated": true, "scale": {"type": "linear", "slope": 2, "offset": 1}},
 			{"type": "unresolved", "key": "b", "name": "", "disabled": false,
 			 "channel": 6, "device": "d", "pdo": "Input"}
 		]`
@@ -53,6 +54,29 @@ var _ = Describe("JSON", func() {
 			var decoded []v3.ReadChannel
 			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(channels))
+		})
+	})
+
+	Describe("SlaveStartupParameters", func() {
+		parameters := []v3.SlaveStartupParameters{{
+			Device: "d",
+			Parameters: []v3.StartupParameter{
+				{Index: 0x8040, SubIndex: 1, DataType: telem.Uint16T, Value: 6},
+			},
+		}}
+		encoded := `[{"device": "d", "parameters": [{
+			"index": 32832, "sub_index": 1, "data_type": "uint16", "value": 6,
+			"name": ""
+		}]}]`
+
+		It("Should encode the parameters of each slave", func() {
+			Expect(MustSucceed(json.Marshal(parameters))).To(MatchJSON(encoded))
+		})
+
+		It("Should decode the parameters of each slave", func() {
+			var decoded []v3.SlaveStartupParameters
+			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(parameters))
 		})
 	})
 

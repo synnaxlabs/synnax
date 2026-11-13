@@ -47,10 +47,12 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // ChannelMapping records the actual channel passed for a chan-typed parameter at a
@@ -199,6 +201,17 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
+// RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
+// variable declared at the top level of its program or module.
+func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {
+	if !sym.IsValueVariable() || sym.Parent != sym.Root() {
+		return false
+	}
+	c.Diagnostics.Add(diagnostics.Errorf(c.AST,
+		"cannot reassign top-level variable '%s'", name))
+	return true
+}
+
 // FloatConstant returns the value of the float module constant that node reduces to,
 // such as math.nan, with parentheses, f32 and f64 casts, and negation applied.
 func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
@@ -226,12 +239,71 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
 	}
-	c.Diagnostics.Add(diagnostics.Warningf(
-		c.AST,
-		"'%s' is deprecated, use '%s' instead",
-		name,
-		sym.Deprecated.QualifiedName(),
-	).WithCode(codes.DeprecatedSymbol))
+	d := codes.DeprecatedSymbol.At(c.AST, name, sym.Deprecated.QualifiedName())
+	if token := bareIdentifier(c.AST, name); token != nil {
+		d = c.withReplacement(d, token, sym.Deprecated)
+	}
+	c.Diagnostics.Add(d)
+}
+
+// withReplacement attaches the fix that writes repl in place of token.
+func (c Context[AST]) withReplacement(
+	d diagnostics.Diagnostic,
+	token antlr.Token,
+	repl *symbol.Symbol,
+) diagnostics.Diagnostic {
+	var (
+		root  = c.Scope.Root()
+		name  = repl.QualifiedName()
+		edits []protocol.TextEdit
+	)
+	if module := repl.Parent; module != nil && module.Kind == symbol.KindModule {
+		for _, child := range root.Children() {
+			if child.Kind == symbol.KindModuleAlias && child.Target != nil &&
+				child.Target.Name == module.Name {
+				name = child.Name + "." + repl.Name
+				break
+			}
+		}
+		edits = formatter.AddImport(root, module.Name)
+	}
+	line, column := uint32(token.GetLine()-1), uint32(token.GetColumn())
+	edits = append(edits, protocol.TextEdit{
+		Range: protocol.Range{
+			Start: protocol.Position{Line: line, Character: column},
+			End: protocol.Position{
+				Line:      line,
+				Character: column + uint32(len(token.GetText())),
+			},
+		},
+		NewText: name,
+	})
+	return d.WithEdits(
+		fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), name),
+		edits...,
+	)
+}
+
+// bareIdentifier returns the first identifier in node that is name and not qualified.
+func bareIdentifier(node antlr.Tree, name string) antlr.Token {
+	if node == nil {
+		return nil
+	}
+	if terminal, ok := node.(antlr.TerminalNode); ok {
+		token := terminal.GetSymbol()
+		_, qualified := terminal.GetParent().(parser.IQualifiedIdentifierContext)
+		if token.GetTokenType() == parser.ArcParserIDENTIFIER &&
+			token.GetText() == name && !qualified {
+			return token
+		}
+		return nil
+	}
+	for _, child := range node.GetChildren() {
+		if token := bareIdentifier(child, name); token != nil {
+			return token
+		}
+	}
+	return nil
 }
 
 // ScopedKey returns a name for node that is unique across a program. A graph parses

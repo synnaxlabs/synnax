@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import {
@@ -95,14 +95,12 @@ describe("Device", async () => {
         expect(expectLive(cached).status?.owner).toEqual(device.resourceID(key));
       });
     });
-    it("should keep the live status of an existing device", async () => {
-      const local = createTestClient();
-      await local.connect();
+    it("should refuse a device whose key exists and keep its status", async () => {
       const { status: _, ...d } = await client.devices.create({
         key: id.create(),
         rack: testRack.key,
         location: "Dev1",
-        name: "live-status",
+        name: "existing-key",
         make: "ni",
         model: "dog",
         properties: {},
@@ -115,46 +113,48 @@ describe("Device", async () => {
           details: { rack: d.rack, connected: true },
         }),
       );
-      const created = await local.devices.create(d);
-      expect(created.status?.message).toBe("Device is running");
-      const cached = local.devices
-        .watch({ key: d.key, includeStatus: true })
-        .getCached();
-      expect(expectLive(cached).status?.message).toBe("Device is running");
+      const create = client.devices.create({ ...d, name: "existing-key-again" });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`device ${d.key} already exists`);
+      const retrieved = await createTestClient().devices.retrieve({
+        key: d.key,
+        includeStatus: true,
+      });
+      expect(retrieved.name).toBe("existing-key");
+      expect(retrieved.status?.message).toBe("Device is running");
     });
   });
 
-  describe("toUpdate", () => {
-    it("should keep the stored status when a create reply is sent back", async () => {
+  describe("dispatch", () => {
+    it("should keep the stored status when the device is edited", async () => {
       const key = id.create();
-      const reply = await client.devices.create({
+      await client.devices.create({
         rack: testRack.key,
         location: "Dev1",
         key,
-        name: "reply-sent-back",
+        name: "edited",
         make: "ni",
         model: "dog",
         properties: {},
       });
       await client.statuses.set<typeof device.statusDetailsZ>({
         owner: device.resourceID(key),
-        name: reply.name,
+        name: "edited",
         variant: "success",
         message: "Device connected",
         time: TimeStamp.now(),
         details: { rack: testRack.key },
       });
-      await client.devices.create(device.toUpdate(reply));
-      const { status } = await client.devices.retrieve({
+      await client.devices.dispatch(
+        key,
+        device.set({ path: ["location"], value: "Dev2" }),
+      );
+      const retrieved = await createTestClient().devices.retrieve({
         key,
         includeStatus: true,
-        schemas: {
-          properties: record.unknownZ(),
-          make: z.string(),
-          model: z.string(),
-        },
       });
-      expect(status?.message).toBe("Device connected");
+      expect(retrieved.location).toBe("Dev2");
+      expect(retrieved.status?.message).toBe("Device connected");
     });
   });
 
@@ -300,6 +300,76 @@ describe("Device", async () => {
       expect((await createTestClient().devices.retrieve(d.key)).name).toBe(
         "device-rename-empty",
       );
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the device", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.devices.dispatch(
+        d.key,
+        device.set({ path: ["location"], value: "Dev2" }),
+      );
+      const stored = await createTestClient().devices.retrieve(d.key);
+      expect(stored.location).toBe("Dev2");
+    });
+
+    it("should reject a queued dispatch that needs a refused one", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch-queue",
+        make: "ni",
+        model: "dog",
+        properties: { x: 1 },
+      });
+      const refused = client.devices.dispatch(d.key, [
+        device.set({ path: ["name"], value: "" }),
+        device.set({ path: ["properties", "x"], value: {} }),
+      ]);
+      const nested = client.devices.dispatch(
+        d.key,
+        device.set({ path: ["properties", "x", "y"], value: 2 }),
+      );
+      await expect(refused).rejects.toThrow("name: required");
+      await expect(nested).rejects.toThrow(
+        "[properties, x]: the value is not an object or a list",
+      );
+      await client.devices.dispatch(
+        d.key,
+        device.set({ path: ["location"], value: "Dev2" }),
+      );
+      expect((await createTestClient().devices.retrieve(d.key)).location).toBe("Dev2");
+    });
+
+    it("should hold a set inside the properties in the cache", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch-properties",
+        make: "ni",
+        model: "dog",
+        properties: { readIndex: 1, identifier: "dev" },
+      });
+      await client.devices.dispatch(d.key, [
+        device.set({ path: ["configured"], value: true }),
+        device.set({ path: ["properties", "read_index"], value: 2 }),
+      ]);
+      const cached = expectLive(client.devices.watch(d.key).getCached());
+      expect(cached.configured).toBe(true);
+      expect(cached.properties).toEqual({ readIndex: 2, identifier: "dev" });
+      const stored = await createTestClient().devices.retrieve(d.key);
+      expect(stored.properties).toEqual({ readIndex: 2, identifier: "dev" });
     });
   });
 
@@ -535,10 +605,13 @@ describe("Device", async () => {
           properties: {},
         });
 
-        it("should fetch the status after a status-free read", async () => {
+        it("should fetch the status after a status-free list read", async () => {
           const d = await client.devices.create(createNew("status-free-read"));
           const local = createTestClient();
-          await local.devices.retrieve(d.key);
+          // A filter on more than the key reads past the table, so no status comes.
+          await local.devices.retrieve({
+            where: { key: { in: [d.key] }, rack: { eq: testRack.key } },
+          });
           const params = { key: d.key, includeStatus: true };
           expect(local.devices.watch(params).getCached()).toBeUndefined();
           const retrieved = await local.devices.retrieve(params);
@@ -551,17 +624,22 @@ describe("Device", async () => {
           const d = { ...createNew("stream-cached"), rack };
           await client.devices.create(d);
           const local = createTestClient();
-          const stop = local.devices.watch(d.key).onChange(() => {});
+          const stop = local.devices
+            .watch({ where: { key: { in: [d.key] }, rack: { eq: rack } } })
+            .onChange(() => {});
           await waitForStreamLive(local.connection);
           try {
-            // An update that keeps the name and the parent writes no status.
-            await client.devices.create({ ...d, location: "Dev2" });
+            // An edit to properties writes no status and fetches nothing.
+            await client.devices.dispatch(
+              d.key,
+              device.set({ path: ["properties", "edited"], value: true }),
+            );
             await expect
               .poll(() => {
                 const cached = local.devices.watch(d.key).getCached();
-                return query.isLive(cached) ? cached.location : undefined;
+                return query.isLive(cached) ? cached.properties.edited : undefined;
               })
-              .toBe("Dev2");
+              .toBe(true);
             const params = { key: d.key, includeStatus: true };
             expect(local.devices.watch(params).getCached()).toBeUndefined();
             const retrieved = await local.devices.retrieve(params);
@@ -613,6 +691,36 @@ describe("Device", async () => {
           await local.devices.retrieve(d.key);
           expect(expectLive(local.devices.watch(d.key).getCached()).key).toBe(d.key);
         });
+      });
+
+      it("should fetch the statuses of several devices in one request", async () => {
+        const devices = await Promise.all(
+          ["batched_1", "batched_2", "batched_3"].map(
+            async (name) =>
+              await client.devices.create({
+                key: id.create(),
+                rack: testRack.key,
+                location: "Dev1",
+                name,
+                make: "ni",
+                model: "dog",
+                properties: {},
+              }),
+          ),
+        );
+        const local = createTestClient();
+        const send = spyOnSend(local);
+        const retrieved = await Promise.all(
+          devices.map(
+            async ({ key }) =>
+              await local.devices.retrieve({ key, includeStatus: true }),
+          ),
+        );
+        expect(retrieved.map((d) => d.status?.owner)).toEqual(
+          devices.map(({ key }) => device.resourceID(key)),
+        );
+        const retrieves = send.mock.calls.filter(([t]) => t === "/device/retrieve");
+        expect(retrieves).toHaveLength(1);
       });
 
       it("should include status for multiple devices", async () => {

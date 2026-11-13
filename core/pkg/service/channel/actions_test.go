@@ -99,6 +99,26 @@ var _ = Describe("Actions", Ordered, func() {
 		}))
 	})
 
+	It(
+		"Should not attach a create when it retrieves a calculated channel by name",
+		func(ctx SpecContext) {
+			ch := create(ctx, calculated)
+			recorded := len(rec.Snapshot())
+			chs := []channel.Channel{{
+				Name:       ch.Name,
+				DataType:   telem.Float64T,
+				Expression: "return 1 + 1",
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					CreateMany(ctx, &chs, channel.RetrieveIfNameExists())
+			})).To(Succeed())
+			Expect(chs).To(HaveLen(1))
+			Expect(chs[0]).To(Equal(retrieve(ctx, ch.Key())))
+			Expect(rec.Snapshot()).To(HaveLen(recorded))
+		},
+	)
+
 	It("Should rename the channel and its storage channel", func(ctx SpecContext) {
 		ch := create(ctx, index)
 		name := UniqueChannelName()

@@ -179,12 +179,17 @@ func (n number) float() float64 {
 	}
 }
 
+// appendText appends n as text: NaN, Infinity, or -Infinity when it is not finite.
 func (n number) appendText(dst []byte) []byte {
-	switch n.kind {
-	case intNumber:
+	switch {
+	case n.kind == intNumber:
 		return strconv.AppendInt(dst, n.i, 10)
-	case uintNumber:
+	case n.kind == uintNumber:
 		return strconv.AppendUint(dst, n.u, 10)
+	case math.IsInf(n.f, 1):
+		return append(dst, "Infinity"...)
+	case math.IsInf(n.f, -1):
+		return append(dst, "-Infinity"...)
 	default:
 		return strconv.AppendFloat(dst, n.f, 'g', -1, 64)
 	}
@@ -236,7 +241,7 @@ func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 // checkFits returns an error wrapping validate.ErrValidation when n does not convert
 // into dt without wrapping, truncating, or overflowing to infinity.
 func checkFits(n number, dt telem.DataType) error {
-	if n.kind == floatNumber && dt == telem.Float32T &&
+	if n.kind == floatNumber && dt == telem.Float32T && !math.IsInf(n.f, 0) &&
 		math.Abs(n.f) > math.MaxFloat32 {
 		return errors.Wrapf(validate.ErrValidation, "%s overflows %s", n, dt)
 	}

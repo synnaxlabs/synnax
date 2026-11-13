@@ -55,7 +55,8 @@ var hoverDocs = map[string]string{
 	"@doc": "**@doc**\n\nDocumentation for the declaration.\n\nUse " +
 		"`@doc value \"...\"` on fields and declarations.",
 	"@validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
-		"`required`, `skip`, `min_length`, `max_length`, `min`, `max`, `pattern`",
+		"`required`, `skip`, `min_length`, `max_length`, `min`, `gt`, `max`, " +
+		"`pattern`",
 	"@filter": "**@filter**\n\nRetrieve requests can filter on this field.",
 	"@search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"@response": "**@response**\n\nSets the record type of a filter's retrieve " +

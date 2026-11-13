@@ -91,14 +91,14 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Lo
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project of each stored log from the ontology edge that owned
-// it, and deletes each log with no owner.
+// OwnersMigration sets the project or range of each stored log from the ontology edge
+// that owned it, and deletes each log with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Log]{
 		Name:     "v61_log_owner",
 		Type:     resource.TypeLog,
-		Owned:    func(e Log) bool { return e.Project != nil },
+		Owned:    func(e Log) bool { return e.Project != nil || e.Range != nil },
 		NameOf:   func(e Log) string { return e.Name },
-		SetOwner: func(e *Log, p uuid.UUID) { e.Project = &p },
+		SetOwner: func(e *Log, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

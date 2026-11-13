@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -28,42 +30,50 @@ func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
 	return LinePlot{}, actions.CoreOnlyError("a line plot create")
 }
 
-// Handle applies the set to the line plot's name.
+// Handle applies the set to the line plot's name, group, or project.
 func (p SetPayload) Handle(state LinePlot) (LinePlot, error) {
 	return edit(state, patch.Set(p).Apply)
 }
 
-// Handle applies the remove to the line plot's name.
+// Handle applies the remove to the line plot's name, group, or project.
 func (p RemovePayload) Handle(state LinePlot) (LinePlot, error) {
 	return edit(state, patch.Remove(p).Apply)
 }
 
-// Handle applies the insert to the line plot's name.
+// Handle applies the insert to the line plot's name, group, or project.
 func (p InsertPayload) Handle(state LinePlot) (LinePlot, error) {
 	return edit(state, patch.Insert(p).Apply)
 }
 
-// Handle applies the move to the line plot's name.
+// Handle applies the move to the line plot's name, group, or project.
 func (p MovePayload) Handle(state LinePlot) (LinePlot, error) {
 	return edit(state, patch.Move(p).Apply)
 }
 
 // document is the part of a line plot that path actions edit.
 type document struct {
-	Name string `json:"name"`
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
 }
 
 // edit applies a path action to a copy of the line plot's document. A document that
-// gains a member it does not declare, such as a path to the line plot's group, is
-// rejected.
+// gains a member it does not declare is rejected.
 func edit(state LinePlot, apply func(map[string]any) error) (LinePlot, error) {
-	d, err := patch.Edit(document{Name: state.Name}, apply)
+	d, err := patch.Edit(
+		document{Name: state.Name, Group: state.Group, Project: state.Project},
+		apply,
+	)
 	if err != nil {
 		return LinePlot{}, err
 	}
-	state.Name = d.Name
+	state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 // Handle sets whether the plot title is shown above the plot.
 func (p SetTitleVisiblePayload) Handle(state LinePlot) (LinePlot, error) {

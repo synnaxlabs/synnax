@@ -12,6 +12,8 @@
 package arc
 
 import (
+	"uuid"
+
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/crdt"
@@ -47,6 +49,8 @@ const (
 	ActionTypeDeleteChar = "delete_char"
 	// ActionTypeForgetChars is the Type of an Action that carries ForgetCharsPayload.
 	ActionTypeForgetChars = "forget_chars"
+	// ActionTypeSetDirectory is the Type of an Action that carries SetDirectoryPayload.
+	ActionTypeSetDirectory = "set_directory"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
 	ActionTypeSet = "set"
 	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
@@ -137,37 +141,25 @@ type ForgetCharsPayload struct {
 	IDs []crdt.ID `json:"ids" msgpack:"ids"`
 }
 
+// SetDirectoryPayload moves the Arc into the directory with the given key. The root
+// Arcs directory holds the Arcs at the top level.
+type SetDirectoryPayload struct {
+	Directory uuid.UUID `json:"directory" msgpack:"directory"`
+}
+
 // SetPayload replaces the Arc's name, or the value at a path in the graph's node
 // inputs.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the graph's
 // node inputs.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type RemovePayload patch.Remove
 
 // InsertPayload adds an entry to a list in the graph's node inputs.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type InsertPayload patch.Insert
 
 // MovePayload moves an entry in a list in the graph's node inputs.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type MovePayload patch.Move
 
 // Action is a discriminated union for all Arc mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
@@ -184,6 +176,7 @@ type Action struct {
 	InsertChar      *InsertCharPayload      `json:"insert_char,omitzero" msgpack:"insert_char,omitempty"`
 	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitzero" msgpack:"delete_char,omitempty"`
 	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitzero" msgpack:"forget_chars,omitempty"`
+	SetDirectory    *SetDirectoryPayload    `json:"set_directory,omitzero" msgpack:"set_directory,omitempty"`
 	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
 	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
 	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
@@ -191,93 +184,98 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Arc: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Arc, actions ...Action) (Arc, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNode.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
 		case ActionTypeSetNodeInputs:
 			if a.SetNodeInputs == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodeInputs.Handle(state)
 		case ActionTypeRemoveNode:
 			if a.RemoveNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveNode.Handle(state)
 		case ActionTypeAddEdge:
 			if a.AddEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddEdge.Handle(state)
 		case ActionTypeRemoveEdge:
 			if a.RemoveEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
 		case ActionTypeReconnectEdge:
 			if a.ReconnectEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ReconnectEdge.Handle(state)
 		case ActionTypeInsertChar:
 			if a.InsertChar == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.InsertChar.Handle(state)
 		case ActionTypeDeleteChar:
 			if a.DeleteChar == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.DeleteChar.Handle(state)
 		case ActionTypeForgetChars:
 			if a.ForgetChars == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ForgetChars.Handle(state)
+		case ActionTypeSetDirectory:
+			if a.SetDirectory == nil {
+				return Arc{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetDirectory.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Arc{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Arc{}, err
 		}
 	}
 	return state, nil
@@ -336,6 +334,11 @@ func NewDeleteCharAction(p DeleteCharPayload) Action {
 // NewForgetCharsAction wraps a ForgetCharsPayload in an Action envelope.
 func NewForgetCharsAction(p ForgetCharsPayload) Action {
 	return Action{Type: ActionTypeForgetChars, ForgetChars: &p}
+}
+
+// NewSetDirectoryAction wraps a SetDirectoryPayload in an Action envelope.
+func NewSetDirectoryAction(p SetDirectoryPayload) Action {
+	return Action{Type: ActionTypeSetDirectory, SetDirectory: &p}
 }
 
 // NewSetAction wraps a SetPayload in an Action envelope.

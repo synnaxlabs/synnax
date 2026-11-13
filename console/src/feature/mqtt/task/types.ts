@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { DataType, json, record } from "@synnaxlabs/x";
+import { DataType, json, payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -65,7 +65,7 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-const validateEnumLabels = (ctx: z.core.ParsePayload<mqtt.EnumEntry[]>) => {
+const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
   const seen = new Set<string>();
   ctx.value.forEach(({ label }, i) => {
     if (seen.has(label))
@@ -81,7 +81,7 @@ const validateEnumLabels = (ctx: z.core.ParsePayload<mqtt.EnumEntry[]>) => {
 
 const deployReadFieldZ = mqtt.readFieldZ.extend({
   pointer: json.pointerZ,
-  enumValues: mqtt.enumEntryZ
+  enumValues: payload.enumEntryZ
     .array()
     .check(validateEnumLabels)
     .default(() => []),
@@ -195,8 +195,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface ChannelField extends mqtt.ChannelField {}
@@ -298,8 +296,6 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export interface WritePayload extends task.Payload<WriteSchemas> {}
-
 export const EDGE_TYPE = `${PREFIX}_sparkplug_edge`;
 
 export interface EdgeTag extends mqtt.EdgeTag {}
@@ -354,8 +350,6 @@ export const EDGE_SCHEMAS = {
 
 export type EdgeSchemas = typeof EDGE_SCHEMAS;
 
-export interface EdgePayload extends task.Payload<EdgeSchemas> {}
-
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
@@ -364,7 +358,7 @@ export const BROWSE_COMMAND_TYPE = "browse";
 
 const browsedFieldZ = z.object({
   pointer: z.string(),
-  type: mqtt.jsonTypeZ,
+  type: payload.jsonTypeZ,
   /** The start of the JSON text of the value. */
   sample: z.string(),
 });

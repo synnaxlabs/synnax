@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -37,6 +36,7 @@ struct WriteConfig;
 struct ScanConfig;
 struct CounterPort;
 struct DigitalPort;
+struct CommandedAOChannel;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
 struct BridgePolynomial;
@@ -294,14 +294,6 @@ struct BaseAOChannel {
     std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
-    /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
-    /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
-    /// @brief cmd_channel_name is the human-readable name of the command channel.
-    std::string cmd_channel_name = "";
-    /// @brief state_channel_name is the human-readable name of the state channel.
-    std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
     std::uint32_t port = 0;
 
@@ -371,7 +363,7 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 /// @brief CounterPort is a counter of an NI device.
 struct CounterPort {
     /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief types are the channel types that the counter accepts, such as
     /// ci_frequency.
     std::vector<std::string> types = {};
@@ -383,7 +375,7 @@ struct CounterPort {
 /// @brief DigitalPort is a digital port of an NI device.
 struct DigitalPort {
     /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief lines is the number of lines in the port.
     std::uint8_t lines = 0;
     /// @brief input is true when the port reads digital input.
@@ -392,6 +384,22 @@ struct DigitalPort {
     bool output = false;
 
     static DigitalPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CommandedAOChannel carries the command and state channels of a commanded
+/// analog output.
+struct CommandedAOChannel {
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::string cmd_channel_name = "";
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::string state_channel_name = "";
+
+    static CommandedAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -616,18 +624,19 @@ struct Terminal {
 /// @brief AnalogInputPort is an analog input port of an NI device.
 struct AnalogInputPort {
     /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief terminal_configs are the terminal configurations that the port accepts.
     std::vector<std::string> terminal_configs = {};
     /// @brief default_terminal_config is the terminal configuration that Cfg_Default
-    /// gives on the port. Absent when the port accepts none, or accepts more than one
-    /// and takes no voltage or current channel.
-    std::optional<std::string> default_terminal_config;
+    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
+    /// DAQmx always reads back a real configuration.
+    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
     /// @brief types are the channel types that the port accepts, such as ai_voltage.
     std::vector<std::string> types = {};
     /// @brief negative is the port that a differential channel on this port uses as its
-    /// negative input. Absent when the port has no pair.
-    std::optional<std::uint32_t> negative;
+    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
+    /// port.
+    std::uint16_t negative = 0;
 
     static AnalogInputPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -636,7 +645,7 @@ struct AnalogInputPort {
 /// @brief AnalogOutputPort is an analog output port of an NI device.
 struct AnalogOutputPort {
     /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
-    std::uint32_t port = 0;
+    std::uint16_t port = 0;
     /// @brief terminal_configs are the terminal configurations that the port accepts.
     std::vector<std::string> terminal_configs = {};
     /// @brief types are the channel types that the port accepts, such as ao_voltage.
@@ -697,11 +706,6 @@ struct CustomScale {
 /// ranges of an NI device. The Driver stores it in the device properties under
 /// hardware.
 struct Hardware {
-    /// @brief product_category is the DAQmx product category of the device, such as
-    /// m_series_daq.
-    std::string product_category = "";
-    /// @brief product_type is the DAQmx product name of the device, such as USB-6008.
-    std::string product_type = "";
     /// @brief analog_inputs are the analog input ports of the device.
     std::vector<AnalogInputPort> analog_inputs = {};
     /// @brief analog_outputs are the analog output ports of the device.
@@ -715,16 +719,19 @@ struct Hardware {
     /// @brief terminals are the terminals of the device, such as PFI0, without the
     /// device name.
     std::vector<std::string> terminals = {};
-    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz.
-    std::optional<double> ai_min_rate;
+    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
     /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
-    /// channel, in Hz.
-    std::optional<double> ai_max_single_channel_rate;
+    /// channel, in Hz. 0 means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
     /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
-    /// device, in Hz. A task with several channels divides it by the channel count.
-    std::optional<double> ai_max_multi_channel_rate;
-    /// @brief ao_max_rate is the highest analog output sample rate, in Hz.
-    std::optional<double> ao_max_rate;
+    /// device, in Hz. A task with several channels divides it by the channel count. 0
+    /// means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
+    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
     /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
     /// included.
     std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
@@ -1549,14 +1556,18 @@ CIChannel parse_ci_channel(x::json::Parser parser);
 }
 
 /// @brief AOCurrentChannel drives a current output.
-struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOCurrentChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_current";
 
     static AOCurrentChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AOFuncGenChannel drives a function-generator output.
+/// @brief AOFuncGenChannel generates a waveform from task start to task stop, with no
+/// commands.
 struct AOFuncGenChannel : public BaseAOChannel {
     std::string type = "ao_func_gen";
     /// @brief wave_type selects the waveform to generate.
@@ -1573,7 +1584,10 @@ struct AOFuncGenChannel : public BaseAOChannel {
 };
 
 /// @brief AOVoltageChannel drives a voltage output.
-struct AOVoltageChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOVoltageChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_voltage";
 
     static AOVoltageChannel parse(x::json::Parser parser);

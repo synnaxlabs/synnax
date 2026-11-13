@@ -14,6 +14,7 @@ package v11
 import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -1010,6 +1011,8 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
+	// Snapshot is true if this schematic is an immutable snapshot copy.
+	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
@@ -1019,8 +1022,12 @@ type Schematic struct {
 	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 	// Group is the group the schematic sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the schematic.
+	// Project is the project that owns the schematic, if any. Exactly one of project
+	// and range is set.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the schematic, if any. Exactly one of project and
+	// range is set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -1035,7 +1042,6 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for key, value := range s.Configs {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
 	}

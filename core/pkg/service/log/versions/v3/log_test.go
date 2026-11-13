@@ -137,15 +137,6 @@ var _ = Describe("Log", func() {
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
 		})
 
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v3.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-
 		It("Should path an invalid notation to its channel", func() {
 			l := v3.Log{
 				Name:     "valid",
@@ -175,8 +166,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 89 bytes", func() {
-			Expect(encode()).To(HaveLen(89))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -206,6 +197,7 @@ var _ = Describe("Log", func() {
 			Entry("time zone", 85),
 			Entry("group presence", 87),
 			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

@@ -34,7 +34,7 @@ func autoMigrateAnalogReadConfig(ctx context.Context, old v2.AnalogReadConfig) (
 
 func autoMigrateAnalogWriteConfig(ctx context.Context, old v2.AnalogWriteConfig) (AnalogWriteConfig, error) {
 	channels, err := lo.MapErr(old.Channels, func(v v2.AOChannel, _ int) (AOChannel, error) {
-		return autoMigrateAOChannel(ctx, v)
+		return MigrateAOChannel(ctx, v)
 	})
 	if err != nil {
 		return AnalogWriteConfig{}, err
@@ -773,12 +773,8 @@ func autoMigrateCJC(_ context.Context, old v2.CJC) (CJC, error) {
 
 func autoMigrateBaseAOChannel(_ context.Context, old v2.BaseAOChannel) (BaseAOChannel, error) {
 	return BaseAOChannel{
-		Key:              old.Key,
-		Disabled:         old.Disabled,
-		CmdChannel:       old.CmdChannel,
-		StateChannel:     old.StateChannel,
-		CmdChannelName:   old.CmdChannelName,
-		StateChannelName: old.StateChannelName,
+		Key:      old.Key,
+		Disabled: old.Disabled,
 	}, nil
 }
 

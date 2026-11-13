@@ -115,6 +115,20 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.SampleRate = 10
+	r.StreamRate = 5
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	return v.Error()
+}
+
 // WriteConfig carries the configuration fields shared by hardware control tasks.
 type WriteConfig struct {
 	PersistConfig
@@ -136,6 +150,19 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.Rate == 0 {
 		s.Rate = 0.2
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.Rate = 0.2
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.GreaterThan("rate", s.Rate, 0)
+	return v.Error()
 }
 
 // ScaleType is the "type" value that selects a variant of Scale.
@@ -171,6 +198,11 @@ type LinearScale struct {
 
 func (LinearScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
 	if l.Slope == 0 {
@@ -192,7 +224,32 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (m *MapScale) SetDefaults() {
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MapScale) SetUngroupedDefaults() {
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (m *MapScale) DefaultGroups() {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
+	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
+	}
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
+// group takes its defaults only when all of its members are zero.
 func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
@@ -295,6 +352,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			LinearScale
 		}
+		v.LinearScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -304,9 +362,11 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
+		v.MapScale.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.MapScale.DefaultGroups()
 		u.Variant = v.MapScale
 	case PolynomialScaleType:
 		var v struct {
@@ -363,7 +423,8 @@ func (u Scale) Type() ScaleType {
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
+// schema-declared defaults. A default group takes its defaults only when all of its
+// members are zero.
 func (u *Scale) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 	case LinearScale:

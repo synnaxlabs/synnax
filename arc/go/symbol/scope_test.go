@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -684,7 +685,7 @@ var _ = Describe("Scope", func() {
 			It("Should hide a member that is not exported", func(bCtx SpecContext) {
 				alias := buildAlias(bCtx, buildSourceModule())
 				Expect(alias.Resolve(bCtx, "h")).Error().
-					To(MatchError(ContainSubstring("undefined symbol: h")))
+					To(MatchError(`'h' is not exported by module "m"`))
 			})
 
 			It(
@@ -698,6 +699,16 @@ var _ = Describe("Scope", func() {
 					).To(Equal("h"))
 				},
 			)
+
+			It("Should fail a lookup through an alias whose import failed", func(
+				bCtx SpecContext,
+			) {
+				alias := buildAlias(bCtx, nil)
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(symbol.ErrImportFailed))
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(diagnostics.ErrReported))
+			})
 
 			It(
 				"Should not reach the module's ambient through an alias",
@@ -737,6 +748,57 @@ var _ = Describe("Scope", func() {
 						To(MatchError(symbol.ErrModuleNotFound))
 				},
 			)
+
+			It(
+				"Should return the module resolver installed on the root",
+				func(bCtx SpecContext) {
+					resolver := StaticResolver{{Name: "lib.m", Kind: symbol.KindModule}}
+					root := symbol.NewRoot(nil, nil, symbol.WithModules(resolver))
+					child := MustSucceed(root.Add(bCtx, symbol.Symbol{
+						Name: "s", Kind: symbol.KindSequence,
+					}))
+					Expect(root.ModuleResolver()).To(Equal(resolver))
+					Expect(child.ModuleResolver()).To(Equal(resolver))
+					Expect(symbol.NewRoot(nil, nil).ModuleResolver()).To(BeNil())
+				},
+			)
+
+			Describe("ResolveMember", func() {
+				It("Should resolve a bare name like Resolve", func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(
+						MustSucceed(alias.Parent.ResolveMember(bCtx, "m", "")),
+					).To(BeIdenticalTo(alias))
+				})
+
+				It(
+					"Should resolve the tail as a member of the head",
+					func(bCtx SpecContext) {
+						alias := buildAlias(bCtx, buildSourceModule())
+						Expect(
+							MustSucceed(
+								alias.Parent.ResolveMember(bCtx, "m", "f"),
+							).Name,
+						).To(Equal("f"))
+					},
+				)
+
+				It(
+					"Should keep a member subject to export when options are passed",
+					func(bCtx SpecContext) {
+						alias := buildAlias(bCtx, buildSourceModule())
+						Expect(alias.Parent.ResolveMember(
+							bCtx, "m", "h", symbol.IncludeInternal,
+						)).Error().To(MatchError(`'h' is not exported by module "m"`))
+					},
+				)
+
+				It("Should report an undefined head", func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(alias.Parent.ResolveMember(bCtx, "x", "f")).Error().
+						To(MatchError(ContainSubstring("undefined symbol: x")))
+				})
+			})
 		})
 
 		Describe("Module aliases", func() {

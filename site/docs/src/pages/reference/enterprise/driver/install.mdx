@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
 import { Note } from "@/components/note";
 import { Driver } from "@/components/driver";
 import Step from "@/components/text/Step.astro";
@@ -75,7 +76,9 @@ service real-time permission and writes the udev rule
 For [EtherCAT](/reference/hardware/ethercat/configure-device#network-interface-access),
 it gives the service raw Ethernet access and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-ethercat.rules`. After you upgrade the Driver, run
-`sudo synnax-driver install` again.
+`sudo synnax-driver install` again. `install` removes the service and writes it again,
+so then run `sudo systemctl enable synnax-driver` and
+`sudo systemctl start synnax-driver`.
 
 </Fragment>
 <Fragment slot="Windows">
@@ -173,8 +176,16 @@ An upgraded Driver that saved a username and password does this at its first sta
 keeps its rack. If that user cannot create racks, the Driver logs the warning
 `Failed to enroll Driver`, and keeps logging in with the password. To fix it, run
 `login` as a user that can create racks, or create an API key for the rack in the
-Console and set it as `api_key` in the
-[configuration](/reference/enterprise/driver/configuration#parameters).
+Console:
+
+1. In the devices toolbar, right-click the rack and select **Manage sign-in**.
+2. Enter a **Key name**, then click **Create key**.
+3. Copy the key. The Core does not show it again.
+4. Set the key as `api_key` in the
+   [configuration](/reference/enterprise/driver/configuration#parameters), then restart
+   the Driver.
+
+<Video id="console/racks/create-key" />
 
 ### Log in to a Core that uses TLS
 

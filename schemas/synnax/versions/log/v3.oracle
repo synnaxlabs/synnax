@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/telem/v0"
@@ -30,7 +31,8 @@ TimestampConfig struct {
 
 ChannelEntry struct {
     channel          channel.Key       {
-        @doc value "is the channel this entry references."
+        @doc value         "is the channel this entry references."
+        @validate required
     }
     color            color.Color       {
         @doc value "is the display color for the channel."
@@ -39,13 +41,17 @@ ChannelEntry struct {
         @doc value "is the numeric notation used to render samples."
     }
     precision        uint8?            {
-        @doc value """
+        @doc value    """
             is the number of digits after the decimal point, from 0 to 17. Absent shows
             each sample as it arrives.
         """
+        @validate max 17
     }
     alias            string = "" {
-        @doc value "is a human-readable alias displayed in place of the channel name."
+        @doc value           """
+            is a human-readable alias displayed in place of the channel name.
+        """
+        @validate max_length 64
     }
     timestamp_config TimestampConfig = { format = "preciseDate", time_zone = "local" } {
         @doc value """
@@ -84,7 +90,16 @@ Log struct {
         @doc value "is the group the log sits in, if any."
     }
     project              project.Key?   {
-        @doc value "is the project that owns the log."
+        @doc value """
+            is the project that owns the log, if any. Exactly one of project and range
+            is set.
+        """
+    }
+    range                ranger.Key?    {
+        @doc value """
+            is the range that owns the log, if any. Exactly one of project and range is
+            set.
+        """
     }
 
     @doc value  """

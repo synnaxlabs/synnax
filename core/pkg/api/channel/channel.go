@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -496,34 +495,6 @@ func (s *Service) Delete(
 	return struct{}{}, nil
 }
 
-type RenameRequest struct {
-	Keys  channel.Keys `json:"keys"  msgpack:"keys"`
-	Names []string     `json:"names" msgpack:"names"`
-}
-
-// Rename applies a rename action to each channel in Keys, giving it the name at the
-// same index in Names. Renaming an internal channel is a validation error.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	if len(req.Keys) != len(req.Names) {
-		return struct{}{}, errors.Wrap(
-			validate.ErrValidation,
-			"keys and names must be the same length",
-		)
-	}
-	w := s.internal.NewWriter(tx)
-	for i, k := range req.Keys {
-		rename := channel.NewRenameAction(channel.RenamePayload{Name: req.Names[i]})
-		if _, err := w.Apply(ctx, k, rename); err != nil {
-			return struct{}{}, err
-		}
-	}
-	return struct{}{}, nil
-}
-
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
 // is a client-generated identifier for the batch, echoed on the broadcast so the sender
 // recognizes its own echo.
@@ -547,19 +518,4 @@ func (s *Service) Dispatch(
 		return DispatchResponse{}, err
 	}
 	return DispatchResponse{Actions: computed}, nil
-}
-
-// SetGroupRequest moves channels into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key    `json:"group" msgpack:"group"`
-	Keys  []channel.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the channels with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

@@ -10,11 +10,21 @@
 package server
 
 import (
+	"cmp"
+	"time"
+
 	"github.com/cockroachdb/cmux"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+)
+
+const (
+	defaultMaxConcurrentStreams = 1000
+	defaultKeepaliveTime        = time.Minute
+	defaultKeepaliveTimeout     = 20 * time.Second
 )
 
 // GRPCBranch is a Branch that serves gRPC traffic.
@@ -22,6 +32,21 @@ type GRPCBranch struct {
 	server *grpc.Server
 	// Transports is a list of bindable transports that the Branch will serve.
 	Transports []fgrpc.BindableTransport
+	// MaxConcurrentStreams is the most streams that one client connection can hold
+	// open. A client waits to open a stream past it.
+	//
+	// [OPTIONAL] - Defaults to 1000.
+	MaxConcurrentStreams uint32
+	// KeepaliveTime is how long a connection can stay idle before the Core pings the
+	// client.
+	//
+	// [OPTIONAL] - Defaults to 1 minute.
+	KeepaliveTime time.Duration
+	// KeepaliveTimeout is how long the Core waits for a ping answer before it closes
+	// the connection.
+	//
+	// [OPTIONAL] - Defaults to 20 seconds.
+	KeepaliveTimeout time.Duration
 }
 
 var _ Branch = (*GRPCBranch)(nil)
@@ -41,6 +66,13 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 func (g *GRPCBranch) Init(ctx BranchContext) {
 	g.server = grpc.NewServer(
 		g.credentials(ctx),
+		grpc.MaxConcurrentStreams(
+			cmp.Or(g.MaxConcurrentStreams, defaultMaxConcurrentStreams),
+		),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    cmp.Or(g.KeepaliveTime, defaultKeepaliveTime),
+			Timeout: cmp.Or(g.KeepaliveTimeout, defaultKeepaliveTimeout),
+		}),
 		grpc.ChainUnaryInterceptor(
 			fgrpc.RecoveryUnaryServerInterceptor(ctx.Instrumentation),
 		),

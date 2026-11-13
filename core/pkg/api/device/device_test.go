@@ -131,54 +131,21 @@ func setLiveStatus(ctx SpecContext, d device.Device) {
 }
 
 var _ = Describe("Create", func() {
-	createStripped := func(ctx SpecContext, key string) device.Device {
-		GinkgoHelper()
-		d := createDevice(ctx, key)
-		setLiveStatus(ctx, d)
-		d.Status = nil
-		return d
-	}
 	It(
 		"Should leave out the status of each device the caller cannot retrieve",
 		func(ctx SpecContext) {
 			u := createUser(ctx)
-			hidden := createStripped(ctx, "create-only-hidden")
-			fresh := hidden
-			fresh.Key = "create-only-fresh"
-			grantAll(ctx, u, newDeviceNeeds(fresh.ResourceID())...)
-			grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
+			d := newDevice("create-only-hidden")
+			grantAll(ctx, u, newDeviceNeeds(d.ResourceID())...)
 			res := MustSucceed(create(
 				AuthedCtx(ctx, u),
-				apidevice.CreateRequest{Devices: []device.Device{fresh, hidden}},
+				apidevice.CreateRequest{Devices: []device.Device{d}},
 			))
-			Expect(res.Devices).To(HaveLen(2))
+			Expect(res.Devices).To(HaveLen(1))
 			Expect(res.Devices[0].Status).To(BeNil())
-			Expect(res.Devices[1].Status).To(BeNil())
-			Expect(retrieveDevice(ctx, fresh.Key).Key).To(Equal(fresh.Key))
+			Expect(retrieveDevice(ctx, d.Key).Key).To(Equal(d.Key))
 		},
 	)
-	It("Should save an existing device with update on it alone", func(ctx SpecContext) {
-		u := createUser(ctx)
-		hidden := createStripped(ctx, "create-update-hidden")
-		grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
-		res := MustSucceed(create(
-			AuthedCtx(ctx, u),
-			apidevice.CreateRequest{Devices: []device.Device{hidden}},
-		))
-		Expect(res.Devices).To(HaveLen(1))
-		Expect(res.Devices[0].Status).To(BeNil())
-	})
-	It("Should refuse to save an existing device without update on it", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		d := createStripped(ctx, "create-only")
-		grant(ctx, access.ActionCreate, u.ResourceID(), deviceType)
-		Expect(create(
-			AuthedCtx(ctx, u),
-			apidevice.CreateRequest{Devices: []device.Device{d}},
-		)).Error().To(denied(u, access.ActionUpdate, d.ResourceID()))
-	})
 	DescribeTable(
 		"Should refuse a new device and store nothing",
 		func(ctx SpecContext, refused int, key string) {
@@ -197,26 +164,6 @@ var _ = Describe("Create", func() {
 		Entry("without create on the device", 0, "create-denied-device"),
 		Entry("without update on its rack", 2, "create-denied-rack"),
 	)
-	It("Should check read access on each device in a batch", func(ctx SpecContext) {
-		u := createUser(ctx)
-		readable := createStripped(ctx, "batch-readable")
-		hidden := createStripped(ctx, "batch-hidden")
-		grant(
-			ctx,
-			access.ActionUpdate,
-			u.ResourceID(),
-			readable.ResourceID(),
-			hidden.ResourceID(),
-		)
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
-		res := MustSucceed(create(
-			AuthedCtx(ctx, u),
-			apidevice.CreateRequest{Devices: []device.Device{readable, hidden}},
-		))
-		Expect(res.Devices).To(HaveLen(2))
-		Expect(res.Devices[0].Status.Message).To(Equal("Device is running"))
-		Expect(res.Devices[1].Status).To(BeNil())
-	})
 	authedCtx := func(ctx SpecContext) context.Context {
 		GinkgoHelper()
 		u := createUser(ctx)
@@ -225,40 +172,54 @@ var _ = Describe("Create", func() {
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), deviceType)
 		return AuthedCtx(ctx, u)
 	}
-	It("Should reply with the stored status of each device", func(ctx SpecContext) {
-		existing := createStripped(ctx, "create-existing")
-		fresh := existing
-		fresh.Key = "create-fresh"
+	It("Should check read access on each device in a batch", func(ctx SpecContext) {
+		u := createUser(ctx)
+		readable := newDevice("batch-readable")
+		hidden := newDevice("batch-hidden")
+		grantAll(ctx, u, newDeviceNeeds(deviceType)...)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(create(
-			authedCtx(ctx),
-			apidevice.CreateRequest{Devices: []device.Device{fresh, existing}},
+			AuthedCtx(ctx, u),
+			apidevice.CreateRequest{Devices: []device.Device{readable, hidden}},
 		))
 		Expect(res.Devices).To(HaveLen(2))
-		Expect(res.Devices[0].Status.Owner).To(HaveValue(Equal(fresh.ResourceID())))
+		Expect(res.Devices[0].Status.Owner).To(HaveValue(Equal(readable.ResourceID())))
 		Expect(res.Devices[0].Status.Message).To(Equal("Device status unknown"))
-		Expect(res.Devices[1].Status.Owner).To(HaveValue(Equal(existing.ResourceID())))
-		Expect(res.Devices[1].Status.Message).To(Equal("Device is running"))
+		Expect(res.Devices[1].Status).To(BeNil())
 	})
-	It(
-		"Should keep the live status when a reply is created again",
-		func(ctx SpecContext) {
-			d := createStripped(ctx, "create-round-trip")
-			authed := authedCtx(ctx)
-			res := MustSucceed(create(
-				authed, apidevice.CreateRequest{Devices: []device.Device{d}},
-			))
-			MustSucceed(create(authed, apidevice.CreateRequest(res)))
-			var stored device.Status
-			Expect(svc.Status.NewRetrieve[device.StatusDetails]().
-				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
-				Entry(&stored).
-				Exec(ctx, db)).To(Succeed())
-			Expect(stored.Message).To(Equal("Device is running"))
-		},
-	)
+	It("Should refuse a device whose key exists", func(ctx SpecContext) {
+		d := createDevice(ctx, "create-existing")
+		setLiveStatus(ctx, d)
+		edited := d
+		edited.Status = nil
+		edited.Name = "After"
+		Expect(create(
+			authedCtx(ctx),
+			apidevice.CreateRequest{Devices: []device.Device{edited}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("device create-existing already exists")),
+		))
+		Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
+		var stored device.Status
+		Expect(svc.Status.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Message).To(Equal("Device is running"))
+	})
 })
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key device.Key, name string) apidevice.DispatchRequest {
+		return apidevice.DispatchRequest{
+			Key: key,
+			Actions: []device.Action{device.NewSetAction(device.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the device and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -271,9 +232,9 @@ var _ = Describe("Rename", func() {
 			d.ResourceID(),
 			statusOf(ctx, d),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: d.Key, Name: "After"},
+			renameTo(d.Key, "After"),
 		))
 		renamed := retrieveDevice(ctx, d.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -289,18 +250,18 @@ var _ = Describe("Rename", func() {
 			d.ResourceID(),
 			statusOf(ctx, d),
 		)
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: d.Key, Name: ""},
+			renameTo(d.Key, ""),
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
 	})
 	It("Should return a not found error for a missing device", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), device.ResourceID("missing"))
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apidevice.RenameRequest{Key: "missing", Name: "After"},
+			renameTo("missing", "After"),
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	deviceID := func(_ SpecContext, d device.Device) resource.ID {
@@ -317,9 +278,9 @@ var _ = Describe("Rename", func() {
 			u := createUser(ctx)
 			d := createDevice(ctx, key)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, d))
-			Expect(rename(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
-				apidevice.RenameRequest{Key: d.Key, Name: "After"},
+				renameTo(d.Key, "After"),
 			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, d)))
 			Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Before"))
 		},
@@ -519,7 +480,7 @@ func createRackGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-var _ = Describe("SetGroup", func() {
+var _ = Describe("Dispatch group move", func() {
 	// denied matches an error that denies the subject the action on object.
 	denied := func(
 		subject resource.ID,
@@ -537,10 +498,13 @@ var _ = Describe("SetGroup", func() {
 		g group.Group,
 		d device.Device,
 	) (struct{}, error) {
-		return setGroup(
-			AuthedCtx(ctx, u),
-			apidevice.SetGroupRequest{Group: &g.Key, Keys: []device.Key{d.Key}},
-		)
+		return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
+			Key: d.Key,
+			Actions: []device.Action{device.NewSetAction(device.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
 	}
 	It(
 		"Should refuse the move without update on the destination group",
@@ -677,7 +641,7 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("Create on another rack", func() {
+var _ = Describe("Move to another rack", func() {
 	var (
 		u     user.User
 		g     group.Group
@@ -705,53 +669,28 @@ var _ = Describe("Create on another rack", func() {
 			other.ResourceID(),
 		)
 	})
-	move := func(ctx SpecContext) (apidevice.CreateResponse, error) {
-		moved := d
-		moved.Rack, moved.Parent = other.Key, nil
-		return create(
-			AuthedCtx(ctx, u),
-			apidevice.CreateRequest{Devices: []device.Device{moved}},
-		)
+	setRack := func(ctx SpecContext) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
+			Key: d.Key,
+			Actions: []device.Action{device.NewSetRackAction(
+				device.SetRackPayload{Rack: other.Key},
+			)},
+		})
 	}
 	It("Should refuse to move a device without update on its group", func(
 		ctx SpecContext,
 	) {
-		Expect(move(ctx)).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(setRack(ctx)).
+			Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
 		Expect(retrieveDevice(ctx, d.Key).Rack).To(Equal(d.Rack))
 	})
-	It("Should drop the group of a moved device with update on it", func(
+	It("Should move the device and drop its group with update on it", func(
 		ctx SpecContext,
 	) {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
-		MustSucceed(move(ctx))
+		MustSucceed(setRack(ctx))
 		moved := retrieveDevice(ctx, d.Key)
 		Expect(moved.Rack).To(Equal(other.Key))
 		Expect(moved.Group).To(BeNil())
-	})
-	Describe("Dispatch", func() {
-		setRack := func(ctx SpecContext) (struct{}, error) {
-			return dispatch(AuthedCtx(ctx, u), apidevice.DispatchRequest{
-				Key: d.Key,
-				Actions: []device.Action{device.NewSetRackAction(
-					device.SetRackPayload{Rack: other.Key},
-				)},
-			})
-		}
-		It("Should refuse to move a device without update on its group", func(
-			ctx SpecContext,
-		) {
-			Expect(setRack(ctx)).
-				Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
-			Expect(retrieveDevice(ctx, d.Key).Rack).To(Equal(d.Rack))
-		})
-		It("Should move the device and drop its group with update on it", func(
-			ctx SpecContext,
-		) {
-			grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
-			MustSucceed(setRack(ctx))
-			moved := retrieveDevice(ctx, d.Key)
-			Expect(moved.Rack).To(Equal(other.Key))
-			Expect(moved.Group).To(BeNil())
-		})
 	})
 })

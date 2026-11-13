@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/synnax
 
-go 1.27.3
+go 1.27.4
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
@@ -12,7 +12,9 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
 	github.com/cockroachdb/pebble/v2 v2.1.7
@@ -24,7 +26,9 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
 	github.com/shirou/gopsutil/v4 v4.26.9
+	github.com/sift-stack/sift/go v0.4.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/arc v0.0.0
@@ -36,6 +40,7 @@ require (
 	github.com/twmb/franz-go v1.22.1
 	github.com/twmb/franz-go/pkg/kadm v1.19.0
 	github.com/twmb/franz-go/pkg/kfake v0.0.0-20261007040850-d3792b34935a
+	github.com/twmb/franz-go/pkg/kmsg v1.14.0
 	github.com/uptrace/uptrace-go v1.47.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/protocol v1.0.1
@@ -59,7 +64,6 @@ require (
 	github.com/RaduBerinde/axisds v0.1.0 // indirect
 	github.com/RaduBerinde/btreemap v0.0.0-20260105202824-d3184786f603 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cockroachdb/crlib v0.0.0-20260823170307-44ef894cf300 // indirect
@@ -113,6 +117,7 @@ require (
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.30 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
@@ -124,13 +129,11 @@ require (
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
-	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.76.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect

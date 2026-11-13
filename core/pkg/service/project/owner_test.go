@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/patch"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -150,5 +152,138 @@ var _ = Describe("TopParentProject", func() {
 			&resource.ID{Type: resource.TypeProject, Key: "bad"},
 			resource.TypeSchematic,
 		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("Place", func() {
+	var (
+		p, other   project.Project
+		g, otherG  group.Group
+		placements = func(
+			ctx SpecContext,
+			prev, next project.Placement,
+		) (project.Placement, []patch.Action, error) {
+			return project.Place(
+				ctx,
+				db,
+				resource.TypeLineplot,
+				prev,
+				next,
+				func(s patch.Set) patch.Action { return s },
+				func(r patch.Remove) patch.Action { return r },
+			)
+		}
+	)
+	BeforeEach(func(ctx SpecContext) {
+		p, other = createProject(ctx), createProject(ctx)
+		g = createGroup(ctx, new(p.ResourceID()), resource.TypeProject)
+		otherG = createGroup(ctx, new(other.ResourceID()), resource.TypeProject)
+	})
+
+	It("Should keep a placement that the edit does not change", func(ctx SpecContext) {
+		at := project.Placement{Group: &g.Key, Project: &p.Key}
+		placed, added := MustSucceed2(placements(ctx, at, at))
+		Expect(placed).To(Equal(at))
+		Expect(added).To(BeEmpty())
+	})
+
+	It("Should keep the project of a move into a group in it", func(ctx SpecContext) {
+		next := project.Placement{Group: &g.Key, Project: &p.Key}
+		placed, added := MustSucceed2(
+			placements(ctx, project.Placement{Project: &p.Key}, next),
+		)
+		Expect(placed).To(Equal(next))
+		Expect(added).To(BeEmpty())
+	})
+
+	It(
+		"Should set the project of a move into a group of another project",
+		func(ctx SpecContext) {
+			placed, added := MustSucceed2(placements(
+				ctx,
+				project.Placement{Group: &g.Key, Project: &p.Key},
+				project.Placement{Group: &otherG.Key, Project: &p.Key},
+			))
+			Expect(placed).To(Equal(
+				project.Placement{Group: &otherG.Key, Project: &other.Key},
+			))
+			Expect(added).To(Equal([]patch.Action{
+				patch.Set{Path: []string{"project"}, Value: other.Key},
+			}))
+		},
+	)
+
+	It(
+		"Should set the project of the group when an edit moves both",
+		func(ctx SpecContext) {
+			placed, added := MustSucceed2(placements(
+				ctx,
+				project.Placement{Project: &p.Key},
+				project.Placement{Group: &otherG.Key, Project: &p.Key},
+			))
+			Expect(placed.Project).To(Equal(&other.Key))
+			Expect(added).To(Equal([]patch.Action{
+				patch.Set{Path: []string{"project"}, Value: other.Key},
+			}))
+		},
+	)
+
+	It("Should keep the project of a move out of a group", func(ctx SpecContext) {
+		next := project.Placement{Project: &p.Key}
+		placed, added := MustSucceed2(placements(
+			ctx,
+			project.Placement{Group: &g.Key, Project: &p.Key},
+			next,
+		))
+		Expect(placed).To(Equal(next))
+		Expect(added).To(BeEmpty())
+	})
+
+	It(
+		"Should remove the group of a move into another project",
+		func(ctx SpecContext) {
+			placed, added := MustSucceed2(placements(
+				ctx,
+				project.Placement{Group: &g.Key, Project: &p.Key},
+				project.Placement{Group: &g.Key, Project: &other.Key},
+			))
+			Expect(placed).To(Equal(project.Placement{Project: &other.Key}))
+			Expect(added).To(Equal([]patch.Action{patch.Remove{Key: "group"}}))
+		},
+	)
+
+	It(
+		"Should add nothing to a move into another project with no group",
+		func(ctx SpecContext) {
+			next := project.Placement{Project: &other.Key}
+			placed, added := MustSucceed2(
+				placements(ctx, project.Placement{Project: &p.Key}, next),
+			)
+			Expect(placed).To(Equal(next))
+			Expect(added).To(BeEmpty())
+		},
+	)
+
+	It("Should refuse a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(placements(
+			ctx,
+			project.Placement{Project: &p.Key},
+			project.Placement{Group: &missing, Project: &p.Key},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", missing)),
+		))
+	})
+
+	It("Should refuse a move into the zero group", func(ctx SpecContext) {
+		Expect(placements(
+			ctx,
+			project.Placement{Project: &p.Key},
+			project.Placement{Group: new(uuid.Nil()), Project: &p.Key},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", uuid.Nil())),
+		))
 	})
 })

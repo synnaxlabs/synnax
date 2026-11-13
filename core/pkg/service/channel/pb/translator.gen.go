@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -41,11 +42,15 @@ func OperationToPB(r channel.Operation) (*Operation, error) {
 }
 
 // OperationFromPB converts Operation to Operation.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	var r channel.Operation
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Type, err = OperationTypeFromPB(pb.Type)
 	if err != nil {
@@ -53,6 +58,7 @@ func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	}
 	r.ResetChannel = channel.Key(pb.ResetChannel)
 	r.Duration = telem.TimeSpan(pb.Duration)
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

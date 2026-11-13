@@ -118,6 +118,17 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 		"expected status to be cleared for channel %d", key)
 }
 
+// setExpression applies a set of the expression of the calculated channel with key.
+func setExpression(ctx context.Context, key channel.Key, expr string) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		_, err := channelSvc.NewWriter(tx).Apply(ctx, key, channel.NewSetAction(
+			channel.SetPayload{Path: []string{"expression"}, Value: expr},
+		))
+		return err
+	})).To(Succeed())
+}
+
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
 	GinkgoHelper()
 	var ch channel.Channel
@@ -851,10 +862,7 @@ var _ = Describe("Graph", func() {
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Updating expression to use a different base")
-					calc.Expression = "return rc_upd_b2 * 2"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc)
-					})).To(Succeed())
+					setExpression(ctx, calc.Key(), "return rc_upd_b2 * 2")
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Verifying old base deletion does not affect calc")
@@ -1033,10 +1041,7 @@ var _ = Describe("Graph", func() {
 					By(
 						"Updating calc1 expression - calc2 should be re-inspected via BFS",
 					)
-					calc1.Expression = "return rc_reins_base + 100"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc1)
-					})).To(Succeed())
+					setExpression(ctx, calc1.Key(), "return rc_reins_base + 100")
 					eventuallyExpectNoStatus(ctx, calc1.Key())
 					eventuallyExpectNoStatus(ctx, calc2.Key())
 				},
@@ -1068,11 +1073,7 @@ var _ = Describe("Graph", func() {
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Updating the calc expression to return a different type")
-					calc.Expression = "return i64(rc_dtp_base)"
-					calc.DataType = telem.Int64T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc)
-					})).To(Succeed())
+					setExpression(ctx, calc.Key(), "return i64(rc_dtp_base)")
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Verifying the DataType was persisted to the DB")
@@ -1114,11 +1115,7 @@ var _ = Describe("Graph", func() {
 					By(
 						"Updating calc1 to return a different type, which should cascade to calc2",
 					)
-					calc1.Expression = "return i64(rc_dtpc_base)"
-					calc1.DataType = telem.Int64T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc1)
-					})).To(Succeed())
+					setExpression(ctx, calc1.Key(), "return i64(rc_dtpc_base)")
 
 					By("Verifying calc1 DataType was persisted")
 					Eventually(func() telem.DataType {
@@ -1352,7 +1349,6 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should keep a status it did not set when re-inspecting a valid channel",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "st_keep_dep")
 				mid := channel.Channel{
 					Name: "st_keep_mid", DataType: telem.Int64T, Virtual: true,
@@ -1368,7 +1364,7 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				g := openGraph(ctx)
 
 				By("Reporting a runtime status the way the calculation framer does")
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
@@ -1424,10 +1420,7 @@ var _ = Describe("Graph", func() {
 				expectStatus(ctx, calc.Key())
 
 				By("Editing the expression to a different valid one")
-				calc.Expression = "return st_expr_dep * 2"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				setExpression(ctx, calc.Key(), "return st_expr_dep * 2")
 				eventuallyExpectNoStatus(ctx, calc.Key())
 			},
 		)
@@ -1629,6 +1622,59 @@ var _ = Describe("Graph", func() {
 				report(status.VariantSuccess, 4)
 				report(status.VariantSuccess, 5)
 				Expect(storedTime()).To(Equal(telem.TimeStamp(4)))
+			},
+		)
+
+		It(
+			"Should not wait for the write lock on a report that changes nothing",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_repeat_dep")
+				calc := channel.Channel{
+					Name: "rt_repeat", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_repeat_dep + 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				report := func() {
+					GinkgoHelper()
+					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+						Name:    "rt_repeat",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					})).To(Succeed())
+				}
+				report()
+				// reportsUnderSnapshot reports whether a report finishes while another
+				// goroutine holds a snapshot for up to 100 ms. A writer that waits for
+				// the lock can hold the report back, so Eventually retries.
+				reportsUnderSnapshot := func() bool {
+					GinkgoHelper()
+					held, reported := make(chan struct{}), make(chan struct{})
+					timedOut := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						Expect(db.WithSnapshot(ctx, func(gorp.Snapshot) error {
+							close(held)
+							select {
+							case <-reported:
+								timedOut <- false
+							case <-time.After(100 * time.Millisecond):
+								timedOut <- true
+							}
+							return nil
+						})).To(Succeed())
+					}()
+					Eventually(held).Should(BeClosed())
+					report()
+					close(reported)
+					var expired bool
+					Eventually(timedOut).Should(Receive(&expired))
+					return !expired
+				}
+				Eventually(reportsUnderSnapshot, 2*time.Second).Should(BeTrue())
 			},
 		)
 
@@ -2137,23 +2183,16 @@ var _ = Describe("Graph", func() {
 				return channelSvc.NewWriter(tx).Create(ctx, &calc)
 			})).To(Succeed())
 
-			// Alternate the expression between two valid dependencies; an update to an
-			// invalid expression is rejected at creation, so the reachable form of
-			// "rapid updates" churns between valid states.
+			// Apply refuses an invalid expression, so the updates alternate between two
+			// valid dependencies.
 			for i := range 10 {
-				if i%2 == 0 {
-					calc.Expression = "return cc_rapid_base + 1"
-				} else {
-					calc.Expression = "return cc_rapid_base2 * 2"
+				expr := "return cc_rapid_base + 1"
+				if i%2 == 1 {
+					expr = "return cc_rapid_base2 * 2"
 				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				setExpression(ctx, calc.Key(), expr)
 			}
-			calc.Expression = "return cc_rapid_base + 1"
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
+			setExpression(ctx, calc.Key(), "return cc_rapid_base + 1")
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 	})

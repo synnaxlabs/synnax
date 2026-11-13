@@ -133,6 +133,29 @@ var _ = Describe("Go Patch Plugin", func() {
 		})
 
 		It(
+			"Should find a document whose Set action aliases patch.Set",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					import "schemas/x/patch"
+
+					@go output "core/pkg/service/doc"
+
+					Doc struct {
+						name string {
+							@patch
+						}
+
+						action Set = patch.Set
+					}
+				`, "doc", loader, p)
+				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").ToContain(
+					"func (d *Doc) Patch(c patch.Cursor) error {",
+					`case "name":`,
+				)
+			},
+		)
+
+		It(
 			"Should switch on every field of a struct a document reaches",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, document, "doc", loader, p)
@@ -150,6 +173,147 @@ var _ = Describe("Go Patch Plugin", func() {
 						"return patch.Value(&s.A, c.Next())",
 					).
 					ToNotContain(`case "secret":`)
+			},
+		)
+
+		It(
+			"Should reset a removed field that has a default to that default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/scale"
+
+				Linear struct {
+					slope  float64 = 1
+					offset float64 = 0
+				}
+
+				Doc struct {
+					scale Linear {
+						@patch
+					}
+					name  string {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "scale", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Defaulted(&l.Slope, c.Next(), func(def *Linear) {",
+						"l.Slope = def.Slope",
+						"return patch.Value(&l.Offset, c.Next())",
+						"return patch.Defaulted(&d.Scale, c, func(def *Doc) {",
+						"d.Scale = def.Scale",
+						"return patch.Value(&d.Name, c.Next())",
+					)
+			},
+		)
+
+		It(
+			"Should reset a removed field only when its default sets a value",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/mode"
+
+				Mode enum {
+					fast = "fast"
+					slow = "slow"
+				}
+
+				Level enum {
+					low  = 0
+					high = 1
+				}
+
+				Doc struct {
+					key string = create {
+						@patch
+					}
+					level Level = low {
+						@patch
+					}
+					mode Mode = slow {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "mode", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Value(&d.Key, c.Next())",
+						"return patch.Value(&d.Level, c.Next())",
+						"return patch.Defaulted(&d.Mode, c.Next(), func(def *Doc) {",
+					)
+			},
+		)
+
+		It(
+			"Should decide a reset by the kind of the default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/source"
+
+				Source union on type {
+					internal {}
+					external {
+						port int32
+					}
+				}
+
+				Plain struct {
+					rate float64
+				}
+
+				Pair struct {
+					a Plain
+					b Plain
+				}
+
+				Doc struct {
+					source Source = internal {
+						@patch
+					}
+					rate float64 = 0.0 {
+						@patch
+					}
+					origin Plain = { rate = 2 } {
+						@patch
+					}
+					enabled bool = false {
+						@patch
+					}
+					tags string[] = [] {
+						@patch
+					}
+					pair Pair {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "source", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Defaulted(&d.Source, c, func(def *Doc) {",
+						"return patch.Value(&d.Rate, c.Next())",
+						"return patch.Defaulted(&d.Origin, c, func(def *Doc) {",
+						"return patch.Value(&d.Enabled, c.Next())",
+					).
+					ToNotContain(
+						"patch.Defaulted(&d.Tags",
+						"patch.Defaulted(&d.Pair",
+					)
 			},
 		)
 
@@ -407,7 +571,8 @@ var _ = Describe("Go Patch Plugin", func() {
 			resp := MustGenerate(ctx, store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
 				"return patch.Value(&ac.Base.Key, c.Next())",
-				"return patch.Value(&ac.Base.Port, c.Next())",
+				"return patch.Defaulted(&ac.Base.Port, c.Next(), func(def *AnalogChannel) {",
+				"ac.Base.Port = def.Base.Port",
 				"return patch.Value(&ac.Range.Min, c.Next())",
 				"return patch.Value(&ac.Scale.Scale, c.Next())",
 				"return patch.Value(&ac.Gain, c.Next())",

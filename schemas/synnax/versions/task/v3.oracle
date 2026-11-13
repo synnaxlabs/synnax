@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/rack/v2"
+import "schemas/synnax/versions/ranger/v2"
 import "schemas/synnax/versions/status/v2"
 
 Key = v2.Key
@@ -76,9 +77,15 @@ Task struct<
     internal    bool = false {
         @doc value "is true if this is an internal system task."
     }
+    snapshot    bool = false {
+        @doc value "is true if this task is an immutable snapshot copy of another task."
+    }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+    }
+    range       ranger.Key?         {
+        @doc value "is the range the task is a snapshot in, if any."
     }
 
     @doc value  """

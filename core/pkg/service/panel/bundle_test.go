@@ -235,6 +235,17 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(v.Type).To(Equal("docs"))
 	})
 
+	It("Should remove Arc explorer tabs", func(ctx SpecContext) {
+		docs := viewTab(uuid.New(), "docs")
+		p := panel.Panel{
+			Name: "Controls",
+			Root: leafNode(viewTab(uuid.New(), "arc_explorer"), docs),
+		}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Root).To(Equal(leafNode(docs)))
+	})
+
 	It("Should reject a path the reference table does not hold", func(
 		ctx SpecContext,
 	) {

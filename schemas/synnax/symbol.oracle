@@ -139,27 +139,17 @@ Symbol struct {
 
         @doc value """
             replaces the symbol with the given created state. Emitted by the Core when a
-            symbol is created or overwritten whole; clients never dispatch it.
+            symbol is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the symbol."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the symbol.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the symbol."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the symbol."
-    }
+    action Move = patch.Move
 
     @create
     @doc value     """

@@ -136,8 +136,15 @@ domainOmit
 //   action Rename extends Named {
 //       @doc value "renames the resource"
 //   }
+// An action may instead alias a struct as its payload. It takes the struct's doc,
+// unless an optional body of domains gives its own:
+//   action Set = patch.Set
+//   action Set = patch.Set {
+//       @doc value "replaces the value at a path in the cells."
+//   }
 actionDef
     : ACTION IDENT (EXTENDS typeRefList)? nl* LBRACE nl* actionBody RBRACE
+    | ACTION IDENT EQUALS typeRef aliasBody?
     ;
 
 // Action body contains payload fields and/or action-level domains

@@ -403,12 +403,72 @@ func consumer() {v f32 bar} {}
 producer() -> consumer()
 """
 
+# A float series index is rejected at configure time.
+ARC_FLOAT_SERIES_INDEX = """
+func pick() f64 {
+    data series f64 := [1.0, 2.0, 3.0]
+    i f32 := 1.0
+    return data[i]
+}
+func consumer() {v f64} {}
+pick() -> consumer()
+"""
+
+# A slice is a series, so a function that returns f64 cannot return it.
+ARC_SLICE_RETURNED_AS_SCALAR = """
+func slice_as_scalar() f64 {
+    data := [1.0, 2.0, 3.0]
+    sub := data[1:3]
+    return sub
+}
+func sink() {v f64} {}
+slice_as_scalar() -> sink()
+"""
+
+# A slice is a series, so a variable declared as f64 cannot hold it.
+ARC_SLICE_DECLARED_AS_SCALAR = """
+func slice_into_scalar() {
+    data := [1.0, 2.0, 3.0]
+    x f64 := data[1:3]
+}
+start_edge_case_cmd -> slice_into_scalar()
+"""
+
+# A slice is a series, so an f32 channel cannot take it.
+ARC_SLICE_WRITTEN_TO_SCALAR_CHANNEL = """
+func slice_into_channel() {
+    data series f32 := [1.0, 2.0, 3.0]
+    edge_diamond = data[1:3]
+}
+start_edge_case_cmd -> slice_into_channel()
+"""
+
 
 TYPE_MISMATCH_CASES = [
     Case(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
         "does not match",
+    ),
+    Case(
+        "SliceReturnedAsScalar",
+        ARC_SLICE_RETURNED_AS_SCALAR,
+        "cannot return series f64 from 'slice_as_scalar': expected f64",
+    ),
+    Case(
+        "SliceDeclaredAsScalar",
+        ARC_SLICE_DECLARED_AS_SCALAR,
+        "cannot assign series f64 to 'x' (type f64)",
+    ),
+    Case(
+        "SliceWrittenToScalarChannel",
+        ARC_SLICE_WRITTEN_TO_SCALAR_CHANNEL,
+        "cannot write series f32 to channel 'edge_diamond' (type f32)",
+    ),
+    Case(
+        "FloatSeriesIndex",
+        ARC_FLOAT_SERIES_INDEX,
+        "series index must be an integer type, got f32",
     ),
 ]
 

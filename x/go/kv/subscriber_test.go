@@ -45,7 +45,7 @@ var _ = Describe("Flush", func() {
 		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
 		DeferClose(closer)
 		var ds dataStruct
-		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(codec.Decode(b, &ds)).To(Succeed())
 		Expect(ds.Value).To(Equal([]byte("hello")))
 	})
 
@@ -63,7 +63,7 @@ var _ = Describe("Flush", func() {
 		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
 		DeferClose(closer)
 		var ds dataStruct
-		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(codec.Decode(b, &ds)).To(Succeed())
 		Expect(ds.Value).To(Equal([]byte("hello")))
 	})
 })

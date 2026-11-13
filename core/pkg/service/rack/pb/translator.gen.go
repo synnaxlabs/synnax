@@ -18,10 +18,60 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 )
+
+// StatusDetailsToPB converts StatusDetails to StatusDetails.
+func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
+	pb := &StatusDetails{
+		Running: r.Running,
+	}
+	return pb, nil
+}
+
+// StatusDetailsFromPB converts StatusDetails to StatusDetails.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
+	var r rack.StatusDetails
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Running = pb.Running
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListToPB(rs []rack.StatusDetails) ([]*StatusDetails, error) {
+	result := make([]*StatusDetails, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusDetailsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailsListFromPB(pbs []*StatusDetails) ([]rack.StatusDetails, error) {
+	result := make([]rack.StatusDetails, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusDetailsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // RackToPB converts Rack to Rack.
 func RackToPB(r rack.Rack) (*Rack, error) {
@@ -33,7 +83,7 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.ToAny[rack.StatusDetails])
 		if err != nil {
 			return nil, err
 		}
@@ -49,17 +99,21 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 }
 
 // RackFromPB converts Rack to Rack.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RackFromPB(pb *Rack) (rack.Rack, error) {
 	var r rack.Rack
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[rack.StatusDetails])
 		if err != nil {
 			return rack.Rack{}, err
 		}
@@ -75,6 +129,7 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 		}
 		r.Group = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

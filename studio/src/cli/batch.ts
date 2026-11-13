@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +24,7 @@ import {
   stampFile,
   THEMES,
 } from "@/cli/common";
-import { entryHash } from "@/cli/hash";
+import { entryHash, versionOf } from "@/cli/hash";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
 import { type Entry, stillsDir, videoName } from "@/manifest";
 import { type Timeline } from "@/timeline";
@@ -69,13 +68,6 @@ interface ProduceEntryOptions {
   coreBin?: string;
   port?: number;
 }
-
-/** versionOf hashes named files, so their CDN keys change with their content. */
-const versionOf = (files: Record<string, Buffer>): string => {
-  const hash = createHash("sha256");
-  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]);
-  return hash.digest("hex").slice(0, 12);
-};
 
 const produceEntry = async ({
   entry,

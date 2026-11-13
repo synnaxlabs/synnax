@@ -26,5 +26,6 @@ func autoMigrateTask(_ context.Context, old v2.Task) (Task, error) {
 		Config:     old.Config,
 		ConfigHash: old.ConfigHash,
 		Internal:   old.Internal,
+		Snapshot:   old.Snapshot,
 	}, nil
 }

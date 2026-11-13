@@ -396,6 +396,47 @@ var _ = Describe("Completion", func() {
 			},
 		)
 
+		Describe("User modules", func() {
+			BeforeEach(func() {
+				sources := map[string]string{
+					"lib.m":     "func f() {}",
+					"lib.sub.n": "func g() {}",
+					"other":     "func h() {}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				}))
+				server.SetClient(&MockClient{})
+			})
+
+			It("should suggest the path of each user module", func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, "import ")
+				completions := Completion(server, ctx, docURI, 0, 7)
+				Expect(HasCompletion(completions.Items, "lib.m")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "lib.sub.n")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "other")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "math")).To(BeTrue())
+			})
+
+			It(
+				"should replace the typed path when it holds a dot",
+				func(ctx SpecContext) {
+					OpenArcDocument(server, ctx, docURI, "import lib.s")
+					completions := Completion(server, ctx, docURI, 0, 12)
+					Expect(HasCompletion(completions.Items, "lib.m")).To(BeFalse())
+					Expect(HasCompletion(completions.Items, "other")).To(BeFalse())
+					item := MustBeOk(FindCompletion(completions.Items, "lib.sub.n"))
+					Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 0, Character: 7},
+							End:   protocol.Position{Line: 0, Character: 12},
+						},
+						NewText: "lib.sub.n",
+					}))
+				},
+			)
+		})
+
 		It(
 			"should not surface internal modules in import-path completion",
 			func(ctx SpecContext) {

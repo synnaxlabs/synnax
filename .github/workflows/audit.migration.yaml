@@ -13,15 +13,15 @@ on:
   workflow_call:
     inputs: &inputs
       core:
-        description: "Stable Core tag (default: the newest the candidate contains)"
+        description: "Stable Core tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       console:
-        description: "Stable Console tag (default: the newest the candidate contains)"
+        description: "Stable Console tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       driver:
-        description: "Stable Driver tag (default: the newest the candidate contains)"
+        description: "Stable Driver tag (default: the candidate's stable baseline)"
         type: string
         default: ""
       agent:
@@ -66,12 +66,19 @@ jobs:
           CONSOLE: ${{ inputs.console }}
           DRIVER: ${{ inputs.driver }}
           CANDIDATE: ${{ github.sha }}
+          REF: ${{ github.ref_name }}
         run: |
-          # The release notes use the same baseline: the newest stable tag of the
-          # product that the candidate contains.
+          # The newest stable tag the candidate contains. Off a release branch, a newer
+          # hotfix tagged on that tag's train counts too.
           stable() {
-            git tag --list "$1/v*" --merged HEAD |
-              grep -E "^$1/v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -1
+            local base
+            base=$(git tag --list "$1/v*" --merged HEAD |
+              sed -nE "s#^$1/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" | sort -V | tail -1)
+            [ -n "$base" ] || return 0
+            if [[ $REF != release/* ]]; then
+              base=$(.github/scripts/latest_version.sh "$1" "${base%.*}")
+            fi
+            echo "$1/v$base"
           }
           CORE=${CORE:-$(stable core)}
           CONSOLE=${CONSOLE:-$(stable console)}

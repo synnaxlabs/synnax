@@ -27,35 +27,6 @@ key, open **Services** -> **Service Directory** in PagerDuty, select the service
 
 <Divider.Divider x />
 
-## How the task sends events
-
-| Status variant    | PagerDuty                                                         |
-| ----------------- | ----------------------------------------------------------------- |
-| Error             | An `error` event, or `critical` with **Treat error as critical**. |
-| Warning           | A `warning` event.                                                |
-| Info              | An `info` event.                                                  |
-| Success           | Resolves the alert.                                               |
-| Loading, Disabled | Nothing.                                                          |
-
-- The status key is the PagerDuty dedup key, so a later change updates the same open
-  alert.
-- Error, warning, and info all send a trigger event. The settings of the PagerDuty
-  service decide whether the alert opens an incident and how urgent it is.
-- The summary of the event is the status message, followed by `: ` and the description
-  when there is one. The source is the status name, or the key when the name is empty.
-  The details are the status details.
-- The task sends only changes that happen while it runs. It does not send the current
-  value of a status when it starts.
-- Deleting the task or a status does not resolve open incidents. Set the statuses to
-  **Success** first.
-- When PagerDuty rejects an event, the task shows an error and keeps running.
-
-The Synnax Core runs the task and sends the events, so the computer that runs the Core
-needs internet access to `events.pagerduty.com`. The task follows the standard
-[task lifecycle](/reference/hardware/tasks#task-lifecycle).
-
-<Divider.Divider x />
-
 ## Create a PagerDuty alert task
 
 <Client.Tabs>
@@ -63,8 +34,10 @@ needs internet access to `events.pagerduty.com`. The task follows the standard
 
 1. Run the "Create PagerDuty alert task" command from the
    [command palette](/reference/get-started/ui-overview#search-and-command-palette).
-2. Enter the **Routing key**.
-3. Leave **Connect from** set to the Core.
+2. Under **Routing key**, select the secret that holds the key. To add one, select **New
+   secret** and paste the key.
+3. In **Connect from**, select the rack of the Core, such as **Node 1**. The list shows
+   only the racks that run PagerDuty tasks.
 4. Click **Add alert**. Under **Trigger**, select the **Status** to watch.
 5. Optional: turn on **Treat error as critical**, and fill in **Component**, **Group**,
    and **Class** under **Incident**.
@@ -96,9 +69,14 @@ client.statuses.set(
     )
 )
 
+routing_key = client.secrets.set(
+    name="Engine alerts routing key",
+    value="<your-32-character-integration-key>",
+)
+
 alert_task = sy.pagerduty.AlertTask(
     name="Engine alerts",
-    routing_key="<your-32-character-integration-key>",
+    routing_key=routing_key.key,
     auto_start=False,
     alerts=[
         sy.pagerduty.Alert(
@@ -151,6 +129,11 @@ await client.statuses.set({
   message: "Running",
 });
 
+const routingKey = await client.secrets.set({
+  name: "Engine alerts routing key",
+  source: "stored",
+  value: "<your-32-character-integration-key>",
+});
 const [rack] = await client.racks.retrieve({
   where: { integrations: { any: ["pagerduty"] } },
 });
@@ -159,7 +142,7 @@ const alertTask = await client.tasks.create({
   rack: rack.key,
   type: "pagerduty_alert",
   config: pagerduty.taskConfigZ.parse({
-    routingKey: "<your-32-character-integration-key>",
+    routingKey: routingKey.key,
     alerts: [
       {
         status: "engine-1",
@@ -179,14 +162,45 @@ await alertTask.start();
 
 <Divider.Divider x />
 
+## How the task sends events
+
+| Status variant    | PagerDuty                                                         |
+| ----------------- | ----------------------------------------------------------------- |
+| Error             | An `error` event, or `critical` with **Treat error as critical**. |
+| Warning           | A `warning` event.                                                |
+| Info              | An `info` event.                                                  |
+| Success           | Resolves the alert.                                               |
+| Loading, Disabled | Nothing.                                                          |
+
+- The status key is the PagerDuty dedup key, so a later change updates the same open
+  alert.
+- Error, warning, and info all send a trigger event. The settings of the PagerDuty
+  service decide whether the alert opens an incident and how urgent it is.
+- The summary of the event is the status message, followed by `: ` and the description
+  when there is one. The source is the status name, or the key when the name is empty.
+  The details are the status details.
+- The task sends only changes that happen while it runs. It does not send the current
+  value of a status when it starts.
+- Deleting the task or a status does not resolve open incidents. Set the statuses to
+  **Success** first.
+- Each alert must watch a status that exists. Deleting a status removes it from every
+  alert that watches it.
+- When PagerDuty rejects an event, the task shows an error and keeps running.
+
+The Synnax Core runs the task and sends the events, so the computer that runs the Core
+needs internet access to `events.pagerduty.com`. The task follows the standard
+[task lifecycle](/reference/hardware/tasks#task-lifecycle).
+
+<Divider.Divider x />
+
 ## Task options
 
-| Console label | Python field  | Default  | Notes                                                              |
-| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
-| Routing key   | `routing_key` | -        | The 32-character Events API v2 integration key.                    |
-| Connect from  | -             | The Core | The Core runs the task. Python and TypeScript use the Core's rack. |
-| Auto start    | `auto_start`  | Off      | Starts the task when you configure it.                             |
-| Alerts        | `alerts`      | -        | At least one alert must be enabled.                                |
+| Console label | Python field  | Default | Notes                                                                 |
+| ------------- | ------------- | ------- | --------------------------------------------------------------------- |
+| Routing key   | `routing_key` | -       | The secret that holds the 32-character Events API v2 integration key. |
+| Connect from  | -             | -       | The rack of the Core, such as **Node 1**. The Core runs the task.     |
+| Auto start    | `auto_start`  | Off     | Starts the task when you configure it.                                |
+| Alerts        | `alerts`      | -       | At least one alert must be enabled.                                   |
 
 <Divider.Divider x />
 
@@ -195,7 +209,7 @@ await alertTask.start();
 | Console label           | Python field      | Default | Notes                                                                 |
 | ----------------------- | ----------------- | ------- | --------------------------------------------------------------------- |
 | Status                  | `status`          | -       | The key of the status to watch.                                       |
-| Enabled check box       | `disabled`        | Off     | A disabled alert is left out of the task.                             |
+| Enabled check box       | `disabled`        | Checked | A disabled alert is left out of the task.                             |
 | Treat error as critical | `errors_critical` | Off     | Sends **Error** as `critical` instead of `error`.                     |
 | Component               | `component`       | Empty   | The part of the system, such as `"engine-1"`.                         |
 | Group                   | `group`           | Empty   | A group of components, such as `"engines"`.                           |
@@ -205,22 +219,25 @@ await alertTask.start();
 
 ## Troubleshooting
 
-### `must be exactly 32 characters`
+### `Routing key must be 32 characters`
 
 <Problem.Body>
 <Problem.Cause>
 
-The routing key is not 32 characters long.
+The value of the routing key secret is not 32 characters long. In code, the error is
+`must be exactly 32 characters`.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Copy the integration key again from the **Events API v2** integration in PagerDuty.
+Copy the integration key again from the **Events API v2** integration in PagerDuty. Then
+open the **Credentials** toolbar, right-click the secret, select **Replace value**, and
+paste the key. Start the task again to use the new value.
 
 </Problem.Fix>
 </Problem.Body>
 
-### `at least one alert must be enabled`
+### `At least one alert must be enabled`
 
 <Problem.Body>
 <Problem.Cause>
@@ -231,6 +248,36 @@ The task has no alerts, or every alert is disabled.
 <Problem.Fix>
 
 Add an alert, or enable one.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Status key is required`
+
+<Problem.Body>
+<Problem.Cause>
+
+An alert has no status. Deleting a status removes it from each alert that watched it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Under **Trigger**, select a status for the alert, or delete the alert.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `alerts.status: status <key> does not exist`
+
+<Problem.Body>
+<Problem.Cause>
+
+An alert in code watches a status key that does not exist.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create the status first, then configure the task with its key.
 
 </Problem.Fix>
 </Problem.Body>

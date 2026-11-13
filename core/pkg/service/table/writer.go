@@ -11,15 +11,14 @@ package table
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -41,45 +40,30 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given table, assigning a new key when t.Key is zero. The table
-// must belong to a project. An existing table keeps its group and project. A new table
-// in a group belongs to the project that holds the group.
+// must belong to a project. A table in a group belongs to
+// the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a table with t.Key exists.
 func (w Writer) Create(ctx context.Context, t *Table) error {
-	var (
-		exists bool
-		err    error
-	)
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
-	} else {
-		var stored Table
-		err = w.tbl.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Table](t.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			t.Group, t.Project = stored.Group, stored.Project
-		}
 	}
-	if !exists && t.Group != nil {
+	if t.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, t.Group, resource.TypeTable)
 		if err != nil {
 			return err
 		}
 		t.Project = proj
 	}
-	if err = t.Validate(); err != nil {
+	if err := t.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(t.Project); err != nil {
+	if err := project.ValidateOwner(t.Project); err != nil {
 		return err
 	}
-	if err = validateUniqueKeys(*t); err != nil {
+	if err := validateUniqueKeys(*t); err != nil {
 		return err
 	}
-	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
+	if err := w.tbl.NewCreate().Exclusive().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -88,32 +72,6 @@ func (w Writer) Create(ctx context.Context, t *Table) error {
 		NewCreateAction(CreatePayload{Table: *t}),
 	)
 	return nil
-}
-
-// SetGroup moves the tables with keys into g, or out of their group when g is nil. A
-// table in a group belongs to the project that holds the group.
-func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeTable)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.tbl, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
-}
-
-// SetProject moves the tables with keys out of their group and into the project p.
-func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(nil, keys)
-	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the tables with keys that are not in the project p into p, and
@@ -145,20 +103,8 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// attachGroup attaches a set of the group of each table with keys, or a remove of the
-// group when g is nil.
-func (w Writer) attachGroup(g *group.Key, keys []Key) {
-	for _, k := range keys {
-		a := NewRemoveAction(RemovePayload{Key: "group"})
-		if g != nil {
-			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
-		}
-		w.dispatcher.Attach(w.tx, k, a)
-	}
-}
-
-// CreateMany creates the given tables. If tables with the same key already exist, they
-// will be overwritten.
+// CreateMany creates the given tables. It returns an error wrapping
+// validate.ErrValidation when a table with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
 		if err := w.Create(ctx, &(*tables)[i]); err != nil {
@@ -197,26 +143,42 @@ func duplicateKey[T any](items []T, keyOf func(T) string) (string, bool) {
 }
 
 // Apply applies a sequence of actions to the table with the given key and attaches them
-// to the transaction of w, so its commit broadcasts them with the dispatch key of w.
-// Returns a validation error, and stores nothing, if the actions leave the table
-// invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w. A
+// move into a group also moves the table into the project that holds the group, and a
+// move into another project moves it out of its group. Apply attaches the actions of
+// each such move after acts and returns them. It returns a validation error, and stores
+// nothing, if the actions leave the table invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
 	if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
-		ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
-			reduced, err := Reduce(t, acts...)
+		ChangeErr(func(_ gorp.Context, prev Table) (Table, error) {
+			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Table{}, err
 			}
-			if err = reduced.Validate(); err != nil {
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeTable,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
 				return Table{}, err
 			}
-			if err = validateUniqueKeys(reduced); err != nil {
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = next.Validate(); err != nil {
 				return Table{}, err
 			}
-			return reduced, nil
+			if err = validateUniqueKeys(next); err != nil {
+				return Table{}, err
+			}
+			return next, project.ValidateOwner(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
 }

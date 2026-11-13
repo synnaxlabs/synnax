@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -83,9 +84,7 @@ var _ = Describe("Service", func() {
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should refuse to overwrite a panel without update on it", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a panel whose key exists", func(ctx SpecContext) {
 			u := newUser(ctx)
 			grantCreate(ctx, u.ResourceID())
 			stored := createPanel(ctx, "stored")
@@ -93,7 +92,10 @@ var _ = Describe("Service", func() {
 				Panels: []panel.Panel{
 					{Key: stored.Key, Name: "overwritten", Project: &proj.Key},
 				},
-			})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("panel %s already exists", stored.Key)),
+			))
 			Expect(retrievePanel(ctx, stored.Key).Name).To(Equal("stored"))
 		})
 
@@ -295,83 +297,6 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("SetProject", func() {
-		It(
-			"Should reject the request when the subject has no update policy",
-			func(ctx SpecContext) {
-				p := createPanel(ctx, "move-denied")
-				Expect(setProject(
-					AuthedCtx(ctx, author),
-					apipanel.SetProjectRequest{
-						Project: proj.Key,
-						Keys:    []panel.Key{p.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-			},
-		)
-
-		It(
-			"Should reject the request without update on the destination project",
-			func(ctx SpecContext) {
-				u := newUser(ctx)
-				dest := project.Project{Name: "denied destination"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return projectSvc.NewWriter(tx).Create(ctx, &dest)
-				})).To(Succeed())
-				p := createPanel(ctx, "move-denied")
-				grant(ctx, u.ResourceID(), access.ActionUpdate,
-					p.ResourceID(), proj.ResourceID())
-				Expect(setProject(
-					AuthedCtx(ctx, u),
-					apipanel.SetProjectRequest{
-						Project: dest.Key,
-						Keys:    []panel.Key{p.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&proj.Key))
-			},
-		)
-
-		It("Should move the panels into the project", func(ctx SpecContext) {
-			u := newUser(ctx)
-			dest := project.Project{Name: "destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return projectSvc.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			p := createPanel(ctx, "moved")
-			grant(ctx, u.ResourceID(), access.ActionUpdate,
-				p.ResourceID(), proj.ResourceID(), dest.ResourceID())
-			Expect(setProject(
-				AuthedCtx(ctx, u),
-				apipanel.SetProjectRequest{Project: dest.Key, Keys: []panel.Key{p.Key}},
-			)).Error().To(Succeed())
-			Expect(retrievePanel(ctx, p.Key).Project).To(Equal(&dest.Key))
-		})
-
-		It(
-			"Should refuse a move out of a group the subject cannot update",
-			func(ctx SpecContext) {
-				u := newUser(ctx)
-				p := createPanel(ctx, "grouped")
-				g := createGroup(ctx, "grouped")
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return panelSvc.NewWriter(tx).SetGroup(ctx, &g.Key, p.Key)
-				})).
-					To(Succeed())
-				grant(ctx, u.ResourceID(), access.ActionUpdate,
-					p.ResourceID(), proj.ResourceID())
-				Expect(setProject(
-					AuthedCtx(ctx, u),
-					apipanel.SetProjectRequest{
-						Project: proj.Key,
-						Keys:    []panel.Key{p.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
-			},
-		)
-	})
-
 	Describe("Dispatch", func() {
 		It(
 			"Should reject the request when the subject has no update policy",
@@ -508,98 +433,6 @@ func retrievePanel(ctx SpecContext, key panel.Key) panel.Panel {
 	return p
 }
 
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := newUser(ctx)
-			p := createPanel(ctx, "Set group denied")
-			g := createGroup(ctx, "Set group denied")
-			grant(ctx, u.ResourceID(), access.ActionUpdate, panel.ResourceID(p.Key))
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrievePanel(ctx, p.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the panel with update on the destination group",
-		func(ctx SpecContext) {
-			u := newUser(ctx)
-			p := createPanel(ctx, "Set group granted")
-			g := createGroup(ctx, "Set group granted")
-			grant(
-				ctx,
-				u.ResourceID(),
-				access.ActionUpdate,
-				panel.ResourceID(p.Key),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{p.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrievePanel(ctx, p.Key).Group).To(Equal(&g.Key))
-		},
-	)
-	Context("Into a group under another project", func() {
-		var (
-			u    user.User
-			x    panel.Panel
-			dest project.Project
-			g    group.Group
-		)
-		BeforeEach(func(ctx SpecContext) {
-			u = newUser(ctx)
-			x = createPanel(ctx, "Cross project")
-			dest = project.Project{Name: "Destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return projectSvc.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return groupSvc.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-		})
-		move := func(ctx SpecContext) (struct{}, error) {
-			return setGroup(
-				AuthedCtx(ctx, u),
-				apipanel.SetGroupRequest{Group: &g.Key, Keys: []panel.Key{x.Key}},
-			)
-		}
-		DescribeTable(
-			"Should refuse the move without update on both projects",
-			func(ctx SpecContext, projects func() []resource.ID) {
-				objects := projects()
-				grant(ctx, u.ResourceID(), access.ActionUpdate, append(
-					objects,
-					panel.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&proj.Key))
-			},
-			Entry("without the destination", func() []resource.ID {
-				return []resource.ID{project.ResourceID(proj.Key)}
-			}),
-			Entry("without the source", func() []resource.ID {
-				return []resource.ID{dest.ResourceID()}
-			}),
-		)
-		It("Should move the panel with update on both projects", func(ctx SpecContext) {
-			objects := []resource.ID{project.ResourceID(proj.Key), dest.ResourceID()}
-			grant(ctx, u.ResourceID(), access.ActionUpdate, append(
-				objects,
-				panel.ResourceID(x.Key),
-				g.ResourceID(),
-			)...)
-			MustSucceed(move(ctx))
-			Expect(retrievePanel(ctx, x.Key).Project).To(Equal(&dest.Key))
-		})
-	})
-})
-
 var _ = Describe("Create in a group", func() {
 	newPanel := func(name string, g group.Group) panel.Panel {
 		return panel.Panel{
@@ -696,4 +529,205 @@ var _ = Describe("Create in a group", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Dispatch of a move", func() {
+	var (
+		u      user.User
+		target panel.Panel
+		g      group.Group
+		dest   project.Project
+		destG  group.Group
+		rec    *Recorder[panel.Key, panel.Action]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		target = createPanel(ctx, "Moved")
+		g = createGroup(ctx, "Source")
+		dest = project.Project{Name: "Destination"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projectSvc.NewWriter(tx).Create(ctx, &dest)
+		})).To(Succeed())
+		destG = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &destG)
+		})).To(Succeed())
+		rec = &Recorder[panel.Key, panel.Action]{}
+	})
+	setGroup := func(k group.Key) panel.Action {
+		return panel.NewSetAction(panel.SetPayload{Path: []string{"group"}, Value: k})
+	}
+	setProject := func(k project.Key) panel.Action {
+		return panel.NewSetAction(panel.SetPayload{Path: []string{"project"}, Value: k})
+	}
+	removeGroup := panel.NewRemoveAction(panel.RemovePayload{Key: "group"})
+	// inGroup moves the panel into g.
+	inGroup := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := panelSvc.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))
+			return err
+		})).To(Succeed())
+	}
+	// moveAs grants u update on the panel and on objects, records the broadcasts that
+	// follow, and dispatches acts as u.
+	moveAs := func(
+		ctx SpecContext,
+		acts []panel.Action,
+		objects ...resource.ID,
+	) (apipanel.DispatchResponse, error) {
+		GinkgoHelper()
+		grant(
+			ctx,
+			u.ResourceID(),
+			access.ActionUpdate,
+			append(objects, target.ResourceID())...,
+		)
+		DeferCleanup(panelSvc.OnAction(rec.Record))
+		return dispatch(AuthedCtx(ctx, u), apipanel.DispatchRequest{
+			Key:         target.Key,
+			DispatchKey: "dk-move",
+			Actions:     acts,
+		})
+	}
+	It("Should move the panel into a group", func(ctx SpecContext) {
+		Expect(moveAs(ctx, []panel.Action{setGroup(g.Key)}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrievePanel(ctx, target.Key).Group).To(Equal(&g.Key))
+		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
+			HaveField("DispatchKey", "dk-move"),
+			HaveField("Actions", []panel.Action{setGroup(g.Key)}),
+		)))
+	})
+	It(
+		"Should move the panel into the project of a group in another project",
+		func(ctx SpecContext) {
+			res := MustSucceed(moveAs(
+				ctx,
+				[]panel.Action{setGroup(destG.Key)},
+				destG.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]panel.Action{setProject(dest.Key)}))
+			moved := retrievePanel(ctx, target.Key)
+			Expect(moved.Group).To(Equal(&destG.Key))
+			Expect(moved.Project).To(Equal(&dest.Key))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]panel.Action{setGroup(destG.Key), setProject(dest.Key)},
+			)))
+		},
+	)
+	It("Should move the panel out of its group", func(ctx SpecContext) {
+		inGroup(ctx)
+		Expect(moveAs(ctx, []panel.Action{removeGroup}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrievePanel(ctx, target.Key).Group).To(BeNil())
+	})
+	It("Should move the panel into another project", func(ctx SpecContext) {
+		Expect(moveAs(
+			ctx,
+			[]panel.Action{setProject(dest.Key)},
+			project.ResourceID(proj.Key),
+			dest.ResourceID(),
+		)).To(HaveField("Actions", BeEmpty()))
+		Expect(retrievePanel(ctx, target.Key).Project).To(Equal(&dest.Key))
+	})
+	It(
+		"Should move the panel out of its group when it moves into another project",
+		func(ctx SpecContext) {
+			inGroup(ctx)
+			res := MustSucceed(moveAs(
+				ctx,
+				[]panel.Action{setProject(dest.Key)},
+				g.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]panel.Action{removeGroup}))
+			moved := retrievePanel(ctx, target.Key)
+			Expect(moved.Group).To(BeNil())
+			Expect(moved.Project).To(Equal(&dest.Key))
+		},
+	)
+	It("Should refuse a move into a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(moveAs(ctx, []panel.Action{setGroup(missing)})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", missing)),
+		))
+		Expect(retrievePanel(ctx, target.Key).Group).To(BeNil())
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+	DescribeTable(
+		"Should refuse a move without update on a record it changes",
+		func(
+			ctx SpecContext,
+			grouped bool,
+			move func() ([]panel.Action, []resource.ID, resource.ID),
+		) {
+			if grouped {
+				inGroup(ctx)
+			}
+			before := retrievePanel(ctx, target.Key)
+			acts, granted, refused := move()
+			Expect(moveAs(ctx, acts, granted...)).Error().
+				To(denied(u, access.ActionUpdate, refused))
+			Expect(retrievePanel(ctx, target.Key)).To(Equal(before))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+		Entry(
+			"into a group without the group",
+			false,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setGroup(g.Key)}, nil, g.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without that project",
+			false,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without the source project",
+			false,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"into another project without that project",
+			false,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into another project without the source project",
+			false,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setProject(dest.Key)},
+					[]resource.ID{dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"out of a group without the group",
+			true,
+			func() ([]panel.Action, []resource.ID, resource.ID) {
+				return []panel.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key), dest.ResourceID()},
+					g.ResourceID()
+			},
+		),
+	)
 })

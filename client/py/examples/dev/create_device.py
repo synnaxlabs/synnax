@@ -8,8 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from x.strings import random_name
 
 client = sy.Synnax()
+
+# Each run adds a suffix to its keys, because a create refuses a key that exists.
+suffix = random_name()
 
 rack_key = client.racks.retrieve()[0].key
 print(f"Using rack: {rack_key}")
@@ -17,7 +21,7 @@ print(f"Using rack: {rack_key}")
 client.devices.create(
     [
         sy.Device(
-            key="130227d9-02aa-47e4-b370-0d590add1bc1",
+            key=f"130227d9-02aa-47e4-b370-0d590add1bc1-{suffix}",
             rack=rack_key,
             name="PXI-6255",
             make="NI",
@@ -25,7 +29,7 @@ client.devices.create(
             location="dev1",
         ),
         sy.Device(
-            key="labjack-t4",
+            key=f"labjack-t4-{suffix}",
             rack=rack_key,
             name="LabJack T4",
             make="LabJack",
@@ -33,7 +37,7 @@ client.devices.create(
             location="dev2",
         ),
         sy.Device(
-            key="labjack-t7",
+            key=f"labjack-t7-{suffix}",
             rack=rack_key,
             name="LabJack T7",
             make="LabJack",
@@ -41,7 +45,7 @@ client.devices.create(
             location="dev3",
         ),
         sy.Device(
-            key="labjack-t8",
+            key=f"labjack-t8-{suffix}",
             rack=rack_key,
             name="LabJack T8",
             make="LabJack",
@@ -49,7 +53,7 @@ client.devices.create(
             location="dev4",
         ),
         sy.Device(
-            key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
+            key=f"a0e37b26-5401-413e-8e65-c7ad9d9afd70-{suffix}",
             rack=rack_key,
             name="USB-6000",
             make="NI",
@@ -64,7 +68,7 @@ client.devices.create(
 # underneath it.
 chassis = client.devices.create(
     sy.device.Device(
-        key="sim-cdaq-9178",
+        key=f"sim-cdaq-9178-{suffix}",
         rack=rack_key,
         name="cDAQ-9178 (Sim)",
         make="NI",
@@ -84,7 +88,7 @@ modules = [
 for key, model, location, resource_name in modules:
     mod = client.devices.create(
         sy.device.Device(
-            key=key,
+            key=f"{key}-{suffix}",
             name=f"{model} (Sim)",
             make="NI",
             model=model,
@@ -99,7 +103,7 @@ for key, model, location, resource_name in modules:
 # Create a standalone module with no parent chassis (should appear at rack level).
 standalone = client.devices.create(
     sy.device.Device(
-        key="sim-ni-6289",
+        key=f"sim-ni-6289-{suffix}",
         name="USB-6289 (Sim)",
         make="NI",
         model="USB-6289",

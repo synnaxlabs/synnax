@@ -19,10 +19,12 @@ and where it can run, see the [Arc overview](/reference/control/arc).
 
 Your role decides what you can do:
 
-- **Owner**, **Engineer**, and **Driver** can do all the tasks on this page.
+- **Owner** and **Engineer** can do all the tasks on this page.
 - **Operator** can open automations, and start and stop them from the editor, but cannot
   choose a Driver.
 - **Viewer** can open automations and see their status.
+
+The editor and the compiler find only the channels that your role can read.
 
 See [users and roles](/reference/enterprise/users#roles).
 
@@ -34,7 +36,9 @@ See [users and roles](/reference/enterprise/users#roles).
 
 1. In the left nav, click **Arcs** (<Icon.Arc />), or press **A**.
 2. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
-3. Type a name, and click **Create**.
+3. Type a name, and click **Create**. To write a
+   [module](/reference/control/arc/modules) that other Arcs import, select the
+   **Module** type.
 
 The editor opens. You can also run the "Create Arc automation" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
@@ -89,12 +93,16 @@ automation keeps the code it started with until you redeploy it:
 The automation starts again with the new code. Its variables go back to their first
 values, and each sequence starts again. Stop and start also run the latest code.
 
+A change to a [module](/reference/control/arc/modules) that the automation imports also
+shows **Redeploy**.
+
 <Divider.Divider x />
 
-## Rename, copy a link, or delete an automation
+## Edit, rename, copy a link, or delete an automation
 
-Right-click an automation in the Arcs toolbar, and select **Rename**, **Copy link** (not
-in Synnax Desktop), or **Delete**.
+Right-click an automation in the Arcs toolbar, and select **Edit**, **Rename**, **Copy
+link** (not in Synnax Desktop), or **Delete**. When a running automation has code that
+changed since it started, the menu also shows **Redeploy**.
 
 Delete stops the automation. If its tab is open, the tab offers **Restore**, which
 brings back the code but not the Driver choice. The restored automation is stopped.
@@ -103,8 +111,20 @@ brings back the code but not the Driver choice. The restored automation is stopp
 
 ## Find an automation
 
-The Arcs toolbar lists every automation. To search by name, click **Open Arc explorer**
-in the toolbar. Double-click an automation to open it.
+The Arcs toolbar lists every automation. To search by name, click **Search Arcs** in the
+toolbar. Double-click an automation to open it.
+
+<Divider.Divider x />
+
+## Organize automations in directories
+
+In the Arcs toolbar, directories group automations:
+
+- To create a directory, right-click an empty area or a directory, and select **New
+  directory**.
+- To move an automation or a directory, drag it onto a directory.
+- To rename or delete a directory, right-click it. You can delete only an empty
+  directory.
 
 <Divider.Divider x />
 

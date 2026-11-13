@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, query, type Synnax as Client } from "@synnaxlabs/client";
-import { useDebouncedCallback, useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import {
+  useDebouncedCallback,
+  useInitializerRef,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
@@ -17,7 +21,13 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   errorResult,
@@ -96,7 +106,18 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
   more: () => void;
   /** Lists the records that match the term. An empty term ends the search. */
   search: (term: string) => void;
+  /**
+   * The search term that data answers. It trails the term given to search until the
+   * list reads that term. Empty while the list has no answer.
+   */
+  searchTerm: string;
 };
+
+/** A window and the search term it answers. */
+interface Answer<E extends record.Keyed<record.Key>> {
+  window: query.Window<E, unknown>;
+  searchTerm: string;
+}
 
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
@@ -154,12 +175,16 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     () => list?.getCached(),
   );
   // A new query, such as a new search term, shows the last answer until its own lands.
-  const [last, setLast] = useState(current);
-  if (current != null && current !== last) setLast(current);
+  const [last, setLast] = useState<Answer<E> | undefined>(() =>
+    current == null ? undefined : { window: current, searchTerm: term },
+  );
+  if (current != null && current !== last?.window)
+    setLast({ window: current, searchTerm: term });
   const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
-  // A failed read shows no records from an earlier query.
-  const window =
-    list == null ? undefined : status.variant === "error" ? current : (current ?? last);
+  // Set only while a new query shows the last answer.
+  const shown = list == null || current != null ? undefined : last;
+  const window = current ?? shown?.window;
+  const searchTerm = window == null ? "" : (shown?.searchTerm ?? term);
   const reading = useRef<object | null>(null);
 
   const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
@@ -174,6 +199,9 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     }
     if (reading.current !== token) return;
     reading.current = null;
+    // A failed read drops the last answer, so neither the error nor a retry shows
+    // records from an earlier query.
+    if (next.variant === "error") setLast(undefined);
     setStatus(next);
   };
 
@@ -187,42 +215,58 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const more = () => {
     if (!started) return setStarted(true);
-    if (list == null || reading.current != null || current?.end == null) return;
+    if (list == null || reading.current != null) return;
+    // A failed first read leaves no window, so the first page reads again.
+    if (current == null) return void read(op, async () => await list.retrieve());
+    if (current.end == null) return;
     void read(`retrieve more ${name}`, async () => await list.more(pageSize));
   };
 
   const search = (next: string) => debouncedSearch(next);
 
   const records = window?.records;
+  // getItem keeps one identity for the life of the hook and reads these at call time,
+  // so a new window renders again only the readers whose records it changes.
+  const reads = useSyncedRef({
+    list,
+    shown: shown?.window,
+    retriever,
+    filter,
+    itemQuery,
+  });
   // A window keeps the records that a change leaves, so a reader renders again only for
-  // its own record. One list subscription makes every reader read again.
+  // its own record.
   const readers = useInitializerRef(() => new Set<() => void>());
   const membersByWindow = useInitializerRef(
     () => new WeakMap<query.Window<E, unknown>, Map<K, E>>(),
   );
+  const notifyReaders = () => readers.current.forEach((read) => read());
   useEffect(() => {
     if (list == null) return;
-    return list.onChange(() => readers.current.forEach((read) => read()));
+    return list.onChange(notifyReaders);
   }, [list]);
-  const membersOf = (shown?: query.Window<E, unknown>): Map<K, E> | undefined => {
-    if (shown == null) return undefined;
-    let members = membersByWindow.current.get(shown);
+  // Readers read the values of the last commit, so a new value makes them read again.
+  useLayoutEffect(notifyReaders, [list, shown, retriever, filter, itemQuery]);
+  const membersOf = (answer?: query.Window<E, unknown>): Map<K, E> | undefined => {
+    if (answer == null) return undefined;
+    let members = membersByWindow.current.get(answer);
     if (members == null) {
-      members = new Map(shown.records.map((r) => [r.key, r]));
-      membersByWindow.current.set(shown, members);
+      members = new Map(answer.records.map((r) => [r.key, r]));
+      membersByWindow.current.set(answer, members);
     }
     return members;
   };
-  const keep = (record: E | undefined): E | undefined =>
-    record == null || (filter != null && !filter(record)) ? undefined : record;
-  // Set only while a new query shows the last answer, so getItem keeps its identity.
-  const shown = window === current ? undefined : window;
   // A select with no value reads its zero key.
   const getOne = (key: K): E | undefined => {
-    const member = membersOf(shown ?? list?.getCached())?.get(key);
+    const latest = reads.current;
+    const keep = (record: E | undefined): E | undefined =>
+      record == null || (latest.filter != null && !latest.filter(record))
+        ? undefined
+        : record;
+    const member = membersOf(latest.shown ?? latest.list?.getCached())?.get(key);
     if (member != null) return keep(member);
-    if (retriever == null || primitive.isZero(key)) return undefined;
-    const cached = retriever.watch(itemQuery(key)).getCached();
+    if (latest.retriever == null || primitive.isZero(key)) return undefined;
+    const cached = latest.retriever.watch(latest.itemQuery(key)).getCached();
     return keep(query.isLive(cached) ? cached : undefined);
   };
   const getItem = ((keys: K | K[]) => {
@@ -259,6 +303,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     subscribe,
     more,
     search,
+    searchTerm,
   };
   if (client == null) return { ...nullClientResult<K[]>(op), ...rest };
   if (listQuery == null) return { ...noQueryResult<K[]>(op), ...rest };

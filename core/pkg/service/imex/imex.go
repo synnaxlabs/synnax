@@ -217,7 +217,7 @@ func (e Envelope) Decode[T any](ctx context.Context) (T, error) {
 				"one of the UnmarshalX methods before Decode",
 		)
 	}
-	if err := e.codec.Decode(ctx, e.raw, &t); err != nil {
+	if err := e.codec.Decode(e.raw, &t); err != nil {
 		var zero T
 		return zero, errors.Wrap(err, "decode envelope body")
 	}
@@ -394,8 +394,8 @@ type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from, possibly carrying
 	// directory segments. When the envelope body has no `name` field, the file's base
 	// name — with any trailing extension stripped — becomes the envelope's name. A
-	// `name` in the body always wins. The registry applies the fallback before the
-	// envelope reaches an Importer.
+	// `name` in the body always wins. Service.Import applies the fallback before the
+	// envelope reaches an Importer, and a Write ignores the field.
 	FileName string
 	// Parent is the resource to create the imported resource under, such as the project
 	// of a workspace item. The registry passes it through untouched; each Importer
@@ -406,16 +406,18 @@ type ImportOptions struct {
 	Group *group.Key
 }
 
+// Write persists a decoded envelope on tx, under opts.Parent and opts.Group when the
+// resource type uses them, and returns the ID of the created resource.
+type Write func(context.Context, gorp.Tx, ImportOptions) (resource.ID, error)
+
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
-	// Import validates and persists the given envelope on tx, returning the resource.ID
-	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
-	// by the time Import is called — the registry has already applied the file-name
-	// fallback — so importers should treat it as the resource's name rather than
-	// re-deriving one from the body. The importer attaches the resource under
-	// opts.Parent when one is given.
-	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (resource.ID, error)
+	// Decode validates env and migrates it to the current shape. It reads no stored
+	// data, so it needs no transaction. It returns the Write that persists the
+	// resource. The registry resolves the envelope's Name before Decode, so importers
+	// treat it as the resource's name rather than re-deriving one from the body.
+	Decode(context.Context, Envelope) (Write, error)
 	// Match reports whether the envelope body, decoded as a flat map, is this
 	// importer's resource. It routes envelopes carrying no `type` header: some legacy
 	// Console state files never carried one, so Service.ResolveType offers the body to

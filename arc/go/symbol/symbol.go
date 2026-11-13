@@ -123,7 +123,7 @@ const (
 	KindModule
 	// KindModuleAlias represents an import alias bound in a file's root. The
 	// Target field points at the underlying module symbol; member lookups on
-	// the alias indirect through Target.
+	// the alias indirect through Target. Target is nil when the import failed.
 	KindModuleAlias
 	// KindAmbient represents the prelude scope that sits as Parent of the
 	// program root. It holds STL bare globals (deprecated aliases,
@@ -288,6 +288,9 @@ func WithModules(r Resolver) RootOption {
 
 // ErrModuleNotFound is returned by a module resolver when no module has the path.
 var ErrModuleNotFound = errors.New("module not found")
+
+// ModuleResolver returns the resolver installed by WithModules, nil if none.
+func (s *Symbol) ModuleResolver() Resolver { return s.Root().moduleResolver }
 
 // ResolveModule returns the module at path, or ErrModuleNotFound.
 func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error) {
@@ -554,8 +557,8 @@ func (s *Symbol) Root() *Symbol {
 // an alias-prefixed form because the symbol tree itself has already
 // resolved aliases via Target indirection.
 func (s *Symbol) QualifiedName() string {
-	if s.Parent != nil && s.Parent.Kind == KindModule {
-		return s.Parent.Name + "." + s.Name
+	if p := s.Parent; p != nil && (p.Kind == KindModule || p.UserDefined) {
+		return p.Name + "." + s.Name
 	}
 	return s.Name
 }
@@ -618,6 +621,20 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export.
+func (s *Symbol) ResolveMember(
+	ctx context.Context,
+	head, tail string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
+	}
+	return sym.Resolve(ctx, tail)
+}
+
 // resolve does the actual lexical walk. origin is the scope the caller
 // invoked Resolve on; it is propagated unchanged through the parent walk
 // so that UndefinedSymbolError reports the original scope (where "did
@@ -642,7 +659,10 @@ func (s *Symbol) resolve(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	if s.Kind == KindModuleAlias && s.Target != nil {
+	if s.Kind == KindModuleAlias {
+		if s.Target == nil {
+			return nil, ErrImportFailed
+		}
 		return s.Target.resolveMember(ctx, name, opts)
 	}
 	if s.Kind == KindModule {
@@ -658,9 +678,11 @@ func (s *Symbol) resolveMember(
 	opts resolveOpts,
 ) (*Symbol, error) {
 	child := s.FindChild(name)
-	if child == nil || (!opts.includeInternal &&
-		(child.Internal || (s.UserDefined && !child.Exported))) {
+	if child == nil || (!opts.includeInternal && child.Internal) {
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if !opts.includeInternal && s.UserDefined && !child.Exported {
+		return nil, &notExportedError{Name: name, Module: s.Name}
 	}
 	return child, nil
 }

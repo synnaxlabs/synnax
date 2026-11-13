@@ -288,7 +288,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 subtraction",
@@ -298,7 +298,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 multiplication",
@@ -308,7 +308,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 division",
@@ -318,7 +318,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(4),
-			OpI32DivU,
+			OpI32DivU, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 modulo",
@@ -328,7 +328,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(17),
 			OpI32Const,
 			int32(5),
-			OpI32RemU,
+			OpI32RemU, OpI32Const, int32(255), OpI32And,
 		),
 		Entry(
 			"u8 equality",
@@ -399,7 +399,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 subtraction",
@@ -409,7 +409,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 multiplication",
@@ -419,7 +419,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 division",
@@ -429,7 +429,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(4),
-			OpI32DivU,
+			OpI32DivU, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 modulo",
@@ -439,7 +439,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(17),
 			OpI32Const,
 			int32(5),
-			OpI32RemU,
+			OpI32RemU, OpI32Const, int32(65535), OpI32And,
 		),
 		Entry(
 			"u16 equality",
@@ -703,7 +703,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 subtraction",
@@ -713,7 +713,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 multiplication",
@@ -723,7 +723,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 		),
 		Entry(
 			"i8 division",
@@ -734,6 +734,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpI32DivS,
+			OpI32Const,
+			int32(24),
+			OpI32Shl,
+			OpI32Const,
+			int32(24),
+			OpI32ShrS,
 		),
 		Entry(
 			"i8 modulo",
@@ -744,6 +750,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(5),
 			OpI32RemS,
+			OpI32Const,
+			int32(24),
+			OpI32Shl,
+			OpI32Const,
+			int32(24),
+			OpI32ShrS,
 		),
 		Entry(
 			"i8 equality",
@@ -814,7 +826,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(10),
 			OpI32Const,
 			int32(20),
-			OpI32Add,
+			OpI32Add, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 subtraction",
@@ -824,7 +836,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(20),
 			OpI32Const,
 			int32(10),
-			OpI32Sub,
+			OpI32Sub, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 multiplication",
@@ -834,7 +846,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(3),
 			OpI32Const,
 			int32(4),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 		),
 		Entry(
 			"i16 division",
@@ -845,6 +857,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpI32DivS,
+			OpI32Const,
+			int32(16),
+			OpI32Shl,
+			OpI32Const,
+			int32(16),
+			OpI32ShrS,
 		),
 		Entry(
 			"i16 modulo",
@@ -855,6 +873,12 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(5),
 			OpI32RemS,
+			OpI32Const,
+			int32(16),
+			OpI32Shl,
+			OpI32Const,
+			int32(16),
+			OpI32ShrS,
 		),
 		Entry(
 			"i16 equality",
@@ -1740,7 +1764,7 @@ var _ = Describe("Binary Operations", func() {
 				uint32(0),
 				OpI32Const,
 				int32(5),
-				OpI32Sub,
+				OpI32Sub, OpI32Const, int32(255), OpI32And,
 			),
 			Entry(
 				"u16 channel * u16 literal",
@@ -1758,7 +1782,7 @@ var _ = Describe("Binary Operations", func() {
 				uint32(0),
 				OpI32Const,
 				int32(3),
-				OpI32Mul,
+				OpI32Mul, OpI32Const, int32(65535), OpI32And,
 			),
 			Entry(
 				"complex: channel - literal + channel",

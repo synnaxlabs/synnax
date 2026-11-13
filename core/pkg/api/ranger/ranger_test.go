@@ -348,57 +348,6 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
-	It("Should rename the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
-	})
-})
-
-var _ = Describe("SetEnd", func() {
-	end := telem.TimeStamp(9 * telem.Second)
-	It("Should set the end of the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		))
-		Expect(retrieveRange(ctx, r.Key).TimeRange.End).To(Equal(end))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).TimeRange).To(Equal(r.TimeRange))
-	})
-})
-
 var _ = Describe("Create", func() {
 	It(
 		"Should stamp the dispatch key onto the create broadcast",
@@ -438,9 +387,7 @@ var _ = Describe("Create", func() {
 		Expect(rangeExists(ctx, r.Key)).To(BeFalse())
 	})
 
-	It("Should refuse to overwrite a range without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a range whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeRange,
@@ -450,7 +397,10 @@ var _ = Describe("Create", func() {
 		overwrite.Name = "Overwritten"
 		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
 			Ranges: []ranger.Range{overwrite},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("range %s already exists", stored.Key)),
+		))
 		Expect(retrieveRange(ctx, stored.Key).Name).To(Equal("Hot fire"))
 	})
 

@@ -1002,28 +1002,28 @@ Schematic struct {
         """
     }
 
-    action Set extends patch.Set {
+    action Set = patch.Set {
         @doc value """
             replaces the value at a path in the schematic's name or element configs.
             No-op when no node or edge has the config's key.
         """
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
             element configs. No-op when no node or edge has the config's key.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value """
             adds an entry to a list in the schematic's element configs. No-op when no
             node or edge has the config's key.
         """
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value """
             moves an entry in a list in the schematic's element configs. No-op when no
             node or edge has the config's key.
@@ -1155,8 +1155,11 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64 = 2 {
-        @doc value "is the number of decimal places shown."
+    precision       uint8?            {
+        @doc value    """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
+        @validate max 17
     }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."

@@ -12,6 +12,7 @@ package task_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -22,9 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -36,11 +40,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -100,6 +107,37 @@ func createTask(ctx SpecContext) task.Task {
 	return t
 }
 
+// createSecret creates a stored secret that an alert config can name as its routing
+// key.
+func createSecret(ctx SpecContext) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("rk"))
+	})).To(Succeed())
+	return s.Base().Key
+}
+
+// alertsNaming returns an alert task whose config names routingKey.
+func alertsNaming(routingKey secret.Key) task.Task {
+	return task.Task{
+		Type:   pagerduty.AlertTaskType,
+		Rack:   svc.Rack.EmbeddedKey,
+		Name:   "Alerts",
+		Config: msgpack.EncodedJSON{"routing_key": routingKey.String()},
+	}
+}
+
+// createAlerts creates an alert task whose config names a new secret.
+func createAlerts(ctx SpecContext) task.Task {
+	GinkgoHelper()
+	t := alertsNaming(createSecret(ctx))
+	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Task.NewWriter(tx).Create(ctx, &t)
+	})).To(Succeed())
+	return t
+}
+
 func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	GinkgoHelper()
 	var t task.Task
@@ -110,7 +148,16 @@ func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	return t
 }
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key task.Key, name string) apitask.DispatchRequest {
+		return apitask.DispatchRequest{
+			Key: key,
+			Actions: []task.Action{task.NewSetAction(task.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the task and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -123,35 +170,10 @@ var _ = Describe("Rename", func() {
 			t.ResourceID(),
 			statusOf(ctx, t),
 		)
-		MustSucceed(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-		))
+		MustSucceed(dispatch(AuthedCtx(ctx, u), renameTo(t.Key, "After")))
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
 		Expect(renamed.Config).To(Equal(t.Config))
-	})
-	It("Should reject an empty name", func(ctx SpecContext) {
-		u := createUser(ctx)
-		t := createTask(ctx)
-		grant(
-			ctx,
-			access.ActionUpdate,
-			u.ResourceID(),
-			t.ResourceID(),
-			statusOf(ctx, t),
-		)
-		Expect(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
-		)).Error().To(MatchError(ContainSubstring("name: required")))
-		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
-	})
-	It("Should return a not found error for a missing task", func(ctx SpecContext) {
-		u := createUser(ctx)
-		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
-		Expect(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
-		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	taskID := func(_ SpecContext, t task.Task) resource.ID { return t.ResourceID() }
 	DescribeTable(
@@ -164,9 +186,8 @@ var _ = Describe("Rename", func() {
 			u := createUser(ctx)
 			t := createTask(ctx)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, t))
-			Expect(rename(
-				AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, t)))
+			Expect(dispatch(AuthedCtx(ctx, u), renameTo(t.Key, "After"))).
+				Error().To(denied(u, access.ActionUpdate, refused(ctx, t)))
 			Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 		},
 		Entry("without update on the task", statusOf, taskID),
@@ -175,6 +196,17 @@ var _ = Describe("Rename", func() {
 })
 
 var _ = Describe("Dispatch", func() {
+	// routingKey is the key of the secret that holds the routing key of an alert
+	// config.
+	const routingKey = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
+	BeforeEach(func(ctx SpecContext) {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: uuid.MustParse(routingKey), Name: "Routing key"},
+		}}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("rk"))
+		})).To(Succeed())
+	})
 	createDraft := func(ctx SpecContext) task.Task {
 		GinkgoHelper()
 		t := task.Task{
@@ -189,15 +221,16 @@ var _ = Describe("Dispatch", func() {
 	}
 	setRoutingKey := []task.Action{task.NewSetAction(task.SetPayload{
 		Path:  []string{"config", "routing_key"},
-		Value: "rk-2",
+		Value: routingKey,
 	})}
+	routingKeyID := secret.ResourceID(uuid.MustParse(routingKey))
 	It("Should apply the actions and return the ones the Core added", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), t.ResourceID(), routingKeyID)
 		res := MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
@@ -207,7 +240,7 @@ var _ = Describe("Dispatch", func() {
 			},
 		))
 		stored := retrieveTask(ctx, t.Key)
-		Expect(stored.Config["routing_key"]).To(Equal("rk-2"))
+		Expect(stored.Config["routing_key"]).To(Equal(routingKey))
 		Expect(stored.ConfigHash).ToNot(Equal(t.ConfigHash))
 		Expect(res.Actions).To(Equal([]task.Action{task.NewSetAction(task.SetPayload{
 			Path:  []string{"config_hash"},
@@ -220,6 +253,7 @@ var _ = Describe("Dispatch", func() {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), routingKeyID)
 		res := MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
@@ -229,11 +263,12 @@ var _ = Describe("Dispatch", func() {
 			},
 		))
 		Expect(res.Actions).To(BeEmpty())
-		Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).To(Equal("rk-2"))
+		Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).To(Equal(routingKey))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), routingKeyID)
 		Expect(dispatch(
 			AuthedCtx(ctx, u),
 			apitask.DispatchRequest{
@@ -244,6 +279,43 @@ var _ = Describe("Dispatch", func() {
 		)).Error().To(denied(u, access.ActionUpdate, t.ResourceID()))
 		Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
 	})
+	It(
+		"Should refuse a config that names a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createDraft(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+			Expect(dispatch(
+				AuthedCtx(ctx, u),
+				apitask.DispatchRequest{
+					Key:         t.Key,
+					DispatchKey: "dk",
+					Actions:     setRoutingKey,
+				},
+			)).Error().To(denied(u, access.ActionRetrieve, routingKeyID))
+			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
+		},
+	)
+	It(
+		"Should apply an edit that keeps a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			t := createAlerts(ctx)
+			grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+			MustSucceed(dispatch(
+				AuthedCtx(ctx, u),
+				apitask.DispatchRequest{
+					Key:         t.Key,
+					DispatchKey: "dk",
+					Actions: []task.Action{task.NewSetAction(task.SetPayload{
+						Path:  []string{"config", "auto_start"},
+						Value: true,
+					})},
+				},
+			))
+			Expect(retrieveTask(ctx, t.Key).Config["auto_start"]).To(BeTrue())
+		},
+	)
 	It("Should return the dispatch error", func(ctx SpecContext) {
 		u := createUser(ctx)
 		key := uuid.New()
@@ -315,6 +387,46 @@ var _ = Describe("Create", func() {
 		},
 		Entry("without create on the task", 0),
 		Entry("without update on its rack", 2),
+	)
+
+	It(
+		"Should refuse a config that names a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			routingKey := createSecret(ctx)
+			t := alertsNaming(routingKey)
+			t.Key = uuid.New()
+			grantAll(ctx, u, createNeeds(t)...)
+			Expect(create(AuthedCtx(ctx, u), apitask.CreateRequest{
+				Tasks: []task.Task{t},
+			})).Error().
+				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
+			Expect(svc.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, node.DB)).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should create a task whose config names a secret the subject can retrieve",
+		func(ctx SpecContext) {
+			u := createUser(ctx)
+			routingKey := createSecret(ctx)
+			t := alertsNaming(routingKey)
+			t.Key = uuid.New()
+			grantAll(ctx, u, createNeeds(t)...)
+			grant(
+				ctx,
+				access.ActionRetrieve,
+				u.ResourceID(),
+				secret.ResourceID(routingKey),
+			)
+			MustSucceed(create(AuthedCtx(ctx, u), apitask.CreateRequest{
+				Tasks: []task.Task{t},
+			}))
+			Expect(retrieveTask(ctx, t.Key).Config["routing_key"]).
+				To(Equal(routingKey.String()))
+		},
 	)
 })
 
@@ -607,12 +719,17 @@ var _ = Describe("Delete", func() {
 	) freighter.UnaryHandler[apitask.DeleteRequest, struct{}] {
 		GinkgoHelper()
 		s := MustSucceed(apitask.NewService(apitask.ServiceConfig{
-			DB:          node.DB,
-			Task:        svc.Task,
-			Status:      svc.Status,
-			RBAC:        svc.RBAC,
-			Framer:      svc.Framer,
-			StopTimeout: timeout,
+			DB:     node.DB,
+			Task:   svc.Task,
+			Status: svc.Status,
+			RBAC:   svc.RBAC,
+			Stopper: MustSucceed(task.NewStopper(task.StopperConfig{
+				DB:      node.DB,
+				Task:    svc.Task,
+				Status:  svc.Status,
+				Framer:  svc.Framer,
+				Timeout: timeout,
+			})),
 		}))
 		return bind.WritePrepared(binder, s.PrepareDelete, s.Delete)
 	}
@@ -888,4 +1005,144 @@ var _ = Describe("Copy", func() {
 		Entry("without retrieve on the task", 0),
 		Entry("without update on its rack", 3),
 	)
+
+	It(
+		"Should refuse to copy a config naming a secret the subject cannot retrieve",
+		func(ctx SpecContext) {
+			t = createAlerts(ctx)
+			grantAll(ctx, u, copyNeeds()...)
+			routingKey := uuid.MustParse(t.Config["routing_key"].(string))
+			Expect(copyAs(ctx)).Error().
+				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
+			Expect(countCopies(ctx)).To(BeZero())
+		},
+	)
+})
+
+var _ = Describe("Import", func() {
+	var (
+		u    user.User
+		name string
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		name = "Imported " + uuid.New().String()
+	})
+	grantTypes := func(ctx SpecContext, types ...resource.Type) {
+		GinkgoHelper()
+		for _, t := range types {
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{Type: t})
+		}
+	}
+	deniedOnType := func(action access.Action, t resource.Type) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("%s cannot %s %s:", u.ResourceID(), action, t)),
+		)
+	}
+	tasksNamed := func(ctx SpecContext, name string) int {
+		GinkgoHelper()
+		var tasks []task.Task
+		Expect(svc.Task.NewRetrieve().Entries(&tasks).Exec(ctx, node.DB)).To(Succeed())
+		return len(
+			lo.Filter(tasks, func(t task.Task, _ int) bool { return t.Name == name }),
+		)
+	}
+	secretsNamed := func(ctx SpecContext, name string) int {
+		GinkgoHelper()
+		var secrets []secret.Secret
+		Expect(svc.Secret.NewRetrieve().Entries(&secrets).Exec(ctx, node.DB)).
+			To(Succeed())
+		return len(lo.Filter(secrets, func(s secret.Secret, _ int) bool {
+			return s.Base().Name == name
+		}))
+	}
+
+	Describe("File", func() {
+		importLegacy := func(ctx SpecContext) (apiimex.ImportResponse, error) {
+			GinkgoHelper()
+			var env apiimex.ImportRequest
+			Expect(json.Unmarshal(fmt.Appendf(nil,
+				`{"type":%q,"name":%q,"routingKey":"rk-legacy","autoStart":false,`+
+					`"alerts":[]}`,
+				pagerduty.AlertTaskType,
+				name,
+			), &env)).To(Succeed())
+			fctx := AuthedCtx(ctx, u)
+			fctx.Set("params", `{"file_name":"Legacy.json"}`)
+			return importFile(fctx, env)
+		}
+		It("Should move the plain key of a legacy alert file into a new secret", func(
+			ctx SpecContext,
+		) {
+			grantTypes(ctx, resource.TypeTask, resource.TypeStatus, resource.TypeSecret)
+			MustSucceed(importLegacy(ctx))
+			Expect(tasksNamed(ctx, name)).To(Equal(1))
+			Expect(secretsNamed(ctx, name+" routing key")).To(Equal(1))
+		})
+		It("Should refuse a legacy alert file without create on secrets", func(
+			ctx SpecContext,
+		) {
+			grantTypes(ctx, resource.TypeTask, resource.TypeStatus)
+			Expect(importLegacy(ctx)).Error().
+				To(deniedOnType(access.ActionCreate, resource.TypeSecret))
+			Expect(tasksNamed(ctx, name)).To(BeZero())
+			Expect(secretsNamed(ctx, name+" routing key")).To(BeZero())
+		})
+	})
+
+	Describe("Project", func() {
+		importProject := func(
+			ctx SpecContext,
+			routingKey secret.Key,
+		) (apiproject.ImportResponse, error) {
+			fctx := AuthedCtx(ctx, u)
+			fctx.Set("params", `{"file_name":"Alerts.zip"}`)
+			return importBundle(fctx, zip.Files{
+				"manifest.json": fmt.Appendf(nil,
+					`{"version":1,"type":"project","name":%q}`, name,
+				),
+				"Alerts.json": fmt.Appendf(nil,
+					`{"version":2,"type":%q,"name":%q,"routing_key":%q,`+
+						`"auto_start":false,"alerts":[]}`,
+					pagerduty.AlertTaskType,
+					name,
+					routingKey,
+				),
+			})
+		}
+		It("Should import a task that names a secret the subject can retrieve", func(
+			ctx SpecContext,
+		) {
+			routingKey := createSecret(ctx)
+			grantTypes(
+				ctx,
+				resource.TypeProject,
+				resource.TypeTask,
+				resource.TypeStatus,
+			)
+			grant(
+				ctx,
+				access.ActionRetrieve,
+				u.ResourceID(),
+				secret.ResourceID(routingKey),
+			)
+			MustSucceed(importProject(ctx, routingKey))
+			Expect(tasksNamed(ctx, name)).To(Equal(1))
+		})
+		It("Should refuse a task that names a secret the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			routingKey := createSecret(ctx)
+			grantTypes(
+				ctx,
+				resource.TypeProject,
+				resource.TypeTask,
+				resource.TypeStatus,
+			)
+			Expect(importProject(ctx, routingKey)).Error().
+				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
+			Expect(tasksNamed(ctx, name)).To(BeZero())
+		})
+	})
 })

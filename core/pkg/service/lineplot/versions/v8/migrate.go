@@ -72,8 +72,9 @@ func ReconcileLines(plot Key, channels Channels, existing []Line) []Line {
 			kept.Add(id)
 			l, ok := byIdentity[id]
 			if !ok {
-				l = Line{YAxis: yAxis, YChannel: yChannel, XChannel: channels.X1}
-				l.ApplyDefaults()
+				l = Line{}
+				l.SetDefaults()
+				l.YAxis, l.YChannel, l.XChannel = yAxis, yChannel, channels.X1
 			}
 			l.Key = LineKey(plot, yAxis, yChannel, channels.X1)
 			lines = append(lines, l)
@@ -268,14 +269,14 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Li
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project of each stored line plot from the ontology edge that
-// owned it, and deletes each line plot with no owner.
+// OwnersMigration sets the project or range of each stored line plot from the ontology
+// edge that owned it, and deletes each line plot with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, LinePlot]{
 		Name:     "v61_lineplot_owner",
 		Type:     resource.TypeLineplot,
-		Owned:    func(e LinePlot) bool { return e.Project != nil },
+		Owned:    func(e LinePlot) bool { return e.Project != nil || e.Range != nil },
 		NameOf:   func(e LinePlot) string { return e.Name },
-		SetOwner: func(e *LinePlot, p uuid.UUID) { e.Project = &p },
+		SetOwner: func(e *LinePlot, p, r *uuid.UUID) { e.Project, e.Range = p, r },
 	},
 )

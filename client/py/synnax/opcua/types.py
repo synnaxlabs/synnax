@@ -128,7 +128,10 @@ class ReadTask(
                     {"node_id": ch.node_id, "field": ch.field, "channel": ch.channel}
                 )
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -179,7 +182,10 @@ class WriteTask(
             if ch.node_id:
                 channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 MAKE = "opc"

@@ -28,9 +28,10 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_
+from synnax import device as device_, exceptions, framer, rack as rack_
 from synnax.resource import ID
-from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
+from synnax.status import VARIANT_ERROR, VARIANT_LOADING
+from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -47,6 +48,7 @@ from synnax.task.types_gen import (
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 from x.timing import Timer
 
 # synnax.arc imports synnax.task at load time.
@@ -61,9 +63,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -183,6 +186,7 @@ class Task:
         """
         return None
 
+    @deprecate_positional("args")
     def execute_command(
         self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
@@ -205,6 +209,7 @@ class Task:
         w.close()
         return cmd.key
 
+    @deprecate_positional("args", "timeout")
     def execute_command_sync(
         self,
         type_: str,
@@ -267,6 +272,15 @@ class Task:
                             timer = Timer()
 
 
+def _config_devices(config: Mapping[str, Any]) -> list[str]:
+    """Returns the keys of the devices that a config or its channels name."""
+    channels = config.get("channels")
+    named = [config.get("device")]
+    if isinstance(channels, list):
+        named.extend(ch.get("device") for ch in channels if isinstance(ch, dict))
+    return list(dict.fromkeys(d for d in named if isinstance(d, str) and d))
+
+
 def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
     """Raises a status of the rack as an error when it reports that the Driver of the
     rack is down. A down Driver never replies, so the status ends the wait.
@@ -275,9 +289,9 @@ def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
         rack_status = rack_.Status.model_validate(sample)
     except ValidationError:
         return
-    # Only the Core writes warnings to rack statuses, when it stops hearing from the
-    # Driver.
-    if rack_status.owner != rack_id or rack_status.variant != VARIANT_WARNING:
+    if rack_status.owner != rack_id or (
+        rack_status.details is not None and rack_status.details.running
+    ):
         return
     raise _status_error(rack_status.message, rack_status.description)
 
@@ -321,6 +335,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
+    @deprecate_positional("timeout")
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the driver sends the final status of the
         start.
@@ -335,6 +350,7 @@ class StarterStopperMixin:
         """
         _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
+    @deprecate_positional("timeout")
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the driver sends the final status of the
         stop.
@@ -350,6 +366,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
 
+    @deprecate_positional("timeout")
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
@@ -469,6 +486,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
+    @deprecate_positional("rack")
     def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
@@ -481,23 +499,42 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task with no rack goes on the rack
-        of the device that its config names, or on the embedded rack when it names no
-        device.
+        to the driver on the next start command. A task that names devices, in its
+        config or its channels, goes on their rack, whatever rack it holds. A task
+        that names no device goes on its rack, or on the embedded rack when it has
+        none. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
+        :raises ValidationError: If the devices are on different racks, or if the task
+            exists and the config has a field that its type does not declare.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
-        device = pld.config.get("device")
-        if pld.rack == 0 and isinstance(device, str) and device:
-            pld.rack = self._device_client.retrieve(key=device).rack
+        stored = self.retrieve(keys=[pld.key])
+        if devices := _config_devices(pld.config):
+            racks = {self._device_client.retrieve(key=d).rack for d in devices}
+            if len(racks) > 1:
+                raise exceptions.ValidationError(
+                    f"The devices {devices} of task {pld.name} must be on one rack, "
+                    f"but they are on the racks {sorted(racks)}"
+                )
+            pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
-        req = _CreateRequest(tasks=[pld])
-        tasks = self._exec_create(req)
-        task.set_internal(self.sugar(tasks)[0])
+        if not stored:
+            created = self._exec_create(_CreateRequest(tasks=[pld]))
+            task.set_internal(self.sugar(created)[0])
+            return task
+        actions: list[actions_gen.Action] = [
+            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        ]
+        req = _DispatchRequest(key=pld.key, actions=actions)
+        self._client.send("/task/dispatch", req, Empty)
+        task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
@@ -511,7 +548,9 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/task/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...

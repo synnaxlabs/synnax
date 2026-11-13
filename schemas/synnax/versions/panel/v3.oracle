@@ -10,6 +10,7 @@
 import "schemas/synnax/resource"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
 import "schemas/x/versions/color/v1"
 
 TabKey = v0.TabKey
@@ -30,6 +31,15 @@ Panel struct extends v2.Panel {
         @doc value "is the group the panel sits in, if any."
     }
     project project.Key? {
-        @doc value "is the project that owns the panel."
+        @doc value """
+            is the project that owns the panel, if any. Exactly one of project and range
+            is set.
+        """
+    }
+    range   ranger.Key?  {
+        @doc value """
+            is the range that owns the panel, if any. Exactly one of project and range
+            is set.
+        """
     }
 }

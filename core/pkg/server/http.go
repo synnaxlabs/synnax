@@ -88,17 +88,15 @@ func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 	b.internal.Use(pprof.New())
 }
 
-var baseFiberConfig = fiber.Config{
-	ReadBufferSize:  int(100 * telem.Kilobyte),
-	WriteBufferSize: int(64 * telem.Kilobyte),
-	ReadTimeout:     5 * time.Second,
-	// Defaults to ReadTimeout. A client that reuses a keep-alive connection as the Core
-	// closes it for idleness loses the request, so this must outlast the 30s
-	// connectivity poll that keeps a client's connection warm.
-	IdleTimeout: 2 * time.Minute,
-}
-
 func (*SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
-	baseFiberConfig.AppName = ctx.ServerName
-	return baseFiberConfig
+	return fiber.Config{
+		AppName:         ctx.ServerName,
+		ReadBufferSize:  int(100 * telem.Kilobyte),
+		WriteBufferSize: int(64 * telem.Kilobyte),
+		ReadTimeout:     5 * time.Second,
+		// Defaults to ReadTimeout. A client that reuses a keep-alive connection as the
+		// Core closes it for idleness loses the request, so this must outlast the 30s
+		// connectivity poll that keeps a client's connection warm.
+		IdleTimeout: 2 * time.Minute,
+	}
 }

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
@@ -1129,7 +1130,7 @@ sensor_chan -> demux() -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to top-level variable 'some_var'"))
+					).To(Equal("cannot reassign top-level variable 'some_var'"))
 				},
 			)
 
@@ -1175,7 +1176,7 @@ sequence main {
 						{
 							Name: "out_chan",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
@@ -3403,7 +3404,7 @@ sequence main {
 	Describe("Numeric transition deprecation", func() {
 		DescribeTable(
 			"warns when a numeric condition feeds =>",
-			func(bCtx SpecContext, source string, warningCount int) {
+			func(bCtx SpecContext, source string, fixes ...string) {
 				customResolver := StaticResolver{
 					{
 						Name: "u8_gate",
@@ -3421,21 +3422,50 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				warnings := testutil.Warnings(ctx.Diagnostics)
-				Expect(warnings).To(HaveLen(warningCount))
-				for _, w := range warnings {
+				Expect(warnings).To(HaveLen(len(fixes)))
+				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"numeric conditions are deprecated; use an explicit " +
+						"non-boolean conditions are deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
+					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(Equal([]protocol.TextEdit{
+						{Range: w.Range, NewText: fixes[i]},
+					}))
 				}
 			},
+			Entry(
+				"nonzero literal gate",
+				`sequence main {
+					stage first { 1 => next }
+					stage second {}
+				}`,
+				"true",
+			),
+			Entry(
+				"string literal gate",
+				`sequence main {
+					stage first { "hello" => next }
+					stage second {}
+				}`,
+				"true",
+			),
+			Entry(
+				"zero literal gate",
+				`sequence main {
+					stage first { 0 => next }
+					stage second {}
+				}`,
+				"false",
+			),
 			Entry(
 				"numeric channel gate",
 				`sequence main {
 					stage first { u8_gate => next }
 					stage second {}
 				}`,
-				1,
+				"u8_gate != 0",
 			),
 			Entry(
 				"bool channel gate",
@@ -3443,7 +3473,6 @@ sequence main {
 					stage first { bool_gate => next }
 					stage second {}
 				}`,
-				0,
 			),
 			Entry(
 				"comparison gate",
@@ -3451,13 +3480,12 @@ sequence main {
 					stage first { u8_gate > 1 => next }
 					stage second {}
 				}`,
-				0,
 			),
 			Entry(
 				"numeric top-level entry",
 				`u8_gate => main
 				sequence main { stage first {} }`,
-				1,
+				"u8_gate != 0",
 			),
 			Entry(
 				"numeric expression in a routing entry",
@@ -3473,7 +3501,7 @@ sequence main {
 					}
 					stage second {}
 				}`,
-				1,
+				"u8_gate * 2 != 0",
 			),
 		)
 	})
@@ -3955,6 +3983,14 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			substrings: []string{
 				"flag value type bool",
 				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("channel into a channel alias", mismatchCase{
+			source: "sequence main {\n    vlv := num_u8\n    num_f64 -> vlv\n}",
+			line:   2,
+			substrings: []string{
+				"num_f64 value type f64",
+				"does not match channel vlv value type u8",
 			},
 		}),
 		Entry("qualified func output into a bool channel", mismatchCase{

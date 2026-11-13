@@ -10,12 +10,12 @@
 package schematic
 
 import (
-	"context"
 	"encoding/json/v2"
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -199,7 +199,7 @@ func (p *SetNodePayload) UnmarshalJSON(data []byte) error {
 // UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
 func (p *SetNodePayload) UnmarshalMsgpack(data []byte) error {
 	var raw rawSetNodePayload
-	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+	if err := msgpack.Codec.Decode(data, &raw); err != nil {
 		return err
 	}
 	return p.fromRaw(raw)
@@ -210,7 +210,7 @@ func (p *SetNodePayload) fromRaw(raw rawSetNodePayload) error {
 	if raw.Config == nil {
 		return nil
 	}
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := decodeConfig(raw.Config)
 	if err != nil {
 		return err
 	}
@@ -231,14 +231,14 @@ func (p *SetConfigPayload) UnmarshalJSON(data []byte) error {
 // UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
 func (p *SetConfigPayload) UnmarshalMsgpack(data []byte) error {
 	var raw rawSetConfigPayload
-	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+	if err := msgpack.Codec.Decode(data, &raw); err != nil {
 		return err
 	}
 	return p.fromRaw(raw)
 }
 
 func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := decodeConfig(raw.Config)
 	if err != nil {
 		return err
 	}
@@ -246,22 +246,40 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 	return nil
 }
 
-// Handle applies the set to the schematic's name or element configs.
+func decodeConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	var cfg ElementConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	return cfg, nil
+}
+
+// Handle applies the set to the schematic's name, group, project, or element configs.
 func (p SetPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Set(p))
 }
 
-// Handle applies the remove to the schematic's name or element configs.
+// Handle applies the remove to the schematic's name, group, project, or element
+// configs.
 func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, append(slices.Clone(p.Path), p.Key), patch.Remove(p))
 }
 
-// Handle applies the insert to the schematic's name or element configs.
+// Handle applies the insert to the schematic's name, group, project, or element
+// configs.
 func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Insert(p))
 }
 
-// Handle applies the move to the schematic's name or element configs.
+// Handle applies the move to the schematic's name, group, project, or element configs.
 func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return edit(state, p.Path, patch.Move(p))
 }
@@ -269,20 +287,25 @@ func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 // document is the part of a schematic, outside its element configs, that path actions
 // edit.
 type document struct {
-	Name string `json:"name"`
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
 }
 
-// edit applies a path action to the schematic's name or to the element config that its
-// path names. An action on the config of a node or edge that does not exist does
-// nothing. A config that names no variant or fails its schema is rejected, as is a path
-// to another field, such as the group.
+// edit applies a path action to the schematic's name, group, or project, or to the
+// element config that its path names. An action on the config of a node or edge that
+// does not exist does nothing. A config that names no variant or fails its schema is
+// rejected, as is a path to another field.
 func edit(state Schematic, path []string, a patch.Action) (Schematic, error) {
 	if patch.Field(a) != configsField {
-		d, err := patch.Edit(document{Name: state.Name}, a.Apply)
+		d, err := patch.Edit(
+			document{Name: state.Name, Group: state.Group, Project: state.Project},
+			a.Apply,
+		)
 		if err != nil {
 			return Schematic{}, err
 		}
-		state.Name = d.Name
+		state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 		return state, nil
 	}
 	if len(path) > 1 && !hasElement(state, path[1]) {
@@ -295,6 +318,10 @@ func edit(state Schematic, path []string, a patch.Action) (Schematic, error) {
 	state.Configs = configs
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 func checkConfig(key string, cfg ElementConfig) error {
 	if cfg.Variant == nil {

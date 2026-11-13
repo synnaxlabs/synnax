@@ -60,16 +60,13 @@ const GROUPS: Group[] = [
                 values: { desktop: "Automatic", enterprise: "Your team" },
             },
             {
-                name: "Metadata backup before an update",
-                values: { desktop: "Automatic", enterprise: "Your team" },
-            },
-            {
                 name: "Updates",
                 values: {
                     desktop: "In the app, for all parts",
                     enterprise: "Console in the app, the rest by your team",
                 },
             },
+            { name: "Metadata backup before an update", values: BOTH },
         ],
     },
     {
@@ -99,6 +96,7 @@ const GROUPS: Group[] = [
             },
             { name: "Driver on the same computer", values: BOTH },
             { name: "EtherCAT, Modbus, OPC UA, and HTTP", values: BOTH },
+            { name: "MQTT and Kafka", values: BOTH },
             { name: "Devices and tasks", values: BOTH },
         ],
     },
@@ -118,7 +116,10 @@ const GROUPS: Group[] = [
         capabilities: [
             {
                 name: "Channels",
-                values: { desktop: "Up to 50", enterprise: "Set by your license" },
+                values: {
+                    desktop: "Up to 50, not counting virtual and calculated channels",
+                    enterprise: "Set by your license",
+                },
             },
             { name: "Calculated channels", values: BOTH },
             { name: "Ranges", values: BOTH },

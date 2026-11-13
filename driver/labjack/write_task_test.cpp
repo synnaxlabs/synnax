@@ -46,7 +46,7 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
         auto dev = synnax::device::Device{
-            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("labjack"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",

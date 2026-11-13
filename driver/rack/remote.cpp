@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <tuple>
 
 #include "absl/log/log.h"
 
@@ -31,6 +32,40 @@ parse_cluster_key(const synnax::connection::State &state) {
     if (state.status != synnax::connection::Status::CONNECTED)
         return {x::uuid::UUID(), state.error};
     return x::uuid::UUID::parse(state.cluster_key);
+}
+
+/// @brief returns the key of the rack that the subject names, and false when the
+/// subject is not a rack.
+std::pair<synnax::rack::Key, bool>
+parse_rack_key(const synnax::auth::Subject &subject) {
+    synnax::rack::Key key = 0;
+    const auto *end = subject.key.data() + subject.key.size();
+    if (subject.type != RACK_SUBJECT_TYPE ||
+        std::from_chars(subject.key.data(), end, key).ptr != end)
+        return {0, false};
+    return {key, true};
+}
+
+/// @brief returns the rack that the API key logs in as and the cluster key of the Core
+/// of conn. The rack key is 0 when the Core rejects the key or the key logs in as
+/// another subject.
+std::pair<RemoteInfo, x::errors::Error>
+retrieve_key_rack(synnax::Config conn, const std::string &api_key) {
+    conn.api_key = api_key;
+    conn.username.clear();
+    conn.password.clear();
+    const auto client = synnax::Synnax(conn);
+    if (const auto err = client.auth->authenticate()) {
+        if (err.matches(synnax::auth::ERR_INVALID_CREDENTIALS))
+            return {RemoteInfo{}, x::errors::NIL};
+        return {RemoteInfo{}, err};
+    }
+    const auto [rack_key, is_rack] = parse_rack_key(
+        client.auth->current_session().subject
+    );
+    if (!is_rack) return {RemoteInfo{}, x::errors::NIL};
+    const auto [cluster_key, err] = parse_cluster_key(client.connectivity->check());
+    return {RemoteInfo{.rack_key = rack_key, .cluster_key = cluster_key}, err};
 }
 
 std::pair<synnax::rack::Rack, x::errors::Error>
@@ -90,6 +125,31 @@ x::errors::Error Config::enroll() {
     return x::errors::NIL;
 }
 
+std::pair<Config, x::errors::Error>
+Config::login(x::args::Parser &args, const synnax::Config &conn) {
+    Config cfg;
+    if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
+    const auto &saved = cfg.connection;
+    if (!saved.api_key.empty()) {
+        // Only the Core that issued the saved key may receive it, and never in
+        // plaintext when the key was saved with TLS.
+        if (saved.host == conn.host && saved.port == conn.port &&
+            (conn.secure || !saved.secure)) {
+            const auto [info, err] = retrieve_key_rack(conn, saved.api_key);
+            if (err) return {cfg, err};
+            if (info.rack_key != 0) cfg.remote_info = info;
+        } else
+            LOG(WARNING) << "the saved API key is for " << saved.address()
+                         << (saved.secure ? " with TLS" : "")
+                         << ", so login does not send it to " << conn.address()
+                         << " and does not keep the rack of that key";
+    }
+    cfg.connection = conn;
+    if (auto err = cfg.enroll()) return {cfg, err};
+    if (auto err = save_api_key(args, cfg.connection)) return {cfg, err};
+    return {cfg, save_remote_info(args, cfg.remote_info)};
+}
+
 x::errors::Error Config::load_remote() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
@@ -98,10 +158,10 @@ x::errors::Error Config::load_remote() {
     if (key_err) return key_err;
     const auto subject = client.auth->current_session().subject;
     synnax::rack::Key rack_key = this->remote_info.rack_key;
-    const auto *end = subject.key.data() + subject.key.size();
-    if (!this->connection.api_key.empty() &&
-        (subject.type != RACK_SUBJECT_TYPE ||
-         std::from_chars(subject.key.data(), end, rack_key).ptr != end))
+    bool is_rack = true;
+    if (!this->connection.api_key.empty())
+        std::tie(rack_key, is_rack) = parse_rack_key(subject);
+    if (!is_rack)
         return x::errors::Error(
             x::errors::VALIDATION,
             "the API key logs in as " + subject.type + " " + subject.key +
@@ -123,6 +183,14 @@ x::errors::Error Config::load_remote() {
     for (const auto &i: this->integrations)
         if (std::ranges::find(built, i) != built.end())
             this->rack.integrations.push_back(i);
-    return client.racks.create(this->rack);
+    return client.racks.dispatch(
+        this->rack.key,
+        {
+            synnax::rack::set({.path = {"version"}, .value = SYNNAX_DRIVER_VERSION}),
+            synnax::rack::set(
+                {.path = {"integrations"}, .value = this->rack.integrations}
+            ),
+        }
+    );
 }
 }

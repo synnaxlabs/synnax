@@ -24,6 +24,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -162,8 +163,8 @@ func retrieveStatusTx(
 	key rack.Key,
 ) (rack.Status, error) {
 	var s rack.Status
-	if err := stat.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](key.ResourceID())).
+	if err := stat.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 		Entry(&s).
 		Exec(ctx, tx); err != nil {
 		return rack.Status{}, err
@@ -217,9 +218,9 @@ var _ = Describe("Rack", Ordered, func() {
 		codec := msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
 			func(ctx SpecContext, value any, expected rack.Key) {
-				data := MustSucceed(codec.Encode(ctx, value))
+				data := MustSucceed(codec.Encode(value))
 				var k rack.Key
-				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
+				Expect(codec.Decode(data, &k)).To(Succeed())
 				Expect(k).To(Equal(expected))
 			},
 			Entry("string", "65537", rack.Key(65537)),
@@ -243,9 +244,9 @@ var _ = Describe("Rack", Ordered, func() {
 				original := statusDetailsWithFloat{
 					Rack: float64(65537),
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded details
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
 		)
@@ -258,9 +259,9 @@ var _ = Describe("Rack", Ordered, func() {
 				original := statusDetailsWithString{
 					Rack: "65537",
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded details
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
 		)
@@ -284,6 +285,22 @@ var _ = Describe("Rack", Ordered, func() {
 				writer.Create(ctx, r),
 			).Error().
 				To(MatchError(ContainSubstring("name")))
+		})
+		It("Should refuse a rack whose key exists", func(ctx SpecContext) {
+			r := rack.Rack{Name: "original", Integrations: []string{"ni"}}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			again := rack.Rack{Key: r.Key, Name: "again"}
+			Expect(writer.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rack %s already exists", r.Key)),
+			))
+			var res rack.Rack
+			Expect(svc.NewRetrieve().
+				Where(rack.MatchKeys(r.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("original"))
+			Expect(res.Integrations).To(Equal([]string{"ni"}))
 		})
 	})
 	Describe("CreateMany", func() {
@@ -726,20 +743,6 @@ var _ = Describe("Rack", Ordered, func() {
 			).To(Succeed())
 			Expect(res.Integrations).To(ConsistOf([]string{"ni", "opc", "arc"}))
 		})
-		It("Should update integrations on upsert", func(ctx SpecContext) {
-			r := &rack.Rack{Name: "upsert-integ-rack", Integrations: []string{"ni"}}
-			Expect(writer.Create(ctx, r)).To(Succeed())
-			r.Integrations = []string{"opc", "modbus"}
-			Expect(writer.Create(ctx, r)).To(Succeed())
-			var res rack.Rack
-			Expect(
-				svc.NewRetrieve().
-					Where(rack.MatchKeys(r.Key)).
-					Entry(&res).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res.Integrations).To(ConsistOf([]string{"opc", "modbus"}))
-		})
 	})
 	Describe("Rename", func() {
 		It(
@@ -760,6 +763,8 @@ var _ = Describe("Rack", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				expected := before
 				expected.Name = "Renamed Embedded"
+				// A path action stores a rack with no integrations as an empty list.
+				expected.Integrations = []string{}
 				Expect(after).To(Equal(expected))
 				Expect(after.Embedded).To(BeTrue())
 				renamed := MustSucceed(retrieveStatusTx(ctx, stat, tx, svc.EmbeddedKey))
@@ -930,12 +935,15 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It(
-			"Should apply edit to the embedded rack before saving it",
+			"Should apply the actions to a new embedded rack before saving it",
 			func(ctx SpecContext) {
 				r := MustSucceed(svc.RetrieveOrCreateEmbedded(
 					ctx,
 					"edited embedded",
-					func(r *rack.Rack) { r.Integrations = []string{"arc"} },
+					rack.NewSetAction(rack.SetPayload{
+						Path:  []string{"integrations"},
+						Value: []string{"arc"},
+					}),
 				))
 				var res rack.Rack
 				Expect(svc.NewRetrieve().
@@ -948,12 +956,39 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It(
+			"Should apply the actions to an existing embedded rack",
+			func(ctx SpecContext) {
+				rec := &Recorder[rack.Key, rack.Action]{}
+				DeferCleanup(svc.Actions().OnChange(rec.Record))
+				created := MustSucceed(
+					svc.RetrieveOrCreateEmbedded(ctx, "kept embedded"),
+				)
+				set := rack.NewSetAction(rack.SetPayload{
+					Path:  []string{"integrations"},
+					Value: []string{"arc"},
+				})
+				r := MustSucceed(
+					svc.RetrieveOrCreateEmbedded(ctx, "kept embedded", set),
+				)
+				Expect(r.Key).To(Equal(created.Key))
+				Expect(r.Integrations).To(Equal([]string{"arc"}))
+				frames := rec.Snapshot()
+				Expect(frames).To(HaveLen(2))
+				Expect(frames[0].Actions).To(Equal([]rack.Action{
+					rack.NewCreateAction(rack.CreatePayload{Rack: created}),
+				}))
+				Expect(frames[1].Actions).To(Equal([]rack.Action{set}))
+			},
+		)
+		It(
 			"Should return a zero rack when the embedded rack fails to save",
 			func(ctx SpecContext) {
 				r, err := svc.RetrieveOrCreateEmbedded(
 					ctx,
 					"invalid embedded",
-					func(r *rack.Rack) { r.Name = "" },
+					rack.NewSetAction(
+						rack.SetPayload{Path: []string{"name"}, Value: ""},
+					),
 				)
 				Expect(err).To(MatchError(ContainSubstring("name: required")))
 				Expect(r).To(Equal(rack.Rack{}))
@@ -1040,7 +1075,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		It(
-			"Should restore a missing status row when the rack is re-configured",
+			"Should restore a missing status when the rack is renamed",
 			func(ctx SpecContext) {
 				openTx()
 				r := rack.Rack{Name: "heal rack"}
@@ -1052,67 +1087,10 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).Error().
 					To(MatchError(query.ErrNotFound))
 
-				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
-				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+				Expect(writer.Rename(ctx, r.Key, "healed rack")).To(Succeed())
 
 				healed := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
 				Expect(healed.Owner).To(HaveValue(Equal(r.ResourceID())))
-			},
-		)
-
-		It(
-			"Should not clobber a live status row on a no-op re-configure",
-			func(ctx SpecContext) {
-				openTx()
-				r := rack.Rack{
-					Name: "live status rack",
-					Status: &rack.Status{
-						Variant: status.VariantSuccess,
-						Message: "Rack is connected",
-						Time:    telem.Now(),
-					},
-				}
-				Expect(writer.Create(ctx, &r)).To(Succeed())
-
-				reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
-				Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
-
-				preserved := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
-				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-				Expect(preserved.Message).To(Equal("Rack is connected"))
-			},
-		)
-
-		It(
-			"Should change only the status name when create renames a rack",
-			func(ctx SpecContext) {
-				openTx()
-				r := rack.Rack{
-					Name: "old name",
-					Status: &rack.Status{
-						Variant:     status.VariantSuccess,
-						Message:     "Rack is connected",
-						Description: "All integrations are running",
-						Time:        telem.SecondTS,
-					},
-				}
-				Expect(writer.Create(ctx, &r)).To(Succeed())
-				retrieve := func() rack.Status {
-					GinkgoHelper()
-					var s rack.Status
-					Expect(stat.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](r.ResourceID())).
-						Entry(&s).
-						Exec(ctx, tx)).To(Succeed())
-					return s
-				}
-				expected := retrieve()
-				expected.Name = "new name"
-
-				renamed := rack.Rack{Key: r.Key, Name: "new name"}
-				Expect(writer.Create(ctx, &renamed)).To(Succeed())
-
-				Expect(retrieve()).To(Equal(expected))
 			},
 		)
 
@@ -1132,6 +1110,7 @@ var _ = Describe("Rack", Ordered, func() {
 				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
 				live.Variant = status.VariantSuccess
 				live.Message = "Rack is connected"
+				live.Details = rack.StatusDetails{Running: true}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
 				expected := live
 				expected.Name = "connected rack"
@@ -1143,7 +1122,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		It(
-			"Should not write the status on a create that keeps the rack name",
+			"Should not write the status on an apply that keeps the rack name",
 			func(ctx SpecContext) {
 				frozenNow.Store(int64(telem.Now()))
 				r := rack.Rack{Name: "unchanged rack"}
@@ -1162,10 +1141,14 @@ var _ = Describe("Rack", Ordered, func() {
 					}
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &rack.Rack{
-						Key:  r.Key,
-						Name: r.Name,
-					})
+					return svc.NewWriter(tx).Apply(
+						ctx,
+						r.Key,
+						rack.NewSetAction(rack.SetPayload{
+							Path:  []string{"integrations"},
+							Value: []string{"ni"},
+						}),
+					)
 				})).To(Succeed())
 				Consistently(
 					writes.Load,
@@ -1219,6 +1202,7 @@ var _ = Describe("Rack", Ordered, func() {
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
+						Details: rack.StatusDetails{Running: true},
 					})
 				})).To(Succeed())
 
@@ -1231,10 +1215,10 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
-		It(
-			"Should not mark a rack as dead when the Driver reports an error",
-			func(ctx SpecContext) {
-				const name = "error heartbeat rack"
+		DescribeTable(
+			"Should count a rack status as a heartbeat only when the Driver is running",
+			func(ctx SpecContext, variant status.Variant, running bool) {
+				name := CurrentSpecReport().LeafNodeText
 				var writes, alerts atomic.Int32
 				DeferCleanup(stat.Observe().OnChange(func(
 					_ context.Context,
@@ -1271,19 +1255,29 @@ var _ = Describe("Rack", Ordered, func() {
 							Owner:   new(r.ResourceID()),
 							Name:    r.Name,
 							Time:    now,
-							Variant: status.VariantError,
-							Message: "Driver 0.60.0 cannot work with Core 0.61.0",
+							Variant: variant,
+							Message: "Heartbeat",
+							Details: rack.StatusDetails{Running: running},
 						})
 					})).To(Succeed())
 				}
 
+				if !running {
+					Eventually(writes.Load).Should(BeEquivalentTo(1))
+					Eventually(alerts.Load).Should(BeEquivalentTo(1))
+					return
+				}
 				Consistently(func(g Gomega) {
 					g.Expect(writes.Load()).To(BeZero())
 					g.Expect(alerts.Load()).To(BeZero())
 					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
-					g.Expect(s.Variant).To(Equal(status.VariantError))
+					g.Expect(s.Variant).To(Equal(variant))
 				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
 			},
+			Entry("an error from a running Driver", status.VariantError, true),
+			Entry("a warning from a running Driver", status.VariantWarning, true),
+			Entry("a warning from the Core", status.VariantWarning, false),
+			Entry("a success without a running Driver", status.VariantSuccess, false),
 		)
 
 		It("Should write each outage once", func(ctx SpecContext) {
@@ -1390,6 +1384,7 @@ var _ = Describe("Rack", Ordered, func() {
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
+						Details: rack.StatusDetails{Running: true},
 					})
 				})).To(Succeed())
 
@@ -1402,12 +1397,9 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
-		DescribeTable(
+		It(
 			"Should not extend the deadline of a silent rack on a rename",
-			func(
-				ctx SpecContext,
-				rename func(context.Context, rack.Writer, rack.Key, string) error,
-			) {
+			func(ctx SpecContext) {
 				start := telem.Now()
 				frozenNow.Store(int64(start))
 				r := rack.Rack{
@@ -1423,7 +1415,7 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 				frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return rename(ctx, svc.NewWriter(tx), r.Key, "renamed silent rack")
+					return svc.NewWriter(tx).Rename(ctx, r.Key, "renamed silent rack")
 				})).To(Succeed())
 				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
 				Eventually(func(g Gomega) {
@@ -1432,26 +1424,11 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Name).To(Equal("renamed silent rack"))
 				}).Should(Succeed())
 			},
-			Entry(
-				"through Create",
-				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
-					return w.Create(ctx, &rack.Rack{Key: k, Name: n})
-				},
-			),
-			Entry(
-				"through Rename",
-				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
-					return w.Rename(ctx, k, n)
-				},
-			),
 		)
 
-		DescribeTable(
+		It(
 			"Should report a silent rack once a rename in flight commits",
-			func(
-				ctx SpecContext,
-				rename func(context.Context, rack.Writer, rack.Key, string) error,
-			) {
+			func(ctx SpecContext) {
 				start := telem.Now()
 				frozenNow.Store(int64(start))
 				r := rack.Rack{
@@ -1466,7 +1443,7 @@ var _ = Describe("Rack", Ordered, func() {
 					return svc.NewWriter(tx).Create(ctx, &r)
 				})).To(Succeed())
 				renameTx := DeferClose(db.OpenTx())
-				Expect(rename(ctx, svc.NewWriter(renameTx), r.Key, "renamed")).
+				Expect(svc.NewWriter(renameTx).Rename(ctx, r.Key, "renamed")).
 					To(Succeed())
 				frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
 				Expect(renameTx.Commit(ctx)).To(Succeed())
@@ -1476,18 +1453,6 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Name).To(Equal("renamed"))
 				}).Should(Succeed())
 			},
-			Entry(
-				"through Create",
-				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
-					return w.Create(ctx, &rack.Rack{Key: k, Name: n})
-				},
-			),
-			Entry(
-				"through Rename",
-				func(ctx context.Context, w rack.Writer, k rack.Key, n string) error {
-					return w.Rename(ctx, k, n)
-				},
-			),
 		)
 
 		It(
@@ -1554,7 +1519,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 
 		DescribeTable(
-			"Should restart with any stored status",
+			"Should rename a rack that holds any stored status",
 			func(ctx SpecContext, codec encoding.Codec, details any) {
 				kv := memkv.New()
 				restartDB := DeferClose(gorp.Wrap(kv))
@@ -1579,12 +1544,16 @@ var _ = Describe("Rack", Ordered, func() {
 					Exec(ctx, gorp.Wrap(kv, gorp.WithCodec(codec)))).To(Succeed())
 
 				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return after.rack.NewWriter(tx).
+						Rename(ctx, after.rack.EmbeddedKey, "renamed")
+				})).To(Succeed())
 				var res status.Status[any]
 				Expect(after.status.NewRetrieve[any]().
 					Where(status.MatchOwners[any](owner)).
 					Entry(&res).
 					Exec(ctx, restartDB)).To(Succeed())
-				Expect(res.Name).ToNot(Equal("stale name"))
+				Expect(res.Name).To(Equal("renamed"))
 				Expect(res.Details).To(Equal(details))
 			},
 			Entry("ORC with string details", orc.Codec, "running"),
@@ -1689,18 +1658,13 @@ var _ = Describe("Group", func() {
 		Expect(retrieveGroup(ctx, r.Key)).To(BeNil())
 	})
 
-	It(
-		"Should keep the stored group when a rack is created again",
-		func(ctx SpecContext) {
-			g := createGroup(ctx, group.Group{Name: "Kept", Scope: resource.TypeDevice})
-			r := rack.Rack{Name: "kept", Group: &g.Key}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			again := rack.Rack{Key: r.Key, Name: "kept again"}
-			Expect(w.Create(ctx, &again)).To(Succeed())
-			Expect(again.Group).To(Equal(&g.Key))
-			Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
-		},
-	)
+	It("Should keep the stored group when a rack is renamed", func(ctx SpecContext) {
+		g := createGroup(ctx, group.Group{Name: "Kept", Scope: resource.TypeDevice})
+		r := rack.Rack{Name: "kept", Group: &g.Key}
+		Expect(w.Create(ctx, &r)).To(Succeed())
+		Expect(w.Rename(ctx, r.Key, "kept again")).To(Succeed())
+		Expect(retrieveGroup(ctx, r.Key)).To(Equal(&g.Key))
+	})
 
 	It(
 		"Should reject a created rack in a group of another scope",
@@ -1744,7 +1708,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -1765,9 +1729,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := rack.Rack{Key: r.Key, Name: r.Name}
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return s.rack.NewWriter(tx).Create(ctx, &again)
+							return s.rack.NewWriter(tx).Rename(ctx, r.Key, "renamed")
 						})).To(Succeed())
 					}
 				})

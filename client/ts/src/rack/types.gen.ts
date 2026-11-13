@@ -24,6 +24,13 @@ export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
 
+/** StatusDetails contains rack-specific status details. */
+export const statusDetailsZ = z.object({
+  /** running is true when the status comes from a running Driver. */
+  running: z.boolean().default(false),
+});
+export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
 /** Where is a filter that selects racks. */
 export type Where = {
   and?: Where[];
@@ -81,7 +88,7 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
-export const statusZ = status.statusZ();
+export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 /** RetrieveRequest is a request to retrieve racks. */

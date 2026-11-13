@@ -22,6 +22,13 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
+// A routing key is the key of a secret, which must exist when a config names it.
+const createRoutingKey = async (): Promise<string> =>
+  (await client.secrets.set({ name: "Routing key", source: "stored", value: "rk" }))
+    .key;
+const ROUTING_KEY = await createRoutingKey();
+const OTHER_ROUTING_KEY = await createRoutingKey();
+
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
 
@@ -181,7 +188,7 @@ describe("queries", () => {
       const testTask = await rack.createTask({
         name: "retrieve_test",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-test" },
+        config: { routingKey: ROUTING_KEY },
       });
 
       const { result } = await renderHookSuspended(
@@ -194,7 +201,7 @@ describe("queries", () => {
       expect(result.current?.key).toEqual(testTask.key);
       expect(result.current?.name).toEqual("retrieve_test");
       expect(result.current?.type).toEqual("pagerduty_alert");
-      expect(result.current?.config).toMatchObject({ routingKey: "rk-test" });
+      expect(result.current?.config).toMatchObject({ routingKey: ROUTING_KEY });
     });
 
     it("should retrieve task with status", async () => {
@@ -319,7 +326,7 @@ describe("queries", () => {
       const testTask = await rack.createTask({
         name: "schema_task",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-schema", autoStart: true },
+        config: { routingKey: ROUTING_KEY, autoStart: true },
       });
 
       const schemas = {
@@ -338,7 +345,7 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.type).toEqual("pagerduty_alert");
-      expect(result.current?.config.routingKey).toEqual("rk-schema");
+      expect(result.current?.config.routingKey).toEqual(ROUTING_KEY);
       expect(result.current?.config.autoStart).toEqual(true);
     });
   });
@@ -360,7 +367,7 @@ describe("queries", () => {
       const created = await rack.createTask({
         name: "untyped_task",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-untyped", autoStart: true },
+        config: { routingKey: ROUTING_KEY, autoStart: true },
       });
       await client.tasks.retrieve(created.key);
       return created;
@@ -373,7 +380,7 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
-      expect(result.current?.config.routingKey).toBe("rk-untyped");
+      expect(result.current?.config.routingKey).toBe(ROUTING_KEY);
     });
 
     it("should keep schema defaults across an untyped streamed update", async () => {
@@ -494,7 +501,7 @@ describe("queries", () => {
       await testRack.createTask({
         name: `form-${id.create()}`,
         type: "pagerduty_alert",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
       });
 
     const renderForm = async (key: task.Key) =>
@@ -508,7 +515,7 @@ describe("queries", () => {
         name: t.name,
         rack: testRack.key,
         type: "pagerduty_alert",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         configHash: t.configHash,
       });
     });
@@ -516,13 +523,13 @@ describe("queries", () => {
     it("should show the config hash of an edit once the Core applies it", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set(path.config.routingKey, "cat"));
+      act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
         expect(await result.current.flush()).toBe(true);
         await client.tasks.settled(t.key);
       });
       const stored = await createTestClient().tasks.retrieve(t.key);
-      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
       expect(stored.configHash).not.toBe(t.configHash);
       expect(result.current.form.get(path.configHash).value).toBe(stored.configHash);
     });
@@ -555,42 +562,47 @@ describe("queries", () => {
       expect(result.current.form.get(path.status).touched).toBe(false);
     });
 
-    it("should show a task that another client writes whole", async () => {
+    it("should show a name and config that another client sets", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
+      const remote = createTestClient();
+      await remote.tasks.retrieve(t.key);
       await act(async () => {
-        await createTestClient().tasks.create({
-          ...t.payload,
-          name: "written",
-          config: { routingKey: "remote" },
-        });
+        await remote.tasks.dispatch(t.key, [
+          task.set({ path: ["name"], value: "written" }),
+          task.set({ path: ["config"], value: { routingKey: OTHER_ROUTING_KEY } }),
+        ]);
       });
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toEqual("written");
-        expect(result.current.form.get(path.config.routingKey).value).toEqual("remote");
+        expect(result.current.form.get(path.config.routingKey).value).toEqual(
+          OTHER_ROUTING_KEY,
+        );
       });
       expect(result.current.form.get(path.name).touched).toBe(false);
     });
 
-    it("should keep a local edit over a whole write from another client", async () => {
+    it("should keep a local edit over a rename from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
       // The edit sends once its coalesce window ends, which can come before the remote
       // write on a slow machine. The hold keeps the Core from applying it first.
       const { release } = holdRequests(client, "/task/dispatch");
-      act(() => result.current.form.set(path.config.routingKey, "local"));
+      act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
-        await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
+        await createTestClient().tasks.rename(t.key, "renamed");
       });
       await waitFor(() =>
         expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
-      expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
+      expect(result.current.form.get(path.config.routingKey).value).toEqual(
+        OTHER_ROUTING_KEY,
+      );
       release();
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");
-      expect(stored.config).toMatchObject({ routingKey: "local" });
+      expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
     });
   });
 
@@ -601,7 +613,7 @@ describe("queries", () => {
       const testRack = await client.racks.create({ name: "test" });
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "rk" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);

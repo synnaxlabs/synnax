@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,7 +22,7 @@ import (
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Log", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		l := log.Log{
+		l := defaults.Fill(log.Log{
 			Project: &proj.Key,
 			Name:    "test",
 			Channels: []log.ChannelEntry{
@@ -32,7 +33,7 @@ var _ = Describe("Retrieve", func() {
 				},
 			},
 			ChannelNamesHidden: true,
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		var res log.Log
 		Expect(

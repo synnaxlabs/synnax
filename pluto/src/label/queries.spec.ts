@@ -110,10 +110,11 @@ describe("queries", () => {
         );
         await waitFor(() => expect(result.current).not.toBeNull());
         expect(result.current).toEqual(labels);
-        labels[0] = await client.labels.create({
-          ...labels[0],
-          name: "updatedLabel",
-        });
+        await client.labels.dispatch(
+          labels[0].key,
+          label.set({ path: ["name"], value: "updatedLabel" }),
+        );
+        labels[0] = { ...labels[0], name: "updatedLabel" };
         await waitFor(() => {
           expect(result.current).toEqual(expect.arrayContaining(labels));
         });

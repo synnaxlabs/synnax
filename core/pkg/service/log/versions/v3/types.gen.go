@@ -12,16 +12,21 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -75,6 +80,32 @@ func (c *ChannelEntry) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelEntry) SetDefaults() {
+	c.Notation = "standard"
+	c.TimestampConfig.Format = "preciseDate"
+	c.TimestampConfig.TimeZone = "local"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelEntry
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelEntry
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c ChannelEntry) Validate() error {
@@ -108,8 +139,12 @@ type Log struct {
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 	// Group is the group the log sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the log.
+	// Project is the project that owns the log, if any. Exactly one of project and
+	// range is set.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Range is the range that owns the log, if any. Exactly one of project and range is
+	// set.
+	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -122,13 +157,35 @@ func (l *Log) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *Log) SetDefaults() {
+	l.TimeZone = "local"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *Log) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Log
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *Log) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Log
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
-	v.NotEmptyString("name", l.Name)
-	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
