@@ -82,6 +82,10 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
   the version the branch sets (§2.0). A candidate run never publishes them. An npm
   publish on an older train takes the `train-X.Y` dist-tag, so `latest` never moves
   back.
+- **`desktop`, `desktop_bump`**: Release Synnax Desktop, off by default, with a `minor`,
+  `major`, or `patch` bump. Desktop joins the other products only on `main`. A Desktop
+  patch is a dispatch from `release/desktop-X.Y` with every other product off (RFC 0111
+  §3.0).
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
   this run releases, else the newest on the resolved minor (candidates included when
@@ -141,19 +145,29 @@ each language releases alone. A language takes the Core's minor (§2.0): from `m
 next patch on the minor of the run's Core; from `release/X.Y`, the next patch on `X.Y`.
 A version a registry once held is never reused, even after a yank, so the next patch
 skips it: with `ts/v0.61.0` and `py/v0.61.0` yanked, the run that ships Core 0.61.0
-publishes packages 0.61.1. The publish job waits for every product the run releases,
-then runs `stamp_versions.sh` to write the version into that language's manifests. It
-stops when the version's tag names another commit, or when the registry has the version
-without a tag, so one version never holds packages from two commits.
+publishes packages 0.61.1.
 
-The Python job claims the version by pushing its tag at the run's commit, then
+Each language has a build job and a publish job (RFC 0111 §3.1). The build job starts at
+dispatch: it runs `stamp_versions.sh` to write the version into that language's
+manifests, builds, and uploads the packages as a workflow artifact, the packed npm
+tarballs or the PyPI wheels and source distributions. The publish job waits for Verify
+and every product the run releases, then publishes that artifact and builds nothing. A
+failed package build publishes no product of the run. Both jobs stop when the version's
+tag names another commit, or when the registry has the version without a tag, so one
+version never holds packages from two commits. The build job checks this to fail at
+dispatch, and only the publish job pushes a tag. The npm build job also runs the
+approval check below, so a `client` that still waits for approval holds every product of
+a run that selects TypeScript: approve it and rerun the failed jobs, or dispatch without
+TypeScript.
+
+The Python publish job claims the version by pushing its tag at the run's commit, then
 publishes. To finish a partial publish, rerun the failed jobs, which keep the resolved
-versions, or dispatch the packages from `release/X.Y` cut at the run's commit: the
-resolve stage keeps a tag on the train that names `HEAD`, and PyPI skips what already
-went up.
+versions and the built packages, or dispatch the packages from `release/X.Y` cut at the
+run's commit: the resolve stage keeps a tag on the train that names `HEAD`, and PyPI
+skips what already went up.
 
-The npm trusted publishers allow staging only. The npm job stages each package with
-`pnpm stage publish -r`, since pnpm cannot stage a batch, then pushes the tag. Nothing
+The npm trusted publishers allow staging only. The npm publish job stages each tarball
+with `pnpm stage publish`, since pnpm cannot stage a batch, then pushes the tag. Nothing
 installs until a maintainer approves each package on npmjs.com with 2FA, in dependency
 order: `x`, `alamos`, `freighter`, then `client`. A staged version is hidden from the
 registry, so a run whose tag already names its commit skips the stage. While `client`
@@ -167,6 +181,7 @@ tag push fails after a stage, push the tag at the run's commit by hand and rerun
 A merge publishes nothing. Both publish through OIDC trusted publishing with
 `id-token: write`, so no registry token lives in the repo's secrets. The registries
 trust `release.yaml` by name, so the publish jobs live in it, not in a called workflow.
+Of the package jobs, only the publish jobs hold `id-token: write` and `contents: write`.
 Packages have no candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
@@ -181,7 +196,7 @@ package shares the train's minor; patches are independent, so a Console hotfix s
 `0.59.x`. Each language releases its packages together at one version, on the Core's
 minor. The C++ client and the C library are on no registry and ship with the Driver, so
 they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog
-pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any
+pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at pack, so any
 patch mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
 `@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
 the catalog.
