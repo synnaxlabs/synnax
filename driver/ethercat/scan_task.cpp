@@ -237,6 +237,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto health = this->pool->health(key);
         bool rediscovery_needed = false;
         for (const auto &slave: slaves) {
+            // A slave whose EEPROM read failed, as while it restarts, has no identity.
+            if (slave.properties.vendor_id == 0 && slave.properties.product_code == 0) {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                             << " on " << key << " has no identity, rediscovering";
+                rediscovery_needed = true;
+                continue;
+            }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
                 health,

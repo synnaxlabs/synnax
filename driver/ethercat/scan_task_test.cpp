@@ -484,6 +484,18 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
+/// @brief it should save no device for a slave with no vendor and product, and discover
+/// the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
+    for (size_t i = 0; i < 13; ++i) {
+        const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = i}));
+        ASSERT_EQ(devices.size(), 1);
+        EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+    }
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
 /// @brief it should show a failed settings read as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedSettingsReadShowsAWarning) {
@@ -882,7 +894,14 @@ protected:
     void SetUp() override {
         EtherCATScanTest::SetUp();
         auto master = std::make_shared<testutil::Master>();
-        master->add_slave(slave::Properties{.position = 1, .name = "EL3102"});
+        master->add_slave(
+            slave::Properties{
+                .position = 1,
+                .vendor_id = 0x2,
+                .product_code = 0xC1E3052,
+                .name = "EL3102",
+            }
+        );
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", master);
         this->scanner = std::make_unique<Scanner>(
@@ -969,7 +988,7 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
 /// scan.
 TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
     const synnax::device::Device dev{
-        .key = "ethercat_eth0_0_0_1",
+        .key = "ethercat_eth0_2_203305042_1",
         .model = SLAVE_DEVICE_MODEL,
         .name = "EL3102",
         .properties = {
