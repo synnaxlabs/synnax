@@ -143,19 +143,23 @@ const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
 
-interface DeviceItemProps {
+interface DeviceItemProps extends Pick<Hardware, "modelNames"> {
   device: device.Device;
   onConfigure: (key: device.Key) => void;
 }
 
-const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
+const DeviceItem = ({
+  device: d,
+  modelNames,
+  onConfigure,
+}: DeviceItemProps): ReactElement => (
   <Pane.Item>
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
       </Text.Text>
       <Text.Text level="small" color={9}>
-        {d.model}
+        {modelNames?.[d.model] ?? d.model}
         {d.location.length > 0 && (
           <span className={CSS.BE("device-find", "location")}>{d.location}</span>
         )}
@@ -179,12 +183,17 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
   </Pane.Item>
 );
 
-interface RackCardProps extends ScannerStateProps {
+interface RackCardProps extends ScannerStateProps, Pick<Hardware, "modelNames"> {
   devices: device.Device[];
   onConfigure: (key: device.Key) => void;
 }
 
-const RackCard = ({ devices, onConfigure, ...props }: RackCardProps): ReactElement => (
+const RackCard = ({
+  devices,
+  modelNames,
+  onConfigure,
+  ...props
+}: RackCardProps): ReactElement => (
   <Pane.Pane>
     <Pane.Header level="p">
       <Header.Title weight={500} color={11}>
@@ -202,7 +211,12 @@ const RackCard = ({ devices, onConfigure, ...props }: RackCardProps): ReactEleme
     </Pane.Header>
     <ScannerState {...props} />
     {devices.map((d) => (
-      <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
+      <DeviceItem
+        key={d.key}
+        device={d}
+        modelNames={modelNames}
+        onConfigure={onConfigure}
+      />
     ))}
     {devices.length === 0 && isScanning(props.rack, props.scanner) && (
       <State variant="loading" message={`Looking for ${props.name} hardware`} />
@@ -248,7 +262,7 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks, ScanAction },
+  hardware: { key, name, title, icon, make, scanType, checks, ScanAction, modelNames },
   rack: rackKey,
   filter,
   onBack,
@@ -323,6 +337,7 @@ export const Find = ({
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
             ScanAction={ScanAction}
+            modelNames={modelNames}
             onConfigure={onConfigure}
           />
         ))}

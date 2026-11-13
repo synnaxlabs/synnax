@@ -53,4 +53,6 @@ export interface Hardware extends Integration {
    * fixes the problem. It renders nothing when it does not apply.
    */
   ScanAction?: ComponentType<ScanActionProps>;
+  /** Names that the find view shows for stored models that read poorly to a user. */
+  modelNames?: Record<string, string>;
 }

@@ -99,6 +99,20 @@ describe("Device.useFindModal", () => {
     });
   });
 
+  it("should show the name that the integration gives a model", async () => {
+    const hardware = { ...createHardware(), modelNames: { raw_model: "Module" } };
+    const rack = await createRunningRack(client, hardware.key);
+    await createTestDevice(client, {
+      make: hardware.make,
+      model: "raw_model",
+      configured: false,
+      rack: rack.key,
+    });
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    expect(await screen.findByText("Module")).toBeTruthy();
+    expect(screen.queryByText("raw_model")).toBeNull();
+  });
+
   it("should list only the devices the filter accepts", async () => {
     const hardware = createHardware();
     const rack = await createRunningRack(client, hardware.key);
