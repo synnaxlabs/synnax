@@ -28,6 +28,19 @@ Model enum {
     @doc value "is the model of a LabJack device, named by its LJM device type."
 }
 
+Connection enum {
+    usb = "LJM_ctUSB" {
+        @doc value "is a USB connection."
+    }
+    tcp = "LJM_ctTCP" {
+        @doc value "is a TCP connection over Ethernet or Wi-Fi."
+    }
+
+    @doc value """
+        is the connection of a LabJack device, named by its LJM connection type.
+    """
+}
+
 StatusDetails struct {
     rack   rack.Key {
         @doc value "is the key of the rack the device belongs to."
@@ -48,17 +61,20 @@ Device struct {
         @doc value "uniquely identifies the device."
         @key
     }
-    rack       rack.Key {
+    rack       rack.Key   {
         @doc value "is the key of the rack the device is connected to."
     }
-    name       string   {
+    name       string     {
         @doc value "is a human-readable name for the device."
     }
-    serial     string   {
+    serial     uint32     {
         @doc value "is the serial number of the device."
     }
-    model      Model    {
+    model      Model      {
         @doc value "is the model of the device."
+    }
+    connection Connection {
+        @doc value "is the connection the scanner last found the device on."
     }
     identifier string = "" {
         @doc value """
@@ -66,7 +82,7 @@ Device struct {
             while it is empty.
         """
     }
-    status     Status?  {
+    status     Status?    {
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }

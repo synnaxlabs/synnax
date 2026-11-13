@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -28,6 +29,9 @@ struct Device;
 constexpr const char *MODEL_T_4 = "LJM_dtT4";
 constexpr const char *MODEL_T_7 = "LJM_dtT7";
 constexpr const char *MODEL_T_8 = "LJM_dtT8";
+
+constexpr const char *CONNECTION_USB = "LJM_ctUSB";
+constexpr const char *CONNECTION_TCP = "LJM_ctTCP";
 
 using Key = x::uuid::UUID;
 
@@ -53,9 +57,11 @@ struct Device {
     /// @brief name is a human-readable name for the device.
     std::string name;
     /// @brief serial is the serial number of the device.
-    std::string serial;
+    std::uint32_t serial = 0;
     /// @brief model is the model of the device.
     std::string model;
+    /// @brief connection is the connection the scanner last found the device on.
+    std::string connection;
     /// @brief identifier is the prefix of the device's channel names. The device is
     /// unconfigured while it is empty.
     std::string identifier = "";

@@ -28,6 +28,13 @@ MODEL_T8: Literal["LJM_dtT8"] = "LJM_dtT8"
 
 Model = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
+CONNECTION_USB: Literal["LJM_ctUSB"] = "LJM_ctUSB"
+
+CONNECTION_TCP: Literal["LJM_ctTCP"] = "LJM_ctTCP"
+
+
+Connection = Literal["LJM_ctUSB", "LJM_ctTCP"]
+
 Key: TypeAlias = UUID
 
 
@@ -55,6 +62,7 @@ class Device(BaseModel):
         name: Is a human-readable name for the device.
         serial: Is the serial number of the device.
         model: Is the model of the device.
+        connection: Is the connection the scanner last found the device on.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         status: Is the current operational status of the device.
@@ -63,8 +71,9 @@ class Device(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str
-    serial: str
+    serial: int = Field(ge=0, le=4294967295)
     model: Model
+    connection: Connection
     identifier: str = ""
     status: Status | None = None
 

@@ -9,10 +9,13 @@
 
 
 from synnax.labjack.device.types_gen import (
+    CONNECTION_TCP,
+    CONNECTION_USB,
     MODEL_T4,
     MODEL_T7,
     MODEL_T8,
     TYPE_RESOURCE_ID,
+    Connection,
     Device,
     Key,
     Model,
@@ -22,10 +25,13 @@ from synnax.labjack.device.types_gen import (
 )
 
 __all__ = [
+    "CONNECTION_TCP",
+    "CONNECTION_USB",
     "MODEL_T4",
     "MODEL_T7",
     "MODEL_T8",
     "TYPE_RESOURCE_ID",
+    "Connection",
     "Device",
     "Key",
     "Model",

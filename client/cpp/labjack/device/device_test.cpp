@@ -20,13 +20,15 @@ TEST(Device, ParsesWithDefaults) {
             {"key", "22222222-2222-4222-8222-222222222222"},
             {"rack", 1},
             {"name", "T7-0001"},
-            {"serial", "470010001"},
+            {"serial", 470010001},
             {"model", MODEL_T_7},
+            {"connection", CONNECTION_USB},
         }
     );
     const auto parsed = Device::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.serial, "470010001");
+    ASSERT_EQ(parsed.serial, 470010001);
+    ASSERT_EQ(parsed.connection, CONNECTION_USB);
     ASSERT_EQ(parsed.model, MODEL_T_7);
     ASSERT_EQ(parsed.identifier, "");
     ASSERT_FALSE(parsed.status.has_value());
@@ -40,6 +42,7 @@ TEST(Device, RequiresSerial) {
             {"rack", 1},
             {"name", "T7-0001"},
             {"model", MODEL_T_7},
+            {"connection", CONNECTION_USB},
         }
     );
     Device::parse(parser);
@@ -52,8 +55,9 @@ TEST(Device, RoundTrips) {
         .key = x::uuid::create(),
         .rack = 1,
         .name = "T4-0002",
-        .serial = "440010002",
+        .serial = 440010002,
         .model = MODEL_T_4,
+        .connection = CONNECTION_TCP,
         .identifier = "lj",
     };
     x::json::Parser parser(device.to_json());
@@ -61,6 +65,7 @@ TEST(Device, RoundTrips) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.key, device.key);
     ASSERT_EQ(parsed.model, MODEL_T_4);
+    ASSERT_EQ(parsed.connection, CONNECTION_TCP);
     ASSERT_EQ(parsed.identifier, "lj");
 }
 }

@@ -20,6 +20,10 @@ export const MODELS = ["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"] as const;
 export const modelZ = z.enum(MODELS);
 export type Model = z.infer<typeof modelZ>;
 
+export const CONNECTIONS = ["LJM_ctUSB", "LJM_ctTCP"] as const;
+export const connectionZ = z.enum(CONNECTIONS);
+export type Connection = z.infer<typeof connectionZ>;
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -44,9 +48,11 @@ export const deviceZ = z.object({
   /** name is a human-readable name for the device. */
   name: z.string().min(1, "name is required"),
   /** serial is the serial number of the device. */
-  serial: z.string().min(1, "serial is required"),
+  serial: z.uint32().refine((v) => v !== 0, "serial is required"),
   /** model is the model of the device. */
   model: modelZ,
+  /** connection is the connection the scanner last found the device on. */
+  connection: connectionZ,
   /**
    * identifier is the prefix of the device's channel names. The device is unconfigured
    * while it is empty.
