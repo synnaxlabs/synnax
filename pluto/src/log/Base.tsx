@@ -11,13 +11,13 @@ import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
 import { type Flex } from "@synnaxlabs/lyra/flex";
-import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
+import { useCombinedRefs, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
@@ -39,6 +39,9 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+// Pixels the log scrolls per frame for each pixel a selection drag is past its edge.
+const EDGE_SCROLL_RATE = 0.2;
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -113,18 +116,8 @@ export const Base = ({
     onLeave,
   });
 
-  const {
-    scrolling,
-    empty,
-    loading,
-    blank,
-    selectionStart,
-    selectionEnd,
-    region,
-    visibleStart,
-    computedLineHeight,
-    rowEntries,
-  } = state;
+  const { scrolling, empty, loading, blank, selectionStart, selectionEnd, rowEntries } =
+    state;
 
   const setHold = (hold: boolean) => {
     setState((s) => ({ ...s, scrolling: hold }));
@@ -135,20 +128,81 @@ export const Base = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
-  const draggingRef = useRef(false);
+  const stateRef = useSyncedRef(state);
+  const pointerYRef = useRef(0);
+  const frameRef = useRef<number | null>(null);
+  const detachDragRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => detachDragRef.current?.(), []);
+
+  // The row of the view at the pointer, counted from the top.
+  const rowAt = (clientY: number): number => {
+    const { computedLineHeight, region } = stateRef.current;
+    if (computedLineHeight <= 0) return 0;
+    return Math.max(
+      0,
+      Math.floor((clientY - box.top(region) - 6) / computedLineHeight),
+    );
+  };
 
   const mouseYToEntryIndex = (clientY: number): number => {
-    if (computedLineHeight <= 0) return 0;
-    const localY = clientY - box.top(region);
-    const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
-    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
+    const { rowEntries, visibleStart } = stateRef.current;
+    const row = rowAt(clientY);
+    if (rowEntries.length === 0) return visibleStart + row;
+    return rowEntries[Math.min(row, rowEntries.length - 1)];
+  };
+
+  const scrollPastEdge = () => {
+    frameRef.current = null;
+    const y = pointerYRef.current;
+    const { region, scrolling } = stateRef.current;
+    const past = Math.min(0, y - box.top(region)) + Math.max(0, y - box.bottom(region));
+    if (past === 0) return;
+    if (past < 0 && !scrolling) setHold(true);
+    setState((s) => ({
+      ...s,
+      wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE,
+      selectionEnd: log.selectRow(rowAt(y)),
+    }));
+    frameRef.current = requestAnimationFrame(scrollPastEdge);
+  };
+
+  const startDrag = (clientY: number) => {
+    pointerYRef.current = clientY;
+    const handleMove = (e: MouseEvent) => {
+      // A release outside the window sends no mouseup.
+      if ((e.buttons & 1) === 0) {
+        stop();
+        return;
+      }
+      pointerYRef.current = e.clientY;
+      setState((s) => ({ ...s, selectionEnd: log.selectRow(rowAt(e.clientY)) }));
+      if (frameRef.current == null)
+        frameRef.current = requestAnimationFrame(scrollPastEdge);
+    };
+    const detach = () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("blur", stop);
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+      detachDragRef.current = null;
+    };
+    const stop = () => {
+      detach();
+      setState((s) => ({ ...s, selecting: false }));
+    };
+    detachDragRef.current?.();
+    detachDragRef.current = detach;
+    setState((s) => ({ ...s, selecting: true }));
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("blur", stop);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const idx = mouseYToEntryIndex(e.clientY);
-    draggingRef.current = true;
+    startDrag(e.clientY);
     if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
     else
       setState((s) => {
@@ -156,16 +210,6 @@ export const Base = ({
           return { ...s, selectionStart: -1, selectionEnd: -1 };
         return { ...s, selectionStart: idx, selectionEnd: idx };
       });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingRef.current) return;
-    const idx = mouseYToEntryIndex(e.clientY);
-    setState((s) => ({ ...s, selectionEnd: idx }));
-  };
-
-  const handleMouseUp = () => {
-    draggingRef.current = false;
   };
 
   const addStatus = Status.useAdder();
@@ -260,8 +304,6 @@ export const Base = ({
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));
         }}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
         onCopy={(e) => {
           if (!hasSelection) return;
           e.preventDefault();

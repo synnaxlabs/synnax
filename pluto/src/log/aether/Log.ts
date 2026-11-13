@@ -65,6 +65,9 @@ export const logStateZ = log.logZ
     position: z.string().default(""),
     selectionStart: z.number().default(-1),
     selectionEnd: z.number().default(-1),
+    // While a drag selects, a selection end at a row of the view keeps following the
+    // view. It turns into an entry once the drag ends.
+    selecting: z.boolean().default(false),
     visibleStart: z.number().default(0),
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
@@ -94,6 +97,17 @@ export const methodsZ = {
  * from the worker.
  */
 export const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
+
+const MAX_ROWS = 1_000_000;
+const SELECT_ROW = SELECT_ALL_END - MAX_ROWS;
+
+/**
+ * Returns a selection end at a row of the view, counted from the top. While the state
+ * is selecting, the end follows the view. The first render after that turns it into
+ * the entry the row shows. A row past the last row is the last row.
+ */
+export const selectRow = (row: number): number =>
+  SELECT_ROW + Math.min(Math.max(0, row), MAX_ROWS - 1);
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
@@ -643,6 +657,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const selectionEnd = this.resolveRow(rowEntries);
+    const resolved = !this.state.selecting && selectionEnd !== this.state.selectionEnd;
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -650,6 +666,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
+      resolved ||
       !sameEntries(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
@@ -658,7 +675,9 @@ export class Log
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
+        selectionEnd: resolved ? selectionEnd : s.selectionEnd,
       }));
+    if (resolved) this.setAnchors(this.state.selectionStart, selectionEnd);
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
@@ -669,6 +688,15 @@ export class Log
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
+  }
+
+  // Returns the selection end, with a row of the view turned into its entry.
+  private resolveRow(rowEntries: number[] = this.state.rowEntries): number {
+    const { selectionEnd } = this.state;
+    if (selectionEnd < SELECT_ROW || selectionEnd === SELECT_ALL_END)
+      return selectionEnd;
+    const row = Math.min(selectionEnd - SELECT_ROW, rowEntries.length - 1);
+    return rowEntries.at(row) ?? -1;
   }
 
   // Returns where the rows sit in the times the source stores, from 0 to 1, or null
@@ -742,12 +770,12 @@ export class Log
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
-  // SELECT_ALL_END, which stays open. A select-all leaves its start open too, so it
-  // covers the entries that older pages add.
+  // SELECT_ALL_END or a row of the view, which stay open. A select-all leaves its
+  // start open too, so it covers the entries that older pages add.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
-      i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
+      i >= SELECT_ROW ? undefined : this.entries[Math.min(i, last)];
     const all = selectionStart === 0 && selectionEnd === SELECT_ALL_END;
     this.anchors = {
       start: all ? undefined : anchor(selectionStart),
@@ -829,7 +857,8 @@ export class Log
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart } = this.state;
+    const selectionEnd = this.resolveRow(rowEntries);
     if (selectionStart < 0 || selectionEnd < 0) return;
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
@@ -906,7 +935,8 @@ export class Log
   }
 
   selection(): Selection {
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart } = this.state;
+    const selectionEnd = this.resolveRow();
     if (selectionStart < 0 || selectionEnd < 0) return { lines: [], partial: false };
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);

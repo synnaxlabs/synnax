@@ -12,7 +12,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
+import { Log, logStateZ, SELECT_ALL_END, selectRow } from "@/log/aether/Log";
 import {
   MockLogSource,
   mockLogSourceSpec,
@@ -642,6 +642,81 @@ describe("log/aether/Log", () => {
       source.notify();
       expect(log.state.selectionStart).toBe(2);
       expect(log.state.selectionEnd).toBe(16);
+    });
+
+    it("should end a selection at the top row of a scrolled view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      updateState({
+        scrolling: true,
+        empty: false,
+        wheelPos: 10 * log.lineHeight,
+        selectionStart: 90,
+        selectionEnd: selectRow(0),
+      });
+      log.render();
+      expect(log.state.selectionEnd).toBe(log.state.rowEntries[0]);
+      expect(log.state.rowEntries.at(-1)).toBe(89);
+    });
+
+    it("should keep a row end following the view until the drag ends", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      const drag = {
+        scrolling: true,
+        empty: false,
+        selecting: true,
+        selectionStart: 90,
+        selectionEnd: selectRow(0),
+      };
+      updateState({ ...drag, wheelPos: 5 * log.lineHeight });
+      log.render();
+      const firstTop = log.state.rowEntries[0];
+      expect(log.state.selectionEnd).toBe(selectRow(0));
+      updateState({ ...drag, wheelPos: 10 * log.lineHeight });
+      log.render();
+      const top = log.state.rowEntries[0];
+      expect(top).toBeLessThan(firstTop);
+      expect(log.selection().lines).toHaveLength(90 - top + 1);
+      updateState({ ...drag, wheelPos: 10 * log.lineHeight, selecting: false });
+      log.render();
+      expect(log.state.selectionEnd).toBe(top);
+    });
+
+    it("should end a selection at the last row for a row past it", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 50, selectionEnd: selectRow(1_000) });
+      log.render();
+      expect(log.state.selectionEnd).toBe(99);
+    });
+
+    it("should end a selection at a row inside the view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 50, selectionEnd: selectRow(3) });
+      log.render();
+      expect(log.state.selectionEnd).toBe(log.state.rowEntries[3]);
+    });
+
+    it("should keep select-all open while rendering", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      log.render();
+      expect(log.state.selectionEnd).toBe(SELECT_ALL_END);
+    });
+
+    it("should keep a selection end at a row open while entries arrive", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 5, selectionEnd: selectRow(1_000) });
+      source.setEntries([...entries, makeEntry(20)]);
+      source.notify();
+      log.render();
+      expect(log.state.selectionEnd).toBe(20);
     });
 
     it("should keep select-all open while entries are evicted", () => {
