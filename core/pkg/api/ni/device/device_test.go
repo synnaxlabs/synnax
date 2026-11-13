@@ -10,6 +10,7 @@
 package device_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -278,38 +279,105 @@ var _ = Describe("Service", func() {
 			Expect(res.Devices).To(HaveLen(1))
 		})
 
-		DescribeTable("Should order by name",
-			func(ctx SpecContext, descending bool) {
-				prefix := uuid.New().String()
-				named := func(name string) func(*device.Device) {
-					return func(d *device.Device) { d.Name = prefix + name }
+		Describe("Order", func() {
+			var (
+				prefix string
+				byName []device.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = uuid.New().String()
+				named := func(name string) device.Key {
+					GinkgoHelper()
+					return createDevice(
+						ctx,
+						func(d *device.Device) { d.Name = prefix + name },
+					).Key
 				}
-				createDevice(ctx, named("b"))
-				createDevice(ctx, named("a"))
+				beta := named("beta")
+				alpha := named("Alpha")
+				gamma := named("gamma")
+				byName = []device.Key{alpha, beta, gamma}
 				grantRetrieve(ctx)
-				res := MustSucceed(retrieve(
-					testutil.AuthedCtx(ctx, u),
-					apidevice.RetrieveRequest{
-						Where: &device.Where{Name: &filter.String{
-							In: []string{prefix + "a", prefix + "b"},
-						}},
-						Order: &apidevice.Order{
-							Field:      apidevice.OrderFieldName,
-							Descending: descending,
+			})
+			page := func(ctx SpecContext, order apidevice.Order) []device.Key {
+				GinkgoHelper()
+				var (
+					keys  []device.Key
+					after *apidevice.Cursor
+				)
+				for {
+					res := MustSucceed(retrieve(
+						testutil.AuthedCtx(ctx, u),
+						apidevice.RetrieveRequest{
+							Where: &device.Where{Name: &filter.String{
+								In: []string{
+									prefix + "beta",
+									prefix + "Alpha",
+									prefix + "gamma",
+								},
+							}},
+							Order: &order,
+							After: after,
+							Limit: new(uint32(1)),
 						},
-					},
-				))
-				Expect(res.Devices).To(HaveLen(2))
-				names := []string{res.Devices[0].Name, res.Devices[1].Name}
-				if descending {
-					Expect(names).To(Equal([]string{prefix + "b", prefix + "a"}))
-				} else {
-					Expect(names).To(Equal([]string{prefix + "a", prefix + "b"}))
+					))
+					if len(res.Devices) == 0 {
+						return keys
+					}
+					last := res.Devices[len(res.Devices)-1]
+					keys = append(keys, last.Key)
+					after = &apidevice.Cursor{Key: last.Key, Name: &last.Name}
 				}
-			},
-			Entry("ascending", false),
-			Entry("descending", true),
-		)
+			}
+
+			It("Should page by name, ignoring case", func(ctx SpecContext) {
+				order := apidevice.Order{Field: apidevice.OrderFieldName}
+				Expect(page(ctx, order)).To(Equal(byName))
+			})
+
+			It("Should page by name in descending order", func(ctx SpecContext) {
+				order := apidevice.Order{
+					Field:      apidevice.OrderFieldName,
+					Descending: true,
+				}
+				desc := slices.Clone(byName)
+				slices.Reverse(desc)
+				Expect(page(ctx, order)).To(Equal(desc))
+			})
+
+			DescribeTable("Should reject a request",
+				func(ctx SpecContext, req apidevice.RetrieveRequest, message string) {
+					Expect(
+						retrieve(testutil.AuthedCtx(ctx, u), req),
+					).Error().
+						To(SatisfyAll(
+							BeAssignableToTypeOf(validate.PathError{}),
+							MatchError(message),
+						))
+				},
+				Entry(
+					"that resumes an order without the order's value",
+					apidevice.RetrieveRequest{
+						Order: &apidevice.Order{Field: apidevice.OrderFieldName},
+						After: &apidevice.Cursor{Key: uuid.New()},
+					},
+					"after.name: is required to resume an order by name: validation error",
+				),
+				Entry(
+					"that sorts a search",
+					apidevice.RetrieveRequest{
+						SearchTerm: "PXI",
+						Order:      &apidevice.Order{Field: apidevice.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"that sorts by an unknown field",
+					apidevice.RetrieveRequest{Order: &apidevice.Order{Field: "color"}},
+					`order.field: "color" is not a field to sort by: validation error`,
+				),
+			)
+		})
 
 		It("Should page past the after key", func(ctx SpecContext) {
 			a := createDevice(ctx)
