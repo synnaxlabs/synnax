@@ -119,8 +119,8 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	OnRetry func(ctx context.Context, err error)
-	// OnRunRetry runs after a temporary failure of SetRun, before it waits to try
-	// again. It must be safe to call concurrently with OnRetry and OnCheckpoint.
+	// OnRunRetry runs after a temporary failure of SetRun or UpdateRun, before it waits
+	// to try again. It must be safe to call concurrently with OnRetry and OnCheckpoint.
 	//
 	// [OPTIONAL]
 	OnRunRetry func(ctx context.Context, err error)

@@ -851,7 +851,7 @@ var _ = Describe("Engine", func() {
 				server.FailRunUpdates(status.Error(codes.NotFound, "run not found"))
 				run.Name = "renamed"
 				Expect(e.SetRun(ctx, run)).To(Equal(id))
-				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(rec.runRetryErrors()).To(BeEmpty())
 				Expect(
 					server.Runs(),
 				).To(HaveExactElements(HaveField("Name", "renamed")))
@@ -867,7 +867,7 @@ var _ = Describe("Engine", func() {
 				)
 				run.Name = "renamed"
 				Expect(e.SetRun(ctx, run)).To(Equal(id))
-				Expect(rec.retryErrors()).To(HaveExactElements(
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
 					MatchError("Sift could not find a run that it listed"),
 				))
 				Expect(
