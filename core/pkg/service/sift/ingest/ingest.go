@@ -321,33 +321,31 @@ func (e *Engine) Stream(
 	behind ChannelPositions,
 ) error {
 	p := e.newProgress(e.positions(from, telem.Now()), behind)
-	err := e.retry(ctx, p, e.stream)
+	// Every attempt shares one streamer, so that it also marks the channels written
+	// without their index between attempts.
+	l := &live{engine: e, dropped: make(marks)}
+	err := l.open(ctx)
+	if err == nil {
+		err = e.retry(ctx, p, func(ctx context.Context, a *attempt) error {
+			return e.stream(ctx, a, l)
+		})
+	}
 	if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 		err = nil
 	}
+	err = errors.Combine(err, l.close())
+	l.take(p)
 	// An attempt that failed, or a stop between attempts, leaves marks unreported.
 	return errors.Combine(err, e.report(context.WithoutCancel(ctx), p))
 }
 
 // stream catches up from storage until a pass is short, then sends live samples.
-func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
-	// The streamer opens first, so that it marks a channel written without its index
-	// while the attempt catches up.
-	l, err := e.openLive(ctx)
-	if err != nil {
+func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
+	if err = l.open(ctx); err != nil {
 		return err
 	}
 	var frames <-chan framer.Frame
-	defer func() {
-		err = errors.Combine(err, l.close())
-		// The next attempt catches up past the values of these channels.
-		if frames != nil {
-			for fr := range frames {
-				a.mark(e.flows, fr)
-			}
-		}
-		l.take(a.progress)
-	}()
+	defer func() { l.drop(a.progress, frames) }()
 	for {
 		start := time.Now()
 		if err = e.catchUp(ctx, a, l); err != nil {
@@ -1001,13 +999,13 @@ func (a *attempt) through() telem.TimeStamp {
 }
 
 // live holds the frames a streamer receives until the engine sends them. It never
-// blocks the streamer. Until forward, and once the engine falls behind, it drops each
-// frame and keeps the marks of its channels that arrived without their index.
+// blocks the streamer. While no attempt forwards frames, and once one falls behind, it
+// drops each frame and keeps the marks of its channels that arrived without their
+// index.
 type live struct {
-	flows    []flow
+	engine *Engine
+	// shutdown stops the open streamer, and is nil while none is open.
 	shutdown func() error
-	once     sync.Once
-	closeErr error
 	mu       sync.Mutex
 	// frames is nil while live drops frames.
 	frames chan framer.Frame
@@ -1028,25 +1026,38 @@ func (l *live) err() error {
 	return errors.New("the live stream closed unexpectedly")
 }
 
-func (l *live) close() error {
-	l.once.Do(func() { l.closeErr = l.shutdown() })
-	return l.closeErr
-}
-
 // forward moves the marks of the dropped frames to p, then sends each frame to the
-// returned channel.
+// returned channel until drop.
 func (l *live) forward(p *progress) <-chan framer.Frame {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	p.merge(l.dropped)
 	clear(l.dropped)
 	frames := make(chan framer.Frame, liveBuffer)
+	l.behind = false
 	if l.closed {
 		close(frames)
 	} else {
 		l.frames = frames
 	}
 	return frames
+}
+
+// drop stops sending frames to the channel that forward returned, which may be nil,
+// and marks p with the frames left in it and the dropped frames.
+func (l *live) drop(p *progress, frames <-chan framer.Frame) {
+	l.mu.Lock()
+	if l.frames != nil {
+		close(l.frames)
+		l.frames = nil
+	}
+	l.mu.Unlock()
+	if frames != nil {
+		for fr := range frames {
+			p.mark(l.engine.flows, fr)
+		}
+	}
+	l.take(p)
 }
 
 // take moves the marks of the dropped frames to p.
@@ -1070,7 +1081,7 @@ func (l *live) receive(fr framer.Frame) {
 			l.frames = nil
 		}
 	}
-	l.dropped.markUnindexed(l.flows, fr)
+	l.dropped.markUnindexed(l.engine.flows, fr)
 }
 
 func (l *live) end() {
@@ -1083,7 +1094,31 @@ func (l *live) end() {
 	}
 }
 
-func (e *Engine) openLive(ctx context.Context) (*live, error) {
+// close stops the streamer, if one is open.
+func (l *live) close() error {
+	if l.shutdown == nil {
+		return nil
+	}
+	err := l.shutdown()
+	l.shutdown = nil
+	return err
+}
+
+// open opens a streamer on the channels of every flow, unless one is open. It replaces
+// a streamer that closed.
+func (l *live) open(ctx context.Context) error {
+	if l.shutdown != nil {
+		l.mu.Lock()
+		closed := l.closed
+		l.mu.Unlock()
+		if !closed {
+			return nil
+		}
+		if err := l.close(); err != nil {
+			return err
+		}
+	}
+	e := l.engine
 	keys := make(channel.Keys, 0)
 	for _, f := range e.flows {
 		keys = append(keys, f.keys()...)
@@ -1093,7 +1128,7 @@ func (e *Engine) openLive(ctx context.Context) (*live, error) {
 		framer.StreamerConfig{Keys: keys, SendOpenAck: true},
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	requests := confluence.NewStream[framer.StreamerRequest]()
 	responses := confluence.NewStream[framer.StreamerResponse](1)
@@ -1105,27 +1140,27 @@ func (e *Engine) openLive(ctx context.Context) (*live, error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	shutdown := signal.NewGracefulShutdown(sCtx, cancel)
-	l := &live{
-		flows:   e.flows,
-		dropped: make(marks),
-		shutdown: func() error {
-			requests.Close()
-			return shutdown.Close()
-		},
+	graceful := signal.NewGracefulShutdown(sCtx, cancel)
+	shutdown := func() error {
+		requests.Close()
+		return graceful.Close()
 	}
 	select {
 	case <-ctx.Done():
 		cancel()
-		return nil, errors.Join(ctx.Err(), l.close())
+		return errors.Join(ctx.Err(), shutdown())
 	case _, ok := <-responses.Outlet():
 		if !ok {
-			return nil, errors.Join(
+			return errors.Join(
 				errors.New("the live stream closed before opening"),
-				l.close(),
+				shutdown(),
 			)
 		}
 	}
+	l.mu.Lock()
+	l.closed = false
+	l.mu.Unlock()
+	l.shutdown = shutdown
 	sCtx.Go(func(context.Context) error {
 		for res := range responses.Outlet() {
 			l.receive(res.Frame)
@@ -1133,5 +1168,5 @@ func (e *Engine) openLive(ctx context.Context) (*live, error) {
 		l.end()
 		return nil
 	}, signal.RecoverWithErrOnPanic())
-	return l, nil
+	return nil
 }
