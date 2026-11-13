@@ -205,14 +205,14 @@ On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel 
 device stores for it: the pointer's channel for a read field and the target's channel
 for a channel field. It binds only when that channel exists and holds the field's
 `data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
-one, and its key replaces the stored one. When the stored channel that it replaces holds
-its name, the new channel adds its data type to the name, such as `temp_int32`. A name
-that any other channel holds fails configure, and the message tells the user to rename
-the field. Each source picks one index: that of its bound channels, else the stored
-index, else a new one. The unbound index field binds to it, each new channel takes it,
-and the device stores it. This stops one source from writing against two indexes. It
-then saves the field as bound. An adapter keeps the atomic Phase 13 near 400 lines, and
-Phase 15 deletes it.
+one, and its key replaces the stored one. When a channel already holds the field's name
+and data type, the field binds to it. When the name is taken by a channel of another
+data type, the new channel adds its data type to the name, such as `temp_int32`, and
+binds to a channel that already holds that name and type. Each source picks one index:
+the channel of a bound index field, else the index of its first bound channel, else the
+stored index, else a new one. An unbound index field binds to it, each new channel takes
+it, and the device stores it. It then saves the field as bound. An adapter keeps the
+atomic Phase 13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
@@ -273,8 +273,8 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 - **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
   channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
   `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`. The shipped HTTP default is `float64`, so an HTTP index field
-  or a field with a `time_format` becomes `unbound` with `data_type: timestamp`.
+  `name` and `data_type`. The shipped HTTP default is `float64`, so such an HTTP index
+  field or field with a `time_format` takes `data_type: timestamp`.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
