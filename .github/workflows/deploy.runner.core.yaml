@@ -24,6 +24,10 @@ on:
         description: Back up the Core first
         type: boolean
         default: true
+  # Temporary, to test on this branch. Remove before the merge.
+  push:
+    branches:
+      - sy/ci-runner-core-deploy
 
 permissions:
   actions: read
@@ -57,7 +61,8 @@ jobs:
           aws-region: us-east-1
 
       - name: Back up
-        if: inputs.backup
+        # Temporary: a push has no inputs. Remove the second condition before the merge.
+        if: inputs.backup || github.event_name == 'push'
         env:
           COMMENT: Back up the Core at ${{ github.sha }}
           TIMEOUT: 1800
