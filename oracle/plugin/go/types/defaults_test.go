@@ -779,6 +779,29 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It(
+			"Should keep a field's minimum length when its type is required",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Name = string {
+					@validate required
+				}
+
+				Cfg struct {
+					name Name {
+						@validate min_length 3
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(`v.MinLength("name", c.Name, 3)`).
+					ToNotContain(`v.NotEmptyString("name"`)
+			},
+		)
+
 		It("Should require a field whose type is required", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"

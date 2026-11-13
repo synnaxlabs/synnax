@@ -728,14 +728,14 @@ func goConstraintChecks(
 		}
 	} else if resolution.IsStringPrimitive(base) {
 		switch {
-		case rules.Required && !field.Optional,
-			rules.MinLength != nil && *rules.MinLength == 1:
-			checks = append(checks, check("non_empty_string", ""))
 		case rules.MinLength != nil && *rules.MinLength > 1:
 			checks = append(
 				checks,
 				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
 			)
+		case rules.Required && !field.Optional,
+			rules.MinLength != nil && *rules.MinLength == 1:
+			checks = append(checks, check("non_empty_string", ""))
 		}
 		if rules.MaxLength != nil {
 			checks = append(
