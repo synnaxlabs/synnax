@@ -65,3 +65,56 @@ var _ = Describe("Migration", func() {
 		))
 	})
 })
+
+var _ = Describe("MigrateBase", func() {
+	It("Should keep the key and name, with no icon or color", func(ctx SpecContext) {
+		old := v2.Base{Key: uuid.New(), Name: "Ranges"}
+		Expect(v3.MigrateBase(ctx, old)).
+			To(Equal(v3.Base{Key: old.Key, Name: "Ranges"}))
+	})
+})
+
+var _ = Describe("MigrateView", func() {
+	base := v2.Base{Key: uuid.New(), Name: "View"}
+	label := uuid.New()
+	DescribeTable(
+		"Should lift each variant",
+		func(ctx SpecContext, old v2.View, expected v3.View) {
+			Expect(v3.MigrateView(ctx, old)).To(Equal(expected))
+		},
+		Entry(
+			"a range view, which takes the default sort and layout",
+			v2.View{Variant: v2.RangeView{
+				Base:  base,
+				Where: &rangerv2.Where{Labels: []uuid.UUID{label}},
+			}},
+			v3.View{Variant: v3.RangeView{
+				Base:   v3.Base{Key: base.Key, Name: "View"},
+				Where:  &rangerv3.Where{Labels: []uuid.UUID{label}},
+				Sort:   v3.RangeSortNewest,
+				Layout: v3.RangeLayoutTree,
+			}},
+		),
+		Entry(
+			"a range view with no where",
+			v2.View{Variant: v2.RangeView{Base: base}},
+			v3.View{Variant: v3.RangeView{
+				Base:   v3.Base{Key: base.Key, Name: "View"},
+				Sort:   v3.RangeSortNewest,
+				Layout: v3.RangeLayoutTree,
+			}},
+		),
+		Entry(
+			"a status view, which keeps its where",
+			v2.View{Variant: v2.StatusView{
+				Base:  base,
+				Where: &statusv2.Where{Labels: []uuid.UUID{label}},
+			}},
+			v3.View{Variant: v3.StatusView{
+				Base:  v3.Base{Key: base.Key, Name: "View"},
+				Where: &statusv2.Where{Labels: []uuid.UUID{label}},
+			}},
+		),
+		Entry("a view with no variant", v2.View{}, v3.View{}),
+	)
+})

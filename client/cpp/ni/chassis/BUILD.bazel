@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "chassis",
@@ -20,7 +21,18 @@ cc_library(
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/status",
+        "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/mem",
         "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "chassis_test",
+    srcs = ["chassis_test.cpp"],
+    deps = [
+        ":chassis",
+        "@googletest//:gtest_main",
     ],
 )

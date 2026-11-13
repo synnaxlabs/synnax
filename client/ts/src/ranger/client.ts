@@ -438,7 +438,7 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
-    // A label change streamed during the request is newer than the reply.
+    // A label change or a child streamed during the request is newer than the reply.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,

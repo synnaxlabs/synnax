@@ -171,6 +171,7 @@ var _ = Describe("Pluralize", func() {
 			Expect(pluralize.String("software")).To(Equal("software"))
 			Expect(pluralize.String("hardware")).To(Equal("hardware"))
 			Expect(pluralize.String("firmware")).To(Equal("firmware"))
+			Expect(pluralize.String("chassis")).To(Equal("chassis"))
 		})
 	})
 

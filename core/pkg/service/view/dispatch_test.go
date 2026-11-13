@@ -79,6 +79,19 @@ var _ = Describe("Dispatch", func() {
 		}}))
 	})
 
+	It("Should store the edited icon and color", func(ctx SpecContext) {
+		c := MustSucceed(color.FromHex("#00ff00"))
+		Expect(apply(ctx, set("icon", "bell"), set("color", c))).To(Succeed())
+		Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.StatusView{
+			Base: view.Base{
+				Key:   v.GorpKey(),
+				Name:  "Before",
+				Icon:  new("bell"),
+				Color: &c,
+			},
+		}}))
+	})
+
 	DescribeTable("Should refuse an edit", func(
 		ctx SpecContext,
 		act view.Action,

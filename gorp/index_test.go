@@ -1807,9 +1807,10 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 
 var _ = Describe("Populate failure", func() {
 	var (
-		db      *gorp.DB
-		nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-		logs    *observer.ObservedLogs
+		db       *gorp.DB
+		nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
+		scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
+		logs     *observer.ObservedLogs
 	)
 	BeforeEach(func(ctx SpecContext) {
 		mem := DeferClose(memkv.New())
@@ -1818,21 +1819,24 @@ var _ = Describe("Populate failure", func() {
 			gorp.WithCodec(msgpack.Codec),
 		)
 		seed := []indexedEntry{
-			{ID: 1, Name: "alpha"},
-			{ID: 2, Name: "beta"},
-			{ID: 3, Name: "alpha"},
+			{ID: 1, Name: "alpha", Score: 10},
+			{ID: 2, Name: "beta", Score: 20},
+			{ID: 3, Name: "alpha", Score: 30},
 		}
 		Expect(gorp.NewCreate[int32, indexedEntry]().
 			Entries(&seed).Exec(ctx, db)).To(Succeed())
 		nameIdx = gorp.NewLookupIndex(
 			"name", func(e *indexedEntry) string { return e.Name },
 		)
+		scoreIdx = gorp.NewSortedIndex(
+			"score", func(e *indexedEntry) int64 { return e.Score },
+		)
 		var ins alamos.Instrumentation
 		ins, logs = ObservedInstrumentation(zapcore.ErrorLevel)
 		DeferClose(
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
 				DB:              db,
-				Indexes:         []gorp.Index[int32, indexedEntry]{nameIdx},
+				Indexes:         []gorp.Index[int32, indexedEntry]{nameIdx, scoreIdx},
 				Instrumentation: ins,
 			})),
 		)
@@ -1884,6 +1888,48 @@ var _ = Describe("Populate failure", func() {
 				Entries(&got).Exec(ctx, db)).To(Succeed())
 			Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
 		})
+
+	It(
+		"Should fall back to a sequential scan for a sorted range",
+		func(ctx SpecContext) {
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 15}, nil)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(2), int32(3)))
+		},
+	)
+
+	It(
+		"Should narrow an And of ranges by the range whose index populated",
+		func(ctx SpecContext) {
+			healthy := gorp.NewSortedIndex(
+				"score", func(e *indexedEntry) int64 { return e.Score },
+			)
+			DeferClose(
+				MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB:      db,
+					Name:    "healthy",
+					Indexes: []gorp.Index[int32, indexedEntry]{healthy},
+				})),
+			)
+			Expect(healthy.Get(ctx, nil, 20)).To(ConsistOf(int32(2)))
+			read := 0
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(gorp.And(
+					gorp.Match(func(gorp.Context, *indexedEntry) (bool, error) {
+						read++
+						return true, nil
+					}),
+					scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 15}, nil),
+					healthy.FilterRange(nil, &gorp.Bound[int64]{Value: 25}),
+				)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(2)))
+			Expect(read).To(Equal(2))
+		},
+	)
 
 	It("Should fall back to a sequential scan for Not when populate fails",
 		func(ctx SpecContext) {
