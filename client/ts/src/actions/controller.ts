@@ -941,12 +941,21 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Sends a create for the given keys. The cached docs among them hold their create as
-   * pending, so its echo does not revert edits made before the echo arrives.
+   * pending, so its echo does not revert edits made before the echo arrives. Dispatches
+   * to the keys during the send wait for it, then go out in order.
    * @returns what the send returns.
-   * @throws {Error} if the send fails.
+   * @throws {Error} if the send fails. The waiting dispatches then roll back and reject
+   * with the same error.
    */
   async create<T>(keys: Key[], send: (dispatchKey: string) => Promise<T>): Promise<T> {
     const dispatchKey = id.create();
+    const held = keys
+      .filter((key) => !this.queues.has(key))
+      .map((key) => {
+        const queue: Queue<State, Action> = { next: null };
+        this.queues.set(key, queue);
+        return { key, queue };
+      });
     const tracked: Key[] = [];
     for (const key of keys) {
       const current = this.docs.get(key);
@@ -958,10 +967,20 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     try {
       res = await send(dispatchKey);
     } catch (e) {
+      const err = errors.fromUnknown(e);
+      held.forEach(({ key, queue }) => {
+        this.queues.delete(key);
+        const batch = queue.next;
+        if (batch == null) return;
+        revert(batch);
+        this.discard(key, batch.entry.dispatchKey);
+        batch.result.reject(err);
+      });
       tracked.forEach((key) => this.discard(key, dispatchKey));
-      throw errors.fromUnknown(e);
+      throw err;
     }
     tracked.forEach((key) => this.accept(key, dispatchKey, []));
+    held.forEach(({ key, queue }) => void this.drain(key, queue));
     return res;
   }
 

@@ -1811,6 +1811,35 @@ describe("actions.Controller", () => {
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
     });
+
+    it("sends a dispatch made during the create after the create", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+      expect(send).not.toHaveBeenCalled();
+      created.resolve("created");
+      expect(await done).toBe("created");
+      expect(await dispatched).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("rolls back and rejects a dispatch made during a failed create", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      created.reject(new Error("create failed"));
+      await expect(done).rejects.toThrow("create failed");
+      await expect(dispatched).rejects.toThrow("create failed");
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+    });
   });
 
   describe("markRemoteTouched", () => {
