@@ -347,6 +347,9 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
+      # The HTTP/2 client in Go stalls downloads on the Mac build bots: Bazelisk, and
+      # gh when it downloads a release asset.
+      GODEBUG: http2client=0
       DRIVER_REF_RUN_ID:
         ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
       CONSOLE_REF_RUN_ID:
@@ -432,9 +435,6 @@ jobs:
       - name: Build Driver (macOS)
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && startsWith(matrix.os, 'macos')
-        env:
-          # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
-          GODEBUG: http2client=0
         run: |
           read -ra flags <<< "$BAZEL_BUILD_FLAGS"
           bazel build "${flags[@]}" --config=opt-unix //driver
@@ -556,9 +556,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Install trusted-signing-cli
+      - name: Set up trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: cargo install trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Remove read-only attribute from Driver for signing
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
@@ -943,6 +943,7 @@ jobs:
     permissions: *build_permissions
     env:
       GH_TOKEN: ${{ github.token }}
+      GODEBUG: http2client=0
       SIGNING_DEFERRED: true
       DRIVER_REF_RUN_ID: ${{ github.run_id }}
       DRIVER_REF_ARTIFACT:

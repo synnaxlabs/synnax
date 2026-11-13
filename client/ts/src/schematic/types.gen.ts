@@ -172,8 +172,8 @@ export const numericTelemConfigZ = z.object({
   channel: channel.keyZ.optional(),
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
+  /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
+  precision: zod.uint8.max(17).optional(),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
 });

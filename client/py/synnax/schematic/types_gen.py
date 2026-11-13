@@ -204,13 +204,13 @@ class NumericTelemConfig(BaseModel):
     Attributes:
         channel: Is the channel whose value the symbol displays.
         rolling_average: Is the sample window for rolling-average smoothing.
-        precision: Is the number of decimal places shown.
+        precision: Is the number of decimal places shown, from 0 to 17. Absent shows 2.
         notation: Is the numeric notation used to format the value.
     """
 
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
 
 
@@ -1050,7 +1050,7 @@ class TankNodeConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
@@ -1785,7 +1785,7 @@ class TankElementConfig(LabeledConfig):
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
-    precision: float = 2
+    precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: float = 5
     staleness_color: color_.Color | None = None
