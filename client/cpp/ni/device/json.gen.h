@@ -11,15 +11,18 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/ni/chassis/json.gen.h"
 #include "client/cpp/ni/device/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 
 namespace synnax::ni::device {
@@ -61,6 +64,34 @@ inline x::json::json Device::to_json() const {
     j["digital_input"] = this->digital_input.to_json();
     j["digital_output"] = this->digital_output.to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .serial = parser.field<std::optional<::x::filter::String>>("serial"),
+        .model = parser.field<std::optional<::x::filter::String>>("model"),
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
+            "rack"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->serial.has_value()) j["serial"] = this->serial->to_json();
+    if (this->model.has_value()) j["model"] = this->model->to_json();
+    if (this->rack.has_value()) j["rack"] = this->rack->to_json();
     return j;
 }
 
@@ -183,6 +214,50 @@ inline x::json::json Configuration::to_json() const {
     j["counter_input"] = this->counter_input.to_json();
     j["digital_input"] = this->digital_input.to_json();
     j["digital_output"] = this->digital_output.to_json();
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .after = parser.field<std::optional<Cursor>>("after"),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .include_status = parser.field<bool>("include_status", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->after.has_value()) j["after"] = this->after->to_json();
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["include_status"] = this->include_status;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .devices = parser.field<std::vector<Device>>("devices", std::vector<Device>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["devices"] = x::json::to_array(this->devices);
     return j;
 }
 

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -514,6 +515,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceDispatch: unary[device.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathDeviceDispatch,
+		),
+
+		// NI DEVICE
+		NIDeviceCreate: unary[nidevice.CreateRequest, nidevice.CreateResponse](
+			router,
+			"/api/v1/ni/device/create",
+		),
+		NIDeviceRetrieve: unary[nidevice.RetrieveRequest, nidevice.RetrieveResponse](
+			router,
+			"/api/v1/ni/device/retrieve",
+		),
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/device/update",
+		),
+		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/device/delete",
 		),
 
 		// ACCESS

@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -201,6 +202,12 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceDispatch applies actions to a device.
 	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
+
+	// NI DEVICE
+	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
+	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -286,6 +293,7 @@ type Layer struct {
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
+	NIDevice     *nidevice.Service
 	Policy       *policy.Service
 	Role         *role.Service
 	Arc          *arc.Service
@@ -476,6 +484,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceDispatch,
+
+		// NI DEVICE
+		t.NIDeviceCreate,
+		t.NIDeviceRetrieve,
+		t.NIDeviceUpdate,
+		t.NIDeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -718,6 +732,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
 
+	// NI DEVICE
+	t.NIDeviceCreate.BindHandler(bind.Write(l.binder, l.NIDevice.Create))
+	t.NIDeviceRetrieve.BindHandler(bind.Read(l.binder, l.NIDevice.Retrieve))
+	t.NIDeviceUpdate.BindHandler(bind.Write(l.binder, l.NIDevice.Update))
+	t.NIDeviceDelete.BindHandler(bind.Write(l.binder, l.NIDevice.Delete))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -938,6 +958,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
+		Device: cfg.Service.NI.Devices,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

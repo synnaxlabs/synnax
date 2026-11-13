@@ -12,6 +12,7 @@ from synnax.ni.device.types_gen import (
     CommandStatePair,
     Configuration,
     ConfigurationUpdate,
+    Cursor,
     Device,
     Identity,
     IdentityUpdate,
@@ -21,6 +22,8 @@ from synnax.ni.device.types_gen import (
     Status,
     StatusDetails,
     Update,
+    Where,
+    WhereInput,
     resource_id,
 )
 
@@ -29,6 +32,7 @@ __all__ = [
     "CommandStatePair",
     "Configuration",
     "ConfigurationUpdate",
+    "Cursor",
     "Device",
     "Identity",
     "IdentityUpdate",
@@ -38,5 +42,7 @@ __all__ = [
     "Status",
     "StatusDetails",
     "Update",
+    "Where",
+    "WhereInput",
     "resource_id",
 ]
