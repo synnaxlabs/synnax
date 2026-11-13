@@ -11,9 +11,11 @@ import "@/feature/sift/range/UploadModal.css";
 
 import {
   channel,
+  type device,
   DisconnectedError,
   type ranger,
   type status,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -24,13 +26,15 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Synnax } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { Channel, Device, Synnax } from "@synnaxlabs/pluto";
+import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
+import { MAKE } from "@/feature/sift/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -56,8 +60,10 @@ const formSchema = z.object({
 const path = deep.path<z.infer<typeof formSchema>>();
 
 export interface UploadModalParams {
-  rangeKey: ranger.Key;
-  rangeName: string;
+  /** The name the modal and its statuses show. */
+  name: string;
+  /** The key of the range to upload, or a plain time range. */
+  source: ranger.Key | CrudeTimeRange;
 }
 
 // Sift stores only persisted data channels. The Core sends each index on its own.
@@ -72,17 +78,18 @@ const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
 };
 
+// Case conversion drops the JSON form of a TimeRange, so the span goes as bare values.
+const encodeTimeRange = (tr: CrudeTimeRange) => {
+  const { start, end } = new TimeRange(tr);
+  return { start: start.valueOf(), end: end.valueOf() };
+};
+
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
   onRejection: (rejection: status.Status | null) => void;
 }
 
-const UploadButton = ({
-  rangeKey,
-  rangeName,
-  onUploaded,
-  onRejection,
-}: UploadButtonProps) => {
+const UploadButton = ({ name, source, onUploaded, onRejection }: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useAsyncErrorHandler();
   const addStatus = Status.useAdder();
@@ -96,6 +103,10 @@ const UploadButton = ({
       async () => {
         if (client == null) throw new DisconnectedError();
         const { device, asset, channels } = get(path.config).value;
+        const data =
+          typeof source === "string"
+            ? { range: source }
+            : { timeRange: encodeTimeRange(source) };
         const dev = await client.devices.retrieve({ key: device });
         const scanTask = await client.tasks.retrieve({
           type: SCAN_TYPE,
@@ -106,18 +117,18 @@ const UploadButton = ({
         const res = await scanTask.executeCommandSync({
           type: UPLOAD_COMMAND_TYPE,
           timeout: UPLOAD_TIMEOUT,
-          args: { device, range: rangeKey, channels, asset },
+          args: { device, channels, asset, ...data },
         });
         // The reply of the scan task notifies a rejection on its own.
         if (res.variant === "error") return onRejection(res);
         addStatus({
           variant: "success",
-          name: rangeName,
+          name,
           message: "Queued upload to Sift",
         });
         onUploaded();
       },
-      { message: "Failed to upload to Sift", name: rangeName },
+      { message: "Failed to upload to Sift", name },
     );
     setPending(false);
   };
@@ -134,24 +145,31 @@ const UploadButton = ({
   );
 };
 
-const Upload = ({
-  rangeKey,
-  rangeName,
-  close,
-}: Modals.ContentProps<UploadModalParams, void>) => {
+interface UploadFormProps extends Modals.ContentProps<UploadModalParams, void> {
+  device: device.Key;
+}
+
+const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
-    values: { rack: 0, config: { device: "", asset: "", channels: [] } },
+    values: { rack: 0, config: { device, asset: "", channels: [] } },
   });
   const [rejection, setRejection] = useState<status.Status | null>(null);
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
-        <Modal.Header icon={<Icon.Logo.Sift />}>{HEADER}</Modal.Header>
+        <Modal.Header icon={<Icon.Logo.Sift />}>
+          {typeof source === "string" ? RANGE_HEADER : SPAN_HEADER}
+        </Modal.Header>
         <Modal.Body gap="large">
-          <Text.Text level="h3" weight={450}>
-            Upload {rangeName} to Sift
-          </Text.Text>
+          <Flex.Box y gap="tiny">
+            <Text.Text level="h3" weight={450}>
+              Upload {name} to Sift
+            </Text.Text>
+            {typeof source !== "string" && (
+              <Telem.Text.TimeRange>{source}</Telem.Text.TimeRange>
+            )}
+          </Flex.Box>
           <Flex.Box x gap="large">
             <Asset.Destination
               path={path.config.asset}
@@ -183,8 +201,8 @@ const Upload = ({
           )}
           <Nav.Bar.End x align="center">
             <UploadButton
-              rangeKey={rangeKey}
-              rangeName={rangeName}
+              name={name}
+              source={source}
               onUploaded={close}
               onRejection={setRejection}
             />
@@ -195,6 +213,17 @@ const Upload = ({
   );
 };
 
-const HEADER = ["Range", "Upload to Sift"];
+// Two at most: the modal picks the connection only when it is the only one.
+const DEVICES_QUERY = { where: { make: { eq: MAKE } }, limit: 2 };
+
+const Upload = (props: Modals.ContentProps<UploadModalParams, void>) => {
+  const { variant, data } = Device.useResultMultiple(DEVICES_QUERY);
+  if (variant === "loading") return null;
+  const device = data?.length === 1 ? data[0].key : "";
+  return <UploadForm {...props} device={device} />;
+};
+
+const RANGE_HEADER = ["Range", "Upload to Sift"];
+const SPAN_HEADER = ["Time range", "Upload to Sift"];
 
 export const useUploadModal = Modals.create<UploadModalParams>(Upload);

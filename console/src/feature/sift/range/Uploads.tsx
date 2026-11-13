@@ -115,7 +115,7 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
             variant="text"
             tooltip="Upload to Sift"
             aria-label="Upload to Sift"
-            onClick={() => open({ rangeKey, rangeName })}
+            onClick={() => open({ name: rangeName, source: rangeKey })}
           >
             <Icon.Add />
           </Button.Button>

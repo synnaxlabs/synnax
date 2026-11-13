@@ -7,18 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, TimeRange, TimeStamp } from "@synnaxlabs/client";
-import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import {
+  access,
+  type channel,
+  DataType,
+  device,
+  type task,
+  TimeRange,
+  TimeStamp,
+  user,
+} from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  newIndexedPair,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand } from "@/platform/task/testutil";
+import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
 import { CaptureStatuses, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -51,12 +64,66 @@ const createScanTask = async () => {
   return { rack, scan };
 };
 
+// Picks the device, the asset Sift lists last, and the channel, then uploads.
+const fillAndUpload = async (
+  scan: task.Task,
+  dev: device.Device,
+  ch: channel.Channel,
+  answer: CommandAnswer = {},
+) => {
+  const { answered: listed } = await answerNextCommand(client, scan, {
+    type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+    data: { assets: ["pad", "stand"], last: "stand" },
+  });
+  await selectDevice(dev.name);
+  await listed;
+  expect(await screen.findByText("stand")).toBeTruthy();
+  fireEvent.click(screen.getByText("Select channels to upload"));
+  fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
+    target: { value: ch.name },
+  });
+  fireEvent.click(await screen.findByText(ch.name));
+  const { answered } = await answerNextCommand(client, scan, {
+    type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    ...answer,
+  });
+  clickUpload();
+  return await answered;
+};
+
 describe("Sift.Range.useUploadModal", () => {
+  // The dialog picks the only Sift device on its own, so two keep the pick empty.
+  beforeAll(async () => {
+    await createSiftDevice(client);
+    await createSiftDevice(client);
+  });
+
+  it("should pick the device when it is the only one the user can see", async () => {
+    const dev = await createSiftDevice(client);
+    const rng = await createRange();
+    const restricted = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [
+        device.resourceID(dev.key),
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    });
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      { client: restricted },
+    );
+    expect(await findDialogTriggerByText(dev.name)).toBeTruthy();
+  });
+
   it("should require a device, an asset, and channels", async () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
@@ -74,29 +141,13 @@ describe("Sift.Range.useUploadModal", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       {
         client,
         extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
       },
     );
-    const { answered: listed } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
-      data: { assets: ["pad", "stand"], last: "stand" },
-    });
-    await selectDevice(dev.name);
-    await listed;
-    expect(await screen.findByText("stand")).toBeTruthy();
-    fireEvent.click(screen.getByText("Select channels to upload"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: data.name },
-    });
-    fireEvent.click(await screen.findByText(data.name));
-    const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.UPLOAD_COMMAND_TYPE,
-    });
-    clickUpload();
-    const cmd = await answered;
+    const cmd = await fillAndUpload(scan, dev, data);
     expect(cmd.args).toEqual({
       device: dev.key,
       range: rng.key,
@@ -116,7 +167,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered: listedFirst } = await answerNextCommand(client, scan, {
@@ -148,7 +199,7 @@ describe("Sift.Range.useUploadModal", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       {
         client,
         extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
@@ -184,7 +235,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
@@ -202,13 +253,38 @@ describe("Sift.Range.useUploadModal", () => {
     expect(trigger.textContent).not.toContain(" Rig 2 ");
   });
 
+  it("should queue an upload of a plain time span", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const [, data] = await newIndexedPair(client);
+    const tr = new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2));
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: "Hotfire plot", source: tr.numeric }],
+      { client },
+    );
+    expect(await screen.findByText("Upload Hotfire plot to Sift")).toBeTruthy();
+    const start = tr.start.toString("dateTime", "local");
+    expect(screen.getByText(start, { exact: false })).toBeTruthy();
+    const cmd = await fillAndUpload(scan, dev, data);
+    expect(cmd.args).toEqual({
+      device: dev.key,
+      timeRange: {
+        start: tr.start.valueOf().toString(),
+        end: tr.end.valueOf().toString(),
+      },
+      channels: [data.key],
+      asset: "stand",
+    });
+  });
+
   it("should keep the asset when a new asset name is only spaces", async () => {
     const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered } = await answerNextCommand(client, scan, {
@@ -238,7 +314,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     fireEvent.click(await screen.findByText("Select channels to upload"));
@@ -257,7 +333,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered: listed } = await answerNextCommand(client, scan, {
@@ -291,32 +367,17 @@ describe("Sift.Range.useUploadModal", () => {
     let statuses: Status.NotificationSpec[] = [];
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       {
         client,
         extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
       },
     );
-    const { answered: listed } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
-      data: { assets: ["stand"], last: "stand" },
-    });
-    await selectDevice(dev.name);
-    await listed;
-    expect(await screen.findByText("stand")).toBeTruthy();
-    fireEvent.click(screen.getByText("Select channels to upload"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: data.name },
-    });
-    fireEvent.click(await screen.findByText(data.name));
-    const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    await fillAndUpload(scan, dev, data, {
       variant: "error",
       message: "Failed to upload to Sift",
       description: "range has no data",
     });
-    clickUpload();
-    await answered;
     expect(await screen.findByText("range has no data")).toBeTruthy();
     expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
     expect(statuses).toEqual([]);
