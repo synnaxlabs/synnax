@@ -169,37 +169,38 @@ export class Client extends query.Retriever<
 
   /**
    * Creates the chassis, or replaces the chassis whose keys exist. The Core gives each
-   * new chassis an unknown status. A chassis that the cache holds as deleted comes
-   * back when the stream delivers its create, because only the stream knows the order
-   * of the Core's writes.
+   * new chassis an unknown status.
    * @throws {ValidationError} if a chassis is invalid or its rack does not exist.
    */
-  async create(chassis: New): Promise<Chassis>;
-  async create(chassis: New[]): Promise<Chassis[]>;
-  async create(chassis: New | New[]): Promise<Chassis | Chassis[]> {
+  async create(chassis: New, opts?: query.WriteOptions): Promise<Chassis>;
+  async create(chassis: New[], opts?: query.WriteOptions): Promise<Chassis[]>;
+  async create(
+    chassis: New | New[],
+    opts: query.WriteOptions = {},
+  ): Promise<Chassis | Chassis[]> {
     const isSingle = !Array.isArray(chassis);
+    const normalized = array.toArray(chassis).map((c) => chassisZ.parse(c));
+    const apply = () => [this.store.set(normalized.map(stripStatus))];
     const { store: statuses } = this.cfg.statuses;
-    // A chassis or status streamed during the request is newer than the reply.
-    const res = await this.store.track(
-      async (since) =>
-        await statuses.track(async (statusSince) => {
-          const res = await this.cfg.unary.send(
+    // A status streamed during the request is newer than the reply.
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
             "/ni/chassis/create",
-            { chassis: array.toArray(chassis).map((c) => chassisZ.parse(c)) },
+            { chassis: normalized },
             createReqZ,
             createResZ,
-          );
-          this.store.ingest(res.chassis.map(stripStatus), {
-            since,
-            mode: "set",
-            changed: true,
-          });
-          res.chassis.forEach(({ status: st }) => {
-            if (st != null) statuses.ingest(st, { since: statusSince });
-          });
-          return res;
-        }),
-    );
+          ),
+      });
+      res.chassis.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
+    });
+    this.store.set(res.chassis.map(stripStatus));
     return isSingle ? res.chassis[0] : res.chassis;
   }
 
@@ -224,15 +225,21 @@ export class Client extends query.Retriever<
    * Deletes the chassis with their statuses and the devices they hold. The devices
    * leave the device cache when their deletes stream in.
    */
-  async delete(keys: Key | Key[]): Promise<void> {
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    await this.cfg.unary.send(
-      "/ni/chassis/delete",
-      { keys: keysArr },
-      deleteReqZ,
-      emptyResZ,
-    );
-    this.store.delete(keysArr);
+    const drop = () => [this.store.delete(keysArr)];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/ni/chassis/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
   }
 
   /** Subscribes to every chassis set delivered to the cache. Statuses excluded. */
