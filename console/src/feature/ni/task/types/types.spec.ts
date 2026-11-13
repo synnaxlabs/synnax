@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -464,5 +465,38 @@ describe("deploy configs", () => {
         message: "At least one enabled channel is required",
       }),
     );
+  });
+});
+
+describe("default ranges", () => {
+  const hardware = {
+    ...ni.hardwareZ.parse({}),
+    aiCurrentRanges: [
+      { lower: -0.01, upper: 0.01 },
+      { lower: -0.02, upper: 0.02 },
+    ],
+    aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
+  };
+
+  it("should give a current input the widest current range", () => {
+    expect(NI.Task.defaultAIRange("ai_current", hardware)).toEqual({
+      lower: -0.02,
+      upper: 0.02,
+    });
+  });
+
+  it("should give a current output the device's current range", () => {
+    expect(NI.Task.defaultAORange("ao_current", hardware)).toEqual({
+      lower: 0,
+      upper: 0.02,
+    });
+  });
+
+  it.each([
+    ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
+    ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
+    ["a device with no hardware", NI.Task.defaultAIRange("ai_current")],
+  ])("should keep the range of %s", (_, range) => {
+    expect(range).toBeUndefined();
   });
 });

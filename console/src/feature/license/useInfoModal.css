@@ -15,27 +15,4 @@
     .console-license-info__body {
         padding: 4rem 4rem 3rem;
     }
-
-    .console-license-info__stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1.5rem;
-    }
-
-    .console-license-info__stat {
-        padding: 2rem 2.5rem;
-        border: var(--pluto-border);
-        border-radius: var(--pluto-border-radius);
-        background: var(--pluto-gray-l1);
-    }
-
-    .console-license-info__support .lyra-text--code {
-        overflow-wrap: anywhere;
-        -webkit-user-select: text;
-        user-select: text;
-    }
-
-    .console-license-info__copy {
-        margin-left: -1.5rem;
-    }
 }

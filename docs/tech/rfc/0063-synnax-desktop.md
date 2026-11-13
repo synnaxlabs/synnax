@@ -374,7 +374,8 @@ A person dispatches `release.desktop.yaml` with a bump and an optional candidate
 `release.yaml`:
 
 1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
-   integration on Ubuntu and Windows.
+   integration on Ubuntu and Windows. It runs in parallel with the draft and the build,
+   and gates only the publish.
 2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
    the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
    bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
