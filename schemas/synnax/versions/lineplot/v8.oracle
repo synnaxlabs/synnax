@@ -122,16 +122,7 @@ LinePlot struct {
         @doc value "is the group the line plot sits in, if any."
     }
     project  project.Key? {
-        @doc value """
-            is the project that owns the line plot, if any. Exactly one of project and
-            range is set.
-        """
-    }
-    range    ranger.Key?  {
-        @doc value """
-            is the range that owns the line plot, if any. Exactly one of project and
-            range is set.
-        """
+        @doc value "is the project that owns the line plot."
     }
 
     @go imex

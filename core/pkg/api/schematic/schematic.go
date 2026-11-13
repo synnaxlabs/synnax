@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/config"
@@ -152,12 +151,8 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string        `json:"name"     msgpack:"name"`
-		Key      schematic.Key `json:"key"      msgpack:"key"`
-		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
-		// Range, when set, makes the copy belong to the range instead of the original's
-		// project.
-		Range *ranger.Key `json:"range" msgpack:"range"`
+		Name string        `json:"name" msgpack:"name"`
+		Key  schematic.Key `json:"key"  msgpack:"key"`
 	}
 	CopyResponse struct {
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
@@ -179,7 +174,7 @@ func (s *Service) Copy(
 ) (CopyResponse, error) {
 	var res CopyResponse
 	if err := s.internal.NewWriter(tx).
-		Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range, &res.Schematic); err != nil {
+		Copy(ctx, req.Key, req.Name, &res.Schematic); err != nil {
 		return CopyResponse{}, err
 	}
 	return res, nil

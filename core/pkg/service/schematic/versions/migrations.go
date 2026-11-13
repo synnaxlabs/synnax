@@ -29,6 +29,7 @@ var Migrations = []gorp.Migration{
 	v9.Migration,
 	v9.ScaleMigration,
 	v10.Migration,
+	v11.SnapshotMigration,
 	v11.Migration,
 	v11.MembersMigration,
 	v11.OwnersMigration,

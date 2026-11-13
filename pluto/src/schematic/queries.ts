@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, query, type ranger, schematic } from "@synnaxlabs/client";
-import { array, compare, verbs } from "@synnaxlabs/x";
+import { type project, query, schematic } from "@synnaxlabs/client";
+import { compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -126,8 +126,6 @@ export const useNodes = Scope.bindHook(
   ),
 );
 
-export const useIsSnapshot = Scope.bindHook(createSelector(({ snapshot }) => snapshot));
-
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export type DeleteParams = schematic.Key | schematic.Key[];
@@ -168,33 +166,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     await client.schematics.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
-});
-
-export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> {}
-
-export interface SnapshotParams {
-  schematics: SnapshotPair | SnapshotPair[];
-  range: ranger.Key;
-}
-
-export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SNAPSHOT,
-  update: async ({ client, data }) => {
-    const { schematics, range } = data;
-    await Promise.all(
-      array.toArray(schematics).map(
-        async (s) =>
-          await client.schematics.copy({
-            key: s.key,
-            name: `${s.name} (Snapshot)`,
-            snapshot: true,
-            range,
-          }),
-      ),
-    );
-    return data;
-  },
 });
 
 const augmentWithEdgeSegments = (

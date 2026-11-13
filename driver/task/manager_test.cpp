@@ -617,19 +617,6 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
 }
 
-TEST_F(TaskManagerTest, IgnoresSnapshot) {
-    start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task{
-        .rack = rack.key,
-        .name = "t",
-        .type = SYNTHETIC_TASK_TYPE,
-    };
-    task.snapshot = true;
-    ASSERT_NIL(rack.tasks.create(task));
-    send_start(client, task);
-    expect_no_driver_status(task);
-}
-
 TEST_F(TaskManagerTest, ParallelConfig) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();

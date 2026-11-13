@@ -83,23 +83,13 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
-		DescribeTable(
-			"Should reject a line plot that does not have exactly one owner",
-			func(ctx SpecContext, owned func() (*project.Key, *ranger.Key)) {
-				tx := DeferClose(db.OpenTx())
-				plot := lineplot.LinePlot{Name: "owner"}
-				plot.Project, plot.Range = owned()
-				Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(MatchError(
-					ContainSubstring(
-						"project: must belong to exactly one of a project and a range",
-					),
-				))
-			},
-			Entry("no owner", func() (*project.Key, *ranger.Key) { return nil, nil }),
-			Entry("both owners", func() (*project.Key, *ranger.Key) {
-				return &proj.Key, new(uuid.New())
-			}),
-		)
+		It("Should reject a line plot with no project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			plot := lineplot.LinePlot{Name: "owner"}
+			Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(MatchError(
+				ContainSubstring("project: must belong to a project"),
+			))
+		})
 		It(
 			"Should populate lines from channel and range bindings supplied at creation",
 			func(ctx SpecContext) {

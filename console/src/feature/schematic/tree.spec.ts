@@ -9,8 +9,7 @@
 
 import { NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
@@ -22,10 +21,7 @@ import {
   testProjectKey,
 } from "@/feature/schematic/testutil";
 import {
-  createBaseProps,
   createResource,
-  createSelection,
-  createState,
   findTreeRow,
   renderLiveTree,
   renderTreeContextMenu,
@@ -33,17 +29,11 @@ import {
 
 const roles = new RoleClients(client);
 import { findButton } from "@/platform/modals/testutil";
-import { createTestRange } from "@/platform/range/testutil";
-import { Tree } from "@/platform/tree";
-import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
-  CaptureStatuses,
   commitTextEdit,
-  createConsoleWrapper,
-  createTestStore,
   resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
@@ -76,49 +66,6 @@ describe("Schematic.TREE_ITEMS", () => {
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.key).toBe(s.key);
     });
-  });
-});
-
-describe("Schematic snapshot to the active range", () => {
-  it("snapshots the selected schematics under the active range", async () => {
-    const s = await createSchematic();
-    const rng = await createTestRange(client);
-    const store = await createTestStore();
-    store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-    store.dispatch(Session.Range.select(rng.key));
-    const { wrapper } = await createConsoleWrapper({ client, store });
-    const Menu = Item.ContextMenu;
-    assertDefined(Menu);
-    const id = schematic.resourceID(s.key);
-    const statuses: Status.NotificationSpec[] = [];
-    render(
-      <Tree.Provider items={Schematic.TREE_ITEMS}>
-        <Menu
-          {...createBaseProps({ client, store })}
-          selection={createSelection({ ids: [id] })}
-          state={createState([createResource(id, s.name)])}
-        />
-        <CaptureStatuses
-          onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
-        />
-      </Tree.Provider>,
-      { wrapper },
-    );
-    fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
-    await waitFor(async () => {
-      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
-      expect(snapshots.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
-    });
-    await waitFor(() =>
-      expect(statuses).toContainEqual(
-        expect.objectContaining({
-          variant: "success",
-          name: rng.name,
-          message: "Snapshotted schematic",
-          description: `Created a snapshot of ${s.name}.`,
-        }),
-      ),
-    );
   });
 });
 
@@ -180,24 +127,6 @@ describe("Schematic TreeContextMenu", () => {
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${s.name}.json`);
     result.unmount();
-  });
-});
-
-describe("snapshot schematics", () => {
-  it("should withhold duplicating a snapshot", async () => {
-    const s = await createSchematic();
-    const snap = await client.schematics.copy({
-      key: s.key,
-      name: uniqueName("snap"),
-      snapshot: true,
-    });
-    assertDefined(Item.ContextMenu);
-    await renderTreeContextMenu(Item.ContextMenu, {
-      client,
-      resources: [createResource(schematic.resourceID(snap.key), snap.name)],
-    });
-    expect(await screen.findByText("Delete")).toBeTruthy();
-    expect(screen.queryByText("Duplicate")).toBeNull();
   });
 });
 

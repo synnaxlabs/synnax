@@ -48,24 +48,16 @@ func createGroup(
 }
 
 var _ = Describe("ValidateOwner", func() {
-	It("Should accept a project alone", func() {
-		Expect(project.ValidateOwner(new(uuid.New()), nil)).To(Succeed())
+	It("Should accept a project", func() {
+		Expect(project.ValidateOwner(new(uuid.New()))).To(Succeed())
 	})
 
-	It("Should accept a range alone", func() {
-		Expect(project.ValidateOwner(nil, new(ranger.Key(uuid.New())))).To(Succeed())
+	It("Should reject no project", func() {
+		Expect(project.ValidateOwner(nil)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("project: must belong to a project")),
+		))
 	})
-
-	DescribeTable(
-		"Should reject anything but exactly one owner",
-		func(proj *project.Key, rng *ranger.Key) {
-			Expect(project.ValidateOwner(proj, rng)).To(MatchError(ContainSubstring(
-				"project: must belong to exactly one of a project and a range",
-			)))
-		},
-		Entry("neither", nil, nil),
-		Entry("both", new(uuid.New()), new(ranger.Key(uuid.New()))),
-	)
 })
 
 var _ = Describe("GroupProject", func() {

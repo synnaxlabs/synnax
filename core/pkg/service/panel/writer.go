@@ -36,9 +36,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
-// The panel must belong to exactly one of a project and a range. An existing panel
-// keeps its group, project, and range. A new panel in a group belongs to the project
-// that holds the group.
+// The panel must belong to a project. An existing panel keeps its group and project. A
+// new panel in a group belongs to the project that holds the group.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
@@ -56,7 +55,7 @@ func (w Writer) Create(
 			return err
 		}
 		if exists = err == nil; exists {
-			p.Group, p.Project, p.Range = stored.Group, stored.Project, stored.Range
+			p.Group, p.Project = stored.Group, stored.Project
 		}
 	}
 	if !exists && p.Group != nil {
@@ -77,7 +76,7 @@ func (w Writer) Create(
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(p.Project, p.Range); err != nil {
+	if err := project.ValidateOwner(p.Project); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
@@ -108,8 +107,7 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return w.setProject(ctx, *p, keys...)
 }
 
-// SetProject moves the panels with keys out of their group and into the project p. It
-// returns a validation error when a panel belongs to a range.
+// SetProject moves the panels with keys out of their group and into the project p.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 		return err
@@ -129,10 +127,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Panel) (Panel, error) {
+		Change(func(_ gorp.Context, e Panel) Panel {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

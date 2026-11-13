@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -121,9 +121,9 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different
+      // Exclude status and internal when updating - these have different
       // input/output types
-      const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
+      const { status: _, internal: __, ...taskFields } = m;
       const updated = await client.tasks.create({
         ...taskFields,
         name: "updated",
@@ -554,46 +554,6 @@ describe("Task", async () => {
           })
           .toBe(true);
       });
-
-      it("should filter tasks by snapshot parameter", async () => {
-        const regularTask = await testRack.createTask({
-          name: "regular_test_task",
-          type: "pagerduty_alert",
-          config: {},
-        });
-
-        const snapshotTask = await client.tasks.copy(
-          regularTask.key,
-          "snapshot_test_task",
-          true,
-        );
-
-        const snapshotOnlyResult = await client.tasks.retrieve({ snapshot: true });
-        expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
-        expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
-
-        const regularOnlyResult = await client.tasks.retrieve({ snapshot: false });
-        expect(regularOnlyResult.some((t) => t.key === regularTask.key)).toBe(true);
-        expect(regularOnlyResult.every((t) => t.snapshot === false)).toBe(true);
-      });
-
-      it("should combine snapshot filter with other filters", async () => {
-        const task1 = await testRack.createTask({
-          name: "combined_filter_task",
-          type: "pagerduty_alert",
-          config: {},
-        });
-
-        const result = await client.tasks.retrieve({
-          rack: testRack.key,
-          type: ["pagerduty_alert"],
-          snapshot: false,
-        });
-
-        expect(result.some((t) => t.key === task1.key)).toBe(true);
-        expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
-        expect(result.every((t) => t.snapshot === false)).toBe(true);
-      });
     });
   });
 
@@ -604,26 +564,9 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      const copy = await client.tasks.copy(m.key, "New Name", false);
+      const copy = await client.tasks.copy(m.key, "New Name");
       expect(copy.name).toBe("New Name");
       expect(copy.config).toMatchObject({ routingKey: "dog" });
-    });
-
-    it("should place a snapshot in a range", async () => {
-      const m = await testRack.createTask({
-        name: "test",
-        config: { routingKey: "dog" },
-        type: "pagerduty_alert",
-      });
-      const rng = await client.ranges.create({
-        name: `snapshot-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-      const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
-      expect(snap.range).toEqual(rng.key);
-      expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
-      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
-      expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
     });
   });
 
@@ -2103,7 +2046,6 @@ describe("drifted", () => {
       config: { rate: 50, port: 8080, host: "localhost" },
       configHash: taskHash,
       internal: false,
-      snapshot: false,
       status: hasStatus
         ? task.statusZ().parse({
             message: "running",

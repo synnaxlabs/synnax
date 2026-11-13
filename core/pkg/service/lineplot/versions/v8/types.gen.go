@@ -203,12 +203,8 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 	// Group is the group the line plot sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the line plot, if any. Exactly one of project
-	// and range is set.
+	// Project is the project that owns the line plot.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the line plot, if any. Exactly one of project and
-	// range is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -14,23 +14,21 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ValidateOwner checks the owner of a visualization, which belongs to exactly one
-// project or range. It returns a validation error on the project field when proj and
-// rng are both set or both nil.
-func ValidateOwner(proj *Key, rng *ranger.Key) error {
-	if (proj == nil) != (rng == nil) {
+// ValidateOwner checks the owner of a visualization, which belongs to a project. It
+// returns a validation error on the project field when proj is nil.
+func ValidateOwner(proj *Key) error {
+	if proj != nil {
 		return nil
 	}
-	return validate.PathedError(errors.Wrap(
-		validate.ErrValidation,
-		"must belong to exactly one of a project and a range",
-	), "project")
+	return validate.PathedError(
+		errors.Wrap(validate.ErrValidation, "must belong to a project"),
+		"project",
+	)
 }
 
 // GroupProject returns the project that a visualization of type t in the group with key

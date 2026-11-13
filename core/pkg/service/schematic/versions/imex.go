@@ -58,11 +58,11 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		); err != nil {
 			break
 		}
-		snapshot, _ := body["snapshot"].(bool)
 		var s7 v7.Schematic
-		if s7, err = v7.MigrateSchematic(ctx, v0.Schematic{
-			Name: env.Name, Snapshot: snapshot, Data: body,
-		}); err != nil {
+		if s7, err = v7.MigrateSchematic(
+			ctx,
+			v0.Schematic{Name: env.Name, Data: body},
+		); err != nil {
 			break
 		}
 		sch, err = liftFirst(ctx, s7)

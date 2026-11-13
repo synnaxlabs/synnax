@@ -62,8 +62,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given log, assigning a new key when l.Key is zero. The log must
-// belong to exactly one of a project and a range. An existing log keeps its group,
-// project, and range. A new log in a group belongs to the project that holds the group.
+// belong to a project. An existing log keeps its group and project. A new log in a
+// group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, l *Log) error {
 	var (
 		exists bool
@@ -81,7 +81,7 @@ func (w Writer) Create(ctx context.Context, l *Log) error {
 			return err
 		}
 		if exists = err == nil; exists {
-			l.Group, l.Project, l.Range = stored.Group, stored.Project, stored.Range
+			l.Group, l.Project = stored.Group, stored.Project
 		}
 	}
 	if !exists && l.Group != nil {
@@ -95,7 +95,7 @@ func (w Writer) Create(ctx context.Context, l *Log) error {
 	if err = validateWrite(*l); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(l.Project, l.Range); err != nil {
+	if err = project.ValidateOwner(l.Project); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
@@ -126,8 +126,7 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return w.setProject(ctx, *p, keys...)
 }
 
-// SetProject moves the logs with keys out of their group and into the project p. It
-// returns a validation error when a log belongs to a range.
+// SetProject moves the logs with keys out of their group and into the project p.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 		return err
@@ -147,10 +146,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
+		Change(func(_ gorp.Context, e Log) Log {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

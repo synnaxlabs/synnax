@@ -10,7 +10,7 @@
 import { status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -391,201 +391,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useCreateSnapshot", () => {
-    const createRange = async () =>
-      await client.ranges.create({
-        name: `snapshots-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-
-    it("should create a snapshot of a single task", async () => {
-      const rack = await client.racks.create({
-        name: "snapshotRack",
-      });
-      const originalName = id.create();
-      const originalTask = await rack.createTask({
-        name: originalName,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-original" },
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const snapshot = await client.tasks.retrieve({
-        name: `${originalName} (Snapshot)`,
-      });
-      expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
-      expect(snapshot.snapshot).toBe(true);
-      expect(snapshot.config).toMatchObject({ routingKey: "rk-original" });
-    });
-
-    it("should create snapshots of multiple tasks", async () => {
-      const rack = await client.racks.create({
-        name: "multiSnapshotRack",
-      });
-      const originalName1 = id.create();
-      const originalName2 = id.create();
-      const task1 = await rack.createTask({
-        name: originalName1,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-1" },
-      });
-      const task2 = await rack.createTask({
-        name: originalName2,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-2" },
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: [
-            { key: task1.key, name: task1.name },
-            { key: task2.key, name: task2.name },
-          ],
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await waitFor(async () => {
-        const firstSnapshotName = `${originalName1} (Snapshot)`;
-        const secondSnapshotName = `${originalName2} (Snapshot)`;
-        const snapshots = await client.tasks.retrieve({
-          name: [firstSnapshotName, secondSnapshotName],
-        });
-        const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
-        const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
-        expect(snapshot1).toBeDefined();
-        expect(snapshot2).toBeDefined();
-        expect(snapshot1?.snapshot).toBe(true);
-        expect(snapshot2?.snapshot).toBe(true);
-        expect(snapshot1?.config).toMatchObject({ routingKey: "rk-1" });
-        expect(snapshot2?.config).toMatchObject({ routingKey: "rk-2" });
-      });
-    });
-
-    it("should place each snapshot in the range", async () => {
-      const rack = await client.racks.create({ name: "rangeRack" });
-      const originalTask = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: {},
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
-      expect(inRange.map(({ name }) => name)).toEqual([
-        `${originalTask.name} (Snapshot)`,
-      ]);
-      expect(inRange[0].range).toEqual(rng.key);
-    });
-
-    it("should preserve task configuration in snapshots", async () => {
-      const rack = await client.racks.create({
-        name: "configRack",
-      });
-      await client.statuses.set({
-        key: "st1",
-        name: "st1",
-        variant: "info",
-        message: "st1",
-      });
-      const complexConfig = {
-        routingKey: "rk-preserved",
-        autoStart: true,
-        alerts: [{ key: "a1", status: "st1" }],
-      };
-      const originalName = id.create();
-      const originalTask = await rack.createTask({
-        name: originalName,
-        type: "pagerduty_alert",
-        config: complexConfig,
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const snapshot = await client.tasks.retrieve({
-        name: `${originalName} (Snapshot)`,
-      });
-      expect(snapshot).toBeDefined();
-      expect(snapshot.config).toMatchObject(complexConfig);
-      expect(snapshot.type).toEqual("pagerduty_alert");
-    });
-  });
-
-  describe("useRange", () => {
-    const renderRange = async (key: task.Key) =>
-      await renderHookSuspended(
-        () => {
-          Task.useEnsure({ key });
-          return Task.useRange({ key });
-        },
-        { wrapper },
-      );
-
-    it("should return the range of a snapshot", async () => {
-      const rack = await client.racks.create({ name: "rangeRack" });
-      const original = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-range" },
-      });
-      const rng = await client.ranges.create({
-        name: `range-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-      const snapshot = await client.tasks.copy(original.key, "Snapshot", true, rng.key);
-      const { result } = await renderRange(snapshot.key);
-      await waitFor(() => expect(result.current).toEqual(rng.key));
-    });
-
-    it("should return nothing for a task in no range", async () => {
-      const rack = await client.racks.create({ name: "noRangeRack" });
-      const tsk = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-no-range" },
-      });
-      const { result } = await renderRange(tsk.key);
-      expect(result.current).toBeUndefined();
-    });
-  });
-
   describe("useMultiple", () => {
     it("should add a task on the rack created after the query resolves", async () => {
       const rack = await client.racks.create({ name: "testRack" });
@@ -705,7 +510,6 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: "dog" },
         configHash: t.configHash,
-        snapshot: false,
       });
     });
 

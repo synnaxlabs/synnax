@@ -609,19 +609,6 @@ class PagesClient(ResourceClient):
             )
         self.notifications.close_all()
 
-    def snapshot_to_active_range(self, names: list[str], *, range_name: str) -> None:
-        """Snapshot multiple pages to the active range via context menu.
-
-        :param names: List of page names to snapshot.
-        :param range_name: Name of the active range (for menu text matching).
-        """
-        if not names:
-            return
-        self.expand_active()
-        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
-        self.ctx_menu.action(last, f"Snapshot to {range_name}")
-        self.layout.close_left_toolbar()
-
     def duplicate(self, name: str, new_name: str) -> None:
         """Duplicate a page via context menu.
 

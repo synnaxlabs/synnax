@@ -13,20 +13,16 @@ import { z } from "zod";
 import { type batch } from "@/batch";
 import { type Key, keyZ } from "@/project/types.gen";
 import { query } from "@/query";
-import { type ranger } from "@/ranger";
 
-/** A visualization, which belongs to exactly one project or range. */
+/** A visualization, which belongs to a project. */
 export interface Owned {
   project?: Key;
-  range?: ranger.Key;
 }
 
-/** The typed lines of a visualization Where that match by project or range. */
+/** The typed lines of a visualization Where that match by project. */
 export const OWNER_LINES = {
   projects: ({ project }: Owned, keys: Key[]): boolean =>
     project != null && keys.includes(project),
-  ranges: ({ range }: Owned, keys: ranger.Key[]): boolean =>
-    range != null && keys.includes(range),
 };
 
 /** Schema of a set-project request for visualizations keyed by the given schema. */

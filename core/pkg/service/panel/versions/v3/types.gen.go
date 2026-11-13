@@ -15,7 +15,6 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -104,12 +103,8 @@ type Panel struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Group is the group the panel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the panel, if any. Exactly one of project and
-	// range is set.
+	// Project is the project that owns the panel.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the panel, if any. Exactly one of project and range
-	// is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

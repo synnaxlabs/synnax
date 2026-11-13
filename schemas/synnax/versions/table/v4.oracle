@@ -9,7 +9,6 @@
 
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
-import "schemas/synnax/versions/ranger/v1"
 
 Key = v0.Key
 
@@ -26,15 +25,6 @@ Table struct extends v3.Table {
         @doc value "is the group the table sits in, if any."
     }
     project project.Key? {
-        @doc value """
-            is the project that owns the table, if any. Exactly one of project and range
-            is set.
-        """
-    }
-    range   ranger.Key?  {
-        @doc value """
-            is the range that owns the table, if any. Exactly one of project and range
-            is set.
-        """
+        @doc value "is the project that owns the table."
     }
 }

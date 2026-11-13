@@ -272,12 +272,6 @@ type document struct {
 	Name string `json:"name"`
 }
 
-// setsName reports whether the action is a set of the schematic's name.
-func setsName(a Action) bool {
-	return a.Type == ActionTypeSet && a.Set != nil &&
-		patch.Field(patch.Set(*a.Set)) == "name"
-}
-
 // edit applies a path action to the schematic's name or to the element config that its
 // path names. An action on the config of a node or edge that does not exist does
 // nothing. A config that names no variant or fails its schema is rejected, as is a path

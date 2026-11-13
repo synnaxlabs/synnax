@@ -321,19 +321,6 @@ describe("arc", () => {
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
     });
 
-    it("does not serve a snapshot of the task after an unbind", async () => {
-      const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const created = await client.arcs.create(newTextArc(`snap-${id.create()}`));
-      const tsk = await client.arcs.updateTask(created.key, { rack: rack.key });
-      if (tsk == null) throw new Error("expected a deployment task");
-      expect((await client.arcs.task.retrieve(created.key))?.key).toEqual(tsk.key);
-      await client.tasks.copy(tsk.key, "Snapshot", true);
-      await client.arcs.updateTask(created.key, { rack: 0 });
-      await expect
-        .poll(async () => await client.arcs.task.retrieve(created.key))
-        .toBeNull();
-    });
-
     it("defaults a new task to auto performance", async () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`auto-${id.create()}`));

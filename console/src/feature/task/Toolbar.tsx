@@ -26,7 +26,6 @@ import { array } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
-import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -42,7 +41,6 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
-import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 
@@ -59,11 +57,10 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  where: { internal: { eq: false }, snapshot: { eq: false } },
+  where: { internal: { eq: false } },
 };
 
-const filter = (task: task.Task) =>
-  !task.internal && !task.snapshot && task.type !== "arc";
+const filter = (task: task.Task) => !task.internal && task.type !== "arc";
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
@@ -325,10 +322,7 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
-  const activeRange = Range.useResolve();
-  const snapshotToActiveRange = useRangeSnapshot();
   const resourceIDs = task.resourceID(keys);
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
@@ -378,8 +372,6 @@ const ContextMenu = ({
       });
     copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
-  const showSnapshotToActiveRange =
-    activeRange?.variant === "persisted" && selectedTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (
@@ -440,20 +432,6 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
-      )}
-      {hasCreatePermission && showSnapshotToActiveRange && (
-        <Range.SnapshotMenuItem
-          range={activeRange}
-          key="snapshot"
-          onClick={() =>
-            snapshotToActiveRange({
-              tasks: selectedTasks.map(({ name, resourceID: { key } }) => ({
-                key,
-                name,
-              })),
-            })
-          }
-        />
       )}
       <Menu.Divider />
       {isSingle && (

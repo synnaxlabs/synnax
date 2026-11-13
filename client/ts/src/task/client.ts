@@ -32,7 +32,6 @@ import {
   resourceID as rackResourceID,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
@@ -164,27 +163,16 @@ export class Task<S extends Schemas = Schemas> {
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
-  snapshot: boolean;
-  /** The range the task is a snapshot in, if any. */
-  readonly range?: ranger.Key;
   config: z.infer<S["config"]>;
   readonly configHash: string;
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
-  private readonly clients?: {
-    frame: framer.Client;
-    range: ranger.Client;
-  };
+  private readonly frame?: framer.Client;
 
   get frameClient(): framer.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.frame;
-  }
-
-  get rangeClient(): ranger.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.range;
+    if (this.frame == null) throw new Error("Task not created");
+    return this.frame;
   }
 
   constructor(
@@ -196,13 +184,10 @@ export class Task<S extends Schemas = Schemas> {
       config,
       configHash = "",
       internal = false,
-      snapshot = false,
-      range,
       status,
     }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
-    rangeClient?: ranger.Client,
   ) {
     this.key = key;
     this.rack = rack;
@@ -218,11 +203,8 @@ export class Task<S extends Schemas = Schemas> {
         statusData: z.unknown().optional(),
       } as unknown as S);
     this.internal = internal;
-    this.snapshot = snapshot;
-    this.range = range;
     this.status = status;
-    if (frameClient != null && rangeClient != null)
-      this.clients = { frame: frameClient, range: rangeClient };
+    this.frame = frameClient;
   }
 
   get payload(): Payload<S> {
@@ -235,8 +217,6 @@ export class Task<S extends Schemas = Schemas> {
       configHash: this.configHash,
       status: this.status,
       internal: this.internal,
-      snapshot: this.snapshot,
-      range: this.range,
     };
   }
 
@@ -287,12 +267,6 @@ export class Task<S extends Schemas = Schemas> {
     } finally {
       await this.stop();
     }
-  }
-
-  /** Returns the range the task is a snapshot in, or null if it sits in no range. */
-  async snapshottedTo(): Promise<ranger.Range | null> {
-    if (this.range == null) return null;
-    return await this.rangeClient.retrieve(this.range);
   }
 }
 
@@ -371,12 +345,7 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const copyReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-  snapshot: z.boolean(),
-  range: ranger.keyZ.optional(),
-});
+const copyReqZ = z.object({ key: keyZ, name: z.string() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
@@ -387,7 +356,6 @@ const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
-  ranges: ranger.Client;
   cache: query.Cache;
   statuses: status.Client;
 }
@@ -658,23 +626,12 @@ export class Client extends query.Retriever<
     return (await super.retrieve(params)) as unknown as Task<S>[];
   }
 
-  /**
-   * Copies the task with the given key under a new key and name. A snapshot copy sits
-   * in the range with key range, or in no range when range is undefined. Only a
-   * snapshot copy can sit in a range.
-   */
-  async copy(key: Key, name: string, snapshot: false): Promise<Task>;
-  async copy(key: Key, name: string, snapshot: true, range?: ranger.Key): Promise<Task>;
-  async copy(
-    key: Key,
-    name: string,
-    snapshot: boolean,
-    range?: ranger.Key,
-  ): Promise<Task> {
+  /** Copies the task with the given key under a new key and name. */
+  async copy(key: Key, name: string): Promise<Task> {
     const copyRes = copyResZ();
     const response = await this.cfg.unary.send(
       "/task/copy",
-      { key, name, snapshot, range },
+      { key, name },
       copyReqZ,
       copyRes,
     );
@@ -868,7 +825,7 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(payloads);
     const res = array
       .toArray(payloads)
-      .map((payload) => new Task(payload, schemas, this.cfg.framer, this.cfg.ranges));
+      .map((payload) => new Task(payload, schemas, this.cfg.framer));
     return isSingle ? res[0] : res;
   }
 

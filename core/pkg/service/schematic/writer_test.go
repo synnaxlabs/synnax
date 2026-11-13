@@ -17,27 +17,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
-	createRange := func(ctx SpecContext, tx gorp.Tx) ranger.Range {
-		GinkgoHelper()
-		r := ranger.Range{
-			Name:      "run",
-			TimeRange: telem.SecondTS.SpanRange(telem.Second),
-		}
-		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-		return r
-	}
-
 	Describe("Create", func() {
 		It("Should create a Schematic", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
@@ -111,27 +99,6 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("SetProject", func() {
-		It(
-			"Should reject moving a range's snapshot into a project",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				rng := createRange(ctx, tx)
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-				var snap schematic.Schematic
-				Expect(
-					svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-				).To(Succeed())
-				Expect(
-					svc.NewWriter(tx).SetProject(ctx, proj.Key, snap.Key),
-				).To(MatchError(
-					ContainSubstring(
-						"must belong to exactly one of a project and a range",
-					),
-				))
-			},
-		)
-
 		It("Should move the schematics into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
@@ -295,91 +262,6 @@ var _ = Describe("Writer", func() {
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
-			},
-		)
-		It(
-			"Should reject non-Rename Dispatch on a snapshot schematic",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewRemoveNodeAction(
-							schematic.RemoveNodePayload{Key: "n1"},
-						),
-					}),
-				).To(MatchError(validate.ErrValidation))
-			},
-		)
-		It(
-			"Should allow a set of the name on a snapshot schematic",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"name"},
-							Value: "renamed-snap",
-						}),
-					}),
-				).To(Succeed())
-				var res schematic.Schematic
-				Expect(
-					svc.NewRetrieve().
-						Where(schematic.MatchKeys(snap.Key)).
-						Entry(&res).
-						Exec(ctx, db),
-				).To(Succeed())
-				Expect(res.Name).To(Equal("renamed-snap"))
-			},
-		)
-		It(
-			"Should reject Dispatch on a snapshot when an action does not set the name",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"name"},
-							Value: "renamed-snap",
-						}),
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"configs", "n1"},
-							Value: map[string]any{"variant": "valve"},
-						}),
-					}),
-				).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot dispatch set on snapshot")),
-				))
-				var res schematic.Schematic
-				Expect(
-					svc.NewRetrieve().
-						Where(schematic.MatchKeys(snap.Key)).
-						Entry(&res).
-						Exec(ctx, db),
-				).To(Succeed())
-				Expect(res.Name).To(Equal("snap"))
 			},
 		)
 		It(
@@ -563,30 +445,6 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should not notify subscribers when Dispatch is rejected on a snapshot",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "snap-test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				rec := &Recorder[schematic.Key, schematic.Action]{}
-				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(
-					dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
-						schematic.NewRemoveNodeAction(
-							schematic.RemoveNodePayload{Key: "n1"},
-						),
-					}),
-				).To(MatchError(validate.ErrValidation))
-				Expect(rec.Snapshot()).To(BeEmpty())
-			},
-		)
-
-		It(
 			"Should fail with query.ErrNotFound and not notify subscribers when the target schematic does not exist",
 			func(ctx SpecContext) {
 				rec := &Recorder[schematic.Key, schematic.Action]{}
@@ -612,82 +470,11 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 				var cpy schematic.Schematic
 				Expect(
-					svc.NewWriter(tx).Copy(ctx, s.Key, "test2", false, nil, &cpy),
+					svc.NewWriter(tx).Copy(ctx, s.Key, "test2", &cpy),
 				).To(Succeed())
 				Expect(cpy.Key).ToNot(Equal(s.Key))
 				Expect(cpy.Name).To(Equal("test2"))
 				Expect(cpy.Project).To(HaveValue(Equal(proj.Key)))
-				Expect(cpy.Range).To(BeNil())
-			},
-		)
-		It("Should copy a snapshot into a range", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			rng := createRange(ctx, tx)
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			var snap schematic.Schematic
-			Expect(
-				svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-			).To(Succeed())
-			var res []schematic.Schematic
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchRanges(rng.Key)).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(1))
-			Expect(res[0].Key).To(Equal(snap.Key))
-			Expect(res[0].Project).To(BeNil())
-			Expect(res[0].Snapshot).To(BeTrue())
-		})
-		It("Should delete a range's snapshots with the range", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			rng := createRange(ctx, tx)
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			var snap schematic.Schematic
-			Expect(
-				svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-			).To(Succeed())
-			Expect(rangerSvc.NewWriter(tx).Delete(ctx, rng.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(snap.Key)).
-				Entry(&schematic.Schematic{}).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(s.Key)).
-				Entry(&schematic.Schematic{}).
-				Exec(ctx, tx)).To(Succeed())
-		})
-		It("Should reject a range that does not exist", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			missing := uuid.New()
-			Expect(
-				svc.NewWriter(tx).
-					Copy(ctx, s.Key, "snap", true, &missing, &schematic.Schematic{}),
-			).To(MatchError(ContainSubstring(
-				"range: range " + missing.String() + " does not exist",
-			)))
-		})
-		It(
-			"Should copy a Schematic into a snapshot that cannot be modified",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var cpy schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, nil, &cpy)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
-						schematic.NewSetNodeAction(schematic.SetNodePayload{
-							Node: schematic.Node{Key: "n1"},
-						}),
-					}),
-				).To(MatchError(validate.ErrValidation))
 			},
 		)
 	})

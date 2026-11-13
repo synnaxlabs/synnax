@@ -305,7 +305,6 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				_, l := importAndRetrieve(ctx, LoadEnvelope(v2Fixture))
 				Expect(l.Project).To(HaveValue(Equal(proj.Key)))
-				Expect(l.Range).To(BeNil())
 			},
 		)
 

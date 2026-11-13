@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeRange, uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/index";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { schematic } from "@/schematic";
 import { createTestClient, expectDeleted } from "@/testutil";
@@ -146,82 +146,9 @@ describe("Schematic", () => {
       const schem2 = await client.schematics.copy({
         key: schem.key,
         name: "Schematic2",
-        snapshot: false,
       });
       expect(schem2.name).toEqual("Schematic2");
       expect(schem2.key).not.toEqual(uuid.ZERO);
-    });
-
-    describe("snapshot", () => {
-      it("should put a snapshot in a range", async () => {
-        const proj = await client.projects.create({ name: "Schematic" });
-        const schem = await client.schematics.create({
-          project: proj.key,
-          name: "Schematic",
-        });
-        const rng = await client.ranges.create({
-          name: "Snapshot Range",
-          timeRange: new TimeRange(1n, 1000n),
-        });
-        const snap = await client.schematics.copy({
-          key: schem.key,
-          name: "Snapshot",
-          snapshot: true,
-          range: rng.key,
-        });
-        expect(snap.range).toEqual(rng.key);
-        expect(snap.project).toBeUndefined();
-        const owned = await client.schematics.retrieve({ ranges: [rng.key] });
-        expect(owned.map(({ key }) => key)).toEqual([snap.key]);
-      });
-
-      it("should delete a snapshot with its range", async () => {
-        const proj = await client.projects.create({ name: "Schematic" });
-        const schem = await client.schematics.create({
-          project: proj.key,
-          name: "Schematic",
-        });
-        const rng = await client.ranges.create({
-          name: "Snapshot Range",
-          timeRange: new TimeRange(1n, 1000n),
-        });
-        const snap = await client.schematics.copy({
-          key: schem.key,
-          name: "Snapshot",
-          snapshot: true,
-          range: rng.key,
-        });
-        await client.ranges.delete(rng.key);
-        await vi.waitFor(
-          async () =>
-            await expect(client.schematics.retrieve(snap.key)).rejects.toThrow(
-              NotFoundError,
-            ),
-        );
-        expect((await client.schematics.retrieve(schem.key)).key).toEqual(schem.key);
-      });
-
-      it("should not allow the caller to edit the snapshot", async () => {
-        const proj = await client.projects.create({
-          name: "Schematic",
-        });
-        const schem = await client.schematics.create({
-          project: proj.key,
-          name: "Schematic",
-        });
-        const schem2 = await client.schematics.copy({
-          key: schem.key,
-          name: "Schematic2",
-          snapshot: true,
-        });
-        await expect(
-          client.schematics.dispatch(schem2.key, [
-            schematic.setNode({
-              node: { key: "n1", position: { x: 0, y: 0 } },
-            }),
-          ]),
-        ).rejects.toThrow(ValidationError);
-      });
     });
   });
 

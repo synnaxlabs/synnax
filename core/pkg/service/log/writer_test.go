@@ -111,14 +111,14 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should reject a log with neither a project nor a range",
+			"Should reject a log with no project",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
 				l := log.Log{Name: "orphan"}
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &l),
 				).To(MatchError(ContainSubstring(
-					"project: must belong to exactly one of a project and a range",
+					"project: must belong to a project",
 				)))
 			},
 		)

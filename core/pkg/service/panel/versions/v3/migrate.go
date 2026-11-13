@@ -36,14 +36,14 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Pa
 	ProjectOwned: true,
 })
 
-// OwnersMigration sets the project or range of each stored panel from the ontology edge
-// that owned it, and deletes each panel with no owner.
+// OwnersMigration sets the project of each stored panel from the ontology edge that
+// owned it, and deletes each panel with no owner.
 var OwnersMigration = projectv3.NewOwnersMigration(
 	projectv3.OwnersConfig[Key, Panel]{
 		Name:     "v61_panel_owner",
 		Type:     resource.TypePanel,
-		Owned:    func(e Panel) bool { return e.Project != nil || e.Range != nil },
+		Owned:    func(e Panel) bool { return e.Project != nil },
 		NameOf:   func(e Panel) string { return e.Name },
-		SetOwner: func(e *Panel, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+		SetOwner: func(e *Panel, p uuid.UUID) { e.Project = &p },
 	},
 )

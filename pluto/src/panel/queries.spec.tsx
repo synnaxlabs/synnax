@@ -327,9 +327,9 @@ describe("Panel queries", () => {
       expect(result.current).not.toContain(theirs.key);
     });
 
-    it("should reject creating a panel without a project or a range", async () => {
+    it("should reject creating a panel without a project", async () => {
       await expect(client.panels.create({ name: "orphan" })).rejects.toThrow(
-        /exactly one of a project and a range/,
+        /must belong to a project/,
       );
     });
 

@@ -255,7 +255,6 @@ class Synnax(framer.Client):
             writer=range_creator,
             retriever=range_retriever,
             signals=self.signals,
-            tasks=self.tasks,
             labels=self.labels,
         )
         self.control = control_.Client(

@@ -14,7 +14,6 @@ package v4
 import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -59,12 +58,6 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 	if t.Project != nil {
 		w.Bool(true)
 		w.Write((*t.Project)[:])
-	} else {
-		w.Bool(false)
-	}
-	if t.Range != nil {
-		w.Bool(true)
-		w.Write((*t.Range)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -164,19 +157,6 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.Project = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv ranger.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			t.Range = &hv
 		}
 	}
 	return nil

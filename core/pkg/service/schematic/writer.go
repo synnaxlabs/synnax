@@ -17,11 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
@@ -41,9 +39,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
-// schematic must belong to exactly one of a project and a range. An existing schematic
-// keeps its group, project, and range. A new schematic in a group belongs to the
-// project that holds the group.
+// schematic must belong to a project. An existing schematic keeps its group and
+// project. A new schematic in a group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 	var exists bool
 	if s.Key == uuid.Nil() {
@@ -58,7 +55,7 @@ func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 			return err
 		}
 		if exists = err == nil; exists {
-			s.Group, s.Project, s.Range = stored.Group, stored.Project, stored.Range
+			s.Group, s.Project = stored.Group, stored.Project
 		}
 	}
 	if !exists && s.Group != nil {
@@ -72,7 +69,7 @@ func (w Writer) Create(ctx context.Context, s *Schematic) (err error) {
 	if err = s.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(s.Project, s.Range); err != nil {
+	if err = project.ValidateOwner(s.Project); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -104,7 +101,6 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 }
 
 // SetProject moves the schematics with keys out of their group and into the project p.
-// It returns a validation error when a schematic belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 		return err
@@ -124,10 +120,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Schematic) (Schematic, error) {
+		Change(func(_ gorp.Context, e Schematic) Schematic {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -166,14 +162,11 @@ func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 }
 
 // Copy creates a copy of the schematic with the given key and name, and binds it into
-// result. A snapshot copy is no longer editable. The copy sits in no group. When rng is
-// set, the copy belongs to that range. Otherwise it keeps the owner of the original.
+// result. The copy sits in no group and belongs to the project of the original.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
 	name string,
-	snapshot bool,
-	rng *ranger.Key,
 	result *Schematic,
 ) error {
 	if err := w.table.NewRetrieve().
@@ -184,11 +177,7 @@ func (w Writer) Copy(
 	}
 	result.Key = uuid.New()
 	result.Name = name
-	result.Snapshot = snapshot
 	result.Group = nil
-	if rng != nil {
-		result.Project, result.Range = nil, rng
-	}
 	return w.Create(ctx, result)
 }
 
@@ -204,26 +193,11 @@ func (w Writer) Delete(
 
 // Apply applies a sequence of actions to the schematic with the given key and attaches
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. Snapshots are immutable except for their name: returns validate.ErrValidation if
-// the target is a snapshot and any action other than a set of the name is included.
-// Also returns a validation error, and stores nothing, if the actions leave the
-// schematic invalid.
+// w. Returns a validation error, and stores nothing, if the actions leave the schematic
+// invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-			if sch.Snapshot {
-				for _, a := range acts {
-					if !setsName(a) {
-						return sch, errors.Wrapf(
-							validate.ErrValidation,
-							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-							a.Type,
-							key,
-							sch.Name,
-						)
-					}
-				}
-			}
 			reduced, err := Reduce(sch, acts...)
 			if err != nil {
 				return Schematic{}, err

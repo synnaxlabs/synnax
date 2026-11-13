@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -34,7 +33,6 @@ type vis struct {
 	Key     uuid.UUID
 	Name    string
 	Project *uuid.UUID
-	Range   *uuid.UUID
 }
 
 func (v vis) GorpKey() uuid.UUID { return v.Key }
@@ -64,17 +62,13 @@ var _ = Describe("OwnersMigration", func() {
 		db       *gorp.DB
 		logs     *observer.ObservedLogs
 		proj     = uuid.New()
-		rng      = uuid.New()
 		projID   = resource.ID{Type: resource.TypeProject, Key: proj.String()}
-		rngID    = resource.ID{Type: resource.TypeRange, Key: rng.String()}
+		rngID    = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
 		missing  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
-		gone     = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
 		owned    = uuid.New()
-		snapshot = uuid.New()
+		ranged   = uuid.New()
 		both     = uuid.New()
 		dangling = uuid.New()
-		fallback = uuid.New()
-		lost     = uuid.New()
 		orphan   = uuid.New()
 		logID    = resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
 	)
@@ -83,24 +77,19 @@ var _ = Describe("OwnersMigration", func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		entries := []vis{
 			{Key: owned},
-			{Key: snapshot},
+			{Key: ranged, Name: "Ranged"},
 			{Key: both},
 			{Key: dangling, Name: "Dangling"},
-			{Key: fallback},
-			{Key: lost, Name: "Lost"},
 			{Key: orphan, Name: "Orphan"},
 		}
 		Expect(gorp.NewCreate[uuid.UUID, vis]().Entries(&entries).Exec(ctx, db)).
 			To(Succeed())
 		rels := []ontology.Relationship{
 			parentOf(projID, visID(owned)),
-			parentOf(rngID, visID(snapshot)),
+			parentOf(rngID, visID(ranged)),
 			parentOf(rngID, visID(both)),
 			parentOf(projID, visID(both)),
 			parentOf(missing, visID(dangling)),
-			parentOf(missing, visID(fallback)),
-			parentOf(rngID, visID(fallback)),
-			parentOf(gone, visID(lost)),
 			parentOf(visID(orphan), logID),
 			parentOf(projID, logID),
 		}
@@ -114,9 +103,6 @@ var _ = Describe("OwnersMigration", func() {
 		Expect(gorp.NewCreate[v3.Key, v3.Project]().
 			Entry(&v3.Project{Key: proj, Name: "Project"}).
 			Exec(ctx, db)).To(Succeed())
-		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
-			Entry(&ranger.Range{Key: rng, Name: "Range"}).
-			Exec(ctx, db)).To(Succeed())
 		var core zapcore.Core
 		core, logs = observer.New(zapcore.WarnLevel)
 		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
@@ -128,13 +114,11 @@ var _ = Describe("OwnersMigration", func() {
 			Namespace:       "vis",
 			Migrations: []gorp.Migration{
 				v3.NewOwnersMigration(v3.OwnersConfig[uuid.UUID, vis]{
-					Name:   "owners",
-					Type:   resource.TypeSchematic,
-					Owned:  func(v vis) bool { return v.Project != nil || v.Range != nil },
-					NameOf: func(v vis) string { return v.Name },
-					SetOwner: func(v *vis, p, r *uuid.UUID) {
-						v.Project, v.Range = p, r
-					},
+					Name:     "owners",
+					Type:     resource.TypeSchematic,
+					Owned:    func(v vis) bool { return v.Project != nil },
+					NameOf:   func(v vis) string { return v.Name },
+					SetOwner: func(v *vis, p uuid.UUID) { v.Project = &p },
 				}),
 			},
 		})).To(Succeed())
@@ -149,29 +133,22 @@ var _ = Describe("OwnersMigration", func() {
 		return out
 	}
 
-	DescribeTable("Should set the owner from the parent edge", func(
+	DescribeTable("Should set the project from the parent edge", func(
 		ctx SpecContext,
 		key *uuid.UUID,
-		project *uuid.UUID,
-		rng *uuid.UUID,
 	) {
-		Expect(byKey(ctx)).To(HaveKeyWithValue(*key, vis{
-			Key:     *key,
-			Project: project,
-			Range:   rng,
-		}))
+		Expect(byKey(ctx)).To(HaveKeyWithValue(*key, vis{Key: *key, Project: &proj}))
 	},
-		Entry("a visualization under a project", &owned, &proj, nil),
-		Entry("a visualization under a range", &snapshot, nil, &rng),
-		Entry("a visualization under both a project and a range", &both, &proj, nil),
-		Entry("a visualization under a missing project and a range", &fallback, nil,
-			&rng),
+		Entry("a visualization under a project", &owned),
+		Entry("a visualization under both a project and a range", &both),
 	)
 
-	It("Should delete a visualization with no stored owner", func(ctx SpecContext) {
-		Expect(byKey(ctx)).ToNot(HaveKey(orphan))
-		Expect(byKey(ctx)).ToNot(HaveKey(dangling))
-		Expect(byKey(ctx)).ToNot(HaveKey(lost))
+	It("Should delete a visualization with no stored project", func(ctx SpecContext) {
+		Expect(byKey(ctx)).To(SatisfyAll(
+			Not(HaveKey(orphan)),
+			Not(HaveKey(dangling)),
+			Not(HaveKey(ranged)),
+		))
 	})
 
 	It("Should log a warning for each deleted visualization", func(ctx SpecContext) {
@@ -184,14 +161,14 @@ var _ = Describe("OwnersMigration", func() {
 		}
 		var got []map[string]any
 		for _, e := range logs.FilterMessage(
-			"deleted a visualization with no project or range",
+			"deleted a visualization with no project",
 		).All() {
 			got = append(got, e.ContextMap())
 		}
 		Expect(got).To(ConsistOf(
 			deleted(orphan, "Orphan"),
 			deleted(dangling, "Dangling"),
-			deleted(lost, "Lost"),
+			deleted(ranged, "Ranged"),
 		))
 	})
 
@@ -207,6 +184,7 @@ var _ = Describe("OwnersMigration", func() {
 		"Should delete the converted edges and the edges of deleted visualizations",
 		func(ctx SpecContext) {
 			Expect(retrieveAll[string, ontology.Relationship](ctx, db)).To(ConsistOf(
+				parentOf(rngID, visID(both)),
 				parentOf(projID, logID),
 			))
 		},

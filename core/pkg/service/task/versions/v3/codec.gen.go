@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -34,13 +33,6 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	}
 	w.String(t.ConfigHash)
 	w.Bool(t.Internal)
-	w.Bool(t.Snapshot)
-	if t.Range != nil {
-		w.Bool(true)
-		w.Write((*t.Range)[:])
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -77,22 +69,6 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 	}
 	if t.Internal, err = r.Bool(); err != nil {
 		return err
-	}
-	if t.Snapshot, err = r.Bool(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv ranger.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			t.Range = &hv
-		}
 	}
 	return nil
 }

@@ -42,8 +42,11 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 				Configs: cfg.Configs,
 			}),
 			v2.NameMigration,
+			v3.NewSnapshotMigration(v3.MigrationConfig{
+				Status:  cfg.Status,
+				Configs: cfg.Configs,
+			}),
 			v3.Migration,
-			v3.RangeMigration,
 		},
 	)
 }

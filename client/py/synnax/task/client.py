@@ -28,7 +28,7 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_, ranger
+from synnax import device as device_, framer, rack as rack_
 from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
 from synnax.task.types_gen import (
@@ -73,8 +73,6 @@ class _DeleteRequest(BaseModel):
 class _CopyRequest(BaseModel):
     key: Key
     name: str
-    snapshot: bool
-    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -115,7 +113,6 @@ class Task:
     type: str
     config: Mapping[str, object]
     config_hash: str
-    snapshot: bool
     status: Status | None
     _cached_frame_client: framer.Client | None
 
@@ -128,7 +125,6 @@ class Task:
         type: str = "",
         config: Mapping[str, object] | None = None,
         config_hash: str = "",
-        snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
         _frame_client: framer.Client | None = None,
@@ -140,7 +136,6 @@ class Task:
         self.config = config if config is not None else {}
         self.config_hash = config_hash
         self.internal = internal
-        self.snapshot = snapshot
         self.status = status
         self._cached_frame_client = _frame_client
 
@@ -169,7 +164,6 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.config_hash = task.config_hash
-        self.snapshot = task.snapshot
         self._cached_frame_client = task._cached_frame_client
 
     @property
@@ -531,8 +525,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -552,8 +544,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -573,8 +563,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -597,8 +585,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -643,9 +629,6 @@ class Client:
         :param rack: Keeps tasks on this rack.
         :param internal: Keeps only internal tasks when true, or only user tasks when
             false.
-        :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
-            false.
-        :param ranges: Keeps the snapshots in any of these ranges.
         :param arcs: Keeps the tasks that run any of these Arcs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
@@ -699,7 +682,6 @@ class Client:
                 config=t.config,
                 config_hash=t.config_hash,
                 internal=t.internal,
-                snapshot=t.snapshot,
                 status=t.status,
                 _frame_client=self._frame_client,
             )
@@ -720,38 +702,13 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
-    @overload
-    def copy(
-        self, key: Key, name: str, *, snapshot: Literal[False] = False
-    ) -> Task: ...
-
-    @overload
-    def copy(
-        self,
-        key: Key,
-        name: str,
-        *,
-        snapshot: Literal[True],
-        range_key: ranger.Key | None = None,
-    ) -> Task: ...
-
-    def copy(
-        self,
-        key: Key,
-        name: str,
-        *,
-        snapshot: bool = False,
-        range_key: ranger.Key | None = None,
-    ) -> Task:
+    def copy(self, key: Key, name: str) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
-        :param snapshot: Whether the copy is a snapshot of the task.
-        :param range_key: The key of the range that a snapshot copy sits in. Only a
-            snapshot copy can sit in a range.
         :returns: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
+        req = _CopyRequest(key=key, name=name)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

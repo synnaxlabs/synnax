@@ -267,7 +267,6 @@ Right-click a task to open its menu:
 | Edit configuration                      | Opens the task in a tab.                                                       |
 | Rename                                  | Changes the task name.                                                         |
 | Enable data saving, Disable data saving | Turns [data saving](#data-saving) on or off.                                   |
-| Snapshot to \<range\>                   | Saves a copy of the task to the active [range](/reference/ranges#snapshots).   |
 | Export                                  | Saves the task as a JSON file. Run the "Import components" command to load it. |
 | Copy link                               | Copies a link to the task. Not in Synnax Desktop.                              |
 | Delete                                  | Deletes the task.                                                              |
@@ -317,7 +316,7 @@ const all = await client.tasks.retrieve({ where: { internal: { eq: false } } });
 for (const t of all) console.log(t.name, t.type);
 
 // Copy a task with a new name.
-const copy = await client.tasks.copy(task.key, "Tank sensors copy", false);
+const copy = await client.tasks.copy(task.key, "Tank sensors copy");
 
 // Delete a task.
 await client.tasks.delete(copy.key);

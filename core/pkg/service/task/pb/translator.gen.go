@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
@@ -211,16 +210,6 @@ func WhereToPB(r task.Where) (*Where, error) {
 			return nil, err
 		}
 	}
-	if r.Snapshot != nil {
-		var err error
-		pb.Snapshot, err = filterpb.BoolToPB(*r.Snapshot)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Ranges != nil {
-		pb.Ranges = &RangerKeyList{Values: lo.Map(r.Ranges, func(u ranger.Key, _ int) string { return uuid.UUID(u).String() })}
-	}
 	if r.Arcs != nil {
 		pb.Arcs = &UuidList{Values: lo.Map(r.Arcs, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
 	}
@@ -288,30 +277,6 @@ func WhereFromPB(pb *Where) (task.Where, error) {
 			return task.Where{}, err
 		}
 		r.Internal = &val
-	}
-	if pb.Snapshot != nil {
-		val, err := filterpb.BoolFromPB(pb.Snapshot)
-		if err != nil {
-			return task.Where{}, err
-		}
-		r.Snapshot = &val
-	}
-	if pb.Ranges != nil {
-		vals, err := func() ([]ranger.Key, error) {
-			result := make([]ranger.Key, len(pb.Ranges.Values))
-			for i, s := range pb.Ranges.Values {
-				parsed, err := uuid.Parse(s)
-				if err != nil {
-					return nil, err
-				}
-				result[i] = ranger.Key(parsed)
-			}
-			return result, nil
-		}()
-		if err != nil {
-			return task.Where{}, err
-		}
-		r.Ranges = xpb.ListValues(vals)
 	}
 	if pb.Arcs != nil {
 		vals, err := func() ([]uuid.UUID, error) {
@@ -506,7 +471,6 @@ func TaskToPB(
 		Type:       r.Type,
 		ConfigHash: r.ConfigHash,
 		Internal:   r.Internal,
-		Snapshot:   r.Snapshot,
 		Key:        r.Key.String(),
 		Config:     configVal,
 	}
@@ -540,7 +504,6 @@ func TaskFromPB(
 	r.Type = pb.Type
 	r.ConfigHash = pb.ConfigHash
 	r.Internal = pb.Internal
-	r.Snapshot = pb.Snapshot
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB(pb.Status, xpb.FromAny[task.StatusDetails])
 		if err != nil {

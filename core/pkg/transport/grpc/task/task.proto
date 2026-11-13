@@ -52,9 +52,10 @@ message DeleteRequest {
 }
 
 message CopyRequest {
+  reserved 3;
+  reserved "snapshot";
   string key = 1;
   string name = 2;
-  bool snapshot = 3;
 }
 
 message CopyResponse {

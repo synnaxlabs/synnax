@@ -11,7 +11,6 @@ package service_test
 
 import (
 	"fmt"
-	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +39,6 @@ import (
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
-	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
@@ -116,43 +114,35 @@ var _ = Describe("Layer", func() {
 		)))
 	})
 
-	It("Should put a stored snapshot in its stored range", func(ctx SpecContext) {
+	It("Should delete a stored snapshot task", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
-		rng := rangerv0.Range{
-			Key:       uuid.New(),
-			Name:      "Range",
-			TimeRange: telem.TimeRange{Start: 1, End: 2},
-		}
-		Expect(gorp.WrapWriter[rangerv0.Key, rangerv0.Range](legacyDB).Set(ctx, rng)).
-			To(Succeed())
-		snap := taskv0.Task{
-			Key:      taskv0.Key(uint64(65537)<<32 | 1),
-			Name:     "Snapshot",
-			Type:     pagerduty.AlertTaskType,
-			Config:   msgpack.EncodedJSON{"routing_key": "rk"},
-			Snapshot: true,
-		}
-		Expect(gorp.WrapWriter[taskv0.Key, taskv0.Task](legacyDB).Set(ctx, snap)).
-			To(Succeed())
-		Expect(gorp.WrapWriter[string, ontology.Relationship](node.DB).Set(
-			ctx,
-			ontology.Relationship{
-				From: resource.ID{Type: resource.TypeRange, Key: rng.Key.String()},
-				Type: ontology.RelationshipTypeParentOf,
-				To: resource.ID{
-					Type: resource.TypeTask,
-					Key:  strconv.FormatUint(uint64(snap.Key), 10),
-				},
+		stored := []taskv0.Task{
+			{
+				Key:      taskv0.Key(uint64(65537)<<32 | 1),
+				Name:     "Snapshot",
+				Type:     pagerduty.AlertTaskType,
+				Config:   msgpack.EncodedJSON{"routing_key": "rk"},
+				Snapshot: true,
 			},
-		)).To(Succeed())
+			{
+				Key:    taskv0.Key(uint64(65537)<<32 | 2),
+				Name:   "Live",
+				Type:   pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{"routing_key": "rk"},
+			},
+		}
+		for _, t := range stored {
+			Expect(gorp.WrapWriter[taskv0.Key, taskv0.Task](legacyDB).Set(ctx, t)).
+				To(Succeed())
+		}
 		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
-		var migrated task.Task
 		Expect(layer.Task.NewRetrieve().
 			Where(task.MatchNames("Snapshot")).
-			Entry(&migrated).
-			Exec(ctx, node.DB)).To(Succeed())
-		Expect(migrated.Range).To(HaveValue(Equal(rng.Key)))
+			Exists(ctx, node.DB)).To(BeFalse())
+		Expect(layer.Task.NewRetrieve().
+			Where(task.MatchNames("Live")).
+			Exists(ctx, node.DB)).To(BeTrue())
 	})
 
 	It(

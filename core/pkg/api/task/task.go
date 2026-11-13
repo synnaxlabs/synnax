@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -130,7 +129,7 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. An existing snapshot keeps its range.
+// Create creates or updates the tasks.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -284,11 +283,8 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		// Range is the range a snapshot copy sits in, if any.
-		Range    *ranger.Key `json:"range"    msgpack:"range"`
-		Name     string      `json:"name"     msgpack:"name"`
-		Key      task.Key    `json:"key"      msgpack:"key"`
-		Snapshot bool        `json:"snapshot" msgpack:"snapshot"`
+		Name string   `json:"name" msgpack:"name"`
+		Key  task.Key `json:"key"  msgpack:"key"`
 	}
 	CopyResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -300,13 +296,13 @@ func (r CopyRequest) Sources() []resource.ID {
 	return []resource.ID{task.ResourceID(r.Key)}
 }
 
-// Copy copies a task. A snapshot copy sits in req.Range, or in no range when it is nil.
+// Copy copies a task.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name)
 	if err != nil {
 		return CopyResponse{}, err
 	}

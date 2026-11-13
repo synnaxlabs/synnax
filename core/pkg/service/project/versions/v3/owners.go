@@ -17,35 +17,33 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
-// OwnersConfig configures a migration that moves the owners of the visualizations of
-// type Type out of the ontology and into their project and range fields.
+// OwnersConfig configures a migration that moves the projects of the visualizations of
+// type Type out of the ontology and into their project fields.
 type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Name is the migration's key.
 	Name string
 	// Type is the resource type of the visualizations.
 	Type resource.Type
-	// Owned reports whether e has a project or a range.
+	// Owned reports whether e has a project.
 	Owned func(e E) bool
 	// NameOf returns the name of e.
 	NameOf func(e E) string
-	// SetOwner sets the project or the range of e. Exactly one of them is non-nil.
-	SetOwner func(e *E, project, rng *uuid.UUID)
+	// SetOwner sets the project of e.
+	SetOwner func(e *E, project uuid.UUID)
 }
 
-// NewOwnersMigration returns a migration that sets the owner of each visualization of
-// type cfg.Type from the parent edge that points at it from a stored project or range.
-// A project edge wins over a range edge, and an edge from an owner that is not stored
-// counts as no edge. The migration deletes the converted edges, then deletes each
-// visualization with no owner along with its ontology resource and edges, and logs a
-// warning for each. It reads the project and range tables, so they must open and
-// migrate first.
+// NewOwnersMigration returns a migration that sets the project of each visualization of
+// type cfg.Type from the parent edge that points at it from a stored project. An edge
+// from a project that is not stored counts as no edge. The migration deletes the
+// converted edges, then deletes each visualization with no project along with its
+// ontology resource and edges, and logs a warning for each. It reads the project table,
+// so the project table must open and migrate first.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],
 ) gorp.Migration {
@@ -54,7 +52,7 @@ func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 		Converts: func(rel ontology.Relationship) bool {
 			return rel.Type == ontology.RelationshipTypeParentOf &&
 				rel.To.Type == cfg.Type &&
-				(rel.From.Type == resource.TypeProject || rel.From.Type == resource.TypeRange)
+				rel.From.Type == resource.TypeProject
 		},
 		Holder: func(rel ontology.Relationship) string { return rel.To.Key },
 		Set: func(
@@ -84,37 +82,18 @@ func setOwner[K gorp.Key, E gorp.Entry[K]](
 	e *E,
 	rel ontology.Relationship,
 ) (bool, error) {
-	if rel.From.Type == resource.TypeRange && cfg.Owned(*e) {
-		return false, nil
-	}
 	owner, err := uuid.Parse(rel.From.Key)
 	if err != nil {
 		return false, errors.Wrapf(err, "owner of %s", rel.To)
 	}
-	isProject := rel.From.Type == resource.TypeProject
-	var found bool
-	if isProject {
-		found, err = stored[Key, Project](ctx, tx, owner)
-	} else {
-		found, err = stored[ranger.Key, ranger.Range](ctx, tx, owner)
-	}
+	found, err := gorp.NewRetrieve[Key, Project]().
+		Where(gorp.MatchKeys[Key, Project](owner)).
+		Exists(ctx, tx)
 	if !found || err != nil {
 		return false, err
 	}
-	if isProject {
-		cfg.SetOwner(e, &owner, nil)
-	} else {
-		cfg.SetOwner(e, nil, &owner)
-	}
+	cfg.SetOwner(e, owner)
 	return true, nil
-}
-
-func stored[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
-	tx gorp.Tx,
-	key K,
-) (bool, error) {
-	return gorp.NewRetrieve[K, E]().Where(gorp.MatchKeys[K, E](key)).Exists(ctx, tx)
 }
 
 func deleteOrphans[K gorp.Key, E gorp.Entry[K]](
@@ -138,7 +117,7 @@ func deleteOrphans[K gorp.Key, E gorp.Entry[K]](
 		}
 		key := gorp.FormatKey(e.GorpKey())
 		ins.L.Warn(
-			"deleted a visualization with no project or range",
+			"deleted a visualization with no project",
 			zap.String("type", string(cfg.Type)),
 			zap.String("key", key),
 			zap.String("name", cfg.NameOf(e)),

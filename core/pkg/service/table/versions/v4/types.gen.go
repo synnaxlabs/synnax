@@ -16,7 +16,6 @@ import (
 
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -85,12 +84,8 @@ type Table struct {
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 	// Group is the group the table sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the table, if any. Exactly one of project and
-	// range is set.
+	// Project is the project that owns the table.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the table, if any. Exactly one of project and range
-	// is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -97,10 +97,9 @@ const ChannelListItem = ({
   const port = PForm.useFieldValue(entry.port);
   const disabled = PForm.useFieldValue(entry.disabled);
   const type = PForm.useFieldValue(entry.type);
-  const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
-  const hasTareButton = channel !== 0 && type === "analog" && !isSnapshot;
+  const hasTareButton = channel !== 0 && type === "analog";
   const canTare = !disabled && isRunning;
   return (
     <Task.Views.ListAndDetailsChannelItem

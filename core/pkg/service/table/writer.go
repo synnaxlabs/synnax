@@ -41,9 +41,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given table, assigning a new key when t.Key is zero. The table
-// must belong to exactly one of a project and a range. An existing table keeps its
-// group, project, and range. A new table in a group belongs to the project that holds
-// the group.
+// must belong to a project. An existing table keeps its group and project. A new table
+// in a group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, t *Table) error {
 	var (
 		exists bool
@@ -61,7 +60,7 @@ func (w Writer) Create(ctx context.Context, t *Table) error {
 			return err
 		}
 		if exists = err == nil; exists {
-			t.Group, t.Project, t.Range = stored.Group, stored.Project, stored.Range
+			t.Group, t.Project = stored.Group, stored.Project
 		}
 	}
 	if !exists && t.Group != nil {
@@ -74,7 +73,7 @@ func (w Writer) Create(ctx context.Context, t *Table) error {
 	if err = t.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(t.Project, t.Range); err != nil {
+	if err = project.ValidateOwner(t.Project); err != nil {
 		return err
 	}
 	if err = validateUniqueKeys(*t); err != nil {
@@ -108,8 +107,7 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return w.setProject(ctx, *p, keys...)
 }
 
-// SetProject moves the tables with keys out of their group and into the project p. It
-// returns a validation error when a table belongs to a range.
+// SetProject moves the tables with keys out of their group and into the project p.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := setGroup(w.tbl, nil, keys...).Exec(ctx, w.tx); err != nil {
 		return err
@@ -129,10 +127,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Table) (Table, error) {
+		Change(func(_ gorp.Context, e Table) Table {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

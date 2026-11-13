@@ -37,9 +37,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot must belong to exactly one of a project and a range. An existing line plot keeps
-// its group, project, and range. A new line plot in a group belongs to the project that
-// holds the group.
+// plot must belong to a project. An existing line plot keeps its group and project. A
+// new line plot in a group belongs to the project that holds the group.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	var (
 		exists bool
@@ -57,7 +56,7 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 			return err
 		}
 		if exists = err == nil; exists {
-			lp.Group, lp.Project, lp.Range = stored.Group, stored.Project, stored.Range
+			lp.Group, lp.Project = stored.Group, stored.Project
 		}
 	}
 	if !exists && lp.Group != nil {
@@ -74,7 +73,7 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if err := lp.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(lp.Project, lp.Range); err != nil {
+	if err = project.ValidateOwner(lp.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
@@ -106,7 +105,6 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 }
 
 // SetProject moves the line plots with keys out of their group and into the project p.
-// It returns a validation error when a line plot belongs to a range.
 func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
 	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
 		return err
@@ -126,10 +124,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e LinePlot) (LinePlot, error) {
+		Change(func(_ gorp.Context, e LinePlot) LinePlot {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err

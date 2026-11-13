@@ -23,7 +23,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
-from synnax import device as device_, rack as rack_, ranger, status as status_
+from synnax import device as device_, rack as rack_, status as status_
 from synnax.resource import ID
 from x import filter, telem
 from x.filter import shorthand
@@ -143,8 +143,6 @@ class Where(BaseModel):
         type: Selects by type.
         rack: Selects by rack.
         internal: Selects by internal.
-        snapshot: Selects by snapshot.
-        ranges: Matches the tasks that are snapshots in any of the given ranges.
         arcs: Matches the tasks that run any of the Arcs with the given keys.
     """
 
@@ -158,11 +156,9 @@ class Where(BaseModel):
     type: filter.String | None = None
     rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
-    snapshot: filter.Bool | None = None
-    ranges: list[ranger.Key] | None = None
     arcs: list[UUID] | None = None
 
-    @field_validator("ranges", "arcs", mode="before")
+    @field_validator("arcs", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -181,8 +177,6 @@ WhereInput = TypedDict(
         "type": filter.StringInput,
         "rack": filter.SetInput[rack_.Key],
         "internal": filter.BoolInput,
-        "snapshot": filter.BoolInput,
-        "ranges": ranger.Key | list[ranger.Key],
         "arcs": UUID | list[UUID],
     },
     total=False,
@@ -297,9 +291,7 @@ class Payload(BaseModel):
             ignored on writes from clients. Compare against a status's config_hash to
             detect drift.
         internal: Is true if this is an internal system task.
-        snapshot: Is true if this task is an immutable snapshot copy of another task.
         status: Is the current execution status of the task.
-        range: Is the range the task is a snapshot in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -309,9 +301,7 @@ class Payload(BaseModel):
     config: dict[str, JsonValue] = Field(default_factory=dict)
     config_hash: str = ""
     internal: bool = False
-    snapshot: bool = False
     status: Status | None = None
-    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

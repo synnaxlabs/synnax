@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_, ranger
+from synnax import channel as channel_, group as group_, project as project_
 from synnax.resource import ID
 from x import color, filter, notation as notation_, text
 from x.filter import shorthand
@@ -127,7 +127,6 @@ class Where(BaseModel):
         groups: Matches the tables in any of the given groups.
         grouped: Matches the tables in a group, or in no group when false.
         projects: Matches the tables owned by any of the given projects.
-        ranges: Matches the tables owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -139,9 +138,8 @@ class Where(BaseModel):
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
     projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", "projects", "ranges", mode="before")
+    @field_validator("groups", "projects", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -159,7 +157,6 @@ WhereInput = TypedDict(
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
         "projects": project_.Key | list[project_.Key],
-        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -204,10 +201,7 @@ class Table(BaseModel):
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
         group: Is the group the table sits in, if any.
-        project: Is the project that owns the table, if any. Exactly one of project and
-            range is set.
-        range: Is the range that owns the table, if any. Exactly one of project and
-            range is set.
+        project: Is the project that owns the table.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -217,7 +211,6 @@ class Table(BaseModel):
     cells: dict[str, CellConfig] = Field(default_factory=dict)
     group: group_.Key | None = None
     project: project_.Key | None = None
-    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

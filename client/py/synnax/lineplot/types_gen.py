@@ -233,7 +233,6 @@ class Where(BaseModel):
         groups: Matches the line plots in any of the given groups.
         grouped: Matches the line plots in a group, or in no group when false.
         projects: Matches the line plots owned by any of the given projects.
-        ranges: Matches the line plots owned by any of the given ranges.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -245,9 +244,8 @@ class Where(BaseModel):
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
     projects: list[project_.Key] | None = None
-    ranges: list[ranger.Key] | None = None
 
-    @field_validator("groups", "projects", "ranges", mode="before")
+    @field_validator("groups", "projects", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -265,7 +263,6 @@ WhereInput = TypedDict(
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
         "projects": project_.Key | list[project_.Key],
-        "ranges": ranger.Key | list[ranger.Key],
     },
     total=False,
 )
@@ -371,10 +368,7 @@ class LinePlot(BaseModel):
             y-channel across every range the plot shows.
         rules: Holds annotation rules drawn over the plot.
         group: Is the group the line plot sits in, if any.
-        project: Is the project that owns the line plot, if any. Exactly one of project
-            and range is set.
-        range: Is the range that owns the line plot, if any. Exactly one of project and
-            range is set.
+        project: Is the project that owns the line plot.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -388,7 +382,6 @@ class LinePlot(BaseModel):
     rules: list[Rule] = Field(default_factory=list)
     group: group_.Key | None = None
     project: project_.Key | None = None
-    range: ranger.Key | None = None
 
     @_override
     def __hash__(self) -> int:

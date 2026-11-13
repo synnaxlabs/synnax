@@ -27,14 +27,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -60,14 +58,12 @@ var _ = Describe("Task", Ordered, func() {
 		rackService *rack.Service
 		testRack    *rack.Rack
 		stat        *status.Service
-		rangeSvc    *ranger.Service
 		configs     config.Registry
 		testArc     arc.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -85,10 +81,6 @@ var _ = Describe("Task", Ordered, func() {
 			DriverRole: MustSucceed(
 				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
-		}))
-		rangeSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:    db,
-			Group: g,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
@@ -134,15 +126,6 @@ var _ = Describe("Task", Ordered, func() {
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	}
-	createRange := func(ctx context.Context, tx gorp.Tx) ranger.Range {
-		GinkgoHelper()
-		r := ranger.Range{
-			Name:      "Range",
-			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
-		}
-		Expect(rangeSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-		return r
 	}
 	type frame = actions.Scoped[task.Key, task.Action]
 	collect := func() *[]frame {
@@ -394,29 +377,6 @@ var _ = Describe("Task", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
 		})
-		It(
-			"Should keep the existing hash when a snapshot's config is retained",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type:   testType,
-					Rack:   testRack.Key,
-					Name:   "Test Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true, nil))
-				Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
-				edited := snap
-				edited.Config = msgpack.EncodedJSON{"routing_key": "rk-999"}
-				Expect(w.Create(ctx, &edited)).To(Succeed())
-				var retrieved task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(snap.Key)).
-					Entry(&retrieved).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
-			},
-		)
 	})
 
 	Describe("Config storage", func() {
@@ -524,7 +484,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: msgpack.EncodedJSON{"routing_key": "rk-copy"},
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
-				copied := MustSucceed(w.Copy(ctx, t.Key, "Copied", false, nil))
+				copied := MustSucceed(w.Copy(ctx, t.Key, "Copied"))
 				Expect(copied.Config).To(
 					HaveKeyWithValue("routing_key", "rk-copy"),
 				)
@@ -572,74 +532,18 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false, nil))
+			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task"))
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 			Expect(t.Key).ToNot(Equal(m.Key))
-		})
-
-		It("Should create a snapshot of an existing task", func(ctx SpecContext) {
-			openTx()
-			m := &task.Task{
-				Type: testType,
-				Rack: testRack.Key,
-				Name: "Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Name).To(Equal("Test Task"))
-			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true, nil))
-			Expect(t.Key).ToNot(Equal(m.Key))
-			Expect(t.Snapshot).To(BeTrue())
 		})
 
 		It("Should reject a copy with an empty name", func(ctx SpecContext) {
 			openTx()
 			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Copy(ctx, m.Key, "", false, nil)).Error().
+			Expect(w.Copy(ctx, m.Key, "")).Error().
 				To(MatchError(ContainSubstring("name: required")))
 		})
-
-		It("Should place a snapshot in a range", func(ctx SpecContext) {
-			openTx()
-			r := createRange(ctx, tx)
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
-			Expect(snap.Range).To(Equal(&r.Key))
-			var res task.Task
-			Expect(svc.NewRetrieve().
-				Where(task.MatchRanges(r.Key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Key).To(Equal(snap.Key))
-		})
-
-		It("Should keep the range of a snapshot written again", func(ctx SpecContext) {
-			openTx()
-			r := createRange(ctx, tx)
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
-			snap.Range = nil
-			Expect(w.Create(ctx, &snap)).To(Succeed())
-			Expect(snap.Range).To(Equal(&r.Key))
-		})
-
-		It(
-			"Should keep a snapshot written again as not a snapshot",
-			func(ctx SpecContext) {
-				openTx()
-				r := createRange(ctx, tx)
-				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
-				snap.Snapshot = false
-				snap.Range = nil
-				Expect(w.Create(ctx, &snap)).To(Succeed())
-				Expect(snap.Snapshot).To(BeTrue())
-				Expect(snap.Range).To(Equal(&r.Key))
-			},
-		)
 
 		It(
 			"Should broadcast a create of the copy after the commit",
@@ -656,7 +560,7 @@ var _ = Describe("Task", Ordered, func() {
 				openTx()
 				frames := collect()
 				copied := MustSucceed(w.WithDispatchKey("dk-copy").
-					Copy(ctx, m.Key, "Copied", false, nil))
+					Copy(ctx, m.Key, "Copied"))
 				Expect(*frames).To(BeEmpty())
 				Expect(tx.Commit(ctx)).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
@@ -921,43 +825,6 @@ var _ = Describe("Task", Ordered, func() {
 			expectUnchanged(ctx)
 		})
 
-		It("Should rename a snapshot, keeping its config", func(ctx SpecContext) {
-			snap := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot",
-				Snapshot: true,
-			}
-			createCommitted(ctx, snap)
-			MustSucceed(dispatch(ctx, snap.Key, "dk", []task.Action{
-				set([]string{"name"}, "Renamed"),
-			}))
-			res := retrieve(ctx, snap.Key)
-			Expect(res.Name).To(Equal("Renamed"))
-			Expect(res.Snapshot).To(BeTrue())
-			Expect(res.ConfigHash).To(Equal(snap.ConfigHash))
-		})
-
-		It("Should reject any other edit to a snapshot", func(ctx SpecContext) {
-			snap := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot",
-				Snapshot: true,
-			}
-			createCommitted(ctx, snap)
-			Expect(dispatch(ctx, snap.Key, "dk", []task.Action{
-				set([]string{"name"}, "Renamed"),
-				set([]string{"config", "routing_key"}, "rk-2"),
-			})).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("is a snapshot, so only its name can change"),
-				),
-			))
-			Expect(retrieve(ctx, snap.Key).Name).To(Equal("Snapshot"))
-		})
-
 		It("Should return not found for a missing task", func(ctx SpecContext) {
 			Expect(dispatch(ctx, uuid.New(), "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
@@ -1143,69 +1010,6 @@ var _ = Describe("Task", Ordered, func() {
 					To(MatchError("this task service cannot filter tasks by Arc"))
 			},
 		)
-
-		It("Should filter tasks by snapshot status", func(ctx SpecContext) {
-			regular := &task.Task{
-				Type: testType,
-				Rack: testRack.Key,
-				Name: "Regular Task",
-			}
-			Expect(w.Create(ctx, regular)).To(Succeed())
-			snapshot := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot Task",
-				Snapshot: true,
-			}
-			Expect(w.Create(ctx, snapshot)).To(Succeed())
-			var snapshots []task.Task
-			Expect(
-				svc.NewRetrieve().
-					Where(task.MatchSnapshot(true)).
-					Entries(&snapshots).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(snapshots).To(HaveLen(1))
-			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
-			Expect(snapshots[0].Snapshot).To(BeTrue())
-			var regulars []task.Task
-			Expect(
-				svc.NewRetrieve().
-					Where(task.MatchSnapshot(false)).
-					Entries(&regulars).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(regulars).ToNot(BeEmpty())
-			for _, t := range regulars {
-				Expect(t.Snapshot).To(BeFalse())
-			}
-		})
-
-		It("Should combine MatchSnapshot with other filters", func(ctx SpecContext) {
-			snapshot1 := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot Task 1",
-				Snapshot: true,
-			}
-			Expect(w.Create(ctx, snapshot1)).To(Succeed())
-			snapshot2 := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot Task 2",
-				Snapshot: true,
-			}
-			Expect(w.Create(ctx, snapshot2)).To(Succeed())
-			var res task.Task
-			Expect(
-				svc.NewRetrieve().
-					Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).
-					Entry(&res).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res.Name).To(Equal("Snapshot Task 1"))
-			Expect(res.Snapshot).To(BeTrue())
-		})
 
 		It("Should filter tasks by internal status", func(ctx SpecContext) {
 			regular := &task.Task{
@@ -1427,88 +1231,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(t.Key))
 		})
-	})
-
-	Describe("Range", func() {
-		BeforeEach(openTx)
-		It("Should delete the tasks of a deleted range", func(ctx SpecContext) {
-			r := createRange(ctx, tx)
-			t := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Snapshot",
-				Snapshot: true,
-				Range:    &r.Key,
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
-			Expect(rangeSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().
-				Where(task.MatchKeys(t.Key)).
-				Exists(ctx, tx)).To(BeFalse())
-		})
-
-		It(
-			"Should delete the config records of the tasks of a deleted range",
-			func(ctx SpecContext) {
-				r := createRange(ctx, tx)
-				t := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Snapshot",
-					Snapshot: true,
-					Range:    &r.Key,
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				store := MustBeOk(configs.Store(testType))
-				MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(rangeSvc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
-				Expect(store.Read(ctx, tx, t.Key)).Error().
-					To(MatchError(query.ErrNotFound))
-			},
-		)
-
-		It("Should refuse a range that does not exist", func(ctx SpecContext) {
-			missing := uuid.New()
-			t := &task.Task{
-				Type:     testType,
-				Rack:     testRack.Key,
-				Name:     "Lost Snapshot",
-				Snapshot: true,
-				Range:    &missing,
-			}
-			Expect(w.Create(ctx, t)).To(MatchError(fmt.Sprintf(
-				"range: range %s does not exist: validation error",
-				missing,
-			)))
-		})
-
-		It(
-			"Should refuse a range on a task that is not a snapshot",
-			func(ctx SpecContext) {
-				r := createRange(ctx, tx)
-				t := &task.Task{
-					Type:  testType,
-					Rack:  testRack.Key,
-					Name:  "Not a Snapshot",
-					Range: &r.Key,
-				}
-				Expect(w.Create(ctx, t)).To(MatchError(
-					"range: only a snapshot can sit in a range: validation error",
-				))
-			},
-		)
-
-		It(
-			"Should refuse a range on a copy that is not a snapshot",
-			func(ctx SpecContext) {
-				r := createRange(ctx, tx)
-				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Source"}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				Expect(w.Copy(ctx, m.Key, "Copy", false, &r.Key)).Error().To(MatchError(
-					"range: only a snapshot can sit in a range: validation error",
-				))
-			},
-		)
 	})
 
 	Describe("Status", func() {
@@ -1769,7 +1491,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, m)).To(Succeed())
 
-				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false, nil))
+				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task"))
 
 				var copiedStatus task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
@@ -2167,7 +1889,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					var c task.Task
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 						c, err = svc.NewWriter(tx).
-							Copy(ctx, src.Key, "Copy", false, nil)
+							Copy(ctx, src.Key, "Copy")
 						return err
 					})).To(Succeed())
 					expectStoredHash(ctx, c.Key)

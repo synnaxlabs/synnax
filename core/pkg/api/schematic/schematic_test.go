@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -369,36 +368,6 @@ var _ = Describe("Service", func() {
 						Entry(&res).Exec(ctx, db)).To(Succeed())
 					Expect(res.Nodes).To(HaveLen(2))
 					Expect(res.Edges).To(HaveLen(1))
-				},
-			)
-
-			It(
-				"Should bubble up validate.ErrValidation when dispatching to a snapshot",
-				func(ctx SpecContext) {
-					s := createSchematic(ctx, "snap-source")
-					var snap schematic.Schematic
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return schematicSvc.NewWriter(tx).
-							Copy(ctx, s.Key, "snap", true, nil, &snap)
-					})).To(Succeed())
-					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
-					Expect(
-						dispatch(
-							AuthedCtx(ctx, author),
-							apischematic.DispatchRequest{
-								Key:         snap.Key,
-								DispatchKey: "sess-1",
-								Actions: []schematic.Action{
-									schematic.NewRemoveNodeAction(
-										schematic.RemoveNodePayload{
-											Key: "n1",
-										},
-									),
-								},
-							},
-						),
-					).Error().
-						To(MatchError(validate.ErrValidation))
 				},
 			)
 

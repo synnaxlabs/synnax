@@ -13,7 +13,6 @@ package v3
 
 import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -65,12 +64,8 @@ type Task struct {
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
-	// Snapshot is true if this task is an immutable snapshot copy of another task.
-	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-	// Range is the range the task is a snapshot in, if any.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

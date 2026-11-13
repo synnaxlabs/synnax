@@ -22,13 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	xjson "github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,12 +36,10 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		db   *gorp.DB
 		proj project.Project
 		g    group.Group
-		rng  ranger.Range
 		sch  schematic.Schematic
 		lp   lineplot.LinePlot
 		lg   log.Log
 		tb   table.Table
-		snap schematic.Schematic
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -79,17 +75,6 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.Panel.NewWriter(tx).Create(ctx, &pn)
 		})).To(Succeed())
-		rng = ranger.Range{
-			Name:      "Run",
-			TimeRange: telem.SecondTS.SpanRange(telem.Second),
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return l.Ranger.NewWriter(tx).Create(ctx, &rng)
-		})).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return l.Schematic.NewWriter(tx).
-				Copy(ctx, sch.Key, "Snapshot", true, &rng.Key, &snap)
-		})).To(Succeed())
 	})
 
 	expectUnplaced := func(data []byte) {
@@ -98,7 +83,6 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		Expect(json.Unmarshal(data, &body)).To(Succeed())
 		Expect(body).ToNot(HaveKey("group"))
 		Expect(body).ToNot(HaveKey("project"))
-		Expect(body).ToNot(HaveKey("range"))
 	}
 
 	DescribeTable("Should leave the placement out of a single-resource export",
@@ -110,7 +94,6 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		Entry("line plot", func() resource.ID { return lp.ResourceID() }),
 		Entry("log", func() resource.ID { return lg.ResourceID() }),
 		Entry("table", func() resource.ID { return tb.ResourceID() }),
-		Entry("range snapshot", func() resource.ID { return snap.ResourceID() }),
 	)
 
 	It("Should leave the placement out of every member of a project bundle", func(
