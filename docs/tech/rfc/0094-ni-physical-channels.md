@@ -73,10 +73,11 @@ a custom scale and a current channel with an external shunt. NI gives ranges per
 not per terminal configuration, so they are a superset: a USB-6008 lists ±20 V although
 only Differential reaches it.
 
-The Console's `propertiesZ` gets `hardware: ni.device.hardwareZ.optional()`. Without it, every
-Console write deletes the key, because `propertiesZ` drops unknown keys. EtherCAT keeps
-its scanned `pdos` the same way (`console/src/feature/ethercat/device/types.ts:24`).
-Python reads the generated `sy.ni.device.Hardware`.
+The Console's `propertiesZ` gets `hardware: ni.device.hardwareZ.optional()`. Without it,
+every Console write deletes the key, because `propertiesZ` drops unknown keys. EtherCAT
+keeps its scanned `pdos` the same way
+(`console/src/feature/ethercat/device/types.ts:24`). Python reads the generated
+`sy.ni.device.Hardware`.
 
 ### 3.1 Reading the device
 

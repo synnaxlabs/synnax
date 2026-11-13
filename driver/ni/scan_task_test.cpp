@@ -566,7 +566,8 @@ TEST(ScannerTest, testReadsHardwareOnce) {
 /// @brief it should not read the hardware of a device whose stored record has it.
 TEST(ScannerTest, testSkipsReadWhenStoredRecordHasHardware) {
     HardwareScanner s;
-    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::device::Hardware{}.to_json();
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::device::Hardware{}
+                                                        .to_json();
     EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
     EXPECT_EQ(s.dmx->reads(), 0);
 }

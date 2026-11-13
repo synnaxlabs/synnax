@@ -98,7 +98,8 @@ const std::vector<std::pair<int32, std::string>> TERMINAL_CONFIG_BITS = {
     {DAQmx_Val_Bit_TermCfg_RSE, ::synnax::ni::device::TERMINAL_CONFIG_RSE},
     {DAQmx_Val_Bit_TermCfg_NRSE, ::synnax::ni::device::TERMINAL_CONFIG_NRSE},
     {DAQmx_Val_Bit_TermCfg_Diff, ::synnax::ni::device::TERMINAL_CONFIG_DIFF},
-    {DAQmx_Val_Bit_TermCfg_PseudoDIFF, ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
+    {DAQmx_Val_Bit_TermCfg_PseudoDIFF,
+     ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
 };
 
 /// @brief the values of DAQmx_AI_TermCfg.
@@ -365,7 +366,8 @@ std::string read_default_terminal_config(
         return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
-    if (it == TERMINAL_CONFIGS.end()) return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+    if (it == TERMINAL_CONFIGS.end())
+        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     return it->second;
 }
 
@@ -538,7 +540,8 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
 bool is_complete(const Hardware &hw) {
     return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
         return reads_back_default(ai) &&
-               ai.default_terminal_config == ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+               ai.default_terminal_config ==
+                   ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
     });
 }
 
