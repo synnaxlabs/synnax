@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <cstring>
 
 #include "driver/labjack/device/fake_ljm.h"
@@ -15,6 +16,15 @@ namespace {
 constexpr int FAILURE = 1;
 /// @brief LJME_USING_DEFAULT_CALIBRATION, a warning.
 constexpr int USING_DEFAULT_CALIBRATION = 203;
+/// @brief LJME_NO_SCANS_RETURNED.
+constexpr int NO_SCANS_RETURNED = 1309;
+/// @brief LJME_NO_RESPONSE_BYTES_RECEIVED, a lost connection.
+constexpr int NO_RESPONSE_BYTES_RECEIVED = 1263;
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): LJM is a C library,
+// so its callers reach its state only through global functions.
+std::atomic<int> late_scans_reads = 0;
+std::atomic<int> lost_stream_reads = 0;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
 #pragma GCC visibility push(default)
@@ -25,6 +35,21 @@ int LJM_eStreamStart(const int handle, int, int, const int *, double *) {
 
 int LJM_eStreamStop(const int handle) {
     return handle == driver::labjack::device::FAILING_STOP_HANDLE ? FAILURE : 0;
+}
+
+int LJM_WriteLibraryConfigS(const char *, double) {
+    return 0;
+}
+
+int LJM_eStreamRead(const int handle, double *data, int *, int *) {
+    if (handle == driver::labjack::device::LATE_SCANS_HANDLE &&
+        late_scans_reads++ < driver::labjack::device::LATE_SCANS_EMPTY_READS)
+        return NO_SCANS_RETURNED;
+    if (handle == driver::labjack::device::LOST_STREAM_HANDLE)
+        return lost_stream_reads++ == 0 ? NO_SCANS_RETURNED
+                                        : NO_RESPONSE_BYTES_RECEIVED;
+    *data = driver::labjack::device::READ_VALUE;
+    return 0;
 }
 
 int LJM_Close(int) {
