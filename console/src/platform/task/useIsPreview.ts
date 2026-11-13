@@ -11,8 +11,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { type z } from "zod";
 
 /**
- * Whether the surrounding task form renders read-only: the task is a snapshot or the
- * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
+ * Whether the surrounding task form renders read-only because the subject holds no
+ * update grant on the task.
  */
 export const useIsPreview = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,

@@ -12,8 +12,12 @@
 package sift
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/versions"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // ScanConfig configures a Sift scan task.
@@ -26,4 +30,31 @@ type Properties struct {
 	URI string `json:"uri" msgpack:"uri"`
 	// APIKey is the key of the secret that holds the Sift API key.
 	APIKey secret.Key `json:"api_key" msgpack:"api_key"`
+}
+
+// Position is how far a transfer to Sift has reached on one index.
+type Position struct {
+	// Index is the index channel the position belongs to.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Time is the time before which Sift confirmed every sample of the channels on the
+	// index.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+}
+
+// UploadDetails is the state of an upload to Sift, held in the details of its status.
+type UploadDetails struct {
+	// Device is the key of the Sift device the upload sends to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Range is the key of the range whose data the upload sends.
+	Range ranger.Key `json:"range" msgpack:"range"`
+	// TimeRange is the span of data the upload sends.
+	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Channels are the channels the upload sends.
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	// Asset is the name of the Sift asset that receives the data.
+	Asset string `json:"asset" msgpack:"asset"`
+	// Positions holds, for each index, how far Sift has confirmed the upload.
+	Positions []Position `json:"positions" msgpack:"positions"`
+	// Samples is the number of values Sift has confirmed.
+	Samples int64 `json:"samples" msgpack:"samples"`
 }

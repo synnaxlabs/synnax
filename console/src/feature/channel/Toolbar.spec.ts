@@ -19,7 +19,6 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { createTestRange } from "@/platform/range/testutil";
 import {
   findTreeRow,
   itemName,
@@ -27,7 +26,6 @@ import {
   renderToolbar,
   searchTree,
 } from "@/platform/tree/testutil";
-import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditingElement,
@@ -129,23 +127,6 @@ describe("channel/Toolbar search", () => {
     const row = await findTreeRow(itemName(name));
     expect(row.querySelector("mark")?.textContent).toBe(tok);
     expect(row.textContent).toContain(groupName);
-  });
-
-  it("should find a channel by its alias under the active range", async () => {
-    const tok = uniqueToken();
-    const { ch } = await createGroupedChannel(uniqueName("ch"));
-    const rng = await createTestRange(client);
-    const alias = `${tok}_alias`;
-    await client.ranges.setAlias(rng.key, ch.key, alias);
-    const { store } = await renderToolbar(Channel.TOOLBAR.content, {
-      client,
-      items: Channel.TREE_ITEMS,
-    });
-    await act(async () => {
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-    });
-    searchTree(tok);
-    expect(await findTreeRow(itemName(alias))).toBeTruthy();
   });
 
   it("should rename a channel from a search result", async () => {

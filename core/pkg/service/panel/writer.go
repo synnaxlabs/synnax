@@ -34,9 +34,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates a new panel, assigning a new key when p.Key is uuid.Nil(). The panel
-// must belong to exactly one of a project and a range. A panel in a group belongs to
-// the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a panel with p.Key exists.
+// must belong to a project. A panel in a group belongs to the project that holds the
+// group. Create returns an error wrapping validate.ErrValidation when a panel with
+// p.Key exists.
 func (w Writer) Create(ctx context.Context, p *Panel) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
@@ -59,7 +59,7 @@ func (w Writer) Create(ctx context.Context, p *Panel) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(p.Project, p.Range); err != nil {
+	if err := project.ValidateOwner(p.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(p).Exec(ctx, w.tx); err != nil {
@@ -84,10 +84,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Panel) (Panel, error) {
+		Change(func(_ gorp.Context, e Panel) Panel {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -157,7 +157,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Panel{}, err
 			}
-			return next, project.ValidateOwner(next.Project, next.Range)
+			return next, project.ValidateOwner(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

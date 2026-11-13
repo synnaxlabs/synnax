@@ -12,10 +12,11 @@ import "@/platform/settings/Frame.css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Group } from "@/platform/settings/section";
+import { Session } from "@/session";
 
 const useVisibleGroups = (groups: Group[]): Group[] => {
   "use no memo"; // Calls a hook per section, so the group list sets the hook order.
@@ -37,12 +38,17 @@ export interface FrameProps {
 
 /**
  * Renders Settings: the section list on the left and the selected section's page on
- * the right. The first section the user can use starts selected.
+ * the right. The window keeps its selected section, and shows the first section the
+ * user can use when it has none or cannot use it.
  */
 export const Frame = ({ groups }: FrameProps): ReactElement => {
   const visible = useVisibleGroups(groups);
   const sections = visible.flatMap((group) => group.sections);
-  const [selected, setSelected] = useState(sections[0]?.key);
+  const selected = Session.Nav.useSelectSettingsSection();
+  const dispatch = Session.useDispatch();
+  const setSelected = (section: string): void => {
+    dispatch(Session.Nav.selectSettingsSection({ section }));
+  };
   const section = sections.find(({ key }) => key === selected) ?? sections[0];
   return (
     <Flex.Box x full empty className={CSS.B("settings")}>

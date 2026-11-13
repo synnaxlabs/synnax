@@ -12,6 +12,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Settings } from "@/platform/settings";
+import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 
 const createSection = (name: string, visible = true): Settings.Section => ({
@@ -52,5 +53,51 @@ describe("Settings.Frame", () => {
     expect(screen.queryByRole("menuitem", { name: "Hidden" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Gone" })).toBeNull();
     expect(screen.queryByText("Second")).toBeNull();
+  });
+
+  it("should show the section the window showed last when it opens again", async () => {
+    const groups: Settings.Group[] = [
+      {
+        key: "first",
+        name: "First",
+        sections: [createSection("Alpha"), createSection("Beta")],
+      },
+    ];
+    const { store, unmount } = await renderWithConsole(
+      <Settings.Frame groups={groups} />,
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Beta" }));
+    unmount();
+    await renderWithConsole(<Settings.Frame groups={groups} />, { store });
+    expect(screen.getByText("Beta page")).toBeTruthy();
+  });
+
+  it("should show the first section when the user cannot use the last one", async () => {
+    const groups: Settings.Group[] = [
+      {
+        key: "first",
+        name: "First",
+        sections: [createSection("Shown"), createSection("Hidden", false)],
+      },
+    ];
+    const { store, unmount } = await renderWithConsole(<p />);
+    store.dispatch(Session.Nav.selectSettingsSection({ section: "hidden" }));
+    unmount();
+    await renderWithConsole(<Settings.Frame groups={groups} />, { store });
+    expect(screen.getByText("Shown page")).toBeTruthy();
+  });
+
+  it("should drop the inner padding of a flush card", async () => {
+    await renderWithConsole(
+      <>
+        <Settings.Card title="Padded">padded</Settings.Card>
+        <Settings.Card title="Flush" flush>
+          flush
+        </Settings.Card>
+      </>,
+    );
+    const FLUSH = "console-settings__card--flush";
+    expect(screen.getByText("padded").classList.contains(FLUSH)).toBe(false);
+    expect(screen.getByText("flush").classList.contains(FLUSH)).toBe(true);
   });
 });

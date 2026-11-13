@@ -7,18 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  color,
-  DataType,
-  id,
-  math,
-  sleep,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  uuid,
-} from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { color, id, math, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -27,7 +17,6 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
-  holdEachResponse,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -525,6 +514,17 @@ describe("range", () => {
         .toBe(true);
     });
 
+    it("should mark a range that its create batch nests a range in", async () => {
+      const local = createTestClient();
+      const key = uuid.create();
+      const [parent, child] = await local.ranges.create([
+        { key, name: "Parent", timeRange },
+        { name: "Child", timeRange, parent: key },
+      ]);
+      expect([parent.hasChildren, child.hasChildren]).toEqual([true, false]);
+      expect(expectLive(local.ranges.watch(key).getCached()).hasChildren).toBe(true);
+    });
+
     it("should keep the mark when a fetch that predates the child lands", async () => {
       const remote = createTestClient();
       const parent = await client.ranges.create({ name: id.create(), timeRange });
@@ -547,117 +547,6 @@ describe("range", () => {
     });
   });
 
-  describe("Alias", () => {
-    describe("set + resolve", () => {
-      it("should set and resolve an alias for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        const resolved = await rng.resolveAlias("myalias");
-        expect(resolved).toEqual(ch.key);
-      });
-
-      it("should resolve an alias to the channel it moved to", async () => {
-        const [first, second] = await client.channels.create([
-          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
-          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
-        ]);
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(first.key, "myalias");
-        expect(await rng.resolveAlias("myalias")).toEqual(first.key);
-        await rng.setAlias(first.key, "otheralias");
-        await rng.setAlias(second.key, "myalias");
-        expect(await rng.resolveAlias("myalias")).toEqual(second.key);
-      });
-
-      it("should reject an alias named after an object member", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const resolve = rng.resolveAlias("constructor");
-        await expect(resolve).rejects.toThrow(NotFoundError);
-        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
-      });
-
-      it("should reject a channel name that matches no channel", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const name = id.create();
-        const set = rng.setAlias(name, "myalias");
-        await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
-      });
-
-      it("should read a name pattern as an exact channel name", async () => {
-        const prefix = `alias_${id.create()}`;
-        await client.channels.create([
-          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
-          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
-        ]);
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const name = `${prefix}_.*`;
-        const set = rng.setAlias(name, "myalias");
-        await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
-      });
-    });
-    describe("deleteAlias", () => {
-      it("should remove an alias for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        await rng.deleteAlias(ch.key);
-        const resolve = rng.resolveAlias("myalias");
-        await expect(resolve).rejects.toThrow(NotFoundError);
-        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
-        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
-        await expect(retrieve).rejects.toThrow(NotFoundError);
-        await expect(retrieve).rejects.toThrow(
-          `alias not found matching channel ${ch.key}`,
-        );
-      });
-    });
-    describe("list", () => {
-      it("should list the aliases for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        const aliases = await rng.listAliases();
-        expect(aliases).toEqual({ [ch.key]: "myalias" });
-      });
-    });
-  });
-
   describe("optimistic writes", () => {
     const WRITE_FAILED = new Error("write failed");
     const fail = () => {
@@ -668,13 +557,6 @@ describe("range", () => {
       await client.ranges.create({
         name: `optimistic-${id.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-
-    const createChannel = async () =>
-      await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
       });
 
     describe("delete", () => {
@@ -717,60 +599,6 @@ describe("range", () => {
         } finally {
           off();
         }
-      });
-    });
-
-    describe("setAlias", () => {
-      it("should cache the alias before the write commits", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        let duringWrite: ranger.alias.Alias | undefined;
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
-          onOptimistic: () => {
-            duringWrite = client.ranges.aliases.get(key);
-          },
-        });
-        expect(duringWrite?.alias).toEqual("optimistic-alias");
-      });
-
-      it("should drop the alias when the write fails", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await expect(
-          client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
-            onOptimistic: fail,
-          }),
-        ).rejects.toBe(WRITE_FAILED);
-        expect(client.ranges.aliases.get(key)).toBeUndefined();
-      });
-    });
-
-    describe("deleteAlias", () => {
-      it("should drop the alias before the write commits", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
-        let duringWrite: ranger.alias.Alias | undefined;
-        await client.ranges.deleteAlias(rng.key, ch.key, {
-          onOptimistic: () => {
-            duringWrite = client.ranges.aliases.get(key);
-          },
-        });
-        expect(duringWrite).toBeUndefined();
-      });
-
-      it("should restore the alias when the write fails", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
-        await expect(
-          client.ranges.deleteAlias(rng.key, ch.key, { onOptimistic: fail }),
-        ).rejects.toBe(WRITE_FAILED);
-        expect(client.ranges.aliases.get(key)?.alias).toEqual("optimistic-alias");
       });
     });
 
@@ -1289,123 +1117,6 @@ describe("cached reads", () => {
       } finally {
         off();
       }
-    });
-  });
-
-  describe("resolvedAliases", () => {
-    const createChannel = async () =>
-      await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-
-    it("should resolve the aliases of the range and of each range above it", async () => {
-      const [own, inherited] = await Promise.all([createChannel(), createChannel()]);
-      const parent = await createRange();
-      const child = await createRange(client, { parent: parent.key });
-      await parent.setAlias(inherited.key, "from parent");
-      await child.setAlias(own.key, "own");
-      expect(await client.ranges.resolvedAliases.retrieve(child.key)).toEqual({
-        range: child.key,
-        aliases: { [own.key]: "own", [inherited.key]: "from parent" },
-        own: [own.key],
-      });
-    });
-
-    it("should name an alias as own when it equals the alias of a range above", async () => {
-      const ch = await createChannel();
-      const parent = await createRange();
-      const child = await createRange(client, { parent: parent.key });
-      await parent.setAlias(ch.key, "thrust");
-      await child.setAlias(ch.key, "thrust");
-      const resolved = await client.ranges.resolvedAliases.retrieve(child.key);
-      expect(resolved.own).toEqual([ch.key]);
-    });
-
-    it("should read the aliases again when a range above sets one", async () => {
-      const ch = await createChannel();
-      const grandparent = await createRange();
-      const parent = await createRange(client, { parent: grandparent.key });
-      const child = await createRange(client, { parent: parent.key });
-      const off = client.ranges.resolvedAliases.watch(child.key).onChange(vi.fn());
-      try {
-        const watched = client.ranges.resolvedAliases.watch(child.key);
-        expect(
-          (await client.ranges.resolvedAliases.retrieve(child.key)).aliases,
-        ).toEqual({});
-        const remoteGrandparent = await remote.ranges.retrieve(grandparent.key);
-        await remoteGrandparent.setAlias(ch.key, "far");
-        await expect
-          .poll(() => expectLive(watched.getCached()).aliases)
-          .toEqual({ [ch.key]: "far" });
-      } finally {
-        off();
-      }
-    });
-
-    it("should keep the newer aliases when an older read lands late", async () => {
-      const ch = await createChannel();
-      const rng = await createRange();
-      const local = createTestClient();
-      await local.connect();
-      await waitForStreamLive(local.connection);
-      const watched = local.ranges.resolvedAliases.watch(rng.key);
-      const off = watched.onChange(vi.fn());
-      try {
-        expect((await local.ranges.resolvedAliases.retrieve(rng.key)).aliases).toEqual(
-          {},
-        );
-        const { held } = holdEachResponse(local, "/range/alias/list");
-        await rng.setAlias(ch.key, "old");
-        const older = await held(0);
-        await rng.setAlias(ch.key, "new");
-        (await held(1)).release();
-        await expect
-          .poll(() => expectLive(watched.getCached()).aliases)
-          .toEqual({ [ch.key]: "new" });
-        older.release();
-        // A timer runs only after the late answer's microtasks.
-        await sleep.sleep(TimeSpan.ZERO);
-        expect(expectLive(watched.getCached()).aliases).toEqual({ [ch.key]: "new" });
-      } finally {
-        off();
-      }
-    });
-
-    /**
-     * Starts the first read of the aliases on a fresh client, then holds it while the
-     * change stream comes live and refetches the answer.
-     */
-    const overtakeFirstRead = async (rng: ranger.Range) => {
-      const local = createTestClient();
-      const { held } = holdEachResponse(local, "/range/alias/list");
-      const off = local.ranges.resolvedAliases.watch(rng.key).onChange(vi.fn());
-      onTestFinished(off);
-      const read = local.ranges.resolvedAliases.retrieve(rng.key);
-      const first = await held(0);
-      await waitForStreamLive(local.connection);
-      return { read, first, refetch: await held(1) };
-    };
-
-    it("should answer the first read when a refetch overtakes it", async () => {
-      const ch = await createChannel();
-      const rng = await createRange();
-      await rng.setAlias(ch.key, "first");
-      const { read, first, refetch } = await overtakeFirstRead(rng);
-      first.release();
-      expect((await read).aliases).toEqual({ [ch.key]: "first" });
-      refetch.release();
-    });
-
-    it("should answer the first read when the refetch that overtakes it fails", async () => {
-      const ch = await createChannel();
-      const rng = await createRange();
-      await rng.setAlias(ch.key, "first");
-      const { read, first, refetch } = await overtakeFirstRead(rng);
-      refetch.fail(new Error("refetch failed"));
-      first.release();
-      expect((await read).aliases).toEqual({ [ch.key]: "first" });
     });
   });
 });

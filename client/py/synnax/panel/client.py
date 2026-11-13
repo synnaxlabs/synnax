@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import group as group_, project as project_
 from synnax.panel.types_gen import (
     Cursor,
     Key,
@@ -58,7 +58,7 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting panels on a Synnax
-    Core. A panel is a tree of visualization tabs owned by a project or a range.
+    Core. A panel is a tree of visualization tabs owned by a project.
     """
 
     _client: UnaryClient
@@ -91,8 +91,7 @@ class Client:
             omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
-        :raises ValidationError: If a panel does not belong to exactly one of a project
-            and a range.
+        :raises ValidationError: If a panel does not belong to a project.
         """
         is_single = not isinstance(panels, list)
         if panels is None:
@@ -125,7 +124,6 @@ class Client:
         *,
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -142,7 +140,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -160,7 +157,6 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -199,7 +195,6 @@ class Client:
         :param where: A filter tree that the panels must also match.
         :param keys: Keeps panels with one of these keys.
         :param projects: Keeps the panels owned by any of these projects.
-        :param ranges: Keeps the panels owned by any of these ranges.
         :param groups: Keeps panels in any of these groups.
         :param grouped: Keeps only panels in a group when True, and only panels in no
             group when False.
