@@ -123,6 +123,17 @@ describe("analog read task", () => {
       ).toEqual(false);
     });
 
+    it.each([-1, 65536])("should reject port %i", (port) => {
+      expect(
+        z.validate(NI.Task.deployAnalogReadConfigZ, {
+          ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+          streamRate: 1000,
+          sampleRate: 1000,
+          channels: [{ ...NI.Task.createAIChannel(), key: "0", device: "34", port }],
+        }),
+      ).toEqual(false);
+    });
+
     it("should reject negative sample rate", () => {
       expect(
         z.validate(NI.Task.deployAnalogReadConfigZ, {
