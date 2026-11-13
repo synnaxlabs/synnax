@@ -171,7 +171,9 @@ func grantToRack(ctx context.Context, key secret.Key) grant.Key {
 	return g
 }
 
-// createDevice creates a Sift device with props on the embedded rack.
+// createDevice creates a Sift device with props on the embedded rack, and deletes it
+// after the spec. A scan task checks every Sift device of the rack before it writes a
+// status, so a device that outlives its spec delays the statuses of later specs.
 func createDevice(ctx context.Context, props sift.Properties) device.Device {
 	GinkgoHelper()
 	dev := device.Device{
@@ -187,6 +189,11 @@ func createDevice(ctx context.Context, props sift.Properties) device.Device {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
+		})).To(Succeed())
+	})
 	return dev
 }
 
