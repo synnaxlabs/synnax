@@ -41,9 +41,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
-// schematic must belong to a project. A schematic in a group
-// belongs to the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a schematic with s.Key exists.
+// schematic must belong to a project. A schematic in a group belongs to the project
+// that holds the group. Create returns an error wrapping validate.ErrValidation when a
+// schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	return w.create(ctx, s, nil)
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
@@ -26,8 +25,8 @@ import (
 var Migration = migrate.NewEntry("v62_task_drop_snapshot", autoMigrateTask)
 
 // NewSnapshotMigration returns a migration that deletes each stored v3 snapshot task
-// with its config record and the statuses it owns, and logs a warning for each. It
-// returns an error when a snapshot has a type with no config store.
+// with the statuses it owns and its config record, when its type has a config store. It
+// logs a warning for each deleted task.
 func NewSnapshotMigration(cfg v3.MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v62_task_delete_snapshots",
@@ -44,16 +43,10 @@ func NewSnapshotMigration(cfg v3.MigrationConfig) gorp.Migration {
 				if !t.Snapshot {
 					continue
 				}
-				store, ok := cfg.Configs.Store(t.Type)
-				if !ok {
-					return errors.Newf(
-						"unknown type %q of snapshot task %s",
-						t.Type,
-						t.Key,
-					)
-				}
-				if err := store.Delete(ctx, tx, t.Key); err != nil {
-					return err
+				if store, ok := cfg.Configs.Store(t.Type); ok {
+					if err := store.Delete(ctx, tx, t.Key); err != nil {
+						return err
+					}
 				}
 				if err := rows.Delete(ctx, t.Key); err != nil {
 					return err
@@ -65,10 +58,11 @@ func NewSnapshotMigration(cfg v3.MigrationConfig) gorp.Migration {
 					return err
 				}
 				ins.L.Warn(
-					"deleted a snapshot task",
+					"deleted a task",
 					zap.String("key", t.Key.String()),
 					zap.String("name", t.Name),
 					zap.String("type", t.Type),
+					zap.String("reason", "snapshot"),
 				)
 			}
 			return nil

@@ -34,9 +34,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates a new panel, assigning a new key when p.Key is uuid.Nil(). The panel
-// must belong to a project. A panel in a group belongs to
-// the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a panel with p.Key exists.
+// must belong to a project. A panel in a group belongs to the project that holds the
+// group. Create returns an error wrapping validate.ErrValidation when a panel with
+// p.Key exists.
 func (w Writer) Create(ctx context.Context, p *Panel) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()

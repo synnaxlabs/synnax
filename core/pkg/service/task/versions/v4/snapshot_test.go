@@ -134,13 +134,14 @@ var _ = Describe("NewSnapshotMigration", func() {
 			Expect(rt.Status.Read(ctx, db, snapshot.Key)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(hasStatus(ctx, snapshot.Key)).To(BeFalse())
-			Expect(logs.FilterMessage("deleted a snapshot task").All()).To(ConsistOf(
+			Expect(logs.FilterMessage("deleted a task").All()).To(ConsistOf(
 				WithTransform(
 					func(e observer.LoggedEntry) map[string]any { return e.ContextMap() },
 					Equal(map[string]any{
-						"key":  snapshot.Key.String(),
-						"name": "Snapshot",
-						"type": "rack_status",
+						"key":    snapshot.Key.String(),
+						"name":   "Snapshot",
+						"type":   "rack_status",
+						"reason": "snapshot",
 					}),
 				),
 			))
@@ -161,13 +162,15 @@ var _ = Describe("NewSnapshotMigration", func() {
 	})
 
 	It(
-		"Should return an error when a snapshot has a type with no config store",
+		"Should delete a snapshot task whose type has no config store",
 		func(ctx SpecContext) {
 			key := uuid.New()
 			create(ctx, v3.Task{Key: key, Name: "Bogus", Type: "bogus", Snapshot: true})
-			Expect(run(ctx)).To(MatchError(ContainSubstring(
-				`unknown type "bogus" of snapshot task ` + key.String(),
-			)))
+			Expect(run(ctx)).To(Succeed())
+			Expect(gorp.NewRetrieve[v3.Key, v3.Task]().
+				Where(gorp.MatchKeys[v3.Key, v3.Task](key)).
+				Exists(ctx, db)).To(BeFalse())
+			Expect(hasStatus(ctx, key)).To(BeFalse())
 		},
 	)
 })

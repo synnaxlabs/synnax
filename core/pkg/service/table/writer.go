@@ -40,9 +40,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given table, assigning a new key when t.Key is zero. The table
-// must belong to a project. A table in a group belongs to
-// the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a table with t.Key exists.
+// must belong to a project. A table in a group belongs to the project that holds the
+// group. Create returns an error wrapping validate.ErrValidation when a table with
+// t.Key exists.
 func (w Writer) Create(ctx context.Context, t *Table) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()

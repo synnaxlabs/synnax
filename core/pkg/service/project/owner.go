@@ -80,7 +80,7 @@ func ValidateGroup(
 type Placement struct {
 	// Group is the group that holds the visualization, or nil.
 	Group *group.Key
-	// Project is the project that owns the visualization, or nil when a range owns it.
+	// Project is the project that owns the visualization.
 	Project *Key
 }
 
