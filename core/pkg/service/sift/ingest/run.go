@@ -86,7 +86,7 @@ func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) 
 	if existing != nil {
 		return e.updateRun(ctx, existing, r)
 	}
-	assetID, err := e.asset(ctx)
+	_, assetID, err := e.ingestionConfig(ctx)
 	if err != nil {
 		return "", err
 	}

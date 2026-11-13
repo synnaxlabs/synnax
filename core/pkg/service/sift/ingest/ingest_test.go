@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -111,6 +112,32 @@ func (c racingConn) Invoke(
 			opts...,
 		); err != nil {
 			return err
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
+}
+
+// stallConn holds each call that lists ingestion configs until release closes or the
+// context of the call ends.
+type stallConn struct {
+	grpc.ClientConnInterface
+	release <-chan struct{}
+	// stalled counts the calls held.
+	stalled *atomic.Int32
+}
+
+func (c stallConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.ingestion_configs.v2.IngestionConfigService/ListIngestionConfigs" {
+		c.stalled.Add(1)
+		select {
+		case <-c.release:
+		case <-ctx.Done():
+			return status.FromContextError(ctx.Err()).Err()
 		}
 	}
 	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
@@ -766,6 +793,70 @@ var _ = Describe("Engine", func() {
 					To(MatchError(ContainSubstring("sift is down")))
 				Expect(server.Runs()).To(BeEmpty())
 			})
+
+		Describe("A slow ingestion config", func() {
+			var (
+				release chan struct{}
+				stalled *atomic.Int32
+				e       *ingest.Engine
+			)
+
+			BeforeEach(func(ctx SpecContext) {
+				release, stalled = make(chan struct{}), &atomic.Int32{}
+				e = open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Conn: stallConn{
+						ClientConnInterface: conn,
+						release:             release,
+						stalled:             stalled,
+					},
+				})
+			})
+
+			// startUpload starts an upload that waits for the ingestion config.
+			startUpload := func(ctx context.Context) <-chan error {
+				GinkgoHelper()
+				upload := make(chan error, 1)
+				go func() {
+					upload <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+				}()
+				Eventually(stalled.Load).Should(BeEquivalentTo(1))
+				return upload
+			}
+
+			It("Should not hold a SetRun that is cancelled", func(ctx SpecContext) {
+				upload := startUpload(ctx)
+				sCtx, cancel := context.WithCancel(ctx)
+				set := make(chan error, 1)
+				go func() {
+					_, err := e.SetRun(sCtx, run)
+					set <- err
+				}()
+				// Lets SetRun reach the ingestion config before the cancel.
+				Consistently(set, 50*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(set).Should(Receive(MatchError(context.Canceled)))
+				close(release)
+				Eventually(upload).Should(Receive(Succeed()))
+			})
+
+			It("Should make one ingestion config for two calls at once",
+				func(ctx SpecContext) {
+					upload := startUpload(ctx)
+					set := make(chan error, 1)
+					go func() {
+						_, err := e.SetRun(ctx, run)
+						set <- err
+					}()
+					Eventually(stalled.Load).Should(BeEquivalentTo(2))
+					close(release)
+					Eventually(upload).Should(Receive(Succeed()))
+					Eventually(set).Should(Receive(Succeed()))
+					Expect(server.IngestionConfigs()).To(HaveLen(1))
+					Expect(server.Runs()).To(HaveExactElements(
+						HaveField("AssetIds", ConsistOf("asset-stand")),
+					))
+				})
+		})
 
 		It("Should name no single cause when Sift cannot find a thing",
 			func(ctx SpecContext) {
