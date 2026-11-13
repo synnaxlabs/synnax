@@ -802,6 +802,34 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It(
+			"Should leave type rules on an inherited field to the embedded parent",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Base struct {
+					rate Rate = 1
+				}
+
+				Cfg struct extends Base {
+					rate Rate = 5
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						`v.GreaterThanEq("rate", b.Rate, 0)`,
+						"v.Exec(c.Base.Validate)",
+					).
+					ToNotContain(`v.GreaterThanEq("rate", c.Rate, 0)`)
+			},
+		)
+
 		It("Should require a field whose type is required", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"

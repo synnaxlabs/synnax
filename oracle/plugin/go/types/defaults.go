@@ -700,12 +700,17 @@ type constraintCheckData struct {
 // goConstraintChecks returns the @validate constraint assertions for a field and its
 // type chain, classified against the field type's underlying primitive so a distinct
 // numeric type (e.g. a Key over uint32) validates as a number. An optional field is
-// checked only when present, and never for being required.
+// checked only when present, and never for being required. An inherited field checks
+// only its own rules, since the embedded parent's Validate checks its type's rules.
 func goConstraintChecks(
 	field resolution.Field,
+	inherited bool,
 	data *templateData,
 ) []constraintCheckData {
 	rules := validation.FieldRules(field, data.table)
+	if inherited {
+		rules = validation.Parse(field.Domains["validate"])
+	}
 	if validation.IsEmpty(rules) {
 		return nil
 	}
@@ -844,7 +849,7 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, probe)) > 0
+	return len(goConstraintChecks(f, false, probe)) > 0
 }
 
 // neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
