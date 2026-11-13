@@ -36,7 +36,8 @@ import { Session } from "@/session";
 /**
  * Renders a splash instead of the workspace until the embedded Core runs, the session
  * settles, and the permissions are cached. Once the workspace is up, a restart of the
- * Core leaves it mounted; a Core that stops, waits, or stays down replaces it.
+ * Core leaves it mounted; a Core that waits, stays down, or stops for an exit replaces
+ * it.
  */
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const status = useStatus();
@@ -46,7 +47,7 @@ export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   let content: ReactNode;
   if (status.state === "failed") content = <Failed {...status} />;
   else if (status.state === "waiting") content = <Waiting />;
-  else if (status.state === "stopping") content = <Stopping />;
+  else if (status.state === "exiting") content = <Exiting />;
   else if (client == null || !selected || !settled)
     content = <Starting connected={client != null && selected} />;
   else
@@ -154,7 +155,7 @@ const Waiting = (): ReactElement => (
   </Body>
 );
 
-const Stopping = (): ReactElement => (
+const Exiting = (): ReactElement => (
   <Body delayed>
     <Status.Summary
       variant="loading"

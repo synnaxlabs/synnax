@@ -47,13 +47,57 @@ pub struct Discovery {
 /// The exit of the app, managed as app state. The app exits only once its Core has
 /// stopped, so the next launch finds the data directory free.
 #[derive(Default)]
-pub struct Quit {
+struct Quit {
     /// Set once the stop for the exit starts.
     started: AtomicBool,
     /// Set once the Core has stopped.
     done: AtomicBool,
     /// Set when the app is launched again during the stop.
     relaunched: AtomicBool,
+}
+
+/// What a request to exit the app does.
+#[derive(Debug, PartialEq)]
+enum Decision {
+    /// Hold the exit and stop the Core.
+    Stop,
+    /// Hold the exit until the stop that runs ends.
+    Hold,
+    /// Restart the app instead of the exit.
+    Restart,
+    /// Let the exit go ahead.
+    Exit,
+}
+
+impl Quit {
+    /// Starts the stop for the exit. Returns false when it has already started.
+    fn start(&self) -> bool {
+        !self.started.swap(true, Ordering::SeqCst)
+    }
+
+    fn finish(&self) {
+        self.done.store(true, Ordering::SeqCst);
+    }
+
+    fn relaunch(&self) {
+        if self.started.load(Ordering::SeqCst) {
+            self.relaunched.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn decide(&self, code: Option<i32>) -> Decision {
+        if !self.done.load(Ordering::SeqCst) {
+            return if self.start() {
+                Decision::Stop
+            } else {
+                Decision::Hold
+            };
+        }
+        if self.relaunched.load(Ordering::SeqCst) && code != Some(RESTART_EXIT_CODE) {
+            return Decision::Restart;
+        }
+        Decision::Exit
+    }
 }
 
 /// What the diagnostics dialog shows beside the status.
@@ -108,15 +152,11 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-/// Stops the Core, then exits the app with `code`. A launch of the app during the stop
-/// makes the exit a restart. Only the first call acts.
-async fn quit<R: Runtime>(app: AppHandle<R>, code: Option<i32>) {
-    let state = app.state::<Quit>();
-    if state.started.swap(true, Ordering::SeqCst) {
-        return;
-    }
-    app.state::<Supervisor>().stop().await;
-    state.done.store(true, Ordering::SeqCst);
+/// Stops the Core, then exits the app with `code`. The exit request that follows goes
+/// ahead, or restarts the app when it was launched again during the stop.
+async fn stop_and_exit<R: Runtime>(app: AppHandle<R>, code: Option<i32>) {
+    app.state::<Supervisor>().stop_for_exit().await;
+    app.state::<Quit>().finish();
     match code {
         Some(RESTART_EXIT_CODE) => app.request_restart(),
         code => app.exit(code.unwrap_or(0)),
@@ -126,22 +166,23 @@ async fn quit<R: Runtime>(app: AppHandle<R>, code: Option<i32>) {
 /// Holds an exit of the app until its Core has stopped. Call it on each
 /// `RunEvent::ExitRequested`.
 pub fn exit_requested<R: Runtime>(app: &AppHandle<R>, code: Option<i32>, api: &ExitRequestApi) {
-    let state = app.state::<Quit>();
-    if !state.done.load(Ordering::SeqCst) {
-        api.prevent_exit();
-        tauri::async_runtime::spawn(quit(app.clone(), code));
-    } else if state.relaunched.load(Ordering::SeqCst) && code != Some(RESTART_EXIT_CODE) {
-        api.prevent_exit();
-        app.request_restart();
+    match app.state::<Quit>().decide(code) {
+        Decision::Stop => {
+            api.prevent_exit();
+            tauri::async_runtime::spawn(stop_and_exit(app.clone(), code));
+        }
+        Decision::Hold => api.prevent_exit(),
+        Decision::Restart => {
+            api.prevent_exit();
+            app.request_restart();
+        }
+        Decision::Exit => {}
     }
 }
 
 /// Records a second launch of the app. One that arrives while the app exits restarts it.
 pub fn relaunched<R: Runtime>(app: &AppHandle<R>) {
-    let state = app.state::<Quit>();
-    if state.started.load(Ordering::SeqCst) {
-        state.relaunched.store(true, Ordering::SeqCst);
-    }
+    app.state::<Quit>().relaunch();
 }
 
 /// Stops the Core and returns once its process has exited. Call it before the app
@@ -181,7 +222,9 @@ pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()
 /// Stops the Core while the windows stay open, then exits the app.
 #[tauri::command]
 pub async fn supervisor_quit<R: Runtime>(app: AppHandle<R>) -> Result<(), ()> {
-    quit(app, Some(0)).await;
+    if app.state::<Quit>().start() {
+        stop_and_exit(app, Some(0)).await;
+    }
     Ok(())
 }
 
@@ -341,6 +384,41 @@ fn reveal(dir: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn holds_each_exit_until_the_core_stops_and_stops_it_once() {
+        let quit = Quit::default();
+        assert_eq!(quit.decide(None), Decision::Stop);
+        assert_eq!(quit.decide(Some(0)), Decision::Hold);
+        assert!(!quit.start());
+    }
+
+    #[test]
+    fn lets_the_exit_go_ahead_once_the_core_stopped() {
+        let quit = Quit::default();
+        quit.decide(None);
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Exit);
+    }
+
+    #[test]
+    fn restarts_the_app_for_a_launch_during_the_stop() {
+        let quit = Quit::default();
+        assert!(quit.start());
+        quit.relaunch();
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Restart);
+        assert_eq!(quit.decide(Some(RESTART_EXIT_CODE)), Decision::Exit);
+    }
+
+    #[test]
+    fn ignores_a_launch_before_the_exit() {
+        let quit = Quit::default();
+        quit.relaunch();
+        quit.decide(None);
+        quit.finish();
+        assert_eq!(quit.decide(Some(0)), Decision::Exit);
+    }
 
     #[test]
     fn records_the_size_of_the_data_a_reset_erases() {

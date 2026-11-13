@@ -74,6 +74,7 @@ const followCore = async (initial: History) => {
   return {
     captured: (event: Parameters<Analytics.Sink["capture"]>[0]) =>
       sink.capture.mock.calls.filter(([name]) => name === event),
+    names: () => sink.capture.mock.calls.map(([name]) => name),
     /** Delivers a status change and waits until the app has read the next history. */
     change: async (next: History): Promise<void> => {
       const before = reads();
@@ -112,6 +113,22 @@ describe("follow", () => {
       ["core_waited", { wait_ms: 28_000 }],
       ["core_waited", { wait_ms: 4_000 }],
     ]);
+  });
+
+  it("should report a wait that timed out before its give-up", async () => {
+    const { names } = await followCore({
+      ...NEVER_STARTED,
+      exits: 1,
+      lastExit: {
+        reason: "locked",
+        message: "the data directory stayed locked for 60s",
+        uptimeSeconds: 0,
+        exitCode: 75,
+      },
+      waits: 1,
+      lastWaitMs: 60_000,
+    });
+    expect(names()).toEqual(["core_waited", "core_exited", "core_restart_exhausted"]);
   });
 
   it("should report each give-up exactly once", async () => {

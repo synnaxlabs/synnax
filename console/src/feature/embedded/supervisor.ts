@@ -40,6 +40,7 @@ export const statusZ = z.discriminatedUnion("state", [
   /** The Core was asked to stop, and no new one follows. */
   z.object({ state: z.literal("stopping") }),
   z.object({ state: z.literal("stopped") }),
+  z.object({ state: z.literal("exiting") }),
 ]);
 export type Status = z.infer<typeof statusZ>;
 
