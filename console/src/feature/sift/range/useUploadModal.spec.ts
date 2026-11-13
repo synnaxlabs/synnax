@@ -188,10 +188,11 @@ describe("Sift.Range.useUploadModal", () => {
     await answered;
     fireEvent.click(screen.getByRole("button", { name: /New asset/ }));
     fireEvent.change(await screen.findByPlaceholderText("Asset name"), {
-      target: { value: "Rig 2" },
+      target: { value: " Rig 2 " },
     });
     fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-    expect(await screen.findByText("Rig 2")).toBeTruthy();
+    const trigger = await findDialogTriggerByText("Rig 2");
+    expect(trigger.textContent).not.toContain(" Rig 2 ");
   });
 
   it("should not list calculated channels, which the Core does not store", async () => {
