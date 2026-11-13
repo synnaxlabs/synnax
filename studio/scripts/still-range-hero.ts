@@ -128,9 +128,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(1500);
     // Pinned ranges join the toolbar in order. The last one becomes the active range.
     for (const name of [CAMPAIGN, LEAK_CHECK, ...RUNS.map(([name]) => name)]) {
-      const item = page
-        .locator(`.console-range__list-item[aria-label="${name}"]`)
-        .first();
+      const item = page.getByRole("listitem", { name, exact: true }).first();
       await session.waitFor(item);
       await capture.contextMenu(
         session,
