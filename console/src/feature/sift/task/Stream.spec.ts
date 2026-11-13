@@ -9,7 +9,7 @@
 
 import { DataType, task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
-import { TimeStamp } from "@synnaxlabs/x";
+import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -146,6 +146,23 @@ describe("Sift stream form", () => {
     });
     expect(await screen.findByText("Test stand 1")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
+  });
+
+  it("should not list the assets for a user who cannot edit", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const messages: string[] = [];
+    await renderTaskFormTab(Sift.Task.Stream, {
+      client,
+      taskKey: t.key,
+      as: await createTaskReadOnlyClient(client),
+      onStatuses: (next) => messages.push(...next.map((s) => s.message)),
+    });
+    await sleep.sleep(TimeSpan.seconds(1));
+    expect(messages).not.toContain("Failed to list Sift assets");
   });
 
   it("should keep the asset when another client changes the device", async () => {
