@@ -13,7 +13,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
 import { resource } from "@/resource";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();
@@ -57,12 +57,66 @@ describe("NI chassis", async () => {
       expect(retrieved.name).toBe("Replaced");
     });
 
+    it("should add a created chassis to a watched search", async () => {
+      const token = `nichassis${Math.random().toString(36).slice(2)}`;
+      const list = client.ni.chassis.watch({ searchTerm: token });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const c = await create(token);
+      await expect
+        .poll(() => list.getCached()?.records.map(({ key }) => key))
+        .toContain(c.key);
+    });
+
     it("should create several chassis", async () => {
       const chassis = await client.ni.chassis.create([
         { rack: rack.key, name: "A", resourceName: id.create(), model: "cDAQ-9178" },
         { rack: rack.key, name: "B", resourceName: id.create(), model: "cDAQ-9178" },
       ]);
       expect(chassis.map((c) => c.name)).toEqual(["A", "B"]);
+    });
+  });
+
+  describe("optimistic writes", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+    const createNew = (): ni.chassis.New => ({
+      key: uuid.create(),
+      rack: rack.key,
+      name: "Optimistic",
+      resourceName: id.create(),
+      model: "PXIe-1083",
+    });
+
+    it("should cache the chassis before the write commits", async () => {
+      const c = createNew();
+      let duringWrite: string | undefined;
+      await client.ni.chassis.create(c, {
+        onOptimistic: () => {
+          duringWrite = expectLive(
+            client.ni.chassis.watch(c.key ?? "").getCached(),
+          ).name;
+        },
+      });
+      expect(duringWrite).toEqual(c.name);
+    });
+
+    it("should drop the optimistic chassis when the write fails", async () => {
+      const c = createNew();
+      await expect(client.ni.chassis.create(c, { onOptimistic: fail })).rejects.toBe(
+        WRITE_FAILED,
+      );
+      expect(client.ni.chassis.watch(c.key ?? "").getCached()).toBeUndefined();
+    });
+
+    it("should restore the chassis when a delete fails", async () => {
+      const c = await create();
+      await expect(
+        client.ni.chassis.delete(c.key, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect((await client.ni.chassis.retrieve({ key: c.key })).name).toBe(c.name);
     });
   });
 
@@ -231,6 +285,31 @@ describe("NI chassis", async () => {
       await expect
         .poll(() => list.getCached()?.records.find((r) => r.key === key)?.name)
         .toBe(`${token} renamed`);
+    });
+
+    it("should drop a deleted chassis from a subscribed search", async () => {
+      const token = `nichassis${Math.random().toString(36).slice(2)}`;
+      const c = await create(token);
+      await expect
+        .poll(
+          async () =>
+            (
+              await client.resources.search({
+                searchTerm: token,
+                types: ["ni_chassis"],
+              })
+            ).length,
+        )
+        .toBe(1);
+      const list = client.resources.watch({ searchTerm: token, types: ["ni_chassis"] });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const key = resource.idToString(ni.chassis.resourceID(c.key));
+      expect(list.getCached()?.records.map((r) => r.key)).toContain(key);
+      await client.ni.chassis.delete(c.key);
+      await expect
+        .poll(() => list.getCached()?.records.map((r) => r.key))
+        .not.toContain(key);
     });
   });
 });
