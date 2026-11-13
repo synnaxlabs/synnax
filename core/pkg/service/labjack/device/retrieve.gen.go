@@ -183,6 +183,18 @@ func MatchSerials(vals ...uint32) Filter {
 	}
 }
 
+// MatchModels returns a filter for
+// devices whose Model matches any of the
+// provided values.
+func MatchModels(vals ...Model) Filter {
+	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return want.Contains(e.Model()), nil
+		})
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -214,6 +226,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {
 	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no device as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 
