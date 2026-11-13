@@ -123,7 +123,7 @@ export const Frame = ({
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={!alwaysEditable && updatable}
+          showEditButton={!alwaysEditable}
           editable={editing}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
