@@ -209,14 +209,13 @@ func newTask(ctx context.Context, typ string, cfg msgpack.EncodedJSON) task.Task
 }
 
 // taskStatus retrieves the status of t.
-func taskStatus(ctx context.Context, t task.Task) task.Status {
-	GinkgoHelper()
+func taskStatus(ctx context.Context, t task.Task) (task.Status, error) {
 	var stat task.Status
-	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+	err := statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, db)).To(Succeed())
-	return stat
+		Exec(ctx, db)
+	return stat, err
 }
 
 // deviceStatus retrieves the status of dev.
@@ -306,10 +305,11 @@ func execCommand(
 		Args: toJSON(args),
 	})).To(Succeed())
 	var stat task.Status
-	Eventually(func(g Gomega) {
-		stat = taskStatus(ctx, t)
-		g.Expect(stat.Details.Cmd).To(Equal(key))
-	}).WithTimeout(10 * time.Second).Should(Succeed())
+	Eventually(func() (task.Status, error) {
+		var err error
+		stat, err = taskStatus(ctx, t)
+		return stat, err
+	}).WithTimeout(10 * time.Second).Should(HaveField("Details.Cmd", key))
 	return stat
 }
 

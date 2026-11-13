@@ -114,6 +114,15 @@ var _ = Describe("Upload", func() {
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
 	})
 
+	It("Should upload while scanning is off", func(ctx SpecContext) {
+		Expect(dt.Stop(false)).To(Succeed())
+		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"disabled": true})
+		configure(ctx)
+		key := upload(ctx)
+		statusOf(ctx, key).Should(HaveField("Message", "Uploaded to Sift"))
+		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+	})
+
 	It("Should count a single sample in the singular", func(ctx SpecContext) {
 		idx := createIndex(ctx)
 		ch = createData(ctx, idx)
