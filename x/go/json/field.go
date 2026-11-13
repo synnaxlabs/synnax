@@ -432,7 +432,7 @@ func NewEncoder(f Field) (*Encoder, error) {
 // standard, padded base64. A sample that matches no enum and is a NaN or infinite
 // number writes as NaN, Infinity, or -Infinity when Type is String. It returns an error
 // wrapping validate.ErrValidation when sample has no JSON value: a NaN or infinite
-// number, or a NaN boolean.
+// number, a NaN boolean, or a JSON sample that is not valid JSON.
 func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	dt := e.field.DataType
 	for _, en := range e.enums {
@@ -445,6 +445,12 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		ts := telem.TimeStamp(telem.ByteOrder.Uint64(sample))
 		return AppendTimeStamp(dst, ts, e.field.TimeFormat), nil
 	case e.field.Type == JSON:
+		if !jsontext.Value(sample).IsValid() {
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"JSON sample is not valid JSON",
+			)
+		}
 		return append(dst, sample...), nil
 	case dt == telem.UUIDT:
 		dst = append(dst, '"')

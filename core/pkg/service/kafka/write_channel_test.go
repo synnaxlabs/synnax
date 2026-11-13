@@ -129,22 +129,27 @@ var _ = Describe("Write channels", func() {
 
 	Describe("Prepare", func() {
 		DescribeTable("Should accept each kind a channel's data type allows",
-			func(ctx SpecContext, dt telem.DataType, kinds ...string) {
-				ch := create(ctx, dt)
-				for _, kind := range kinds {
-					Expect(prepare(ctx, config(writeChannel(kind, ch)))).Error().
-						ToNot(HaveOccurred(), kind)
-				}
+			func(ctx SpecContext, dt telem.DataType, kind string) {
+				wc := writeChannel(kind, create(ctx, dt))
+				Expect(prepare(ctx, config(wc))).Error().ToNot(HaveOccurred())
 			},
-			Entry("float", telem.Float32T, "float", "string", "boolean"),
-			Entry("signed integer", telem.Int16T, "integer", "string", "boolean"),
-			Entry("unsigned integer", telem.Uint32T, "unsigned", "string", "boolean"),
-			Entry("boolean", telem.BooleanT, "boolean", "unsigned", "string"),
-			Entry("string", telem.StringT, "string"),
-			Entry("timestamp", telem.TimestampT, "timestamp"),
-			Entry("json", telem.JSONT, "json"),
-			Entry("uuid", telem.UUIDT, "uuid"),
-			Entry("bytes", telem.BytesT, "bytes"),
+			Entry("float32 as float", telem.Float32T, "float"),
+			Entry("float32 as string", telem.Float32T, "string"),
+			Entry("float32 as boolean", telem.Float32T, "boolean"),
+			Entry("int16 as integer", telem.Int16T, "integer"),
+			Entry("int16 as string", telem.Int16T, "string"),
+			Entry("int16 as boolean", telem.Int16T, "boolean"),
+			Entry("uint32 as unsigned", telem.Uint32T, "unsigned"),
+			Entry("uint32 as string", telem.Uint32T, "string"),
+			Entry("uint32 as boolean", telem.Uint32T, "boolean"),
+			Entry("boolean as boolean", telem.BooleanT, "boolean"),
+			Entry("boolean as unsigned", telem.BooleanT, "unsigned"),
+			Entry("boolean as string", telem.BooleanT, "string"),
+			Entry("string as string", telem.StringT, "string"),
+			Entry("timestamp as timestamp", telem.TimestampT, "timestamp"),
+			Entry("json as json", telem.JSONT, "json"),
+			Entry("uuid as uuid", telem.UUIDT, "uuid"),
+			Entry("bytes as bytes", telem.BytesT, "bytes"),
 		)
 
 		DescribeTable("Should reject a kind a channel's data type does not allow",

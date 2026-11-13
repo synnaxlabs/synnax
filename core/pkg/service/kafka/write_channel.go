@@ -351,11 +351,11 @@ func convertWriteChannel(
 	warn warnFunc,
 ) WriteChannel {
 	from := numericValues(wc)
-	drop := func(label string, value any) {
+	drop := func(e numericValue) {
 		warn(
 			"dropped a Kafka write channel enum entry that does not convert",
-			zap.String("label", label),
-			zap.Any("value", value),
+			zap.String("label", e.label),
+			zap.Stringer("value", e),
 		)
 	}
 	out := WriteChannel{}
@@ -363,39 +363,39 @@ func convertWriteChannel(
 	case payload.KindFloat:
 		var v FloatWriteChannel
 		for _, e := range from {
-			if f, ok := toFloat64(e.value); ok {
+			if f, ok := e.asFloat(); ok {
 				v.EnumValues = append(
 					v.EnumValues,
 					payload.FloatEntry{Label: e.label, Value: payload.Float(f)},
 				)
 			} else {
-				drop(e.label, e.value)
+				drop(e)
 			}
 		}
 		out.Variant = v
 	case payload.KindInteger:
 		var v IntegerWriteChannel
 		for _, e := range from {
-			if i, ok := toInt64(e.value); ok {
+			if i, ok := e.asInt(); ok {
 				v.EnumValues = append(
 					v.EnumValues,
 					payload.IntegerEntry{Label: e.label, Value: payload.Integer(i)},
 				)
 			} else {
-				drop(e.label, e.value)
+				drop(e)
 			}
 		}
 		out.Variant = v
 	case payload.KindUnsigned:
 		var v UnsignedWriteChannel
 		for _, e := range from {
-			if u, ok := toUint64(e.value); ok {
+			if u, ok := e.asUint(); ok {
 				v.EnumValues = append(
 					v.EnumValues,
 					payload.UnsignedEntry{Label: e.label, Value: payload.Unsigned(u)},
 				)
 			} else {
-				drop(e.label, e.value)
+				drop(e)
 			}
 		}
 		out.Variant = v
@@ -419,10 +419,14 @@ var emptyVariants = map[payload.Kind]WriteChannelVariant{
 	payload.KindBytes:     BytesWriteChannel{},
 }
 
+// numericValue is one entry of a float, integer, or unsigned write channel. kind names
+// the field that holds its value.
 type numericValue struct {
 	label string
-	// value is a float64, int64, or uint64.
-	value any
+	kind  payload.Kind
+	f     float64
+	i     int64
+	u     uint64
 }
 
 func numericValues(wc WriteChannel) []numericValue {
@@ -430,18 +434,41 @@ func numericValues(wc WriteChannel) []numericValue {
 	switch v := wc.Variant.(type) {
 	case FloatWriteChannel:
 		for _, e := range v.EnumValues {
-			out = append(out, numericValue{label: e.Label, value: float64(e.Value)})
+			out = append(out, numericValue{
+				label: e.Label,
+				kind:  payload.KindFloat,
+				f:     float64(e.Value),
+			})
 		}
 	case IntegerWriteChannel:
 		for _, e := range v.EnumValues {
-			out = append(out, numericValue{label: e.Label, value: int64(e.Value)})
+			out = append(out, numericValue{
+				label: e.Label,
+				kind:  payload.KindInteger,
+				i:     int64(e.Value),
+			})
 		}
 	case UnsignedWriteChannel:
 		for _, e := range v.EnumValues {
-			out = append(out, numericValue{label: e.Label, value: uint64(e.Value)})
+			out = append(out, numericValue{
+				label: e.Label,
+				kind:  payload.KindUnsigned,
+				u:     uint64(e.Value),
+			})
 		}
 	}
 	return out
+}
+
+func (n numericValue) String() string {
+	switch n.kind {
+	case payload.KindInteger:
+		return strconv.FormatInt(n.i, 10)
+	case payload.KindUnsigned:
+		return strconv.FormatUint(n.u, 10)
+	default:
+		return strconv.FormatFloat(n.f, 'g', -1, 64)
+	}
 }
 
 func hasTextEntries(wc WriteChannel) bool {
@@ -457,37 +484,38 @@ func hasTextEntries(wc WriteChannel) bool {
 // maxExactFloat is the largest magnitude up to which a float64 holds every integer.
 const maxExactFloat = 1 << 53
 
-func toFloat64(v any) (float64, bool) {
-	switch x := v.(type) {
-	case int64:
-		return float64(x), x >= -maxExactFloat && x <= maxExactFloat
-	case uint64:
-		return float64(x), x <= maxExactFloat
+func (n numericValue) asFloat() (float64, bool) {
+	switch n.kind {
+	case payload.KindInteger:
+		return float64(n.i), n.i >= -maxExactFloat && n.i <= maxExactFloat
+	case payload.KindUnsigned:
+		return float64(n.u), n.u <= maxExactFloat
 	default:
-		return v.(float64), true
+		return n.f, true
 	}
 }
 
-func toInt64(v any) (int64, bool) {
-	switch x := v.(type) {
-	case float64:
-		ok := x == math.Trunc(x) && x >= math.MinInt64 && x < math.MaxInt64
-		return int64(x), ok
-	case uint64:
-		return int64(x), x <= math.MaxInt64
+func (n numericValue) asInt() (int64, bool) {
+	switch n.kind {
+	case payload.KindFloat:
+		ok := n.f == math.Trunc(n.f) && n.f >= math.MinInt64 && n.f < math.MaxInt64
+		return int64(n.f), ok
+	case payload.KindUnsigned:
+		return int64(n.u), n.u <= math.MaxInt64
 	default:
-		return v.(int64), true
+		return n.i, true
 	}
 }
 
-func toUint64(v any) (uint64, bool) {
-	switch x := v.(type) {
-	case float64:
-		return uint64(x), x == math.Trunc(x) && x >= 0 && x < math.MaxUint64
-	case int64:
-		return uint64(x), x >= 0
+func (n numericValue) asUint() (uint64, bool) {
+	switch n.kind {
+	case payload.KindFloat:
+		ok := n.f == math.Trunc(n.f) && n.f >= 0 && n.f < math.MaxUint64
+		return uint64(n.f), ok
+	case payload.KindInteger:
+		return uint64(n.i), n.i >= 0
 	default:
-		return v.(uint64), true
+		return n.u, true
 	}
 }
 
