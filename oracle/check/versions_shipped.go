@@ -14,6 +14,8 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -32,11 +34,13 @@ type Release struct {
 
 // checkShipped fails on every version file whose stored types no longer decode the
 // data a stable release wrote. It compares filled-in shapes, so a type may move to
-// another file or chain, and an enum or union may gain members. resolver resolves the
-// current chains, and is nil when there are none.
+// another file or chain, and an enum or union may gain members. A chain removed with
+// its live file under repoRoot passes. resolver resolves the current chains, and is nil
+// when there are none.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
+	repoRoot string,
 	chains map[string]versions.Chain,
 	resolver *versions.Resolver,
 	release Release,
@@ -50,6 +54,21 @@ func checkShipped(
 		shippedChains, analyzer.NewStandardFileLoader(release.Root),
 	)
 	for _, livePath := range slices.Sorted(maps.Keys(shippedChains)) {
+		current, ok := chains[livePath]
+		if !ok {
+			live, err := liveExists(repoRoot, livePath)
+			if err != nil {
+				r.fail(Finding{
+					Path:     livePath + ".oracle",
+					Severity: SeverityError,
+					Message:  err.Error(),
+				})
+				continue
+			}
+			if !live {
+				continue
+			}
+		}
 		chain := shippedChains[livePath]
 		for _, n := range chain.Numbers {
 			filePath := chain.FilePath(n) + ".oracle"
@@ -67,7 +86,6 @@ func checkShipped(
 					),
 				})
 			}
-			current, ok := chains[livePath]
 			if !ok || !slices.Contains(current.Numbers, n) {
 				fail("is gone")
 				continue
@@ -91,6 +109,15 @@ func checkShipped(
 			compareStored(old, now, ns, fail)
 		}
 	}
+}
+
+// liveExists reports whether the live file of the chain at livePath exists under root.
+func liveExists(root, livePath string) (bool, error) {
+	_, err := os.Stat(filepath.Join(root, livePath+".oracle"))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // compareStored checks each stored type of the surface in namespace ns: every type
