@@ -92,6 +92,39 @@ var _ = Describe("Go PB Plugin", func() {
 		)
 
 		It(
+			"Should translate a type-parameter field as the array it defaults to",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Box struct<T = string[]> {
+						key   uuid
+						value T?
+					}
+
+					Bytes struct<T = uint8[]> {
+						key   uuid
+						value T
+					}
+
+					Pair struct<T = uint8[2]> {
+						key   uuid
+						value T
+					}
+				`, "thing", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"pb.Value = &StringList{Values: r.Value}",
+						"r.Value = xpb.ListValues(pb.Value.Values)",
+						"Value: r.Value[:],",
+						"r.Value = pb.Value",
+					)
+			},
+		)
+
+		It(
 			"Should translate each generic use over a plain value through its own message",
 			func(ctx SpecContext) {
 				AddFilterSchema(loader)
