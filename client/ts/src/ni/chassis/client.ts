@@ -218,7 +218,15 @@ export class Client extends query.Retriever<
       updateReqZ,
       emptyResZ,
     );
-    await this.fetchThrough(query.keysRequest([key]));
+    // The stored record replaces the cached one, even when an older stream set
+    // arrived during the request.
+    const { chassis } = await this.cfg.unary.send(
+      "/ni/chassis/retrieve",
+      query.keysRequest([key]),
+      retrieveParamsZ,
+      retrieveResponseZ,
+    );
+    this.store.set(chassis.map(stripStatus));
   }
 
   /**
