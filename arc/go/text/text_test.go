@@ -790,6 +790,68 @@ var _ = Describe("Text", func() {
 			Entry("a cast with a unit", "func f() {\nd i64 ms := i64 s(5)\n}", 0),
 		)
 
+		It(
+			"Should give a number divided by a unit value no unit",
+			func(ctx SpecContext) {
+				_, diagnostics := analyzeText(
+					ctx,
+					"func f(t i64 s) i64 {\nreturn 10 / t\n}",
+				)
+				Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+			},
+		)
+
+		DescribeTable("Should check a compound product or quotient as its calculation",
+			func(ctx SpecContext, declaration, op, message string) {
+				for _, write := range []string{"x " + op + "= t", "x = x " + op + " t"} {
+					_, diagnostics := analyzeText(ctx, "func f(t i64 s) {\nx "+
+						declaration+"\n"+write+"\n}")
+					if message == "" {
+						Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+						continue
+					}
+					Expect(diagnostics.String()).To(ContainSubstring(message))
+				}
+			},
+			Entry("a number divided by a unit value", `i64 := 10`, "/", ""),
+			Entry("a number times a unit value", `i64 := 10`, "*",
+				"'x' has no unit and cannot take a value in s"),
+			Entry("two units of one dimension", `i64 min := 4min`, "*", ""),
+			Entry("two units of two dimensions", `i64 psi := 4psi`, "/", ""),
+		)
+
+		notWhole := "a series of i64 in psi does not convert to Pa, " +
+			"use a float series or the same unit"
+		DescribeTable(
+			"Should check an integer series that meets a value in a smaller unit",
+			func(ctx SpecContext, body, message string) {
+				_, diagnostics := analyzeText(ctx, "func f() {\n"+body+"\n}")
+				if message == "" {
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					return
+				}
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a sum by a factor that is not whole",
+				"xs := [5psi]\nys := xs + 1Pa", notWhole),
+			Entry("a product by a factor that is not whole",
+				"xs := [5psi]\nys := xs * 1Pa", notWhole),
+			Entry("a comparison by a factor that is not whole",
+				"xs := [5psi]\nbs := xs > 1Pa", notWhole),
+			Entry("a compound product by a factor that is not whole",
+				"xs := [5psi]\nxs *= 1Pa", notWhole),
+			Entry("a series by a factor that is not whole",
+				"xs := [5psi]\nps := [5Pa]\nys := xs + ps", notWhole),
+			Entry("a 32-bit series by a factor that does not fit",
+				"xs series i32 min := [5min]\nys := xs + 1ns",
+				"a series of i32 in min does not convert to ns"),
+			Entry("a compound sum, which converts the value",
+				"xs := [5psi]\nxs += 1Pa", ""),
+			Entry("a series in the smaller unit", "ps := [5Pa]\nys := ps + 1psi", ""),
+			Entry("a float series", "xs := [5.0psi]\nys := xs + 1.0Pa", ""),
+			Entry("a whole factor", "xs := [5min]\nys := xs + 1s", ""),
+		)
+
 		DescribeTable("Should fix a cast that removes a unit",
 			func(ctx SpecContext, source string, fixed ...string) {
 				expectFixes(ctx, source, codes.UnitDropped.Code, fixed)

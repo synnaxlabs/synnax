@@ -6034,6 +6034,98 @@ var _ = Describe("Sequence", func() {
 			Entry("a cast that truncates", `d = i64 s(1500ms)`, "d=1000"),
 		)
 
+		DescribeTable("Gives a calculation of a number and a unit value its unit",
+			func(ctx SpecContext, calculation, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func body() i64 ms {
+				    t := 2s
+				    x i64 ms := `+calculation+`
+				    return x
+				}
+				sequence main {
+				    t := 2s
+				    x i64 ms := 0ms
+				    y i64 ms := 0ms
+				    stage write {
+				        x = `+calculation+`
+				        raw -> body() -> y
+				        raw -> `+`f"x={x} y={y}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a number divided by a unit value has no unit", `10 / t`, "x=5 y=5"),
+			Entry("a unit value divided by a number", `t / 2`, "x=1000 y=1000"),
+			Entry("a number times a unit value", `3 * t`, "x=6000 y=6000"),
+		)
+
+		DescribeTable(
+			"Gives a compound product or quotient the value of its calculation",
+			func(ctx SpecContext, declaration, op, value, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func compound() i64 {
+				    x `+declaration+`
+				    t := 120s
+				    x `+op+`= `+value+`
+				    return i64(x)
+				}
+				func plain() i64 {
+				    x `+declaration+`
+				    t := 120s
+				    x = x `+op+` `+value+`
+				    return i64(x)
+				}
+				sequence main {
+				    a := 0
+				    b := 0
+				    stage write {
+				        raw -> compound() -> a
+				        raw -> plain() -> b
+				        raw -> `+`f"a={a} b={b}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry(
+				"a number divided by a unit value",
+				`i64 := 240`,
+				"/",
+				"t",
+				"a=2 b=2",
+			),
+			Entry("a larger unit divided by a smaller unit",
+				`i64 min := 4min`, "/", "t", "a=2 b=2"),
+			Entry("a larger unit times a smaller unit",
+				`i64 min := 4min`, "*", "t", "a=28800 b=28800"),
+			Entry("a smaller unit divided by a larger unit",
+				`i64 ms := 240000ms`, "/", "t", "a=2 b=2"),
+			Entry(
+				"a unit value divided by a number",
+				`i64 min := 4min`,
+				"/",
+				"2",
+				"a=2 b=2",
+			),
+			Entry(
+				"a unit value times a number",
+				`i64 min := 4min`,
+				"*",
+				"2",
+				"a=8 b=8",
+			),
+			Entry(
+				"a value of another dimension",
+				`i64 psi := 4psi`,
+				"*",
+				"t",
+				"a=480 b=480",
+			),
+		)
+
 		DescribeTable(
 			"Keeps an integer exact for a factor that is not exact in a float",
 			func(ctx SpecContext, write, expected string) {

@@ -291,18 +291,40 @@ func integersTruncate[T antlr.ParserRuleContext](
 	return true
 }
 
-func warnOperandTruncation[T antlr.ParserRuleContext](
+// CheckOperandUnits checks the operand that converts to the unit of the other operand
+// of a calculation. ok is false when it reports an error.
+func CheckOperandUnits[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	left, right types.Type,
-) {
-	if left.Unit != nil && right.Unit != nil && left.Unit.Scale < right.Unit.Scale {
-		left, right = right, left
+) (ok bool) {
+	from, to := left.Unwrap().Unit, right.Unwrap().Unit
+	if from != nil && to != nil && from.Scale < to.Scale {
+		left, right, from, to = right, left, to, from
+	}
+	if !types.UnitsConvertible(from, to) {
+		return true
+	}
+	elem := types.Concrete(ctx.Constraints.ApplySubstitutions(left.Unwrap()))
+	elem.Unit = from
+	// SY-5920 needs a series function that converts by a factor that is not whole.
+	if _, _, exact := types.UnitScale(
+		elem,
+		to,
+	); left.Kind == types.KindSeries &&
+		!exact {
+		elem.Unit = nil
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"a series of %s in %s does not convert to %s, use a float series or the "+
+				"same unit",
+			elem, from.Name, to.Name,
+		))
+		return false
 	}
 	if integersTruncate(ctx, left, right) {
-		ctx.Diagnostics.Add(
-			codes.UnitTruncation.At(ctx.AST, left.Unit.Name, right.Unit.Name),
-		)
+		ctx.Diagnostics.Add(codes.UnitTruncation.At(ctx.AST, from.Name, to.Name))
 	}
+	return true
 }
 
 func seriesToSeries(w Write) bool {

@@ -417,6 +417,21 @@ func unit_five() i64 ms {
     return 5ms
 }
 flow_trigger -> unit_five() -> unit_fn_ret
+// A number divided by a value with a unit has no unit.
+func unit_ratio() i64 ms {
+    t := 2s
+    x i64 ms := 10 / t
+    return x
+}
+flow_trigger -> unit_ratio() -> unit_fn_ratio
+// So does a compound division.
+func unit_divide() i64 {
+    t := 2s
+    total i64 := 10
+    total /= t
+    return total
+}
+flow_trigger -> unit_divide() -> unit_fn_divide
 // An input takes the value that a variable holds, not the text of its declaration.
 unit_held i64 s := 1500ms
 flow_trigger -> unit_to_ms(x=unit_held) -> unit_fn_held
@@ -501,6 +516,8 @@ func body(x i64 s) i64 {
     ys := [1ms, 2ms]
     ys = xs                                       // error, series in another unit
     zs := [1s, 5psi]                              // error, elements of two dimensions
+    ps := [5psi]
+    qs := ps + 1Pa                                // error, series factor not whole
     ms := [1min]
     ms[0] = x                                     // warning, truncation, element
     ls series i64 s := [1500ms]                   // warning, truncation, series literal
@@ -566,6 +583,8 @@ UNIT_ERRORS = [
     "'total' has no unit and cannot take a value in ms",
     "'ys' is a series in ms and cannot take a series in s",
     "series element 2 has incompatible type",
+    "a series of i64 in psi does not convert to Pa, use a float series or the "
+    "same unit",
     "unit conversion from ms to s truncates an integer toward zero",
     "unit conversion from bar to psi truncates an integer toward zero",
     "incompatible dimensions: cannot write psi to 'r' (s)",
@@ -1077,6 +1096,8 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_fn_live", sy.DataType.INT64),
     ("unit_calc", sy.DataType.INT64),
     ("unit_fn_ret", sy.DataType.INT64),
+    ("unit_fn_ratio", sy.DataType.INT64),
+    ("unit_fn_divide", sy.DataType.INT64),
     ("unit_fn_written", sy.DataType.INT64),
     ("unit_fn_held", sy.DataType.INT64),
     ("unit_fn_cast", sy.DataType.INT64),
@@ -1281,6 +1302,8 @@ class Conversion(ArcCase):
         self.wait_for_near("unit_fn_psi", 14.5038, tolerance=1e-3)
         self.wait_for_eq("unit_fn_live", 180_000)
         self.wait_for_eq("unit_fn_ret", 5)
+        self.wait_for_eq("unit_fn_ratio", 5)
+        self.wait_for_eq("unit_fn_divide", 5)
         self.wait_for_eq("unit_fn_written", 5000)
         self.wait_for_eq("unit_fn_held", 1000)
         self.wait_for_eq("unit_fn_cast", 5000)

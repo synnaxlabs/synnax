@@ -77,9 +77,9 @@ func literalOnly[N antlr.ParserRuleContext](
 	return true
 }
 
-// compileOperand compiles operand in the unit that it and the value on the stack, of
+// CompileOperand compiles operand in the unit that it and the value on the stack, of
 // type left, meet in. It returns the type of the operand and that unit.
-func compileOperand[N, O antlr.ParserRuleContext](
+func CompileOperand[N, O antlr.ParserRuleContext](
 	ctx context.Context[N],
 	left types.Type,
 	operand O,
@@ -161,12 +161,15 @@ func compileArithmetic[N, O antlr.ParserRuleContext](
 		if firstIsSeries {
 			left = resultType
 		}
-		operandType, unit, err := compileOperand(ctx, left, operand, compile)
+		operandType, unit, err := CompileOperand(ctx, left, operand, compile)
 		if err != nil {
 			return types.Type{}, err
 		}
-		if op == "*" || op == "/" {
-			unit = types.ProductUnit(left.Unwrap().Unit, operandType.Unwrap().Unit)
+		switch leftUnit, rightUnit := left.Unwrap().Unit, operandType.Unwrap().Unit; op {
+		case "*":
+			unit = types.ProductUnit(leftUnit, rightUnit)
+		case "/":
+			unit = types.QuotientUnit(leftUnit, rightUnit)
 		}
 		hintType.Unit, elemType.Unit = unit, unit
 		if firstIsSeries {
@@ -251,7 +254,7 @@ func compileComparison[N, O antlr.ParserRuleContext](
 	if isSeries {
 		left = leftType
 	}
-	if _, _, err = compileOperand(ctx, left, operands[1], compile); err != nil {
+	if _, _, err = CompileOperand(ctx, left, operands[1], compile); err != nil {
 		return types.Type{}, err
 	}
 	if isSeries {

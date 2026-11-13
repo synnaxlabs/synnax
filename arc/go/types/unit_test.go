@@ -133,6 +133,47 @@ var _ = Describe("ProductUnit", func() {
 		Entry("no unit on the right", s, (*types.Unit)(nil), s),
 		Entry("no unit", (*types.Unit)(nil), (*types.Unit)(nil), (*types.Unit)(nil)),
 	)
+
+	DescribeTable("unit of a quotient",
+		func(a, b, want *types.Unit) {
+			Expect(types.QuotientUnit(a, b)).To(BeIdenticalTo(want))
+		},
+		Entry("two units", s, ms, (*types.Unit)(nil)),
+		Entry("no unit on the left", (*types.Unit)(nil), s, (*types.Unit)(nil)),
+		Entry("no unit on the right", s, (*types.Unit)(nil), s),
+		Entry("no unit", (*types.Unit)(nil), (*types.Unit)(nil), (*types.Unit)(nil)),
+	)
+})
+
+var _ = Describe("UnitScale", func() {
+	in := func(t types.Type, scale float64) types.Type {
+		t.Unit = &types.Unit{Dimensions: types.DimLength, Scale: scale}
+		return t
+	}
+	to := func(scale float64) *types.Unit {
+		return &types.Unit{Dimensions: types.DimLength, Scale: scale}
+	}
+
+	DescribeTable("factor that converts a value",
+		func(t types.Type, to *types.Unit, factor float64, divide, exact bool) {
+			gotFactor, gotDivide, gotExact := types.UnitScale(t, to)
+			Expect(gotFactor).To(Equal(factor))
+			Expect(gotDivide).To(Equal(divide))
+			Expect(gotExact).To(Equal(exact))
+		},
+		Entry("an integer by a whole factor",
+			in(types.I64(), 1e3), to(1), 1e3, false, true),
+		Entry("an integer by a whole divisor",
+			in(types.I64(), 1), to(1e3), 1e3, true, true),
+		Entry("an integer by a factor that is not whole",
+			in(types.I64(), 0.0254), to(1), 0.0254, false, false),
+		Entry("a float by a factor that is not whole",
+			in(types.F64(), 0.0254), to(1), 0.0254, false, true),
+		Entry("a 32-bit integer by a factor that does not fit",
+			in(types.I32(), 6e10), to(1), 6e10, false, false),
+		Entry("a 64-bit integer by the same factor",
+			in(types.I64(), 6e10), to(1), 6e10, false, true),
+	)
 })
 
 var _ = Describe("UnitFactor", func() {

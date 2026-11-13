@@ -1268,7 +1268,7 @@ func analyzeIndexedCompoundAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
-	if _, ok := checkUnits(ctx, varScope.Name, nil, expr, exprType, elemType); !ok {
+	if !checkCompoundUnits(ctx, varScope, nil, compoundOp, expr, exprType, elemType) {
 		return
 	}
 
@@ -1329,14 +1329,9 @@ func analyzeSeriesCompoundAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
-	if _, ok := checkUnits(
-		ctx,
-		varScope.Name,
-		nil,
-		expr,
-		exprType,
-		varScope.Type,
-	); !ok {
+	if !checkCompoundUnits(
+		ctx, varScope, nil, compoundOp, expr, exprType, varScope.Type,
+	) {
 		return
 	}
 
@@ -1429,9 +1424,9 @@ func analyzeCompoundAssignment(
 	if !exprType.IsValid() || !varType.IsValid() {
 		return
 	}
-	if _, ok := checkUnits(
-		ctx, varScope.Name, varScope.AST, expr, exprType, varType,
-	); !ok {
+	if !checkCompoundUnits(
+		ctx, varScope, varScope.AST, compoundOp, expr, exprType, varType,
+	) {
 		return
 	}
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
@@ -1455,6 +1450,45 @@ func analyzeCompoundAssignment(
 		exprType,
 		varType,
 	))
+}
+
+// checkCompoundUnits applies the unit rules to the compound assignment op of expr.
+func checkCompoundUnits[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	varScope *symbol.Symbol,
+	declaration antlr.ParserRuleContext,
+	op parser.ICompoundOpContext,
+	expr parser.IExpressionContext,
+	source, target types.Type,
+) bool {
+	if (op.STAR_ASSIGN() != nil || op.SLASH_ASSIGN() != nil) &&
+		!expression.CheckOperandUnits(ctx, target, source) {
+		return false
+	}
+	_, ok := checkUnits(
+		ctx,
+		varScope.Name,
+		declaration,
+		expr,
+		compoundSource(op, source, target),
+		target,
+	)
+	return ok
+}
+
+// compoundSource returns value in the unit of the result that op writes to target.
+func compoundSource(
+	op parser.ICompoundOpContext,
+	value, target types.Type,
+) types.Type {
+	left, right := target.Unwrap().Unit, value.Unwrap().Unit
+	switch {
+	case op.STAR_ASSIGN() != nil:
+		return types.WithUnit(value, types.ProductUnit(left, right))
+	case op.SLASH_ASSIGN() != nil:
+		return types.WithUnit(value, types.QuotientUnit(left, right))
+	}
+	return value
 }
 
 // checkUnits applies the unit rules to a write of expr to the variable name.

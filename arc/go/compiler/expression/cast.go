@@ -86,14 +86,10 @@ func EmitUnitScale[ASTNode antlr.ParserRuleContext](
 	to *types.Unit,
 ) error {
 	elem := t.Unwrap()
-	op, factor := "*", types.UnitFactor(elem.Unit, to)
-	// A whole factor that fits the type keeps an integer exact.
-	whole := func(f float64) bool {
-		return f == math.Trunc(f) && (elem.Is64Bit() || f <= math.MaxInt32)
-	}
-	exact := elem.IsFloat() || whole(factor)
-	if down := types.UnitFactor(to, elem.Unit); !exact && whole(down) {
-		op, factor, exact = "/", down, true
+	factor, divide, exact := types.UnitScale(elem, to)
+	op := "*"
+	if divide {
+		op = "/"
 	}
 	if t.Kind == types.KindSeries {
 		if !exact {

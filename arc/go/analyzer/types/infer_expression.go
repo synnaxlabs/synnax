@@ -30,7 +30,9 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return inferLogicalOr(ctx.Child(logicalOr))
+		t := inferLogicalOr(ctx.Child(logicalOr))
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	return types.Type{}
 }
@@ -229,14 +231,17 @@ func InferMultiplicative(
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
 		unit := elemType.Unit
-		remainders := remainderOperators(ctx.AST)
+		operators := multiplicativeOperators(ctx.AST)
 
 		for i := 1; i < len(unaries); i++ {
 			nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
-			if remainders[i-1] {
-				unit = types.CommonUnit(unit, nextType.Unwrap().Unit)
-			} else {
-				unit = types.ProductUnit(unit, nextType.Unwrap().Unit)
+			switch nextUnit := nextType.Unwrap().Unit; operators[i-1] {
+			case parser.ArcLexerPERCENT:
+				unit = types.CommonUnit(unit, nextUnit)
+			case parser.ArcLexerSLASH:
+				unit = types.QuotientUnit(unit, nextUnit)
+			default:
+				unit = types.ProductUnit(unit, nextUnit)
 			}
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
@@ -267,18 +272,15 @@ func InferMultiplicative(
 	return resultType
 }
 
-// remainderOperators reports, for each operator of ast in order, whether it is %.
-func remainderOperators(ast parser.IMultiplicativeExpressionContext) []bool {
-	var remainders []bool
+// multiplicativeOperators returns the token type of each operator of ast in order.
+func multiplicativeOperators(ast parser.IMultiplicativeExpressionContext) []int {
+	var operators []int
 	for _, child := range ast.GetChildren() {
 		if term, ok := child.(antlr.TerminalNode); ok {
-			remainders = append(
-				remainders,
-				term.GetSymbol().GetTokenType() == parser.ArcLexerPERCENT,
-			)
+			operators = append(operators, term.GetSymbol().GetTokenType())
 		}
 	}
-	return remainders
+	return operators
 }
 
 func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
