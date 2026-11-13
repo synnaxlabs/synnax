@@ -12,4 +12,4 @@ export {
   computeSymbolPositions,
   type SymbolPosition,
 } from "@/schematic/edge/common/path/computeSymbolPositions";
-export { offsetPath } from "@/schematic/edge/common/path/offsetPath";
+export { offset } from "@/schematic/edge/common/path/offset";

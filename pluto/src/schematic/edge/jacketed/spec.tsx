@@ -9,8 +9,6 @@
 
 import "@/schematic/edge/jacketed/Jacketed.css";
 
-import { xy } from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
@@ -30,10 +28,10 @@ export const spec: Spec = Segmented.createSpec(
   "jacketed",
   "Jacketed",
   ({ points, crossings, color, strokeWidth }) => {
-    const miters = xy.calculateMiters(points, JACKET_GAP + strokeWidth);
+    const jacketOffset = JACKET_GAP + strokeWidth;
     const snapMargin = strokeWidth - Base.DEFAULT_STROKE_WIDTH;
-    const above = points.map((p, i) => xy.translate(p, miters[i]));
-    const below = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
+    const above = Path.offset(points, jacketOffset);
+    const below = Path.offset(points, -jacketOffset);
     return (
       <>
         <Base.Base
