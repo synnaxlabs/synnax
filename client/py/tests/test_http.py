@@ -12,6 +12,7 @@ import pytest
 import synnax as sy
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
+from x.payload import Float, Integer, Unsigned
 from x.strings import random_name
 
 
@@ -36,6 +37,7 @@ class TestHTTPReadTask:
                             "path": "/api/v1/data",
                             "fields": [
                                 {
+                                    "type": "float",
                                     "key": "field-1",
                                     "pointer": "/temperature",
                                     "channel": 1234,
@@ -63,6 +65,7 @@ class TestHTTPReadTask:
                             "body": '{"filter": "active"}',
                             "fields": [
                                 {
+                                    "type": "float",
                                     "key": "field-1",
                                     "pointer": "/count",
                                     "channel": 5678,
@@ -89,6 +92,7 @@ class TestHTTPReadTask:
                             "path": "/api/v1/data",
                             "fields": [
                                 {
+                                    "type": "float",
                                     "key": "f-1",
                                     "pointer": "/temperature",
                                     "channel": 1000,
@@ -96,6 +100,7 @@ class TestHTTPReadTask:
                                     "disabled": False,
                                 },
                                 {
+                                    "type": "float",
                                     "key": "f-2",
                                     "pointer": "/pressure",
                                     "channel": 2000,
@@ -110,6 +115,7 @@ class TestHTTPReadTask:
                             "path": "/api/v1/metrics",
                             "fields": [
                                 {
+                                    "type": "float",
                                     "key": "f-3",
                                     "pointer": "/sensors/sensor_0",
                                     "channel": 3000,
@@ -139,6 +145,7 @@ class TestHTTPReadTask:
                             "query_params": [{"parameter": "scale", "value": "2.0"}],
                             "fields": [
                                 {
+                                    "type": "float",
                                     "key": "f-1",
                                     "pointer": "/temperature",
                                     "channel": 1234,
@@ -165,14 +172,15 @@ class TestHTTPReadTask:
                             "index": "ts-field",
                             "fields": [
                                 {
+                                    "type": "timestamp",
                                     "key": "ts-field",
                                     "pointer": "/timestamp",
                                     "channel": 100,
-                                    "data_type": "timestamp",
                                     "time_format": "unix_sec",
                                     "disabled": False,
                                 },
                                 {
+                                    "type": "float",
                                     "key": "val-field",
                                     "pointer": "/value",
                                     "channel": 200,
@@ -198,14 +206,15 @@ class TestHTTPReadTask:
                             "path": "/api/v1/device",
                             "fields": [
                                 {
+                                    "type": "unsigned",
                                     "key": "f-1",
                                     "pointer": "/power",
                                     "channel": 1234,
-                                    "data_type": "float64",
+                                    "data_type": "uint8",
                                     "disabled": False,
                                     "enum_values": [
-                                        {"label": "OFF", "value": 0},
-                                        {"label": "ON", "value": 1},
+                                        {"label": "OFF", "value": "0"},
+                                        {"label": "ON", "value": "1"},
                                     ],
                                 },
                             ],
@@ -227,7 +236,7 @@ class TestHTTPReadTask:
             endpoints=[
                 sy.http.ReadEndpoint(
                     path="/api/v1/data",
-                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                    fields=[sy.http.FloatReadField(pointer="/value", channel=1)],
                 ),
             ],
         )
@@ -238,13 +247,14 @@ class TestHTTPReadTask:
         assert len(ep.fields[0].key) > 0
 
     def test_read_field_defaults(self) -> None:
-        """Test that ReadField has correct defaults."""
-        field = sy.http.ReadField(pointer="/value", channel=1234)
+        """Test that a FloatReadField has correct defaults."""
+        field = sy.http.FloatReadField(pointer="/value", channel=1234)
+        assert field.type == "float"
         assert field.disabled is False
-        assert field.data_type == "float64"
+        assert field.data_type is None
         assert field.name == ""
-        assert field.time_format is None
         assert field.enum_values == []
+        assert field.fill is None
 
     def test_read_endpoint_defaults(self) -> None:
         """Test that ReadEndpoint has correct defaults."""
@@ -266,53 +276,57 @@ class TestHTTPReadTask:
         assert config.auto_start is False
         assert config.nan_fill_enabled is False
 
-    def test_read_field_optional_defaults_false(self) -> None:
-        """Test that a ReadField is not optional unless set."""
-        field = sy.http.ReadField(pointer="/value", channel=1)
-        assert field.optional is False
-        assert sy.http.ReadField(pointer="/value", channel=1, optional=True).optional
-
-    def test_read_field_fill_value_defaults_unset(self) -> None:
-        """Test that a ReadField has no fill value unless set."""
-        assert sy.http.ReadField(pointer="/value", channel=1).fill_value is None
-
-    @pytest.mark.parametrize("fill_value", [0, 1.5, "OFF", "", False])
-    def test_read_field_fill_value_reaches_the_payload(
-        self, fill_value: int | float | str | bool
+    @pytest.mark.parametrize(
+        ("field", "fill"),
+        [
+            (sy.http.FloatReadField(pointer="/v", channel=1, fill=Float(0)), 0),
+            (sy.http.FloatReadField(pointer="/v", channel=1, fill=Float(1.5)), 1.5),
+            (
+                sy.http.FloatReadField(pointer="/v", channel=1, fill=Float("NaN")),
+                "NaN",
+            ),
+            (
+                sy.http.IntegerReadField(
+                    pointer="/v", channel=1, fill=Integer(-(2**63))
+                ),
+                str(-(2**63)),
+            ),
+            (sy.http.UnsignedReadField(pointer="/v", channel=1, fill=Unsigned(0)), "0"),
+            (sy.http.StringReadField(pointer="/v", channel=1, fill=""), ""),
+            (sy.http.BooleanReadField(pointer="/v", channel=1, fill=False), False),
+        ],
+    )
+    def test_read_field_fill_reaches_the_payload(
+        self, field: sy.http.ReadField, fill: object
     ) -> None:
-        """Test that a fill value survives serialization, zero values included."""
+        """Test that a typed fill survives serialization, zero values included."""
         task = sy.http.ReadTask(
             device="dev-key",
-            endpoints=[
-                sy.http.ReadEndpoint(
-                    path="/data",
-                    fields=[
-                        sy.http.ReadField(
-                            pointer="/value",
-                            channel=1,
-                            optional=True,
-                            fill_value=fill_value,
-                        )
-                    ],
-                ),
-            ],
+            endpoints=[sy.http.ReadEndpoint(path="/data", fields=[field])],
         )
         ep = obj(arr(task.to_payload().config, "endpoints")[0])
-        assert obj(arr(ep, "fields")[0])["fill_value"] == fill_value
+        assert obj(arr(ep, "fields")[0])["fill"] == fill
 
-    def test_read_field_unset_fill_value_left_out_of_the_payload(self) -> None:
-        """Test that an unset fill value is left out, not sent as null."""
+    def test_read_field_unset_fill_left_out_of_the_payload(self) -> None:
+        """Test that an unset fill is left out, not sent as null."""
         task = sy.http.ReadTask(
             device="dev-key",
             endpoints=[
                 sy.http.ReadEndpoint(
                     path="/data",
-                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                    fields=[sy.http.FloatReadField(pointer="/value", channel=1)],
                 ),
             ],
         )
         ep = obj(arr(task.to_payload().config, "endpoints")[0])
-        assert "fill_value" not in obj(arr(ep, "fields")[0])
+        assert "fill" not in obj(arr(ep, "fields")[0])
+
+    def test_read_field_rejects_an_integer_fill_out_of_range(self) -> None:
+        """Test that an integer fill past int64 fails validation."""
+        with pytest.raises(ValueError, match="out of range"):
+            sy.http.IntegerReadField.model_validate(
+                {"pointer": "/v", "channel": 1, "fill": str(2**63)}
+            )
 
     def test_read_task_nan_fill_enabled(self) -> None:
         """Test that the ReadTask carries nan_fill_enabled into its config."""
@@ -328,7 +342,7 @@ class TestHTTPReadTask:
             endpoints=[
                 sy.http.ReadEndpoint(
                     path="/data",
-                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                    fields=[sy.http.FloatReadField(pointer="/value", channel=1)],
                 ),
             ],
         )
@@ -355,7 +369,7 @@ class TestHTTPReadTask:
                     method="GET",
                     path="/api/v1/data",
                     fields=[
-                        sy.http.ReadField(
+                        sy.http.FloatReadField(
                             key="f-1",
                             pointer="/temperature",
                             channel=1234,
@@ -948,11 +962,11 @@ class TestHTTPDevicePropertyUpdates:
                 sy.http.ReadEndpoint(
                     path="/api/v1/data",
                     fields=[
-                        sy.http.ReadField(
+                        sy.http.FloatReadField(
                             pointer="/temperature",
                             channel=temp_ch.key,
                         ),
-                        sy.http.ReadField(
+                        sy.http.FloatReadField(
                             pointer="/pressure",
                             channel=pres_ch.key,
                         ),
@@ -994,7 +1008,7 @@ class TestHTTPDevicePropertyUpdates:
             data_type=sy.DataType.FLOAT64,
             index=time_ch.key,
         )
-        time_field = sy.http.ReadField(
+        time_field = sy.http.TimestampReadField(
             pointer="/timestamp", channel=time_ch.key, time_format="unix_sec"
         )
         task = sy.http.ReadTask(
@@ -1007,7 +1021,9 @@ class TestHTTPDevicePropertyUpdates:
                     index=time_field.key,
                     fields=[
                         time_field,
-                        sy.http.ReadField(pointer="/temperature", channel=temp_ch.key),
+                        sy.http.FloatReadField(
+                            pointer="/temperature", channel=temp_ch.key
+                        ),
                     ],
                 ),
             ],

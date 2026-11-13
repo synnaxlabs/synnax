@@ -15,12 +15,19 @@ import { HTTP } from "@/feature/http";
 
 describe("HTTP Task Types", () => {
   const readField = {
+    type: "float",
     pointer: "/value",
     channel: 1,
     disabled: false,
     key: "f1",
     dataType: DataType.FLOAT64.toString(),
   };
+
+  const readConfig = (field: object) => ({
+    device: "dev-001",
+    rate: 1,
+    endpoints: [{ key: "ep1", method: "GET", path: "/api", fields: [field] }],
+  });
 
   describe("READ_SCHEMAS", () => {
     it("should validate the type literal", () => {
@@ -151,6 +158,7 @@ describe("HTTP Task Types", () => {
             path: "/api",
             fields: [
               {
+                type: "float",
                 pointer: "/data/temperature",
                 channel: 1,
                 disabled: false,
@@ -176,6 +184,7 @@ describe("HTTP Task Types", () => {
             path: "/api",
             fields: [
               {
+                type: "float",
                 pointer: "no-leading-slash",
                 channel: 1,
                 disabled: false,
@@ -188,7 +197,7 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
-    it("should validate a field with optional timeFormat", () => {
+    it("should validate a timestamp field with a timeFormat", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -200,6 +209,7 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 ...readField,
+                type: "timestamp",
                 pointer: "/ts",
                 timeFormat: "iso8601",
               },
@@ -208,7 +218,7 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].timeFormat).toBe("iso8601");
+      expect(result.endpoints[0].fields[0]).toMatchObject({ timeFormat: "iso8601" });
     });
 
     it("should reject an invalid timeFormat", () => {
@@ -222,6 +232,7 @@ describe("HTTP Task Types", () => {
             path: "/api",
             fields: [
               {
+                type: "timestamp",
                 pointer: "/ts",
                 channel: 1,
                 disabled: false,
@@ -235,7 +246,7 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
     });
 
-    it("should validate a field with v1 enum values", () => {
+    it("should validate a float field with enum values", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -258,10 +269,12 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].enumValues).toEqual([
-        { label: "ON", value: 1 },
-        { label: "OFF", value: 0 },
-      ]);
+      expect(result.endpoints[0].fields[0]).toMatchObject({
+        enumValues: [
+          { label: "ON", value: 1 },
+          { label: "OFF", value: 0 },
+        ],
+      });
     });
 
     it("should default a field without enum values to an empty list", () => {
@@ -278,7 +291,7 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.deployReadConfigZ.parse(config);
-      expect(result.endpoints[0].fields[0].enumValues).toEqual([]);
+      expect(result.endpoints[0].fields[0]).toMatchObject({ enumValues: [] });
     });
 
     it("should reject duplicate enum labels", () => {
@@ -304,6 +317,65 @@ describe("HTTP Task Types", () => {
         ],
       };
       expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
+    });
+  });
+
+  describe("typed read field", () => {
+    it("should decode a non-finite float fill", () => {
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(
+        readConfig({ ...readField, fill: "NaN" }),
+      );
+      expect(result.endpoints[0].fields[0]).toMatchObject({ fill: NaN });
+    });
+
+    it("should keep integer entries and fills as decimal strings", () => {
+      const field = {
+        ...readField,
+        type: "integer",
+        dataType: "int64",
+        enumValues: [{ label: "MAX", value: "9223372036854775807" }],
+        fill: "-1",
+      };
+      const result = HTTP.Task.deployReadConfigZ.parse(readConfig(field));
+      expect(result.endpoints[0].fields[0]).toMatchObject({
+        enumValues: [{ label: "MAX", value: "9223372036854775807" }],
+        fill: "-1",
+      });
+    });
+
+    it.each([
+      ["integer", "9223372036854775808"],
+      ["unsigned", "-1"],
+    ])("should reject an out of range %s fill", (type, fill) => {
+      const field = { ...readField, type, fill };
+      expect(HTTP.Task.deployReadConfigZ.validate(readConfig(field))).toBe(false);
+    });
+
+    it("should validate a boolean field with boolean entries", () => {
+      const field = {
+        ...readField,
+        type: "boolean",
+        enumValues: [{ label: "ON", value: true }],
+        fill: false,
+      };
+      expect(HTTP.Task.deployReadConfigZ.validate(readConfig(field))).toBe(true);
+    });
+
+    it("should reject duplicate enum labels on a string field", () => {
+      const field = {
+        ...readField,
+        type: "string",
+        enumValues: [
+          { label: "ON", value: "on" },
+          { label: "ON", value: "high" },
+        ],
+      };
+      expect(HTTP.Task.deployReadConfigZ.validate(readConfig(field))).toBe(false);
+    });
+
+    it("should reject a field with no type", () => {
+      const { type: _, ...untyped } = readField;
+      expect(HTTP.Task.READ_SCHEMAS.config.validate(readConfig(untyped))).toBe(false);
     });
   });
 

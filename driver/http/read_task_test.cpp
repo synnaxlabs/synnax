@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,8 +28,13 @@
 #include "driver/http/testutil/server.h"
 
 namespace driver::http {
+using ::synnax::http::BooleanReadField;
+using ::synnax::http::FloatReadField;
+using ::synnax::http::IntegerReadField;
 using ::synnax::http::ReadEndpoint;
-using ::synnax::http::ReadField;
+using ::synnax::http::StringReadField;
+using ::synnax::http::TimestampReadField;
+using ::synnax::http::UnsignedReadField;
 
 namespace {
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
@@ -84,6 +90,7 @@ TEST(HTTPReadTask, ParseConfigMissingDevice) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/temp"},
                   {"channel", 1},
               }}},
@@ -105,8 +112,8 @@ TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
              {"path", "/api/data"},
              {"fields",
               {
-                  {{"pointer", "/temp"}, {"channel", 1}},
-                  {{"pointer", "/humidity"}, {"channel", 1}},
+                  {{"type", "float"}, {"pointer", "/temp"}, {"channel", 1}},
+                  {{"type", "float"}, {"pointer", "/humidity"}, {"channel", 1}},
               }},
          }}},
     };
@@ -127,6 +134,7 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
              {"query_params", {{{"value", "10"}}}},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", 1},
               }}},
@@ -163,6 +171,7 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
              {"query_params", {{{"parameter", "limit"}}}},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -233,140 +242,142 @@ void expect_field_rejected(
 }
 }
 
-/// @brief it should reject a fill value on a field that is not optional.
-TEST(HTTPReadTask, ParseConfigFillValueWithoutOptionalErrors) {
-    expect_field_rejected(
-        nullptr,
-        {{"pointer", "/value"}, {"channel", 1}, {"fill_value", 0}},
-        "needs an optional field"
-    );
-}
-
-/// @brief it should reject an optional non-float field with no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalIntegerNeedsFillValue) {
+/// @brief it should reject a field whose type does not match the kind of the data type
+/// of its channel.
+TEST(HTTPReadTask, ParseConfigKindMismatchErrors) {
     const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
     expect_field_rejected(
         client,
-        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
-        "needs a fill value"
+        {{"type", "float"}, {"pointer", "/value"}, {"channel", data.key}},
+        "the field type must be integer, not float"
     );
 }
 
-/// @brief it should reject an optional string field with no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalStringNeedsFillValue) {
-    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
+/// @brief it should reject a fill that does not fit the channel.
+TEST(HTTPReadTask, ParseConfigFillOutOfRangeErrors) {
+    const auto [client, _, data] = create_field_channels(x::telem::INT8_T);
     expect_field_rejected(
         client,
-        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
-        "needs a fill value"
-    );
-}
-
-/// @brief it should reject a fill value that does not convert to the channel type.
-TEST(HTTPReadTask, ParseConfigFillValueUnconvertibleErrors) {
-    const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"},
+        {{"type", "integer"},
+         {"pointer", "/value"},
          {"channel", data.key},
-         {"optional", true},
-         {"fill_value", "OFF"}},
-        "cannot convert"
+         {"fill", "200"}},
+        "out of bounds"
     );
 }
 
-/// @brief it should reject numeric enum values on a string channel.
-TEST(HTTPReadTask, ParseConfigStringEnumValuesErrors) {
-    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"},
-         {"channel", data.key},
-         {"enum_values", {{{"label", "ON"}, {"value", 1}}}}},
-        "string channel"
-    );
-}
-
-/// @brief it should reject an optional index channel, even with a fill value, because
-/// a filled timestamp would corrupt the index.
-TEST(HTTPReadTask, ParseConfigOptionalIndexErrors) {
+/// @brief it should reject a fill on an index channel, because a filled timestamp
+/// would corrupt the index.
+TEST(HTTPReadTask, ParseConfigIndexFillErrors) {
     const auto [client, index, _] = create_field_channels(x::telem::FLOAT64_T);
     expect_field_rejected(
         client,
-        {{"pointer", "/time"},
+        {{"type", "timestamp"},
+         {"pointer", "/time"},
          {"channel", index.key},
          {"time_format", "unix_sec"},
-         {"optional", true},
-         {"fill_value", 0}},
+         {"fill", "0"}},
         "index channel"
     );
 }
 
-/// @brief it should accept an optional float field that sets no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalFloatNeedsNoFillValue) {
+/// @brief it should reject a JSON, UUID, or bytes channel.
+TEST(HTTPReadTask, ParseConfigUnsupportedDataTypeErrors) {
+    for (const auto &dt: {x::telem::JSON_T, x::telem::UUID_T, x::telem::BYTES_T}) {
+        const auto [client, _, data] = create_field_channels(dt);
+        expect_field_rejected(
+            client,
+            {{"type", dt.name()}, {"pointer", "/value"}, {"channel", data.key}},
+            "unsupported data type"
+        );
+    }
+}
+
+/// @brief it should require a value for a field with no fill.
+TEST(HTTPReadTask, ParseConfigNoFillIsRequired) {
     const auto [client, _, data] = create_field_channels(x::telem::FLOAT64_T);
     auto ctx = std::make_shared<task::MockContext>(client);
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
             create_field_task(
-                {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}}
+                {{"type", "float"}, {"pointer", "/value"}, {"channel", data.key}}
             )
         )
     );
     EXPECT_TRUE(cfg.fill_values.empty());
 }
 
-/// @brief it should convert a fill value of 0 to the data type of the channel.
-TEST(HTTPReadTask, ParseConfigFillValueConverts) {
+/// @brief it should convert a float fill to the data type of the channel.
+TEST(HTTPReadTask, ParseConfigFloatFillConverts) {
     const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
     auto ctx = std::make_shared<task::MockContext>(client);
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
             create_field_task(
-                {{"pointer", "/value"},
+                {{"type", "float"},
+                 {"pointer", "/value"},
                  {"channel", data.key},
-                 {"optional", true},
-                 {"fill_value", 0}}
+                 {"fill", 0}}
             )
         )
     );
     EXPECT_EQ(std::get<float>(cfg.fill_values.at(data.key)), 0.0F);
 }
 
-/// @brief it should accept an enum label as a fill value.
-TEST(HTTPReadTask, ParseConfigFillValueEnumLabel) {
-    const auto [client, _, data] = create_field_channels(x::telem::UINT8_T);
+/// @brief it should convert a NaN fill to a NaN of the data type of the channel.
+TEST(HTTPReadTask, ParseConfigNaNFillConverts) {
+    const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
     auto ctx = std::make_shared<task::MockContext>(client);
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
             create_field_task(
-                {{"pointer", "/value"},
+                {{"type", "float"},
+                 {"pointer", "/value"},
                  {"channel", data.key},
-                 {"optional", true},
-                 {"fill_value", "OFF"},
-                 {"enum_values", {{{"label", "OFF"}, {"value", 3}}}}}
+                 {"fill", "NaN"}}
             )
         )
     );
-    EXPECT_EQ(std::get<uint8_t>(cfg.fill_values.at(data.key)), 3);
+    EXPECT_TRUE(std::isnan(std::get<float>(cfg.fill_values.at(data.key))));
 }
 
-/// @brief it should convert a fill value with the time format of the field.
-TEST(HTTPReadTask, ParseConfigFillValueTimeFormat) {
+/// @brief it should keep every digit of an integer fill.
+TEST(HTTPReadTask, ParseConfigIntegerFillIsExact) {
+    const auto [client, _, data] = create_field_channels(x::telem::INT64_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"type", "integer"},
+                 {"pointer", "/value"},
+                 {"channel", data.key},
+                 {"fill", "9007199254740993"}}
+            )
+        )
+    );
+    EXPECT_EQ(
+        std::get<int64_t>(cfg.fill_values.at(data.key)),
+        int64_t{9007199254740993}
+    );
+}
+
+/// @brief it should keep a timestamp fill as it is.
+TEST(HTTPReadTask, ParseConfigTimestampFill) {
     const auto [client, _, data] = create_field_channels(x::telem::TIMESTAMP_T);
     auto ctx = std::make_shared<task::MockContext>(client);
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
             create_field_task(
-                {{"pointer", "/value"},
+                {{"type", "timestamp"},
+                 {"pointer", "/value"},
                  {"channel", data.key},
                  {"time_format", "unix_sec"},
-                 {"optional", true},
-                 {"fill_value", 2}}
+                 {"fill", "2000000000"}}
             )
         )
     );
@@ -388,6 +399,7 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/status"},
                   {"channel", 1},
                   {"enum_values", {{{"value", 1.0}}}},
@@ -398,43 +410,6 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
     auto [_1, err1] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
     EXPECT_NE(err1.data.find("label"), std::string::npos);
-}
-
-/// @brief an enum_values entry may omit the value field; it defaults to 0.
-TEST(HTTPReadTask, ParseConfigEnumValueMissingValueDefaultsZero) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("status"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/status"},
-                  {"channel", ch.key},
-                  {"enum_values", {{{"label", "ON"}}}},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    const auto &field = cfg.endpoints[0].fields[0];
-    ASSERT_EQ(field.enum_values.size(), 1);
-    EXPECT_EQ(field.enum_values.at(0).label, "ON");
-    EXPECT_EQ(field.enum_values.at(0).value, 0.0);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -454,6 +429,7 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
               }},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", 1},
               }}},
@@ -489,6 +465,7 @@ TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -523,6 +500,7 @@ TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -557,6 +535,7 @@ TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -591,6 +570,7 @@ TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -625,6 +605,7 @@ TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", ch.key},
               }}},
@@ -634,7 +615,9 @@ TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_EQ(cfg.endpoints[0].fields.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].fields[0].enum_values.empty());
+    ASSERT_TRUE(
+        std::get<FloatReadField>(cfg.endpoints[0].fields[0]).enum_values.empty()
+    );
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
@@ -654,6 +637,7 @@ TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
               }},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/value"},
                   {"channel", 1},
               }}},
@@ -663,34 +647,6 @@ TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
     auto [_4, err4] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
     EXPECT_NE(err4.data.find("duplicate query parameter"), std::string::npos);
-}
-
-/// @brief it should fail when duplicate enum labels exist in a read field.
-TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/status"},
-                  {"channel", 1},
-                  {"enum_values",
-                   {
-                       {{"label", "ON"}, {"value", 1.0}},
-                       {{"label", "ON"}, {"value", 2.0}},
-                   }},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_5, err5] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
-    EXPECT_NE(err5.data.find("duplicate enum label"), std::string::npos);
 }
 
 /// @brief it should extract a numeric field from a single GET endpoint.
@@ -714,11 +670,11 @@ TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temperature";
     temp_field.channel = 1;
 
-    ReadField humidity_field;
+    FloatReadField humidity_field;
     humidity_field.pointer = "/humidity";
     humidity_field.channel = 2;
 
@@ -773,7 +729,7 @@ TEST(HTTPReadTask, NestedJSONPointerPaths) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/data/sensors/0/value";
     field.channel = 1;
 
@@ -820,7 +776,7 @@ TEST(HTTPReadTask, MissingJSONFieldWarning) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/nonexistent";
     field.channel = 1;
 
@@ -868,15 +824,15 @@ TEST(HTTPReadTask, TypeConversions) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField bool_field;
+    UnsignedReadField bool_field;
     bool_field.pointer = "/active";
     bool_field.channel = 1;
 
-    ReadField string_field;
+    StringReadField string_field;
     string_field.pointer = "/label";
     string_field.channel = 2;
 
-    ReadField int_field;
+    IntegerReadField int_field;
     int_field.pointer = "/count";
     int_field.channel = 3;
 
@@ -927,15 +883,15 @@ TEST(HTTPReadTask, StringField) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField name_field;
+    StringReadField name_field;
     name_field.pointer = "/name";
     name_field.channel = 1;
 
-    ReadField status_field;
+    StringReadField status_field;
     status_field.pointer = "/status";
     status_field.channel = 2;
 
-    ReadField value_field;
+    FloatReadField value_field;
     value_field.pointer = "/value";
     value_field.channel = 3;
 
@@ -987,7 +943,7 @@ TEST(HTTPReadTask, DecimalToIntegerWarns) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    IntegerReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -1034,7 +990,7 @@ TEST(HTTPReadTask, NegativeForUnsignedWarns) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    UnsignedReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -1081,7 +1037,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -1133,11 +1089,11 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField data_field;
+    FloatReadField data_field;
     data_field.pointer = "/value";
     data_field.channel = 1;
 
-    ReadField index_field;
+    TimestampReadField index_field;
     index_field.pointer = "/timestamp";
     index_field.channel = 100;
     index_field.time_format = "unix_sec";
@@ -1203,11 +1159,11 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 2;
 
@@ -1262,7 +1218,7 @@ TEST(HTTPReadTask, POSTWithBody) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/result";
     field.channel = 1;
 
@@ -1321,37 +1277,6 @@ protected:
     }
 };
 
-/// @brief it should error when a TIMESTAMP_T channel has no time_format.
-TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ts_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ts_data"),
-        x::telem::TIMESTAMP_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/ts"},
-                  {"channel", ts_ch.key},
-              }}},
-         }}},
-    };
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
 /// @brief it should error when channels on different endpoints share the same
 /// index channel — we wouldn't know which endpoint's response time to use for
 /// software timing.
@@ -1382,12 +1307,16 @@ TEST_F(HTTPReadTaskParseTest, CrossEndpointSharedIndex) {
              {
                  {"method", "GET"},
                  {"path", "/api/temp"},
-                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
+                 {"fields",
+                  {{{"type", "float"}, {"pointer", "/temp"}, {"channel", ch1.key}}}},
              },
              {
                  {"method", "GET"},
                  {"path", "/api/humidity"},
-                 {"fields", {{{"pointer", "/humidity"}, {"channel", ch2.key}}}},
+                 {"fields",
+                  {{{"type", "float"},
+                    {"pointer", "/humidity"},
+                    {"channel", ch2.key}}}},
              },
          }},
     };
@@ -1424,9 +1353,10 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
              {"path", "/api/data"},
              {"fields",
               {
-                  {{"pointer", "/temp"}, {"channel", ch1.key}},
-                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
+                  {{"type", "float"}, {"pointer", "/temp"}, {"channel", ch1.key}},
+                  {{"type", "float"}, {"pointer", "/humidity"}, {"channel", ch2.key}},
                   {
+                      {"type", "timestamp"},
                       {"pointer", "/timestamp"},
                       {"channel", idx.key},
                       {"time_format", "unix_sec"},
@@ -1469,46 +1399,14 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
              {"path", "/api/data"},
              {"fields",
               {
-                  {{"pointer", "/temp"}, {"channel", ch1.key}},
-                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
+                  {{"type", "float"}, {"pointer", "/temp"}, {"channel", ch1.key}},
+                  {{"type", "float"}, {"pointer", "/humidity"}, {"channel", ch2.key}},
               }},
          }}},
     };
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     EXPECT_EQ(cfg.software_timed_indexes.size(), 1);
     EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
-}
-
-/// @brief it should silently ignore time_format on a non-timestamp channel.
-TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-                  {"time_format", "unix_sec"},
-              }}},
-         }}},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
 }
 
 /// @brief parse() should drop endpoints where every field is disabled and only
@@ -1554,13 +1452,15 @@ TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
              {
                  {"method", "GET"},
                  {"path", "/api/temp"},
-                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
+                 {"fields",
+                  {{{"type", "float"}, {"pointer", "/temp"}, {"channel", ch1.key}}}},
              },
              {
                  {"method", "GET"},
                  {"path", "/api/humidity"},
                  {"fields",
                   {{
+                      {"type", "float"},
                       {"pointer", "/humidity"},
                       {"channel", ch2.key},
                       {"disabled", true},
@@ -1569,7 +1469,10 @@ TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
              {
                  {"method", "GET"},
                  {"path", "/api/pressure"},
-                 {"fields", {{{"pointer", "/pressure"}, {"channel", ch3.key}}}},
+                 {"fields",
+                  {{{"type", "float"},
+                    {"pointer", "/pressure"},
+                    {"channel", ch3.key}}}},
              },
          }},
     };
@@ -1600,7 +1503,7 @@ TEST(HTTPReadTask, RepeatedReads) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -1641,7 +1544,7 @@ ReadTaskConfig make_multi_endpoint_cfg(
     cfg.rate = rate;
     for (std::size_t i = 0; i < paths.size(); i++) {
         const auto key = static_cast<synnax::channel::Key>(i + 1);
-        ReadField field;
+        FloatReadField field;
         field.pointer = "/value";
         field.channel = key;
         ReadEndpoint ep;
@@ -1932,17 +1835,17 @@ TEST(HTTPReadTask, DisabledFieldsSkipped) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temperature";
     temp_field.channel = 1;
     temp_field.disabled = false;
 
-    ReadField humidity_field;
+    FloatReadField humidity_field;
     humidity_field.pointer = "/humidity";
     humidity_field.channel = 2;
     humidity_field.disabled = true;
 
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 3;
     pressure_field.disabled = false;
@@ -1983,12 +1886,12 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField enabled_field;
+    FloatReadField enabled_field;
     enabled_field.pointer = "/temp";
     enabled_field.channel = 1;
     enabled_field.disabled = false;
 
-    ReadField disabled_field;
+    FloatReadField disabled_field;
     disabled_field.pointer = "/humidity";
     disabled_field.channel = 2;
     disabled_field.disabled = true;
@@ -2041,6 +1944,7 @@ TEST(HTTPReadTask, ParseConfigAllFieldsDisabled) {
              {"path", "/api/data"},
              {"fields",
               {{
+                  {"type", "float"},
                   {"pointer", "/temp"},
                   {"channel", 1},
                   {"disabled", true},
@@ -2082,6 +1986,7 @@ TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
                  {"path", "/api/temp"},
                  {"fields",
                   {{
+                      {"type", "float"},
                       {"pointer", "/temp"},
                       {"channel", 1},
                       {"disabled", true},
@@ -2092,6 +1997,7 @@ TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
                  {"path", "/api/pressure"},
                  {"fields",
                   {{
+                      {"type", "float"},
                       {"pointer", "/pressure"},
                       {"channel", 2},
                       {"disabled", true},
@@ -2133,12 +2039,12 @@ TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
     temp_field.disabled = false;
 
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 3;
     pressure_field.disabled = false;
@@ -2197,12 +2103,12 @@ TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField enabled_field;
+    FloatReadField enabled_field;
     enabled_field.pointer = "/temperature";
     enabled_field.channel = 1;
     enabled_field.disabled = false;
 
-    ReadField disabled_field;
+    FloatReadField disabled_field;
     disabled_field.pointer = "/nonexistent";
     disabled_field.channel = 2;
     disabled_field.disabled = true;
@@ -2257,7 +2163,7 @@ TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -2315,11 +2221,11 @@ TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 2;
 
@@ -2376,7 +2282,7 @@ TEST(HTTPReadTask, HTTPSRepeatedReads) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -2427,7 +2333,7 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/result";
     field.channel = 1;
 
@@ -2475,7 +2381,7 @@ TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -2537,11 +2443,11 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField fast_field;
+    FloatReadField fast_field;
     fast_field.pointer = "/value";
     fast_field.channel = 1;
 
-    ReadField slow_field;
+    FloatReadField slow_field;
     slow_field.pointer = "/value";
     slow_field.channel = 2;
 
@@ -2610,11 +2516,11 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field1;
+    StringReadField field1;
     field1.pointer = "/error";
     field1.channel = 1;
 
-    ReadField field2;
+    FloatReadField field2;
     field2.pointer = "/value";
     field2.channel = 2;
 
@@ -2685,11 +2591,11 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field1;
+    FloatReadField field1;
     field1.pointer = "/value";
     field1.channel = 1;
 
-    ReadField field2;
+    StringReadField field2;
     field2.pointer = "/error";
     field2.channel = 2;
 
@@ -2759,11 +2665,11 @@ TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     // Pointer that doesn't exist in the response.
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 2;
@@ -2828,11 +2734,11 @@ TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field1;
+    FloatReadField field1;
     field1.pointer = "/value";
     field1.channel = 1;
 
-    ReadField field2;
+    FloatReadField field2;
     field2.pointer = "/data";
     field2.channel = 2;
 
@@ -2896,11 +2802,11 @@ TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field1;
+    FloatReadField field1;
     field1.pointer = "/value";
     field1.channel = 1;
 
-    ReadField field2;
+    IntegerReadField field2;
     field2.pointer = "/count";
     field2.channel = 2;
 
@@ -2957,7 +2863,7 @@ TEST(HTTPReadTask, SampleClockRegulatesRate) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(20); // 20 Hz → 50ms period
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3010,7 +2916,7 @@ TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(50); // 50 Hz → 20ms period
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3058,7 +2964,7 @@ TEST(HTTPReadTask, EndpointQueryParams) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3115,24 +3021,24 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField power_field;
+    FloatReadField power_field;
     power_field.pointer = "/power";
     power_field.channel = 1;
-    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
+    power_field.enum_values = std::vector<::x::payload::FloatEntry>{
         {"ON", 1.0},
         {"OFF", 0.0}
     };
 
-    ReadField mode_field;
+    IntegerReadField mode_field;
     mode_field.pointer = "/mode";
     mode_field.channel = 2;
-    mode_field.enum_values = std::vector<::x::payload::EnumEntry>{
+    mode_field.enum_values = std::vector<::x::payload::IntegerEntry>{
         {"AUTO", 0},
         {"MANUAL", 1},
         {"STANDBY", 2}
     };
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temperature";
     temp_field.channel = 3;
 
@@ -3196,10 +3102,10 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField power_field;
+    FloatReadField power_field;
     power_field.pointer = "/power";
     power_field.channel = 1;
-    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
+    power_field.enum_values = std::vector<::x::payload::FloatEntry>{
         {"ON", 1.0},
         {"OFF", 0.0}
     };
@@ -3230,6 +3136,139 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
     EXPECT_EQ(fr.size(), 0);
 }
 
+namespace {
+/// @brief reads once from an endpoint that serves the given body.
+/// @param cfg the config of the task, with no rate or device set.
+/// @param body the JSON body the endpoint returns.
+/// @returns the frame and the read result.
+std::pair<x::telem::Frame, common::ReadResult>
+read_once(ReadTaskConfig cfg, const std::string &body) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = body,
+            }},
+        }
+    );
+    if (const auto err = server.start(); err)
+        return {x::telem::Frame(), common::ReadResult{.error = err}};
+    x::defer::defer stop_server([&server] { server.stop(); });
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.rate = x::telem::Rate(10000);
+    for (auto &ep: cfg.endpoints) {
+        ep.method = "GET";
+        ep.path = "/api/data";
+    }
+    auto [source, processor] = make_source(cfg, server.base_url());
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    return {std::move(fr), std::move(res)};
+}
+}
+
+/// @brief it should map an enum label to the exact value of an unsigned entry.
+TEST(HTTPReadTask, UnsignedEnumLabel) {
+    UnsignedReadField field;
+    field.pointer = "/level";
+    field.channel = 1;
+    field.enum_values = std::vector<::x::payload::UnsignedEntry>{
+        {"MAX", std::numeric_limits<uint64_t>::max()},
+        {"MIN", 0},
+    };
+    ReadEndpoint ep;
+    ep.fields = {field};
+    ReadTaskConfig cfg;
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "level", .data_type = x::telem::UINT64_T};
+
+    auto [fr, res] = read_once(cfg, R"({"level": "MAX"})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.at<uint64_t>(1, 0), std::numeric_limits<uint64_t>::max());
+}
+
+/// @brief it should read a boolean channel from enum labels and JSON booleans.
+TEST(HTTPReadTask, BooleanFieldWithEntries) {
+    BooleanReadField on;
+    on.pointer = "/on";
+    on.channel = 1;
+    on.enum_values = std::vector<::x::payload::BooleanEntry>{
+        {"OPEN", true},
+        {"CLOSED", false},
+    };
+    BooleanReadField off = on;
+    off.pointer = "/off";
+    off.channel = 2;
+    BooleanReadField raw;
+    raw.pointer = "/raw";
+    raw.channel = 3;
+    ReadEndpoint ep;
+    ep.fields = {on, off, raw};
+    ReadTaskConfig cfg;
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "on", .data_type = x::telem::BOOLEAN_T};
+    cfg.channels[2] = {.key = 2, .name = "off", .data_type = x::telem::BOOLEAN_T};
+    cfg.channels[3] = {.key = 3, .name = "raw", .data_type = x::telem::BOOLEAN_T};
+
+    auto [fr, res] = read_once(cfg, R"({"on": "OPEN", "off": "CLOSED", "raw": true})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(2, 0), 0);
+    EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
+}
+
+/// @brief it should write the exact typed integer fill of a parsed config when the
+/// value is absent.
+TEST(HTTPReadTask, ParsedIntegerFillWritesExactly) {
+    const auto [client, _, data] = create_field_channels(x::telem::INT64_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"type", "integer"},
+                 {"pointer", "/value"},
+                 {"channel", data.key},
+                 {"fill", "9007199254740993"}}
+            )
+        )
+    );
+    auto [fr, res] = read_once(cfg, R"({"value": null})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.at<int64_t>(data.key, 0), int64_t{9007199254740993});
+}
+
+/// @brief it should write a parsed NaN fill with no warning when the value is absent.
+TEST(HTTPReadTask, ParsedNaNFillWritesNaN) {
+    const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(
+            ctx,
+            create_field_task(
+                {{"type", "float"},
+                 {"pointer", "/value"},
+                 {"channel", data.key},
+                 {"fill", "NaN"}}
+            )
+        )
+    );
+    auto [fr, res] = read_once(cfg, R"({})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_TRUE(std::isnan(fr.at<float>(data.key, 0)));
+}
+
 /// @brief fields without enum_values should still parse numeric strings normally.
 TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
     testutil::Server server(
@@ -3251,7 +3290,7 @@ TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
     // no enum_values set — should use normal string-to-numeric
@@ -3305,11 +3344,11 @@ TEST(HTTPReadTask, SamplingGroupAtomicityMissingPointer) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField missing_field;
+    FloatReadField missing_field;
     missing_field.pointer = "/humidity";
     missing_field.channel = 2;
 
@@ -3366,11 +3405,11 @@ TEST(HTTPReadTask, SamplingGroupAtomicityConversionError) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField count_field;
+    IntegerReadField count_field;
     count_field.pointer = "/count";
     count_field.channel = 2;
 
@@ -3424,16 +3463,16 @@ TEST(HTTPReadTask, SamplingGroupIndependentOnSameEndpoint) {
     cfg.rate = x::telem::Rate(10000);
 
     // Group A: temp + missing humidity (index 10) — will fail.
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField humidity_field;
+    FloatReadField humidity_field;
     humidity_field.pointer = "/humidity";
     humidity_field.channel = 2;
 
     // Group B: pressure (index 20) — will succeed.
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 3;
 
@@ -3508,12 +3547,12 @@ TEST(HTTPReadTask, SamplingGroupIndependentAcrossEndpoints) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
     // Pointer doesn't exist in the response — this group will fail.
-    ReadField pressure_field;
+    FloatReadField pressure_field;
     pressure_field.pointer = "/pressure";
     pressure_field.channel = 2;
 
@@ -3569,7 +3608,7 @@ TEST(HTTPReadTask, SamplingGroupFailureNoIndexTimestamp) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
@@ -3619,11 +3658,11 @@ TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField temp_field;
+    FloatReadField temp_field;
     temp_field.pointer = "/temp";
     temp_field.channel = 1;
 
-    ReadField count_field;
+    FloatReadField count_field;
     count_field.pointer = "/count";
     count_field.channel = 2;
 
@@ -3680,7 +3719,7 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3731,7 +3770,7 @@ TEST(HTTPReadTask, GETDropsStoredBody) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3780,7 +3819,7 @@ TEST(HTTPReadTask, EndpointHeaders) {
     cfg.auto_start = false;
     cfg.rate = x::telem::Rate(10000);
 
-    ReadField field;
+    FloatReadField field;
     field.pointer = "/value";
     field.channel = 1;
 
@@ -3815,14 +3854,12 @@ namespace {
 /// @param body the JSON body the endpoint returns.
 /// @param p2_type the data type of the p2 channel.
 /// @param filled whether NaN fill is enabled.
-/// @param optional whether the p2 field is optional.
-/// @param fill the fill value of the p2 field.
+/// @param fill the fill of the p2 field.
 /// @returns the frame and the read result.
 std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     const std::string &body,
     const x::telem::DataType &p2_type,
     const bool filled,
-    const bool optional = false,
     const std::optional<x::telem::SampleValue> &fill = std::nullopt
 ) {
     testutil::Server server(
@@ -3846,11 +3883,10 @@ std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
     cfg.rate = x::telem::Rate(10000);
     cfg.nan_fill_enabled = filled;
 
-    ReadField p2;
+    FloatReadField p2;
     p2.pointer = "/p2";
     p2.channel = 2;
-    p2.optional = optional;
-    ReadField p3;
+    FloatReadField p3;
     p3.pointer = "/p3";
     p3.channel = 3;
 
@@ -3926,16 +3962,16 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     EXPECT_EQ(fr.at<double>(3, 0), 1.5);
 }
 
-/// @brief it should write NaN with no warning for an optional field whose value is
-/// missing, null, or an empty string, and keep the rest of the group.
-TEST(HTTPReadTask, AbsentOptionalFieldFilledWithoutWarning) {
+/// @brief it should write a NaN fill with no warning when the value is missing, null,
+/// or an empty string, and keep the rest of the group.
+TEST(HTTPReadTask, AbsentFieldWritesNaNFill) {
     for (const auto *body:
          {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
         auto [fr, res] = read_shared_index_group(
             body,
             x::telem::FLOAT32_T,
             false,
-            true
+            std::numeric_limits<float>::quiet_NaN()
         );
         ASSERT_NIL(res.error);
         EXPECT_TRUE(res.warning.empty());
@@ -3945,45 +3981,39 @@ TEST(HTTPReadTask, AbsentOptionalFieldFilledWithoutWarning) {
     }
 }
 
-/// @brief it should write the value of an optional field that is present.
-TEST(HTTPReadTask, PresentOptionalFieldWritesValue) {
+/// @brief it should write the value of a field with a NaN fill when it is present.
+TEST(HTTPReadTask, PresentFieldIgnoresNaNFill) {
     auto [fr, res] = read_shared_index_group(
         R"({"p2": 2.5, "p3": 1.5})",
         x::telem::FLOAT32_T,
         false,
-        true
+        std::numeric_limits<float>::quiet_NaN()
     );
     ASSERT_NIL(res.error);
     EXPECT_TRUE(res.warning.empty());
     EXPECT_EQ(fr.at<float>(2, 0), 2.5F);
 }
 
-/// @brief it should still warn and skip the group when an optional field holds a value
-/// that does not convert.
-TEST(HTTPReadTask, InvalidOptionalFieldWarns) {
+/// @brief it should still warn and skip the group when a field with a NaN fill holds a
+/// value that does not convert.
+TEST(HTTPReadTask, InvalidFieldWithNaNFillWarns) {
     auto [fr, res] = read_shared_index_group(
         R"({"p2": "INVALID", "p3": 1.5})",
         x::telem::FLOAT32_T,
         false,
-        true
+        std::numeric_limits<float>::quiet_NaN()
     );
     ASSERT_NIL(res.error);
     EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
     EXPECT_EQ(fr.size(), 0);
 }
 
-/// @brief it should write the fill value with no warning for an optional field whose
-/// value is missing, null, or an empty string.
-TEST(HTTPReadTask, AbsentOptionalFieldWritesFillValue) {
+/// @brief it should write the fill with no warning when the value is missing, null, or
+/// an empty string.
+TEST(HTTPReadTask, AbsentFieldWritesFill) {
     for (const auto *body:
          {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
-        auto [fr, res] = read_shared_index_group(
-            body,
-            x::telem::FLOAT64_T,
-            false,
-            true,
-            0.0
-        );
+        auto [fr, res] = read_shared_index_group(body, x::telem::FLOAT64_T, false, 0.0);
         ASSERT_NIL(res.error);
         EXPECT_TRUE(res.warning.empty());
         ASSERT_EQ(fr.size(), 3);
@@ -3993,12 +4023,11 @@ TEST(HTTPReadTask, AbsentOptionalFieldWritesFillValue) {
 }
 
 /// @brief it should prefer a value that is present over the fill value.
-TEST(HTTPReadTask, PresentOptionalFieldIgnoresFillValue) {
+TEST(HTTPReadTask, PresentFieldIgnoresFill) {
     auto [fr, res] = read_shared_index_group(
         R"({"p2": 2.5, "p3": 1.5})",
         x::telem::FLOAT64_T,
         false,
-        true,
         0.0
     );
     ASSERT_NIL(res.error);
@@ -4013,7 +4042,6 @@ TEST(HTTPReadTask, InvalidFieldWithFillValueWarns) {
         R"({"p2": "INVALID", "p3": 1.5})",
         x::telem::FLOAT64_T,
         false,
-        true,
         0.0
     );
     ASSERT_NIL(res.error);
@@ -4027,7 +4055,6 @@ TEST(HTTPReadTask, EmptyStringIsPresentOnStringChannel) {
         R"({"p2": "", "p3": 1.5})",
         x::telem::STRING_T,
         false,
-        true,
         std::string("off")
     );
     ASSERT_NIL(res.error);
@@ -4044,7 +4071,6 @@ TEST(HTTPReadTask, AbsentStringFieldWritesFillValue) {
             body,
             x::telem::STRING_T,
             false,
-            true,
             std::string("off")
         );
         ASSERT_NIL(res.error);
@@ -4061,7 +4087,6 @@ TEST(HTTPReadTask, AbsentIntegerFieldWritesFillValue) {
         R"({"p3": 1.5})",
         x::telem::INT32_T,
         false,
-        true,
         static_cast<int32_t>(7)
     );
     ASSERT_NIL(res.error);
@@ -4077,7 +4102,6 @@ TEST(HTTPReadTask, AbsentTimestampFieldWritesFillValue) {
         R"({"p3": 1.5})",
         x::telem::TIMESTAMP_T,
         false,
-        true,
         x::telem::TimeStamp(5)
     );
     ASSERT_NIL(res.error);
@@ -4120,16 +4144,15 @@ TEST(HTTPReadTask, FailedRequestSkipsFillValue) {
         cfg.auto_start = false;
         cfg.rate = x::telem::Rate(10000);
 
-        ReadField down;
+        FloatReadField down;
         down.pointer = "/speed";
         down.channel = 2;
-        down.optional = true;
         ReadEndpoint down_ep;
         down_ep.method = "GET";
         down_ep.path = "/api/down";
         down_ep.fields = {down};
 
-        ReadField up;
+        FloatReadField up;
         up.pointer = "/up";
         up.channel = 3;
         ReadEndpoint up_ep;

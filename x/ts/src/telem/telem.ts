@@ -1571,7 +1571,7 @@ export class DataType
 
   /** @returns true if the DataType is equal to the given DataType. */
   equals(other: CrudeDataType): boolean {
-    return this.valueOf() === other.valueOf();
+    return this.valueOf() === new DataType(other).valueOf();
   }
 
   /** @returns true if the DataType is equal to any of the given DataTypes. */

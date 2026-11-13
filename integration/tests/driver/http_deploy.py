@@ -59,7 +59,7 @@ class HTTPDeployOnStart(SimulatorCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer="/temperature",
                             channel=create_channel(
                                 self.client,

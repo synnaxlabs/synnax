@@ -67,7 +67,7 @@ class HTTPInvalidConfig(SimulatorCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer="/temperature",
                             channel=create_channel(
                                 self.client,
@@ -97,7 +97,7 @@ class HTTPInvalidConfig(SimulatorCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer="/temperature",
                             channel=create_channel(
                                 self.client,
@@ -127,7 +127,7 @@ class HTTPInvalidConfig(SimulatorCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer="/temperature",
                             channel=999999999,
                             data_type=sy.DataType.FLOAT64,
@@ -155,7 +155,7 @@ class HTTPInvalidConfig(SimulatorCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        http.ReadField(
+                        http.FloatReadField(
                             pointer="/nonexistent/deeply/nested/field",
                             channel=create_channel(
                                 self.client,
@@ -192,7 +192,7 @@ class HTTPInvalidConfig(SimulatorCase):
                         path="/api/v1/data",
                         method="GET",
                         fields=[
-                            http.ReadField(
+                            http.FloatReadField(
                                 pointer="/temperature",
                                 channel=shared_ch_key,
                                 data_type=sy.DataType.FLOAT64,

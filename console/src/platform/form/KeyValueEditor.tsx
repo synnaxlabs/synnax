@@ -26,6 +26,10 @@ export interface KeyValueEditorProps<K extends string, V extends string | number
   valueFirst?: boolean;
   /** Names one entry in the add and remove buttons ("header"). */
   resourceName?: string;
+  /** Returns the key of an added entry from the keys of the others. Defaults to "". */
+  createKey?: (keys: string[]) => string;
+  /** The value of an added entry. Defaults to 0 for numbers and "" for text. */
+  defaultValue?: V;
 }
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
@@ -36,6 +40,8 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   valueType,
   valueFirst = false,
   resourceName,
+  createKey,
+  defaultValue,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
@@ -74,6 +80,16 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const cellStatus = ({ x, y }: xy.XY) =>
     statuses.find(({ key }) => key === `${String(path)}.${y}.${fields[x]}`);
 
+  const createRow =
+    createKey == null
+      ? undefined
+      : (current: Input.TableCell[][]) => {
+          const row: Input.TableCell[] = [];
+          row[keyIndex] = createKey(current.map((r) => String(r[keyIndex])));
+          row[valueIndex] = defaultValue ?? (vt === "number" ? 0 : "");
+          return row;
+        };
+
   const handleRowsChange = (next: Input.TableCell[][]) =>
     set(
       path,
@@ -110,6 +126,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
         onChange={handleRowsChange}
         preview={preview}
         resourceName={resourceName}
+        createRow={createRow}
         cellStatus={cellStatus}
       >
         {columns}

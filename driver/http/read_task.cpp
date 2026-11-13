@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <limits>
+#include <optional>
 #include <set>
+#include <string>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/payload/number.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 
 #include "driver/http/device/device.h"
@@ -30,6 +37,94 @@ bool is_absent(
     if (value.is_null()) return true;
     return data_type != x::telem::STRING_T && value.is_string() &&
            value.get_ref<const std::string &>().empty();
+}
+
+/// @brief returns the kind of read field that a channel of the data type takes.
+std::string kind_of(const x::telem::DataType &dt) {
+    if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
+        return x::payload::KIND_FLOAT;
+    if (dt == x::telem::INT8_T || dt == x::telem::INT16_T || dt == x::telem::INT32_T ||
+        dt == x::telem::INT64_T)
+        return x::payload::KIND_INTEGER;
+    if (dt == x::telem::UINT8_T || dt == x::telem::UINT16_T ||
+        dt == x::telem::UINT32_T || dt == x::telem::UINT64_T)
+        return x::payload::KIND_UNSIGNED;
+    return dt.name();
+}
+
+/// @brief returns the data type that x::json converts a value of the channel to. It
+/// converts no boolean, so a boolean reads as a uint8 that casts to 0 or 1.
+x::telem::DataType conversion_type(const x::telem::DataType &dt) {
+    return dt == x::telem::BOOLEAN_T ? x::telem::UINT8_T : dt;
+}
+
+x::telem::SampleValue to_sample(const x::payload::Float &v) {
+    return v.value;
+}
+x::telem::SampleValue to_sample(const x::payload::Integer &v) {
+    return v.value;
+}
+x::telem::SampleValue to_sample(const x::payload::Unsigned &v) {
+    return v.value;
+}
+x::telem::SampleValue to_sample(const std::string &v) {
+    return v;
+}
+x::telem::SampleValue to_sample(const bool v) {
+    return static_cast<uint8_t>(v ? 1 : 0);
+}
+x::telem::SampleValue to_sample(const x::telem::TimeStamp &v) {
+    return v;
+}
+
+x::json::EnumMap enum_map(const ::synnax::http::ReadField &field) {
+    x::json::EnumMap map;
+    std::visit(
+        [&map](const auto &f) {
+            if constexpr (requires { f.enum_values; })
+                for (const auto &entry: f.enum_values)
+                    map.emplace(entry.label, to_sample(entry.value));
+        },
+        field
+    );
+    return map;
+}
+
+x::json::TimeFormat time_format(const ::synnax::http::ReadField &field) {
+    if (const auto *f = std::get_if<::synnax::http::TimestampReadField>(&field))
+        return x::json::parse_time_format(f->time_format).first;
+    return x::json::TimeFormat::ISO8601;
+}
+
+/// @brief converts the fill of a field to the data type of its channel.
+/// @returns the fill, or nothing when the field has none, paired with an error when
+/// the fill does not fit the channel.
+std::pair<std::optional<x::telem::SampleValue>, x::errors::Error>
+fill_sample(const ::synnax::http::ReadField &field, const x::telem::DataType &dt) {
+    return std::visit(
+        [&dt](const auto &f)
+            -> std::pair<std::optional<x::telem::SampleValue>, x::errors::Error> {
+            if constexpr (requires { f.fill; }) {
+                if (!f.fill.has_value()) return {std::nullopt, x::errors::NIL};
+                using V = std::decay_t<decltype(*f.fill)>;
+                if constexpr (
+                    std::is_same_v<V, x::payload::Float> ||
+                    std::is_same_v<V, x::payload::Integer> ||
+                    std::is_same_v<V, x::payload::Unsigned>
+                ) {
+                    auto [sample, err] = x::json::to_sample_value(
+                        x::json::json(f.fill->value),
+                        dt
+                    );
+                    if (err) return {std::nullopt, err};
+                    return {std::move(sample), x::errors::NIL};
+                } else
+                    return {to_sample(*f.fill), x::errors::NIL};
+            } else
+                return {std::nullopt, x::errors::NIL};
+        },
+        field
+    );
 }
 }
 
@@ -53,45 +148,18 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         validate_request(ep, parser);
         size_t enabled_field_count = 0;
         for (const auto &field: ep.fields) {
-            validate_pointer(field.pointer, parser, "endpoints.fields.pointer");
-            if (field.channel == 0)
+            const auto &b = ::synnax::http::base(field);
+            validate_pointer(b.pointer, parser, "endpoints.fields.pointer");
+            if (b.channel == 0)
                 parser.field_err("endpoints.fields.channel", "this field is required");
-            else if (!field_keys.insert(field.channel).second)
+            else if (!field_keys.insert(b.channel).second)
                 parser.field_err(
                     "endpoints.fields.channel",
-                    "channel " + std::to_string(field.channel) +
-                        " is used multiple times"
+                    "channel " + std::to_string(b.channel) + " is used multiple times"
                 );
-
-            if (field.time_format.has_value())
-                if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                        *field.time_format
-                    );
-                    fmt_err)
-                    parser.field_err("endpoints.fields.time_format", fmt_err);
-
-            if (field.fill_value.has_value() && !field.optional)
-                parser.field_err(
-                    "endpoints.fields.fill_value",
-                    "a fill value needs an optional field"
-                );
-
-            std::set<std::string> labels;
-            for (const auto &entry: field.enum_values)
-                if (entry.label.empty())
-                    parser.field_err(
-                        "endpoints.fields.enum_values.label",
-                        "this field is required"
-                    );
-                else if (!labels.insert(entry.label).second)
-                    parser.field_err(
-                        "endpoints.fields.enum_values.label",
-                        "duplicate enum label '" + entry.label + "'"
-                    );
-
-            if (!field.disabled) {
+            if (!b.disabled) {
                 enabled_field_count++;
-                enabled_field_keys.insert(field.channel);
+                enabled_field_keys.insert(b.channel);
             }
         }
 
@@ -123,8 +191,9 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     for (int ei = 0; std::cmp_less(ei, cfg.endpoints.size()); ei++) {
         for (const auto &field: cfg.endpoints[ei].fields) {
-            if (field.disabled) continue;
-            auto it = cfg.channels.find(field.channel);
+            const auto &b = ::synnax::http::base(field);
+            if (b.disabled) continue;
+            auto it = cfg.channels.find(b.channel);
             if (it == cfg.channels.end()) continue;
             const auto &ch = it->second;
 
@@ -138,62 +207,37 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
-            if (dt == x::telem::TIMESTAMP_T && !field.time_format.has_value()) {
+            const auto &type = std::visit(
+                [](const auto &f) -> const std::string & { return f.type; },
+                field
+            );
+            if (const auto kind = kind_of(dt); type != kind) {
                 parser.field_err(
-                    "endpoints",
-                    "channel " + ch.name +
-                        " is a timestamp channel but has no time_format"
+                    "endpoints.fields.type",
+                    "channel " + ch.name + " has data type " + dt.name() +
+                        ", so the field type must be " + kind + ", not " + type
                 );
                 continue;
             }
 
-            if (dt == x::telem::STRING_T && !field.enum_values.empty()) {
+            auto [fill, fill_err] = fill_sample(field, dt);
+            if (fill_err) {
                 parser.field_err(
-                    "endpoints.fields.enum_values",
-                    "channel " + ch.name +
-                        " is a string channel, so it cannot have numeric enum values"
+                    "endpoints.fields.fill",
+                    "channel " + ch.name + ": " + fill_err.data
                 );
                 continue;
             }
-
-            if (field.optional && ch.is_index) {
-                parser.field_err(
-                    "endpoints.fields.optional",
-                    "channel " + ch.name +
-                        " is an index channel, so it cannot be optional"
-                );
-                continue;
-            }
-
-            if (field.fill_value.has_value()) {
-                x::json::EnumMap enum_values;
-                for (const auto &entry: field.enum_values)
-                    enum_values.emplace(entry.label, entry.value);
-                auto [fill, fill_err] = x::json::to_sample_value(
-                    field.fill_value.value(),
-                    dt,
-                    field.time_format.has_value()
-                        ? x::json::parse_time_format(field.time_format.value()).first
-                        : x::json::TimeFormat::ISO8601,
-                    enum_values.empty() ? nullptr : &enum_values
-                );
-                if (fill_err) {
+            if (fill.has_value()) {
+                if (ch.is_index) {
                     parser.field_err(
-                        "endpoints.fields.fill_value",
-                        "channel " + ch.name + ": " + fill_err.data
+                        "endpoints.fields.fill",
+                        "channel " + ch.name +
+                            " is an index channel, so it cannot have a fill"
                     );
                     continue;
                 }
-                cfg.fill_values.emplace(field.channel, std::move(fill));
-            } else if (
-                field.optional && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T
-            ) {
-                parser.field_err(
-                    "endpoints.fields.fill_value",
-                    "channel " + ch.name + " has data type " + dt.name() +
-                        ", so an optional field needs a fill value"
-                );
-                continue;
+                cfg.fill_values.emplace(b.channel, std::move(*fill));
             }
 
             if (ch.index == 0) continue;
@@ -233,27 +277,20 @@ ReadTaskSource::ReadTaskSource(
     std::map<std::pair<size_t, synnax::channel::Key>, size_t> group_map;
     for (size_t ei = 0; ei < this->cfg.endpoints.size(); ei++) {
         for (const auto &field: this->cfg.endpoints[ei].fields) {
-            if (field.disabled) continue;
-            auto it = this->cfg.channels.find(field.channel);
+            const auto &b = ::synnax::http::base(field);
+            if (b.disabled) continue;
+            auto it = this->cfg.channels.find(b.channel);
             if (it == this->cfg.channels.end()) continue;
             this->chs.push_back(it->second);
 
             GroupField gf;
-            gf.channel = field.channel;
-            gf.pointer = x::json::json::json_pointer(field.pointer);
-            gf.optional = field.optional;
-            if (const auto fill = this->cfg.fill_values.find(field.channel);
+            gf.channel = b.channel;
+            gf.pointer = x::json::json::json_pointer(b.pointer);
+            if (const auto fill = this->cfg.fill_values.find(b.channel);
                 fill != this->cfg.fill_values.end())
-                gf.fill_value = fill->second;
-            if (field.time_format.has_value())
-                if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                        *field.time_format
-                    );
-                    !fmt_err)
-                    gf.time_format = fmt;
-            for (const auto &entry: field.enum_values)
-                if (!entry.label.empty())
-                    gf.enum_values.emplace(entry.label, entry.value);
+                gf.fill = fill->second;
+            gf.time_format = time_format(field);
+            gf.enum_values = enum_map(field);
 
             const auto idx_key = it->second.index;
             if (idx_key == 0) {
@@ -287,8 +324,9 @@ synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     keys.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
     for (const auto &ep: this->cfg.endpoints)
         for (const auto &field: ep.fields) {
-            if (field.disabled) continue;
-            keys.push_back(field.channel);
+            const auto &b = ::synnax::http::base(field);
+            if (b.disabled) continue;
+            keys.push_back(b.channel);
         }
     for (const auto &[key, _]: this->cfg.software_timed_indexes)
         keys.push_back(key);
@@ -404,16 +442,11 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         for (const auto &field: group.fields) {
             const auto &ch = this->cfg.channels.at(field.channel);
-            if (field.optional && is_absent(body, field.pointer, ch.data_type)) {
+            const auto &dt = ch.data_type;
+            if (field.fill.has_value() && is_absent(body, field.pointer, dt)) {
                 group_data.emplace_back(
                     field.channel,
-                    x::telem::Series(
-                        field.fill_value.has_value()
-                            ? *field.fill_value
-                            : ch.data_type.cast(
-                                  std::numeric_limits<double>::quiet_NaN()
-                              )
-                    )
+                    x::telem::Series(*field.fill, dt)
                 );
                 continue;
             }
@@ -423,26 +456,23 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 warning = "Field " + field.pointer.to_string() +
                           " not found in response from " + ep.path;
             else {
-                auto tf = x::json::TimeFormat::ISO8601;
-                if (field.time_format.has_value()) tf = *field.time_format;
                 const auto *enum_ptr = field.enum_values.empty() ? nullptr
                                                                  : &field.enum_values;
                 auto [val, conv_err] = x::json::to_sample_value(
                     body.at(field.pointer),
-                    ch.data_type,
-                    tf,
+                    conversion_type(dt),
+                    field.time_format,
                     enum_ptr
                 );
                 if (conv_err)
                     warning = "Failed to convert " + field.pointer.to_string() +
                               " for channel " + ch.name + ": " + conv_err.data;
                 else
-                    sample_val = std::move(val);
+                    sample_val = dt.cast(val);
             }
 
             if (!warning.empty()) {
                 warnings.push_back(std::move(warning));
-                const auto &dt = ch.data_type;
                 if (!this->cfg.nan_fill_enabled ||
                     (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)) {
                     group_ok = false;
@@ -451,7 +481,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 sample_val = dt.cast(std::numeric_limits<double>::quiet_NaN());
             }
 
-            group_data.emplace_back(field.channel, x::telem::Series(sample_val));
+            group_data.emplace_back(field.channel, x::telem::Series(sample_val, dt));
         }
 
         if (!group_ok) continue;

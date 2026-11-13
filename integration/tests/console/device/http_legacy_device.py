@@ -114,7 +114,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
                     path="/api/v1/data",
                     method="GET",
                     fields=[
-                        sy.http.ReadField(
+                        sy.http.FloatReadField(
                             pointer="/temperature",
                             channel=key,
                             data_type=sy.DataType.FLOAT64,
