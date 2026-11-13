@@ -24,30 +24,30 @@ import (
 // each confirm. A sender is not safe for concurrent use.
 type sender struct {
 	client ingestv1.IngestServiceClient
-	// ctx is the context of the attempt. A stream that its stop opens also ends one
-	// timeout after ctx does.
+	// ctx is the context of the attempt.
 	ctx context.Context
-	// timeout bounds a confirm, and a stream after ctx ends.
+	// timeout bounds a confirm.
 	timeout time.Duration
-	stream  ingestv1.IngestService_IngestWithConfigDataStreamClient
-	cancel  context.CancelFunc
-	release func() bool
+	// stopTimeout bounds a stream after ctx ends, and the confirm of a stop.
+	stopTimeout time.Duration
+	stream      ingestv1.IngestService_IngestWithConfigDataStreamClient
+	cancel      context.CancelFunc
+	release     func() bool
 }
 
 func (s *sender) send(req *ingestv1.IngestWithConfigDataStreamRequest) error {
 	if s.stream == nil {
 		// The stream outlives ctx so that a stopping task can still confirm what it
 		// sent. A Sift that stops reading would then block the stop, so the stream
-		// ends one timeout after ctx does.
+		// ends one stopTimeout after ctx does.
 		streamCtx, cancel := context.WithCancel(context.WithoutCancel(s.ctx))
 		stream, err := s.client.IngestWithConfigDataStream(streamCtx)
 		if err != nil {
 			cancel()
 			return err
 		}
-		timeout := s.timeout
 		s.release = context.AfterFunc(s.ctx, func() {
-			t := time.NewTimer(timeout)
+			t := time.NewTimer(s.stopTimeout)
 			defer t.Stop()
 			select {
 			case <-t.C:

@@ -30,6 +30,8 @@ const (
 	testConnectionCommand = "test_connection"
 	// listAssetsCommand lists the assets that a Sift device can see.
 	listAssetsCommand = "list_assets"
+	// uploadCommand queues an upload of the data of a range.
+	uploadCommand = "upload"
 )
 
 type testConnectionArgs struct {
@@ -83,6 +85,15 @@ func (s scanner) Exec(
 		return nil, s.testConnection(ctx, cmd)
 	case listAssetsCommand:
 		return s.listAssets(ctx, cmd)
+	case uploadCommand:
+		key, err := queueUpload(ctx, s.cfg, s.rack, cmd.Args)
+		if err != nil {
+			return nil, driver.Failure{
+				Message:     "Failed to upload to Sift",
+				Description: err.Error(),
+			}
+		}
+		return msgpack.NewEncodedJSON(uploadResult{Status: key})
 	default:
 		return nil, driver.ErrUnsupportedCommand
 	}

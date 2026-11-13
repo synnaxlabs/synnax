@@ -100,11 +100,15 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 10 s.
 	CheckpointInterval telem.TimeSpan
-	// ConfirmTimeout is how long the engine waits for Sift to confirm what it sent. A
-	// stopped engine also waits at most this long for a stream that Sift stops reading.
+	// ConfirmTimeout is how long the engine waits for Sift to confirm what it sent.
 	//
 	// [OPTIONAL] - Defaults to 30 s.
 	ConfirmTimeout telem.TimeSpan
+	// StopTimeout is how long a stopping engine waits for Sift to confirm what it sent,
+	// so that it saves how far it got. It is at most ConfirmTimeout.
+	//
+	// [OPTIONAL] - Defaults to 5 s.
+	StopTimeout telem.TimeSpan
 	// Retry sets the wait between attempts after a temporary failure.
 	//
 	// [OPTIONAL] - Defaults to 1 s, doubling to at most 30 s.
@@ -128,6 +132,7 @@ var _ config.Config[Config] = Config{}
 var DefaultConfig = Config{
 	CheckpointInterval: 10 * telem.Second,
 	ConfirmTimeout:     30 * telem.Second,
+	StopTimeout:        5 * telem.Second,
 	Retry: breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
@@ -152,6 +157,7 @@ func (c Config) Override(other Config) Config {
 		other.CheckpointInterval,
 	)
 	c.ConfirmTimeout = override.Numeric(c.ConfirmTimeout, other.ConfirmTimeout)
+	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
 	c.Retry = c.Retry.Override(other.Retry)
 	c.OnCheckpoint = override.Nil(c.OnCheckpoint, other.OnCheckpoint)
 	c.OnRetry = override.Nil(c.OnRetry, other.OnRetry)
@@ -169,6 +175,7 @@ func (c Config) Validate() error {
 	v.NotEmptySlice("keys", c.Keys)
 	v.Positive("checkpoint_interval", c.CheckpointInterval)
 	v.Positive("confirm_timeout", c.ConfirmTimeout)
+	v.Positive("stop_timeout", c.StopTimeout)
 	v.NotNil("on_checkpoint", c.OnCheckpoint)
 	v.NotNil("on_retry", c.OnRetry)
 	return errors.Join(v.Error(), c.Retry.Validate())
@@ -210,10 +217,41 @@ func New(ctx context.Context, cfgs ...Config) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	flows, err := loadFlows(ctx, cfg.DB, cfg.Channel, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	return &Engine{
+		cfg:     cfg,
+		flows:   flows,
+		ingest:  ingestv1.NewIngestServiceClient(cfg.Conn),
+		configs: ingestionconfigsv2.NewIngestionConfigServiceClient(cfg.Conn),
+		runs:    runsv2.NewRunServiceClient(cfg.Conn),
+	}, nil
+}
+
+// Validate returns the validation error that New returns when Sift cannot take one of
+// the channels of keys, query.ErrNotFound when a key has no channel, or nil.
+func Validate(
+	ctx context.Context,
+	db *gorp.DB,
+	channels *channel.Service,
+	keys channel.Keys,
+) error {
+	_, err := loadFlows(ctx, db, channels, keys)
+	return err
+}
+
+func loadFlows(
+	ctx context.Context,
+	db *gorp.DB,
+	svc *channel.Service,
+	keys channel.Keys,
+) ([]flow, error) {
 	var channels, indexes []channel.Channel
-	if err = cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		if err := cfg.Channel.NewRetrieve().
-			Where(channel.MatchKeys(cfg.Keys...)).
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := svc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
 			Entries(&channels).
 			Exec(ctx, snap); err != nil {
 			return err
@@ -227,24 +265,14 @@ func New(ctx context.Context, cfgs ...Config) (*Engine, error) {
 		if len(indexKeys) == 0 {
 			return nil
 		}
-		return cfg.Channel.NewRetrieve().
+		return svc.NewRetrieve().
 			Where(channel.MatchKeys(indexKeys.Slice()...)).
 			Entries(&indexes).
 			Exec(ctx, snap)
 	}); err != nil {
 		return nil, err
 	}
-	flows, err := buildFlows(channels, indexes)
-	if err != nil {
-		return nil, err
-	}
-	return &Engine{
-		cfg:     cfg,
-		flows:   flows,
-		ingest:  ingestv1.NewIngestServiceClient(cfg.Conn),
-		configs: ingestionconfigsv2.NewIngestionConfigServiceClient(cfg.Conn),
-		runs:    runsv2.NewRunServiceClient(cfg.Conn),
-	}, nil
+	return buildFlows(channels, indexes)
 }
 
 // Indexes returns the keys of the index channels the engine tracks positions for.
@@ -490,6 +518,10 @@ func (e *Engine) retry(
 					client:  e.ingest,
 					ctx:     ctx,
 					timeout: e.cfg.ConfirmTimeout.Duration(),
+					stopTimeout: min(
+						e.cfg.ConfirmTimeout.Duration(),
+						e.cfg.StopTimeout.Duration(),
+					),
 				},
 				progress: p,
 				configID: id,
@@ -782,6 +814,7 @@ func (a *attempt) stop(ctx context.Context) error {
 	if a.failed {
 		return ctx.Err()
 	}
+	a.sender.timeout = a.sender.stopTimeout
 	if err := a.checkpoint(context.WithoutCancel(ctx), false); err != nil {
 		return err
 	}

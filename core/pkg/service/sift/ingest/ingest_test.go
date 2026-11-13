@@ -316,6 +316,40 @@ var _ = Describe("Engine", func() {
 			})
 	})
 
+	Describe("Validate", func() {
+		It("Should accept stored channels", func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(Succeed())
+		})
+
+		It("Should reject a channel that New rejects", func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     "virtual_" + uuid.New().String()[:8],
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("channel "+ch.Name+" is virtual")),
+				))
+		})
+
+		It("Should return not found for a channel that does not exist",
+			func(ctx SpecContext) {
+				Expect(ingest.Validate(
+					ctx,
+					db,
+					channelSvc,
+					channel.Keys{channel.Key(1<<16 | 60000)},
+				)).To(MatchError(query.ErrNotFound))
+			})
+	})
+
 	Describe("Indexes", func() {
 		It("Should return the index of each channel in key order",
 			func(ctx SpecContext) {
@@ -1168,11 +1202,52 @@ var _ = Describe("Engine", func() {
 				done := make(chan error, 1)
 				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
-				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
 				cancel()
-				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+			})
+
+		It("Should stop within the stop timeout when Sift stops reading",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				write(ctx, idx, stamps, map[channel.Key]telem.Series{
+					ch.Key(): telem.NewSeries(make([]float64, count)),
+				})
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					StopTimeout: 100 * telem.Millisecond,
+				})
+				server.Pause()
+				DeferCleanup(server.Resume)
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
+				Eventually(server.Streams).Should(Equal(1))
+				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 			})
 
 		It("Should read from storage when it falls behind the live samples",
@@ -1756,6 +1831,8 @@ var _ = Describe("Engine", func() {
 				live()
 				// The index alone sends nothing, so no stream is open at the stop.
 				write(ctx, idx, stamps, nil)
+				server.Pause()
+				DeferCleanup(server.Resume)
 				keys := channel.Keys{ch.Key()}
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  keys,
@@ -1765,8 +1842,6 @@ var _ = Describe("Engine", func() {
 					telem.NewSeries(make([]float64, count)),
 				})))).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
-				server.Pause()
-				DeferCleanup(server.Resume)
 				// Gives the engine time to receive the values of ch.
 				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
 				cancel()

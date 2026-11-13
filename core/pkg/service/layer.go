@@ -1054,6 +1054,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Device:          l.Device,
 		Status:          l.Status,
 		Secret:          l.Secret,
+		Ranger:          l.Ranger,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
 	})
 	if !ok(err, nil) {
 		return nil, err
