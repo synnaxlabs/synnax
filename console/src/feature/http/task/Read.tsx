@@ -95,6 +95,10 @@ interface FillFieldsProps {
 // Checked with no fill on a kind other than float is required until a fill commits.
 const FillFields: FC<FillFieldsProps> = ({ path, field }) => {
   const { set } = PForm.useContext();
+  const { data: bound } = Channel.useResultDataType(
+    field.channel === 0 ? null : { key: field.channel },
+  );
+  const dataType = bound ?? dataTypeOf(field);
   const [checked, setChecked] = useState(field.fill != null);
   const [invalid, setInvalid] = useState<string | null>(null);
   const optional = checked || field.fill != null;
@@ -108,7 +112,7 @@ const FillFields: FC<FillFieldsProps> = ({ path, field }) => {
   const handleFillChange = (next: string) => {
     // A blur reports unedited text too, which must not retype the stored value.
     if (next === text) return;
-    const parsed = parseFill(field, next);
+    const parsed = parseFill(field, next, dataType);
     setInvalid(parsed == null ? next : null);
     if (parsed != null) set(path, parsed);
   };
@@ -126,7 +130,9 @@ const FillFields: FC<FillFieldsProps> = ({ path, field }) => {
           label="Fill value"
           padHelpText={false}
           status={invalid == null ? undefined : "error"}
-          helpText={invalid == null ? undefined : `Not a valid ${field.type} value`}
+          helpText={
+            invalid == null ? undefined : `Not a valid ${dataType.toString()} value`
+          }
         >
           <Input.Text
             value={text}

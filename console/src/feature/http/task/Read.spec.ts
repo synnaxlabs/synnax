@@ -383,18 +383,21 @@ describe("Read", () => {
     });
 
     it.each([
-      { type: "float", fill: 7, text: "off" },
-      { type: "integer", fill: "7", text: "1.5" },
-      { type: "integer", fill: "7", text: "9223372036854775808" },
-      { type: "unsigned", fill: "7", text: "-1" },
-      { type: "boolean", fill: false, text: "1" },
+      { type: "float", dataType: "float64", fill: 7, text: "off" },
+      { type: "integer", dataType: "int64", fill: "7", text: "1.5" },
+      { type: "integer", dataType: "int64", fill: "7", text: "9223372036854775808" },
+      { type: "integer", dataType: "int8", fill: "7", text: "1000" },
+      { type: "unsigned", dataType: "uint64", fill: "7", text: "-1" },
+      { type: "boolean", dataType: "boolean", fill: false, text: "1" },
     ])(
-      "should show an error and keep the fill for $text on a $type field",
-      async ({ type, fill, text }) => {
-        const { deploy } = await renderField({ type, fill });
+      "should show an error and keep the fill for $text on a $dataType field",
+      async ({ type, dataType, fill, text }) => {
+        const { deploy } = await renderField(
+          type === "boolean" ? { type, fill } : { type, dataType, fill },
+        );
         const input = await findFillValue();
         commitFieldInput(input, text);
-        await screen.findByText(`Not a valid ${type} value`);
+        await screen.findByText(`Not a valid ${dataType} value`);
         expect(input.value).toBe(text);
         expect(fillOf(await deploy())).toBe(fill);
       },
