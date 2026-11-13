@@ -11,6 +11,7 @@ package v4
 
 import (
 	"context"
+	"math"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
@@ -19,7 +20,7 @@ import (
 )
 
 // MigrateAnalogWriteConfig lifts a v3 analog write config to v4. A function generator
-// frequency that is not positive, or NaN, becomes 1 Hz.
+// frequency that is not a positive finite number becomes 1 Hz.
 func MigrateAnalogWriteConfig(
 	ctx context.Context,
 	old v3.AnalogWriteConfig,
@@ -29,7 +30,8 @@ func MigrateAnalogWriteConfig(
 		return AnalogWriteConfig{}, err
 	}
 	for i, ch := range cfg.Channels {
-		if v, ok := ch.Variant.(AOFuncGenChannel); ok && !(v.Frequency > 0) {
+		v, ok := ch.Variant.(AOFuncGenChannel)
+		if ok && (!(v.Frequency > 0) || math.IsInf(v.Frequency, 1)) {
 			v.Frequency = 1
 			cfg.Channels[i].Variant = v
 		}
