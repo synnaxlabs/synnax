@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+
 Units = v2.Units
 
 AccelSensitivityUnits = v2.AccelSensitivityUnits
@@ -43,7 +47,13 @@ StrainConfig = v2.StrainConfig
 
 ThermocoupleType = v2.ThermocoupleType
 
-CJC = v3.CJC
+CJC union on source extends v3.CJC {
+    chan {
+        port uint16 = 0 {
+            @doc value "is the port of the channel that measures the reference."
+        }
+    }
+}
 
 VelocityUnits = v2.VelocityUnits
 
@@ -75,9 +85,13 @@ TwoPointLin = v2.TwoPointLin
 
 CustomScale = v2.CustomScale
 
-BaseAIChannel = v3.BaseAIChannel
+BaseAIChannel struct extends v3.BaseAIChannel {
+    port uint16 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+}
 
-AIChannel = v3.AIChannel
+AIChannel union on type extends v3.AIChannel {}
 
 CIEdge = v2.CIEdge
 
@@ -103,13 +117,21 @@ ZIndexPhase = v2.ZIndexPhase
 
 ZIndex = v2.ZIndex
 
-BaseCIChannel = v3.BaseCIChannel
+BaseCIChannel struct extends v3.BaseCIChannel {
+    port uint16 = 0 {
+        @doc value "is the physical counter the channel uses."
+    }
+}
 
-CIChannel = v3.CIChannel
+CIChannel union on type extends v3.CIChannel {}
 
 WaveType = v2.WaveType
 
-BaseAOChannel = v3.BaseAOChannel
+BaseAOChannel struct extends v3.BaseAOChannel {
+    port uint16 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+}
 
 CommandedAOChannel = v3.CommandedAOChannel
 
@@ -147,20 +169,28 @@ AOChannel union on type extends BaseAOChannel {
     @go marshal
 }
 
-DIChannel = v3.DIChannel
+DIChannel struct extends v3.DIChannel {
+    port uint16 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+}
 
-DOChannel = v3.DOChannel
+DOChannel struct extends v3.DOChannel {
+    port uint16 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+}
 
-AnalogReadConfig = v3.AnalogReadConfig
+AnalogReadConfig struct extends v3.AnalogReadConfig {}
 
-CounterReadConfig = v3.CounterReadConfig
+CounterReadConfig struct extends v3.CounterReadConfig {}
 
 WriteConfig = v2.WriteConfig
 
 AnalogWriteConfig struct extends v3.AnalogWriteConfig {}
 
-DigitalReadConfig = v3.DigitalReadConfig
+DigitalReadConfig struct extends v3.DigitalReadConfig {}
 
-DigitalWriteConfig = v3.DigitalWriteConfig
+DigitalWriteConfig struct extends v3.DigitalWriteConfig {}
 
 ScanConfig = v3.ScanConfig

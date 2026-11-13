@@ -19,10 +19,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateAnalogReadConfig(_ context.Context, old v3.AnalogReadConfig) (AnalogReadConfig, error) {
+func autoMigrateAnalogReadConfig(ctx context.Context, old v3.AnalogReadConfig) (AnalogReadConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v3.AIChannel, _ int) (AIChannel, error) {
+		return autoMigrateAIChannel(ctx, v)
+	})
+	if err != nil {
+		return AnalogReadConfig{}, err
+	}
 	return AnalogReadConfig{
 		ReadConfig: old.ReadConfig,
-		Channels:   old.Channels,
+		Channels:   channels,
 	}, nil
 }
 
@@ -39,50 +45,510 @@ func autoMigrateAnalogWriteConfig(ctx context.Context, old v3.AnalogWriteConfig)
 	}, nil
 }
 
-func autoMigrateCounterReadConfig(_ context.Context, old v3.CounterReadConfig) (CounterReadConfig, error) {
+func autoMigrateCounterReadConfig(ctx context.Context, old v3.CounterReadConfig) (CounterReadConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v3.CIChannel, _ int) (CIChannel, error) {
+		return autoMigrateCIChannel(ctx, v)
+	})
+	if err != nil {
+		return CounterReadConfig{}, err
+	}
 	return CounterReadConfig{
 		ReadConfig: old.ReadConfig,
-		Channels:   old.Channels,
+		Channels:   channels,
 	}, nil
 }
 
-func autoMigrateDigitalReadConfig(_ context.Context, old v3.DigitalReadConfig) (DigitalReadConfig, error) {
+func autoMigrateDigitalReadConfig(ctx context.Context, old v3.DigitalReadConfig) (DigitalReadConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v3.DIChannel, _ int) (DIChannel, error) {
+		return MigrateDIChannel(ctx, v)
+	})
+	if err != nil {
+		return DigitalReadConfig{}, err
+	}
 	return DigitalReadConfig{
 		ReadConfig: old.ReadConfig,
 		Device:     old.Device,
-		Channels:   old.Channels,
+		Channels:   channels,
 	}, nil
 }
 
-func autoMigrateDigitalWriteConfig(_ context.Context, old v3.DigitalWriteConfig) (DigitalWriteConfig, error) {
+func autoMigrateDigitalWriteConfig(ctx context.Context, old v3.DigitalWriteConfig) (DigitalWriteConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v3.DOChannel, _ int) (DOChannel, error) {
+		return MigrateDOChannel(ctx, v)
+	})
+	if err != nil {
+		return DigitalWriteConfig{}, err
+	}
 	return DigitalWriteConfig{
 		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
+		Channels:    channels,
 	}, nil
 }
 
-func autoMigrateAOChannel(_ context.Context, old v3.AOChannel) (AOChannel, error) {
+func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return AIChannel{}, nil
+	case v3.AIVoltageChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIVoltageChannel{
+			BaseAIChannel: baseAIChannel,
+			MinMaxVal:     variant.MinMaxVal,
+			Terminal:      variant.Terminal,
+			CustomScale:   variant.CustomScale,
+		}}, nil
+	case v3.AIAccelChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIAccelChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Terminal:          variant.Terminal,
+			Sensitivity:       variant.Sensitivity,
+			CurrentExcitation: variant.CurrentExcitation,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			SensitivityUnits:  variant.SensitivityUnits,
+		}}, nil
+	case v3.AIBridgeChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIBridgeChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+		}}, nil
+	case v3.AICurrentChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AICurrentChannel{
+			BaseAIChannel:       baseAIChannel,
+			MinMaxVal:           variant.MinMaxVal,
+			Terminal:            variant.Terminal,
+			CustomScale:         variant.CustomScale,
+			ShuntResistorLoc:    variant.ShuntResistorLoc,
+			ExtShuntResistorVal: variant.ExtShuntResistorVal,
+		}}, nil
+	case v3.AIForceBridgeTableChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIForceBridgeTableChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			Table:             variant.Table,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIForceBridgeTwoPointLinChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIForceBridgeTwoPointLinChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			TwoPointLin:       variant.TwoPointLin,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIForceIEPEChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIForceIEPEChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Terminal:          variant.Terminal,
+			Sensitivity:       variant.Sensitivity,
+			CurrentExcitation: variant.CurrentExcitation,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			SensitivityUnits:  variant.SensitivityUnits,
+		}}, nil
+	case v3.AIMicrophoneChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIMicrophoneChannel{
+			BaseAIChannel:     baseAIChannel,
+			Terminal:          variant.Terminal,
+			CurrentExcitation: variant.CurrentExcitation,
+			CustomScale:       variant.CustomScale,
+			MicSensitivity:    variant.MicSensitivity,
+			MaxSndPressLevel:  variant.MaxSndPressLevel,
+		}}, nil
+	case v3.AIPressureBridgeTableChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIPressureBridgeTableChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			Table:             variant.Table,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIPressureBridgeTwoPointLinChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIPressureBridgeTwoPointLinChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			TwoPointLin:       variant.TwoPointLin,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIResistanceChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIResistanceChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Resistance:        variant.Resistance,
+			CurrentExcitation: variant.CurrentExcitation,
+			CustomScale:       variant.CustomScale,
+		}}, nil
+	case v3.AIRTDChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIRTDChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Resistance:        variant.Resistance,
+			CurrentExcitation: variant.CurrentExcitation,
+			Units:             variant.Units,
+			RtdType:           variant.RtdType,
+			R0:                variant.R0,
+		}}, nil
+	case v3.AIStrainGaugeChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIStrainGaugeChannel{
+			BaseAIChannel:         baseAIChannel,
+			MinMaxVal:             variant.MinMaxVal,
+			VoltageExcitation:     variant.VoltageExcitation,
+			CustomScale:           variant.CustomScale,
+			StrainConfig:          variant.StrainConfig,
+			GageFactor:            variant.GageFactor,
+			InitialBridgeVoltage:  variant.InitialBridgeVoltage,
+			NominalGageResistance: variant.NominalGageResistance,
+			PoissonRatio:          variant.PoissonRatio,
+			LeadWireResistance:    variant.LeadWireResistance,
+		}}, nil
+	case v3.AITempBuiltinChannel:
+		return AIChannel{Variant: AITempBuiltinChannel{
+			Key:      variant.Key,
+			Name:     variant.Name,
+			Disabled: variant.Disabled,
+			Channel:  variant.Channel,
+			Device:   variant.Device,
+			Units:    variant.Units,
+		}}, nil
+	case v3.AIThermocoupleChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		cjc, err := MigrateCJC(ctx, variant.Cjc)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIThermocoupleChannel{
+			BaseAIChannel:    baseAIChannel,
+			MinMaxVal:        variant.MinMaxVal,
+			Units:            variant.Units,
+			ThermocoupleType: variant.ThermocoupleType,
+			Cjc:              cjc,
+		}}, nil
+	case v3.AITorqueBridgeTableChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AITorqueBridgeTableChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			Table:             variant.Table,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AITorqueBridgeTwoPointLinChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AITorqueBridgeTwoPointLinChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			TwoPointLin:       variant.TwoPointLin,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIVelocityIEPEChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIVelocityIEPEChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Terminal:          variant.Terminal,
+			Sensitivity:       variant.Sensitivity,
+			CurrentExcitation: variant.CurrentExcitation,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			SensitivityUnits:  variant.SensitivityUnits,
+		}}, nil
+	case v3.AIAccel4WireDCVoltageChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIAccel4WireDCVoltageChannel{
+			BaseAIChannel:      baseAIChannel,
+			MinMaxVal:          variant.MinMaxVal,
+			Terminal:           variant.Terminal,
+			Sensitivity:        variant.Sensitivity,
+			VoltageExcitation:  variant.VoltageExcitation,
+			CustomScale:        variant.CustomScale,
+			Units:              variant.Units,
+			SensitivityUnits:   variant.SensitivityUnits,
+			ScaledByExcitation: variant.ScaledByExcitation,
+		}}, nil
+	case v3.AIAccelChargeChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIAccelChargeChannel{
+			BaseAIChannel:    baseAIChannel,
+			MinMaxVal:        variant.MinMaxVal,
+			Terminal:         variant.Terminal,
+			Sensitivity:      variant.Sensitivity,
+			CustomScale:      variant.CustomScale,
+			Units:            variant.Units,
+			SensitivityUnits: variant.SensitivityUnits,
+		}}, nil
+	case v3.AIChargeChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIChargeChannel{
+			BaseAIChannel: baseAIChannel,
+			MinMaxVal:     variant.MinMaxVal,
+			Terminal:      variant.Terminal,
+			CustomScale:   variant.CustomScale,
+			Units:         variant.Units,
+		}}, nil
+	case v3.AICurrentRMSChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AICurrentRMSChannel{
+			BaseAIChannel:       baseAIChannel,
+			MinMaxVal:           variant.MinMaxVal,
+			Terminal:            variant.Terminal,
+			CustomScale:         variant.CustomScale,
+			ShuntResistorLoc:    variant.ShuntResistorLoc,
+			ExtShuntResistorVal: variant.ExtShuntResistorVal,
+		}}, nil
+	case v3.AIForceBridgePolynomialChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIForceBridgePolynomialChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			BridgePolynomial:  variant.BridgePolynomial,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIFreqVoltageChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIFreqVoltageChannel{
+			BaseAIChannel:  baseAIChannel,
+			MinMaxVal:      variant.MinMaxVal,
+			CustomScale:    variant.CustomScale,
+			ThresholdLevel: variant.ThresholdLevel,
+			Hysteresis:     variant.Hysteresis,
+		}}, nil
+	case v3.AIPressureBridgePolynomialChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIPressureBridgePolynomialChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			BridgePolynomial:  variant.BridgePolynomial,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIThermistorIexChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIThermistorIexChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Resistance:        variant.Resistance,
+			CurrentExcitation: variant.CurrentExcitation,
+			Units:             variant.Units,
+			A:                 variant.A,
+			B:                 variant.B,
+			C:                 variant.C,
+		}}, nil
+	case v3.AIThermistorVexChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIThermistorVexChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Resistance:        variant.Resistance,
+			VoltageExcitation: variant.VoltageExcitation,
+			Units:             variant.Units,
+			A:                 variant.A,
+			B:                 variant.B,
+			C:                 variant.C,
+			R1:                variant.R1,
+		}}, nil
+	case v3.AITorqueBridgePolynomialChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AITorqueBridgePolynomialChannel{
+			BaseAIChannel:     baseAIChannel,
+			MinMaxVal:         variant.MinMaxVal,
+			Bridge:            variant.Bridge,
+			VoltageExcitation: variant.VoltageExcitation,
+			BridgePolynomial:  variant.BridgePolynomial,
+			CustomScale:       variant.CustomScale,
+			Units:             variant.Units,
+			PhysicalUnits:     variant.PhysicalUnits,
+		}}, nil
+	case v3.AIVoltageRMSChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIVoltageRMSChannel{
+			BaseAIChannel: baseAIChannel,
+			MinMaxVal:     variant.MinMaxVal,
+			Terminal:      variant.Terminal,
+			CustomScale:   variant.CustomScale,
+		}}, nil
+	case v3.AIVoltageWithExcitChannel:
+		baseAIChannel, err := MigrateBaseAIChannel(ctx, variant.BaseAIChannel)
+		if err != nil {
+			return AIChannel{}, err
+		}
+		return AIChannel{Variant: AIVoltageWithExcitChannel{
+			BaseAIChannel:      baseAIChannel,
+			MinMaxVal:          variant.MinMaxVal,
+			Terminal:           variant.Terminal,
+			VoltageExcitation:  variant.VoltageExcitation,
+			CustomScale:        variant.CustomScale,
+			BridgeConfig:       variant.BridgeConfig,
+			ScaledByExcitation: variant.ScaledByExcitation,
+		}}, nil
+	default:
+		return AIChannel{}, errors.Newf("unknown AIChannel variant %T", variant)
+	}
+}
+
+func autoMigrateAOChannel(ctx context.Context, old v3.AOChannel) (AOChannel, error) {
 	switch variant := old.Variant.(type) {
 	case nil:
 		return AOChannel{}, nil
 	case v3.AOCurrentChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
 		return AOChannel{Variant: AOCurrentChannel{
-			BaseAOChannel:      variant.BaseAOChannel,
+			BaseAOChannel:      baseAOChannel,
 			MinMaxVal:          variant.MinMaxVal,
 			CustomScale:        variant.CustomScale,
 			CommandedAOChannel: variant.CommandedAOChannel,
 		}}, nil
 	case v3.AOFuncGenChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
 		return AOChannel{Variant: AOFuncGenChannel{
-			BaseAOChannel: variant.BaseAOChannel,
+			BaseAOChannel: baseAOChannel,
 			WaveType:      variant.WaveType,
 			Frequency:     variant.Frequency,
 			Amplitude:     variant.Amplitude,
 			Offset:        variant.Offset,
 		}}, nil
 	case v3.AOVoltageChannel:
+		baseAOChannel, err := MigrateBaseAOChannel(ctx, variant.BaseAOChannel)
+		if err != nil {
+			return AOChannel{}, err
+		}
 		return AOChannel{Variant: AOVoltageChannel{
-			BaseAOChannel:      variant.BaseAOChannel,
+			BaseAOChannel:      baseAOChannel,
 			MinMaxVal:          variant.MinMaxVal,
 			CustomScale:        variant.CustomScale,
 			CommandedAOChannel: variant.CommandedAOChannel,
@@ -90,4 +556,237 @@ func autoMigrateAOChannel(_ context.Context, old v3.AOChannel) (AOChannel, error
 	default:
 		return AOChannel{}, errors.Newf("unknown AOChannel variant %T", variant)
 	}
+}
+
+func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return CIChannel{}, nil
+	case v3.CIFrequencyChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIFrequencyChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			Edge:          variant.Edge,
+			MeasMethod:    variant.MeasMethod,
+			MeasTime:      variant.MeasTime,
+			Divisor:       variant.Divisor,
+			Terminal:      variant.Terminal,
+		}}, nil
+	case v3.CIEdgeCountChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIEdgeCountChannel{
+			BaseCIChannel:  baseCIChannel,
+			ActiveEdge:     variant.ActiveEdge,
+			CountDirection: variant.CountDirection,
+			InitialCount:   variant.InitialCount,
+			Terminal:       variant.Terminal,
+		}}, nil
+	case v3.CIPeriodChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIPeriodChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			StartingEdge:  variant.StartingEdge,
+			MeasMethod:    variant.MeasMethod,
+			MeasTime:      variant.MeasTime,
+			Divisor:       variant.Divisor,
+			Terminal:      variant.Terminal,
+		}}, nil
+	case v3.CIPulseWidthChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIPulseWidthChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			StartingEdge:  variant.StartingEdge,
+			Terminal:      variant.Terminal,
+		}}, nil
+	case v3.CISemiPeriodChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CISemiPeriodChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			Terminal:      variant.Terminal,
+		}}, nil
+	case v3.CITwoEdgeSepChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CITwoEdgeSepChannel{
+			BaseCIChannel:  baseCIChannel,
+			CustomScale:    variant.CustomScale,
+			MinMaxVal:      variant.MinMaxVal,
+			Units:          variant.Units,
+			FirstEdge:      variant.FirstEdge,
+			SecondEdge:     variant.SecondEdge,
+			FirstTerminal:  variant.FirstTerminal,
+			SecondTerminal: variant.SecondTerminal,
+		}}, nil
+	case v3.CIVelocityLinearChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIVelocityLinearChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			DecodingType:  variant.DecodingType,
+			DistPerPulse:  variant.DistPerPulse,
+			TerminalA:     variant.TerminalA,
+			TerminalB:     variant.TerminalB,
+		}}, nil
+	case v3.CIVelocityAngularChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIVelocityAngularChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			Units:         variant.Units,
+			DecodingType:  variant.DecodingType,
+			PulsesPerRev:  variant.PulsesPerRev,
+			TerminalA:     variant.TerminalA,
+			TerminalB:     variant.TerminalB,
+		}}, nil
+	case v3.CIPositionLinearChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIPositionLinearChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			ZIndex:        variant.ZIndex,
+			Units:         variant.Units,
+			DecodingType:  variant.DecodingType,
+			DistPerPulse:  variant.DistPerPulse,
+			InitialPos:    variant.InitialPos,
+			TerminalA:     variant.TerminalA,
+			TerminalB:     variant.TerminalB,
+		}}, nil
+	case v3.CIPositionAngularChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIPositionAngularChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			ZIndex:        variant.ZIndex,
+			Units:         variant.Units,
+			DecodingType:  variant.DecodingType,
+			PulsesPerRev:  variant.PulsesPerRev,
+			InitialAngle:  variant.InitialAngle,
+			TerminalA:     variant.TerminalA,
+			TerminalB:     variant.TerminalB,
+		}}, nil
+	case v3.CIDutyCycleChannel:
+		baseCIChannel, err := MigrateBaseCIChannel(ctx, variant.BaseCIChannel)
+		if err != nil {
+			return CIChannel{}, err
+		}
+		return CIChannel{Variant: CIDutyCycleChannel{
+			BaseCIChannel: baseCIChannel,
+			CustomScale:   variant.CustomScale,
+			MinMaxVal:     variant.MinMaxVal,
+			ActiveEdge:    variant.ActiveEdge,
+			Terminal:      variant.Terminal,
+		}}, nil
+	default:
+		return CIChannel{}, errors.Newf("unknown CIChannel variant %T", variant)
+	}
+}
+
+func autoMigrateDIChannel(_ context.Context, old v3.DIChannel) (DIChannel, error) {
+	return DIChannel{
+		Key:      old.Key,
+		Name:     old.Name,
+		Disabled: old.Disabled,
+		Channel:  old.Channel,
+		Line:     old.Line,
+	}, nil
+}
+
+func autoMigrateDOChannel(_ context.Context, old v3.DOChannel) (DOChannel, error) {
+	return DOChannel{
+		Key:              old.Key,
+		Disabled:         old.Disabled,
+		CmdChannel:       old.CmdChannel,
+		StateChannel:     old.StateChannel,
+		CmdChannelName:   old.CmdChannelName,
+		StateChannelName: old.StateChannelName,
+		Line:             old.Line,
+	}, nil
+}
+
+func autoMigrateBaseAIChannel(_ context.Context, old v3.BaseAIChannel) (BaseAIChannel, error) {
+	return BaseAIChannel{
+		Key:      old.Key,
+		Name:     old.Name,
+		Disabled: old.Disabled,
+		Channel:  old.Channel,
+		Device:   old.Device,
+	}, nil
+}
+
+func autoMigrateCJC(_ context.Context, old v3.CJC) (CJC, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return CJC{}, nil
+	case v3.BuiltInCJC:
+		return CJC{Variant: BuiltInCJC{}}, nil
+	case v3.ConstValCJC:
+		return CJC{Variant: ConstValCJC{
+			Val: variant.Val,
+		}}, nil
+	case v3.ChanCJC:
+		return CJC{Variant: ChanCJC{}}, nil
+	default:
+		return CJC{}, errors.Newf("unknown CJC variant %T", variant)
+	}
+}
+
+func autoMigrateBaseAOChannel(_ context.Context, old v3.BaseAOChannel) (BaseAOChannel, error) {
+	return BaseAOChannel{
+		Key:      old.Key,
+		Disabled: old.Disabled,
+	}, nil
+}
+
+func autoMigrateBaseCIChannel(_ context.Context, old v3.BaseCIChannel) (BaseCIChannel, error) {
+	return BaseCIChannel{
+		Key:      old.Key,
+		Name:     old.Name,
+		Disabled: old.Disabled,
+		Channel:  old.Channel,
+		Device:   old.Device,
+	}, nil
 }
