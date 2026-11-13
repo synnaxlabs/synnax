@@ -23,6 +23,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -122,9 +123,10 @@ var _ = Describe("Migrations", func() {
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
 			p1 := MustSucceed(v1.MigratePanel(ctx, old))
-			want := MustSucceed(
+			p3 := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
+			want := MustSucceed(v4.MigratePanel(ctx, p3))
 			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
@@ -156,7 +158,9 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			owner := own(stored.Key)
 			openTable()
-			want := MustSucceed(v3.MigratePanel(ctx, stored))
+			want := MustSucceed(
+				v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
+			)
 			want.Project = &owner
 			Expect(retrieve(stored.Key)).To(Equal(want))
 		})

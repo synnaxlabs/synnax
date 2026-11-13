@@ -11,16 +11,22 @@ package sift
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -51,6 +57,18 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
+	// Ranger retrieves the ranges that uploads send.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
+	// Channel retrieves the channels that uploads send.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// Framer reads the samples that uploads send.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
 	// Timeout bounds one call to Sift from a check or a command.
 	//
 	// [OPTIONAL] - Defaults to 10 s.
@@ -69,6 +87,9 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Secret = override.Nil(c.Secret, other.Secret)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Timeout = override.Numeric(c.Timeout, other.Timeout)
 	return c
 }
@@ -80,11 +101,22 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("secret", c.Secret)
+	v.NotNil("ranger", c.Ranger)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
 	v.Positive("timeout", c.Timeout)
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg FactoryConfig
+	mu  sync.Mutex
+	// uploaders holds the scan task that runs the uploads of each rack.
+	uploaders map[rack.Key]task.Key
+	// stopping holds, for each rack whose scan task stops, a channel that closes when
+	// the task releases the rack.
+	stopping map[rack.Key]chan struct{}
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -94,7 +126,11 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg:       cfg,
+		uploaders: make(map[rack.Key]task.Key),
+		stopping:  make(map[rack.Key]chan struct{}),
+	}, nil
 }
 
 // Name implements driver.Factory.
@@ -119,6 +155,9 @@ func (f *factory) ConfigureTask(
 		return nil, driver.ErrTaskNotHandled
 	}
 	st, autoStart, err := f.configureScan(t)
+	if err == nil {
+		err = f.claim(ctx, t)
+	}
 	if err != nil {
 		driver.ConfigReporter{
 			DB:              f.cfg.DB,
@@ -129,10 +168,79 @@ func (f *factory) ConfigureTask(
 	}
 	if autoStart {
 		if err = st.Start(ctx, driver.NoCommand); err != nil {
+			f.release(t)
 			return nil, err
 		}
 	}
-	return st, nil
+	return scanTask{
+		ScanTask:  st,
+		uploads:   openUploader(f.cfg, t.Rack),
+		releasing: func() { f.releasing(t) },
+		release:   func() { f.release(t) },
+	}, nil
+}
+
+// claim makes t the scan task that runs the uploads of its rack. It waits for a scan
+// task that stops to release the rack, and fails when another scan task runs the
+// uploads, since two would send each upload twice.
+func (f *factory) claim(ctx context.Context, t task.Task) error {
+	for {
+		f.mu.Lock()
+		key, held := f.uploaders[t.Rack]
+		released := f.stopping[t.Rack]
+		if !held || key == t.Key {
+			f.uploaders[t.Rack] = t.Key
+			f.mu.Unlock()
+			return nil
+		}
+		f.mu.Unlock()
+		if released == nil {
+			return validate.Errorf("the rack already has a Sift scan task")
+		}
+		select {
+		case <-released:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// releasing makes claim wait for t to release its rack instead of failing.
+func (f *factory) releasing(t task.Task) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.uploaders[t.Rack] == t.Key && f.stopping[t.Rack] == nil {
+		f.stopping[t.Rack] = make(chan struct{})
+	}
+}
+
+func (f *factory) release(t task.Task) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.uploaders[t.Rack] != t.Key {
+		return
+	}
+	delete(f.uploaders, t.Rack)
+	if released, ok := f.stopping[t.Rack]; ok {
+		close(released)
+		delete(f.stopping, t.Rack)
+	}
+}
+
+// scanTask is the sift_scan task. Besides checking devices, it runs the uploads of
+// its rack whether or not scanning is on.
+type scanTask struct {
+	*driver.ScanTask
+	uploads   *uploader
+	releasing func()
+	release   func()
+}
+
+// Stop implements driver.Task.
+func (t scanTask) Stop(sendStatus bool) error {
+	t.releasing()
+	defer t.release()
+	return errors.Combine(t.uploads.Close(), t.ScanTask.Stop(sendStatus))
 }
 
 func validateScanConfig(cfg *ScanConfig) error {

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,35 +27,6 @@ import (
 
 var _ = Describe("Ranger", func() {
 	BeforeEach(openTx)
-	Describe("RetrieveParent", func() {
-		It("Should get the parent of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent.Key,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
-		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
-
 	Describe("Derive", func() {
 		var parent, child, leaf ranger.Range
 		BeforeEach(func(ctx SpecContext) {
@@ -150,62 +120,6 @@ var _ = Describe("Ranger", func() {
 				})).To(Equal([]bool{true, false, false}))
 			},
 		)
-	})
-
-	Describe("RetrieveParentKey", func() {
-		It("Should get the parent of the range through a snapshot", func(
-			ctx SpecContext,
-		) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent.Key,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Delete(ctx, parent.Key)
-				})).To(Succeed())
-			})
-			var pKey uuid.UUID
-			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-				pKey, err = svc.RetrieveParentKey(ctx, r.Key, snap)
-				return err
-			})).To(Succeed())
-			Expect(pKey).To(Equal(parent.Key))
-		})
-		It("Should get the parent key of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent.Key,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
-		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
 	})
 
 	Describe("Retrieve", func() {

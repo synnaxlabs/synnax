@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { task } from "@synnaxlabs/client";
+
+import { EtherCAT } from "@/feature/ethercat";
+import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
+import { LabJack } from "@/feature/labjack";
+import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
+import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
+import { PagerDuty } from "@/feature/pagerduty";
+import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
+import { TAB } from "@/feature/task/tab";
+import { getIcon, parseType } from "@/feature/task/types";
+import { type Command } from "@/platform/command";
+import { type Panel } from "@/platform/panel";
+import { type Task } from "@/platform/task";
+
+export * from "@/feature/task/link";
+export * from "@/feature/task/notifications";
+export * from "@/feature/task/search";
+export * from "@/feature/task/Selector";
+export * from "@/feature/task/tab";
+export * from "@/feature/task/Toolbar";
+export * from "@/feature/task/tree";
+export * from "@/feature/task/types";
+export * from "@/platform/task/external";
+
+export const REGISTRY: Task.Registry = { getIcon, parseType };
+
+export const COMMANDS: Command.Command[] = [
+  ...EtherCAT.Task.COMMANDS,
+  ...HTTP.Task.COMMANDS,
+  ...Kafka.Task.COMMANDS,
+  ...LabJack.Task.COMMANDS,
+  ...Modbus.Task.COMMANDS,
+  ...MQTT.Task.COMMANDS,
+  ...NI.Task.COMMANDS,
+  ...OPCUA.Task.COMMANDS,
+  ...PagerDuty.Task.COMMANDS,
+];
+
+export const TABS: Panel.Tabs = {
+  [SELECTOR_TAB_TYPE]: Selector,
+  [task.TYPE_RESOURCE_ID.type]: TAB,
+};

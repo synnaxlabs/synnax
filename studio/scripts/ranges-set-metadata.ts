@@ -36,14 +36,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const section = page.locator(".lyra-header").filter({ hasText: "Metadata" });
   await session.waitFor(section.first());
 
-  // Script-local override: drop the Snapshots section so the shot stays on the
-  // Metadata block.
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll(".lyra-header"))
-      if (el.textContent?.trim() === "Snapshots")
-        el.parentElement?.style.setProperty("display", "none");
-  });
-
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
