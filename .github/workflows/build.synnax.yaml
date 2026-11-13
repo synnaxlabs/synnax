@@ -923,7 +923,8 @@ jobs:
     name: Build Core (${{ matrix.os }})
     needs: [setup, sign-macos-driver]
     if: inputs.sign_binaries && inputs.macos && inputs.driver && inputs.core
-    timeout-minutes: 30
+    # A failed attempt to upload the Core can take 8 minutes, and two can fail.
+    timeout-minutes: 45
     permissions: *build_permissions
     env:
       GH_TOKEN: ${{ github.token }}
