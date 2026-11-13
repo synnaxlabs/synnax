@@ -3253,6 +3253,33 @@ TEST(HTTPReadTask, BooleanFieldWithEntries) {
     EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
 }
 
+/// @brief it should read any number that is not 0 as true on a boolean channel.
+TEST(HTTPReadTask, BooleanFieldReadsNumbersNotZeroAsTrue) {
+    BooleanReadField big;
+    big.pointer = "/big";
+    big.channel = 1;
+    BooleanReadField negative = big;
+    negative.pointer = "/negative";
+    negative.channel = 2;
+    BooleanReadField zero = big;
+    zero.pointer = "/zero";
+    zero.channel = 3;
+    ReadEndpoint ep;
+    ep.fields = {big, negative, zero};
+    ReadTaskConfig cfg;
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "big", .data_type = x::telem::BOOLEAN_T};
+    cfg.channels[2] = {.key = 2, .name = "negative", .data_type = x::telem::BOOLEAN_T};
+    cfg.channels[3] = {.key = 3, .name = "zero", .data_type = x::telem::BOOLEAN_T};
+
+    auto [fr, res] = read_once(cfg, R"({"big": 256, "negative": -1, "zero": 0})");
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty());
+    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(2, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(3, 0), 0);
+}
+
 /// @brief it should write the exact typed integer fill of a parsed config when the
 /// value is absent.
 TEST(HTTPReadTask, ParsedIntegerFillWritesExactly) {

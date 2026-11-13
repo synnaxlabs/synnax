@@ -53,11 +53,18 @@ const MAX_FLOAT32 = 3.4028234663852886e38;
  * @returns v, a float or the decimal text of an integer, as a value of the kind of the
  * data type, or undefined when a channel of the data type cannot hold it exactly.
  */
+const NON_FINITE = new Set(["NaN", "Infinity", "-Infinity"]);
+
+const INTEGER_TEXT = /^-?\d+$/;
+
 const convertNumber = (
   v: number | string,
   kind: NumericKind,
   dataType: DataType,
 ): number | string | undefined => {
+  // Text is an integer, or the text of a non-finite float that the Core sent.
+  if (typeof v === "string" && !INTEGER_TEXT.test(v))
+    return kind === "float" && NON_FINITE.has(v) ? Number(v) : undefined;
   const f = typeof v === "number" ? v : Number(v);
   if (kind === "float") {
     if (typeof v === "string" && Number.isFinite(f) && BigInt(f) !== BigInt(v))
@@ -155,8 +162,6 @@ export const formatFill = (field: FillField): string =>
   field.fill == null || (field.type === "float" && Number.isNaN(Number(field.fill)))
     ? ""
     : String(field.fill);
-
-const NON_FINITE = new Set(["NaN", "Infinity", "-Infinity"]);
 
 /**
  * @returns the field with the fill that the text states, or null when the text does not

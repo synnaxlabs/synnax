@@ -44,21 +44,17 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 	return autoMigrateReadConfig(ctx, old)
 }
 
-// MigrateReadEndpoint lifts a v4 read endpoint to v5, as MigrateReadField does for each
-// field. The field that indexes the endpoint is a timestamp field.
-func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
-	return liftReadEndpoint(old, nil, ignore), nil
-}
-
-// MigrateReadField lifts a v4 read field to v5. The stored data type picks the kind. A
-// field with a time format and the float64 default or an unknown data type is a
-// timestamp field, because v4 used a time format only on a timestamp channel. On any
-// other data type the time format is left over, and the field keeps its kind. A float,
-// integer, or unsigned field keeps the data type for a new channel. An enum entry
-// converts when the kind holds its value, and a boolean entry is true when its value is
-// not 0. A string or timestamp field drops its entries, and a timestamp field with no
-// time format takes ISO 8601. Of entries that repeat a label, the first stays, and an
-// empty label drops on a kind other than string.
+// MigrateReadEndpoint lifts a v4 read endpoint to v5.
+//
+// Each field lifts as follows. The stored data type picks the kind. The field that
+// indexes the endpoint is a timestamp field. So is a field with a time format, no enum
+// entries, and the float64 default or an unknown data type, because v4 used a time
+// format only on a timestamp channel. Any other time format is left over, and the field
+// keeps its kind. A float, integer, or unsigned field keeps the data type for a new
+// channel. An enum entry converts when the kind holds its value, and a boolean entry is
+// true when its value is not 0. A string or timestamp field drops its entries, and a
+// timestamp field with no time format takes ISO 8601. Of entries that repeat a label,
+// the first stays, and an empty label drops on a kind other than string.
 //
 // An optional field's fill converts to the kind as the v4 Driver read it: an enum label
 // converts to the value of its entry, other text on a numeric field reads as a number,
@@ -66,8 +62,8 @@ func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, 
 // float field with no fill takes NaN. A fill that does not convert, a fill on a field
 // that is not optional, and an optional field with no fill on any other kind drop,
 // because the Driver rejected each of them. An unknown data type reads as float64.
-func MigrateReadField(old v4.ReadField) ReadField {
-	return liftReadField(old, false, nil, ignore)
+func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	return liftReadEndpoint(old, nil, ignore), nil
 }
 
 // NewReadMigration returns the migration that lifts stored v4 read configs to v5,
@@ -154,7 +150,8 @@ func liftReadEndpoint(
 			if ch, ok := found[f.Channel]; ok {
 				channelType = &ch.DataType
 			}
-			return liftReadField(f, f.Key == old.Index, channelType, warn)
+			index := old.Index != "" && f.Key == old.Index
+			return liftReadField(f, index, channelType, warn)
 		}),
 		Index: old.Index,
 	}
@@ -172,7 +169,8 @@ func liftReadField(
 		old.DataType = *channelType
 	case index:
 		old.DataType = telem.TimestampT
-	case old.TimeFormat != nil && defaultDataType(old.DataType):
+	case old.TimeFormat != nil && len(old.EnumValues) == 0 &&
+		defaultDataType(old.DataType):
 		old.DataType = telem.TimestampT
 	}
 	kind, ok := xpayload.KindOf(old.DataType)

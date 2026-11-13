@@ -29,6 +29,16 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+// lift migrates f through an endpoint that f does not index.
+func lift(f v4.ReadField) v5.ReadField {
+	GinkgoHelper()
+	ep := MustSucceed(v5.MigrateReadEndpoint(
+		context.Background(),
+		v4.ReadEndpoint{Fields: []v4.ReadField{f}},
+	))
+	return ep.Fields[0]
+}
+
 func storedChannels(found map[channel.Key]v5.Channel) v5.Channels {
 	return func(
 		context.Context,
@@ -162,12 +172,25 @@ var _ = Describe("Read field migration", func() {
 			timestamp := ep.Fields[0].Variant.(v5.TimestampReadField)
 			Expect(timestamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
 		})
+
+		It(
+			"Should not index a field with an empty key on an endpoint with no index",
+			func(ctx SpecContext) {
+				field := optionalField(telem.Float64T, nil)
+				field.Key = ""
+				ep := MustSucceed(v5.MigrateReadEndpoint(ctx, v4.ReadEndpoint{
+					Fields: []v4.ReadField{field},
+				}))
+				float := ep.Fields[0].Variant.(v5.FloatReadField)
+				Expect(math.IsNaN(float64(*float.Fill))).To(BeTrue())
+			},
+		)
 	})
 
-	Describe("MigrateReadField", func() {
+	Describe("Field lift", func() {
 		DescribeTable("Should pick the kind of the stored data type",
 			func(ctx SpecContext, dt telem.DataType, kind payload.Kind) {
-				f := v5.MigrateReadField(untypedField(dt))
+				f := lift(untypedField(dt))
 				Expect(f.Type()).To(Equal(kind))
 			},
 			Entry("float64", telem.Float64T, payload.KindFloat),
@@ -182,19 +205,19 @@ var _ = Describe("Read field migration", func() {
 		)
 
 		It("Should read an unknown data type as float64", func() {
-			f := v5.MigrateReadField(untypedField("complex128"))
+			f := lift(untypedField("complex128"))
 			Expect(*f.Variant.(v5.FloatReadField).DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should keep the data type of a numeric field", func(ctx SpecContext) {
-			f := v5.MigrateReadField(untypedField(telem.Int16T))
+			f := lift(untypedField(telem.Int16T))
 			Expect(*f.Variant.(v5.IntegerReadField).DataType).To(Equal(telem.Int16T))
 		})
 
 		It("Should keep the time format of a timestamp field", func() {
 			old := untypedField(telem.TimestampT)
 			old.TimeFormat = new(payload.TimeFormatUnixMs)
-			f := v5.MigrateReadField(old)
+			f := lift(old)
 			Expect(f.Variant.(v5.TimestampReadField).TimeFormat).
 				To(Equal(payload.TimeFormatUnixMs))
 		})
@@ -202,7 +225,7 @@ var _ = Describe("Read field migration", func() {
 		It("Should read a field with a time format as a timestamp field", func() {
 			old := untypedField(telem.Float64T)
 			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			f := v5.MigrateReadField(old)
+			f := lift(old)
 			Expect(f.Variant.(v5.TimestampReadField).TimeFormat).
 				To(Equal(payload.TimeFormatUnixSec))
 		})
@@ -211,7 +234,7 @@ var _ = Describe("Read field migration", func() {
 			func() {
 				old := optionalField(telem.Float64T, nil)
 				old.TimeFormat = new(payload.TimeFormatUnixSec)
-				f := v5.MigrateReadField(old)
+				f := lift(old)
 				Expect(f.Variant.(v5.TimestampReadField).TimeFormat).
 					To(Equal(payload.TimeFormatUnixSec))
 			},
@@ -222,23 +245,36 @@ var _ = Describe("Read field migration", func() {
 				telem.Int16T, payload.EnumEntry{Label: "ON", Value: 1},
 			)
 			old.TimeFormat = new(payload.TimeFormatUnixSec)
-			integer := v5.MigrateReadField(old).Variant.(v5.IntegerReadField)
+			integer := lift(old).Variant.(v5.IntegerReadField)
 			Expect(integer.EnumValues).To(Equal(
 				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
 			))
 		})
 
+		It("Should keep the kind of a float64 field with a time format and entries",
+			func() {
+				old := untypedField(
+					telem.Float64T, payload.EnumEntry{Label: "ON", Value: 1},
+				)
+				old.TimeFormat = new(payload.TimeFormatUnixSec)
+				float := lift(old).Variant.(v5.FloatReadField)
+				Expect(float.EnumValues).To(Equal(
+					[]payload.FloatEntry{{Label: "ON", Value: 1}},
+				))
+			},
+		)
+
 		It("Should give a timestamp field with no time format ISO 8601", func(
 			ctx SpecContext,
 		) {
-			f := v5.MigrateReadField(untypedField(telem.TimestampT))
+			f := lift(untypedField(telem.TimestampT))
 			Expect(f.Variant.(v5.TimestampReadField).TimeFormat).
 				To(Equal(payload.TimeFormatISO8601))
 		})
 
 		Describe("Entries", func() {
 			It("Should keep every entry of a float field", func(ctx SpecContext) {
-				f := v5.MigrateReadField(untypedField(
+				f := lift(untypedField(
 					telem.Float64T,
 					payload.EnumEntry{Label: "HALF", Value: 0.5},
 					payload.EnumEntry{Label: "ON", Value: 1},
@@ -254,7 +290,7 @@ var _ = Describe("Read field migration", func() {
 			It("Should drop the entries an integer field cannot hold", func(
 				ctx SpecContext,
 			) {
-				f := v5.MigrateReadField(untypedField(
+				f := lift(untypedField(
 					telem.Int16T,
 					payload.EnumEntry{Label: "LOW", Value: -3},
 					payload.EnumEntry{Label: "HALF", Value: 0.5},
@@ -268,7 +304,7 @@ var _ = Describe("Read field migration", func() {
 			It("Should drop the negative entries of an unsigned field", func(
 				ctx SpecContext,
 			) {
-				f := v5.MigrateReadField(untypedField(
+				f := lift(untypedField(
 					telem.Uint8T,
 					payload.EnumEntry{Label: "LOW", Value: -1},
 					payload.EnumEntry{Label: "HIGH", Value: 2},
@@ -281,7 +317,7 @@ var _ = Describe("Read field migration", func() {
 			It("Should make a boolean entry true when its value is not 0", func(
 				ctx SpecContext,
 			) {
-				f := v5.MigrateReadField(untypedField(
+				f := lift(untypedField(
 					telem.BooleanT,
 					payload.EnumEntry{Label: "OFF", Value: 0},
 					payload.EnumEntry{Label: "ON", Value: 2},
@@ -295,7 +331,7 @@ var _ = Describe("Read field migration", func() {
 			})
 
 			It("Should drop the entries of a string field", func(ctx SpecContext) {
-				f := v5.MigrateReadField(untypedField(
+				f := lift(untypedField(
 					telem.StringT,
 					payload.EnumEntry{Label: "ON", Value: 1},
 				))
@@ -305,7 +341,7 @@ var _ = Describe("Read field migration", func() {
 			It(
 				"Should keep the first entry of a repeated label",
 				func(ctx SpecContext) {
-					f := v5.MigrateReadField(untypedField(
+					f := lift(untypedField(
 						telem.Uint8T,
 						payload.EnumEntry{Label: "ON", Value: 1},
 						payload.EnumEntry{Label: "HIGH", Value: 1},
@@ -330,14 +366,14 @@ var _ = Describe("Read field migration", func() {
 			It("Should fill an optional float field with no fill with NaN", func(
 				ctx SpecContext,
 			) {
-				f := v5.MigrateReadField(optionalField(telem.Float64T, nil))
+				f := lift(optionalField(telem.Float64T, nil))
 				Expect(math.IsNaN(float64(*f.Variant.(v5.FloatReadField).Fill))).
 					To(BeTrue())
 			})
 
 			DescribeTable("Should convert the fill to the kind",
 				func(ctx SpecContext, field v4.ReadField, expected any) {
-					f := v5.MigrateReadField(field)
+					f := lift(field)
 					Expect(fillOf(f)).To(Equal(expected))
 				},
 				Entry("a float",
@@ -375,7 +411,7 @@ var _ = Describe("Read field migration", func() {
 
 			DescribeTable("Should drop a fill the Driver rejected",
 				func(ctx SpecContext, field v4.ReadField) {
-					f := v5.MigrateReadField(field)
+					f := lift(field)
 					Expect(fillOf(f)).To(BeNil())
 				},
 				Entry("on a field that is not optional", func() v4.ReadField {
