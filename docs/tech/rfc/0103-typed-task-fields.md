@@ -207,8 +207,9 @@ read field, and the target's channel for a channel field. It binds only when tha
 channel exists and holds the field's `data_type`. Otherwise, and always on Kafka, whose
 devices store no channels, it creates one, and its key replaces the stored one. A name
 that a channel already holds fails configure, and the message tells the user to rename
-the field. It then saves the field as bound. An adapter keeps the atomic Phase 13 near
-400 lines, and Phase 15 deletes it.
+the field. An unbound index field first takes the index of the bound channels next to
+it, as today, and creates an index only when none has one. It then saves the field as
+bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
