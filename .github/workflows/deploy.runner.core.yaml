@@ -1,0 +1,75 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Installs a Synnax Core release or dev build on Sandbox-Windows. It backs up the Core
+# first unless the backup input is off.
+
+name: Deploy - Runner Core
+
+on:
+  workflow_dispatch:
+    inputs:
+      core:
+        description: >-
+          A release version, or the URL of a run or job that built the Core. Empty
+          deploys the pinned release.
+        type: string
+      backup:
+        description: Back up the Core first
+        type: boolean
+        default: true
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency: deploy-runners
+
+env:
+  INSTANCE: i-0daf42c1631de819a
+  # The release that a run with no core input deploys.
+  PINNED_CORE: 0.61.0
+
+jobs:
+  deploy:
+    name: Deploy the Core to Sandbox-Windows
+    runs-on: ubuntu-latest
+    environment: runners
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            scripts/runners
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: arn:aws:iam::004704223095:role/github-runners-deploy
+          aws-region: us-east-1
+
+      - name: Back up
+        if: inputs.backup
+        env:
+          COMMENT: Back up the Core at ${{ github.sha }}
+          TIMEOUT: 1800
+        run: .github/scripts/run_ssm_powershell.sh < scripts/runners/backup.ps1
+
+      - name: Deploy
+        env:
+          CORE: ${{ inputs.core || env.PINNED_CORE }}
+          GH_TOKEN: ${{ github.token }}
+          COMMENT: Deploy the Core at ${{ github.sha }}
+          TIMEOUT: 900
+        run: |
+          .github/scripts/runner_core_source.sh "$CORE" > "$RUNNER_TEMP/deploy_core.ps1"
+          cat scripts/runners/deploy_core.ps1 >> "$RUNNER_TEMP/deploy_core.ps1"
+          .github/scripts/run_ssm_powershell.sh < "$RUNNER_TEMP/deploy_core.ps1"

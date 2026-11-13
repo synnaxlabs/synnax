@@ -13,12 +13,7 @@
 name: Backup - Runner Core
 
 on:
-  workflow_call:
   workflow_dispatch:
-  # Temporary, to test on this branch. Remove before the merge.
-  push:
-    branches:
-      - sy/ci-runner-core-deploy
 
 permissions:
   contents: read

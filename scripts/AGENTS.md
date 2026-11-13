@@ -125,7 +125,8 @@ Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Nev
 the scripts by hand on the box.
 
 Back up the Core on the box with the `Backup - Runner Core` workflow, which runs
-`backup.ps1` over SSM.
+`backup.ps1` over SSM. Install a Core release or dev build with the
+`Deploy - Runner Core` workflow, which backs up first and then runs `deploy_core.ps1`.
 
 The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
 controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.
