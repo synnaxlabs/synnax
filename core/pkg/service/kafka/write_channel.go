@@ -22,7 +22,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
