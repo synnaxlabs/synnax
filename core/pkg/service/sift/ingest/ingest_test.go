@@ -1224,6 +1224,33 @@ var _ = Describe("Engine", func() {
 				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
 			})
 
+		It("Should stop within the stop timeout when Sift stops reading",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				write(ctx, idx, stamps, map[channel.Key]telem.Series{
+					ch.Key(): telem.NewSeries(make([]float64, count)),
+				})
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					StopTimeout: 100 * telem.Millisecond,
+				})
+				server.Pause()
+				DeferCleanup(server.Resume)
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
+				Eventually(server.Streams).Should(Equal(1))
+				// Gives the sends time to fill the stream that Sift does not read.
+				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+			})
+
 		It("Should read from storage when it falls behind the live samples",
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)
