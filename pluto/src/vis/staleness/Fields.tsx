@@ -24,13 +24,14 @@ export interface FieldsProps {
 }
 
 // The Core stores the timeout as int64 nanoseconds, and a client holds it as a float64,
-// so the bound stays below 2^53 ns.
-const MAX_TIMEOUT = TimeSpan.days(100);
+// so the Core and the client bound it at 2^53 - 1 ns.
+const MAX_TIMEOUT = new TimeSpan(Number.MAX_SAFE_INTEGER);
 
 /** @returns why a staleness timeout is out of bounds, or null when it is valid. */
 export const checkTimeout = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.SECOND)) return "Timeout must be 1s or more";
-  if (span.greaterThan(MAX_TIMEOUT)) return "Timeout must be 100d or less";
+  if (span.greaterThan(MAX_TIMEOUT))
+    return `Timeout must be ${MAX_TIMEOUT.toString()} or less`;
   return null;
 };
 

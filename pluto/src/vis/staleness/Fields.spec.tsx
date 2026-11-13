@@ -52,16 +52,28 @@ describe("Staleness.Fields", () => {
     await waitFor(() => expect(value(path.stalenessTimeout)).toBe(7));
   });
 
-  it("should reject a timeout longer than 100 days", () => {
+  it("should accept a timeout up to the longest that the Core stores", async () => {
+    const { value } = renderForm(
+      <Staleness.Fields unit={TimeSpan.SECOND} />,
+      { stalenessTimeout: 3 },
+      schema,
+    );
+    typeTimeout("104d");
+    await waitFor(() =>
+      expect(value(path.stalenessTimeout)).toBe(TimeSpan.days(104).seconds),
+    );
+  });
+
+  it("should reject a timeout longer than the Core stores", () => {
     const { value } = renderForm(
       <Staleness.Fields unit={TimeSpan.SECOND} />,
       { stalenessTimeout: 3 },
       schema,
     );
     fireEvent.focus(field());
-    fireEvent.change(field(), { target: { value: "300y" } });
+    fireEvent.change(field(), { target: { value: "105d" } });
     fireEvent.keyDown(field(), { key: "Enter" });
-    expect(screen.getByText("Timeout must be 100d or less")).toBeDefined();
+    expect(screen.getByText(/^Timeout must be .* or less$/)).toBeDefined();
     expect(value(path.stalenessTimeout)).toBe(3);
   });
 });

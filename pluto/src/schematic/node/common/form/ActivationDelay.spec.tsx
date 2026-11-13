@@ -55,13 +55,19 @@ describe("ActivationDelayField", () => {
     expect(methods.value().onClickDelay).toBe(250_000_000);
   });
 
-  it("should reject a delay longer than 24 days", () => {
+  it("should accept the longest delay that the Core stores", () => {
+    render(<Host values={{ onClickDelay: 0 }} />);
+    typeDelay("2147483647");
+    expect(methods.value().onClickDelay).toBe(2_147_483_647_000_000);
+  });
+
+  it("should reject a delay longer than the Core stores", () => {
     render(<Host values={{ onClickDelay: 0 }} />);
     const input = screen.getByLabelText<HTMLInputElement>(/Delay/);
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "30d" } });
+    fireEvent.change(input, { target: { value: "2147483648" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(screen.getByText("Delay must be 24d or less")).toBeDefined();
+    expect(screen.getByText(/^Delay must be .* or less$/)).toBeDefined();
     expect(methods.value().onClickDelay).toBe(0);
   });
 });
