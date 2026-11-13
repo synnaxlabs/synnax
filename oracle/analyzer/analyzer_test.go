@@ -4125,6 +4125,46 @@ Node union on variant {
 				Expect(boxed.Type.TypeArgs[0].TypeArgs[0].Name).To(Equal("string"))
 			},
 		)
+
+		It(
+			"Should keep an array on a type parameter constraint and default",
+			func() {
+				source := `
+				Box struct<T extends uint16[], U = uint8[2]> {
+					a T
+					b U
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form, ok := table.MustGet("test.Box").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				Expect(form.TypeParams).To(HaveLen(2))
+				constraint := form.TypeParams[0].Constraint
+				Expect(constraint.Name).To(Equal("Array"))
+				Expect(constraint.TypeArgs[0].Name).To(Equal("uint16"))
+				def := form.TypeParams[1].Default
+				Expect(def.Name).To(Equal("Array"))
+				Expect(def.ArraySize).To(HaveValue(BeEquivalentTo(2)))
+			},
+		)
+
+		It("Should reject an array as a union variant", func() {
+			source := `
+				Line struct {
+					a string
+				}
+
+				Shape union on kind {
+					lines Line[]
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`union Shape variant "lines" must reference a struct type`,
+			))
+		})
 	})
 
 	Describe("Recursive Types", func() {
