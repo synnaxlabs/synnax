@@ -636,6 +636,19 @@ class TestRangeClient:
             assert client.ranges.retrieve(key=parent_rng.key).has_children
             assert not client.ranges.retrieve(key=child.key).has_children
 
+        def test_to_payload_has_children(self, client: sy.Synnax) -> None:
+            """Should keep has_children in the payload of a retrieved parent range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            retrieved = client.ranges.retrieve(key=parent_rng.key)
+            assert retrieved.to_payload().has_children
+
         def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax) -> None:
             """Client.create(parent=range) should attach the child under the parent"""
             parent_rng = client.ranges.create(
