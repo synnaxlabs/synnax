@@ -980,10 +980,13 @@ func processField(
 
 	baseType := typeToPython(field.Type, table, data)
 	validateDomain := field.Domains["validate"]
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
 	fieldConstraints := collectValidation(
 		validateDomain,
 		field.Default,
 		field.Type,
+		!isKey,
 		table,
 		data,
 	)
@@ -1147,10 +1150,12 @@ func collectValidation(
 	domain resolution.Domain,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
+	refusesZero bool,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
 	rules := validation.Parse(domain)
+	required := rules.Required && refusesZero
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
@@ -1159,6 +1164,11 @@ func collectValidation(
 		resolution.IsStringPrimitive(typeRef.Name)
 	primitive := key.ResolvePrimitive(typeRef, table)
 	isNumber := resolution.IsNumberPrimitive(primitive)
+	// A required string, aliased or not, is nonempty. A UUID has no length.
+	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
+	if requiredString && !isString && rules.MinLength == nil {
+		constraints = append(constraints, "min_length=1")
+	}
 	if isString {
 		switch {
 		case rules.MinLength != nil:
@@ -1166,7 +1176,7 @@ func collectValidation(
 				constraints,
 				fmt.Sprintf("min_length=%d", *rules.MinLength),
 			)
-		case rules.Required:
+		case requiredString:
 			constraints = append(constraints, "min_length=1")
 		}
 		if rules.MaxLength != nil {
@@ -1178,7 +1188,7 @@ func collectValidation(
 	}
 	if isNumber {
 		// A required unsigned integer is nonzero, so it is greater than zero.
-		if rules.Required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+		if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
 			rules.GT == nil {
 			constraints = append(constraints, "gt=0")
 		}

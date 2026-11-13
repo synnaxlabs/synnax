@@ -184,8 +184,8 @@ class Device(BaseModel):
     key: Key
     rack: rack_.Key = Field(gt=0, le=4294967295)
     location: str = Field(min_length=1)
-    make: str
-    model: str
+    make: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     name: str = Field(min_length=1)
     configured: bool = False
     properties: dict[str, JsonValue] = Field(default_factory=dict)

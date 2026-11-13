@@ -967,7 +967,10 @@ func (p *Plugin) parseExprForField(
 //
 //	@validate	required also refuses its zero value, as Go and TypeScript do.
 func fieldFunc(field resolution.Field, table *resolution.Table) string {
-	if field.Optional || !validation.Parse(field.Domains["validate"]).Required {
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
+	if isKey || field.Optional ||
+		!validation.Parse(field.Domains["validate"]).Required {
 		return "field"
 	}
 	base := resolution.PrimitiveBase(field.Type, table)

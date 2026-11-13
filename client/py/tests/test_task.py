@@ -601,11 +601,13 @@ class TestTaskClient:
     def test_task_converts_config_to_json(self) -> None:
         """Should convert a UUID in a Task config to a string."""
         ref = uuid4()
-        assert sy.Task(config={"ref": ref}).to_payload().config == {"ref": str(ref)}
+        assert sy.Task(name="Task", config={"ref": ref}).to_payload().config == {
+            "ref": str(ref)
+        }
 
     def test_task_converts_reassigned_config_to_json(self) -> None:
         """Should convert a UUID in a config set after construction to a string."""
-        tsk = sy.Task()
+        tsk = sy.Task(name="Task")
         ref = uuid4()
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}

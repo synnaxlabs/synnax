@@ -212,7 +212,8 @@ class TestMQTTWriteTask:
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
-        assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
+        task = sy.mqtt.WriteTask(name="Write", device="broker-1")
+        assert task.to_payload().type == "mqtt_write"
 
     def test_create_and_retrieve_write_task(
         self, client: sy.Synnax, task_targets: TaskTargets

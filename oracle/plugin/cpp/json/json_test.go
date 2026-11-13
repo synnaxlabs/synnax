@@ -713,6 +713,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 					Serial = uint32
 
 					Device struct {
+						key      uint32 {
+							@key
+							@validate required
+						}
 						name     string @validate required
 						serial   Serial @validate required
 						label    string?
@@ -722,6 +726,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
+							`.key = parser.field<std::uint32_t>("key"),`,
 							`.name = parser.required_field<std::string>("name"),`,
 							`.serial = parser.required_field<Serial>("serial"),`,
 							`.label = parser.field<std::optional<std::string>>("label"),`,
