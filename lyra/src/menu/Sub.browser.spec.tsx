@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -111,6 +111,12 @@ const top = (el: Element): number => el.getBoundingClientRect().top;
 const lit = (): string => resolve("var(--pluto-gray-l4)", "background-color");
 
 describe("Menu.Sub", () => {
+  // The default window is too narrow for a menu and a submenu side by side, so the
+  // submenu would clamp to the window edge over the menu.
+  beforeEach(async () => {
+    await page.viewport(800, 600);
+  });
+
   describe("place", () => {
     it("should open with its first item level with its own item", async () => {
       await open("Move");
@@ -158,11 +164,8 @@ describe("Menu.Sub", () => {
       const labels = item("Labels");
       const stage = item("Stage");
       await userEvent.hover(labels, { position: { x: 10, y: 14 } });
-      // WebKit can draw no frames after a pointer move, so a hover that waits for the
-      // item to hold still for two frames waits past the aim.
       await userEvent.hover(stage, {
         position: { x: stage.getBoundingClientRect().width - 4, y: 4 },
-        force: true,
       });
       expect(computed(stage, "background-color")).toBe(resolve("transparent"));
       expect(computed(labels, "background-color")).toBe(lit());
