@@ -1,0 +1,128 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/labjack/device"
+@go output  "core/pkg/service/labjack/device"
+@py output  "client/py/synnax/labjack/device"
+@ts output  "client/ts/src/labjack/device"
+
+Key = uuid {
+    @doc value "uniquely identifies a LabJack device."
+}
+
+Model enum {
+    t4 = "t4" {
+        @doc value "is a T4."
+    }
+    t7 = "t7" {
+        @doc value "is a T7."
+    }
+    t8 = "t8" {
+        @doc value "is a T8."
+    }
+
+    @doc value "is the model of a LabJack device."
+}
+
+Connection enum {
+    usb = "LJM_ctUSB" {
+        @doc value "is a USB connection."
+    }
+    tcp = "LJM_ctTCP" {
+        @doc value "is a TCP connection over Ethernet or Wi-Fi."
+    }
+
+    @doc value """
+        is the connection of a LabJack device, named by its LJM connection type.
+    """
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the device belongs to."
+    }
+    device Key      {
+        @doc value "is the key of the device."
+    }
+
+    @doc value "identifies the device and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a device."
+}
+
+Base struct {
+    key               Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack              rack.Key    {
+        @doc value     "is the key of the rack the device is connected to."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name              string      {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @search
+        @validate required
+    }
+    serial            uint32      {
+        @doc value         "is the serial number of the device."
+        @filter
+        @index lookup
+        @validate required
+    }
+    connection        Connection  {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    identifier        string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    status            Status?     {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+
+    @doc value  "carries the fields that every LabJack device shares."
+    @go marshal
+}
+
+Device union on model Model extends Base {
+    t4 {
+        @doc value "is a T4."
+    }
+    t7 {
+        @doc value "is a T7."
+    }
+    t8 {
+        @doc value "is a T8."
+    }
+
+    @create
+    @doc value     "is a LabJack T-series device. Its model selects the ports it has."
+    @go marshal
+    @go migrate
+    @resource type "labjack_device"
+    @retrieve
+}

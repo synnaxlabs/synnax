@@ -8,12 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Callable, Iterator
-from typing import cast
+from typing import ClassVar, cast
+from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
+import synnax.labjack.device
 from tests.json_value import obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
@@ -662,3 +664,43 @@ class TestLabJackDevicePropertyUpdates:
         assert obj(props, "DO", "channels") == {
             "DIO4": {"command": fio4_cmd.key, "state": fio4_state.key}
         }
+
+
+@pytest.mark.labjack
+class TestLabJackDeviceResource:
+    """Tests for the typed LabJack device resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    DEVICE: ClassVar[dict[str, object]] = {
+        "rack": 1,
+        "name": "T7-0001",
+        "serial": 470010001,
+        "connection": "LJM_ctUSB",
+        "model": "t7",
+    }
+
+    def test_parses_the_model_variant(self) -> None:
+        """Should parse the variant that the model names and leave it unconfigured."""
+        device = TypeAdapter(sy.labjack.device.Device).validate_python(self.DEVICE)
+        assert isinstance(device, sy.labjack.device.T7Device)
+        assert device.identifier == ""
+        assert device.read_index == 0
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"model": "t9"},
+            {"connection": "LJM_ctWIFI"},
+            {"serial": None},
+        ],
+    )
+    def test_rejects_an_invalid_device(self, change: dict[str, object]) -> None:
+        """Should reject an unknown model or connection and a missing serial."""
+        data = {k: v for k, v in {**self.DEVICE, **change}.items() if v is not None}
+        with pytest.raises(ValidationError):
+            TypeAdapter(sy.labjack.device.Device).validate_python(data)
+
+    def test_resource_id(self) -> None:
+        """Should name the device by its key under the labjack_device type."""
+        assert sy.labjack.device.resource_id(self.KEY).type == "labjack_device"
+        assert sy.labjack.device.resource_id(self.KEY).key == str(self.KEY)
