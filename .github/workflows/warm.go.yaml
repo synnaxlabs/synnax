@@ -64,10 +64,12 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # A run restores only the newest cache, so the older ones only evict others.
+  # A run restores only the newest cache, so the older ones only evict others. A job
+  # whose tests fail still saves, so the prune runs after a failure too.
   prune:
     name: Prune older caches
     needs: [core, core-ginkgo]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
