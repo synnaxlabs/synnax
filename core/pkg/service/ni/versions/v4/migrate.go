@@ -90,6 +90,12 @@ func MigrateCJC(ctx context.Context, old v3.CJC) (CJC, error) {
 	return cjc, nil
 }
 
+// MigrateTerminal lifts a v3 terminal to v4. The NI device schema now defines its
+// terminal configuration, with the same values.
+func MigrateTerminal(ctx context.Context, old v3.Terminal) (Terminal, error) {
+	return autoMigrateTerminal(ctx, old)
+}
+
 // MigrateDIChannel lifts a v3 digital input channel to v4. A port above 65535 clamps
 // and disables the channel.
 func MigrateDIChannel(ctx context.Context, old v3.DIChannel) (DIChannel, error) {

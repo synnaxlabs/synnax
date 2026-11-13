@@ -72,8 +72,8 @@ export const createNIDevice = async (
  * differential, and also take thermocouples. It has two analog outputs, two 8-line
  * digital ports, four counters, the terminals PFI0 to PFI3, and analog ranges.
  */
-export const createHardware = (): ni.Hardware =>
-  ni.hardwareZ.parse({
+export const createHardware = (): ni.device.Hardware =>
+  ni.device.hardwareZ.parse({
     analogInputs: Array.from({ length: 16 }, (_, port) =>
       port < 8
         ? {

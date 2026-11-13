@@ -253,7 +253,7 @@ bool has_complete_hardware(const x::json::json::object_t &properties) {
     const auto it = properties.find(HARDWARE_KEY);
     if (it == properties.end()) return false;
     x::json::Parser parser(it->second);
-    const auto hardware = ::synnax::ni::Hardware::parse(parser);
+    const auto hardware = ::synnax::ni::device::Hardware::parse(parser);
     return parser.ok() && is_complete(hardware);
 }
 }

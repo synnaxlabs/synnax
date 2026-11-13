@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ni import chassis, device
+from synnax.ni.device import TerminalConfig
 from synnax.ni.types import (
     MAKE,
     AnalogReadTask,
@@ -98,7 +99,6 @@ from synnax.ni.types_gen import (
     ExcitationSource,
     ForceSensitivityUnits,
     ForceUnits,
-    Hardware,
     LinearScale,
     MapScale,
     MinMaxVal,
@@ -113,7 +113,6 @@ from synnax.ni.types_gen import (
     StrainConfig,
     TableScale,
     TemperatureUnits,
-    TerminalConfig,
     ThermocoupleType,
     TorqueUnits,
     Units,
@@ -212,7 +211,6 @@ __all__ = [
     "ExcitationSource",
     "ForceSensitivityUnits",
     "ForceUnits",
-    "Hardware",
     "LinearScale",
     "MapScale",
     "MinMaxVal",

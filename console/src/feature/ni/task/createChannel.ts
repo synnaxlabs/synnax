@@ -56,7 +56,7 @@ const template = <C extends { key: string }>(
   return deep.copy(channels.find(({ key }) => key === copy) ?? zero);
 };
 
-const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (devices: Device[], key: string): ni.device.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 /**

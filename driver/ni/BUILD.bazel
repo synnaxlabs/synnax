@@ -35,6 +35,7 @@ cc_library(
         ":names",
         "//client/cpp:synnax",
         "//client/cpp/ni",
+        "//client/cpp/ni/device",
         "//driver/common",
         "//driver/ni/channel",
         "//driver/ni/daqmx",
@@ -73,7 +74,7 @@ cc_test(
     name = "probe_test",
     srcs = ["probe_test.cpp"],
     deps = [
-        "//client/cpp/ni",
+        "//client/cpp/ni/device",
         "//driver/ni",
         "//driver/ni/daqmx:mock",
         "//x/cpp/testutil",

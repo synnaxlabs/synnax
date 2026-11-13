@@ -18,7 +18,8 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
@@ -157,22 +158,6 @@ const (
 	ExcitationSourceExternal ExcitationSource = v3.ExcitationSourceExternal
 	// ExcitationSourceNone uses no excitation.
 	ExcitationSourceNone ExcitationSource = v3.ExcitationSourceNone
-)
-
-// TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = v3.TerminalConfig
-
-const (
-	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
-	TerminalConfigCfgDefault TerminalConfig = v3.TerminalConfigCfgDefault
-	// TerminalConfigRse is referenced single ended.
-	TerminalConfigRse TerminalConfig = v3.TerminalConfigRse
-	// TerminalConfigNrse is non-referenced single ended.
-	TerminalConfigNrse TerminalConfig = v3.TerminalConfigNrse
-	// TerminalConfigDiff is differential.
-	TerminalConfigDiff TerminalConfig = v3.TerminalConfigDiff
-	// TerminalConfigPseudoDiff is pseudo-differential.
-	TerminalConfigPseudoDiff TerminalConfig = v3.TerminalConfigPseudoDiff
 )
 
 // BridgeConfig selects the physical bridge wiring of a bridge-based sensor.
@@ -539,7 +524,30 @@ type NoneScale = v3.NoneScale
 type MinMaxVal = v3.MinMaxVal
 
 // Terminal configures the terminal wiring of an analog input channel.
-type Terminal = v3.Terminal
+type Terminal struct {
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig nidevice.TerminalConfig `json:"terminal_config" msgpack:"terminal_config"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (t *Terminal) ApplyDefaults() {
+	if t.TerminalConfig == "" {
+		t.TerminalConfig = nidevice.TerminalConfigCfgDefault
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Terminal) SetDefaults() {
+	t.TerminalConfig = nidevice.TerminalConfigCfgDefault
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Terminal) Validate() error {
+	v := validate.New("Terminal")
+	v.Ternaryf("terminal_config", !t.TerminalConfig.IsValid(), "invalid terminal_config: %v", t.TerminalConfig)
+	return v.Error()
+}
 
 // Sensitivity specifies a sensor's sensitivity rating.
 type Sensitivity = v3.Sensitivity
@@ -582,7 +590,7 @@ type BaseAIChannel struct {
 	// Port is the physical port the channel reads from.
 	Port uint16 `json:"port" msgpack:"port"`
 	// Device is the key of the device the channel belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 }
 
 // AIChannelType is the "type" value that selects a variant of AIChannel.
@@ -1493,7 +1501,7 @@ type AITempBuiltinChannel struct {
 	// Channel is the Synnax channel that raw samples are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Device is the key of the device the channel belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 }
@@ -3454,7 +3462,7 @@ type BaseCIChannel struct {
 	// Port is the physical counter the channel uses.
 	Port uint16 `json:"port" msgpack:"port"`
 	// Device is the key of the device the counter belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 }
 
 // CIChannelType is the "type" value that selects a variant of CIChannel.
@@ -5184,7 +5192,7 @@ func (a AnalogWriteConfig) Validate() error {
 type DigitalReadConfig struct {
 	task.ReadConfig
 	// Device is the key of the device the task acquires from.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
 	Channels []DIChannel `json:"channels" msgpack:"channels"`
 }

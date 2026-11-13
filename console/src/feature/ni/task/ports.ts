@@ -55,7 +55,7 @@ export type Claims = Task.Port.Claims<Claim>;
  */
 const resolveTerminalConfig = (
   channel: AIChannel,
-  port?: ni.AnalogInputPort,
+  port?: ni.device.AnalogInputPort,
 ): TerminalConfig | null => {
   if (!("terminalConfig" in channel)) return null;
   const { terminalConfig } = channel;
@@ -64,7 +64,10 @@ const resolveTerminalConfig = (
 };
 
 /** The ports an analog input channel holds: its own, then its negative input. */
-const analogInputHolds = (channel: AIChannel, hardware?: ni.Hardware): string[] => {
+const analogInputHolds = (
+  channel: AIChannel,
+  hardware?: ni.device.Hardware,
+): string[] => {
   if (!("port" in channel)) return [];
   const port = hardware?.analogInputs.find((p) => p.port === channel.port);
   if (
@@ -102,9 +105,9 @@ const numbered = (list: { port: number }[]): Port[] =>
 
 /** The digital ports that read input, or that write output. */
 export const digitalPorts = (
-  hardware: ni.Hardware,
+  hardware: ni.device.Hardware,
   direction: "input" | "output",
-): ni.DigitalPort[] => hardware.digitalPorts.filter((p) => p[direction]);
+): ni.device.DigitalPort[] => hardware.digitalPorts.filter((p) => p[direction]);
 
 /** The DAQmx name of a digital line, such as "port0/line3". */
 export const lineName = (port: number, line: number): string =>
@@ -205,9 +208,9 @@ export const groups = ({
 export interface PortKind<C extends Task.Channel> {
   /** The prefix of a port's DAQmx name: "ai", "ao", "ctr". */
   prefix: string;
-  ports: (hardware: ni.Hardware) => Port[];
+  ports: (hardware: ni.device.Hardware) => Port[];
   /** The names of the ports the channel holds, its own port first. */
-  holds: (channel: C, hardware?: ni.Hardware) => string[];
+  holds: (channel: C, hardware?: ni.device.Hardware) => string[];
   /** The name a channel shows by. */
   name: (channel: C, device: Device) => string;
 }
@@ -216,7 +219,7 @@ export interface PortKind<C extends Task.Channel> {
 export const claimsOf = <C extends Task.Channel>(
   kind: PortKind<C>,
   channels: C[],
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): Claims =>
   Task.Port.group(
     channels.flatMap((c) =>
@@ -237,7 +240,7 @@ export const holdState = <C extends Task.Channel>(
   kind: PortKind<C>,
   channels: C[],
   channel: C,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): Task.Port.State => {
   const claims = claimsOf(kind, channels, hardware);
   return Task.Port.stateOf(

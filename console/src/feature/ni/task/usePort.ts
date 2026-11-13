@@ -32,7 +32,7 @@ export const useChannelDevice = (
  */
 export const useAnalogInputPort = (
   path: deep.Target<ChannelSource>,
-): ni.AnalogInputPort | undefined => {
+): ni.device.AnalogInputPort | undefined => {
   const device = useChannelDevice(path);
   const port = Form.useFieldValue(deep.widen(path).port, { optional: true });
   return device?.properties.hardware?.analogInputs.find((p) => p.port === port);
