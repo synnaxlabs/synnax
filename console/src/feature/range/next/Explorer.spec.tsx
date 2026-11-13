@@ -224,6 +224,27 @@ describe("range/next/Explorer", () => {
       });
     });
 
+    it("should drop a running range once an end set later passes", async () => {
+      const token = uniqueToken();
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await filterInProgress(token);
+      await findItem(running.name);
+      const end = TimeStamp.now().add(TimeSpan.seconds(2));
+      expect(
+        await client.ranges.dispatch(
+          running.key,
+          ranger.set({ path: ["time_range", "end"], value: end.valueOf().toString() }),
+        ),
+      ).toBe(true);
+      await waitFor(
+        () => expect(screen.queryByRole("listitem", { name: running.name })).toBeNull(),
+        { timeout: 10_000 },
+      );
+    });
+
     it("should drop a range from its stage filter once the range ends", async () => {
       const token = uniqueToken();
       const start = TimeStamp.now();

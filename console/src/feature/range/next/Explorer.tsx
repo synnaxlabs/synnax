@@ -19,6 +19,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -264,7 +265,12 @@ const Internal = (): ReactElement => {
     eager: searching,
     searchDebounce: 0,
   });
-  const crossing = useCrossing(where, root.getItem(root.data), at);
+  const held = Store.useItems({
+    keys: root.data,
+    subscribe: root.subscribe,
+    getItem: root.getItem,
+  });
+  const crossing = useCrossing(where, held, at);
   const now = useNow(() => crossing);
   if (crossing != null && !now.before(crossing)) setAt(now);
   const handleSearch = useDebouncedCallback(
