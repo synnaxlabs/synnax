@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes LabJack devices in the transaction given to
@@ -41,25 +42,36 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
 			Message: "Status unknown",
-			Details: StatusDetails{Device: d.Key},
+			Details: StatusDetails{Device: d.Base().Key},
 		}
 	} else if err != nil {
 		return err
 	}
-	s.Name = d.Name
-	s.Details.Rack = d.Rack
+	s.Name = d.Base().Name
+	s.Details.Rack = d.Base().Rack
 	return w.status.Set(ctx, &s)
+}
+
+// validateDevice rejects a device with no model, which the generated Validate accepts.
+func validateDevice(d Device) error {
+	v := validate.New("device")
+	v.Ternary("model", d.Variant == nil, "required")
+	if err := v.Error(); err != nil {
+		return err
+	}
+	return d.Validate()
 }
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d is invalid or its rack does not exist.
+// validation error when d has no model, is invalid, or its rack does not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
-	if d.Key == uuid.Nil() {
-		d.Key = uuid.New()
-	}
-	if err := d.Validate(); err != nil {
+	if err := validateDevice(*d); err != nil {
 		return err
+	}
+	if b := d.Base(); b.Key == uuid.Nil() {
+		b.Key = uuid.New()
+		d.SetBase(b)
 	}
 	if err := w.table.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
@@ -67,12 +79,13 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 	return w.setStatus(ctx, *d)
 }
 
-// Update applies change to the device stored under key and stores the result, so a
-// caller changes one field group and keeps the other as stored. A rename or rack move
-// updates the status, or writes it as unknown when it is missing. It returns an error
-// wrapping query.ErrNotFound when no device is stored under key and a validation error
-// when the result is invalid. A transaction that commits between the read and the
-// write of this one is overwritten.
+// Update applies change to the device stored under key and stores the result. A rename
+// or rack move updates the status, or writes it as unknown when it is missing. It
+// returns an error wrapping query.ErrNotFound when no device is stored under key and a
+// validation error when the result is invalid. change runs inside the writer's
+// transaction, so no other write lands between its read and its write. A caller that
+// builds the whole device from an earlier read, such as a client that sends back a
+// device it retrieved, overwrites every change committed since that read.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
@@ -87,17 +100,19 @@ func (w Writer) Update(
 			if err != nil {
 				return Device{}, err
 			}
-			updated.Key = key
-			if err = updated.Validate(); err != nil {
+			if err = validateDevice(updated); err != nil {
 				return Device{}, err
 			}
+			b := updated.Base()
+			b.Key = key
+			updated.SetBase(b)
 			next = updated
 			return updated, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if next.Name != prev.Name || next.Rack != prev.Rack {
+	if next.Base().Name != prev.Base().Name || next.Base().Rack != prev.Base().Rack {
 		return w.setStatus(ctx, next)
 	}
 	return nil

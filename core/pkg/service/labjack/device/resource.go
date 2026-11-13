@@ -24,7 +24,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Device] {
 		Search: s.indexes.search,
 		ID:     ResourceID,
 		Key:    KeyFromResourceID,
-		Name:   func(d *Device) string { return d.Name },
+		Name:   func(d *Device) string { return d.Base().Name },
 	})
 }
 
