@@ -923,10 +923,11 @@ var _ = Describe("Stream task", func() {
 		})).To(Succeed())
 		t.Config = toJSON(streamConfig())
 		msg := "device " + dev.Name + " belongs to another rack"
-		Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().To(MatchError(msg))
+		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(msg))
 		Expect(taskStatus(ctx, t)).To(SatisfyAll(
 			HaveField("Variant", status.VariantError),
 			HaveField("Description", msg),
+			HaveField("Details.Cmd", "cmd-1"),
 		))
 	})
 
