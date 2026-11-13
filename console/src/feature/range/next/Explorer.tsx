@@ -25,7 +25,7 @@ import { binary, location, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/next/ContextMenu";
-import { Chips, isEmpty, MenuItems } from "@/feature/range/next/Filter";
+import { PROPERTIES } from "@/feature/range/next/Filter";
 import { FlatItem, HighlightContext, TreeItem } from "@/feature/range/next/Item";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/next/searchTree";
 import { Timeline } from "@/feature/range/next/Timeline";
@@ -245,7 +245,7 @@ const Internal = (): ReactElement => {
   const [layout, setLayout] = useViewField("layout");
   const flat = layout === "list";
   // A search in a tree shows its first matches only, so the tree holds still.
-  const searching = (term !== "" || !isEmpty(where)) && !flat;
+  const searching = (term !== "" || where != null) && !flat;
   const scoped: ranger.Where | undefined =
     flat || searching
       ? where
@@ -269,7 +269,7 @@ const Internal = (): ReactElement => {
   );
   // The list shows its last answer until a new search lands, so the tree follows the
   // term that the shown ranges answer.
-  const capped = (root.searchTerm !== "" || !isEmpty(where)) && !flat;
+  const capped = (root.searchTerm !== "" || where != null) && !flat;
   const search = useSearchTree({
     matches: capped ? root.getItem(root.data.slice(0, MATCH_LIMIT)) : null,
     scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
@@ -323,10 +323,8 @@ const Internal = (): ReactElement => {
     >
       <View.Toolbar>
         <Flex.Box x align="center" gap="small" grow wrap>
-          <View.FilterMenu>
-            <MenuItems />
-          </View.FilterMenu>
-          <Chips />
+          <View.Filter.Menu properties={PROPERTIES} />
+          <View.Filter.Chips properties={PROPERTIES} />
         </Flex.Box>
         <Flex.Box x align="center" gap="small">
           {searchTerm === "" && <SortSelect value={sort} onChange={setSort} />}

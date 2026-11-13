@@ -9,57 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-@keyframes console-range-filter-fade-in {
-    from {
-        opacity: 0;
-    }
-}
-
-/* A property stays lit while its values are open. */
-.console-range-filter__property[aria-expanded="true"] {
-    --pluto-bg: var(--pluto-fill-hover);
-}
-
-/* While the pointer travels toward open values, the properties it crosses do not
-   light. */
-.console-range-filter__menu--aiming .console-range-filter__property {
-    --pluto-hover-bg: transparent;
-    --pluto-active-bg: transparent;
-}
-
-/* One property is lit at a time: the open one goes dark while the pointer rests on
-   another. */
-.console-range-filter__menu:not(.console-range-filter__menu--aiming):has(
-        .console-range-filter__property:not([aria-expanded="true"]):hover
-    )
-    .console-range-filter__property[aria-expanded="true"] {
-    --pluto-bg: transparent;
-}
-
-/* Values fade in where they open, and values that replace other values show at once.
-   Their first item is level with the property that opened them. */
-.console-range-filter__picker {
-    min-width: 32rem;
-    animation: console-range-filter-fade-in 0.1s ease-in-out;
-}
-
-.console-range-filter__picker--beside {
-    --console-range-filter-first-item: calc(1rem + var(--pluto-border-width));
-
-    translate: -2px calc(-1 * var(--console-range-filter-first-item));
-
-    &.console-range-filter__picker--search {
-        --console-range-filter-first-item: calc(
-            var(--pluto-height-large) + 1rem + var(--pluto-border-width)
-        );
-    }
-}
-
-.console-range-filter__picker--swap {
-    animation: none;
-}
-
 .console-range-filter__custom {
+    min-width: 32rem;
     margin: 1rem -1rem -1rem;
     padding: 1.5rem 1.5rem 1rem;
     border-top: var(--pluto-border-l6);
@@ -74,14 +25,5 @@
 
     & > :last-child {
         flex: 1 1 0;
-    }
-}
-
-/* Label dots sit close, as one group. */
-.console-range-filter__dots {
-    display: flex;
-
-    & > * + * {
-        margin-left: -0.75rem;
     }
 }
