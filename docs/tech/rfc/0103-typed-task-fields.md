@@ -221,17 +221,20 @@ channel. An empty name first takes the name the Console generates today. A new c
 takes the name when it is free, else the name with its data type as a suffix, such as
 `temp_int32`, else that name with a counter, such as `temp_int32_2`, until a name is
 free. Each name is checked against the channels that the same configure already created,
-and an "already exists" error from the Core retries with the next name. A taken name
-never fails configure, and configure never binds by name. Each source picks one index:
-the channel of a bound index field, else the first non-zero index of its bound channels,
-on HTTP and MQTT the stored index when it still exists, else a new one. An unbound index
-field binds to it, and each new fixed-density read channel takes it. A command channel
-keeps its own `_time` index, as today. A new index takes the unbound index field's
-`unbound.name`, or else the generated `_time` name, under the same rename rule. On HTTP
-and MQTT the device stores the source's index. On HTTP and MQTT, a new variable-density
-channel (string, JSON, or bytes) stays virtual, as today. On Kafka it takes the index,
-as today. `onConfigure` then saves the field as bound. An adapter keeps the atomic Phase
-12 near 400 lines, and Phase 14 deletes it.
+and a taken-name error from the Core retries with the next name. Phase 27 gives that
+error its own type in the Core and the Go and TS clients, so no other validation error
+retries. Configure picks a free command channel name before it creates the channel's
+`_time` index, so a retry orphans no index. A taken name never fails configure, and
+configure never binds by name. Each source picks one index: the channel of a bound index
+field, else the first non-zero index of its bound channels, on HTTP and MQTT the stored
+index when it still exists, else a new one. An unbound index field binds to it, and each
+new fixed-density read channel takes it. A command channel keeps its own `_time` index,
+as today. A new index takes the unbound index field's `unbound.name`, or else the
+generated `_time` name, under the same rename rule. On HTTP and MQTT the device stores
+the source's index. On HTTP and MQTT, a new variable-density channel (string, JSON, or
+bytes) stays virtual, as today. On Kafka it takes the index, as today. `onConfigure`
+then saves the field as bound. An adapter keeps the atomic Phase 12 near 400 lines, and
+Phase 14 deletes it.
 
 ## 6 Field types
 
