@@ -79,6 +79,7 @@ var _ = Describe("Migrate", func() {
 					{Label: "HALF", Value: 0.5},
 					{Label: "BIG", Value: 1e21},
 					{Label: "HIGH", Value: math.Inf(1)},
+					{Label: "ZERO", Value: math.Copysign(0, -1)},
 				},
 			},
 			v2.StringChannelField{
@@ -87,6 +88,7 @@ var _ = Describe("Migrate", func() {
 					{Label: "HALF", Value: "0.5"},
 					{Label: "BIG", Value: "1000000000000000000000"},
 					{Label: "HIGH", Value: "+Inf"},
+					{Label: "ZERO", Value: "0"},
 				},
 			}),
 		Entry("a number with entries as a float that keeps them",

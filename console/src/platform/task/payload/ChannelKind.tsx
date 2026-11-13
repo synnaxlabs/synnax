@@ -56,7 +56,7 @@ export const KindFields = <F extends ChannelField>({
   return (
     <>
       {kinds != null && kinds.length > 1 && (
-        <Form.Field<F> path={path} label="Write as" padHelpText={false}>
+        <Form.Field<F> path={path} label="Output type" padHelpText={false}>
           {({ value, onChange }) => (
             <Select.Simple<payload.Kind>
               value={value.type}

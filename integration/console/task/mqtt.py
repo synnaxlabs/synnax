@@ -232,12 +232,12 @@ class MQTTWrite(MQTTTask):
 
         :param pointer: JSON pointer the value takes in the payload.
         :param data_type: Synnax data type of the channel, e.g. "float64".
-        :param kind: How the value is written, as listed under Write as, e.g.
+        :param kind: How the value is written, as listed under Output type, e.g.
             "Number".
         """
         self._fill("Pointer", pointer)
         self._select("Data type", data_type)
-        self._select("Write as", kind)
+        self._select("Output type", kind)
 
 
 class MQTTEdge(TaskPage):
