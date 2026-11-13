@@ -61,20 +61,29 @@ find_alias(syscfg::SugaredAPI &syscfg, const std::string &resource_name) {
         &resources
     );
     if (find_err && !find_err.matches(errors::END_OF_ENUM)) return {"", find_err};
+    // A device whose name does not read could be the one asked for, so its error
+    // replaces NOT_FOUND when no other device matches.
+    x::errors::Error read_err;
     if (!find_err) {
         x::defer::defer close_resources([&] { syscfg.CloseHandle(resources); });
         char buf[1024];
         NISysCfgResourceHandle resource = nullptr;
-        while (!syscfg.NextResource(session, resources, &resource)) {
+        while (true) {
+            if (const auto err = syscfg.NextResource(session, resources, &resource)) {
+                if (err.matches(errors::END_OF_ENUM)) break;
+                return {"", err};
+            }
             x::defer::defer close_resource([&] { syscfg.CloseHandle(resource); });
-            if (syscfg.GetResourceIndexedProperty(
+            if (const auto err = syscfg.GetResourceIndexedProperty(
                     resource,
                     NISysCfgIndexedPropertyExpertResourceName,
                     0,
                     buf
-                ) ||
-                trim_resource_name(buf) != resource_name)
+                )) {
+                if (!read_err) read_err = err;
                 continue;
+            }
+            if (trim_resource_name(buf) != resource_name) continue;
             if (const auto err = syscfg.GetResourceIndexedProperty(
                     resource,
                     NISysCfgIndexedPropertyExpertUserAlias,
@@ -85,6 +94,7 @@ find_alias(syscfg::SugaredAPI &syscfg, const std::string &resource_name) {
             return {buf, x::errors::NIL};
         }
     }
+    if (read_err) return {"", read_err};
     return {
         "",
         x::errors::Error(

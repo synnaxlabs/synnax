@@ -29,7 +29,7 @@ std::string trim_resource_name(const std::string &raw);
 /// @param syscfg the NI System Configuration library.
 /// @param resource_name the resource name of the device, as the Driver stores it.
 /// @returns the alias, and an error that matches NOT_FOUND when no present device has
-/// the resource name.
+/// the resource name. Any other error comes from NI System Configuration.
 std::pair<std::string, x::errors::Error>
 find_alias(syscfg::SugaredAPI &syscfg, const std::string &resource_name);
 }
