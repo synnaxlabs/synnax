@@ -10,6 +10,7 @@
 package chassis_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -332,38 +333,107 @@ var _ = Describe("Service", func() {
 			Expect(res.Chassis).To(HaveLen(1))
 		})
 
-		DescribeTable("Should order by name",
-			func(ctx SpecContext, descending bool) {
-				prefix := uuid.New().String()
-				named := func(name string) func(*chassis.Chassis) {
-					return func(d *chassis.Chassis) { d.Name = prefix + name }
+		Describe("Order", func() {
+			var (
+				prefix string
+				byName []chassis.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = uuid.New().String()
+				named := func(name string) chassis.Key {
+					GinkgoHelper()
+					return createChassis(
+						ctx,
+						func(d *chassis.Chassis) { d.Name = prefix + name },
+					).Key
 				}
-				createChassis(ctx, named("b"))
-				createChassis(ctx, named("a"))
+				beta := named("beta")
+				alpha := named("Alpha")
+				gamma := named("gamma")
+				byName = []chassis.Key{alpha, beta, gamma}
 				grantRetrieve(ctx)
-				res := MustSucceed(retrieve(
-					testutil.AuthedCtx(ctx, u),
-					apichassis.RetrieveRequest{
-						Where: &chassis.Where{Name: &filter.String{
-							In: []string{prefix + "a", prefix + "b"},
-						}},
-						Order: &apichassis.Order{
-							Field:      apichassis.OrderFieldName,
-							Descending: descending,
+			})
+			page := func(ctx SpecContext, order apichassis.Order) []chassis.Key {
+				GinkgoHelper()
+				var (
+					keys  []chassis.Key
+					after *apichassis.Cursor
+				)
+				for {
+					res := MustSucceed(retrieve(
+						testutil.AuthedCtx(ctx, u),
+						apichassis.RetrieveRequest{
+							Where: &chassis.Where{Name: &filter.String{
+								In: []string{
+									prefix + "beta",
+									prefix + "Alpha",
+									prefix + "gamma",
+								},
+							}},
+							Order: &order,
+							After: after,
+							Limit: new(uint32(1)),
 						},
-					},
-				))
-				Expect(res.Chassis).To(HaveLen(2))
-				names := []string{res.Chassis[0].Name, res.Chassis[1].Name}
-				if descending {
-					Expect(names).To(Equal([]string{prefix + "b", prefix + "a"}))
-				} else {
-					Expect(names).To(Equal([]string{prefix + "a", prefix + "b"}))
+					))
+					if len(res.Chassis) == 0 {
+						return keys
+					}
+					last := res.Chassis[len(res.Chassis)-1]
+					keys = append(keys, last.Key)
+					after = &apichassis.Cursor{Key: last.Key, Name: &last.Name}
 				}
-			},
-			Entry("ascending", false),
-			Entry("descending", true),
-		)
+			}
+
+			It("Should page by name, ignoring case", func(ctx SpecContext) {
+				order := apichassis.Order{Field: apichassis.OrderFieldName}
+				Expect(page(ctx, order)).To(Equal(byName))
+			})
+
+			It("Should page by name in descending order", func(ctx SpecContext) {
+				order := apichassis.Order{
+					Field:      apichassis.OrderFieldName,
+					Descending: true,
+				}
+				desc := slices.Clone(byName)
+				slices.Reverse(desc)
+				Expect(page(ctx, order)).To(Equal(desc))
+			})
+
+			DescribeTable("Should reject a request",
+				func(ctx SpecContext, req apichassis.RetrieveRequest, message string) {
+					Expect(
+						retrieve(testutil.AuthedCtx(ctx, u), req),
+					).Error().
+						To(SatisfyAll(
+							BeAssignableToTypeOf(validate.PathError{}),
+							MatchError(message),
+						))
+				},
+				Entry(
+					"that resumes an order without the order's value",
+					apichassis.RetrieveRequest{
+						Order: &apichassis.Order{Field: apichassis.OrderFieldName},
+						After: &apichassis.Cursor{Key: uuid.New()},
+					},
+					"after.name: is required to resume an order by name: validation error",
+				),
+				Entry(
+					"that sorts a search",
+					apichassis.RetrieveRequest{
+						SearchTerm: "PXI",
+						Order:      &apichassis.Order{Field: apichassis.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"that sorts by an unknown field",
+					apichassis.RetrieveRequest{
+						Order: &apichassis.Order{Field: "color"},
+					},
+					`order.field: "color" is not a field to sort by: validation error`,
+				),
+			)
+		})
 
 		It("Should page past the after key", func(ctx SpecContext) {
 			a := createChassis(ctx)
