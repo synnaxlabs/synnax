@@ -64,9 +64,10 @@ func readChannels(
 // ReconcileReadConfig changes each field of cfg whose channel exists to agree with it:
 // the field takes the kind of the channel's data type and drops its data type. Between
 // float, integer, and unsigned kinds, entries and a fill convert when the channel holds
-// them exactly. Any other entry or fill that the channel cannot hold drops, as do a
-// fill on an index channel and an empty label on a kind other than string. warn reports
-// each change.
+// them exactly, and a number becomes a boolean that is true when it is not 0, as the
+// migration reads one. Any other entry or fill that the channel cannot hold drops, as
+// do a fill on an index channel and an empty label on a kind other than string. warn
+// reports each change.
 func ReconcileReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,

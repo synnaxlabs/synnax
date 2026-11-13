@@ -20,6 +20,7 @@ import {
   parseFill,
   retype,
 } from "@/feature/http/task/adapter";
+import { type ReadField } from "@/feature/http/task/types";
 
 const BASE = { key: "f1", name: "temp", disabled: true, channel: 0, pointer: "/t" };
 
@@ -94,7 +95,11 @@ describe("adapter", () => {
     });
 
     it("should drop a non-finite float fill held as text on an integer kind", () => {
-      const field = createField({ type: "float", fill: "Infinity" });
+      // The cache holds the Core's text for a non-finite float.
+      const field = {
+        ...createField({ type: "float" }),
+        fill: "Infinity",
+      } as unknown as ReadField;
       const integer = retype(field, DataType.INT32);
       expect(integer.type).toBe("integer");
       expect("fill" in integer ? integer.fill : undefined).toBeUndefined();

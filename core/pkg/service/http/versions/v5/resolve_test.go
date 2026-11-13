@@ -44,6 +44,7 @@ var _ = Describe("Resolve", func() {
 		4: {DataType: telem.StringT},
 		5: {DataType: telem.TimestampT},
 		6: {DataType: telem.Float64T},
+		7: {DataType: telem.BooleanT},
 	})
 
 	Describe("ReconcileReadConfig", func() {
@@ -125,6 +126,27 @@ var _ = Describe("Resolve", func() {
 			Expect(f.Variant.(v5.IntegerReadField).EnumValues).To(Equal(
 				[]payload.IntegerEntry{{Label: "ON", Value: 2}},
 			))
+		})
+
+		It("Should make numeric entries and a fill booleans on a boolean channel", func(
+			ctx SpecContext,
+		) {
+			f := reconcile(ctx, v5.ReadField{Variant: v5.FloatReadField{
+				BaseReadField: base(7),
+				FloatRead: payload.FloatRead{
+					EnumValues: []payload.FloatEntry{
+						{Label: "ON", Value: 1},
+						{Label: "OFF", Value: 0},
+					},
+					Fill: new(payload.Float(1)),
+				},
+			}})
+			boolean := f.Variant.(v5.BooleanReadField)
+			Expect(boolean.EnumValues).To(Equal([]payload.BooleanEntry{
+				{Label: "ON", Value: true},
+				{Label: "OFF", Value: false},
+			}))
+			Expect(*boolean.Fill).To(BeTrue())
 		})
 
 		It("Should drop the entries and fill on a kind that is not numeric", func(

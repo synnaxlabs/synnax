@@ -10,6 +10,8 @@
 package v5
 
 import (
+	"math"
+
 	"github.com/samber/lo"
 	xpayload "github.com/synnaxlabs/x/payload"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -149,6 +151,11 @@ func convertNumber[From xpayload.Number](v From, k payload.Kind) (any, bool) {
 		return xpayload.Convert[payload.Integer](v)
 	case payload.KindUnsigned:
 		return xpayload.Convert[payload.Unsigned](v)
+	case payload.KindBoolean:
+		if f, ok := any(v).(payload.Float); ok && math.IsNaN(float64(f)) {
+			return nil, false
+		}
+		return v != 0, true
 	}
 	return nil, false
 }
