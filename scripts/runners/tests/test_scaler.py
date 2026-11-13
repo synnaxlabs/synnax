@@ -148,6 +148,18 @@ class TestScaler:
         )
         assert client.written(channel_name("ec2_cmd", runner=A)) == [False]
 
+    def test_should_keep_idle_runners_of_an_unscaled_pool(self, client: Client) -> None:
+        s = scaler(client)
+        s.step(
+            known={A},
+            status={A: IDLE},
+            labels={A: {"self-hosted", "macos-build-bot"}},
+            queued={},
+            found={"i-0aaa": instance("running")},
+            running=set(),
+        )
+        assert client.written(channel_name("ec2_cmd", runner=A)) == []
+
     def test_should_keep_idle_runners_while_stops_are_held(
         self, client: Client
     ) -> None:

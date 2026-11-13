@@ -141,7 +141,7 @@ class Scaler:
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
         for pool, runners in stoppable.items():
-            if not stops or queued.get(pool, 0):
+            if not POOLS[pool].scaled or not stops or queued.get(pool, 0):
                 continue
             for r in runners:
                 if r in ready and now.span(self.idle_since[r]) >= self.cooldown:

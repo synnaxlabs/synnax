@@ -14,6 +14,7 @@ from typing import NamedTuple
 import synnax as sy
 
 from common import BUSY, IDLE
+from publisher import Publisher, on_change
 
 # A pool is the label a job asks for and its runners carry.
 Pool = str
@@ -24,6 +25,8 @@ class Spec(NamedTuple):
     channel: str
     # Whether the scaler starts and stops its runners.
     scaled: bool = True
+    # Whether the repository's runner list leaves out its runners.
+    unlisted: bool = False
 
 
 POOLS: dict[Pool, Spec] = {
@@ -32,9 +35,8 @@ POOLS: dict[Pool, Spec] = {
     "windows-test-bot": Spec(title="Windows Test", channel="win_test"),
     "ubuntu-test-bot": Spec(title="Ubuntu Test", channel="ubuntu_test"),
     "macos-build-bot": Spec(title="macOS Build", channel="macos_build", scaled=False),
-    "ubuntu-agent-bot": Spec(title="Agent", channel="ubuntu_agent", scaled=False),
-    "review": Spec(title="Review", channel="review", scaled=False),
-    "hitl": Spec(title="HITL", channel="hitl", scaled=False),
+    "review": Spec(title="Review", channel="review", scaled=False, unlisted=True),
+    "hitl": Spec(title="HITL", channel="hitl", scaled=False, unlisted=True),
 }
 
 
@@ -63,11 +65,15 @@ def pool_channel(name: str, *, metric: str) -> str:
 
 
 def count_channels() -> dict[str, sy.DataType]:
-    return {
-        pool_channel(name, metric=metric): sy.DataType.INT32
-        for name in NAMES
-        for metric in COUNTS
-    }
+    """The count channels of every pool and the total. An unlisted pool has only its
+    queue."""
+    names = [
+        pool_channel(spec.channel, metric=metric)
+        for spec in POOLS.values()
+        for metric in ((QUEUED,) if spec.unlisted else COUNTS)
+    ]
+    names += [pool_channel(TOTAL, metric=metric) for metric in COUNTS]
+    return dict.fromkeys(names, sy.DataType.INT32)
 
 
 def wait_channels() -> dict[str, sy.DataType]:
@@ -88,7 +94,7 @@ def pool_counts(
         values[pool_channel(spec.channel, metric=QUEUED)] = queued.get(pool, 0)
     for runner, state in status.items():
         own = pool_of(labels.get(runner, set()))
-        if own is None:
+        if own is None or POOLS[own].unlisted:
             continue
         if runner in booting:
             metric = STARTING
@@ -101,7 +107,8 @@ def pool_counts(
         values[pool_channel(POOLS[own].channel, metric=metric)] += 1
     for metric in COUNTS:
         values[pool_channel(TOTAL, metric=metric)] = sum(
-            values[pool_channel(spec.channel, metric=metric)] for spec in POOLS.values()
+            values.get(pool_channel(spec.channel, metric=metric), 0)
+            for spec in POOLS.values()
         )
     return values
 
@@ -113,3 +120,30 @@ def pool_waits(waits: dict[Pool, int]) -> dict[str, int]:
         for pool, spec in POOLS.items()
     }
     return values | {pool_channel(TOTAL, metric=QUEUE_WAIT): max(values.values())}
+
+
+class PoolReport:
+    """Writes the counts and the waits of every pool, on change. Values that a failed
+    write did not land go out again on the next step."""
+
+    def __init__(self, *, publisher: Publisher) -> None:
+        self.publisher = publisher
+        self.counts: dict[str, int] = {}
+        self.waits: dict[str, int] = {}
+
+    def step(
+        self,
+        *,
+        ready: bool,
+        counts: dict[str, int],
+        waits: dict[str, int],
+        now: sy.TimeStamp,
+    ) -> None:
+        """Writes what changed since the last write. Does nothing until ready, because
+        a queue that was never read looks empty."""
+        if not ready:
+            return
+        change = on_change(POOL_INDEX, last=self.counts, current=counts, now=now) or {}
+        change |= on_change(WAIT_INDEX, last=self.waits, current=waits, now=now) or {}
+        if change and self.publisher.write(change):
+            self.counts, self.waits = counts, waits

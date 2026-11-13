@@ -38,8 +38,8 @@ Per-runner channels, written on change:
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
 
 Pool channels (pools.py), int32, written on change. <pool> is one of ubuntu_build,
-ubuntu_test, ubuntu_agent, win_build, win_test, macos_build, review, hitl, and total. On
-runner_pool_time:
+ubuntu_test, win_build, win_test, macos_build, review, hitl, and total. review and hitl
+have only the queued and queue_wait channels. On runner_pool_time:
 
     runner_<pool>_queued      jobs waiting
     runner_<pool>_busy        runners on a job
@@ -146,6 +146,7 @@ from log import Log
 from pools import (
     POOL_INDEX,
     WAIT_INDEX,
+    PoolReport,
     count_channels,
     pool_counts,
     pool_waits,
@@ -226,8 +227,7 @@ class Controller:
         )
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
-        self.last_pools: dict[str, int] = {}
-        self.last_waits: dict[str, int] = {}
+        self.pool_report = PoolReport(publisher=self.status)
         self.cost_pending: dict[str, float] = {}
         self.events = Events(
             client=client, channels=channels, runners=set(), report=log.error
@@ -295,22 +295,15 @@ class Controller:
             found=found,
             enabled=self.scaler.enabled,
         )
-        if self.jobs.ready:
-            now = sy.TimeStamp.now()
-            pools = pool_counts(
+        now = sy.TimeStamp.now()
+        self.pool_report.step(
+            ready=self.jobs.ready,
+            counts=pool_counts(
                 status=status, labels=labels, queued=queued, booting=booting
-            )
-            waits = pool_waits(self.jobs.waits(now))
-            change = (
-                on_change(POOL_INDEX, last=self.last_pools, current=pools, now=now)
-                or {}
-            )
-            change |= (
-                on_change(WAIT_INDEX, last=self.last_waits, current=waits, now=now)
-                or {}
-            )
-            if change and self.status.write(change):
-                self.last_pools, self.last_waits = pools, waits
+            ),
+            waits=pool_waits(self.jobs.waits(now)),
+            now=now,
+        )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
             f"idle={counts.get(IDLE, 0)} offline={counts.get(OFFLINE, 0)} "
