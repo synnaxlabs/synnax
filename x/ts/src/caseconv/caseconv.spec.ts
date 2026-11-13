@@ -382,6 +382,20 @@ describe("caseconv", () => {
       expect(convert([1, 2])).toEqual("1:2");
     });
 
+    it("Should encode a marked value inside a lazy union option", () => {
+      const docZ = z.object({
+        shape: z.discriminatedUnion("variant", [
+          z.lazy(() => z.object({ variant: z.literal("a"), pairValue: pairZ })),
+        ]),
+      });
+      expect(
+        caseconv.camelToSnake(
+          { shape: { variant: "a", pairValue: [1, 2] } },
+          { schema: docZ },
+        ),
+      ).toEqual({ shape: { variant: "a", pair_value: "1:2" } });
+    });
+
     describe("decoding", () => {
       const decodablePairZ = caseconv.encodeWith(
         z

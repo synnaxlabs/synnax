@@ -34,6 +34,7 @@ interface ZodDef extends z.core.$ZodTypeDef {
   in?: z.core.SomeType;
   out?: z.core.SomeType;
   element?: z.core.SomeType;
+  getter?: () => z.core.SomeType;
   shape?: Record<string, z.ZodType>;
 }
 
@@ -116,6 +117,8 @@ const getRecordValueSchema = (
   const def = (schema as ZodSchema)._zod?.def;
   if (def == null) return undefined;
   if (def.type === "record" && def.valueType != null) return def.valueType as z.ZodType;
+  if (def.type === "lazy" && def.getter != null)
+    return getRecordValueSchema(def.getter());
   if (def.innerType != null) return getRecordValueSchema(def.innerType);
   if (def.in != null) return getRecordValueSchema(def.in);
   if (Array.isArray(def.options))
@@ -160,6 +163,8 @@ const getArrayElementSchema = (
   if (schema == null) return undefined;
   const def = (schema as ZodSchema)._zod?.def;
   if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
+  if (def?.type === "lazy" && def.getter != null)
+    return getArrayElementSchema(def.getter());
   if (def?.innerType != null) return getArrayElementSchema(def.innerType);
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
@@ -188,6 +193,7 @@ const getSchemaShape = (
   }
   const def = s._zod?.def;
   if (def == null) return null;
+  if (def.type === "lazy" && def.getter != null) return getSchemaShape(def.getter());
   if (def.innerType != null) return getSchemaShape(def.innerType);
   if (def.type === "union" && Array.isArray(def.options)) {
     let merged: Record<string, z.ZodType> | null = null;
