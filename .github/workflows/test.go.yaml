@@ -394,7 +394,8 @@ jobs:
           du -sh .
 
       # The shards restore the same cache and save under one key, so only the first
-      # saves.
+      # saves. Its cache holds no test build of the other shards, by design: it holds
+      # most of the packages they import, and a cache for each shard is about 1.8 GB.
       - name: Save the Go caches
         if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
