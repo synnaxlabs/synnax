@@ -67,10 +67,6 @@ export type HSVA = z.infer<typeof hsvaZ>;
  * https://www.w3.org/TR/css-color-4/#ok-lab
  */
 export type OKLCH = [number, number, number, number];
-/** A color in RGB format. See https://en.wikipedia.org/wiki/RGB_color_model */
-export type RGB = z.infer<typeof rgbZ>;
-/** A color in hex format. See https://en.wikipedia.org/wiki/Web_colors */
-export type Hex = string;
 
 /** A zod schema for a crude color representation. */
 export const crudeZ = z.union([stringZ, rgbZ, rgbaZ]);
@@ -115,10 +111,7 @@ export interface CSSString {
 export const cssString = ((color?: Crude): string | undefined => {
   if (color == null) return undefined;
   const res = colorZ.safeParse(color);
-  if (res.success) {
-    const [r, g, b, a] = res.data;
-    return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-  }
+  if (res.success) return hex(res.data);
   if (typeof color === "string") return color;
   throw new zod.ParseError({
     issues: res.error.issues,
@@ -167,7 +160,8 @@ export const hex = ((color?: Crude) => {
 }) as ToHex;
 
 /**
- * @returns the color as an RGB string, with each color value between 0 and 255.
+ * @returns the comma-separated RGB channels of the color, for a CSS custom property
+ * that CSS reads as rgba(var(...), alpha) with its own alpha.
  * @example "255, 255, 255"
  */
 export const rgbString = (color: Crude): string => {
@@ -176,8 +170,9 @@ export const rgbString = (color: Crude): string => {
 };
 
 /**
- * @returns the color as an RGBA string, or undefined when no color is given so a CSS
- * custom property set from it falls back to its default.
+ * @returns the comma-separated RGB channels and 0-1 alpha of the color, for a CSS
+ * custom property that CSS reads as rgb(var(...)). Returns undefined when no color is
+ * given, so the property falls back to its default.
  * @example "255, 0, 0, 0.5"
  */
 export const rgbaString = (color?: Crude): string | undefined =>
@@ -462,8 +457,3 @@ export const fromHSVA = (hsva: HSVA): Color => {
   };
   return [channel(5), channel(3), channel(1), Math.round(a * 255)];
 };
-
-/** The color black. */
-export const BLACK = construct("#000000");
-/** The color white. */
-export const WHITE = construct("#ffffff");

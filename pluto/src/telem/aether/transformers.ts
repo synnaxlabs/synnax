@@ -273,8 +273,8 @@ export class BandColor extends MultiSourceTransformer<
     if (!this.props.smooth || next == null) return owner.color;
     return color.fromGradient(
       [
-        { key: "owner", position: owner.threshold, color: owner.color },
-        { key: "next", position: next.threshold, color: next.color },
+        { position: owner.threshold, color: owner.color },
+        { position: next.threshold, color: next.color },
       ],
       value,
     );

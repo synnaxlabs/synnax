@@ -7,24 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type Color, construct, type Crude, TRANSPARENT } from "@/color/color";
 
-import { type Color, construct, crudeZ, TRANSPARENT } from "@/color/color";
+/** A color at a position along a gradient. */
+export interface Stop {
+  position: number;
+  color: Crude;
+}
 
-export const stopZ = z.object({
-  key: z.string(),
-  color: crudeZ,
-  position: z.number(),
-  switched: z.boolean().optional(),
-});
-
-export type Stop = z.infer<typeof stopZ>;
-
-export const gradientZ = z.array(stopZ);
-
-export type Gradient = Stop[];
-
-export const fromGradient = (gradient: Gradient, position: number): Color => {
+export const fromGradient = (gradient: Stop[], position: number): Color => {
   if (gradient.length === 0) return TRANSPARENT;
 
   gradient = gradient.slice().sort((a, b) => a.position - b.position);

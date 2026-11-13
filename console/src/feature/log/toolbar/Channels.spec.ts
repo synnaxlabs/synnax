@@ -216,14 +216,14 @@ describe("log/toolbar/Channels", () => {
       await renderChannels([entry(await createChannel())]);
       const auto = await swatchColor();
       expect(auto).not.toBe("");
-      expect(auto).not.toBe("rgba(0, 0, 0, 0)");
+      expect(auto).not.toBe("#00000000");
     });
 
     it("shows a zero color as transparent black", async () => {
       await renderChannels([
         entry(await createChannel(), { color: color.construct("#00000000") }),
       ]);
-      expect(await swatchColor()).toBe("rgba(0, 0, 0, 0)");
+      expect(await swatchColor()).toBe("#00000000");
     });
   });
 

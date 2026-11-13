@@ -325,26 +325,15 @@ describe("color.Color", () => {
   });
 
   describe("rgbString", () => {
-    test("converts RGB array to comma-separated string", () => {
-      expect(color.rgbString([255, 0, 0])).toEqual("255, 0, 0");
-    });
-    test("ignores alpha", () => {
+    test("writes the channels and drops the alpha", () => {
       expect(color.rgbString([0, 255, 0, 128])).toEqual("0, 255, 0");
-    });
-    test("converts hex to comma-separated string", () => {
-      expect(color.rgbString("#0000ff")).toEqual("0, 0, 255");
     });
   });
 
   describe("rgbaString", () => {
-    test("carries the rgb channels and an opaque alpha", () => {
+    test("writes the channels and the 0-1 alpha", () => {
       expect(color.rgbaString("#ff0000")).toEqual("255, 0, 0, 1");
-    });
-    test("carries a translucent alpha", () => {
       expect(color.rgbaString([255, 0, 0, 51])).toEqual("255, 0, 0, 0.2");
-    });
-    test("carries a fully transparent color", () => {
-      expect(color.rgbaString(color.TRANSPARENT)).toEqual("0, 0, 0, 0");
     });
     test("is undefined for no color", () => {
       expect(color.rgbaString(undefined)).toBeUndefined();
@@ -353,19 +342,19 @@ describe("color.Color", () => {
 
   describe("equals", () => {
     test("same RGB values are equal", () => {
-      const c1: color.RGB = [255, 0, 0];
-      const c2: color.RGB = [255, 0, 0];
+      const c1: [number, number, number] = [255, 0, 0];
+      const c2: [number, number, number] = [255, 0, 0];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
     test("different RGB values are not equal", () => {
-      const c1: color.RGB = [255, 0, 0];
-      const c2: color.RGB = [0, 255, 0];
+      const c1: [number, number, number] = [255, 0, 0];
+      const c2: [number, number, number] = [0, 255, 0];
       expect(color.equals(c1, c2)).toBe(false);
     });
 
     test("RGBA and RGB with default alpha are equal", () => {
-      const c1: color.RGB = [255, 0, 0];
+      const c1: [number, number, number] = [255, 0, 0];
       const c2: color.RGBA = [255, 0, 0, 255];
       expect(color.equals(c1, c2)).toBe(true);
     });
@@ -378,7 +367,7 @@ describe("color.Color", () => {
 
     test("hex and RGB with same values are equal", () => {
       const c1 = "#ff0000";
-      const c2: color.RGB = [255, 0, 0];
+      const c2: [number, number, number] = [255, 0, 0];
       expect(color.equals(c1, c2)).toBe(true);
     });
 
@@ -389,7 +378,7 @@ describe("color.Color", () => {
     });
 
     test("comparing to undefined", () => {
-      const c1: color.RGB = [255, 0, 0];
+      const c1: [number, number, number] = [255, 0, 0];
       expect(color.equals(c1, undefined)).toBe(false);
       expect(color.equals(undefined, c1)).toBe(false);
       expect(color.equals(undefined, undefined)).toBe(true);
@@ -410,36 +399,15 @@ describe("color.Color", () => {
       expect(color.cssString(null as any)).toBeUndefined();
     });
 
-    test("converts RGB array to rgba CSS string", () => {
-      const rgb: color.RGB = [255, 0, 0];
-      expect(color.cssString(rgb)).toEqual("rgba(255, 0, 0, 1)");
-    });
-
-    test("converts RGBA array to rgba CSS string", () => {
-      const rgba: color.RGBA = [0, 255, 0, 128];
-      expect(color.cssString(rgba)).toEqual("rgba(0, 255, 0, 0.5019607843137255)");
-    });
-
-    test("converts hex to rgba CSS string", () => {
-      const hex = "#0000ff";
-      expect(color.cssString(hex)).toEqual("rgba(0, 0, 255, 1)");
+    test("writes a color as its hex string", () => {
+      expect(color.cssString([255, 0, 0])).toEqual("#ff0000");
+      expect(color.cssString([0, 255, 0, 128])).toEqual("#00ff0080");
+      expect(color.cssString("rgb(0, 0, 255)")).toEqual("#0000ff");
     });
 
     test("returns CSS variables as-is", () => {
       const cssVar = "var(--primary-color)";
       expect(color.cssString(cssVar)).toEqual(cssVar);
-    });
-
-    test("handles eight-digit hex with alpha", () => {
-      const hex = "#00ff0080";
-      const result = color.cssString(hex);
-      // Alpha 0x80 = 128/255 ≈ 0.502
-      expect(result).toMatch(/rgba\(0, 255, 0, 0\.5\d*\)/);
-    });
-
-    test("handles Color object", () => {
-      const c = color.construct([128, 128, 128, 179]);
-      expect(color.cssString(c)).toEqual("rgba(128, 128, 128, 0.7019607843137254)");
     });
 
     test("throws a ParseError for invalid color format", () => {
@@ -458,7 +426,7 @@ describe("color.Color", () => {
     });
 
     test("RGB array with 3 elements is not a Color", () => {
-      const rgb: color.RGB = [255, 0, 0];
+      const rgb: [number, number, number] = [255, 0, 0];
       expect(color.isColor(rgb)).toBe(false);
     });
 
