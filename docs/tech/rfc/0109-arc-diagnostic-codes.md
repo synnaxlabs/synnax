@@ -6,9 +6,9 @@
 ## 0 Summary
 
 The form of an Arc diagnostic code changes from `ARC####` to `E####` for an error and
-`W####` for a warning. This is a change of form only: no kind keeps its number. The
-codes move into four bands that cover the full language. Each diagnostic gets a code,
-each code has a diagnostic, and the docs page follows the bands.
+`W####` for a warning. Each kind also gets a new number. The codes move into five bands
+that cover the full language. Each diagnostic gets a code, each code has a diagnostic,
+and the docs page follows the bands.
 
 ## 1 Motivation
 
@@ -42,12 +42,13 @@ A kind that changes severity takes a new code. Its old code is not used again.
 
 ### 2.1 Bands
 
-| Band | Area                         | Examples                                              |
-| ---- | ---------------------------- | ----------------------------------------------------- |
-| 1xxx | Syntax and statements        | Mismatched input, `return` or `break` out of place    |
-| 2xxx | Types                        | Type mismatch, arguments, casts, units, overflow, NaN |
-| 3xxx | Names and modules            | Undefined name, deprecated name, imports, `export`    |
-| 4xxx | Flows, sequences, and stages | Routing, channel writes, authority, `next`            |
+| Band | Area                         | Examples                                                 |
+| ---- | ---------------------------- | -------------------------------------------------------- |
+| 1xxx | Syntax                       | Mismatched input                                         |
+| 2xxx | Types and expressions        | Type mismatch, casts, units, overflow, NaN               |
+| 3xxx | Functions and statements     | Missing or extra argument, `return`, `break`, assignment |
+| 4xxx | Names and modules            | Undefined name, deprecated name, imports, `export`       |
+| 5xxx | Flows, sequences, and stages | Routing, channel writes, authority, `next`               |
 
 A kind is broad. All type mismatches share one code, as in the Rust compiler (`E0308`).
 
@@ -55,21 +56,10 @@ A kind is broad. All type mismatches share one code, as in the Rust compiler (`E
 
 - Each diagnostic that the compiler reports has a code, except the diagnostics of
   `arc/go/graph` (§3).
-- Each code has a report site. The four codes with none go to the sites that report
-  their problem today with no code.
-
-| Kind                      | Problem                   | Source today                                     |
-| ------------------------- | ------------------------- | ------------------------------------------------ |
-| `TypeMismatch`            | Type mismatch             | About 20, such as `expression/expression.go:299` |
-| `TypeConstraintViolation` | Type constraint violation | `constraints/unify.go:356`, `:366`               |
-| `SymbolUndefined`         | Undefined symbol          | `symbol/errors.go:52`, `symbol/symbol.go:780`    |
-| `SymbolRedefined`         | Redefined symbol          | `symbol/symbol.go:410`                           |
-
-Some of these sources build a Go error, and a later `diagnostics.Error` call reports it.
-One such call can report errors of different kinds, so the call cannot choose the code.
-The error carries its kind, and `diagnostics.Error` copies the code to the diagnostic. A
-hint works this way today (`HintProvider`, `x/go/diagnostics/diagnostics.go:57`). The
-two plain errors, at `symbol/symbol.go:410` and `:780`, become typed errors.
+- Each code has a report site. Four declared codes have none today. The review looks for
+  a report site for each one, and removes a code that has none.
+- A diagnostic made from a Go error takes the code and the severity of its kind, also
+  when a different error wraps it.
 
 ### 2.3 Docs
 
@@ -118,13 +108,12 @@ and gives it a number. The commits are in this order:
 2. Add the kinds of each band, one commit for each band.
 3. Generate the errors page, with one Markdown file for each code.
 4. Change each place that names an old code or its anchor: the links in the docs,
-   `arc/docs/spec.md`, and the specs in `arc/go`, `site/docs`, and `pluto`.
-5. Add a lint rule that rejects `diagnostics.Errorf` and `diagnostics.Warningf` in
-   `arc/go`, except in `arc/go/graph`.
+   `arc/docs/spec.md`, the doc comment of `ErrorCode` in `x/go/diagnostics`, and the
+   specs in `arc/go`, `site/docs`, and `pluto`.
 
-| Phase | Scope                           | Touches                                                      | Depends on |
-| ----- | ------------------------------- | ------------------------------------------------------------ | ---------- |
-| 1     | Reorganize Arc diagnostic codes | `arc/go`, `arc/docs`, `site/docs`, `pluto`, `.golangci.yaml` | -          |
+| Phase | Scope                           | Touches                                            | Depends on |
+| ----- | ------------------------------- | -------------------------------------------------- | ---------- |
+| 1     | Reorganize Arc diagnostic codes | `arc/go`, `arc/docs`, `x/go`, `site/docs`, `pluto` | -          |
 
 ## 5 Resolved decisions
 
@@ -132,8 +121,8 @@ and gives it a number. The commits are in this order:
    `W` code, not a new letter.
 2. **Bands stay, but fewer**: The codes do not need bands, and a count from 1 also
    works. Bands keep related codes together as the list grows, so a new code does not
-   land far from its relatives. The design went from eight bands to five, and then to
-   four.
+   land far from its relatives. The design went from eight bands to five. Four bands
+   left no band for function errors.
 3. **The source is Go, and the JSON is generated**: A check reports through a Go value,
    such as `codes.TypeMismatch`, so the kinds must be Go. A JSON source needs a
    generator that writes Go, which is a second step for the same result. The prose of a
@@ -141,7 +130,5 @@ and gives it a number. The commits are in this order:
 
 ## 6 Open questions
 
-- **Check for a reported error**: The lint rule cannot see an error with no kind that
-  `diagnostics.Error` reports. A different check must cover it.
 - **Page design**: Whether a new design for an item on the errors page is part of this
   work.
