@@ -8,14 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  channel,
   label,
   lineplot,
-  NotFoundError,
   panel,
   project,
   ranger,
-  schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
@@ -26,7 +23,6 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Overview } from "@/feature/range/next/overview/Overview";
 import { Modals } from "@/platform/modals";
-import { findButton } from "@/platform/modals/testutil";
 import {
   createPanelWrapper,
   createResourceTab,
@@ -36,7 +32,6 @@ import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
   type Grants,
-  openContextMenu,
   queryIconButton,
   renderSuspended,
   resolveFocusedTab,
@@ -72,13 +67,6 @@ const renderOverview = async (
   return { store };
 };
 
-const createChannel = async (): Promise<channel.Channel> =>
-  await client.channels.create({
-    name: uniqueName("ch"),
-    dataType: "float32",
-    virtual: true,
-  });
-
 const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
   const start = TimeStamp.now();
   return await client.ranges.create({
@@ -87,34 +75,6 @@ const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
     parent: parent.key,
   });
 };
-
-/** Creates the count of schematic snapshots that the range owns. */
-const createDocuments = async (
-  rng: ranger.Range,
-  count: number,
-): Promise<schematic.Schematic[]> => {
-  const proj = await client.projects.create({ name: uniqueName("proj") });
-  const sch = await client.schematics.create({
-    project: proj.key,
-    name: uniqueName("sch"),
-  });
-  return await Promise.all(
-    Array.from(
-      { length: count },
-      async () =>
-        await client.schematics.copy({
-          key: sch.key,
-          name: uniqueName("snap"),
-          snapshot: true,
-          range: rng.key,
-        }),
-    ),
-  );
-};
-
-/** Creates a schematic snapshot that the range owns. */
-const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =>
-  (await createDocuments(rng, 1))[0];
 
 /** @returns the text of the tooltip that a hover on the element shows. */
 const hoverTip = async (el: HTMLElement): Promise<string> => {
@@ -270,6 +230,21 @@ describe("range/next/overview", () => {
       await waitFor(async () => expect(await rng.kv.get("operator")).toBe("grace"));
     });
 
+    it("should keep a value that another client sets while the value has focus", async () => {
+      const rng = await createTestRange(client);
+      await rng.kv.set("operator", "ada");
+      await renderOverview(rng.key);
+      const input = await screen.findByDisplayValue("ada");
+      fireEvent.focus(input);
+      await rng.kv.set("operator", "grace");
+      // The changes land in order, so the second pair shows that the first landed.
+      await rng.kv.set("shift", "night");
+      await screen.findByDisplayValue("night");
+      fireEvent.blur(input);
+      await screen.findByDisplayValue("grace");
+      expect(await rng.kv.get("operator")).toBe("grace");
+    });
+
     it("should remove a pair", async () => {
       const rng = await createTestRange(client);
       await rng.kv.set("operator", "ada");
@@ -290,153 +265,12 @@ describe("range/next/overview", () => {
     });
   });
 
-  describe("aliases", () => {
-    it("should add an alias to a channel", async () => {
-      const rng = await createTestRange(client);
-      const ch = await createChannel();
-      await renderOverview(rng.key);
-      fireEvent.click(await screen.findByRole("button", { name: "Channel alias" }));
-      fireEvent.click(await screen.findByText("Channel"));
-      fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-        target: { value: ch.name },
-      });
-      fireEvent.click(await screen.findByRole("option", { name: ch.name }));
-      const alias = screen.getByPlaceholderText("Alias");
-      fireEvent.change(alias, { target: { value: "thrust" } });
-      fireEvent.keyDown(alias, { key: "Enter" });
-      await screen.findByDisplayValue("thrust");
-      await waitFor(async () =>
-        expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" }),
-      );
-    });
-
-    it("should mark a missing channel and a blank alias on Save", async () => {
-      const rng = await createTestRange(client);
-      await renderOverview(rng.key);
-      fireEvent.click(await screen.findByRole("button", { name: "Channel alias" }));
-      const alias = await screen.findByPlaceholderText("Alias");
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      await waitFor(() => expect(alias.getAttribute("aria-invalid")).toBe("true"));
-      const channel = screen.getByRole("button", { name: "Channel" });
-      expect(channel.getAttribute("aria-invalid")).toBe("true");
-      expect(await hoverTip(channel)).toBe("Channel is required");
-      expect(await rng.listAliases()).toEqual({});
-    });
-
-    it("should note an alias that the parent range sets as inherited", async () => {
-      const parent = await createTestRange(client);
-      const child = await createChild(parent);
-      const ch = await createChannel();
-      await parent.setAlias(ch.key, "thrust");
-      await renderOverview(child.key);
-      await screen.findByDisplayValue("thrust");
-      await screen.findByText("Inherited");
-    });
-
-    it("should set the range's own alias when its inherited alias is edited", async () => {
-      const parent = await createTestRange(client);
-      const child = await createChild(parent);
-      const ch = await createChannel();
-      await parent.setAlias(ch.key, "thrust");
-      await renderOverview(child.key);
-      const input = await screen.findByDisplayValue("thrust");
-      await screen.findByText("Inherited");
-      fireEvent.change(input, { target: { value: "force" } });
-      fireEvent.blur(input);
-      await waitFor(() => expect(screen.queryByText("Inherited")).toBeNull());
-      expect(await child.listAliases()).toEqual({ [ch.key]: "force" });
-      expect(await parent.listAliases()).toEqual({ [ch.key]: "thrust" });
-    });
-
-    it("should keep an inherited alias inherited after a focus and blur", async () => {
-      const parent = await createTestRange(client);
-      const child = await createChild(parent);
-      const ch = await createChannel();
-      await parent.setAlias(ch.key, "thrust");
-      await renderOverview(child.key);
-      const input = await screen.findByDisplayValue("thrust");
-      fireEvent.focus(input);
-      fireEvent.blur(input);
-      // A range with its own alias would keep it over the parent's new one.
-      await parent.setAlias(ch.key, "force");
-      await screen.findByDisplayValue("force");
-      expect(screen.getByText("Inherited")).toBeTruthy();
-    });
-
-    it("should let a range remove its own alias that equals the parent's", async () => {
-      const parent = await createTestRange(client);
-      const child = await createChild(parent);
-      const ch = await createChannel();
-      await parent.setAlias(ch.key, "thrust");
-      await child.setAlias(ch.key, "thrust");
-      // The overview of the parent was open, so the cache holds its aliases.
-      await client.ranges.resolvedAliases.retrieve(parent.key);
-      await renderOverview(child.key);
-      await screen.findByDisplayValue("thrust");
-      expect(screen.queryByText("Inherited")).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-      await screen.findByText("Inherited");
-    });
-  });
-
-  describe("attached", () => {
-    it("should open a document in a tab", async () => {
-      const rng = await createTestRange(client);
-      const doc = await createDocument(rng);
-      const { store } = await renderOverview(rng.key);
-      fireEvent.click(await screen.findByText(doc.name));
-      const tab = await resolveFocusedTab(
-        store,
-        client,
-        (t) => t.variant === "resource",
-      );
-      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
-      expect(tab.resource).toEqual(schematic.resourceID(doc.key));
-    });
-
-    it("should show the new name of a renamed document", async () => {
-      const rng = await createTestRange(client);
-      const doc = await createDocument(rng);
-      await renderOverview(rng.key);
-      await screen.findByText(doc.name);
-      const renamed = uniqueName("renamed");
-      await client.schematics.rename(doc.key, renamed);
-      await screen.findByText(renamed);
-      expect(screen.queryByText(doc.name)).toBeNull();
-    });
-
-    it("should read the documents past the first page on Show more", async () => {
-      const rng = await createTestRange(client);
-      const docs = await createDocuments(rng, 51);
-      await renderOverview(rng.key);
-      fireEvent.click(await screen.findByRole("button", { name: "Show more" }));
-      await waitFor(() => docs.forEach(({ name }) => screen.getByText(name)));
-      expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
-    });
-
-    it("should delete a document after the confirm", async () => {
-      const rng = await createTestRange(client);
-      const doc = await createDocument(rng);
-      await renderOverview(rng.key);
-      await screen.findByText(doc.name);
-      await openContextMenu(doc.name);
-      fireEvent.click(await screen.findByText("Delete"));
-      await screen.findByText(`Are you sure you want to delete ${doc.name}?`);
-      fireEvent.click(findButton("Delete"));
-      await waitFor(() => expect(screen.queryByText(doc.name)).toBeNull());
-      await expect(client.schematics.retrieve({ key: doc.key })).rejects.toThrow(
-        NotFoundError,
-      );
-    });
-  });
-
   describe("permissions", () => {
     const READS = [
       ranger.TYPE_RESOURCE_ID,
       label.TYPE_RESOURCE_ID,
       panel.TYPE_RESOURCE_ID,
       project.TYPE_RESOURCE_ID,
-      schematic.TYPE_RESOURCE_ID,
       lineplot.TYPE_RESOURCE_ID,
     ];
 
@@ -455,22 +289,18 @@ describe("range/next/overview", () => {
       expect(screen.queryByRole("button", { name: "Plot" })).toBeNull();
     });
 
-    it("should show metadata and aliases without edit controls to a subject who may not update the range", async () => {
+    it("should show metadata without edit controls to a subject who may not update the range", async () => {
       const rng = await createTestRange(client);
-      const ch = await createChannel();
       await rng.kv.set("operator", "ada");
-      await rng.setAlias(ch.key, "thrust");
       const as = await createTestClientWithGrants(client, {
         create: [lineplot.TYPE_RESOURCE_ID],
-        retrieve: [...READS, channel.TYPE_RESOURCE_ID, ranger.alias.TYPE_RESOURCE_ID],
+        retrieve: READS,
       });
       await renderOverview(rng.key, as);
       // Both grants answer from one policy read, so this button shows that it landed.
       await screen.findByRole("button", { name: "Plot" });
       await screen.findByText("ada");
-      await screen.findByText("thrust");
       expect(screen.queryByDisplayValue("ada")).toBeNull();
-      expect(screen.queryByDisplayValue("thrust")).toBeNull();
       expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
       expect(queryIconButton(document.body, "add")).toBeNull();
     });

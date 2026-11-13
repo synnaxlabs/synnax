@@ -410,32 +410,3 @@
         opacity: 1;
     }
 }
-
-.console-range-overview__field-note {
-    flex-shrink: 0;
-    padding-right: 0.5rem;
-}
-
-.console-range-overview__channel-dialog {
-    min-width: 60rem;
-}
-
-.console-range-overview__document {
-    width: 100%;
-    min-height: 5.5rem;
-    padding: 0 1.5rem;
-}
-
-.console-range-overview__document-icon,
-.console-range-overview__document-kind {
-    flex-shrink: 0;
-}
-
-.console-range-overview__document-name {
-    flex: 0 1 auto;
-    min-width: 0;
-}
-
-.console-range-overview__document-kind {
-    margin-left: auto;
-}

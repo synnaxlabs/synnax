@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, label, ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -31,7 +31,6 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const path = Ranger.formPath;
 const created = Ranger.createFormPath;
 const pair = Ranger.kvPairFormPath;
-const aliasPath = Ranger.aliasFormPath;
 
 const client = createTestClient();
 
@@ -163,33 +162,6 @@ describe("queries", () => {
           [second.key]: null,
         }),
       );
-    });
-  });
-
-  describe("useResultAliases", () => {
-    it("should follow an alias set on a range above", async () => {
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
-      const parent = await client.ranges.create({ name: "parent", timeRange });
-      const child = await client.ranges.create({
-        name: "child",
-        timeRange,
-        parent: parent.key,
-      });
-      const { result } = renderHook(
-        () => Ranger.useResultAliases({ rangeKey: child.key }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.data?.aliases).toEqual({}));
-      await client.ranges.setAlias(parent.key, ch.key, "inherited");
-      await waitFor(() =>
-        expect(result.current.data?.aliases).toEqual({ [ch.key]: "inherited" }),
-      );
-      expect(result.current.data?.own).toEqual([]);
     });
   });
 
@@ -649,57 +621,6 @@ describe("queries", () => {
       });
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       expect(await rng.kv.list()).toEqual({ operator: "Ada" });
-    });
-  });
-
-  describe("useCreateAliasForm", () => {
-    const createChannel = async () =>
-      await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-
-    it("should set the trimmed alias on the range when it saves", async () => {
-      const ch = await createChannel();
-      const rng = await client.ranges.create({
-        name: "alias_create",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-      const { result } = renderHook(
-        () =>
-          Ranger.useCreateAliasForm({
-            query: null,
-            initialValues: { range: rng.key, channel: 0, alias: "" },
-          }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.form.set(aliasPath.channel, ch.key);
-        result.current.form.set(aliasPath.alias, "  thrust  ");
-      });
-      await act(async () => expect(await result.current.saveAsync()).toBe(true));
-      expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" });
-    });
-
-    it("should fail with a message for no channel and a blank alias", async () => {
-      const rng = await client.ranges.create({
-        name: "alias_blank",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-      const { result } = renderHook(
-        () =>
-          Ranger.useCreateAliasForm({
-            query: null,
-            initialValues: { range: rng.key, channel: 0, alias: " " },
-          }),
-        { wrapper },
-      );
-      await act(async () => expect(await result.current.saveAsync()).toBe(false));
-      const { form } = result.current;
-      expect(form.get(aliasPath.channel).status.message).toBe("Channel is required");
-      expect(form.get(aliasPath.alias).status.message).toBe("Alias is required");
-      expect(await rng.listAliases()).toEqual({});
     });
   });
 

@@ -30,8 +30,6 @@ class Overview(Surface):
     SECTION_SELECTOR = ".console-section"
     FIELD_SELECTOR = ".console-range-overview__field"
     ADD_LINE_SELECTOR = ".console-range-overview__add"
-    DOCUMENT_SELECTOR = ".console-range-overview__document"
-    DOCUMENT_NAME_SELECTOR = ".console-range-overview__document-name"
 
     def __init__(self, *, layout: LayoutClient, toolbar: Toolbar, explorer: Explorer):
         super().__init__(layout)
