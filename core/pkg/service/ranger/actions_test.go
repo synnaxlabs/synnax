@@ -69,10 +69,10 @@ var _ = Describe("Actions", func() {
 		})
 		It("Should set a color the range does not have", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+			Expect(res.Color).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 		})
 		It("Should reject a path into the color", func() {
-			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
+			base.Color = new(MustSucceed(color.Parse("#00ff00")))
 			act := set([]string{"color", "a"}, 128)
 			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -132,7 +132,7 @@ var _ = Describe("Actions", func() {
 
 	Describe("RemovePayload", func() {
 		It("Should remove the color", func() {
-			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
+			base.Color = new(MustSucceed(color.Parse("#00ff00")))
 			res := MustSucceed(ranger.Reduce(
 				base,
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),

@@ -32,21 +32,18 @@ struct Color {
     /// @brief a is the alpha component (0-255).
     std::uint8_t a = 255;
 
-    /// @brief parses a color from a 6 or 8 digit hex string ("#ff0000" or
-    /// "#ff000080"). The alpha of a 6 digit string is 255.
+    bool operator==(const Color &) const = default;
+
+    /// @brief parses a color from a JSON string in any form x::color::parse accepts.
+    /// Accumulates an error on the parser for any other JSON value.
     static Color parse(const x::json::Parser &parser);
 
-    /// @brief serializes the color to its "#rrggbbaa" JSON string.
+    /// @brief serializes the color to its hex string.
     [[nodiscard]] x::json::json to_json() const;
 
-    /// @brief returns the color as an 8 digit "#rrggbbaa" string.
+    /// @brief returns the color as a lowercase "#rrggbb" string when it is opaque, and
+    /// as "#rrggbbaa" otherwise.
     [[nodiscard]] std::string hex() const;
-
-    /// @brief returns the color packed as 0xRRGGBBAA.
-    [[nodiscard]] std::uint32_t rgba() const;
-
-    /// @brief unpacks a color from its 0xRRGGBBAA form.
-    static Color from_rgba(std::uint32_t v);
 
     using proto_type = ::x::color::pb::Color;
 
@@ -58,7 +55,9 @@ struct Color {
     from_proto(const ::x::color::pb::Color &pb);
 };
 
-/// @brief from_css parses a CSS color: a '#'-prefixed hex or an rgb()/rgba() value.
-/// Mirrors the Go color.FromCSS.
-std::pair<Color, x::errors::Error> from_css(const std::string &input);
+/// @brief parses a color string. Accepts hex with an optional '#' and 3, 4, 6, or 8
+/// digits, rgb() or rgba(), and hsl() or hsla(), in comma or space syntax with an
+/// optional 0-1 or percentage alpha. A value without an alpha is opaque.
+/// @returns a validation error for any other string or an out-of-range value.
+std::pair<Color, x::errors::Error> parse(const std::string &input);
 }

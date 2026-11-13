@@ -18,12 +18,6 @@ cc_library(
         "json.gen.h",
         "types.gen.h",
     ],
-    # GCC's libstdc++ <regex> trips a false-positive maybe-uninitialized warning when
-    # compiling from_css; only GCC on Linux is affected.
-    copts = select({
-        "@platforms//os:linux": ["-Wno-error=maybe-uninitialized"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",

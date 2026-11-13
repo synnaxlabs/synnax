@@ -40,7 +40,7 @@ var _ = Describe("Dispatch", func() {
 		}))
 		nominal = label.Label{
 			Name:  "Nominal",
-			Color: MustSucceed(color.FromHex("#00ff00")),
+			Color: MustSucceed(color.Parse("#00ff00")),
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &nominal)
@@ -84,7 +84,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(retrieve(ctx)).To(Equal(label.Label{
 			Key:   nominal.Key,
 			Name:  "Anomaly",
-			Color: MustSucceed(color.FromHex("#ff0000")),
+			Color: MustSucceed(color.Parse("#ff0000")),
 		}))
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("Dispatch", func() {
 			rec := record()
 			l := label.Label{
 				Name:  "Anomaly",
-				Color: MustSucceed(color.FromHex("#ff0000")),
+				Color: MustSucceed(color.Parse("#ff0000")),
 			}
 			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx).WithDispatchKey("dk-create")

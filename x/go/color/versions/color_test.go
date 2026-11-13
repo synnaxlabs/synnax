@@ -17,14 +17,14 @@ import (
 )
 
 var _ = Describe("Color", func() {
-	Describe("FromHex", func() {
+	Describe("Parse", func() {
 		It("Should parse an 8 digit hex color", func() {
-			Expect(versions.FromHex("#12345678")).
+			Expect(versions.Parse("#12345678")).
 				To(Equal(versions.Color{R: 0x12, G: 0x34, B: 0x56, A: 0x78}))
 		})
 		It("Should reject an invalid hex color", func() {
 			Expect(
-				versions.FromHex("#123"),
+				versions.Parse("#12345"),
 			).Error().
 				To(MatchError(validate.ErrValidation))
 		})

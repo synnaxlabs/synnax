@@ -13,36 +13,96 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/color"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Color", func() {
-	Describe("FromHex", func() {
-		It("Should parse a 6-character hex string", func() {
-			c := MustSucceed(color.FromHex("#ff0000"))
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 255}))
-		})
-		It("Should parse a 6-character hex string without hash", func() {
-			c := MustSucceed(color.FromHex("00ff00"))
-			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 255}))
-		})
-		It("Should parse an 8-character hex string with alpha", func() {
-			c := MustSucceed(color.FromHex("#ff000080"))
-			Expect(c.R).To(Equal(uint8(255)))
-			Expect(c.G).To(Equal(uint8(0)))
-			Expect(c.B).To(Equal(uint8(0)))
-			Expect(c.A).To(Equal(uint8(128)))
-		})
-		It("Should return an error for an invalid hex string", func() {
-			Expect(color.FromHex("#xyz")).Error().To(MatchError(validate.ErrValidation))
-		})
-		It("Should return an error for wrong length", func() {
-			Expect(
-				color.FromHex("#12345"),
-			).Error().
-				To(MatchError(validate.ErrValidation))
-		})
+	Describe("Parse", func() {
+		DescribeTable(
+			"Should parse a color string",
+			func(input string, expected color.Color) {
+				Expect(color.Parse(input)).To(Equal(expected))
+			},
+			Entry("6 digit hex", "#ff8000", color.Color{R: 255, G: 128, A: 255}),
+			Entry("6 digit hex without a hash", "00ff00", color.Color{G: 255, A: 255}),
+			Entry("8 digit hex", "#ff000080", color.Color{R: 255, A: 128}),
+			Entry("upper case hex", "#FF0000", color.Color{R: 255, A: 255}),
+			Entry("3 digit hex", "#f80", color.Color{R: 255, G: 136, A: 255}),
+			Entry("4 digit hex", "#f808", color.Color{R: 255, G: 136, A: 136}),
+			Entry("rgb", "rgb(59,196,84)", color.Color{R: 59, G: 196, B: 84, A: 255}),
+			Entry("rgb with alpha", "rgb(59, 196, 84, 0.5)",
+				color.Color{R: 59, G: 196, B: 84, A: 128}),
+			Entry("rgba", "rgba(59,196,84,0.5)",
+				color.Color{R: 59, G: 196, B: 84, A: 128}),
+			Entry(
+				"rgba without alpha",
+				"rgba(1, 2, 3)",
+				color.Color{R: 1, G: 2, B: 3, A: 255},
+			),
+			Entry(
+				"rgb space syntax",
+				"rgb(1 2 3 / 0.5)",
+				color.Color{R: 1, G: 2, B: 3, A: 128},
+			),
+			Entry(
+				"rgb percentages",
+				"rgb(100% 0% 0% / 50%)",
+				color.Color{R: 255, A: 128},
+			),
+			Entry(
+				"surrounding whitespace",
+				"  RGB(1,2,3)  ",
+				color.Color{R: 1, G: 2, B: 3, A: 255},
+			),
+			Entry("hsl red", "hsl(0, 100%, 50%)", color.Color{R: 255, A: 255}),
+			Entry("hsl green", "hsl(120,100%,50%)", color.Color{G: 255, A: 255}),
+			Entry("hsl blue", "hsl(240deg 100% 50%)", color.Color{B: 255, A: 255}),
+			Entry("hsl without percent signs", "hsl(0, 0, 100)",
+				color.Color{R: 255, G: 255, B: 255, A: 255}),
+			Entry("hsl wraps hue", "hsl(480, 100%, 50%)", color.Color{G: 255, A: 255}),
+			Entry(
+				"hsl wraps negative hue",
+				"hsl(-120, 100%, 50%)",
+				color.Color{B: 255, A: 255},
+			),
+			Entry("hsla", "hsla(0, 55%, 43%, 0)", color.Color{R: 170, G: 49, B: 49}),
+		)
+		DescribeTable("Should reject",
+			func(input string) {
+				Expect(
+					color.Parse(input),
+				).Error().
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("an empty string", ""),
+			Entry("a named color", "red"),
+			Entry("a 5 digit hex", "#12345"),
+			Entry("a non-hex digit", "#xyzxyz"),
+			Entry("too few values", "rgb(1, 2)"),
+			Entry("too many values", "rgb(1, 2, 3, 0.5, 1)"),
+			Entry("a channel above 255", "rgb(300, 0, 0)"),
+			Entry("a negative channel", "rgb(-1, 0, 0)"),
+			Entry("an alpha above 1", "rgba(1, 2, 3, 1.5)"),
+			Entry("a malformed alpha", "rgba(1, 2, 3, 1.2.3)"),
+			Entry("a malformed hue", "hsl(1.2.3, 0%, 0%)"),
+			Entry("a saturation above 100", "hsl(0, 101%, 0%)"),
+			Entry("a lightness above 100", "hsl(0, 0%, 101%)"),
+		)
+	})
+
+	Describe("Hex", func() {
+		DescribeTable(
+			"Should write lower case hex",
+			func(c color.Color, expected string) { Expect(c.Hex()).To(Equal(expected)) },
+			Entry(
+				"6 digits when opaque",
+				color.Color{R: 255, G: 128, B: 1, A: 255},
+				"#ff8001",
+			),
+			Entry("8 digits when translucent", color.Color{R: 10, G: 11, B: 12, A: 128},
+				"#0a0b0c80"),
+			Entry("8 digits for the zero color", color.Color{}, "#00000000"),
+		)
 	})
 
 	Describe("FromUint32", func() {
@@ -50,126 +110,5 @@ var _ = Describe("Color", func() {
 			Expect(color.FromUint32(0x12345678)).
 				To(Equal(color.Color{R: 0x12, G: 0x34, B: 0x56, A: 0x78}))
 		})
-	})
-
-	Describe("FromCSS", func() {
-		DescribeTable(
-			"Should parse valid color strings",
-			func(input string, expected color.Color) {
-				Expect(color.FromCSS(input)).To(Equal(expected))
-			},
-			Entry("hex", "#ff0000", color.Color{R: 255, G: 0, B: 0, A: 255}),
-			Entry("rgb", "rgb(59,196,84)", color.Color{R: 59, G: 196, B: 84, A: 255}),
-			Entry(
-				"rgb with spaces",
-				"rgb(255, 0, 0)",
-				color.Color{R: 255, G: 0, B: 0, A: 255},
-			),
-			Entry(
-				"rgba",
-				"rgba(59,196,84,0.5)",
-				color.Color{R: 59, G: 196, B: 84, A: 128},
-			),
-			Entry(
-				"rgba full alpha",
-				"rgba(0,0,0,1)",
-				color.Color{R: 0, G: 0, B: 0, A: 255},
-			),
-			Entry(
-				"surrounding whitespace",
-				"  rgb(1,2,3)  ",
-				color.Color{R: 1, G: 2, B: 3, A: 255},
-			),
-			Entry(
-				"hsl red",
-				"hsl(0, 100%, 50%)",
-				color.Color{R: 255, G: 0, B: 0, A: 255},
-			),
-			Entry(
-				"hsl green",
-				"hsl(120,100%,50%)",
-				color.Color{R: 0, G: 255, B: 0, A: 255},
-			),
-			Entry(
-				"hsl yellow",
-				"hsl(60,100%,50%)",
-				color.Color{R: 255, G: 255, B: 0, A: 255},
-			),
-			Entry(
-				"hsl cyan",
-				"hsl(180,100%,50%)",
-				color.Color{R: 0, G: 255, B: 255, A: 255},
-			),
-			Entry(
-				"hsl blue",
-				"hsl(240,100%,50%)",
-				color.Color{R: 0, G: 0, B: 255, A: 255},
-			),
-			Entry(
-				"hsl magenta",
-				"hsl(300,100%,50%)",
-				color.Color{R: 255, G: 0, B: 255, A: 255},
-			),
-			Entry("hsl black", "hsl(0, 0%, 0%)", color.Color{R: 0, G: 0, B: 0, A: 255}),
-			Entry(
-				"hsl white",
-				"hsl(0, 0%, 100%)",
-				color.Color{R: 255, G: 255, B: 255, A: 255},
-			),
-			Entry(
-				"hsl wraps hue",
-				"hsl(480, 100%, 50%)",
-				color.Color{R: 0, G: 255, B: 0, A: 255},
-			),
-			Entry(
-				"hsl wraps negative hue",
-				"hsl(-120, 100%, 50%)",
-				color.Color{R: 0, G: 0, B: 255, A: 255},
-			),
-			Entry(
-				"hsla",
-				"hsla(0, 55%, 43%, 0)",
-				color.Color{R: 170, G: 49, B: 49, A: 0},
-			),
-		)
-
-		DescribeTable(
-			"Should reject invalid color strings",
-			func(input, msg string) {
-				Expect(color.FromCSS(input)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(msg)),
-				))
-			},
-			Entry(
-				"rgb with a 4th alpha channel",
-				"rgb(1,2,3,0.5)",
-				"rgb() takes 3 channels",
-			),
-			Entry("rgba missing alpha", "rgba(1,2,3)", "rgba() requires"),
-			Entry("alpha above 1", "rgba(1,2,3,1.5)", "alpha must be 0-1"),
-			Entry("red channel above 255", "rgb(300,0,0)", "channels must be 0-255"),
-			Entry("green channel above 255", "rgb(0,300,0)", "channels must be 0-255"),
-			Entry("blue channel above 255", "rgb(0,0,300)", "channels must be 0-255"),
-			Entry("malformed alpha", "rgba(1,2,3,1.2.3)", "invalid rgb alpha"),
-			Entry("hex without a hash", "00ff00", "must be a hex value"),
-			Entry("named color", "red", "must be a hex value"),
-			Entry("too few channels", "rgb(1,2)", "must be a hex value"),
-			Entry("empty string", "", "must be a hex value"),
-			Entry("invalid hex", "#xyz", "invalid hex color"),
-			Entry(
-				"hsl with a 4th alpha channel",
-				"hsl(0,0%,0%,0.5)",
-				"hsl() takes 3 channels",
-			),
-			Entry("hsla missing alpha", "hsla(0,0%,0%)", "hsla() requires"),
-			Entry("hsla alpha above 1", "hsla(0,0%,0%,1.5)", "hsla alpha must be 0-1"),
-			Entry("hsla malformed alpha", "hsla(0,0%,0%,1.2.3)", "invalid hsl alpha"),
-			Entry("hsl malformed hue", "hsl(1.2.3,0%,0%)", "invalid hsl hue"),
-			Entry("hsl malformed saturation", "hsl(0,1.2.3%,0%)", "saturation must be"),
-			Entry("hsl saturation above 100", "hsl(0,101%,0%)", "saturation must be"),
-			Entry("hsl lightness above 100", "hsl(0,0%,101%)", "lightness must be"),
-			Entry("hsl without percent signs", "hsl(0,0,0)", "must be a hex value"),
-		)
 	})
 })

@@ -26,7 +26,7 @@ var _ = Describe("Actions", func() {
 		base = label.Label{
 			Key:   uuid.New(),
 			Name:  "Nominal",
-			Color: MustSucceed(color.FromHex("#00ff00")),
+			Color: MustSucceed(color.Parse("#00ff00")),
 		}
 	})
 	set := func(path []string, value any) label.Action {
@@ -101,7 +101,7 @@ var _ = Describe("Actions", func() {
 		})
 		It("Should set the color", func() {
 			res := MustSucceed(label.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
+			Expect(res.Color).To(Equal(MustSucceed(color.Parse("#ff0000"))))
 			Expect(res.Name).To(Equal(base.Name))
 		})
 	})

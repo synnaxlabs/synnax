@@ -31,10 +31,10 @@ func alphaEntries() []TableEntry {
 }
 
 var _ = Describe("Color", func() {
-	Describe("FromHex", func() {
+	Describe("Parse", func() {
 		DescribeTable("Should parse a hex string",
 			func(s string, expected v2.Color) {
-				Expect(v2.FromHex(s)).To(Equal(expected))
+				Expect(v2.Parse(s)).To(Equal(expected))
 			},
 			Entry("6 digits", "#ff8000", v2.Color{R: 255, G: 128, A: 255}),
 			Entry("6 digits without a hash", "00ff00", v2.Color{G: 255, A: 255}),
@@ -44,18 +44,17 @@ var _ = Describe("Color", func() {
 		)
 		DescribeTable("Should reject an invalid hex string",
 			func(s string) {
-				Expect(v2.FromHex(s)).Error().To(MatchError(validate.ErrValidation))
+				Expect(v2.Parse(s)).Error().To(MatchError(validate.ErrValidation))
 			},
-			Entry("short", "#f00"),
 			Entry("odd length", "#12345"),
 			Entry("not hex", "#xyzxyz"),
 		)
 	})
 
 	Describe("Hex", func() {
-		DescribeTable("Should write 8 lower case digits",
+		DescribeTable("Should write lower case hex",
 			func(c v2.Color, expected string) { Expect(c.Hex()).To(Equal(expected)) },
-			Entry("opaque", v2.Color{R: 255, G: 128, B: 1, A: 255}, "#ff8001ff"),
+			Entry("opaque", v2.Color{R: 255, G: 128, B: 1, A: 255}, "#ff8001"),
 			Entry("translucent", v2.Color{R: 10, G: 11, B: 12, A: 128}, "#0a0b0c80"),
 			Entry("zero", v2.Color{}, "#00000000"),
 		)
@@ -84,9 +83,9 @@ var _ = Describe("Color", func() {
 	})
 
 	Describe("JSON", func() {
-		It("Should marshal to an 8 digit hex string", func() {
+		It("Should marshal to a hex string", func() {
 			c := v2.Color{R: 255, G: 128, A: 255}
-			Expect(json.Marshal(c)).To(Equal([]byte(`"#ff8000ff"`)))
+			Expect(json.Marshal(c)).To(Equal([]byte(`"#ff8000"`)))
 		})
 		It("Should unmarshal null into a nil pointer", func() {
 			v := struct {
@@ -130,7 +129,7 @@ var _ = Describe("Color", func() {
 			Entry("an empty object", `{}`),
 			Entry("a tuple", `[1, 2, 3, 0.5]`),
 			Entry("an object", `{"r":1,"g":2,"b":3,"a":0.5}`),
-			Entry("a short hex string", `"#f00"`),
+			Entry("a 5 digit hex string", `"#12345"`),
 			Entry("a number", `7`),
 		)
 		It("Should decode with the frozen v0 decoder", func() {
@@ -145,7 +144,7 @@ var _ = Describe("Color", func() {
 
 	Describe("MarshalText", func() {
 		It("Should return the hex string", func() {
-			Expect(v2.Color{R: 1, A: 255}.MarshalText()).To(Equal([]byte("#010000ff")))
+			Expect(v2.Color{R: 1, A: 255}.MarshalText()).To(Equal([]byte("#010000")))
 		})
 	})
 

@@ -112,7 +112,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
 		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
 		Expect(valveConfig(sch, "n1").StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.

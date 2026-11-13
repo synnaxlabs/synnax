@@ -13,33 +13,12 @@ import (
 	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"strings"
 
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
-
-// FromHex parses a 6 or 8 digit hex color string, with or without a leading '#'. The
-// alpha of a 6 digit string is 255.
-func FromHex(s string) (Color, error) {
-	s = strings.TrimPrefix(s, "#")
-	if len(s) != 6 && len(s) != 8 {
-		return Color{}, errors.Wrapf(
-			validate.ErrValidation, "invalid hex color length: %q", s,
-		)
-	}
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
-	}
-	c := Color{R: b[0], G: b[1], B: b[2], A: 255}
-	if len(b) == 4 {
-		c.A = b[3]
-	}
-	return c, nil
-}
 
 // FromUint32 unpacks a color from its 0xRRGGBBAA form.
 func FromUint32(v uint32) Color {
@@ -51,8 +30,12 @@ func (c Color) Uint32() uint32 {
 	return uint32(c.R)<<24 | uint32(c.G)<<16 | uint32(c.B)<<8 | uint32(c.A)
 }
 
-// Hex returns the color as an 8 digit "#rrggbbaa" string.
+// Hex returns the color as a "#rrggbb" string when it is opaque and as a "#rrggbbaa"
+// string otherwise.
 func (c Color) Hex() string {
+	if c.A == 255 {
+		return "#" + hex.EncodeToString([]byte{c.R, c.G, c.B})
+	}
 	return "#" + hex.EncodeToString([]byte{c.R, c.G, c.B, c.A})
 }
 
@@ -72,12 +55,12 @@ func (c *Color) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// MarshalJSONTo writes the color as an 8 digit "#rrggbbaa" string.
+// MarshalJSONTo writes the color as its Hex string.
 func (c Color) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteToken(jsontext.String(c.Hex()))
 }
 
-// UnmarshalJSONFrom reads a 6 or 8 digit hex string.
+// UnmarshalJSONFrom reads a string that Parse accepts.
 func (c *Color) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var s string
 	if err := json.UnmarshalDecode(dec, &s); err != nil {
@@ -88,11 +71,11 @@ func (c *Color) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	var err error
-	*c, err = FromHex(s)
+	*c, err = Parse(s)
 	return err
 }
 
-// EncodeMsgpack writes the color as an 8 digit "#rrggbbaa" string.
+// EncodeMsgpack writes the color as its Hex string.
 func (c Color) EncodeMsgpack(enc *msgpack.Encoder) error {
 	return enc.EncodeString(c.Hex())
 }
@@ -107,9 +90,9 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			err,
 		)
 	}
-	*c, err = FromHex(s)
+	*c, err = Parse(s)
 	return err
 }
 
-// MarshalText returns the color as an 8 digit "#rrggbbaa" string.
+// MarshalText returns the color as its Hex string.
 func (c Color) MarshalText() ([]byte, error) { return []byte(c.Hex()), nil }
