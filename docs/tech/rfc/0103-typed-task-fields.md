@@ -316,13 +316,16 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `task/versions/v3/migrate.go:137`). A new `ReconcileEntry` hook runs in it at each
   version. Without it, the task migration quarantines a mismatch. Client writes do not
   reconcile.
-- **Dangling keys**: Export adds a `channels` map, from each bound key to its channel's
+- **Dangling keys**: Export adds a `$channels` map, from each bound key to its channel's
   `name` and `data_type`, next to `type` and `name` in the envelope body
-  (`task/imex.go`). For a shipped version, import builds the same map from each field's
-  flat `channel`, `name`, and `data_type`. `Normalize` runs `ReconcileEntry` before
-  `DropDangling`, and `ReconcileEntry` turns each bound key with no local channel into
-  `unbound` from the map. Phase 7 adds the map and the order, and each integration phase
-  applies the rule.
+  (`task/imex.go`). No config field can hold that key, and import removes it before
+  `store.Decode`. For a shipped version, each integration's store builds the same map
+  from the raw body before the ladder runs, with the timestamp rule of **Binding**.
+  `Decoded` carries the map to `ReconcileEntry`, which turns each bound key with no
+  local channel into `unbound` from it. A bound key is `restrict`, so `DropDangling`
+  never removes it. With no map entry, as on boot, where keys always exist, the key
+  stays bound, and configure fails and names the field. Phase 7 adds the map and the
+  hook argument, and each integration phase applies the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
