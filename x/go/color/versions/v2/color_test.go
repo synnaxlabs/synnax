@@ -88,6 +88,13 @@ var _ = Describe("Color", func() {
 			c := v2.Color{R: 255, G: 128, A: 255}
 			Expect(json.Marshal(c)).To(Equal([]byte(`"#ff8000ff"`)))
 		})
+		It("Should unmarshal null into a nil pointer", func() {
+			v := struct {
+				C *v2.Color `json:"c"`
+			}{C: &v2.Color{R: 1}}
+			Expect(json.Unmarshal([]byte(`{"c":null}`), &v)).To(Succeed())
+			Expect(v.C).To(BeNil())
+		})
 		It("Should marshal a nil pointer as null", func() {
 			var c *v2.Color
 			Expect(json.Marshal(c)).To(Equal([]byte(`null`)))
@@ -111,7 +118,6 @@ var _ = Describe("Color", func() {
 			},
 			Entry("6 digit hex", `"#ff8000"`, v2.Color{R: 255, G: 128, A: 255}),
 			Entry("8 digit hex", `"#ff800080"`, v2.Color{R: 255, G: 128, A: 128}),
-			Entry("null", `null`, v2.Color{}),
 		)
 		DescribeTable("Should reject",
 			func(data string) {
@@ -119,6 +125,7 @@ var _ = Describe("Color", func() {
 				Expect(json.Unmarshal([]byte(data), &c)).
 					To(MatchError(validate.ErrValidation))
 			},
+			Entry("null", `null`),
 			Entry("an empty string", `""`),
 			Entry("an empty object", `{}`),
 			Entry("a tuple", `[1, 2, 3, 0.5]`),
@@ -164,7 +171,6 @@ var _ = Describe("Color", func() {
 					To(Succeed())
 				Expect(c).To(Equal(expected))
 			},
-			Entry("nil", nil, v2.Color{}),
 			Entry("6 digit hex", "#000000", v2.Color{A: 255}),
 		)
 		DescribeTable("Should reject",

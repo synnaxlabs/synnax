@@ -405,6 +405,7 @@ describe("caseconv", () => {
       );
       const docZ = z.object({
         nested: z.object({ innerPair: decodablePairZ }),
+        optionalPair: decodablePairZ.optional(),
         pairList: z.array(decodablePairZ),
         pairs: z.record(z.string(), decodablePairZ),
       });
@@ -443,11 +444,18 @@ describe("caseconv", () => {
         expect(() => convert({ inner_pair: [1, 2, 3] })).toThrow(zod.ParseError);
       });
 
-      it("Should pass a null value at a path through", () => {
-        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+      it("Should pass a null value of an optional field at a path through", () => {
+        const { convert } = caseconv.snakeToCamelPath(["optional_pair"], {
           schema: docZ,
         });
         expect(convert(null)).toBeNull();
+      });
+
+      it("Should throw a parse error for a null value of a required field", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+          schema: docZ,
+        });
+        expect(() => convert(null)).toThrow(zod.ParseError);
       });
 
       it("Should decode a marked value inside an object set at a path", () => {

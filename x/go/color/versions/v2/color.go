@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
-	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
 // FromHex parses a 6 or 8 digit hex color string, with or without a leading '#'. The
@@ -78,14 +77,8 @@ func (c Color) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteToken(jsontext.String(c.Hex()))
 }
 
-// UnmarshalJSONFrom reads a 6 or 8 digit hex string. JSON null decodes to the zero
-// color.
+// UnmarshalJSONFrom reads a 6 or 8 digit hex string.
 func (c *Color) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	if dec.PeekKind() == 'n' {
-		*c = Color{}
-		_, err := dec.ReadToken()
-		return err
-	}
 	var s string
 	if err := json.UnmarshalDecode(dec, &s); err != nil {
 		return errors.Wrapf(
@@ -106,14 +99,6 @@ func (c Color) EncodeMsgpack(enc *msgpack.Encoder) error {
 
 // DecodeMsgpack reads the same forms as UnmarshalJSONFrom.
 func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
-	code, err := dec.PeekCode()
-	if err != nil {
-		return err
-	}
-	if code == msgpcode.Nil {
-		*c = Color{}
-		return dec.DecodeNil()
-	}
 	s, err := dec.DecodeString()
 	if err != nil {
 		return errors.Wrapf(

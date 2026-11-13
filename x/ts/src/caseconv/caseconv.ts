@@ -438,7 +438,8 @@ export interface ConvertedPath {
   /**
    * Converts a value at the end of the path the way the document converts it.
    * @throws {zod.ParseError} from snakeToCamelPath, if a schema marked with encodeWith
-   * rejects a value inside it.
+   * rejects a value inside it. A null value of an optional marked schema passes
+   * through.
    */
   convert: <V>(value: V) => V;
 }
@@ -489,7 +490,12 @@ const convertChild = <V>(
   converter: Converter,
   encodes: boolean,
 ): V => {
-  if (!encodes && value != null && schema != null && getEncoder(schema) != null)
+  if (
+    !encodes &&
+    schema != null &&
+    getEncoder(schema) != null &&
+    !(value == null && schema.safeParse(undefined).success)
+  )
     return decodeMarked(schema, value, true) as V;
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });
@@ -505,7 +511,8 @@ const convertChild = <V>(
  * keys of the whole document with the same schema. A segment into a list, into a record
  * with preserved keys, or under a preserved-case schema stays as it is. Nothing parses
  * the converted value after it, so its convert throws a zod.ParseError when a schema
- * marked with encodeWith rejects a value inside it.
+ * marked with encodeWith rejects a value inside it. A null value of an optional marked
+ * schema passes through.
  */
 export const snakeToCamelPath = createPathConverter(
   snakeToCamelStr,
