@@ -153,6 +153,7 @@ describe("adapter", () => {
         } as unknown as ReadField;
         expect(retype(field, DataType.FLOAT64)).toMatchObject({ enumValues: [] });
         expect(retype(field, DataType.INT8)).toMatchObject({ enumValues: [] });
+        expect(retype(field, DataType.BOOLEAN)).toMatchObject({ enumValues: [] });
       },
     );
 
