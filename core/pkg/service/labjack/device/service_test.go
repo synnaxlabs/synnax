@@ -59,13 +59,19 @@ var _ = Describe("Service", func() {
 		tx = DeferClose(db.OpenTx())
 	})
 
+	var serial uint32
+	nextSerial := func() uint32 {
+		serial++
+		return serial
+	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
 		d := device.Device{
-			Rack:   rackKey,
-			Name:   "T7-0001",
-			Serial: uuid.New().String(),
-			Model:  device.ModelT7,
+			Rack:       rackKey,
+			Name:       "T7-0001",
+			Serial:     nextSerial(),
+			Model:      device.ModelT7,
+			Connection: device.ConnectionUsb,
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
@@ -121,11 +127,12 @@ var _ = Describe("Service", func() {
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
 			d := device.Device{
-				Key:    key,
-				Rack:   rackKey,
-				Name:   "T7-0001",
-				Serial: "470010001",
-				Model:  device.ModelT7,
+				Key:        key,
+				Rack:       rackKey,
+				Name:       "T7-0001",
+				Serial:     470010001,
+				Model:      device.ModelT7,
+				Connection: device.ConnectionUsb,
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(d.Key).To(Equal(key))
@@ -134,10 +141,11 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid device",
 			func(ctx SpecContext, change func(*device.Device), message string) {
 				d := device.Device{
-					Rack:   rackKey,
-					Name:   "T7-0001",
-					Serial: "470010001",
-					Model:  device.ModelT7,
+					Rack:       rackKey,
+					Name:       "T7-0001",
+					Serial:     470010001,
+					Model:      device.ModelT7,
+					Connection: device.ConnectionUsb,
 				}
 				change(&d)
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).
@@ -146,13 +154,18 @@ var _ = Describe("Service", func() {
 			Entry("no name", func(d *device.Device) { d.Name = "" }, "name: required"),
 			Entry(
 				"no serial",
-				func(d *device.Device) { d.Serial = "" },
-				"serial: required",
+				func(d *device.Device) { d.Serial = 0 },
+				"serial: must be non-zero",
 			),
 			Entry(
 				"unknown model",
 				func(d *device.Device) { d.Model = "LJM_dtT9" },
 				"invalid model",
+			),
+			Entry(
+				"unknown connection",
+				func(d *device.Device) { d.Connection = "LJM_ctWIFI" },
+				"invalid connection",
 			),
 		)
 
@@ -200,10 +213,11 @@ var _ = Describe("Service", func() {
 		) {
 			missing := rack.NewKey(1, 999)
 			d := device.Device{
-				Rack:   missing,
-				Name:   "T7-0001",
-				Serial: "470010001",
-				Model:  device.ModelT7,
+				Rack:       missing,
+				Name:       "T7-0001",
+				Serial:     470010001,
+				Model:      device.ModelT7,
+				Connection: device.ConnectionUsb,
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
 				"rack: rack %d does not exist: validation error",
