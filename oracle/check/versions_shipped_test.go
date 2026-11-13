@@ -441,6 +441,13 @@ Channel struct {
 				Expect(messages()).To(BeEmpty())
 			})
 
+		It("Should pass a removed chain whose type names a remaining chain stored",
+			func() {
+				write(releaseRoot, "schemas/synnax/versions/other/v0.oracle", shippedV0)
+				write(root, "schemas/synnax/versions/other/v0.oracle", shippedV0)
+				Expect(messages()).To(BeEmpty())
+			})
+
 		It("Should pass a shipped chain removed with its live file", func() {
 			write(root, "schemas/synnax/versions/other/v0.oracle", `
 Other struct {
@@ -1048,11 +1055,29 @@ Channel struct {
 			Expect(messages()).To(ConsistOf(ContainSubstring("not a directory")))
 		})
 
-		It("Should fail a removed chain whose stored type a current chain stores",
+		It("Should fail a removed chain whose stored type moves into a remaining chain",
+			func() {
+				const other = `
+Other struct {
+    key uuid @key
+
+    @go marshal
+}
+`
+				write(releaseRoot, "schemas/synnax/versions/other/v0.oracle", other)
+				write(root, "schemas/synnax/versions/other/v0.oracle", other)
+				write(root, "schemas/synnax/versions/other/v1.oracle", other+shippedV0)
+				Expect(messages()).To(ContainElement(
+					"schemas/synnax/channel is gone, but schemas/synnax/other now " +
+						"stores Channel, which core/v0.60.1 shipped",
+				))
+			})
+
+		It("Should fail a removed chain whose stored type a new chain stores",
 			func() {
 				write(root, "schemas/synnax/versions/chan/v0.oracle", shippedV0)
 				Expect(messages()).To(ConsistOf(
-					"schemas/synnax/channel is gone, but schemas/synnax/chan still " +
+					"schemas/synnax/channel is gone, but schemas/synnax/chan now " +
 						"stores Channel, which core/v0.60.1 shipped",
 				))
 			})
@@ -1086,9 +1111,26 @@ Other struct {
 `)
 				Expect(messages()).To(HaveExactElements(
 					"no version chain for schemas/x/text",
-					"no version chain for schemas/x/text",
 				))
 			})
+
+		It("Should fail a removed chain when a remaining chain does not resolve at "+
+			"the release", func() {
+			write(releaseRoot, "schemas/synnax/versions/other/v0.oracle", `
+import "schemas/x/versions/text/v0"
+
+Other struct {
+    level text.Level
+
+    @go marshal
+}
+`)
+			write(root, "schemas/synnax/versions/other/v0.oracle", shippedV0)
+			Expect(messages()).To(HaveExactElements(
+				"schemas/synnax/versions/other/v0.oracle at core/v0.60.1: no version " +
+					"chain for schemas/x/text",
+			))
+		})
 
 		It("Should fail a removed chain that a remaining stored type imports", func() {
 			const holder = `
