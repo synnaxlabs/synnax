@@ -117,7 +117,11 @@ fn main() {
                 tauri::RunEvent::ExitRequested { code, api, .. } => {
                     supervisor::commands::exit_requested(_app, code, &api);
                 }
+                // Windows ends a session with `Exit` and no `ExitRequested` first.
                 tauri::RunEvent::Exit => supervisor::commands::shutdown(_app),
+                // macOS opens a running app again with `Reopen`, not a second process.
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => supervisor::commands::relaunched(_app),
                 _ => {}
             }
         });

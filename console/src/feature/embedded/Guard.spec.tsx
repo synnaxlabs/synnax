@@ -92,13 +92,24 @@ describe("Embedded.Guard", () => {
 describe("Embedded.Guard stops and waits", () => {
   afterEach(clearSupervisor);
 
-  it("should replace the workspace while the Core stops", async () => {
+  it("should replace the workspace while the Core stops for an exit", async () => {
     const { emitStatus } = mockSupervisor(() => live);
     await renderGuard();
     expect(await screen.findByText("workspace")).toBeTruthy();
-    await emitStatus({ state: "stopping" });
+    await emitStatus({ state: "exiting" });
     expect(await screen.findByText("Stopping Synnax...")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
+  });
+
+  it("should keep the workspace while the Core stops for an update", async () => {
+    const { emitStatus } = mockSupervisor(() => live);
+    await renderGuard();
+    expect(await screen.findByText("workspace")).toBeTruthy();
+    for (const state of ["stopping", "stopped"] as const) {
+      await emitStatus({ state });
+      expect(screen.getByText("workspace")).toBeTruthy();
+      expect(screen.queryByText("Stopping Synnax...")).toBeNull();
+    }
   });
 
   it("should wait for the Core of the last session to free the data", async () => {
