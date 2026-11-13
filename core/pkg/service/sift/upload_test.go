@@ -229,6 +229,43 @@ var _ = Describe("Upload", func() {
 				To(HaveField("Message", "Waiting to upload to Sift"))
 		})
 
+	It("Should start a waiting upload whose device moves to this rack",
+		func(ctx SpecContext) {
+			other := rack.Rack{Name: "other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			moved := dev
+			moved.Key = uuid.New().String()
+			moved.Rack = other.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &moved)
+			})).To(Succeed())
+			s := sift.UploadStatus{
+				Key:     "sift_upload:" + uuid.NewV7().String(),
+				Name:    rng.Name,
+				Variant: status.VariantLoading,
+				Message: "Waiting to upload to Sift",
+				Time:    telem.Now(),
+				Details: sift.UploadDetails{
+					Device:    moved.Key,
+					Range:     rng.Key,
+					TimeRange: rng.TimeRange,
+					Channels:  []channel.Key{ch.Key()},
+					Asset:     "stand",
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
+			Consistently(server.Runs, 300*time.Millisecond).Should(BeEmpty())
+			move := device.NewSetRackAction(device.SetRackPayload{Rack: dev.Rack})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Apply(ctx, moved.Key, move)
+			})).To(Succeed())
+			statusOf(ctx, s.Key).Should(HaveField("Variant", status.VariantSuccess))
+		})
+
 	It("Should cancel an upload whose status is deleted", func(ctx SpecContext) {
 		server.Pause()
 		key := upload(ctx)

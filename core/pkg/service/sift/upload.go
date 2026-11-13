@@ -149,6 +149,7 @@ type uploader struct {
 	sCtx       signal.Context
 	cancel     context.CancelFunc
 	disconnect observe.Disconnect
+	unwatch    observe.Disconnect
 	wake       chan struct{}
 	mu         sync.Mutex
 	// running holds the upload in progress on each device.
@@ -172,6 +173,7 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 		running: make(map[device.Key]*upload),
 	}
 	u.disconnect = cfg.Status.Observe().OnChange(u.observe)
+	u.unwatch = cfg.Device.Observe().OnChange(u.observeDevices)
 	u.signal()
 	sCtx.Go(u.run, signal.RecoverWithErrOnPanic())
 	return u
@@ -181,6 +183,7 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 // the next uploader of the rack resumes it from there.
 func (u *uploader) Close() error {
 	u.disconnect()
+	u.unwatch()
 	u.cancel()
 	return errors.Skip(u.sCtx.Wait(), context.Canceled)
 }
@@ -189,6 +192,20 @@ func (u *uploader) signal() {
 	select {
 	case u.wake <- struct{}{}:
 	default:
+	}
+}
+
+// observeDevices wakes the uploader when a Sift device changes, so a waiting upload
+// starts on the new rack of a device that moved.
+func (u *uploader) observeDevices(
+	_ context.Context,
+	r gorp.TxReader[device.Key, device.Device],
+) {
+	for c := range r {
+		if c.Kind == gorp.ChangeDelete || c.Value.Make == Make {
+			u.signal()
+			return
+		}
 	}
 }
 
