@@ -32,20 +32,43 @@ import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
-const LogOutAction = (): ReactElement => {
+interface ActionsProps {
+  onOpenSettings?: () => void;
+}
+
+const Actions = ({ onOpenSettings }: ActionsProps): ReactElement => {
   const logout = Core.useLogout();
   return (
     <Header.Actions>
-      <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
-        <Icon.Logout />
-        Log out
-      </PButton.Button>
+      {onOpenSettings != null && (
+        <PButton.Button
+          variant="text"
+          textColor={9}
+          size="medium"
+          onClick={onOpenSettings}
+          tooltip="Settings"
+          aria-label="Settings"
+        >
+          <Icon.Settings />
+        </PButton.Button>
+      )}
+      {!Session.Runtime.CORE_EMBEDDED && (
+        <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
+          <Icon.Logout />
+          Log out
+        </PButton.Button>
+      )}
     </Header.Actions>
   );
 };
 
+export interface SplashProps {
+  /** Shows a gear in the header that calls this. */
+  onOpenSettings?: () => void;
+}
+
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = (): ReactElement => {
+export const Splash = ({ onOpenSettings }: SplashProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_RESOURCE_ID);
@@ -108,7 +131,7 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {!Session.Runtime.CORE_EMBEDDED && <LogOutAction />}
+            <Actions onOpenSettings={onOpenSettings} />
           </Header.Header>
           {awaitingProject && (
             <Status.Summary
