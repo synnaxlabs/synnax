@@ -93,6 +93,49 @@ export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
 };
 
 /**
+ * Builds the catalog of a strain input that {@link STRAIN_ENTRY} reads, whose
+ * excitation polarity picks one of two excitation voltage fields at 0x8040:1C: up to 24
+ * V when unipolar (0) and up to 12 V when bipolar (1).
+ */
+export const createExcitationDescription = (): Description => {
+  const polarity = { index: 0x8040, subIndex: 0x21 };
+  const voltage = {
+    index: 0x8040,
+    subIndex: 0x1c,
+    name: "Excitation voltage",
+    dataType: "float32",
+    default: 0,
+    unit: "V",
+    min: 0,
+  };
+  return {
+    device: [],
+    channels: [
+      {
+        entries: [{ index: STRAIN_ENTRY.index, subIndex: STRAIN_ENTRY.subIndex }],
+        settings: [
+          {
+            ...polarity,
+            name: "Excitation polarity",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: [
+              { value: 0, name: "Unipolar" },
+              { value: 1, name: "Bipolar" },
+            ],
+            visibleWhen: [],
+          },
+          { ...voltage, max: 24, visibleWhen: [{ ...polarity, values: [0] }] },
+          { ...voltage, max: 12, visibleWhen: [{ ...polarity, values: [1] }] },
+        ],
+        requires: [],
+      },
+    ],
+  };
+};
+
+/**
  * Builds the catalog fields of a strain input that {@link STRAIN_ENTRY} and
  * {@link STRAIN_SAMPLE_ENTRY} read. A voltage input picks one of five ranges, a current
  * input one of two. A bridge shows an excitation voltage from 0 to 24 V and needs one

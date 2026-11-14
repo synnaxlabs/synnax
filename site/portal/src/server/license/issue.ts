@@ -67,13 +67,24 @@ const requireLabel = (label: string): void => {
     throw badRequest(`The label must be at most ${MAX_LABEL_LENGTH} characters`);
 };
 
+/** MAX_CHANNELS is the largest cap that a Postgres integer column holds. */
+const MAX_CHANNELS = 2 ** 31 - 1;
+
+/**
+ * requireChannels checks a channel cap, where 0 is unlimited.
+ * @throws {HTTPError} 400 when it is not a whole number from 0 to MAX_CHANNELS.
+ */
+export const requireChannels = (channels: number): void => {
+  if (!Number.isInteger(channels) || channels < 0 || channels > MAX_CHANNELS)
+    throw badRequest("Channels must be a whole number, 0 for unlimited");
+};
+
 /** validate checks the term rules a license must satisfy and throws a 400 if not. */
 export const validate = (args: Terms & { now: Date }): void => {
   requireLabel(args.label);
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
-  if (!Number.isInteger(args.channels) || args.channels < 0)
-    throw badRequest("Channels must be a whole number, 0 for unlimited");
+  requireChannels(args.channels);
   if (args.maxVersion != null && !VERSION_PATTERN.test(args.maxVersion))
     throw badRequest('Maximum version must look like "0.62"');
   if (args.term === "subscription") {

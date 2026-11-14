@@ -26,6 +26,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import {
   createCalibratedDescription,
   createDewesoftXSettings,
+  createExcitationDescription,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -384,7 +385,144 @@ describe("Read", () => {
       await screen.findByText("DewesoftX sets the settings of this device."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
-    expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
+  });
+
+  it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Switch it to Synnax before you ` +
+          "start the task.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+  });
+
+  it("should ask to set up in DewesoftX a slave that Synnax cannot switch", async () => {
+    const settings = createDewesoftXSettings(true);
+    if (settings.mode == null) throw new Error("DewesoftX settings have no mode");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: { ...settings, mode: { ...settings.mode, switch: [] } },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
+          "DewesoftX before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should add the DewesoftX step to a task-wide error", async () => {
+    const shared = await createSharedSlave();
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth1",
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    expect(
+      await screen.findByText(
+        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+          `one network. Slave ${shared.name} is set up for DewesoftX. Switch it to ` +
+          "Synnax before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should not warn of a slave in DewesoftX mode that only disabled channels use", async () => {
+    const shared = await createSharedSlave();
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    const stale = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+          disabled: true,
+        },
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    // The whole text matches only when the error carries no DewesoftX step.
+    expect(
+      await screen.findByText(
+        `Slaves ${other.name} and ${stale.name} are both at position ${position} on ` +
+          "eth0. Delete the one that is not on the network.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
+    const slave = await createSharedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(deployed.config.channels[0].channel).not.toBe(0);
+  });
+
+  it("should note a moved excitation voltage until the next change", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createExcitationDescription(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...EXCITATION, value: 24 }] },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Bipolar/ }));
+    expect(
+      await screen.findByText("Excitation voltage changed from 24 V to 12 V."),
+    ).toBeTruthy();
+    // The value stays at 12 V, so a change back to unipolar moves nothing.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Unipolar/ }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Excitation voltage changed from 24 V to 12 V."),
+      ).toBeNull(),
+    );
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -792,8 +930,11 @@ describe("Read", () => {
       position,
       pdos: createPDOs(),
     };
-    const stale = await createSlaveDevice(client, testRack.key, props);
-    const connected = await createSlaveDevice(client, testRack.key, {
+    // The Core copies "Driver not running" onto each device of a rack that is silent
+    // for 5 s, which clears the connected status. A new rack holds that off.
+    const ownRack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const stale = await createSlaveDevice(client, ownRack.key, props);
+    const connected = await createSlaveDevice(client, ownRack.key, {
       ...props,
       identifier: createIdentifier(),
     });
@@ -803,7 +944,7 @@ describe("Read", () => {
       variant: "success",
       message: "Device connected",
       time: TimeStamp.now(),
-      details: { rack: testRack.key, connected: true },
+      details: { rack: ownRack.key, connected: true },
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
