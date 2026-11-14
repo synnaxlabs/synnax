@@ -805,9 +805,24 @@ TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
     EXPECT_FALSE(s.details.running);
 }
 
-/// @brief a factory whose tasks start at boot, as an auto-start task does.
+/// @brief a factory whose tasks start at boot, as an auto-start task does. Like a
+/// slow factory, its own boot work ends only after a task started.
 class AutoStartTaskFactory final : public Factory {
+    std::atomic<bool> started{false};
+
 public:
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &,
+        const synnax::rack::Rack &,
+        x::breaker::Breaker &
+    ) override {
+        const auto deadline = x::telem::TimeStamp::now() + x::telem::SECOND * 2;
+        while (!this->started && x::telem::TimeStamp::now() < deadline)
+            std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        return {};
+    }
+
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
@@ -825,6 +840,7 @@ public:
             status.details.running = true;
             status.details.config_hash = task.config_hash;
             ctx->set_status(status);
+            this->started = true;
         }
         return {std::move(echo), true};
     }
