@@ -627,6 +627,44 @@ TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWhoseSerialReadFails) {
     EXPECT_EQ(scanned.at(0).properties.at("serial"), 777);
 }
 
+/// @brief it should keep the stored properties of a slave below PRE-OP, show that it is
+/// starting up, and read it at the next rediscovery.
+TEST_F(EtherCATScanStatusTest, ShowsASlaveBelowPreOpAsStartingUp) {
+    this->master->set_starting(1, true);
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 12345));
+    for (size_t i = 0; i < 6; ++i) {
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = i, .devices = &devices})
+        );
+        ASSERT_EQ(scanned.size(), 1);
+        EXPECT_EQ(scanned.at(0).key, "saved");
+        EXPECT_EQ(scanned.at(0).properties, devices.at("saved").properties);
+        const auto status = scanned.at(0).status.value();
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+        EXPECT_EQ(status.message, "Starting up");
+        EXPECT_EQ(
+            status.description,
+            "The module was not ready when the Driver scanned the network. The Driver "
+            "reads it again on a later scan. If the module stays in this status, "
+            "restart its power."
+        );
+    }
+    this->master->set_starting(1, false);
+    const auto read = ASSERT_NIL_P(
+        this->scanner->scan({.count = 6, .devices = &devices})
+    );
+    ASSERT_EQ(read.size(), 1);
+    EXPECT_EQ(read.at(0).key, "saved");
+    EXPECT_EQ(read.at(0).status.value().message, "Discovered (1 inputs, 0 outputs)");
+}
+
+/// @brief it should save no new device for a slave below PRE-OP.
+TEST_F(EtherCATScanStatusTest, SkipsANewSlaveBelowPreOp) {
+    this->master->set_starting(1, true);
+    EXPECT_TRUE(ASSERT_NIL_P(this->scanner->scan({.count = 0})).empty());
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
