@@ -559,6 +559,25 @@ TEST_F(EtherCATScanStatusTest, GivesANewKeyWhenAMovedDeviceHoldsTheKey) {
     EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
 }
 
+/// @brief it should keep a moved device with invalid properties on its slave.
+TEST_F(EtherCATScanStatusTest, KeepsAMovedDeviceWithInvalidProperties) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    this->master->add_slave(identity(2, 0x2, 777));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 777));
+    devices["ethercat_eth0_1_2_1"].properties["op_mode"] = {
+        {"index", 1},
+        {"assign_activate", 0x0700},
+        {"sync0_cycle", -1},
+    };
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1_2");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
+}
+
 /// @brief it should give the device of a serial number to one slave when slaves on two
 /// networks have the serial number.
 TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
@@ -579,6 +598,33 @@ TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
     ASSERT_EQ(scanned.size(), 2);
     EXPECT_EQ(scanned.at(0).key, "saved");
     EXPECT_EQ(scanned.at(1).key, "ethercat_1_2_777");
+}
+
+/// @brief it should save no new device for a slave whose serial number read fails, and
+/// discover the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsASlaveWhoseSerialReadFails) {
+    this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
+    Devices devices;
+    store(devices, "elsewhere", identity(2, 0x2, 777));
+    for (size_t i = 0; i < 13; ++i)
+        EXPECT_TRUE(
+            ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices})).empty()
+        );
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
+/// @brief it should keep the stored device and serial number at the position of a
+/// slave whose serial number read fails.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWhoseSerialReadFails) {
+    this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(0).properties.at("serial"), 777);
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
