@@ -152,6 +152,14 @@ describe("ranger.reduceAll", () => {
       const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
       expect(next).toEqual({ ...created, labels: [LABEL] });
     });
+
+    it("should keep hasChildren, which a create carries as false", () => {
+      const prev = { ...createRange(), hasChildren: true };
+      const { next } = ranger.reduceAll(prev, [
+        ranger.create({ range: createRange() }),
+      ]);
+      expect(next.hasChildren).toBe(true);
+    });
   });
 });
 
@@ -194,5 +202,27 @@ describe("ranger.createOf", () => {
 
   it("should return undefined for a path action", () => {
     expect(ranger.createOf(ranger.set({ path: ["name"], value: "x" }))).toBeUndefined();
+  });
+});
+
+describe("ranger.parentOf", () => {
+  it("should return the parent of a created range", () => {
+    const range = { ...createRange(), parent: PARENT };
+    expect(ranger.parentOf(ranger.create({ range }))).toBe(PARENT);
+    expect(ranger.parentOf(ranger.create({ range: createRange() }))).toBeUndefined();
+  });
+
+  it("should return the parent that a set of the parent holds", () => {
+    expect(ranger.parentOf(ranger.set({ path: ["parent"], value: PARENT }))).toBe(
+      PARENT,
+    );
+  });
+
+  it("should return undefined for other actions", () => {
+    expect(ranger.parentOf(ranger.set({ path: ["name"], value: "x" }))).toBeUndefined();
+    expect(ranger.parentOf(ranger.remove({ key: "parent" }))).toBeUndefined();
+    expect(
+      ranger.parentOf(ranger.set({ path: ["parent"], value: null })),
+    ).toBeUndefined();
   });
 });

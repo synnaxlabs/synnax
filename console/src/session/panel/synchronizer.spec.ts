@@ -7,12 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type project, query } from "@synnaxlabs/client";
-import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
+import { NotFoundError, panel, project, query, user } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  createTestClientWithPolicy,
+  createTestClientWithRole,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
+import { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
@@ -174,15 +182,21 @@ const createProject = async (): Promise<project.Project> =>
 interface ProjectPanelOverrides {
   key?: panel.Key;
   name?: string;
+  owner?: user.Key;
 }
 
 const createProjectPanel = async (
   projectKey: project.Key,
-  { key = uuid.create(), name = uniqueName("panel") }: ProjectPanelOverrides = {},
+  {
+    key = uuid.create(),
+    name = uniqueName("panel"),
+    owner,
+  }: ProjectPanelOverrides = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
     key,
     name,
+    owner,
     project: projectKey,
     root: leaf(uuid.create()),
   });
@@ -328,6 +342,184 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key]));
     const alpha = await createProjectPanel(proj.key, { name: "alpha" });
     await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key, alpha.key]));
+  });
+
+  it("keeps the drafts of other users out of the strip order", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const role = await createEmptyRole(client);
+    const other = await client.users.create({
+      username: uuid.create(),
+      password: "test",
+      name: "other",
+      role: role.key,
+    });
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const mine = await createProjectPanel(proj.key, { name: "mine", owner: me });
+    await createProjectPanel(proj.key, { name: "also", owner: other.key });
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, mine.key, zulu.key]),
+    );
+  });
+
+  it("swaps in the new user's drafts when a different user logs in", async () => {
+    const proj = await createProject();
+    const viewer = await createTestClientWithRole(client, "Viewer");
+    const viewerKey = (await viewer.users.current.retrieve()).key;
+    const me = (await client.users.current.retrieve()).key;
+    const shared = await createProjectPanel(proj.key, { name: "a shared" });
+    const theirs = await createProjectPanel(proj.key, {
+      name: "b viewer",
+      owner: viewerKey,
+    });
+    const mine = await createProjectPanel(proj.key, { name: "c admin", owner: me });
+    const store = await createStoreWithProject(proj.key);
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client: viewer, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, theirs.key]));
+    act(() => viewer.reauthenticate(TEST_CREDENTIALS));
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, mine.key]));
+  });
+
+  it("deletes a draft whose last tab closes and returns to the earlier panel", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const mike = await createProjectPanel(proj.key, { name: "mike" });
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, zulu.key);
+    store.dispatch(
+      Session.Panel.select({ key: draft.key, windowKey: Drift.MAIN_WINDOW }),
+    );
+    await mountMembership(store);
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, draft.key, mike.key, zulu.key]),
+    );
+    await client.panels.dispatch(draft.key, panel.removeTab({ key: tab }));
+    // The strip's leftmost pill is alpha and the draft's neighbor is mike or alpha, so
+    // landing on zulu proves the window went back.
+    await waitFor(() => expect(selectedPanel(store)).toBe(zulu.key));
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, mike.key, zulu.key]),
+    );
+    await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
+  it("deletes an emptied draft only after the Core applies the close", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    // An open transaction holds the close in the cache and keeps it from the Core.
+    const close = client.panels.beginTransaction(draft.key);
+    close.add(panel.removeTab({ key: tab }));
+    await waitFor(() => expect(stripOrder(store)).toEqual([]));
+    await act(async () => {});
+    await expect(close.commit()).resolves.toBe(true);
+    await waitFor(
+      async () =>
+        await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+          NotFoundError,
+        ),
+    );
+  });
+
+  it("keeps a draft whose close fails and puts its tab back", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    const close = client.panels.beginTransaction(draft.key);
+    close.add(panel.removeTab({ key: tab }));
+    await waitFor(() => expect(stripOrder(store)).toEqual([]));
+    close.abort();
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    await act(async () => {});
+    const stored = await client.panels.retrieve({ key: draft.key });
+    expect(panel.findTab(stored.root, tab)).toBeDefined();
+  });
+
+  it("keeps an emptied draft and deletes it once when the Core rejects it", async () => {
+    const proj = await createProject();
+    const editor = await createTestClientWithPolicy(client, {
+      name: "edit panels without delete",
+      objects: [
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        user.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve", "update"],
+    });
+    const editorKey = (await editor.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: editorKey,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    const remove = vi.spyOn(editor.panels, "delete");
+    const { result } = await renderHookWithConsole(
+      () => {
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        );
+        return Status.useNotifications().statuses;
+      },
+      { client: editor, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    await editor.panels.dispatch(draft.key, panel.removeTab({ key: tab }));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    // A round trip gives a retry loop time to send its next delete.
+    await editor.panels.retrieve({ key: draft.key });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(result.current).toEqual([
+      expect.objectContaining({
+        variant: "error",
+        name: draft.name,
+        message: "Failed to delete draft",
+      }),
+    ]);
   });
 
   it("prunes a deleted panel from the strip order", async () => {

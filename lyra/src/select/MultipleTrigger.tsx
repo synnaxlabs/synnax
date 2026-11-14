@@ -103,7 +103,12 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
-/** The button of a {@link Multiple} selection, showing one removable tag per entry. */
+/**
+ * The button of a {@link Multiple} selection, showing one removable tag per entry. A
+ * shadow trigger reads as its tags, and any click on it opens it, so its tags have no
+ * remove buttons. In a list item, an empty shadow trigger shows its placeholder on
+ * hover only.
+ */
 export const MultipleTrigger = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
@@ -203,7 +208,12 @@ export const MultipleTrigger = <
       {...itemStatus}
     >
       {value.length === 0 && (
-        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
+        <Text.Text
+          className={CSS.cls(
+            CSS.B("select-multiple-trigger-placeholder"),
+            variant === "shadow" && CSS.M("reveal"),
+          )}
+        >
           {preview === true ? (
             "None"
           ) : (
@@ -227,7 +237,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button ref={triggerRef} variant={variant} onClick={toggle}>
+        <Button.Button ref={triggerRef} variant="text" onClick={toggle}>
           <Icon.Add color={9} />
         </Button.Button>
       )}

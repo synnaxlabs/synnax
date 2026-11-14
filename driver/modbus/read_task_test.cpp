@@ -42,6 +42,9 @@ void expect_rate(const double measured, const int rate_hz) {
 /// @brief Test fixture for Modbus read task tests.
 class ModbusReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::shared_ptr<task::MockContext> ctx;
@@ -51,6 +54,7 @@ protected:
     synnax::rack::Rack rack;
 
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
@@ -113,6 +117,8 @@ protected:
         }
         return cfg;
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should return validation error for non-existent device.
@@ -386,7 +392,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
-    ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
@@ -403,6 +409,178 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_EQ(fr.contains(index_channel.key), true);
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
+}
+
+/// @brief it should stop at once when a read waits for its turn behind a slow request
+/// from another device on the connection.
+TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.coils[0] = 1;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1685;
+    auto slave = testutil::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto index_channel = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("time"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("data"),
+        x::telem::UINT8_T,
+        index_channel.key
+    ));
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    synnax::device::Device dev{
+        .key = make_unique_channel_name("modbus"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = MAKE,
+        .model = "Modbus Device",
+        .name = "modbus",
+        .properties = {
+            {"connection", device::ConnectionConfig{"127.0.0.1", 1685}.to_json()}
+        },
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto tsk = synnax::task::Task{
+        .rack = rack.key,
+        .name = "my_task",
+        .type = "modbus_read",
+    };
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"},
+               {"disabled", false},
+               {"channel", data_channel.key},
+               {"address", 0}}}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto devs = std::make_shared<device::Manager>();
+    auto task = common::ReadTask(
+        tsk,
+        ctx,
+        x::breaker::default_config(tsk.name),
+        std::make_unique<ReadTaskSource>(devs, std::move(*cfg)),
+        factory
+    );
+    device::ConnectionConfig busy_cfg{"127.0.0.1", 1685};
+    busy_cfg.unit_id = 2;
+    busy_cfg.timeout = x::telem::SECOND * 5;
+    auto busy = ASSERT_NIL_P(devs->acquire(busy_cfg));
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
+    slave.stall_next(2, std::chrono::milliseconds(3000));
+    std::thread slow([&] {
+        uint16_t r = 0;
+        ASSERT_NIL(busy->read_registers(device::HoldingRegister, 0, 1, &r));
+    });
+    ASSERT_TRUE(slave.wait_for_stall(std::chrono::seconds(5)));
+    const auto stopping = std::chrono::steady_clock::now();
+    task.stop("stop_cmd", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    slow.join();
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
+/// @brief it should stop at once with no error when the read that holds the turn waits
+/// for a reply that does not come.
+TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.coils[0] = 1;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1688;
+    auto slave = testutil::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto index_channel = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("time"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("data"),
+        x::telem::UINT8_T,
+        index_channel.key
+    ));
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    device::ConnectionConfig conn{"127.0.0.1", 1688};
+    conn.timeout = x::telem::MILLISECOND * 300;
+    conn.retries = 3;
+    synnax::device::Device dev{
+        .key = make_unique_channel_name("modbus"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = MAKE,
+        .model = "Modbus Device",
+        .name = "modbus",
+        .properties = {{"connection", conn.to_json()}},
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto tsk = synnax::task::Task{
+        .rack = rack.key,
+        .name = "my_task",
+        .type = "modbus_read",
+    };
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"},
+               {"disabled", false},
+               {"channel", data_channel.key},
+               {"address", 0}}}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto task = common::ReadTask(
+        tsk,
+        ctx,
+        x::breaker::default_config(tsk.name),
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*cfg)
+        ),
+        factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(3000));
+    ASSERT_TRUE(slave.wait_for_stall(std::chrono::seconds(5)));
+    const auto stopping = std::chrono::steady_clock::now();
+    task.stop("stop_cmd", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 /// @brief it should reconnect to a restarted server on the next start.
@@ -998,7 +1176,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task, "");
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "", this->cancel);
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -1016,7 +1194,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
-    configured_task->exec(stop_cmd);
+    configured_task->exec(stop_cmd, this->cancel);
 }
 
 /// Test that auto_start=false does NOT start the task automatically
@@ -1065,7 +1243,8 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task, "cmd1");
+    auto [configured_task, ok] = factory
+                                     .configure_task(ctx, task, "cmd1", this->cancel);
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -1076,7 +1255,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Manually start the task
     synnax::task::Command start_cmd{.task = task.key, .type = "start"};
-    configured_task->exec(start_cmd);
+    configured_task->exec(start_cmd, this->cancel);
 
     // Now task should be running
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
@@ -1091,7 +1270,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
-    configured_task->exec(stop_cmd);
+    configured_task->exec(stop_cmd, this->cancel);
 }
 
 /// @brief it should hold each configured sample rate over time.

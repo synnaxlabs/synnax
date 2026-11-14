@@ -1,0 +1,105 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The surface of a context menu. Props set the fill, the border, and the corners. A
+   highlight follows the pointer with no fade. */
+.lyra-dialog__dialog.lyra-menu-dialog {
+    --pluto-btn-transition: none;
+
+    padding: 1rem;
+
+    &:not(.lyra--modal) {
+        min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));
+    }
+
+    /* The search is a line of text over a hairline that spans the panel. */
+    & > .lyra-input {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        --pluto-border-color: var(--pluto-gray-l6);
+        --pluto-hover-border-color: var(--pluto-gray-l6);
+        --pluto-active-border-color: var(--pluto-gray-l6);
+
+        width: calc(100% + 2rem);
+        height: var(--pluto-height-large);
+        min-height: var(--pluto-height-large);
+        margin: -1rem -1rem 1rem;
+        border-width: 0 0 var(--pluto-border-width);
+        border-radius: var(--pluto-border-radius-large) var(--pluto-border-radius-large)
+            0 0;
+
+        & .lyra-input__start-content {
+            padding-left: 2.5rem;
+            color: var(--pluto-gray-l8);
+        }
+
+        & .lyra-input__start-content + input {
+            padding-left: 1rem;
+        }
+    }
+
+    /* The options sit in the panel's padding, with no box of their own. */
+    & .lyra-list__scroll {
+        padding: 0;
+        border: none;
+        border-radius: 0;
+    }
+
+    /* Options take the size and corners of menu items. Picked neighbors still join into
+       one highlight. */
+    & .lyra-list__item {
+        gap: 1rem;
+        height: var(--pluto-height-medium);
+        min-height: var(--pluto-height-medium);
+        padding: 0 1.5rem;
+        border-radius: var(--pluto-border-radius-tiny);
+    }
+}
+
+@keyframes lyra-menu-dialog-fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+/* A submenu meets the edge of its menu, with its first item level with its own item.
+   The dialog opens 3 px from the item, which sits inside the padding of the menu. */
+.lyra-dialog__dialog.lyra-menu-dialog.lyra-menu-dialog--sub {
+    --pluto-menu-dialog-inset: calc(1rem + var(--pluto-border-width));
+    --pluto-menu-dialog-first-item: var(--pluto-menu-dialog-inset);
+    --pluto-menu-dialog-edge: calc(var(--pluto-menu-dialog-inset) - 3px);
+
+    translate: var(--pluto-menu-dialog-edge)
+        calc(-1 * var(--pluto-menu-dialog-first-item));
+    animation: lyra-menu-dialog-fade-in 0.1s ease-in-out;
+
+    &:has(> .lyra-input) {
+        --pluto-menu-dialog-first-item: calc(
+            var(--pluto-height-large) + var(--pluto-menu-dialog-inset)
+        );
+    }
+
+    &.lyra-dialog__dialog--right {
+        translate: calc(-1 * var(--pluto-menu-dialog-edge))
+            calc(-1 * var(--pluto-menu-dialog-first-item));
+    }
+
+    /* A submenu that replaces another shows at once. */
+    &.lyra-menu-dialog--swap {
+        animation: none;
+    }
+
+    /* It stays above the context menu it opens from. */
+    &.lyra--visible {
+        z-index: 9;
+    }
+}

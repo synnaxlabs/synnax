@@ -264,6 +264,14 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 			expanded = append(expanded, f)
 			continue
 		}
+		if _, ok := line.Domains["go"].Expressions.Find("match"); ok {
+			c.report(diagnostics.Errorf(
+				def,
+				"filter %s: line %s takes an operator, so it cannot carry @go match",
+				typ.Name,
+				line.Name,
+			))
+		}
 		op, ok := bareLineOperator(c, typ.Name, target, fields, line)
 		if !ok {
 			continue

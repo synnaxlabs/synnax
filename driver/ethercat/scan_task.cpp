@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <format>
 #include <iterator>
+#include <map>
 #include <set>
 #include <string>
 #include <tuple>
@@ -163,6 +165,36 @@ void add_settings_error(const std::string &error, synnax::device::Status &status
     status.variant = synnax::status::VARIANT_WARNING;
 }
 
+/// @brief warns on status when the card holds a mode whose sync mode its SII does not
+/// list, and the user chose no sync mode.
+void add_unlisted_op_mode(
+    const slave::Properties &saved,
+    synnax::device::Status &status
+) {
+    if (saved.config.op_mode || !saved.settings) return;
+    const auto mode = saved.settings->find("mode");
+    if (mode == saved.settings->end() || !mode->contains("unlisted_assign_activate"))
+        return;
+    const auto aa = mode->at("unlisted_assign_activate").get<uint16_t>();
+    if (!status.description.empty()) status.description += ' ';
+    if (saved.op_modes.empty())
+        status.description += std::format(
+            "The mode of the module needs the sync mode with assign activate value "
+            "{:#06x}, but the module lists no sync modes. The Driver uses SM sync, and "
+            "the module can refuse to start.",
+            aa
+        );
+    else
+        status.description += std::format(
+            "The mode of the module needs the sync mode with assign activate value "
+            "{:#06x}, but the module does not list it. The Driver uses another sync "
+            "mode, and the module can refuse to start. Choose a sync mode for the "
+            "device.",
+            aa
+        );
+    status.variant = synnax::status::VARIANT_WARNING;
+}
+
 /// @brief whether the Core holds a device that a scan found on the network.
 bool holds_devices_on(const common::ScannerContext &ctx, const std::string &network) {
     if (ctx.devices == nullptr) return false;
@@ -171,6 +203,17 @@ bool holds_devices_on(const common::ScannerContext &ctx, const std::string &netw
         const auto it = props.find("network");
         return it != props.end() && it->second == network;
     });
+}
+
+/// @brief whether the master read the identity of the slave. A slave whose EEPROM read
+/// failed, as while it restarts, has none.
+bool has_identity(const slave::DiscoveryResult &slave) {
+    return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
+}
+
+/// @brief whether the master could not read the serial number of the slave.
+bool serial_unread(const slave::DiscoveryResult &slave) {
+    return !slave.status.serial_error.empty();
 }
 
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
@@ -204,6 +247,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     std::set<std::string> failures;
     std::vector<std::pair<std::string, std::string>> blocked;
+    std::set<std::string> kept;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -236,19 +280,28 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
+        const auto keys = slave_keys(slaves, key, scan_ctx, kept);
         bool rediscovery_needed = false;
         std::set<uint16_t> unidentified;
-        for (const auto &slave: slaves) {
-            // A slave whose EEPROM read failed, as while it restarts, has no identity.
-            if (slave.properties.vendor_id == 0 && slave.properties.product_code == 0) {
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            const auto &slave = slaves[i];
+            if (!has_identity(slave)) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
                 unidentified.insert(slave.properties.position);
                 continue;
             }
+            if (serial_unread(slave)) {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                             << " on " << key << " gave no serial number ("
+                             << slave.status.serial_error << "), rediscovering";
+                rediscovery_needed = true;
+                if (keys[i].empty()) continue;
+            }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
+                keys[i],
                 health,
                 key,
                 scan_ctx
@@ -316,6 +369,7 @@ bool Scanner::exec(
 
 std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
+    const std::string &key,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
@@ -323,10 +377,10 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const auto &props = slave.properties;
     const auto &sts = slave.status;
     const auto rack_key = this->task.rack;
-    const std::string key = this->generate_slave_key(props, master_key);
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
+    if (!sts.serial_error.empty()) slave_props.erase("serial");
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
@@ -360,9 +414,10 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(props, status))
+    else if (set_setup_status(props, status)) {
         add_settings_error(sts.settings_error, status);
-    else if (
+        add_unlisted_op_mode(saved, status);
+    } else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
@@ -384,6 +439,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
             status.variant = synnax::status::VARIANT_WARNING;
         }
         add_settings_error(sts.settings_error, status);
+        add_unlisted_op_mode(saved, status);
     }
     dev.status = std::move(status);
     return {std::move(dev), is_enabled};
@@ -411,6 +467,64 @@ std::string Scanner::generate_slave_key(
     std::ranges::replace(safe_key, ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
+}
+
+std::vector<std::string> Scanner::slave_keys(
+    const std::vector<slave::DiscoveryResult> &slaves,
+    const std::string &master_key,
+    const common::ScannerContext &scan_ctx,
+    std::set<std::string> &kept
+) {
+    std::map<std::string, slave::Properties> stored;
+    if (scan_ctx.devices != nullptr)
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            // A device with invalid properties keeps the fields that parse.
+            stored.emplace(key, parse_properties(dev.properties).first);
+        }
+    const auto find = [&](const slave::DiscoveryResult &slave, const bool by_serial) {
+        const auto &live = slave.properties;
+        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
+            const auto &p = s.second;
+            if (kept.contains(s.first) || p.vendor_id != live.vendor_id ||
+                p.product_code != live.product_code)
+                return false;
+            const bool same_slot = p.network == master_key &&
+                                   p.position == live.position;
+            if (serial_unread(slave)) return !by_serial && same_slot;
+            if (by_serial && live.serial != 0) return p.serial == live.serial;
+            return p.serial == 0 && same_slot;
+        });
+        return it == stored.end() ? std::string() : it->first;
+    };
+    // A stored device with an identity that no slave took is the device of another
+    // unit. A device with no identity is the device of the slave that its key names.
+    const auto taken = [&](const std::string &key) {
+        if (kept.contains(key)) return true;
+        const auto it = stored.find(key);
+        return it != stored.end() &&
+               (it->second.vendor_id != 0 || it->second.product_code != 0);
+    };
+    std::vector<std::string> keys(slaves.size());
+    // A device goes to a slave by its position only after each slave has taken its
+    // own device.
+    for (const bool by_serial: {true, false})
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+            keys[i] = find(slaves[i], by_serial);
+            if (!keys[i].empty()) kept.insert(keys[i]);
+        }
+    for (size_t i = 0; i < slaves.size(); ++i) {
+        if (!keys[i].empty() || !has_identity(slaves[i]) || serial_unread(slaves[i]))
+            continue;
+        const auto base = generate_slave_key(slaves[i].properties, master_key);
+        auto key = base;
+        for (int n = 2; taken(key); ++n)
+            key = base + "_" + std::to_string(n);
+        keys[i] = key;
+        kept.insert(key);
+    }
+    return keys;
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {

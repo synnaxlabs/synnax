@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <string_view>
@@ -56,6 +57,17 @@ constexpr std::array<std::pair<uint32_t, std::string_view>, 32> ABORT_REASONS{{
     {0x08000023, "Object dictionary dynamic generation failed or no object dictionary"},
     {0x08000024, "No data available"},
 }};
+
+// Aborts about the transfer or the device state, not the object or its value.
+constexpr std::array<uint32_t, 7> TEMPORARY_ABORTS{
+    0x05030000,
+    0x05040000,
+    0x05040005,
+    0x060A0023,
+    0x08000020,
+    0x08000021,
+    0x08000022,
+};
 }
 
 std::string sdo_abort_reason(const uint32_t code) {
@@ -63,5 +75,12 @@ std::string sdo_abort_reason(const uint32_t code) {
     for (const auto &[known, reason]: ABORT_REASONS)
         if (known == code) return std::string(reason);
     return std::format("unknown abort code 0x{:08X}", code);
+}
+
+const x::errors::Error &startup_parameter_error(const uint32_t code) {
+    if (code == 0 ||
+        std::ranges::find(TEMPORARY_ABORTS, code) != TEMPORARY_ABORTS.end())
+        return STARTUP_PARAMETER_ERROR;
+    return STARTUP_PARAMETER_REJECTED;
 }
 }

@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -78,6 +79,19 @@ var _ = Describe("Dispatch", func() {
 		}}))
 	})
 
+	It("Should store the edited icon and color", func(ctx SpecContext) {
+		c := MustSucceed(color.Parse("#00ff00"))
+		Expect(apply(ctx, set("icon", "bell"), set("color", c))).To(Succeed())
+		Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.StatusView{
+			Base: view.Base{
+				Key:   v.GorpKey(),
+				Name:  "Before",
+				Icon:  new("bell"),
+				Color: &c,
+			},
+		}}))
+	})
+
 	DescribeTable("Should refuse an edit", func(
 		ctx SpecContext,
 		act view.Action,
@@ -98,6 +112,65 @@ var _ = Describe("Dispatch", func() {
 			Variant: &filter.Set[status.Variant]{In: []status.Variant{"bogus"}},
 		}), `where.variant.in.0: invalid variant "bogus"`),
 	)
+
+	Describe("Range view", func() {
+		BeforeEach(func(ctx SpecContext) {
+			v = rangeView("Ranges")
+			Expect(write(ctx, func(w view.Writer) error { return w.Create(ctx, &v) })).
+				To(Succeed())
+		})
+
+		It(
+			"Should store the edited icon, color, sort, and layout",
+			func(ctx SpecContext) {
+				c := MustSucceed(color.Parse("#ff0000"))
+				Expect(apply(
+					ctx,
+					set("icon", "star"),
+					set("color", c),
+					set("sort", view.RangeSortOldest),
+					set("layout", view.RangeLayoutTimeline),
+				)).To(Succeed())
+				Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.RangeView{
+					Base: view.Base{
+						Key:   v.GorpKey(),
+						Name:  "Ranges",
+						Icon:  new("star"),
+						Color: &c,
+					},
+					Sort:   view.RangeSortOldest,
+					Layout: view.RangeLayoutTimeline,
+				}}))
+			},
+		)
+
+		DescribeTable(
+			"Should refuse an invalid edit",
+			func(ctx SpecContext, act view.Action, matcher string) {
+				Expect(apply(ctx, act)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(matcher)),
+				))
+				Expect(retrieve(ctx)).To(Equal(v))
+			},
+			Entry("of the sort", set("sort", "random"), "sort: invalid sort: random"),
+			Entry(
+				"of the sort to null",
+				set("sort", nil),
+				"[sort]: the document requires a value",
+			),
+			Entry(
+				"that removes the sort",
+				view.NewRemoveAction(view.RemovePayload{Key: "sort"}),
+				"[sort]: the document requires a value",
+			),
+			Entry(
+				"of the layout",
+				set("layout", "grid"),
+				"layout: invalid layout: grid",
+			),
+		)
+	})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {
 		rec := record()

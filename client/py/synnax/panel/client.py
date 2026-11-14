@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_
+from synnax import group as group_, project as project_, user as user_
 from synnax.panel.types_gen import (
     Cursor,
     Key,
@@ -126,6 +126,8 @@ class Client:
         projects: project_.Key | list[project_.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
+        owners: user_.Key | list[user_.Key] = ...,
+        owned: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -142,6 +144,8 @@ class Client:
         projects: project_.Key | list[project_.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
+        owners: user_.Key | list[user_.Key] = ...,
+        owned: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -159,6 +163,8 @@ class Client:
         projects: project_.Key | list[project_.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
+        owners: user_.Key | list[user_.Key] = ...,
+        owned: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -198,6 +204,8 @@ class Client:
         :param groups: Keeps panels in any of these groups.
         :param grouped: Keeps only panels in a group when True, and only panels in no
             group when False.
+        :param owners: Keeps the drafts of any of these users.
+        :param owned: Keeps only drafts when True, and only shared panels when False.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to retrieve.
         :param order: The order of the panels. Defaults to key order.

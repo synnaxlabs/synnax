@@ -38,7 +38,10 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
         std::make_shared<x::thread::rt::Manager>()
     );
     const auto ctx = std::make_shared<task::MockContext>(client);
-    auto tasks = factory->configure_initial_tasks(ctx, rack);
+    x::breaker::Breaker cancel;
+    cancel.start();
+    auto tasks = factory->configure_initial_tasks(ctx, rack, cancel);
+    cancel.stop();
     for (const auto &[_, tsk]: tasks)
         if (tsk != nullptr) tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
@@ -60,17 +63,21 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
 
 /// @brief it should fail a start of a LabJack task and name the platforms that run it.
 TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
+    x::breaker::Breaker cancel;
     const Config cfg;
     const auto factory = cfg.new_factory(
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
         synnax::task::Task{.name = "t", .type = labjack::READ_TASK_TYPE},
-        "start-cmd"
+        "start-cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     const auto statuses = ctx->snapshot();
@@ -87,6 +94,7 @@ TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
 /// @brief it should name the platforms that run LabJack, not the Core version, when a
 /// LabJack task starts on a Driver whose Core runs another minor.
 TEST(RackFactoriesTest, IncompatibleCoreLabJackTaskNamesThePlatforms) {
+    x::breaker::Breaker cancel;
     Config cfg;
     cfg.incompatible_core_version = "99.1.0";
     const auto factory = cfg.new_factory(
@@ -94,11 +102,14 @@ TEST(RackFactoriesTest, IncompatibleCoreLabJackTaskNamesThePlatforms) {
         std::make_shared<x::thread::rt::Manager>()
     );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
         synnax::task::Task{.name = "t", .type = labjack::READ_TASK_TYPE},
-        "start-cmd"
+        "start-cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     const auto statuses = ctx->snapshot();
