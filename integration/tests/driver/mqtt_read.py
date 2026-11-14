@@ -50,21 +50,18 @@ class MQTTReadJSON(MQTTReadTaskCase):
             mqtt.PlainReadEntry(
                 topic="plant/sensors",
                 fields=[
-                    mqtt.ReadField(
-                        pointer="/temperature",
-                        channel=temperature,
-                        data_type=sy.DataType.FLOAT64,
-                    ),
-                    mqtt.ReadField(
-                        pointer="/count", channel=count, data_type=sy.DataType.INT64
-                    ),
-                    mqtt.ReadField(
+                    mqtt.FloatReadField(pointer="/temperature", channel=temperature),
+                    mqtt.IntegerReadField(pointer="/count", channel=count),
+                    mqtt.UnsignedReadField(
                         pointer="/state",
                         channel=running,
-                        data_type=sy.DataType.UINT8,
                         enum_values=[
-                            payload.EnumEntry(label="idle", value=0),
-                            payload.EnumEntry(label="running", value=1),
+                            payload.UnsignedEntry(
+                                label="idle", value=payload.Unsigned(0)
+                            ),
+                            payload.UnsignedEntry(
+                                label="running", value=payload.Unsigned(1)
+                            ),
                         ],
                     ),
                 ],
@@ -94,30 +91,21 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
             data_type=sy.DataType.FLOAT64,
             index=timed_idx.key,
         )
-        stamp = mqtt.ReadField(
-            pointer="/timestamp",
-            channel=timed_idx.key,
-            data_type=sy.DataType.TIMESTAMP,
-            time_format="unix_ns",
+        stamp = mqtt.TimestampReadField(
+            pointer="/timestamp", channel=timed_idx.key, time_format="unix_ns"
         )
         return [
             mqtt.PlainReadEntry(
                 topic="plant/scalar",
                 qos="at_least_once",
-                fields=[
-                    mqtt.ReadField(
-                        pointer="", channel=scalar, data_type=sy.DataType.FLOAT32
-                    )
-                ],
+                fields=[mqtt.FloatReadField(pointer="", channel=scalar)],
             ),
             mqtt.PlainReadEntry(
                 topic="plant/timed",
                 index=stamp.key,
                 fields=[
                     stamp,
-                    mqtt.ReadField(
-                        pointer="/value", channel=timed, data_type=sy.DataType.FLOAT64
-                    ),
+                    mqtt.FloatReadField(pointer="/value", channel=timed),
                 ],
             ),
         ]

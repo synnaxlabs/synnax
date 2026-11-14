@@ -57,7 +57,31 @@ const validateEnabled =
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends mqtt.ReadField {}
+export type ReadField = mqtt.ReadField;
+
+/** @returns the fields that every kind of read field shares. */
+export const readBaseOf = ({
+  key,
+  name,
+  disabled,
+  channel,
+  pointer,
+}: ReadField): mqtt.BaseReadField => ({ key, name, disabled, channel, pointer });
+
+/** @returns a read field of base with the kind and the options. */
+export const createReadField = (
+  options: Task.Payload.ReadOptions,
+  base: Partial<mqtt.BaseReadField> = {},
+): ReadField => mqtt.readFieldZ.parse({ ...base, ...options });
+
+/**
+ * @returns field with the kind that a channel of the given data type takes. A field of
+ * that kind comes back as it is.
+ */
+export const matchDataType = (field: ReadField, dataType: string): ReadField =>
+  payload.kindOf(dataType) === field.type
+    ? field
+    : { ...readBaseOf(field), ...Task.Payload.readOptionsOf(dataType, field) };
 
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
@@ -65,30 +89,85 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
-  const seen = new Set<string>();
-  ctx.value.forEach(({ label }, i) => {
-    if (seen.has(label))
+// The Core refuses a repeated label, and an empty one on any kind but string, when it
+// saves a config. The form holds a list that breaks either rule until it is fixed.
+const enumValuesZ = <E extends z.ZodType<{ label: string }>>(
+  entry: E,
+  emptyLabel: boolean,
+) =>
+  entry
+    .array()
+    .default(() => [])
+    .check((ctx) => {
+      const seen = new Set<string>();
+      ctx.value.forEach(({ label }, i) => {
+        if (label === "" && !emptyLabel)
+          ctx.issues.push({
+            code: "custom",
+            input: ctx.value,
+            message: "Enum label cannot be empty",
+            path: [i, "label"],
+          });
+        else if (seen.has(label))
+          ctx.issues.push({
+            code: "custom",
+            input: ctx.value,
+            message: `Duplicate enum label "${label}"`,
+            path: [i, "label"],
+          });
+        else seen.add(label);
+      });
+    });
+
+const readFieldZ = z.discriminatedUnion("type", [
+  mqtt.floatReadFieldZ.extend({ enumValues: enumValuesZ(payload.floatEntryZ, false) }),
+  mqtt.integerReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.integerEntryZ, false),
+  }),
+  mqtt.unsignedReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.unsignedEntryZ, false),
+  }),
+  mqtt.stringReadFieldZ.extend({ enumValues: enumValuesZ(payload.stringEntryZ, true) }),
+  mqtt.booleanReadFieldZ.extend({
+    enumValues: enumValuesZ(payload.booleanEntryZ, false),
+  }),
+  mqtt.timestampReadFieldZ,
+  mqtt.jsonReadFieldZ,
+  mqtt.uuidReadFieldZ,
+  // The Core refuses an enabled bytes field with no pointer.
+  mqtt.bytesReadFieldZ.check((ctx) => {
+    if (!ctx.value.disabled && ctx.value.pointer === "")
       ctx.issues.push({
         code: "custom",
         input: ctx.value,
-        message: `Duplicate enum label "${label}"`,
-        path: [i, "label"],
+        message: "A bytes field requires a JSON pointer",
+        path: ["pointer"],
       });
-    else seen.add(label);
-  });
-};
+  }),
+]);
 
-const deployReadFieldZ = mqtt.readFieldZ.extend({
-  pointer: json.pointerZ,
-  enumValues: payload.enumEntryZ
+const readConfigZ = mqtt.readConfigZ.extend({
+  entries: z
+    .discriminatedUnion("type", [
+      mqtt.plainReadEntryZ.extend({ fields: readFieldZ.array().default(() => []) }),
+      mqtt.sparkplugReadEntryZ,
+    ])
     .array()
-    .check(validateEnumLabels)
     .default(() => []),
 });
 
+const validateReadField = (ctx: z.core.ParsePayload<ReadField>) => {
+  const { value } = ctx;
+  const pointer = json.pointerZ.safeParse(value.pointer);
+  if (!pointer.success)
+    for (const { message } of pointer.error.issues)
+      ctx.issues.push({ code: "custom", input: value, message, path: ["pointer"] });
+};
+
+const deployReadFieldZ = readFieldZ.check(validateReadField);
+
 const isVariable = (field: ReadField): boolean =>
-  new DataType(field.dataType).isVariable;
+  new DataType(Task.Payload.dataTypeOf(field)).isVariable;
 
 const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
   const { value } = ctx;
@@ -104,7 +183,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
         input: value,
         message:
           "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-        path: ["fields", i, "dataType"],
+        path: ["fields", i, "type"],
       });
     if (pointers.has(field.pointer))
       ctx.issues.push({
@@ -114,14 +193,12 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
         path: ["fields", i, "pointer"],
       });
     else pointers.add(field.pointer);
-    const isTimestamp =
-      field.key === value.index || DataType.TIMESTAMP.equals(field.dataType);
-    if (isTimestamp && field.timeFormat == null)
+    if (field.key === value.index && field.type !== "timestamp")
       ctx.issues.push({
         code: "custom",
         input: value,
-        message: "A timestamp field requires a time format",
-        path: ["fields", i, "timeFormat"],
+        message: "The index field must read a timestamp",
+        path: ["fields", i, "type"],
       });
   });
 };
@@ -180,7 +257,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   });
 };
 
-export const deployReadConfigZ = mqtt.readConfigZ.extend({
+export const deployReadConfigZ = readConfigZ.extend({
   device: Task.deviceKeyZ,
   entries: mqtt.readEntryZ
     .array()
@@ -189,7 +266,7 @@ export const deployReadConfigZ = mqtt.readConfigZ.extend({
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
-  config: mqtt.readConfigZ,
+  config: readConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 

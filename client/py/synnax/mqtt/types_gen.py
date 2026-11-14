@@ -72,36 +72,6 @@ QO_S_EXACTLY_ONCE: Literal["exactly_once"] = "exactly_once"
 QoS = Literal["at_most_once", "at_least_once", "exactly_once"]
 
 
-class ReadField(BaseModel):
-    """Is a single value extracted from the JSON payload of a topic.
-
-    Attributes:
-        key: Uniquely identifies the field within the entry.
-        name: Is the human-readable field name.
-        disabled: Is true when the field is excluded from the task.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
-            takes the whole payload.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the payload to numeric channel values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    disabled: bool = False
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class BaseReadEntry(BaseModel):
     """Carries the fields every read entry shares.
 
@@ -213,36 +183,27 @@ class EdgeTag(BaseModel):
         return hash(self.key)
 
 
-class PlainReadEntry(BaseReadEntry):
-    """Reads JSON payloads from one topic."""
+class BaseReadField(BaseModel):
+    """Carries the fields every read field shares.
 
-    type: Literal["plain"] = "plain"
-    topic: str = ""
-    qos: QoS = "at_most_once"
-    retained_ignored: bool = False
-    fields: list[ReadField] = Field(default_factory=list)
-    index: str = ""
+    Attributes:
+        key: Uniquely identifies the field within the entry.
+        name: Is the human-readable field name.
+        disabled: Is true when the field is excluded from the task.
+        channel: Is the Synnax channel the extracted value is written to.
+        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
+            takes the whole payload.
+    """
 
-
-class SparkplugReadEntry(BaseReadEntry):
-    """Reads one Sparkplug B tag."""
-
-    type: Literal["sparkplug"] = "sparkplug"
-    group: str = ""
-    edge_node: str = ""
-    device: str = ""
-    tag: str = ""
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
+    disabled: bool = False
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    pointer: str = ""
 
-
-# Is a single source of an MQTT read task. The type field selects a plain topic
-# with a JSON payload or a Sparkplug B tag.
-ReadEntry = Annotated[
-    PlainReadEntry | SparkplugReadEntry,
-    Field(discriminator="type"),
-]
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class StaticWriteField(BaseWriteField):
@@ -293,21 +254,74 @@ class EdgeConfig(task.StartConfig):
         return hash(self.key)
 
 
-class ReadConfig(task.PersistConfig):
-    """Configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
-    a broker device and writes their values to Synnax channels.
+class FloatReadField(BaseReadField, payload.FloatRead):
+    """Reads a float."""
 
-    Attributes:
-        device: Is the key of the broker device to read from.
-        entries: Contains the topics and tags to read.
-    """
+    type: Literal["float"] = "float"
 
-    device: device_.Key = ""
-    entries: list[ReadEntry] = Field(default_factory=list)
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+class IntegerReadField(BaseReadField, payload.IntegerRead):
+    """Reads a signed integer."""
+
+    type: Literal["integer"] = "integer"
+
+
+class UnsignedReadField(BaseReadField, payload.UnsignedRead):
+    """Reads an unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+
+
+class StringReadField(BaseReadField, payload.StringRead):
+    """Reads a string."""
+
+    type: Literal["string"] = "string"
+
+
+class BooleanReadField(BaseReadField, payload.BooleanRead):
+    """Reads a boolean."""
+
+    type: Literal["boolean"] = "boolean"
+
+
+class TimestampReadField(BaseReadField, payload.TimestampRead):
+    """Reads a timestamp."""
+
+    type: Literal["timestamp"] = "timestamp"
+
+
+class JsonReadField(BaseReadField):
+    """Reads any JSON value."""
+
+    type: Literal["json"] = "json"
+
+
+class UuidReadField(BaseReadField):
+    """Reads a UUID string."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class BytesReadField(BaseReadField):
+    """Reads base64 text."""
+
+    type: Literal["bytes"] = "bytes"
+
+
+# Is a single value extracted from the JSON payload of a topic. The type field is
+# the kind of the value, which matches the data type of the channel.
+ReadField = Annotated[
+    FloatReadField
+    | IntegerReadField
+    | UnsignedReadField
+    | StringReadField
+    | BooleanReadField
+    | TimestampReadField
+    | JsonReadField
+    | UuidReadField
+    | BytesReadField,
+    Field(discriminator="type"),
+]
 
 
 class PlainWriteTarget(BaseWriteTarget):
@@ -342,6 +356,38 @@ WriteTarget = Annotated[
 ]
 
 
+class PlainReadEntry(BaseReadEntry):
+    """Reads JSON payloads from one topic."""
+
+    type: Literal["plain"] = "plain"
+    topic: str = ""
+    qos: QoS = "at_most_once"
+    retained_ignored: bool = False
+    fields: list[ReadField] = Field(default_factory=list)
+    index: str = ""
+
+
+class SparkplugReadEntry(BaseReadEntry):
+    """Reads one Sparkplug B tag."""
+
+    type: Literal["sparkplug"] = "sparkplug"
+    group: str = ""
+    edge_node: str = ""
+    device: str = ""
+    tag: str = ""
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    name: str = ""
+    data_type: telem.DataType = telem.DataType("float64")
+
+
+# Is a single source of an MQTT read task. The type field selects a plain topic
+# with a JSON payload or a Sparkplug B tag.
+ReadEntry = Annotated[
+    PlainReadEntry | SparkplugReadEntry,
+    Field(discriminator="type"),
+]
+
+
 class WriteConfig(task.StartConfig):
     """Configures an MQTT write task, which publishes a message whenever a value is
     written to the command channel of a target.
@@ -353,6 +399,23 @@ class WriteConfig(task.StartConfig):
 
     device: device_.Key = ""
     targets: list[WriteTarget] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(task.PersistConfig):
+    """Configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
+    a broker device and writes their values to Synnax channels.
+
+    Attributes:
+        device: Is the key of the broker device to read from.
+        entries: Contains the topics and tags to read.
+    """
+
+    device: device_.Key = ""
+    entries: list[ReadEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

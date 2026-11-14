@@ -10,11 +10,17 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Channel, Telem } from "@synnaxlabs/pluto";
-import { DataType, type deep } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { isMissing } from "@/platform/task/ChannelState";
+import {
+  dataTypeOf,
+  type ReadOptions,
+  readOptionsOf,
+} from "@/platform/task/payload/read";
 
 /** Data types that no JSON field can carry. */
 const HIDDEN_DATA_TYPES = [
@@ -39,34 +45,93 @@ export interface DataTypeFieldProps extends Pick<
  */
 export const DataTypeField = ({
   channel,
-  ...rest
-}: DataTypeFieldProps): ReactElement =>
-  channel === 0 ? <Unbound {...rest} /> : <Bound {...rest} channel={channel} />;
-
-const Unbound = ({
   path,
+  ...rest
+}: DataTypeFieldProps): ReactElement => {
+  const unbound = (
+    <Form.Field path={path} label="Data type" padHelpText={false}>
+      {(p) => <Select {...p} {...rest} />}
+    </Form.Field>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
+
+export interface ReadDataTypeFieldProps<F extends ReadOptions> extends Pick<
+  DataTypeFieldProps,
+  "channel" | "hideDataTypes" | "hideVariableDensity"
+> {
+  /** The path of a read field. */
+  path: deep.Target<F>;
+  /** Returns the field for the options of a new data type. */
+  create: (field: F, options: ReadOptions) => F;
+}
+
+/**
+ * Selects the data type of the channel that deploying creates for a read field, and
+ * gives the field the kind of that data type. An existing channel sets the data type,
+ * so the field then shows that of the channel, locked.
+ */
+export const ReadDataTypeField = <F extends ReadOptions>({
+  path,
+  channel,
+  create,
+  ...rest
+}: ReadDataTypeFieldProps<F>): ReactElement => {
+  const { get, set } = Form.useContext();
+  const field = Form.useFieldValue(path);
+  // The deploy check reports a kind that does not suit the field at its type.
+  const kind = Form.useFieldState(deep.widen<ReadOptions>(path).type, {
+    optional: true,
+  });
+  const handleChange = (dataType: string) => {
+    const current = get(path).value;
+    set(path, create(current, readOptionsOf(dataType, current)));
+  };
+  const unbound = (
+    <Input.Item
+      label="Data type"
+      padHelpText={false}
+      helpText={kind?.status.message}
+      status={kind?.status.variant}
+    >
+      <Select value={dataTypeOf(field)} onChange={handleChange} {...rest} />
+    </Input.Item>
+  );
+  return channel === 0 ? (
+    unbound
+  ) : (
+    <Bound channel={channel} unbound={unbound} status={kind?.status} />
+  );
+};
+
+const Select = ({
   hideDataTypes = HIDDEN_DATA_TYPES,
-  hideVariableDensity,
-}: Omit<DataTypeFieldProps, "channel">): ReactElement => (
-  <Form.Field path={path} label="Data type" padHelpText={false}>
-    {(p) => (
-      <Telem.SelectDataType
-        {...p}
-        hideDataTypes={hideDataTypes}
-        hideVariableDensity={hideVariableDensity}
-        location="bottom"
-      />
-    )}
-  </Form.Field>
+  ...rest
+}: Telem.SelectDataTypeProps): ReactElement => (
+  <Telem.SelectDataType {...rest} hideDataTypes={hideDataTypes} location="bottom" />
 );
 
 const NO_HIDDEN_DATA_TYPES: DataType[] = [];
 
-const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
+interface BoundProps {
+  channel: channel.Key;
+  /** Renders once the channel no longer exists. */
+  unbound: ReactElement;
+  /** The status of the field's kind, which replaces the hint when it has a message. */
+  status?: { variant?: Status.Variant; message?: string };
+}
+
+const Bound = ({ channel, unbound, status }: BoundProps): ReactElement => {
   const result = Channel.useResultDataType({ key: channel });
-  if (isMissing(result)) return <Unbound {...rest} />;
+  if (isMissing(result)) return unbound;
+  const shown = status?.message != null && status.message !== "";
   return (
-    <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
+    <Input.Item
+      label="Data type"
+      padHelpText={false}
+      helpText={shown ? status.message : "Set on the channel"}
+      status={shown ? status.variant : undefined}
+    >
       <Telem.SelectDataType
         value={result.data?.toString() ?? ""}
         onChange={NO_CHANGE}

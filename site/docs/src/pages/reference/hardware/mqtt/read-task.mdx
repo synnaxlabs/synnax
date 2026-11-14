@@ -30,9 +30,10 @@ and recorded in one channel.
 - **Bare values** -> an empty pointer, shown as **Whole payload**, reads a topic that
   carries a bare number or string, such as `42.7`.
 - **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
-  number.
+  channel value.
 - **All or nothing** -> the task writes all fields of a payload or none. A payload that
-  lacks a field, or holds a value that the channel cannot store, is skipped.
+  lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
+  field's `fill` is written in place of a missing value.
 
 A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
 of one topic share one index channel, and two topics cannot write to the same channel.
@@ -86,8 +87,8 @@ task = mqtt.ReadTask(
         mqtt.PlainReadEntry(
             topic="plant/line1/sensors",
             fields=[
-                mqtt.ReadField(pointer="/temperature", channel=temperature.key),
-                mqtt.ReadField(pointer="/pressure", channel=pressure.key),
+                mqtt.FloatReadField(pointer="/temperature", channel=temperature.key),
+                mqtt.FloatReadField(pointer="/pressure", channel=pressure.key),
             ],
         )
     ],
@@ -119,16 +120,13 @@ the key of that field in `index` on the entry:
 
 ```python
 # The payload is {"value": 0.42, "ts": 1705312200000}
-stamp = mqtt.ReadField(
-    pointer="/ts",
-    channel=sample_time.key,
-    data_type="timestamp",
-    time_format="unix_ms",
+stamp = mqtt.TimestampReadField(
+    pointer="/ts", channel=sample_time.key, time_format="unix_ms"
 )
 entry = mqtt.PlainReadEntry(
     topic="plant/line1/sample",
     index=stamp.key,
-    fields=[stamp, mqtt.ReadField(pointer="/value", channel=value.key)],
+    fields=[stamp, mqtt.FloatReadField(pointer="/value", channel=value.key)],
 )
 ```
 
@@ -170,15 +168,20 @@ In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                       |
-| ----------------------------------------- | --------- | ------------------------------------------- |
-| Pointer <small>`pointer`</small>          | Empty     | Empty reads the whole payload.              |
-| Data type <small>`data_type`</small>      | `float64` | The data type of the channel.               |
-| Format <small>`time_format`</small>       | None      | Required for a `timestamp` channel.         |
-| Channel <small>`channel`</small>          |           | The channel that records the value.         |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the payload to numbers. |
+| Setting                                   | Default | Notes                                                 |
+| ----------------------------------------- | ------- | ----------------------------------------------------- |
+| Pointer <small>`pointer`</small>          | Empty   | Empty reads the whole payload.                        |
+| Data type <small>`type`</small>           |         | In code, the kind that the channel's data type takes. |
+| Format <small>`time_format`</small>       |         | Required for a `timestamp` field.                     |
+| Channel <small>`channel`</small>          |         | The channel that records the value.                   |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels in the payload to channel values.    |
+| Fill <small>`fill`</small>                | None    | Code only. Written when the payload has no value.     |
 
-An enum mapping in code is a list of `payload.EnumEntry(label="ON", value=1)`, with
+In code, a field is the class of its kind, such as `mqtt.FloatReadField`,
+`mqtt.UnsignedReadField`, or `mqtt.TimestampReadField`. A float channel takes `float`, a
+signed integer channel `integer`, and an unsigned integer channel `unsigned`. Other
+channels take the kind of the same name. An enum mapping is a list of entries of that
+kind, such as `payload.UnsignedEntry(label="ON", value=payload.Unsigned(1))`, with
 `from x import payload`.
 
 <Divider.Divider x />

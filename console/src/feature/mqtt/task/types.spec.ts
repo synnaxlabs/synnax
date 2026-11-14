@@ -19,7 +19,7 @@ const issuesOf = (result: z.ZodSafeParseResult<unknown>) =>
   }));
 
 describe("MQTT Task Types", () => {
-  const field = { key: "f1", pointer: "/temperature", channel: 1 };
+  const field = { type: "float", key: "f1", pointer: "/temperature", channel: 1 };
   const entry = { type: "plain", key: "e1", topic: "plant/temp", fields: [field] };
   const tagID = {
     group: "plant",
@@ -122,7 +122,7 @@ describe("MQTT Task Types", () => {
             key: "e2",
             topic: "",
             disabled: true,
-            fields: [{ key: "f2", pointer: "temperature" }],
+            fields: [{ type: "float", key: "f2", pointer: "temperature" }],
           },
           { type: "sparkplug", key: "s2", disabled: true },
         ),
@@ -288,31 +288,28 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject an index field with no time format", () => {
+    it("should reject an index field that does not read a timestamp", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig({
           ...entry,
           index: "ts",
-          fields: [field, { key: "ts", pointer: "/ts", channel: 2 }],
+          fields: [field, { ...field, key: "ts", pointer: "/ts", channel: 2 }],
         }),
       );
       expect(issuesOf(result)).toEqual([
         {
-          message: "A timestamp field requires a time format",
-          path: "entries.0.fields.1.timeFormat",
+          message: "The index field must read a timestamp",
+          path: "entries.0.fields.1.type",
         },
       ]);
     });
 
     it("should reject a timestamp field with no time format", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({ ...entry, fields: [{ ...field, dataType: "timestamp" }] }),
+        readConfig({ ...entry, fields: [{ ...field, type: "timestamp" }] }),
       );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "A timestamp field requires a time format",
-          path: "entries.0.fields.0.timeFormat",
-        },
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "entries.0.fields.0.timeFormat",
       ]);
     });
 
@@ -323,7 +320,13 @@ describe("MQTT Task Types", () => {
           index: "ts",
           fields: [
             field,
-            { key: "ts", pointer: "/ts", channel: 2, timeFormat: "unix_ms" },
+            {
+              type: "timestamp",
+              key: "ts",
+              pointer: "/ts",
+              channel: 2,
+              timeFormat: "unix_ms",
+            },
           ],
         }),
       );
@@ -334,17 +337,14 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig({
           ...entry,
-          fields: [
-            field,
-            { key: "f2", pointer: "/unit", channel: 2, dataType: "string" },
-          ],
+          fields: [field, { type: "string", key: "f2", pointer: "/unit", channel: 2 }],
         }),
       );
       expect(issuesOf(result)).toEqual([
         {
           message:
             "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-          path: "entries.0.fields.1.dataType",
+          path: "entries.0.fields.1.type",
         },
       ]);
     });
@@ -356,10 +356,10 @@ describe("MQTT Task Types", () => {
           fields: [
             field,
             {
+              type: "string",
               key: "f2",
               pointer: "/unit",
               channel: 2,
-              dataType: "string",
               disabled: true,
             },
           ],
@@ -374,11 +374,11 @@ describe("MQTT Task Types", () => {
           ...entry,
           fields: [
             field,
-            { key: "f2", pointer: "unit", disabled: true },
+            { type: "float", key: "f2", pointer: "unit", disabled: true },
             {
+              type: "string",
               key: "f3",
               pointer: "/temperature",
-              dataType: "timestamp",
               disabled: true,
             },
           ],
@@ -406,6 +406,57 @@ describe("MQTT Task Types", () => {
         {
           message: 'Duplicate enum label "ON"',
           path: "entries.0.fields.0.enumValues.1.label",
+        },
+      ]);
+    });
+
+    it("should hold a field whose labels the Core would refuse", () => {
+      const config = (fieldOverrides: object) =>
+        readConfig({ ...entry, fields: [{ ...field, ...fieldOverrides }] });
+      const { config: shape } = MQTT.Task.READ_SCHEMAS;
+      expect(
+        shape.safeParse(config({ enumValues: [{ label: "", value: 0 }] })).success,
+      ).toBe(false);
+      expect(
+        shape.safeParse(
+          config({
+            enumValues: [
+              { label: "ON", value: 1 },
+              { label: "ON", value: 2 },
+            ],
+          }),
+        ).success,
+      ).toBe(false);
+      expect(
+        shape.safeParse(
+          config({ type: "string", enumValues: [{ label: "", value: "none" }] }),
+        ).success,
+      ).toBe(true);
+    });
+
+    it("should hold an enabled bytes field with no pointer", () => {
+      const { config: shape } = MQTT.Task.READ_SCHEMAS;
+      const bytes = (overrides: object) =>
+        readConfig({
+          ...entry,
+          fields: [{ ...field, type: "bytes", pointer: "", ...overrides }],
+        });
+      expect(shape.safeParse(bytes({})).success).toBe(false);
+      expect(shape.safeParse(bytes({ disabled: true })).success).toBe(true);
+      expect(shape.safeParse(bytes({ pointer: "/raw" })).success).toBe(true);
+    });
+
+    it("should reject an empty enum label on a numeric field", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({
+          ...entry,
+          fields: [{ ...field, enumValues: [{ label: "", value: 0 }] }],
+        }),
+      );
+      expect(issuesOf(result)).toEqual([
+        {
+          message: "Enum label cannot be empty",
+          path: "entries.0.fields.0.enumValues.0.label",
         },
       ]);
     });

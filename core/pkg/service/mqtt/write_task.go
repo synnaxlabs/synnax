@@ -103,6 +103,15 @@ func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 	}
 }
 
+// enums returns entries in the form xjson takes.
+func enums(entries []payload.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.NewEnum(e.Label, e.Value)
+	}
+	return out
+}
+
 func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
 	if format == nil {
 		return xjson.ISO8601, nil
