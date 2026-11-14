@@ -11,7 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type deep, primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -28,10 +28,8 @@ import {
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
-import {
-  CHANNELS_PATH,
-  useEntryProblem,
-} from "@/feature/ethercat/task/useEntryProblem";
+
+const CHANNELS_PATH = deep.path<{ config: { channels: Channel[] } }>().config.channels;
 
 export interface SelectEntryFieldProps {
   path: deep.Target<Channel>;
@@ -60,9 +58,6 @@ export const SelectEntryField = ({
   let emptyContent = `This device has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a device first.";
   else if (reader != null) emptyContent = `Only ${reader} can use this device.`;
-  const problem = useEntryProblem(ch, slave, pdoType);
-  const problemProps =
-    problem == null ? {} : { status: "error" as const, helpText: problem };
   const channels = PForm.useFieldValue(CHANNELS_PATH);
   const inUse = new Set(
     channels
@@ -71,7 +66,7 @@ export const SelectEntryField = ({
       .map(addressKey),
   );
   return (
-    <PForm.Field path={path} label="Entry" grow {...problemProps}>
+    <PForm.Field path={path} label="Entry" grow>
       {({ value, onChange }) => (
         <Select.Simple<string>
           value={hasEntry(value) ? addressKey(value) : ""}

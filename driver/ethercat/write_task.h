@@ -114,7 +114,7 @@ public:
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
@@ -126,7 +126,11 @@ public:
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
             entries.push_back({.entry = ch->entry, .stop_value = ch->stop_value});
-        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
+        auto [wtr, err] = this->engine->open_writer(
+            entries,
+            this->cfg.execution_rate,
+            this->engine->begin_start(cancel)
+        );
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;

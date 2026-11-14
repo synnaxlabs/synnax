@@ -232,7 +232,7 @@ public:
         engine(std::move(eng)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
@@ -253,6 +253,7 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
+            this->engine->begin_start(cancel),
             this->cfg.settings
         );
         if (err) return err;
