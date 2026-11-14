@@ -1526,6 +1526,8 @@ TEST_F(SOEMMasterTest, ActivateGivesEachDCRegisterAccessThreeTries) {
     this->initialize_with_dc_slave({DC_ONLY});
     ASSERT_NIL(this->activate());
     ASSERT_FALSE(this->mock->register_timeouts.empty());
+    // SOEM sends a frame again only when its timeout is longer than EC_TIMEOUTRET.
+    EXPECT_EQ(EC_TIMEOUTRET3, EC_TIMEOUTRET * 3);
     EXPECT_TRUE(std::ranges::all_of(this->mock->register_timeouts, [](const int t) {
         return t == EC_TIMEOUTRET3;
     }));
