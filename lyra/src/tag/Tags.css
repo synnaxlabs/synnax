@@ -10,5 +10,134 @@
  */
 
 .lyra-tags {
+    --lyra-tags-stack-gap: 3px;
+
     padding: 0 2rem 0 0.5rem;
+}
+
+/* A frame around the tags, such as a dropdown trigger's, gives way with them. */
+.lyra-dialog__frame:has(> .lyra-tags) {
+    min-width: 0;
+}
+
+/* Each tag but the last shrinks, and its face paints 15 px past its box, under the next
+   tag. The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
+.lyra-tags--stacked {
+    flex-wrap: nowrap;
+    gap: var(--lyra-tags-stack-gap);
+    overflow: hidden;
+
+    & > .lyra-tag,
+    & > .lyra-tags__more {
+        order: -1;
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        position: relative;
+        isolation: isolate;
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: visible;
+        border-color: transparent;
+        background: none;
+        box-shadow: none;
+        color: var(--pluto-gray-l9);
+        clip-path: inset(-4px -15px -4px -4px);
+        transition: color 0.15s;
+
+        &::before {
+            position: absolute;
+            z-index: -1;
+            top: -1px;
+            bottom: -1px;
+            left: -1px;
+            width: calc(100% + 17px);
+            border: var(--pluto-border-l6);
+            border-radius: var(--pluto-border-radius-small);
+            background: var(--pluto-gray-l0);
+            box-shadow: var(--pluto-shadow-lift);
+            content: "";
+        }
+
+        &:hover {
+            color: var(--pluto-gray-l11);
+        }
+
+        /* The name fades where the tag cuts it, so its tooltip shows the full name. */
+        & > .lyra-text {
+            min-width: 0;
+        }
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tags__last {
+        flex-shrink: 1e-6;
+        clip-path: none;
+
+        &::before {
+            width: calc(100% + 2px);
+        }
+    }
+}
+
+/* A folded group keeps room it does not fill, so a frame around it would show empty
+   space. Its faces take the hover instead. */
+.lyra-btn.lyra-tags.lyra-tags--stacked {
+    &,
+    &[aria-expanded="true"] {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: transparent;
+        --pluto-active-border-color: transparent;
+    }
+
+    &:hover > .lyra-tags__more,
+    &[aria-expanded="true"] > .lyra-tags__more {
+        border-color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l11);
+    }
+}
+
+/* The count gives way last, after every tag, so a narrow group still fits its item. */
+.lyra-tags__more {
+    position: relative;
+    flex-shrink: 1e-6;
+    min-width: 0;
+    overflow: hidden;
+    gap: 0.75rem;
+    border-radius: var(--pluto-border-radius-small);
+    background-color: var(--pluto-gray-l0);
+    height: var(--pluto-height-small);
+    padding: 0 1.5rem;
+    border: var(--pluto-border);
+    color: var(--pluto-gray-l9);
+    white-space: nowrap;
+}
+
+.lyra-tags__dots {
+    display: inline-flex;
+
+    & .lyra-icon {
+        &:not(:first-child) {
+            margin-left: -0.5rem;
+        }
+    }
+}
+
+.lyra-tags__hidden {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* A folded group keeps the room it would take unfolded. Its alignment, not a part that
+   pushes itself to the end, places the space left over. */
+.lyra-tags.lyra-tags--stacked > :not(.lyra-tag, .lyra-tags__more) {
+    margin-left: 0;
+}
+
+/* Tags at full width while a group measures them. */
+.lyra-tags.lyra-tags--measuring > .lyra-flex.lyra-btn.lyra-tag {
+    flex-shrink: 0;
 }

@@ -16,6 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
 import { type ReactElement, type ReactNode } from "react";
 
 import { ContextMenu } from "@/feature/range/tree/ContextMenu";
@@ -149,7 +150,7 @@ export const Layout = ({
       <HighlightContext value={highlight}>
         <CaretlessContext value={caretless}>
           <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-            {content}
+            <Tag.FoldProvider>{content}</Tag.FoldProvider>
           </Menu.ContextMenu>
         </CaretlessContext>
       </HighlightContext>

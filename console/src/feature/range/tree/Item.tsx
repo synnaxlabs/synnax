@@ -170,7 +170,7 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
   const { update } = PLabel.useEditFor();
   if (preview)
     return range.labels.length === 0 ? null : (
-      <Tag.Tags variant="text" className={CSS.BE("range-item", "labels")}>
+      <Tag.Tags variant="text" justify="end" className={CSS.BE("range-item", "labels")}>
         <PLabel.Tags keys={range.labels} size="tiny" />
       </Tag.Tags>
     );
@@ -187,7 +187,11 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
         location={RIGHT_EDGE}
         value={range.labels}
         onChange={handleChange}
-        triggerProps={{ variant: "shadow", "aria-label": "Labels" }}
+        triggerProps={{
+          variant: "shadow",
+          className: CSS.BE("range-item", "tags"),
+          "aria-label": "Labels",
+        }}
       />
     </Field>
   );
@@ -237,6 +241,19 @@ export const Lead = ({
       </Flex.Box>
     </>
   );
+};
+
+// Scratch: "18:00" today, "Nov 4" this year, "Nov 4, 2025" before.
+const compactStart = (start: TimeStamp, now: TimeStamp): string => {
+  if (Telem.Text.describeDay(start, now) === "Today")
+    return Telem.Text.formatTime(start, TimeSpan.MINUTE);
+  const date = start.date();
+  const thisYear = date.getFullYear() === now.date().getFullYear();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: thisYear ? undefined : "numeric",
+  });
 };
 
 /** The start of a range and how long it ran, or how long it has run so far. */
@@ -293,8 +310,17 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
     >
       {/* A range with no start keeps the empty column, so the columns line up. */}
       <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
-        {scheduled(range.timeRange) &&
-          `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
+        {scheduled(range.timeRange) && (
+          <>
+            {/* Scratch: the ladder shows the compact start on a narrow list. */}
+            <span className={CSS.BE("range-item", "start-full")}>
+              {`${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
+            </span>
+            <span className={CSS.BE("range-item", "start-compact")}>
+              {compactStart(start, now)}
+            </span>
+          </>
+        )}
       </Text.Text>
       {span}
     </Flex.Box>
@@ -324,6 +350,11 @@ const Base = ({
       role="listitem"
       className={CSS.cls(CSS.B("range-item"), className)}
       aria-label={range.name}
+      data-start={
+        scheduled(range.timeRange)
+          ? `Starts ${Telem.Text.describeDay(range.timeRange.start, TimeStamp.now())} ${Telem.Text.formatTime(range.timeRange.start, TimeSpan.MINUTE)}`
+          : undefined
+      }
       checkable
       onActivate={() => open(itemKey)}
     >

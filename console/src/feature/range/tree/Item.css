@@ -59,9 +59,14 @@
     width: var(--pluto-height-tiny);
 }
 
+/* The labels fold before the name truncates below 30 characters, or below its own text
+   when shorter. On hover the floor drops to 8 characters, and the tags take the room. */
 .console-range-item__name {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 1 1 content;
+    width: 30ch;
+    transition:
+        flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1),
+        width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
 
     & > :first-child {
         flex-shrink: 0;
@@ -76,10 +81,31 @@
 
 .console-range-item__labels {
     display: flex;
-    flex: 0 1 auto;
+    flex: 1 1.5 auto;
     justify-content: flex-end;
     min-width: 0;
     overflow: hidden;
+    transition: flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+
+    --lyra-tags-expand-max: none;
+}
+
+.console-range-item__labels .console-range-item__tags {
+    justify-content: flex-end;
+}
+
+/* Both factors stay at 1 or more. Under 1, flex leaves part of the overflow in place,
+   and the item overflows. */
+.console-range-item:hover {
+    & .console-range-item__name {
+        flex-shrink: 3.33;
+        width: 8ch;
+    }
+
+    & .console-range-item__labels {
+        flex-shrink: 1;
+        max-width: var(--lyra-tags-expand-max);
+    }
 }
 
 .console-range-item__when {
@@ -105,4 +131,82 @@
     justify-content: center;
     width: 4.5rem;
     min-width: 4.5rem;
+}
+
+.console-range-item__start-compact {
+    display: none;
+}
+
+/* The start, shown on hover once its column hides. */
+.console-range-item::after {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% - 0.5rem);
+    right: 6rem;
+    display: none;
+    padding: 0.5rem 1rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l1);
+    color: var(--pluto-gray-l10);
+    font-size: var(--pluto-small-size);
+    white-space: nowrap;
+    content: attr(data-start);
+    pointer-events: none;
+}
+
+/* As the list narrows, the labels fold to a count, then hide when the count does not
+   fit. Then the start goes compact. The list's width alone sets the later steps, so
+   the columns stay aligned. */
+@container range-list (width < 78rem) {
+    .console-range-item__start {
+        width: 10rem;
+    }
+
+    .console-range-item__start-full {
+        display: none;
+    }
+
+    .console-range-item__start-compact {
+        display: inline;
+    }
+}
+
+/* Then the labels and the start column hide, the start shows on hover, the star shows
+   only on hover or when set, and the indent halves. Only the name and the duration
+   share the item, so the name gives way rather than push the item out. */
+@container range-list (width < 69rem) {
+    .console-range-item__labels,
+    .console-range-item__start {
+        display: none;
+    }
+
+    .console-range-item[data-start]:hover {
+        z-index: 10;
+
+        &::after {
+            display: block;
+        }
+    }
+
+    .console-range-item:not(:hover) .console-range-item__favorite:not(:has(:checked)) {
+        display: none;
+    }
+
+    .console-range-item__name {
+        min-width: 0;
+    }
+
+    .console-range-item__indent {
+        width: calc(var(--console-range-depth, 0) * 1.5rem);
+
+        &::before {
+            background: repeating-linear-gradient(
+                to right,
+                transparent 0 calc(0.75rem - 0.5px),
+                var(--pluto-gray-l6) calc(0.75rem - 0.5px) calc(0.75rem + 0.5px),
+                transparent calc(0.75rem + 0.5px) 1.5rem
+            );
+        }
+    }
 }
