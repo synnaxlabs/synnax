@@ -15,6 +15,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -453,18 +454,25 @@ TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
 /// @brief it should report a change once another number of slaves answers.
 TEST_F(SOEMMasterTest, ChangedOnceAnotherNumberOfSlavesAnswers) {
     this->initialize_with_slave();
-    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()));
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
     this->mock->bus_slaves = 0;
-    EXPECT_TRUE(ASSERT_NIL_P(this->master->changed()));
+    EXPECT_TRUE(ASSERT_NIL_P(this->master->changed()).stale);
 }
 
 /// @brief it should report a change once a slave falls below its state at the scan, as
 /// after a restart.
 TEST_F(SOEMMasterTest, ChangedOnceASlaveRestarts) {
-    this->initialize_with_slave();
-    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()));
-    this->mock->slave_infos[0].bus_state = EC_STATE_INIT;
-    EXPECT_TRUE(ASSERT_NIL_P(this->master->changed()));
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    EXPECT_TRUE(this->master->restarts_visible());
+    const auto unchanged = ASSERT_NIL_P(this->master->changed());
+    EXPECT_FALSE(unchanged.stale);
+    EXPECT_TRUE(unchanged.restarted.empty());
+    this->mock->slave_infos[1].bus_state = EC_STATE_INIT;
+    const auto change = ASSERT_NIL_P(this->master->changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_EQ(change.restarted, std::set<uint16_t>{2});
 }
 
 /// @brief it should report no change for a slave that stays below PRE-OP from the scan
@@ -475,7 +483,7 @@ TEST_F(SOEMMasterTest, ChangedNotForASlaveThatStaysInInit) {
     this->mock->slave_infos[0].bus_state = EC_STATE_INIT;
     const auto slaves = ASSERT_NIL_P(this->master->scan());
     ASSERT_EQ(slaves[0].status.state, slave::State::INIT);
-    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()));
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
 }
 
 /// @brief it should name and type each PDO entry from the CoE object dictionary of the

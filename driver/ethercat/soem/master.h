@@ -158,7 +158,9 @@ public:
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<bool, x::errors::Error> changed() override;
+    std::pair<master::Change, x::errors::Error> changed() override;
+
+    [[nodiscard]] bool restarts_visible() const override { return true; }
 
     master::Activation activate(
         const master::Plan &plan,

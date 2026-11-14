@@ -100,9 +100,11 @@ TYPED_TEST_P(Contract, ChangedFailsBeforeScan) {
 TYPED_TEST_P(Contract, ChangedOnceASlaveIsAdded) {
     this->bus.add_slave();
     ASSERT_NIL(this->bus.master().scan().second);
-    EXPECT_FALSE(ASSERT_NIL_P(this->bus.master().changed()));
+    EXPECT_FALSE(ASSERT_NIL_P(this->bus.master().changed()).stale);
     this->bus.add_slave();
-    EXPECT_TRUE(ASSERT_NIL_P(this->bus.master().changed()));
+    const auto change = ASSERT_NIL_P(this->bus.master().changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_TRUE(change.restarted.empty());
 }
 
 /// @brief it should return the slaves of the first scan until deactivate().

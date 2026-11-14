@@ -2039,7 +2039,7 @@ TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
 /// restarts.
 TEST_F(EngineTest, DiscoverRediscoversOnceWhenASlaveRestarts) {
     ASSERT_NIL_P(this->engine->discover());
-    this->master->restart_slave();
+    this->master->restart_slave(0);
     ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
     EXPECT_EQ(
@@ -2057,12 +2057,72 @@ TEST_F(EngineTest, DiscoverRediscoversOnceWhenASlaveRestarts) {
     );
 }
 
+/// @brief it should count the first discovery as a restart of each slave, then move the
+/// restart time of a slave only when it restarts.
+TEST_F(EngineTest, DiscoverGivesEachSlaveTheTimeOfItsLastRestart) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first);
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+    clock.sleep(x::telem::SECOND);
+    slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should count a slave that the last scan did not find as restarted.
+TEST_F(EngineTest, RediscoverCountsANewSlaveAsRestarted) {
+    const auto clock = x::loop::fake_clock();
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    auto other = io_slave(0);
+    other.product_code = 0x3;
+    this->master->replace_slave(0, other);
+    const auto slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should keep the restart time of each slave across a task start and stop.
+TEST_F(EngineTest, StartAndStopKeepTheRestartTimes) {
+    const auto first = ASSERT_NIL_P(this->engine->discover())[0].restarted_at;
+    ASSERT_TRUE(first.has_value());
+    {
+        const auto reader = ASSERT_NIL_P(
+            this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        );
+        EXPECT_EQ(ASSERT_NIL_P(this->engine->discover())[0].restarted_at, first);
+    }
+    EXPECT_EQ(ASSERT_NIL_P(this->engine->rediscover())[0].restarted_at, first);
+}
+
+/// @brief it should give no restart time when the master cannot see a restart.
+TEST_F(EngineTest, DiscoverGivesNoRestartTimeWhenTheMasterSeesNone) {
+    this->master->hide_restarts();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_FALSE(slaves[0].restarted_at.has_value());
+}
+
 /// @brief it should not check the bus or discover slaves while the bus runs.
 TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    this->master->restart_slave();
+    this->master->restart_slave(0);
     this->master->clear_call_log();
     ASSERT_NIL_P(this->engine->discover());
     const auto calls = this->master->call_log();

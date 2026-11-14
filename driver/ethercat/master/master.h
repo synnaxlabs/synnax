@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -97,6 +98,16 @@ struct Activation {
     std::map<uint16_t, slave::Refusal> refusals;
 };
 
+/// @brief how the slaves on the bus differ from those of the last scan.
+struct Change {
+    /// @brief true when another number of slaves answers, a slave restarted, or (IgH)
+    /// another model is at a position, so that the bus needs a new scan.
+    bool stale = false;
+    /// @brief the positions of the slaves that fell below their state at the scan, as
+    /// after a restart.
+    std::set<uint16_t> restarted;
+};
+
 /// @brief abstract interface for an EtherCAT master.
 class Master {
 public:
@@ -111,11 +122,14 @@ public:
     [[nodiscard]]
     virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 
-    /// @brief returns true when the slaves on the bus differ from those of the last
-    /// scan(): another number answers, or a slave fell below its state at the scan, as
-    /// after a restart. The IgH master sees only another number of slaves or another
-    /// model at a position. Valid between scan() and deactivate().
-    [[nodiscard]] virtual std::pair<bool, x::errors::Error> changed() = 0;
+    /// @brief compares the slaves on the bus with those of the last scan(). Valid
+    /// between scan() and deactivate().
+    [[nodiscard]] virtual std::pair<Change, x::errors::Error> changed() = 0;
+
+    /// @brief returns true when changed() reports the slaves that restarted. The IgH
+    /// master scans the bus again by itself, so it sees only another number of slaves
+    /// or another model at a position, and no restart.
+    [[nodiscard]] virtual bool restarts_visible() const = 0;
 
     /// @brief maps the process data of every enabled slave, calls start_cycle with the
     /// image once send() and receive() work, starts the DC sync of each slave in a DC

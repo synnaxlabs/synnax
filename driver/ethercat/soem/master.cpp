@@ -201,30 +201,26 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
     return {this->slave_list, x::errors::NIL};
 }
 
-std::pair<bool, x::errors::Error> Master::changed() {
+std::pair<master::Change, x::errors::Error> Master::changed() {
     if (!this->initialized)
         return {
-            false,
+            {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
         };
     const int count = std::max(this->api->count_bus_slaves(), 0);
     if (std::cmp_not_equal(count, this->slave_list.size()))
-        return {true, x::errors::NIL};
+        return {master::Change{.stale = true}, x::errors::NIL};
     // A restarted slave answers in INIT, or not at all at the address the scan gave it.
     this->api->readstate();
-    return {
-        std::ranges::any_of(
-            this->slave_list,
-            [this](const slave::DiscoveryResult &slave) {
-                const auto state = slave::from_al_state(
-                    this->record(slave.properties.position).state
-                );
-                return static_cast<uint8_t>(state) <
-                       static_cast<uint8_t>(slave.status.state);
-            }
-        ),
-        x::errors::NIL
-    };
+    master::Change change;
+    for (const auto &slave: this->slave_list) {
+        const auto pos = slave.properties.position;
+        if (static_cast<uint8_t>(slave::from_al_state(this->record(pos).state)) <
+            static_cast<uint8_t>(slave.status.state))
+            change.restarted.insert(pos);
+    }
+    change.stale = !change.restarted.empty();
+    return {change, x::errors::NIL};
 }
 
 x::errors::Error Master::write_parameters(

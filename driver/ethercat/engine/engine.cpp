@@ -424,6 +424,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            this->track_restarts_locked({});
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
@@ -488,6 +489,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     }
     retry.stop();
     this->slaves = this->image.slaves;
+    this->track_restarts_locked({});
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
@@ -805,15 +807,16 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
     if (this->running()) return {this->slaves, x::errors::NIL};
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    const auto [changed, changed_err] = this->master->changed();
-    if (changed_err) return {{}, changed_err};
-    if (changed) {
+    const auto [change, change_err] = this->master->changed();
+    if (change_err) return {{}, change_err};
+    if (change.stale) {
         LOG(INFO) << "[ethercat] the slaves on " << this->iface
                   << " changed since the last discovery, rediscovering";
-        return this->rediscover_locked();
+        return this->rediscover_locked(change.restarted);
     }
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
@@ -881,12 +884,35 @@ Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_in
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Engine::rediscover_locked() {
+Engine::rediscover_locked(const std::set<uint16_t> &restarted) {
     this->master->deactivate();
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked(restarted);
+    return {this->slaves, x::errors::NIL};
+}
+
+void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
+    if (!this->master->restarts_visible()) return;
+    const auto now = this->config.host_clock.now();
+    decltype(this->restarts) found;
+    for (auto &slave: this->slaves) {
+        const auto &props = slave.properties;
+        const RestartKey key{
+            props.vendor_id,
+            props.product_code,
+            props.serial,
+            props.serial == 0 ? props.position : uint16_t{0},
+        };
+        const auto it = this->restarts.find(key);
+        const auto at = it == this->restarts.end() || restarted.contains(props.position)
+                          ? now
+                          : it->second;
+        found[key] = at;
+        slave.restarted_at = at;
+    }
+    this->restarts = std::move(found);
 }
 
 std::pair<std::vector<pdo::Offset>, x::errors::Error>

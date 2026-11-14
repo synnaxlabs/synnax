@@ -344,9 +344,12 @@ TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
 TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
     this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
     ASSERT_NIL_P(this->master.scan());
-    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()));
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()).stale);
     this->api->slaves[0].info.product_code = 0x03F03052;
-    EXPECT_TRUE(ASSERT_NIL_P(this->master.changed()));
+    const auto change = ASSERT_NIL_P(this->master.changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_TRUE(change.restarted.empty());
+    EXPECT_FALSE(this->master.restarts_visible());
 }
 
 /// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
