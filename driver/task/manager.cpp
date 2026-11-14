@@ -677,8 +677,8 @@ void Manager::execute_op(
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
                 // A start that failed on its own keeps its error, which says what to
-                // fix. A boot deploy is the first op of its task in a run, so an
-                // error status now is its own.
+                // fix. A boot deploy is the first op of its task in a run, and a
+                // cancelled one gets no cleanup, so an error status now is its own.
                 const auto latest = this->statuses->latest(op.task_key);
                 const bool failed = latest.has_value() &&
                                     latest->variant == synnax::status::VARIANT_ERROR;
@@ -732,8 +732,10 @@ void Manager::execute_op(
             break;
         }
     }
-    // Only a boot deploy carries the stored task, and with it the stored status.
-    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil())
+    // Only a boot deploy carries the stored task, and with it the stored status. A
+    // cancelled one is answered by the stop that cancelled it, or by the next run.
+    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
+        operation.token().running())
         this->replace_interrupted_status(op.task);
 }
 

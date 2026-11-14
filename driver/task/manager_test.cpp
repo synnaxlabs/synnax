@@ -2233,7 +2233,8 @@ TEST_F(TaskManagerTest, StopCancelsASlowAutoStartAtBoot) {
     EXPECT_EQ(f->starts.load(), 1);
 }
 
-/// @brief it should answer a stop that cancelled a boot configure as a stop.
+/// @brief it should answer a stop that cancelled a boot configure as a stop, even over
+/// a start that the last run left loading.
 TEST_F(TaskManagerTest, StopOfACancelledBootConfigureAnswersStopped) {
     auto task = synnax::task::Task{
         .rack = rack.key,
@@ -2241,6 +2242,7 @@ TEST_F(TaskManagerTest, StopOfACancelledBootConfigureAnswersStopped) {
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_LOADING, "Starting task", false);
     auto factory = std::make_unique<CancelledConfigureFactory>();
     auto *f = factory.get();
     start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
