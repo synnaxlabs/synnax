@@ -25,6 +25,8 @@
 namespace driver::ni {
 class SingleChannelAnalogWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
@@ -168,7 +170,7 @@ TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     );
     auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(make_hw_calls, 1);
     // The fixture and the running sink both hold the mock.
@@ -179,7 +181,7 @@ TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     // The stop released the sink's claim on the hardware.
     EXPECT_EQ(mock_hw.use_count(), 1);
 
-    wt->start("start_cmd_2");
+    wt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(make_hw_calls, 2);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
@@ -222,9 +224,9 @@ TEST_F(SingleChannelAnalogWriteTest, testStartNeverBuildsOverALiveClaim) {
         }
     );
 
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     EXPECT_EQ(live->load(), 1);
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     EXPECT_EQ(builds, 2);
     EXPECT_EQ(live_at_build, 0);
     EXPECT_EQ(live->load(), 1);
@@ -247,7 +249,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
         std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -306,7 +308,7 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
         std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -424,7 +426,7 @@ TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
     auto wt = create_task(
         std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 2);
     wt->stop("stop_cmd", true);
     ASSERT_EQ(written_data->size(), 1);
@@ -496,6 +498,8 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 /// writing to a live Core.
 class SharedIndexWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     struct Run {
         std::shared_ptr<task::MockContext> ctx;
         std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
@@ -594,12 +598,12 @@ TEST_F(SharedIndexWriteTest, testSecondTaskFails) {
     Run first, second;
     this->create_task("first_task", 0, first);
     this->create_task("second_task", 1, second);
-    first.write_task->start("start_first");
+    first.write_task->start("start_first", this->cancel);
     ASSERT_EVENTUALLY_EQ(
         first.writers->writers_open.load(std::memory_order_acquire),
         1
     );
-    second.write_task->start("start_second");
+    second.write_task->start("start_second", this->cancel);
     ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
     const auto failed = second.ctx->snapshot().back();
     EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
@@ -620,14 +624,14 @@ TEST_F(SharedIndexWriteTest, testRestartIgnoresReleasedWriter) {
     this->create_task("first_task", 0, first);
     this->create_task("second_task", 1, second);
     for (size_t i = 1; i <= 3; i++) {
-        first.write_task->start("start_first");
+        first.write_task->start("start_first", this->cancel);
         ASSERT_EVENTUALLY_EQ(
             first.writers->writers_open.load(std::memory_order_acquire),
             i
         );
         first.write_task->stop("stop_first", true);
     }
-    second.write_task->start("start_second");
+    second.write_task->start("start_second", this->cancel);
     ASSERT_EVENTUALLY_EQ(
         second.writers->writers_open.load(std::memory_order_acquire),
         1

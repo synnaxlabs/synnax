@@ -24,6 +24,8 @@
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
@@ -348,7 +350,7 @@ protected:
 
 TEST_F(TestWriteTask, testBasicWriteTask) {
     auto wt = create_task();
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -371,7 +373,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     auto wt = create_task();
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
     ASSERT_EVENTUALLY_GE(
         mock_factory->streamer_opens.load(std::memory_order_acquire),
@@ -413,7 +415,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     auto fr = ::x::telem::Frame(1);
     fr.emplace(
@@ -441,7 +443,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     // First write should succeed
     auto fr1 = ::x::telem::Frame(1);
@@ -493,7 +495,7 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto moved_server_cfg = testutil::ServerConfig::create_default();
     moved_server_cfg.port = 4858;
     testutil::Server moved_server(moved_server_cfg);
@@ -532,7 +534,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
@@ -586,7 +588,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
         conn_pool,
         std::move(write_cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(2);
     fr.emplace(
         bad_cmd.key,
@@ -643,7 +645,7 @@ TEST_F(TestWriteTask, testWritesNamespaceURINode) {
         this->uint32_cmd_channel.key,
         "nsu=urn:open62541.server.application;s=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -667,7 +669,7 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
         this->uint32_cmd_channel.key,
         "nsu=urn:missing;s=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -696,7 +698,7 @@ TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
         cmd.key,
         "NS=1;S=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(77.0));
     ASSERT_NIL(sink->write(fr));
@@ -722,7 +724,7 @@ TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
         cmd.key,
         "NS=1;S=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(-1.0));
     const auto err = sink->write(fr);
@@ -746,7 +748,7 @@ TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
         cmd.key,
         "nsu=urn:late;s=Late"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(97.0));
     ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
@@ -776,7 +778,7 @@ TEST_F(TestWriteTask, testNodeAddedAfterStart) {
     ));
     const auto
         sink = sink_for(ctx->client, conn_pool, this->dev.key, cmd.key, "NS=1;S=Late");
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(97.0));
     ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
@@ -807,7 +809,7 @@ TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(3);
     fr.emplace(
         this->bool_cmd_channel.key,
@@ -848,7 +850,7 @@ TEST_F(TestWriteTask, testStartsWhileServerOff) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -882,7 +884,7 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
     ASSERT_TRUE(secured->wait_until_ready());
     this->create_secured_device(server_id.certificate);
     const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->secured_cmd_channel.key,
@@ -913,7 +915,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
     ASSERT_TRUE(secured.wait_until_ready());
     this->create_secured_device(server_id.certificate);
     const auto sink = this->create_secured_sink("NS=99;I=99999");
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->secured_cmd_channel.key,

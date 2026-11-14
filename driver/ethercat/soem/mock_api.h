@@ -70,8 +70,11 @@ struct MockSlaveInfo {
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index. A code of 0 makes the read get no answer.
+    /// sub-index. A code of 0 makes the read get no reply.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO read replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_read_packet_errors;
     /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
     /// index and sub-index.
     std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
@@ -86,6 +89,9 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO write replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_write_packet_errors;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
@@ -553,6 +559,11 @@ public:
                 this->push_sdo_abort(slave, index, sub_index, abort->second);
             return 0;
         }
+        if (const auto packet = info.sdo_read_packet_errors.find({index, sub_index});
+            packet != info.sdo_read_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
         const auto &objects = info.sdo_objects;
         const auto it = objects.find({index, sub_index});
         if (it == objects.end()) {
@@ -577,6 +588,11 @@ public:
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
         auto &info = this->slave_infos.at(slave - 1);
+        if (const auto packet = info.sdo_write_packet_errors.find({index, sub_index});
+            packet != info.sdo_write_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
         const auto it = info.sdo_write_aborts.find({index, sub_index});
         if (it == info.sdo_write_aborts.end()) {
             uint32_t value = 0;
@@ -597,6 +613,22 @@ public:
         err.Index = index;
         err.SubIdx = sub_index;
         err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    /// @brief appends a SOEM packet error for the object to the SOEM error list.
+    void push_packet_error(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        uint16_t code
+    ) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_PACKET_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.ErrorCode = code;
         this->errors.push_back(err);
     }
 

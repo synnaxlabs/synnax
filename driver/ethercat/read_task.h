@@ -232,7 +232,7 @@ public:
         engine(std::move(eng)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         if (auto err = this->cfg.slaves.validate(slaves)) return err;

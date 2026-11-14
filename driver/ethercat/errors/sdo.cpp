@@ -68,13 +68,17 @@ constexpr std::array<uint32_t, 7> TEMPORARY_ABORTS{
     0x08000021,
     0x08000022,
 };
+
+std::string abort_reason(const uint32_t code) {
+    for (const auto &[known, reason]: ABORT_REASONS)
+        if (known == code) return std::string(reason);
+    return std::format("unknown abort code 0x{:08X}", code);
+}
 }
 
 std::string sdo_abort_reason(const uint32_t code) {
     if (code == 0) return "no response";
-    for (const auto &[known, reason]: ABORT_REASONS)
-        if (known == code) return std::string(reason);
-    return std::format("unknown abort code 0x{:08X}", code);
+    return abort_reason(code);
 }
 
 const x::errors::Error &startup_parameter_error(const uint32_t code) {
@@ -82,5 +86,21 @@ const x::errors::Error &startup_parameter_error(const uint32_t code) {
         std::ranges::find(TEMPORARY_ABORTS, code) != TEMPORARY_ABORTS.end())
         return STARTUP_PARAMETER_ERROR;
     return STARTUP_PARAMETER_REJECTED;
+}
+
+std::string SDOFailure::reason() const {
+    switch (this->kind) {
+        case Kind::NO_REPLY:
+            return "no response";
+        case Kind::ABORTED:
+            return abort_reason(this->abort_code);
+        case Kind::UNEXPECTED_REPLY:
+            return "the slave sent an unexpected reply";
+        case Kind::REPLY_TOO_LARGE:
+            return "the reply is larger than the read allows";
+        case Kind::MAILBOX_ERROR:
+            return "the slave refused the mailbox request";
+    }
+    std::unreachable();
 }
 }
