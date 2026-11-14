@@ -79,6 +79,34 @@ var _ = Describe("Field", func() {
 		)
 	})
 
+	Describe("Convert", func() {
+		It("Should convert a value to a sample of another data type", func() {
+			Expect(xjson.Convert(int64(-7), telem.Int8T)).To(Equal(sample[int8](-7)))
+			Expect(xjson.Convert(math.NaN(), telem.Float32T)).To(
+				HaveLen(int(telem.Float32T.Density())),
+			)
+			Expect(xjson.Convert(true, telem.Uint8T)).To(Equal([]byte{1}))
+			Expect(xjson.Convert(telem.SecondTS, telem.TimestampT)).To(
+				Equal(sample(telem.SecondTS)),
+			)
+			Expect(xjson.Convert("on", telem.StringT)).To(Equal([]byte("on")))
+		})
+
+		It("Should reject a value that does not fit the data type", func() {
+			Expect(xjson.Convert(int64(200), telem.Int8T)).Error().To(
+				MatchError(ContainSubstring("200 is out of range for int8")),
+			)
+			Expect(xjson.Convert(math.NaN(), telem.Int32T)).Error().To(
+				MatchError(validate.ErrValidation),
+			)
+			Expect(xjson.Convert("on", telem.Uint8T)).Error().To(
+				MatchError(
+					ContainSubstring("a string value does not convert to uint8"),
+				),
+			)
+		})
+	})
+
 	Describe("Decoder", func() {
 		DescribeTable("Should convert a JSON value into a sample",
 			func(f xjson.Field, raw string, expected []byte) {

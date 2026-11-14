@@ -31,7 +31,7 @@ such as `/temperature`, and recorded in one channel.
   the task claims, records with no key included.
 - **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
-  text labels to numbers.
+  text labels to channel values.
 
 The Console has no topic browser. Type the topic, the record keys, and the pointers.
 
@@ -83,7 +83,7 @@ task = client.tasks.create(
             kafka.ReadRecord(
                 record_key="oven",
                 fields=[
-                    kafka.ReadField(
+                    kafka.FloatReadField(
                         pointer="/temperature", channel=temperature.key
                     )
                 ],
@@ -129,7 +129,7 @@ const task = await client.tasks.create({
     records: [
       {
         recordKey: "oven",
-        fields: [{ pointer: "/temperature", channel: temperature.key }],
+        fields: [{ type: "float", pointer: "/temperature", channel: temperature.key }],
       },
     ],
   }),
@@ -158,7 +158,8 @@ timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
 timestamps only count milliseconds, so a record with a Kafka timestamp in the same
 millisecond as the last written timestamp goes 1 ns after it.
 
-In code, a record value timestamp is a field whose channel is the index channel, with a
+In code, a record value timestamp is a `timestamp` field, such as
+`kafka.TimestampReadField` in Python, whose channel is the index channel and that has a
 `time_format`. Put the key of that field in `index` on the record.
 
 <Divider.Divider x />
@@ -212,13 +213,19 @@ A record has these settings:
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                           |
-| ----------------------------------------- | --------- | ----------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value. Cannot be empty. |
-| Data type <small>`data_type`</small>      | `float64` | Must match the data type of the channel.        |
-| Time format <small>`time_format`</small>  | None      | Required for a `timestamp` channel.             |
-| Channel <small>`channel`</small>          |           | The channel that records the value.             |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the record to numbers.      |
+| Setting                                   | Default  | Notes                                                                                             |
+| ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| Type <small>`type`</small>                |          | The kind of value, which must match the channel.                                                  |
+| Pointer <small>`pointer`</small>          |          | The JSON pointer to the value. Cannot be empty.                                                   |
+| Channel <small>`channel`</small>          |          | The channel that records the value.                                                               |
+| Data type <small>`data_type`</small>      | Per type | The data type of a new channel. Numeric types only.                                               |
+| Time format <small>`time_format`</small>  |          | Required for a `timestamp` field, such as `iso8601`.                                              |
+| Enum mapping <small>`enum_values`</small> | None     | Maps text labels in the record to channel values. Not on `timestamp`, `json`, `uuid`, or `bytes`. |
+| Fill <small>`fill`</small>                | None     | The value a field with no value writes. None skips the record. Not on `json`, `uuid`, or `bytes`. |
+
+The type is `float`, `integer`, `unsigned`, `string`, `boolean`, `timestamp`, `json`,
+`uuid`, or `bytes`. In Python, each type has its own class, such as
+`kafka.FloatReadField`.
 
 All fields of a record write to channels on one index channel, and one index channel
 belongs to one record.
@@ -236,7 +243,9 @@ The task read some records that it cannot record. The description gives the reas
 the last one, with its partition and offset:
 
 - **Record is not JSON** -> the record value is not JSON.
-- **Record has no value at** -> the JSON value has nothing at the pointer of a field.
+- **Record has no value at** -> a field has no value and no fill. No value is nothing at
+  the pointer. On a type that takes a fill, it is also `null`, or `""` on a channel that
+  does not hold strings, unless an entry of the enum mapping has the label `""`.
 - **Value at** -> the value does not fit the data type of the channel.
 - **Record stamped ... is not after the last written** -> a record value timestamp is
   older than the last one in the index channel.
@@ -246,8 +255,8 @@ The warning clears 5 seconds after the last skip.
 </Problem.Cause>
 <Problem.Fix>
 
-Check the pointers and data types against a record from the topic. Pointers start with
-`/` and are case sensitive.
+Check the pointers and types against a record from the topic. Pointers start with `/`
+and are case sensitive. Give a field a fill to record a value when it has none.
 
 </Problem.Fix>
 </Problem.Item>
@@ -304,15 +313,15 @@ Give each record channels on one index channel of its own.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"field ...: data type ... does not match channel ..."}>
+<Problem.Item message={"field of kind ... does not match channel ..., which takes kind ..."}>
 <Problem.Cause>
 
-The data type of the field differs from the data type of the channel.
+The type of the field differs from the kind of value that the channel holds.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Set the data type of the field to the data type of the channel.
+Set the type of the field to the kind that the message names.
 
 </Problem.Fix>
 </Problem.Item>

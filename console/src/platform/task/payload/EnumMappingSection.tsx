@@ -13,26 +13,76 @@ import { type ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
 
-export interface EnumMappingSectionProps {
+interface NumberEntries {
   /** The path of the enum values. */
   path: deep.Target<PlatformForm.Entry<"label", number>[]>;
-  /** Puts the channel value before its label, for a write that sends the label. */
-  valueFirst?: boolean;
+  valueType?: "number";
 }
 
-/** Maps string labels in a payload to numeric channel values. */
+interface TextEntries {
+  /** The path of the enum values, held as text, such as 64-bit integers. */
+  path: deep.Target<PlatformForm.Entry<"label", string>[]>;
+  valueType: "string";
+  /** The value of an added entry, such as "0" for an integer. */
+  defaultValue: string;
+}
+
+interface BooleanEntries {
+  /** The path of the enum values. */
+  path: deep.Target<PlatformForm.Entry<"label", boolean>[]>;
+  valueType: "boolean";
+}
+
+export type EnumMappingSectionProps = (NumberEntries | TextEntries | BooleanEntries) & {
+  /** Puts the channel value before its label, for a write that sends the label. */
+  valueFirst?: boolean;
+};
+
+// The Core rejects a repeated label, so an added entry takes a free one.
+const createEntry =
+  <V,>(value: V) =>
+  (labels: string[]): { key: string; value: V } => {
+    let n = labels.length + 1;
+    while (labels.includes(`LABEL_${n}`)) n++;
+    return { key: `LABEL_${n}`, value };
+  };
+
+/** Maps string labels in a payload to channel values. */
 export const EnumMappingSection = ({
-  path,
   valueFirst,
+  ...rest
 }: EnumMappingSectionProps): ReactElement => (
   <Form.Section title="Enum mapping">
-    <PlatformForm.KeyValueEditor
-      path={path}
-      resourceName="mapping"
-      keyField="label"
-      keyPlaceholder="String (e.g. ON)"
-      valueType="number"
-      valueFirst={valueFirst}
-    />
+    {rest.valueType === "boolean" ? (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="boolean"
+        valueFirst={valueFirst}
+        createEntry={createEntry(false)}
+      />
+    ) : rest.valueType === "string" ? (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="string"
+        valueFirst={valueFirst}
+        createEntry={createEntry(rest.defaultValue)}
+      />
+    ) : (
+      <PlatformForm.KeyValueEditor
+        path={rest.path}
+        resourceName="mapping"
+        keyField="label"
+        keyPlaceholder="String (e.g. ON)"
+        valueType="number"
+        valueFirst={valueFirst}
+        createEntry={createEntry(0)}
+      />
+    )}
   </Form.Section>
 );

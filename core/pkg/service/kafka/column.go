@@ -26,9 +26,19 @@ type column struct {
 	data    []byte
 	// ends[i] is the end of sample i in data. It is only set when density is zero.
 	ends []int
+	// fillable is true when an absent value writes fill, or skips the record when the
+	// column has no fill.
+	fillable bool
+	// filled is true when the column has a fill.
+	filled bool
+	// emptyLabeled is true when an enum entry has an empty label, so an empty string
+	// is that entry's value rather than no value.
+	emptyLabeled bool
+	// fill is the sample an absent value writes, with no length prefix.
+	fill []byte
 }
 
-func newColumn(dec *xjson.Decoder, dt telem.DataType) column {
+func newDecoderColumn(dec *xjson.Decoder, dt telem.DataType) column {
 	c := column{dataType: dt, decoder: dec}
 	if !dt.IsVariable() {
 		c.density = int(dt.Density())
@@ -69,6 +79,30 @@ func (c *column) size(rows []row) int {
 		n += len(c.sample(r.pos))
 	}
 	return n
+}
+
+// absent returns true when raw is no value: missing, or for a fillable column, null or
+// an empty string with no enum entry on a channel that does not hold strings.
+func (c *column) absent(raw jsontext.Value) bool {
+	if raw == nil {
+		return true
+	}
+	if !c.fillable {
+		return false
+	}
+	return raw.Kind() == 'n' ||
+		(c.dataType != telem.StringT && !c.emptyLabeled && string(raw) == `""`)
+}
+
+// appendFill appends the fill of the column, which must have one.
+func (c *column) appendFill() {
+	if c.density == 0 {
+		c.data = telem.ByteOrder.AppendUint32(c.data, uint32(len(c.fill)))
+	}
+	c.data = append(c.data, c.fill...)
+	if c.density == 0 {
+		c.ends = append(c.ends, len(c.data))
+	}
 }
 
 // append converts raw into a sample and appends it. It returns an error wrapping

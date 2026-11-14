@@ -27,7 +27,7 @@ const topicZ = z.string().min(1, "Topic is required");
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends kafka.ReadField {}
+export type ReadField = kafka.ReadField;
 
 export interface ReadRecord extends kafka.ReadRecord {}
 
@@ -43,14 +43,31 @@ const deployReadFieldZ = kafka.readFieldZ
   .refine(
     ({ disabled, pointer }) => disabled || json.pointerZ.safeParse(pointer).success,
     { message: "Pointer must be a valid JSON pointer", path: ["pointer"] },
-  )
-  .refine(
-    ({ disabled, dataType, timeFormat }) =>
-      disabled ||
-      timeFormat != null ||
-      !new DataType(dataType).equals(DataType.TIMESTAMP),
-    { message: "Time format is required for timestamps", path: ["timeFormat"] },
   );
+
+/**
+ * Returns field changed to read into a new channel of the data type. A change of kind
+ * keeps only the fields that every kind shares.
+ */
+export const withDataType = (field: ReadField, dataType: string): ReadField => {
+  const type = Task.Payload.kindOf(dataType);
+  if (type === field.type) {
+    if (field.type === "float" || field.type === "integer" || field.type === "unsigned")
+      return { ...field, dataType: new DataType(dataType) };
+    return field;
+  }
+  const { key, disabled, name, channel, pointer } = field;
+  return kafka.READ_FIELD_SCHEMAS[type].parse({
+    key,
+    disabled,
+    name,
+    channel,
+    pointer,
+    type,
+    dataType: Task.Payload.isNumeric(type) ? new DataType(dataType) : undefined,
+    timeFormat: type === "timestamp" ? "iso8601" : undefined,
+  });
+};
 
 const deployReadRecordZ = kafka.readRecordZ.extend({
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),

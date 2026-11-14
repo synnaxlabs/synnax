@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
@@ -25,13 +25,13 @@ import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
 import {
   deployReadConfigZ,
-  isString,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadField,
   type ReadRecord,
   type ReadSchemas,
   type StartOffset,
+  withDataType,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { type Selector } from "@/platform/selector";
@@ -99,9 +99,6 @@ const defaultChannelName = (devName: string, recordKey: string, pointer: string)
 const defaultIndexName = (devName: string, recordKey: string) =>
   defaultChannelName(devName, recordKey, "_time");
 
-/** A Kafka field reads any JSON value, so it hides only the types JSON cannot carry. */
-const HIDDEN_DATA_TYPES = [DataType.BYTES];
-
 const RecordLabel = ({ path }: Task.Views.GroupProps<ReadRecord>) => {
   const recordKey = PForm.useFieldValue(path.recordKey);
   return (
@@ -121,13 +118,12 @@ const TimestampFields = ({ path }: { path: deep.Path<ReadRecord> }) => {
   const dev = useFromConfig();
   const handleChange = (mode: TimingMode) => {
     if (mode === "value" && indexField == null) {
-      const field: ReadField = {
-        ...kafka.readFieldZ.parse({}),
+      const field = kafka.timestampReadFieldZ.parse({
+        type: "timestamp",
         key: id.create(),
         pointer: "/timestamp",
-        dataType: DataType.TIMESTAMP.toString(),
         timeFormat: "unix_sec",
-      };
+      });
       set(path.fields, [...fields, field]);
       set(path.index, field.key);
     } else if (mode === "kafka" && indexField != null) {
@@ -158,7 +154,9 @@ const TimestampFields = ({ path }: { path: deep.Path<ReadRecord> }) => {
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
           <Task.Payload.TimeFormatField
-            path={path.fields[indexField.key].timeFormat}
+            path={
+              deep.variant(path.fields[indexField.key], "type", "timestamp").timeFormat
+            }
             label="Time format"
           />
           <Task.ChannelNameField
@@ -193,12 +191,13 @@ const RecordDetails = ({ path }: Task.Views.GroupProps<ReadRecord>) => (
 const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
-  const { channel: key, dataType, pointer, disabled } = PForm.useFieldValue(path);
+  const field = PForm.useFieldValue(path);
+  const { set } = PForm.useContext();
   const recordKey = PForm.useFieldValue(root.config.records[groupKey].recordKey);
   const dev = useFromConfig();
-  const isTimestamp = DataType.TIMESTAMP.equals(dataType);
-  // Labels map to numbers, so only a numeric field takes an enum mapping.
-  const enumerable = !isTimestamp && !isString(dataType);
+  const { channel: key, pointer, disabled } = field;
+  const handleDataTypeChange = (dataType: string) =>
+    set(path, withDataType(field, dataType));
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Field">
@@ -208,13 +207,16 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           padHelpText={false}
           inputProps={POINTER_INPUT_PROPS}
         />
-        <Task.Payload.DataTypeField
-          path={path.dataType}
+        <Task.Payload.ReadDataTypeField
+          value={Task.Payload.dataTypeOf(field)}
+          onChange={handleDataTypeChange}
           channel={key}
-          hideDataTypes={HIDDEN_DATA_TYPES}
         />
-        {isTimestamp && (
-          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
+        {field.type === "timestamp" && (
+          <Task.Payload.TimeFormatField
+            path={deep.variant(path, "type", "timestamp").timeFormat}
+            label="Time format"
+          />
         )}
         <Task.ChannelNameField
           channel={key}
@@ -225,9 +227,45 @@ const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => {
           skipped={disabled}
         />
       </PForm.Section>
-      {enumerable && <Task.Payload.EnumMappingSection path={path.enumValues} />}
+      <EnumMapping field={field} path={path} />
     </PForm.Sections>
   );
+};
+
+interface EnumMappingProps {
+  field: ReadField;
+  path: deep.Path<ReadField>;
+}
+
+/** Maps labels to channel values for a field whose kind takes them. */
+const EnumMapping = ({ field, path }: EnumMappingProps) => {
+  switch (field.type) {
+    case "float":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", "float").enumValues}
+        />
+      );
+    case "integer":
+    case "unsigned":
+    case "string":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", field.type).enumValues}
+          valueType="string"
+          defaultValue={field.type === "string" ? "" : "0"}
+        />
+      );
+    case "boolean":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", "boolean").enumValues}
+          valueType="boolean"
+        />
+      );
+    default:
+      return null;
+  }
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
@@ -240,7 +278,8 @@ const fieldDetails = Component.renderProp(FieldDetails);
 
 const createRecords = async (): Promise<ReadRecord[]> => [kafka.readRecordZ.parse({})];
 
-const createField = (): Omit<ReadField, "key"> => kafka.readFieldZ.parse({});
+const createField = (): Omit<ReadField, "key"> =>
+  kafka.floatReadFieldZ.parse({ type: "float" });
 
 const Form: FC = () => (
   <Task.Views.GroupTree<ReadRecord, ReadField>
@@ -308,7 +347,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         : defaultChannelName(dev.name, rec.recordKey, field.pointer);
       const ch = await client.channels.create({
         name,
-        dataType: field.dataType,
+        dataType: Task.Payload.dataTypeOf(field),
         index,
       });
       field.channel = ch.key;

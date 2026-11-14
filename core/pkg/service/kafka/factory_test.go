@@ -114,15 +114,21 @@ var _ = Describe("Factory", func() {
 			Device:      dev,
 			Topic:       uniqueTopic(),
 			StartOffset: kafka.StartOffsetEarliest,
-			Records: []kafka.ReadRecord{{
-				Key: "r",
-				Fields: []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Float64T,
-				}},
-			}},
+			Records: []kafka.ReadRecord{
+				{
+					Key: "r",
+					Fields: []kafka.ReadField{
+						readField(
+							kafka.BaseReadField{
+								Key:     "v",
+								Channel: data.Key(),
+								Pointer: "/v",
+							},
+							telem.Float64T,
+						),
+					},
+				},
+			},
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
@@ -361,7 +367,7 @@ var _ = Describe("Factory", func() {
 					expectSuccess(
 						testConnection(ctx, kafka.Properties{
 							Brokers:       brokers,
-							TLS:           true,
+							Secure:        true,
 							CaCertificate: caPEM,
 						}),
 					)
@@ -373,12 +379,33 @@ var _ = Describe("Factory", func() {
 					expectFailure(
 						testConnection(
 							ctx,
-							kafka.Properties{Brokers: brokers, TLS: true},
+							kafka.Properties{Brokers: brokers, Secure: true},
 						),
 						"Certificate not trusted",
 					)
 				},
 			)
+
+			It("Should reject the tls property that secure replaced", func(
+				ctx SpecContext,
+			) {
+				key := uuid.New().String()
+				Expect(dt.Exec(ctx, task.Command{
+					Task: t.Key,
+					Type: "test_connection",
+					Key:  key,
+					Args: toJSON(map[string]any{
+						"connection": map[string]any{"brokers": brokers, "tls": true},
+					}),
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Details.Cmd).To(Equal(key))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).
+						To(ContainSubstring("tls is now named secure"))
+				}).WithTimeout(15 * time.Second).Should(Succeed())
+			})
 
 			It("Should reject a CA certificate without TLS", func(ctx SpecContext) {
 				expectInvalid(testConnection(ctx, kafka.Properties{
@@ -391,7 +418,7 @@ var _ = Describe("Factory", func() {
 				"Should fail the TLS stage of a broker without TLS",
 				func(ctx SpecContext) {
 					props := clusterProperties()
-					props.TLS = true
+					props.Secure = true
 					expectFailure(
 						testConnection(ctx, props),
 						"TLS handshake failed",
@@ -402,7 +429,7 @@ var _ = Describe("Factory", func() {
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
 				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
-					TLS:           true,
+					Secure:        true,
 					CaCertificate: "not a certificate",
 				}), "PEM-encoded certificate")
 			})

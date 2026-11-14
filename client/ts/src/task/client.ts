@@ -37,6 +37,7 @@ import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
 import {
   type Action,
+  actionZ,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
@@ -352,8 +353,31 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
       .default(() => []),
   });
 
+// JSON has no non-finite number, so a config holds one as text, as payload.Float does.
+const nonFiniteToText = (value: unknown): unknown => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : String(value);
+  if (Array.isArray(value)) return value.map(nonFiniteToText);
+  if (typeof value !== "object" || value == null) return value;
+  if ("toJSON" in value && typeof value.toJSON === "function")
+    return nonFiniteToText(value.toJSON());
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [k, nonFiniteToText(v)]),
+  );
+};
+
+// Every dispatch goes through here, undo and redo included.
+const dispatchTextReqZ = dispatchReqZ.transform((req) => ({
+  ...req,
+  actions: req.actions.map((a) => actionZ.parse(nonFiniteToText(a))),
+}));
+
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: payloadZ(schemas).array(), dispatchKey: z.string() });
+  z.object({
+    tasks: payloadZ(schemas)
+      .transform((t) => ({ ...t, config: nonFiniteToText(t.config) }))
+      .array(),
+    dispatchKey: z.string(),
+  });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -409,7 +433,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       onStreamDown: (callback) => cache.onStreamDown(callback),
-      send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
+      send: actions.sender(cfg.unary, "/task/dispatch", dispatchTextReqZ, dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
         const { next, inverse, targets } = reduceAll(payload, acts);

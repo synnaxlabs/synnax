@@ -15,6 +15,7 @@ import (
 	"crypto/x509"
 
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -34,11 +35,29 @@ func decodeProperties(dev device.Device) (Properties, error) {
 			validate.ErrValidation, "device %s is not a Kafka cluster", dev.Key,
 		)
 	}
-	var props Properties
-	if err := dev.Properties.Unmarshal(&props); err != nil {
+	props, err := parseProperties(dev.Properties)
+	if err != nil {
 		return Properties{}, errors.Wrapf(
-			err, "parsing properties of device %s", dev.Key,
+			err,
+			"parsing properties of device %s",
+			dev.Key,
 		)
+	}
+	return props, nil
+}
+
+// parseProperties decodes and validates the properties of a Kafka cluster in raw. It
+// returns an error wrapping validate.ErrValidation when raw holds tls, the old name of
+// secure, so that a client from an older release cannot turn TLS off.
+func parseProperties(raw msgpack.EncodedJSON) (Properties, error) {
+	if _, ok := raw["tls"]; ok {
+		return Properties{}, errors.Wrap(
+			validate.ErrValidation, "tls is now named secure",
+		)
+	}
+	var props Properties
+	if err := raw.Unmarshal(&props); err != nil {
+		return Properties{}, err
 	}
 	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
@@ -55,7 +74,7 @@ func validateProperties(props Properties) error {
 		v.Ternaryf("brokers", b == "", "broker %d must not be empty", i)
 	}
 	if props.CaCertificate != "" {
-		v.Ternary("ca_certificate", !props.TLS, "requires TLS")
+		v.Ternary("ca_certificate", !props.Secure, "requires TLS")
 		v.Ternary(
 			"ca_certificate",
 			caPool(props.CaCertificate) == nil,
@@ -90,7 +109,7 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 		return nil, err
 	}
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
-	if props.TLS {
+	if props.Secure {
 		opts = append(opts, kgo.DialTLSConfig(tlsConfig(props)))
 	}
 	switch v := props.Sasl.Variant.(type) {

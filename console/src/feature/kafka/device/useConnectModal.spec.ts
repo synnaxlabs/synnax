@@ -26,7 +26,7 @@ describe("Kafka.Device.useConnectModal", () => {
     const dev = await createKafkaDevice(client, {
       properties: {
         brokers: ["broker-a:9092", "broker-b:9092"],
-        tls: true,
+        secure: true,
         sasl: { mechanism: "plain", username: "alice", password: "secret" },
       },
     });

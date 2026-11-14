@@ -39,32 +39,68 @@ export interface DataTypeFieldProps extends Pick<
  */
 export const DataTypeField = ({
   channel,
-  ...rest
-}: DataTypeFieldProps): ReactElement =>
-  channel === 0 ? <Unbound {...rest} /> : <Bound {...rest} channel={channel} />;
-
-const Unbound = ({
   path,
   hideDataTypes = HIDDEN_DATA_TYPES,
   hideVariableDensity,
-}: Omit<DataTypeFieldProps, "channel">): ReactElement => (
-  <Form.Field path={path} label="Data type" padHelpText={false}>
-    {(p) => (
+}: DataTypeFieldProps): ReactElement => {
+  const unbound = (
+    <Form.Field path={path} label="Data type" padHelpText={false}>
+      {(p) => (
+        <Telem.SelectDataType
+          {...p}
+          hideDataTypes={hideDataTypes}
+          hideVariableDensity={hideVariableDensity}
+          location="bottom"
+        />
+      )}
+    </Form.Field>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
+
+export interface ReadDataTypeFieldProps {
+  /** The data type of the channel that deploying creates. */
+  value: string;
+  /** Sets the data type, and with it the kind of the field. */
+  onChange: (dataType: string) => void;
+  /** The channel that sets the data type, or 0 before deploying creates one. */
+  channel: channel.Key;
+}
+
+/**
+ * Selects the data type of the channel that a read field writes to, from every data
+ * type. An existing channel sets the data type, so the field then shows that of the
+ * channel, locked.
+ */
+export const ReadDataTypeField = ({
+  value,
+  onChange,
+  channel,
+}: ReadDataTypeFieldProps): ReactElement => {
+  const unbound = (
+    <Input.Item label="Data type" padHelpText={false}>
       <Telem.SelectDataType
-        {...p}
-        hideDataTypes={hideDataTypes}
-        hideVariableDensity={hideVariableDensity}
+        value={value}
+        onChange={onChange}
+        hideDataTypes={NO_HIDDEN_DATA_TYPES}
         location="bottom"
       />
-    )}
-  </Form.Field>
-);
+    </Input.Item>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
 
 const NO_HIDDEN_DATA_TYPES: DataType[] = [];
 
-const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
+interface BoundProps {
+  channel: channel.Key;
+  /** Renders in place of the locked field when the channel no longer exists. */
+  unbound: ReactElement;
+}
+
+const Bound = ({ channel, unbound }: BoundProps): ReactElement => {
   const result = Channel.useResultDataType({ key: channel });
-  if (isMissing(result)) return <Unbound {...rest} />;
+  if (isMissing(result)) return unbound;
   return (
     <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
       <Telem.SelectDataType

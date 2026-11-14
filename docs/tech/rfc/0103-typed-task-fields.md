@@ -300,9 +300,10 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   stored `name` and `data_type`. Each shipped default is `float64`, so
   `MigrateReadField`, the first step from a shipped version, gives such an index field
   or field with a `time_format` the `timestamp` kind and `timestamp` data type, and
-  keeps its `time_format`. A later step takes the data type from the kind when the field
-  stores none: `float64`, `int64`, or `uint64` for a numeric kind, and the kind's own
-  type otherwise.
+  keeps its `time_format`. An index field always becomes `timestamp`; another field does
+  so only with a `time_format`, no entries, and a `float64` or unknown `data_type`. A
+  later step takes the data type from the kind when the field stores none: `float64`,
+  `int64`, or `uint64` for a numeric kind, and the kind's own type otherwise.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,

@@ -160,15 +160,15 @@ const SASL_ITEMS = (
 const SASL_TRIGGER_PROPS = { className: CSS.BE("kafka-connect", "sasl") };
 
 /** Clears the CA certificate when TLS turns off. The Core rejects one without TLS. */
-const handleTLS = (tls: boolean, { set }: Form.ContextValue) => {
-  if (!tls) set(path.properties.caCertificate, "");
+const handleSecure = (secure: boolean, { set }: Form.ContextValue) => {
+  if (!secure) set(path.properties.caCertificate, "");
 };
 
 /** Takes a PEM certificate authority for brokers whose certificates the system roots
  * do not trust. Shown only with TLS on. */
 const CAField = () => {
-  const tls = Form.useFieldValue(path.properties.tls);
-  if (!tls) return null;
+  const secure = Form.useFieldValue(path.properties.secure);
+  if (!secure) return null;
   return (
     <Form.TextField
       path={path.properties.caCertificate}
@@ -270,10 +270,10 @@ export const Connect = ({
             </Form.Section>
             <Form.Section title="Security">
               <Form.SwitchField
-                path={path.properties.tls}
+                path={path.properties.secure}
                 label="TLS"
                 padHelpText={false}
-                onChange={handleTLS}
+                onChange={handleSecure}
               />
               <CAField />
               <SASLFields />
