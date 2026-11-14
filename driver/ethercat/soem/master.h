@@ -12,6 +12,7 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -105,8 +106,8 @@ class Master final : public master::Master {
     struct ClockRetry {
         /// @brief the Config::clock time of the next restore.
         std::chrono::steady_clock::time_point at;
-        /// @brief the wait after the next failure.
-        x::telem::TimeSpan wait;
+        /// @brief the number of restores in a row that failed.
+        size_t failures = 0;
     };
 
     /// @brief the state of one bus run, from activate() to deactivate().

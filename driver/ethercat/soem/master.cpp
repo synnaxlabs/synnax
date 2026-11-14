@@ -598,17 +598,10 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
                         return;
                     }
                     s.dc_restore_errors[pos] = err.data;
-                    auto &retry = s.clock_retries
-                                      .try_emplace(
-                                          pos,
-                                          ClockRetry{.wait = CLOCK_RETRY.base_interval}
-                                      )
-                                      .first->second;
-                    retry.at = this->cfg.clock.steady() + retry.wait.chrono();
-                    retry.wait = std::min(
-                        retry.wait * CLOCK_RETRY.scale,
-                        CLOCK_RETRY.max_interval
-                    );
+                    auto &retry = s.clock_retries[pos];
+                    retry.failures++;
+                    retry.at = this->cfg.clock.steady() +
+                               CLOCK_RETRY.interval(retry.failures).chrono();
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
