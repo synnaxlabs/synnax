@@ -835,6 +835,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
     const size_t samples_per_read,
+    x::breaker::Breaker &,
     const Settings &settings
 ) {
     this->opens.fetch_add(1, std::memory_order_acq_rel);
@@ -859,7 +860,8 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<Writer::Entry> &entries,
-    const x::telem::Rate execution_rate
+    const x::telem::Rate execution_rate,
+    x::breaker::Breaker &
 ) {
     std::vector<pdo::Entry> pdo_entries;
     std::vector<x::telem::SampleValue> stop_values;

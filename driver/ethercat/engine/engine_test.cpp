@@ -144,15 +144,21 @@ protected:
     std::shared_ptr<testutil::Master> master;
     std::shared_ptr<Engine> engine;
     x::breaker::Breaker brk;
+    /// @brief the cancel token given to each open.
+    x::breaker::Breaker cancel;
 
     void SetUp() override {
         this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(io_slave(0));
         this->engine = std::make_shared<Engine>("eth0", this->master);
         this->brk.start();
+        this->cancel.start();
     }
 
-    void TearDown() override { this->brk.stop(); }
+    void TearDown() override {
+        this->cancel.stop();
+        this->brk.stop();
+    }
 
     /// @brief reads n samples of a single 16-bit entry and returns their times.
     x::telem::Series read_times(Engine::Reader &reader, const size_t n) {
@@ -181,6 +187,7 @@ protected:
         cfg.host_clock = this->clock;
         this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
         this->brk.start();
+        this->cancel.start();
     }
 
     /// @brief returns the share of the recorded frames that passed the reference clock
@@ -210,7 +217,9 @@ TEST_F(EngineTest, HoldsAnRTCoreOnlyWhileTheBusRuns) {
     cfg.rt_manager = rt;
     const auto engine = std::make_shared<Engine>("eth0", this->master, cfg);
     EXPECT_EQ(rt->available_cores(), rt->total_cores());
-    auto reader = ASSERT_NIL_P(engine->open_reader({IN_I16}, x::telem::Rate(100), 1));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
+    );
     ASSERT_EVENTUALLY_EQ(rt->available_cores(), rt->total_cores() - 1);
     reader.reset();
     EXPECT_EQ(rt->available_cores(), rt->total_cores());
@@ -228,7 +237,8 @@ TEST_F(EngineTest, ReadDecodesEachEntryType) {
     const auto reader = ASSERT_NIL_P(this->engine->open_reader(
         {IN_I16, IN_I32, IN_I24, IN_U4},
         x::telem::Rate(100),
-        1
+        1,
+        this->cancel
     ));
     auto frame = frame_of(
         {x::telem::INT16_T, x::telem::INT32_T, x::telem::INT32_T, x::telem::UINT8_T},
@@ -248,9 +258,12 @@ TEST_F(EngineTest, ReadCollectsEntriesFromSeveralSlaves) {
     this->master->add_slave(io_slave(1));
     this->master->set_input<int16_t>(I16_BYTE, 1);
     this->master->set_input<int16_t>(SLAVE_IMAGE_SIZE + I16_BYTE, 2);
-    const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16, on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16, on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->cancel
+    ));
     auto frame = frame_of({x::telem::INT16_T, x::telem::INT16_T}, 1);
     x::telem::Series times(x::telem::TIMESTAMP_T, 1);
     ASSERT_NIL(reader->read(this->brk, frame, times));
@@ -262,7 +275,7 @@ TEST_F(EngineTest, ReadCollectsEntriesFromSeveralSlaves) {
 /// cycle.
 TEST_F(EngineTest, ReadReturnsOneSamplePerPeriodWithItsCycleTime) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10, this->cancel)
     );
     const auto times = this->read_times(*reader, 10);
     ASSERT_EQ(times.size(), 10);
@@ -276,7 +289,7 @@ TEST_F(EngineTest, ReadReturnsOneSamplePerPeriodWithItsCycleTime) {
 TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
     this->master->set_dc_step(x::telem::MILLISECOND * 10);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10, this->cancel)
     );
     const auto times = this->read_times(*reader, 10);
     ASSERT_EQ(times.size(), 10);
@@ -302,7 +315,7 @@ TEST_F(EngineLockTest, LocksTheCycleToTheDistributedClock) {
     this->master->set_host_dc(1.005);
     this->master->record_dc(FRAMES);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_GT(this->share_in_phase(x::telem::MILLISECOND * 5), 0.8);
 }
@@ -316,7 +329,7 @@ TEST_F(EngineLockTest, LocksTheCycleOnlyToSYNC0EventsThatMarkData) {
     this->master->set_host_dc(1.005);
     this->master->record_dc(FRAMES);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_GT(this->share_in_phase(), 0.8);
 }
@@ -326,7 +339,7 @@ TEST_F(EngineLockTest, LeavesTheCycleUnlockedWithoutSYNC0) {
     this->master->set_host_dc(1.005);
     this->master->record_dc(FRAMES);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_LT(this->share_in_phase(), 0.8);
 }
@@ -341,7 +354,7 @@ TEST_F(EngineLockTest, LocksTheCycleWhileTheSlavesMoveToOP) {
     this->master->record_dc(FRAMES);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
     std::thread start([&] {
-        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+        res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     });
     EXPECT_GT(this->share_in_phase(), 0.8);
     start.join();
@@ -354,7 +367,7 @@ TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     this->master->set_host_dc(1.005);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->inject_receive_error(
         x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
@@ -366,7 +379,7 @@ TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
 /// @brief it should return no samples and no error when the breaker stops.
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->brk.stop();
     auto frame = frame_of({x::telem::INT16_T}, 1);
@@ -379,10 +392,10 @@ TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
 /// sets the bus rate.
 TEST_F(EngineTest, SlowerReaderGetsSamplesAtItsOwnRate) {
     const auto fast = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(1000), 1, this->cancel)
     );
     const auto slow = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5, this->cancel)
     );
     ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
     const auto times = this->read_times(*slow, 5);
@@ -396,7 +409,8 @@ TEST_F(EngineTest, SlowerReaderGetsSamplesAtItsOwnRate) {
 TEST_F(EngineTest, WriteEncodesEachEntryType) {
     const auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {{OUT_I16, 0}, {OUT_I32, 0}, {OUT_I24, 0}, {OUT_U4, 0}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     {
         const auto tx = writer->open_tx();
@@ -417,7 +431,7 @@ TEST_F(EngineTest, WriteEncodesEachEntryType) {
 /// writer's entries.
 TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     const auto err = writer->open_tx().write(1, static_cast<int16_t>(0x1234));
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
@@ -428,11 +442,12 @@ TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
 /// while the bus keeps running.
 TEST_F(EngineTest, ClosedWriterHoldsItsStopValuesWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3, this->cancel)
     );
     auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {{OUT_I16, static_cast<int16_t>(-7)}, {OUT_U4, static_cast<uint8_t>(0x5)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     ASSERT_NIL(writer->open_tx().write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
@@ -447,13 +462,13 @@ TEST_F(EngineTest, ClosedWriterHoldsItsStopValuesWhileTheBusRuns) {
 /// third writer closes.
 TEST_F(EngineTest, ClosingAWriterKeepsTheLatestCommandOnASharedOutput) {
     auto first = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     auto second = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     auto third = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(100), this->cancel)
     );
     ASSERT_NIL(second->open_tx().write(0, static_cast<int16_t>(10)));
     ASSERT_NIL(first->open_tx().write(0, static_cast<int16_t>(20)));
@@ -462,7 +477,7 @@ TEST_F(EngineTest, ClosingAWriterKeepsTheLatestCommandOnASharedOutput) {
     third.reset();
     // The second sample comes from a cycle after the first one wrote its outputs.
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     for (int i = 0; i < 2; ++i) {
         auto frame = frame_of({x::telem::INT16_T}, 1);
@@ -476,11 +491,12 @@ TEST_F(EngineTest, ClosingAWriterKeepsTheLatestCommandOnASharedOutput) {
 /// another writer commanded the output.
 TEST_F(EngineTest, StopValueOutranksAnEarlierCommandOnASharedOutput) {
     auto first = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     auto second = ASSERT_NIL_P(this->engine->open_writer(
         {{OUT_I16, static_cast<int16_t>(-7)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     ASSERT_NIL(first->open_tx().write(0, static_cast<int16_t>(20)));
     ASSERT_NIL(second->open_tx().write(0, static_cast<int16_t>(10)));
@@ -503,11 +519,13 @@ TEST_F(EngineTest, ClosingAWriterKeepsTheOtherBitsOfItsByte) {
     });
     auto low_writer = ASSERT_NIL_P(this->engine->open_writer(
         {{low, static_cast<uint8_t>(0x3)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     const auto high_writer = ASSERT_NIL_P(this->engine->open_writer(
         {{high, static_cast<uint8_t>(0)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     ASSERT_NIL(high_writer->open_tx().write(0, static_cast<uint8_t>(0xA)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<uint8_t>(SLAVE_IMAGE_SIZE), 0xA0);
@@ -520,7 +538,8 @@ TEST_F(EngineTest, ClosingAWriterKeepsTheOtherBitsOfItsByte) {
 TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     auto writer = ASSERT_NIL_P(this->engine->open_writer(
         {{OUT_I16, static_cast<int16_t>(-7)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     ASSERT_NIL(writer->open_tx().write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
@@ -533,16 +552,17 @@ TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 3, this->cancel)
     );
     auto first = ASSERT_NIL_P(this->engine->open_writer(
         {{OUT_I16, static_cast<int16_t>(-7)}},
-        x::telem::Rate(100)
+        x::telem::Rate(100),
+        this->cancel
     ));
     first.reset();
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
     auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     EXPECT_EQ(this->read_times(*reader, 3).size(), 3);
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
@@ -556,7 +576,7 @@ TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
 /// and change the bus rate.
 TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(20), 20)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(20), 20, this->cancel)
     );
     std::atomic done = false;
     std::thread churn([&] {
@@ -564,7 +584,8 @@ TEST_F(EngineTest, ReaderKeepsItsSpacingWhileTheBusRateChanges) {
             {
                 const auto writer = this->engine->open_writer(
                     {{OUT_I16, 0}},
-                    x::telem::Rate(1000)
+                    x::telem::Rate(1000),
+                    this->cancel
                 );
                 std::this_thread::sleep_for(std::chrono::milliseconds(30));
             }
@@ -588,20 +609,20 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
     this->master->stall();
     // The writer starts the bus, so the reader joins a running bus at a known cycle.
     const auto slow = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     // Destroyed before the reader and writers, which cannot stop a stalled bus.
     x::defer::defer resume([this] { this->master->resume(); });
     this->master->wait_until_stalled();
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 3, this->cancel)
     );
     // The stalled cycle took its schedule before the reader joined.
     this->master->step();
     this->master->wait_until_stalled();
     // The stalled cycle samples, and the rate rises in the cycle after it.
     const auto fast = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(200))
+        this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(200), this->cancel)
     );
     this->master->resume();
     const auto times = this->read_times(*reader, 3);
@@ -622,7 +643,7 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
     // After 1000 frames, the mapped DC time runs about 30 ms ahead of the host clock.
     this->master->record_dc(1000);
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     ASSERT_EQ(this->master->recorded_dc().size(), 1000);
     this->master->stall();
@@ -634,7 +655,7 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
         this->engine->health().size() == 2 && this->engine->health()[1].lost
     );
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES, this->cancel)
     );
     // The stalled cycle took its schedule before the reader joined.
     this->master->step();
@@ -659,7 +680,7 @@ TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
     this->master->add_slave(io_slave(1));
     this->master->set_dc_step(this->period);
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     this->master->stall();
     // Destroyed before the writer, which cannot stop a stalled bus.
@@ -670,7 +691,7 @@ TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
         this->engine->health().size() == 2 && this->engine->health()[1].lost
     );
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES, this->cancel)
     );
     // The stalled cycle took its schedule before the reader joined.
     this->master->step();
@@ -698,15 +719,18 @@ TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
     // The writer runs the bus at the rate of the reader, so the reader joins a running
     // bus at a known cycle.
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     this->master->stall();
     // Destroyed before the writer, which cannot stop a stalled bus.
     x::defer::defer resume([this] { this->master->resume(); });
     this->master->wait_until_stalled();
-    const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16, IN_I24, IN_U4}, x::telem::Rate(100), SAMPLES)
-    );
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16, IN_I24, IN_U4},
+        x::telem::Rate(100),
+        SAMPLES,
+        this->cancel
+    ));
     // The stalled cycle took its schedule before the reader joined.
     this->master->step();
     for (size_t r = 0; r < READS; ++r) {
@@ -738,7 +762,7 @@ TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
 /// bus.
 TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0001), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0001), 1, this->cancel),
         errors::RATE_MISMATCH
     );
     EXPECT_FALSE(this->engine->running());
@@ -748,7 +772,7 @@ TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
 /// instead of rounding its rate.
 TEST_F(EngineTest, ReadRateBetweenMillihertzStepsIsRejected) {
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0014), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0014), 1, this->cancel),
         errors::RATE_MISMATCH
     );
     EXPECT_FALSE(this->engine->running());
@@ -758,7 +782,7 @@ TEST_F(EngineTest, ReadRateBetweenMillihertzStepsIsRejected) {
 /// part per million, such as 0.251 Hz.
 TEST_F(EngineTest, ReadRateWithFloatRoundingErrorOpens) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(0.251), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.251), 1, this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100.149));
 }
@@ -767,12 +791,12 @@ TEST_F(EngineTest, ReadRateWithFloatRoundingErrorOpens) {
 /// of other tasks.
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     ASSERT_NIL(writer->open_tx().write(0, static_cast<int16_t>(0x1234)));
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_EQ(this->master->call_count("deactivate"), 0);
@@ -784,10 +808,10 @@ TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
 /// of other tasks.
 TEST_F(EngineTest, ClosingATaskKeepsTheBusRunning) {
     const auto kept = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     auto closed = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I32}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I32}, x::telem::Rate(100), 1, this->cancel)
     );
     closed.reset();
     EXPECT_TRUE(this->engine->running());
@@ -799,7 +823,7 @@ TEST_F(EngineTest, ClosingATaskKeepsTheBusRunning) {
 /// @brief it should stop the bus and deactivate the master when the last task closes.
 TEST_F(EngineTest, BusStopsWhenTheLastTaskCloses) {
     auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     reader.reset();
     EXPECT_FALSE(this->engine->running());
@@ -813,7 +837,8 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
     const auto res = this->engine->open_reader(
         {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
         x::telem::Rate(100),
-        1
+        1,
+        this->cancel
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0.");
@@ -825,7 +850,8 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     const auto res = this->engine->open_reader(
         {pdo::Entry(0, 0x6000, 4, 32, true, x::telem::UINT32_T)},
         x::telem::Rate(100),
-        1
+        1,
+        this->cancel
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
@@ -838,12 +864,13 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
 /// @brief it should keep the bus running when it rejects the entry of a new task.
 TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     ASSERT_OCCURRED_AS_P(
         this->engine->open_writer(
             {{pdo::Entry(0, 0x9999, 1, 16, false, x::telem::INT16_T), 0}},
-            x::telem::Rate(100)
+            x::telem::Rate(100),
+            this->cancel
         ),
         errors::PDO_MAPPING_ERROR
     );
@@ -857,7 +884,8 @@ TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
     this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel),
         errors::PDO_MAPPING_ERROR
     );
 }
@@ -876,13 +904,14 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     };
     this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master, cfg);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     disabled->store(false);
     const auto [late, err] = this->engine->open_reader(
         {on_slave(IN_I16, 1)},
         x::telem::Rate(100),
-        1
+        1,
+        this->cancel
     );
     ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(
@@ -905,14 +934,18 @@ TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     {
-        const auto reader = ASSERT_NIL_P(
-            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
-        );
+        const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+            {on_slave(IN_I16, 1)},
+            x::telem::Rate(100),
+            1,
+            this->cancel
+        ));
     }
     ASSERT_FALSE(this->engine->running());
     *disabled = true;
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel),
         errors::PDO_MAPPING_ERROR
     );
 }
@@ -928,7 +961,8 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
         };
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
     EXPECT_EQ(this->master->call_count("scan"), 0);
@@ -951,11 +985,13 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     *failing = true;
     const auto second = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_TRUE(this->engine->running());
     EXPECT_EQ(this->master->call_count("scan"), 1);
@@ -978,13 +1014,21 @@ TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
     std::thread opening([&] {
-        late = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+        late = this->engine->open_reader(
+            {on_slave(IN_I16, 1)},
+            x::telem::Rate(100),
+            1,
+            this->cancel
+        );
     });
     ASSERT_EVENTUALLY_EQ(calls->load(), 1);
     {
-        const auto reader = ASSERT_NIL_P(
-            this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
-        );
+        const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+            {on_slave(IN_I16, 1)},
+            x::telem::Rate(100),
+            1,
+            this->cancel
+        ));
     }
     ASSERT_FALSE(this->engine->running());
     disabled->store(true);
@@ -1006,14 +1050,20 @@ TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     {
-        const auto writer = ASSERT_NIL_P(
-            this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
-        );
+        const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+            {{on_slave(OUT_I16, 1), 0}},
+            x::telem::Rate(100),
+            this->cancel
+        ));
     }
     ASSERT_FALSE(this->engine->running());
     *disabled = true;
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100)),
+        this->engine->open_writer(
+            {{on_slave(OUT_I16, 1), 0}},
+            x::telem::Rate(100),
+            this->cancel
+        ),
         errors::PDO_MAPPING_ERROR
     );
 }
@@ -1029,7 +1079,11 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
         };
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100));
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->cancel
+    );
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(res.second.data, "invalid settings");
     EXPECT_EQ(this->master->call_count("scan"), 0);
@@ -1051,13 +1105,17 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
         return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    const auto first = ASSERT_NIL_P(
-        this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
-    );
+    const auto first = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        this->cancel
+    ));
     *failing = true;
-    const auto second = ASSERT_NIL_P(
-        this->engine->open_writer({{on_slave(OUT_I32, 1), 0}}, x::telem::Rate(100))
-    );
+    const auto second = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I32, 1), 0}},
+        x::telem::Rate(100),
+        this->cancel
+    ));
     EXPECT_TRUE(this->engine->running());
     EXPECT_EQ(this->master->call_count("scan"), 1);
 }
@@ -1081,7 +1139,8 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
@@ -1103,7 +1162,8 @@ Settings measurement(const uint16_t position, const double value) {
 TEST_F(EngineTest, WritesReaderSettingsAsStartupParametersOnStart) {
     const auto settings = measurement(0, 6);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+        this->engine
+            ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel, settings)
     );
     EXPECT_EQ(this->master->config(0).startup_parameters, settings.at(0));
     EXPECT_TRUE(this->master->written().empty());
@@ -1112,11 +1172,12 @@ TEST_F(EngineTest, WritesReaderSettingsAsStartupParametersOnStart) {
 /// @brief it should write a reader's settings to a bus that another task already runs.
 TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
     const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto settings = measurement(0, 6);
     const auto second = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+        this->engine
+            ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel, settings)
     );
     const auto written = this->master->written();
     ASSERT_EQ(written.size(), 1);
@@ -1147,6 +1208,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
         {on_slave(IN_I16, 1)},
         x::telem::Rate(100),
         1,
+        this->cancel,
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
@@ -1159,12 +1221,13 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     shared.settings = SHARED_SETTINGS;
     this->master->add_slave(shared);
     const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto second = ASSERT_NIL_P(this->engine->open_reader(
         {on_slave(IN_I16, 1)},
         x::telem::Rate(100),
         1,
+        this->cancel,
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->written().empty());
@@ -1177,25 +1240,34 @@ TEST_F(EngineTest, SharedSlaveSettingsDoNotConflict) {
     shared.settings = SHARED_SETTINGS;
     this->master->add_slave(shared);
     const auto entries = std::vector{on_slave(IN_I16, 1)};
-    const auto first = ASSERT_NIL_P(
-        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 6))
-    );
-    const auto second = ASSERT_NIL_P(
-        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 0))
-    );
+    const auto first = ASSERT_NIL_P(this->engine->open_reader(
+        entries,
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(1, 6)
+    ));
+    const auto second = ASSERT_NIL_P(this->engine->open_reader(
+        entries,
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(1, 0)
+    ));
     EXPECT_TRUE(this->master->written().empty());
 }
 
 /// @brief it should not write the settings of a reader that the running bus cannot map.
 TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
     const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader(
             {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
             x::telem::Rate(100),
             1,
+            this->cancel,
             measurement(0, 6)
         ),
         errors::PDO_MAPPING_ERROR
@@ -1206,16 +1278,30 @@ TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
 /// @brief it should refuse a reader that sets an object to another value than an open
 /// reader does.
 TEST_F(EngineTest, RefusesAReaderWhoseSettingsConflict) {
-    const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
-    );
+    const auto first = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(0, 6)
+    ));
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0)),
+        this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->cancel,
+            measurement(0, 0)
+        ),
         errors::SETTING_CONFLICT
     );
-    const auto same = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
-    );
+    const auto same = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(0, 6)
+    ));
 }
 
 /// @brief it should refuse a reader whose settings conflict with a reader that opened
@@ -1231,13 +1317,22 @@ TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
     std::thread opening([&] {
-        late = this->engine
-                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0));
+        late = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->cancel,
+            measurement(0, 0)
+        );
     });
     ASSERT_EVENTUALLY_EQ(calls->load(), 1);
-    const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
-    );
+    const auto first = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(0, 6)
+    ));
     release.set_value();
     opening.join();
     ASSERT_OCCURRED_AS(late.second, errors::SETTING_CONFLICT);
@@ -1248,15 +1343,23 @@ TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
 /// value.
 TEST_F(EngineTest, ReleasesTheSettingsOfAClosedReader) {
     auto keep = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
-    auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
-    );
+    auto first = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(0, 6)
+    ));
     first.reset();
-    const auto second = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0))
-    );
+    const auto second = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->cancel,
+        measurement(0, 0)
+    ));
     EXPECT_EQ(this->master->config(0).startup_parameters, measurement(0, 0).at(0));
 }
 
@@ -1264,13 +1367,19 @@ TEST_F(EngineTest, ReleasesTheSettingsOfAClosedReader) {
 /// rejects.
 TEST_F(EngineTest, FailsAReaderWhoseSettingTheSlaveRejects) {
     const auto first = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->inject_write_error(
         x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8040:01")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6)),
+        this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->cancel,
+            measurement(0, 6)
+        ),
         errors::STARTUP_PARAMETER_ERROR
     );
 }
@@ -1282,7 +1391,8 @@ TEST_F(EngineTest, InitializeErrorPropagates) {
     this->master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "init failed")
     );
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(res.second.data, "Init failed.");
     EXPECT_EQ(this->master->call_count("scan"), 3);
@@ -1296,7 +1406,11 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
     this->master->inject_activate_error(
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
-    const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100));
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->cancel
+    );
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
     EXPECT_EQ(res.second.data, "Activate failed.");
     EXPECT_EQ(this->master->call_count("activate"), 3);
@@ -1310,7 +1424,7 @@ TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
     ASSERT_NIL_P(this->engine->rediscover());
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_NIL_P(this->engine->rediscover());
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
@@ -1319,7 +1433,7 @@ TEST_F(EngineTest, RediscoverOnlyWhileStopped) {
 /// @brief it should activate the master with the period of the bus rate.
 TEST_F(EngineTest, ActivatesTheMasterWithTheBusPeriod) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->plan().period, x::telem::MILLISECOND * 10);
 }
@@ -1332,7 +1446,7 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
         x::errors::Error(errors::SLAVE_CONFIG_ERROR, "SYNC1 cycle is over the limit")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel),
         errors::SLAVE_CONFIG_ERROR
     );
     EXPECT_EQ(this->master->call_count("activate"), 1);
@@ -1346,7 +1460,7 @@ TEST_F(EngineTest, RejectedSettingSkipsRetries) {
         x::errors::Error(errors::STARTUP_PARAMETER_REJECTED, "rejected 0x8040:1C")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel),
         errors::STARTUP_PARAMETER_REJECTED
     );
     EXPECT_EQ(this->master->call_count("activate"), 1);
@@ -1361,7 +1475,7 @@ TEST_F(EngineTest, SettingWithNoResponseIsRetried) {
         x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "0x8040:1C: no response")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel),
         errors::STARTUP_PARAMETER_ERROR
     );
     EXPECT_EQ(this->master->call_count("activate"), 3);
@@ -1374,7 +1488,8 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     this->master->inject_activate_error(
         x::errors::Error(errors::STATE_CHANGE_REFUSED, "inconsistent settings")
     );
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(res.second.data, "Inconsistent settings.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
@@ -1387,7 +1502,7 @@ TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
@@ -1398,7 +1513,8 @@ TEST_F(EngineTest, StartsWithoutASlaveThatRefusesAState) {
 TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
     this->master->add_slave({.position = 1, .name = "Coupler"});
     this->master->refuse(0, REFUSAL);
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings."
@@ -1412,7 +1528,12 @@ TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
 TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, DC_SYNC_REFUSAL);
-    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    auto res = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->cancel
+    );
     EXPECT_EQ(
         res.second.data,
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
@@ -1428,7 +1549,12 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
 TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
-    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    auto res = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->cancel
+    );
     EXPECT_EQ(
         res.second.data,
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
@@ -1448,7 +1574,8 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
@@ -1467,7 +1594,8 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
@@ -1488,7 +1616,8 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
@@ -1516,7 +1645,8 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
     this->master->inject_state_change_error(
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
@@ -1533,7 +1663,8 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
 /// slave refuses SAFE-OP with "Invalid DC SYNC configuration".
 TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
     this->master->refuse(0, DC_SYNC_REFUSAL);
-    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    auto res = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     EXPECT_EQ(
         res.second.data,
         "Failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
@@ -1547,12 +1678,13 @@ TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
     auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     reader.reset();
     this->master->clear_injected_errors();
     const auto other = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->read_times(*other, 1).size(), 1);
 }
@@ -1563,7 +1695,8 @@ TEST_F(EngineTest, StartsAgainWithASlaveThatRefusedAStaleLayout) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_TRUE(this->master->plan().slaves[1].enabled);
@@ -1575,7 +1708,7 @@ TEST_F(EngineTest, StartsAgainWithASlaveThatRefusedAStaleLayout) {
 TEST_F(EngineTest, StartsAgainWithTheOnlySlaveWhenItRefusesAStaleLayout) {
     this->master->refuse(0, STALE_LAYOUT_REFUSAL, 1);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
@@ -1586,11 +1719,16 @@ TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, STALE_LAYOUT_REFUSAL);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 3);
     EXPECT_FALSE(this->master->plan().slaves[1].enabled);
-    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    auto res = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->cancel
+    );
     EXPECT_EQ(
         res.second.data,
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid input "
@@ -1608,7 +1746,8 @@ TEST_F(EngineTest, LeavesOutAnotherRefusalWhileItResetsAStaleLayout) {
     this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
     this->master->refuse(2, REFUSAL);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(this->master->call_count("activate"), 2);
     auto plan = this->master->plan();
@@ -1620,7 +1759,7 @@ TEST_F(EngineTest, LeavesOutAnotherRefusalWhileItResetsAStaleLayout) {
 /// @brief it should cycle the bus while the slaves move to OP.
 TEST_F(EngineTest, StartCyclesTheBusBeforeTheSlavesReachOP) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto log = this->master->call_log();
     const auto op = std::ranges::find(log, "op");
@@ -1636,7 +1775,7 @@ TEST_F(EngineTest, RefusedStartStopsTheCycleBeforeDeactivating) {
         x::errors::Error(errors::STATE_CHANGE_REFUSED, "invalid DC SYNC configuration")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel),
         errors::STATE_CHANGE_REFUSED
     );
     const auto log = this->master->call_log();
@@ -1655,7 +1794,7 @@ TEST_F(EngineTest, StartRetriesAfterTheSlavesMissOP) {
         x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel),
         errors::STATE_CHANGE_ERROR
     );
     EXPECT_EQ(this->master->call_count("activate"), 3);
@@ -1679,7 +1818,8 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     cfg.host_clock = clock;
     cfg.start_timeout = x::telem::MINUTE;
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
     EXPECT_EQ(res.second.data, "Activate failed.");
     // The second try ends at 50 s, so a third would end at 75 s.
@@ -1699,7 +1839,7 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
         this->master->clear_injected_errors();
     });
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     recover.join();
     EXPECT_GE(this->master->call_count("activate"), 2);
@@ -1710,7 +1850,7 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
 /// again when the cycles recover.
 TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     auto frame = frame_of({x::telem::INT16_T}, 1);
     x::telem::Series times(x::telem::TIMESTAMP_T, 1);
@@ -1733,7 +1873,7 @@ TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
 TEST_F(EngineTest, ReadTimesOutWhenTheBusStalls) {
     this->master->stall();
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     auto frame = frame_of({x::telem::INT16_T}, 1);
     x::telem::Series times(x::telem::TIMESTAMP_T, 1);
@@ -1747,7 +1887,7 @@ TEST_F(EngineTest, ReadTimesOutWhenTheBusStalls) {
 /// @brief it should report the samples that failed cycles dropped as a warning.
 TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto receives = this->master->call_count("receive");
     this->master->inject_receive_error(
@@ -1766,7 +1906,7 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
     this->master->add_slave(io_slave(1));
     this->master->add_slave(io_slave(2));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_lost(1, true);
     this->master->set_slave_transition_failure(2, slave::State::OP);
@@ -1799,10 +1939,11 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
 TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     this->master->add_slave(io_slave(1));
     const auto kept = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto lost = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(
@@ -1825,7 +1966,8 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
 TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
     this->master->add_slave(io_slave(1));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->set_slave_state(1, slave::State::SAFE_OP);
@@ -1843,7 +1985,7 @@ TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
 TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
     this->master->add_slave(io_slave(1));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(
@@ -1869,7 +2011,7 @@ TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
 TEST_F(EngineTest, ShortCycleBelowTheLostSlavesFailsEveryReader) {
     this->master->add_slave(io_slave(1));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(
@@ -1892,7 +2034,8 @@ TEST_F(EngineTest, ShortCycleBeyondASafeOpSlaveFailsEveryReader) {
     inputs_only.output_pdos.clear();
     this->master->add_slave(inputs_only);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1)
+        this->engine
+            ->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->set_slave_state(1, slave::State::SAFE_OP);
@@ -1912,7 +2055,7 @@ TEST_F(EngineTest, ShortCycleBeyondASafeOpSlaveFailsEveryReader) {
 /// short while every slave is in OP.
 TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_shortfall(1);
     auto frame = frame_of({x::telem::INT16_T}, 1);
@@ -1930,7 +2073,7 @@ TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
 TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     this->master->add_slave(io_slave(1));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(
@@ -1950,7 +2093,7 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
 /// as a warning.
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     std::string warning;
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
@@ -1969,7 +2112,7 @@ TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
 /// slower.
 TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(10), 1, this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
@@ -1978,7 +2121,7 @@ TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
 /// of a rate.
 TEST_F(EngineTest, TenthHzReaderOpens) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(0.1), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.1), 1, this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
@@ -1986,10 +2129,10 @@ TEST_F(EngineTest, TenthHzReaderOpens) {
 /// @brief it should run the bus at the least common multiple of the read rates.
 TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
     const auto a = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(300), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(300), 1, this->cancel)
     );
     const auto b = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1)
+        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1, this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(600));
 }
@@ -1998,10 +2141,10 @@ TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
 /// least the rate of the fastest writer.
 TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250), this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(300));
 }
@@ -2010,9 +2153,10 @@ TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
 /// every read rate.
 TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(997), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(997), 1, this->cancel)
     );
-    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I32}, x::telem::Rate(300), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
@@ -2026,7 +2170,11 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
 /// @brief it should reject a writer faster than the maximum bus rate and not start the
 /// bus.
 TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
-    const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(20000));
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(20000),
+        this->cancel
+    );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
@@ -2040,10 +2188,10 @@ TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
 /// spacing of the open readers.
 TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5, this->cancel)
     );
     auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(1000))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(1000), this->cancel)
     );
     ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
     writer.reset();
@@ -2059,9 +2207,13 @@ TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
 TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
-    const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250));
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(250),
+        this->cancel
+    );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
@@ -2072,7 +2224,7 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
     reader.reset();
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250), this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
 }
@@ -2082,9 +2234,10 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
 TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
-    const auto res = this->engine->open_reader({IN_I32}, x::telem::Rate(300), 1);
+    const auto res = this->engine
+                         ->open_reader({IN_I32}, x::telem::Rate(300), 1, this->cancel);
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
@@ -2100,16 +2253,16 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
 TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(1000))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(1000), this->cancel)
     );
     const auto slow = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
     writer.reset();
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
     const auto other = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1)
+        this->engine->open_reader({IN_I32}, x::telem::Rate(200), 1, this->cancel)
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(1000));
 }
@@ -2121,10 +2274,10 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
         {{.assign_activate = 0x0700, .sync0_cycle = 1'000, .sync1_cycle = 9'999'000}}
     );
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_OCCURRED_AS_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250)),
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(250), this->cancel),
         errors::RATE_MISMATCH
     );
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
@@ -2136,7 +2289,7 @@ TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
     this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 1);
     EXPECT_EQ(
@@ -2151,7 +2304,7 @@ TEST_F(EngineTest, HealthReportsALeftOutSlave) {
     this->master->add_slave(io_slave(1));
     this->master->refuse(1, REFUSAL);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 2);
     EXPECT_EQ(
@@ -2164,7 +2317,7 @@ TEST_F(EngineTest, HealthReportsALeftOutSlave) {
 /// while the bus keeps running.
 TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_slave_transition_failure(0, slave::State::OP);
     this->master->fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
@@ -2189,7 +2342,7 @@ TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
 /// @brief it should report no health when the bus stops.
 TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
     auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_EVENTUALLY_EQ(this->engine->health().size(), 1);
     reader.reset();
@@ -2200,11 +2353,11 @@ TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
 /// tasks open and close.
 TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     const auto writer = ASSERT_NIL_P(
-        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), this->cancel)
     );
     ASSERT_NIL(writer->open_tx().write(0, static_cast<int16_t>(0x1234)));
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I32}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I32}, x::telem::Rate(100), 1, this->cancel)
     );
     ASSERT_EVENTUALLY_EQ(this->master->get_output<int16_t>(I16_BYTE), 0x1234);
 
@@ -2241,10 +2394,11 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
         const auto churn_reader = ASSERT_NIL_P(this->engine->open_reader(
             {IN_I16, IN_I24},
             x::telem::Rate(i % 2 == 0 ? 200 : 50),
-            1
+            1,
+            this->cancel
         ));
         const auto churn_writer = ASSERT_NIL_P(
-            this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(400))
+            this->engine->open_writer({{OUT_I32, 0}}, x::telem::Rate(400), this->cancel)
         );
         ASSERT_NIL(churn_writer->open_tx().write(0, static_cast<int32_t>(i)));
         if (this->master->get_output<int16_t>(I16_BYTE) != 0x1234) output_changes++;
@@ -2293,7 +2447,7 @@ TEST_F(EngineTest, DiscoverRediscoversWhenASlaveIsPluggedIn) {
 /// @brief it should not count or discover slaves while the bus runs.
 TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->set_bus_slaves(2);
     this->master->clear_call_log();
@@ -2389,7 +2543,7 @@ TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
 /// @brief it should refuse to write to a slave while a task runs the bus.
 TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->master->clear_call_log();
     const auto err = this->engine->configure(io_slave(0), standalone);
@@ -2403,8 +2557,12 @@ TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
 TEST_F(EngineTest, ConfigureRefusesAtOnceWhileATaskStartsTheBus) {
     this->master->hold_activate();
     std::thread opener([this] {
-        auto [reader, err] = this->engine
-                                 ->open_reader({IN_I16}, x::telem::Rate(100), 1);
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->cancel
+        );
     });
     this->master->wait_until_activating();
     const auto err = this->engine->configure(io_slave(0), standalone);
@@ -2436,7 +2594,7 @@ TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
     this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master);
     EXPECT_EQ(this->engine->name(), "Ethernet 2");
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     const auto err = this->engine->configure(io_slave(0), standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
@@ -2458,7 +2616,7 @@ TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
 TEST_F(EngineTest, ReadsAnObjectWhileTheBusRuns) {
     this->master->set_object(0, 0x8040, 0x1c, 0x40a00000);
     const auto reader = ASSERT_NIL_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     this->read_times(*reader, 1);
     EXPECT_EQ(ASSERT_NIL_P(this->engine->read(0, 0x8040, 0x1c)), 0x40a00000);
@@ -2469,8 +2627,18 @@ TEST_F(EngineTest, ReadReturnsTheAbortOfAMissingObject) {
     ASSERT_OCCURRED_AS_P(this->engine->read(0, 0x8040, 0x1d), coe::OBJECT_MISSING);
 }
 
+class PoolTest : public ::testing::Test {
+protected:
+    /// @brief the cancel token given to each open.
+    x::breaker::Breaker cancel;
+
+    void SetUp() override { this->cancel.start(); }
+
+    void TearDown() override { this->cancel.stop(); }
+};
+
 /// @brief it should create an engine for an interface on the first discovery.
-TEST(PoolTest, DiscoverSlavesCreatesEngine) {
+TEST_F(PoolTest, DiscoverSlavesCreatesEngine) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
@@ -2484,7 +2652,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 }
 
 /// @brief it should take no RT core for a network that it only scans.
-TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
+TEST_F(PoolTest, DiscoverSlavesTakesNoRTCore) {
     const auto rt = std::make_shared<x::thread::rt::Manager>();
     if (rt->total_cores() == 0) GTEST_SKIP() << "the host has no RT cores";
     auto master = std::make_shared<testutil::Master>();
@@ -2497,7 +2665,7 @@ TEST(PoolTest, DiscoverSlavesTakesNoRTCore) {
 }
 
 /// @brief it should return the slaves of a running engine without a new discovery.
-TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
+TEST_F(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
@@ -2506,7 +2674,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     Pool pool(std::move(manager), NO_SLAVE_CONFIGS);
     const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
-        engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_TRUE(engine->running());
     const auto slaves = ASSERT_NIL_P(pool.discover("eth0"));
@@ -2516,7 +2684,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 }
 
 /// @brief it should discover again after a failed discovery, not return the failure.
-TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
+TEST_F(PoolTest, DiscoverSlavesInitErrorNotCached) {
     auto master = std::make_shared<testutil::Master>();
     master->inject_scan_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
@@ -2532,7 +2700,7 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
 
 /// @brief it should give the slave settings loader the interface and the name of its
 /// master.
-TEST(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
+TEST_F(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));
     master->set_name("Ethernet 2");
@@ -2548,7 +2716,7 @@ TEST(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
     );
     const auto engine = ASSERT_NIL_P(pool.acquire(NPF_INTERFACE));
     const auto reader = ASSERT_NIL_P(
-        engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+        engine->open_reader({IN_I16}, x::telem::Rate(100), 1, this->cancel)
     );
     EXPECT_EQ(
         loads,

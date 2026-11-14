@@ -422,6 +422,7 @@ public:
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
         size_t samples_per_read,
+        x::breaker::Breaker &cancel,
         const Settings &settings = {}
     );
 
@@ -435,7 +436,8 @@ public:
     /// error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
-        x::telem::Rate execution_rate
+        x::telem::Rate execution_rate,
+        x::breaker::Breaker &cancel
     );
 
     /// @brief returns the name that messages to the user give the network, as
