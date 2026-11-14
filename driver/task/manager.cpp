@@ -730,6 +730,8 @@ void Manager::announce_start(
 void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // A task that answered its own deploy, such as with an auto-start, owns its status.
     if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
+    // A task moved here runs on its old Driver until a start arrives.
+    if (tsk.status->details.rack != this->rack.key) return;
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.

@@ -811,6 +811,7 @@ void store_status(
     status.description = "stored";
     status.time = x::telem::TimeStamp::now();
     status.details.running = running;
+    status.details.rack = task.rack;
     status.details.config_hash = task.config_hash;
     ASSERT_NIL(client->statuses.set(status));
 }
@@ -917,6 +918,31 @@ TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
         EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
         if (s.description != "stored") EXPECT_NE(s.message, "Failed to start task");
     }
+}
+
+/// @brief it should leave a running status that another rack wrote alone, since a task
+/// moved here runs on its old Driver until a start arrives.
+TEST_F(TaskManagerTest, BootLeavesARunningStatusOfAnotherRackAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status moved;
+    moved.key = "moved-" + task.key.to_string();
+    moved.owner = synnax::task::resource_id(task.key);
+    moved.name = task.name;
+    moved.variant = synnax::status::VARIANT_SUCCESS;
+    moved.message = "Started task";
+    moved.time = x::telem::TimeStamp::now();
+    moved.details.running = true;
+    moved.details.rack = rack.key + 1;
+    moved.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(moved));
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    for (const auto &s: statuses_until_command(task))
+        EXPECT_NE(s.message, "Task stopped");
 }
 
 #ifndef _WIN32
