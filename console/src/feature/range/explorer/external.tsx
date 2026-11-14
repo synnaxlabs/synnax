@@ -9,6 +9,7 @@
 
 import { Ranger } from "@synnaxlabs/pluto";
 
+import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 
 const TAB: Panel.Tab = {
@@ -17,10 +18,12 @@ const TAB: Panel.Tab = {
     name: "Range explorer",
     icon: <Ranger.ExplorerIcon />,
   }),
-  Content: Panel.lazyComponent(
-    () => import("@/feature/range/explorer/Explorer"),
-    "Explorer",
-  ),
+  Content: FLAGS.ranges
+    ? Panel.lazyComponent(() => import("@/feature/range/next/Explorer"), "Explorer")
+    : Panel.lazyComponent(
+        () => import("@/feature/range/explorer/Explorer"),
+        "Explorer",
+      ),
 };
 
 export const TAB_TYPE = "range_explorer";

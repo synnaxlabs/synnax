@@ -11,8 +11,8 @@ from playwright.sync_api import Locator
 
 from console.base import ResourceClient
 
-FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
-UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
+FAVORITE_ACTIONS = ("Pin",)
+UNFAVORITE_ACTIONS = ("Unpin",)
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
 _NAME_INPUT_PLACEHOLDER = "Range name"
 _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
@@ -116,7 +116,7 @@ class Surface(ResourceClient):
             ).click(timeout=5000)
 
         if labels is not None:
-            self.layout.select_labels(labels)
+            self.layout.select_labels(labels, scope=modal)
 
         if persisted:
             save_button = modal.get_by_role("button", name="Save to Core")

@@ -9,6 +9,7 @@
 
 import "@/ranger/Timeline.css";
 
+import { type ranger } from "@synnaxlabs/client";
 import { type Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -25,7 +26,6 @@ import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
   getStage,
   moveToStage,
-  type Stage,
   STAGE_ICONS,
   STAGE_NAMES,
   useClock,
@@ -62,12 +62,12 @@ const rangeResolution = (
 };
 
 interface Transition {
-  to: Stage;
+  to: ranger.Stage;
   name: string;
 }
 
 /** The transitions offered from each stage, most common first. */
-const TRANSITIONS: Record<Stage, Transition[]> = {
+const TRANSITIONS: Record<ranger.Stage, Transition[]> = {
   to_do: [
     { to: "in_progress", name: "Start" },
     { to: "completed", name: "Complete" },
@@ -88,12 +88,12 @@ const StageMenu = ({
   value,
   onChange,
 }: Input.Control<NumericTimeRange>): ReactElement => {
-  const [hovered, setHovered] = useState<Stage | null>(null);
+  const [hovered, setHovered] = useState<ranger.Stage | null>(null);
   const [openedAt] = useState(() => TimeStamp.now());
   return (
     <>
       <Flex.Box y gap="tiny" className={CSS.BE("stage-button", "items")}>
-        <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as Stage))}>
+        <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as ranger.Stage))}>
           {TRANSITIONS[getStage(value, openedAt)].map(({ to, name }) => {
             const ToIcon = STAGE_ICONS[to];
             return (

@@ -131,20 +131,20 @@ class StatusesClient(ResourceClient):
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
         menu = self.layout.page.get_by_role("menu")
-        fav_btn = menu.get_by_text("Favorite", exact=True)
-        unfav_btn = menu.get_by_text("Unfavorite", exact=True)
+        fav_btn = menu.get_by_text("Pin", exact=True)
+        unfav_btn = menu.get_by_text("Unpin", exact=True)
         fav_btn.or_(unfav_btn).wait_for(state="visible", timeout=2000)
         if unfav_btn.is_visible():
             self.ctx_menu.close()
             return
-        self.ctx_menu.click_option("Favorite")
+        self.ctx_menu.click_option("Pin")
 
     def unfavorite_from_explorer(self, name: str) -> None:
         """Unfavorite a status via context menu in the explorer."""
         self.notifications.close_all()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Unfavorite")
+        self.ctx_menu.action(item, "Unpin")
 
     # ── Explorer Search & Filter ──────────────────────────────────────────
 
@@ -198,7 +198,7 @@ class StatusesClient(ResourceClient):
 
     def unfavorite_from_toolbar(self, name: str) -> None:
         """Unfavorite a status via context menu in the toolbar."""
-        self._toolbar_ctx_menu_action(name, "Unfavorite")
+        self._toolbar_ctx_menu_action(name, "Unpin")
 
     def rename_from_toolbar(self, old_name: str, new_name: str) -> None:
         """Rename a status via context menu in the toolbar. The name edits in place."""

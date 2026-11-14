@@ -36,7 +36,7 @@ const EXPANDED: Partial<Record<string, string>> = {
   device: "Test stand DAQ",
 };
 
-/** Alarms on the stand, which the statuses toolbar shows once they are favorites. */
+/** Alarms on the stand, which the statuses toolbar shows once they are pinned. */
 const ALARMS = [
   { name: "OX tank pressure", variant: "success", message: "Within limits" },
   { name: "Fuel tank pressure", variant: "success", message: "Within limits" },
@@ -65,12 +65,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     await openProject(session, world.project);
 
-    await favorite(session, "Open range explorer", [
+    await pin(session, "Open range explorer", [
       "Coldflow 9",
       "Coldflow 10",
       "Coldflow 11",
     ]);
-    await favorite(
+    await pin(
       session,
       "Open status explorer",
       ALARMS.map((a) => a.name),
@@ -175,10 +175,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 };
 
 /**
- * favorite opens an explorer from the palette, favorites each named item in it, and
- * closes the explorer's tab.
+ * pin opens an explorer from the palette, pins each named item in it, and closes the
+ * explorer's tab.
  */
-const favorite = async (
+const pin = async (
   session: capture.CaptureSession,
   command: string,
   names: readonly string[],
@@ -191,7 +191,7 @@ const favorite = async (
     await capture.contextMenu(
       session,
       item.getByText(name, { exact: true }).first(),
-      "Favorite",
+      "Pin",
     );
     session.endZoom();
     await session.settle(300);

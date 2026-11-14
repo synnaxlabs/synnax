@@ -101,6 +101,7 @@ class RangeExplorer(ConsoleCase):
         self.console.ranges.explorer.create_child_range(
             self.range_a_name, self.child_range_name
         )
+        self.console.ranges.explorer.expand(self.range_a_name)
         assert self.console.ranges.explorer.exists(self.child_range_name), (
             f"Child range '{self.child_range_name}' should exist in explorer"
         )

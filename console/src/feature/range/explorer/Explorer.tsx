@@ -42,14 +42,14 @@ export const Explorer: Panel.Content = () => (
   </View.Frame>
 );
 
-const ORDERS: Record<Ranger.Stage, ranger.Order> = {
+const ORDERS: Record<ranger.Stage, ranger.Order> = {
   to_do: { field: "time_range_start", descending: false },
   in_progress: { field: "time_range_start", descending: true },
   completed: { field: "time_range_start", descending: true },
 };
 
 const PAGE_SIZE = 50;
-const INITIAL_SIZES = Ranger.STAGES.map(() => PAGE_SIZE);
+const INITIAL_SIZES = ranger.STAGES.map(() => PAGE_SIZE);
 
 interface Listing {
   /** The time the stages list their ranges at. */
@@ -58,7 +58,7 @@ interface Listing {
   sizes: number[];
 }
 
-const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listing) => {
+const useStage = (where: view.View["where"], stage: ranger.Stage, listing: Listing) => {
   const staged = Ranger.stageWhere(stage, listing.at);
   const list = Flux.useList((client) => client.ranges, {
     name: "ranges",
@@ -67,7 +67,7 @@ const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listi
       order: ORDERS[stage],
     },
     pageSize: PAGE_SIZE,
-    initialSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
+    initialSize: listing.sizes[ranger.STAGES.indexOf(stage)],
   });
   // The explorer reads the ranges in render, so it subscribes to them.
   const ranges = Store.useItems({
@@ -81,7 +81,7 @@ const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listi
 type Stage = ReturnType<typeof useStage>;
 
 // The instant a range leaves the stage it lists under.
-const leaves = (stage: Ranger.Stage, range: ranger.Range): TimeStamp | null => {
+const leaves = (stage: ranger.Stage, range: ranger.Range): TimeStamp | null => {
   const { start, end } = new TimeRange(range.timeRange).makeValid();
   if (stage === "to_do") return start;
   if (stage === "in_progress") return end;
@@ -92,7 +92,7 @@ const nextCrossing = (stages: Stage[], now: TimeStamp): TimeStamp | null => {
   let next: TimeStamp | null = null;
   stages.forEach(({ ranges }, i) =>
     ranges.forEach((range) => {
-      const instant = leaves(Ranger.STAGES[i], range);
+      const instant = leaves(ranger.STAGES[i], range);
       if (instant?.after(now) === true && (next == null || instant.before(next)))
         next = instant;
     }),
@@ -119,8 +119,8 @@ const Internal = () => {
   const crossed = stages.some(({ ranges }, i) =>
     ranges.some(
       ({ timeRange }) =>
-        Ranger.getStage(timeRange, listing.at) === Ranger.STAGES[i] &&
-        Ranger.getStage(timeRange, now) !== Ranger.STAGES[i],
+        Ranger.getStage(timeRange, listing.at) === ranger.STAGES[i] &&
+        Ranger.getStage(timeRange, now) !== ranger.STAGES[i],
     ),
   );
   if (crossed)

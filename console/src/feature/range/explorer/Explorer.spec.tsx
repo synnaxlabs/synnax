@@ -20,7 +20,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
@@ -78,7 +78,15 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
     screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
   );
   fireEvent.change(search, { target: { value: name } });
-  return await screen.findByText(name);
+  // The list mounts its items again when the search lands, so wait for that first.
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole("list", { name: "Ranges" }))
+        .getAllByRole("listitem")
+        .map((item) => item.getAttribute("aria-label")),
+    ).toEqual([name]),
+  );
+  return screen.getByText(name);
 };
 
 const searchRanges = async (term: string): Promise<void> => {
@@ -257,7 +265,7 @@ describe("range/Explorer", () => {
       const rng = await createTestRange(client);
       const { store } = await renderExplorer();
       fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Favorite"));
+      fireEvent.click(await screen.findByText("Pin"));
       await waitFor(() => {
         const state = selectRange(store.getState(), rng.key);
         expect(state?.variant).toBe("persisted");
