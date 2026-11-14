@@ -10,8 +10,16 @@
 package framer_test
 
 import (
+	"context"
+	"net"
+	nethttp "net/http"
+	"time"
+
+	ws "github.com/fasthttp/websocket"
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -139,6 +147,96 @@ var _ = Describe("FramerCodec", func() {
 			var resMsg http.WSMessage[framer.WriterRequest]
 			Expect(v.Decode(encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Type).To(Equal(http.WSMessageTypeClose))
+		})
+	})
+
+	Describe("WithCodec", func() {
+		It("Should reject a write larger than the router's message limit", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.BooleanT,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			router := MustSucceed(http.NewRouter(http.RouterConfig{
+				StreamMessageSizeLimit: 1 << 10,
+			}))
+			server := router.NewStreamServer[framer.WriterRequest, framer.WriterResponse](
+				"/write",
+				framer.WithCodec(apiChannelSvc, router.StreamMessageSizeLimit()),
+			)
+			received := make(chan error, 3)
+			server.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[framer.WriterRequest, framer.WriterResponse],
+			) error {
+				for {
+					if _, err := stream.Receive(); err != nil {
+						received <- err
+						return err
+					}
+					received <- nil
+				}
+			})
+			app := fiber.New()
+			// fasthttp's idle worker cleaner sleeps this long, so a short value lets it
+			// exit before the goroutine leak check.
+			app.Server().MaxIdleWorkerDuration = 100 * time.Millisecond
+			router.BindTo(app)
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			go func() {
+				defer GinkgoRecover()
+				Expect(app.Listener(lis, fiber.ListenConfig{
+					DisableStartupMessage: true,
+				})).To(Succeed())
+			}()
+			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+			headers := nethttp.Header{}
+			headers.Set(fiber.HeaderContentType, "application/vnd.synnax.frame")
+			var conn *ws.Conn
+			Eventually(func(g Gomega) {
+				c, res, err := (&ws.Dialer{}).DialContext(
+					ctx, "ws://"+lis.Addr().String()+"/write", headers,
+				)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(res.Body.Close()).To(Succeed())
+				conn = c
+			}).Should(Succeed())
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			encoder := framer.NewCodec(ctx, codec.NewStatic(
+				channel.Keys{ch.Key()},
+				[]telem.DataType{telem.BooleanT},
+			))
+			send := func(req framer.WriterRequest) {
+				GinkgoHelper()
+				msg := MustSucceed(encoder.Encode(
+					http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req},
+				))
+				Expect(conn.WriteMessage(ws.BinaryMessage, msg)).To(Succeed())
+			}
+			write := func(samples int) framer.WriterRequest {
+				return framer.WriterRequest{
+					Command: apiframer.WriterCommandWrite,
+					Frame: frame.NewUnary(ch.Key(), telem.Series{
+						DataType: telem.BooleanT,
+						Data:     make([]byte, samples),
+					}),
+				}
+			}
+			send(framer.WriterRequest{
+				Command: apiframer.WriterCommandOpen,
+				Config:  apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
+			})
+			Eventually(received).Should(Receive(BeNil()))
+			fits := int(router.StreamMessageSizeLimit() - codec.SeriesOverhead)
+			send(write(fits))
+			Eventually(received).Should(Receive(BeNil()))
+			send(write(fits + 1))
+			Eventually(received).Should(Receive(MatchError(freighter.ErrStreamClosed)))
 		})
 	})
 

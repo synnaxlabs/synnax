@@ -42,6 +42,20 @@ var _ = Describe("Router", func() {
 			})
 		})
 
+		Describe("StreamMessageSizeLimit", func() {
+			It("should return the configured limit", func() {
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamMessageSizeLimit: 64,
+				}))
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(64)))
+			})
+
+			It("should default to 256 MiB", func() {
+				router := MustSucceed(fhttp.NewRouter())
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(256 << 20)))
+			})
+		})
+
 		Describe("Override", func() {
 			It(
 				"should fill StreamWriteDeadline from the override when receiver is zero",
@@ -64,6 +78,33 @@ var _ = Describe("Router", func() {
 					Expect(base.Override(fhttp.RouterConfig{}).StreamWriteDeadline).
 						To(Equal(50 * time.Millisecond))
 				},
+			)
+
+			DescribeTable(
+				"should merge StreamMessageSizeLimit",
+				func(base, override, expected int64) {
+					Expect(fhttp.RouterConfig{StreamMessageSizeLimit: base}.Override(
+						fhttp.RouterConfig{StreamMessageSizeLimit: override},
+					).StreamMessageSizeLimit).To(Equal(expected))
+				},
+				Entry(
+					"from the override when the receiver is zero",
+					int64(0),
+					int64(64),
+					int64(64),
+				),
+				Entry(
+					"from the receiver when the override is zero",
+					int64(64),
+					int64(0),
+					int64(64),
+				),
+				Entry(
+					"from a non-zero override over the receiver",
+					int64(32),
+					int64(64),
+					int64(64),
+				),
 			)
 
 			It("should let a non-zero override win over a non-zero receiver", func() {

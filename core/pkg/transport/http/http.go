@@ -55,7 +55,10 @@ import (
 // router's context, so a streamed body can outlive its request.
 func Bind(layer *api.Layer, router *http.Router) {
 	ctx := router.Context()
-	framerServerOption := framer.WithCodec(layer.Channel)
+	framerServerOption := framer.WithCodec(
+		layer.Channel,
+		router.StreamMessageSizeLimit(),
+	)
 	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH

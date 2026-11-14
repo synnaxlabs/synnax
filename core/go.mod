@@ -19,6 +19,7 @@ require (
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
 	github.com/cockroachdb/pebble/v2 v2.1.7
 	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/fasthttp/websocket v1.5.12
 	github.com/gofiber/contrib/v3/monitor v1.2.3
 	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/mochi-mqtt/server/v2 v2.7.9
@@ -77,7 +78,6 @@ require (
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20260526185140-fb298caac7ca // indirect
 	github.com/ebitengine/purego v0.11.2 // indirect
-	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.6 // indirect
 	github.com/getsentry/sentry-go v0.50.0 // indirect

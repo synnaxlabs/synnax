@@ -14,9 +14,12 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"io"
+	"math"
 	"math/rand/v2"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -507,6 +510,150 @@ var _ = Describe("Codec", func() {
 				Expect(dec.Decode(encoded)).Error().
 					To(MatchError("unknown channel key: 3"))
 			},
+		)
+	})
+
+	Describe("Oversized lengths", func() {
+		DescribeTable("Should fail without allocating a length the frame does not hold",
+			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				encoded := MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))
+				// The flags byte and the sequence number come before the length.
+				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				Expect(c.Decode(encoded)).Error().To(MatchError(io.ErrUnexpectedEOF))
+				runtime.ReadMemStats(&after)
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", 8<<20))
+			},
+			Entry("fixed density", telem.Float64T, telem.NewSeriesV(1.0)),
+			Entry("variable density", telem.StringT, telem.NewSeriesV("a")),
+			Entry("boolean", telem.BooleanT, telem.NewSeriesV(true)),
+		)
+
+		Describe("Decode limit", func() {
+			booleans := func(n int) telem.Series {
+				return telem.Series{DataType: telem.BooleanT, Data: make([]byte, n)}
+			}
+			encode := func(ctx context.Context, series ...telem.Series) []byte {
+				GinkgoHelper()
+				keys := channel.Keys{1, 2}[:len(series)]
+				dataTypes := []telem.DataType{telem.BooleanT, telem.BooleanT}
+				enc := codec.NewStatic(keys, dataTypes[:len(series)])
+				return MustSucceed(enc.Encode(ctx, frame.NewMulti(keys, series)))
+			}
+			decoder := func(channels int) *codec.Codec {
+				return codec.NewStatic(
+					channel.Keys{1, 2}[:channels],
+					[]telem.DataType{telem.BooleanT, telem.BooleanT}[:channels],
+					codec.WithDecodeLimit(1<<20+codec.SeriesOverhead),
+				)
+			}
+
+			It("Should reject booleans whose unpacked size passes the limit", func(
+				ctx SpecContext,
+			) {
+				encoded := encode(ctx, booleans(1<<20+1))
+				Expect(len(encoded)).To(BeNumerically("<", 1<<18))
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				Expect(decoder(1).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+				runtime.ReadMemStats(&after)
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", 1<<20))
+			})
+
+			DescribeTable(
+				"Should count the decoded size of each data type",
+				func(ctx SpecContext, dataType telem.DataType, fits, passes telem.Series) {
+					enc := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+					dec := codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{dataType},
+						codec.WithDecodeLimit(int64(fits.Size())+codec.SeriesOverhead),
+					)
+					MustSucceed(dec.Decode(
+						MustSucceed(enc.Encode(ctx, frame.NewUnary(1, fits))),
+					))
+					Expect(dec.Decode(
+						MustSucceed(enc.Encode(ctx, frame.NewUnary(1, passes))),
+					)).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry(
+					"fixed size, 8 bytes a sample",
+					telem.Float64T,
+					telem.NewSeries(make([]float64, 128)),
+					telem.NewSeries(make([]float64, 129)),
+				),
+				Entry(
+					"variable size, by encoded bytes",
+					telem.StringT,
+					telem.NewSeriesV(strings.Repeat("a", 1<<10)),
+					telem.NewSeriesV(strings.Repeat("a", 1<<10+1)),
+				),
+			)
+
+			It("Should count every series of a frame against the limit", func(
+				ctx SpecContext,
+			) {
+				encoded := encode(ctx, booleans(1<<19), booleans(1<<19+1))
+				Expect(decoder(2).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should count a fixed overhead for each series", func(
+				ctx SpecContext,
+			) {
+				dataTypes := []telem.DataType{
+					telem.BooleanT,
+					telem.BooleanT,
+					telem.BooleanT,
+					telem.BooleanT,
+				}
+				all := channel.Keys{1, 2, 3, 4}
+				encoded := MustSucceed(codec.NewStatic(all, dataTypes).Encode(
+					ctx,
+					frame.NewMulti(
+						channel.Keys{1, 2, 3},
+						[]telem.Series{booleans(0), booleans(0), booleans(0)},
+					),
+				))
+				newDecoder := func(limit int64) *codec.Codec {
+					return codec.NewStatic(all, dataTypes, codec.WithDecodeLimit(limit))
+				}
+				decoded := MustSucceed(
+					newDecoder(3 * codec.SeriesOverhead).Decode(encoded),
+				)
+				Expect(decoded.Count()).To(Equal(3))
+				Expect(newDecoder(3*codec.SeriesOverhead - 1).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should decode a frame at the limit", func(ctx SpecContext) {
+				decoded := MustSucceed(decoder(1).Decode(encode(ctx, booleans(1<<20))))
+				Expect(decoded.Get(1).Series[0].Len()).To(Equal(int64(1 << 20)))
+			})
+		})
+
+		DescribeTable("Should decode a series that spans several read chunks",
+			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				fr := frame.NewUnary(1, series)
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Get(1).Series[0].Data).To(Equal(series.Data))
+			},
+			Entry(
+				"fixed density",
+				telem.Uint8T,
+				telem.NewSeries(stepBytes(3<<20+17)),
+			),
+			Entry(
+				"boolean",
+				telem.BooleanT,
+				telem.Series{DataType: telem.BooleanT, Data: alternating(9<<20 + 3)},
+			),
 		)
 	})
 
@@ -2140,4 +2287,49 @@ func BenchmarkIteratorFrame_RoundTrip(b *testing.B) {
 			b.Fatalf("decode: %v", err)
 		}
 	}
+}
+
+func FuzzDecodeStream(f *testing.F) {
+	keys := channel.Keys{1, 2, 3}
+	dataTypes := []telem.DataType{telem.Float64T, telem.StringT, telem.BooleanT}
+	enc := codec.NewStatic(keys, dataTypes)
+	seed, err := enc.Encode(f.Context(), frame.NewMulti(
+		keys,
+		[]telem.Series{
+			telem.NewSeriesV(1.0, 2.0),
+			telem.NewSeriesV("a", "b"),
+			telem.NewSeriesV(true, false),
+		},
+	))
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(seed)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		dec := codec.NewStatic(keys, dataTypes)
+		// Any frame may fail to decode. It must not panic or allocate a length that
+		// the frame does not hold.
+		fr, err := dec.DecodeStream(bytes.NewReader(data))
+		if err != nil && !fr.Empty() {
+			t.Fatalf("decode returned a frame with error %v", err)
+		}
+	})
+}
+
+// stepBytes returns n bytes that count up from zero and wrap.
+func stepBytes(n int) []uint8 {
+	data := make([]uint8, n)
+	for i := range data {
+		data[i] = uint8(i)
+	}
+	return data
+}
+
+// alternating returns n boolean samples, one per byte, that alternate true and false.
+func alternating(n int) []byte {
+	data := make([]byte, n)
+	for i := range data {
+		data[i] = byte(i % 2)
+	}
+	return data
 }
