@@ -22,6 +22,10 @@
     &:focus-visible {
         outline: none;
     }
+
+    &.pluto-log--link-hovered {
+        cursor: pointer;
+    }
 }
 
 /* Fades in only once a read has run for a while, so a fast read shows nothing. */

@@ -14,6 +14,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   link,
   notation,
@@ -35,6 +36,11 @@ import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+
+// A piece of a link on one row. A link that wraps has a piece on each of its rows.
+const linkZ = z.object({ region: box.box, url: z.string() });
+
+interface Link extends z.infer<typeof linkZ> {}
 
 export const logStateZ = log.logZ
   .pick({
@@ -70,6 +76,8 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
+    // The pieces of the links on screen.
+    links: z.array(linkZ).default([]),
   });
 
 const lineZ = z.object({ text: z.string(), color: z.string() });
@@ -151,12 +159,6 @@ interface Row {
   channelKey: string;
   first: boolean;
   day?: boolean;
-}
-
-// A piece of a link on one row. A link that wraps has a piece on each of its rows.
-interface Link {
-  region: box.Box;
-  url: string;
 }
 
 // How an entry splits into rows. The first lead rows hold no value.
@@ -717,6 +719,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const rowLinks = this.layoutLinks(rows, lh);
+    const links = rowLinks.flat();
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -724,7 +728,8 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !sameEntries(this.state.rowEntries, rowEntries)
+      !sameEntries(this.state.rowEntries, rowEntries) ||
+      !deep.equal(this.state.links, links)
     )
       this.setState((s) => ({
         ...s,
@@ -732,13 +737,14 @@ export class Log
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
+        links,
       }));
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
-    this.renderLinks(draw2d, rows, this.layoutLinks(rows, lh));
+    this.renderLinks(draw2d, rows, rowLinks);
     this.renderScrollbar(draw2d, rows);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);

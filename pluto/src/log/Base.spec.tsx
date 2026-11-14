@@ -68,6 +68,7 @@ const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  links: [],
 };
 
 const LINES = [

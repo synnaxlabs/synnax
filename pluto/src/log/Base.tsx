@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
@@ -124,6 +124,7 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
     rowEntries,
+    links,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -136,6 +137,7 @@ export const Base = ({
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const draggingRef = useRef(false);
+  const [linkHovered, setLinkHovered] = useState(false);
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;
@@ -158,7 +160,11 @@ export const Base = ({
       });
   };
 
+  const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
+    links.find((link) => box.contains(link.region, { x, y }));
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    setLinkHovered(linkAt(e) != null);
     if (!draggingRef.current) return;
     const idx = mouseYToEntryIndex(e.clientY);
     setState((s) => ({ ...s, selectionEnd: idx }));
@@ -254,7 +260,11 @@ export const Base = ({
         ref={combinedRef}
         role="log"
         tabIndex={-1}
-        className={CSS.cls(CSS.B("log"), className)}
+        className={CSS.cls(
+          CSS.B("log"),
+          linkHovered && CSS.BM("log", "link-hovered"),
+          className,
+        )}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));
@@ -262,6 +272,7 @@ export const Base = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={() => setLinkHovered(false)}
         onCopy={(e) => {
           if (!hasSelection) return;
           e.preventDefault();
