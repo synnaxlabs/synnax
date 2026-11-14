@@ -155,12 +155,10 @@ class StatusesClient(ResourceClient):
         """
         self.views.select_filter("Variants", variant_name)
 
-    def clear_explorer_variant_filter(self, variant_name: str) -> None:
-        """Remove a variant from the active filter by clicking its chip close button.
-
-        :param variant_name: The display name of the variant to remove.
-        """
-        self.views.clear_filter(variant_name)
+    def clear_explorer_variant_filter(self) -> None:
+        """Remove the variants from the active filter with the remove button of
+        their chip."""
+        self.views.clear_filter("Variants")
 
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
@@ -169,9 +167,10 @@ class StatusesClient(ResourceClient):
         """
         self.views.select_filter("Labels", label_name)
 
-    def clear_explorer_label_filter(self, label_name: str) -> None:
-        """Remove a label from the active filter by clicking its chip close button."""
-        self.views.clear_filter(label_name)
+    def clear_explorer_label_filter(self) -> None:
+        """Remove the labels from the active filter with the remove button of their
+        chip."""
+        self.views.clear_filter("Labels")
 
     # ── Toolbar ───────────────────────────────────────────────────────────
 

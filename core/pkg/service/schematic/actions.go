@@ -132,24 +132,6 @@ func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return apply(state, patch.Move(p))
 }
 
-// editsSnapshot reports whether the action can edit a snapshot: a set of the name, or a
-// set or remove of the group or project.
-func editsSnapshot(a Action) bool {
-	switch {
-	case a.Type == ActionTypeSet && a.Set != nil:
-		return slices.Contains(
-			[]string{"name", "group", "project"},
-			patch.Field(patch.Set(*a.Set)),
-		)
-	case a.Type == ActionTypeRemove && a.Remove != nil:
-		return slices.Contains(
-			[]string{"group", "project"},
-			patch.Field(patch.Remove(*a.Remove)),
-		)
-	}
-	return false
-}
-
 // apply applies a path action to the schematic's name, group, or project, or to the
 // config of a node or edge. An action on a node or edge that does not exist does
 // nothing, and any other path into a node or edge is rejected.

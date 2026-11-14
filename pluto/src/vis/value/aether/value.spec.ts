@@ -432,13 +432,6 @@ describe("value/aether/Value", () => {
       expect(fillStyles(recorder)).toContain(color.hex(bg));
     });
 
-    it("should skip the background fill when the color is zero", () => {
-      const { component, recorder } = setup({ value: "1", background: color.ZERO });
-      recorder.clear();
-      component.render({});
-      expect(drawCalls(recorder, "fillRect")).toHaveLength(0);
-    });
-
     it("should not fill a background when no background source is configured", () => {
       const { component, recorder } = setup({ value: "1" });
       recorder.clear();

@@ -69,20 +69,10 @@ var _ = Describe("Actions", func() {
 		})
 		It("Should set a color the range does not have", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+			Expect(res.Color).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 		})
-		DescribeTable("Should lift a legacy alpha", func(alpha, want float64) {
-			res := MustSucceed(ranger.Reduce(base, set(
-				[]string{"color"},
-				map[string]any{"r": 255, "g": 0, "b": 0, "a": alpha},
-			)))
-			Expect(res.Color).To(HaveField("A", BeNumerically("~", want)))
-		},
-			Entry("just above 1", 1.5, 1.0),
-			Entry("on the 0-255 scale", 128.0, 128.0/255),
-		)
 		It("Should reject a path into the color", func() {
-			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
+			base.Color = new(MustSucceed(color.Parse("#00ff00")))
 			act := set([]string{"color", "a"}, 128)
 			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -132,17 +122,17 @@ var _ = Describe("Actions", func() {
 				"[time_range, end]: decoding value",
 			),
 			Entry(
-				"an alpha above the 0-255 scale",
+				"a legacy object color",
 				[]string{"color"},
-				map[string]any{"r": 255, "g": 0, "b": 0, "a": 300},
-				"alpha 300 is above the 0-255 scale",
+				map[string]any{"r": 255, "g": 0, "b": 0, "a": 0.5},
+				"color is not a hex string",
 			),
 		)
 	})
 
 	Describe("RemovePayload", func() {
 		It("Should remove the color", func() {
-			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
+			base.Color = new(MustSucceed(color.Parse("#00ff00")))
 			res := MustSucceed(ranger.Reduce(
 				base,
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),

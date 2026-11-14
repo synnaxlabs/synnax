@@ -9,39 +9,66 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/chassis/json.gen.h"
 #include "client/cpp/ni/device/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ni::device {
-/// @brief it should round trip a map of command and state channel pairs through JSON.
-TEST(OutputPorts, RoundTripsChannels) {
-    const OutputPorts ports{
+/// @brief it should round trip a port map keyed by port and line number through JSON.
+TEST(DigitalOutputChannels, RoundTripsLines) {
+    Configuration config{.name = "Module"};
+    config.digital_output[2] = DigitalOutputChannels{
         .state_index = 1,
-        .channels = {{"ao0", CommandStatePair{.command = 2, .state = 3}}},
+        .lines = {{7, CommandStatePair{.command = 2, .state = 3}}},
     };
-    const auto j = ports.to_json();
-    ASSERT_EQ(j["channels"]["ao0"]["command"], 2);
-    ASSERT_EQ(j["channels"]["ao0"]["state"], 3);
+    const auto j = config.to_json();
+    ASSERT_EQ(j["digital_output"]["2"]["lines"]["7"]["command"], 2);
     x::json::Parser parser(j);
-    const auto parsed = OutputPorts::parse(parser);
-    ASSERT_TRUE(parser.ok());
-    ASSERT_EQ(parsed.state_index, 1);
-    ASSERT_EQ(parsed.channels.at("ao0").command, 2);
-    ASSERT_EQ(parsed.channels.at("ao0").state, 3);
-}
-
-/// @brief it should apply the schema defaults to an output port group with no fields.
-TEST(OutputPorts, ParsesEmptyObject) {
-    x::json::Parser parser(x::json::json::object());
-    const auto parsed = OutputPorts::parse(parser);
+    const auto parsed = Configuration::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.state_index, 0);
-    ASSERT_TRUE(parsed.channels.empty());
+    const auto &port = parsed.digital_output.at(2);
+    ASSERT_EQ(port.state_index, 1);
+    ASSERT_EQ(port.lines.at(7).command, 2);
+    ASSERT_EQ(port.lines.at(7).state, 3);
 }
 
-/// @brief it should write an empty object for an output port group with no channels.
-TEST(OutputPorts, SerializesEmptyChannelsAsObject) {
-    ASSERT_TRUE(OutputPorts{}.to_json()["channels"].is_object());
+/// @brief it should round trip the analog input channels keyed by port number.
+TEST(AnalogInputPorts, RoundTripsChannels) {
+    const AnalogInputPorts ports{.index = 1, .temperature = 2, .channels = {{3, 4}}};
+    x::json::Parser parser(ports.to_json());
+    const auto parsed = AnalogInputPorts::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.temperature, 2);
+    ASSERT_EQ(parsed.channels.at(3), 4);
+}
+
+/// @brief it should default the port groups of a configuration that omits them.
+TEST(Configuration, ParsesMissingPortGroups) {
+    x::json::Parser parser(x::json::json{{"name", "Module"}});
+    const auto parsed = Configuration::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.name, "Module");
+    ASSERT_TRUE(parsed.analog_input.channels.empty());
+    ASSERT_TRUE(parsed.digital_output.empty());
+}
+
+/// @brief it should keep the field group of an update through JSON.
+TEST(Update, RoundTripsGroup) {
+    IdentityUpdate identity;
+    identity.rack = 1;
+    identity.serial = "01A";
+    identity.resource_name = "Mod1";
+    const auto j = to_json(Update(identity));
+    ASSERT_EQ(j["group"], "identity");
+    x::json::Parser parser(j);
+    const auto parsed = parse_update(parser);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(std::get<IdentityUpdate>(parsed).serial, "01A");
+}
+
+/// @brief it should write an empty object for a port map with no ports.
+TEST(Configuration, SerializesEmptyPortMapsAsObjects) {
+    const auto j = Configuration{}.to_json();
+    ASSERT_TRUE(j["analog_input"]["channels"].is_object());
+    ASSERT_TRUE(j["digital_output"].is_object());
 }
 }

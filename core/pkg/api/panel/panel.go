@@ -67,8 +67,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Panels are the panels to create. Each panel belongs to exactly one of a
-		// project and a range.
+		// Panels are the panels to create. Each panel belongs to a project.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
@@ -80,7 +79,7 @@ type (
 )
 
 // Create creates the panels. It returns a validation error when a panel does not belong
-// to exactly one project or range, or when a panel with its key exists.
+// to a project, or when a panel with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

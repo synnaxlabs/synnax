@@ -61,7 +61,10 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 func (i IteratorConfig) Validate() error {
 	v := validate.New("unary.iterator_config")
 	v.Positive("auto_chunk_size", i.AutoChunkSize)
-	v.Exec(i.Reduction.Validate)
+	// A read without a reduction keeps every sample.
+	if i.Reduction.Variant != nil {
+		v.Exec(i.Reduction.Validate)
+	}
 	return v.Error()
 }
 

@@ -229,8 +229,8 @@ describe("Schematic toolbar Symbols", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("creates a new symbol group through the actions bar", async () => {
-    const { result } = await renderSymbolsToolbar();
+  it("creates a new symbol group through the actions bar and selects it", async () => {
+    const { key, result, store } = await renderSymbolsToolbar();
     await screen.findByText("Gauge");
     const createGroup = await waitFor(() =>
       getCompositeIconButton(result.container, ["group", "add"]),
@@ -247,6 +247,17 @@ describe("Schematic toolbar Symbols", () => {
     });
     expect(created.scope).toBe("schematic_symbol");
     expect(created.parent).toBeUndefined();
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe(created.key),
+    );
+    expect(await screen.findByText("No symbols found")).toBeDefined();
+    expect(
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+        .selectedSymbolGroup,
+    ).toBe(created.key);
   });
 });
 

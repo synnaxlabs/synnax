@@ -1848,6 +1848,103 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		DescribeTable(
+			"Should convert the keys and values of a map element-wise",
+			func(ctx SpecContext, field string, expected ...string) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Key uint32
+					Port = uint16
+					Doc record
+
+					Pair struct {
+						value uint32
+					}
+
+					Test struct {
+						` + field + `
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").ToContain(expected...)
+			},
+			Entry("a narrow key with a direct value", "items map<uint16, uint32>",
+				"pb.Items = make(map[uint32]uint32",
+				"pb.Items[uint32(k)] = v",
+				"r.Items = make(map[uint16]uint32",
+				"key, err := xpb.Narrow[uint16](k)",
+				"r.Items[key] = v",
+			),
+			Entry("a narrow key with a distinct value", "items map<uint8, Key>",
+				"pb.Items = make(map[uint32]uint32",
+				"pb.Items[uint32(k)] = uint32(v)",
+				"r.Items = make(map[uint8]test.Key",
+				"key, err := xpb.Narrow[uint8](k)",
+				"r.Items[key] = test.Key(v)",
+			),
+			Entry("a signed narrow key", "items map<int16, int32>",
+				"pb.Items = make(map[int32]int32",
+				"pb.Items[int32(k)] = v",
+				"r.Items = make(map[int16]int32",
+				"key, err := xpb.Narrow[int16](k)",
+			),
+			Entry("a narrow key through an alias", "items map<Port, uint32>",
+				"pb.Items[uint32(k)] = v",
+				"key, err := xpb.Narrow[uint16](k)",
+			),
+			Entry("a narrow key with a struct value", "items map<uint8, Pair>",
+				"pb.Items = make(map[uint32]*Pair",
+				"converted, err := PairToPB(v)",
+				"pb.Items[uint32(k)] = converted",
+				"r.Items = make(map[uint8]test.Pair",
+				"key, err := xpb.Narrow[uint8](k)",
+				"r.Items[key] = converted",
+			),
+			Entry(
+				"a narrow key with a value through an alias",
+				"items map<uint16, Port>",
+				"pb.Items = make(map[uint32]uint32",
+				"pb.Items[uint32(k)] = uint32(v)",
+				"r.Items = make(map[uint16]uint16",
+				"r.Items[key] = uint16(v)",
+			),
+			Entry("a wide key with a distinct value", "items map<uint32, Key>",
+				"pb.Items = make(map[uint32]uint32",
+				"pb.Items[k] = uint32(v)",
+				"r.Items[k] = test.Key(v)",
+			),
+		)
+
+		It("Should not range-check a uint12 key", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Test struct {
+					items map<uint12, uint32>
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").ToNotContain("xpb.Narrow")
+		})
+
+		It("Should not cast a map value of a distinct record", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Doc record
+
+				Test struct {
+					items map<uint32, Doc>
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").ToNotContain("record(v)")
+		})
+
 		Context("any field conversion", func() {
 			It("Should handle any fields with json.Marshal", func(ctx SpecContext) {
 				source := `

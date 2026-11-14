@@ -1,0 +1,75 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/x/versions/spatial/v0"
+
+Key = v13.Key
+
+Node struct extends v8.Node {
+    config NodeConfig {
+        @doc value "is the symbol the node draws and its settings."
+    }
+}
+
+Handle = v13.Handle
+
+Edge struct extends v7.Edge {
+    config EdgeConfig {
+        @doc value "is the style of the connection and the path it traces."
+    }
+}
+
+Segment = v13.Segment
+
+SegmentedEdgeConfig = v13.SegmentedEdgeConfig
+
+EdgeConfig = v13.EdgeConfig
+
+FlexAlignment = v13.FlexAlignment
+
+ComponentSize = v13.ComponentSize
+
+ButtonMode = v13.ButtonMode
+
+LabelConfig = v13.LabelConfig
+
+LabeledConfig = v13.LabeledConfig
+
+ScaledConfig = v13.ScaledConfig
+
+StalenessConfig = v13.StalenessConfig
+
+NumericTelemConfig = v13.NumericTelemConfig
+
+ControlStateConfig = v13.ControlStateConfig
+
+ToggleConfig = v13.ToggleConfig
+
+StaticSymbolConfig = v13.StaticSymbolConfig
+
+ToggleSymbolConfig = v13.ToggleSymbolConfig
+
+DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
+
+ScaleIndicatorConfig = v13.ScaleIndicatorConfig
+
+StateMapping = v13.StateMapping
+
+PageType = v13.PageType
+
+Page = v13.Page
+
+NodeConfig = v13.NodeConfig
+
+Schematic struct extends v13.Schematic {
+    -configs
+}

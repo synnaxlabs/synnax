@@ -23,7 +23,9 @@ cc_library(
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/status",
+        "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/mem",
         "//x/cpp/uuid",
     ],
 )

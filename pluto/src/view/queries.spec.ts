@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { deep, uuid } from "@synnaxlabs/x";
+import { color, deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -59,6 +59,29 @@ describe("View queries", () => {
       });
     });
   });
+  describe("useResult", () => {
+    it("should follow a field that another client sets", async () => {
+      const created = await client.views.create({
+        name: "sorted-view",
+        type: "range",
+        sort: "newest",
+      });
+      const { result } = renderHook(() => View.useResult({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data).toMatchObject({ sort: "newest" }),
+      );
+      const remote = createTestClient();
+      await remote.views.retrieve(created.key);
+      await remote.views.dispatch(
+        created.key,
+        view.set({ path: ["sort"], value: "name" }),
+      );
+      await waitFor(() => expect(result.current.data).toMatchObject({ sort: "name" }));
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a single view", async () => {
       const view = await client.views.create({
@@ -137,6 +160,45 @@ describe("View queries", () => {
         });
       });
     });
+    it("should save the icon, color, sort, and layout of a range view", async () => {
+      const view = await client.views.create({ name: "styled-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const range = deep.variant(path, "type", "range");
+      act(() => {
+        result.current.form.set(path.icon, "star");
+        result.current.form.set(path.color, color.construct("#ff0000"));
+        result.current.form.set(range.sort, "oldest");
+        result.current.form.set(range.layout, "timeline");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await createTestClient().views.retrieve(view.key)).toEqual({
+        ...view,
+        icon: "star",
+        color: color.construct("#ff0000"),
+        sort: "oldest",
+        layout: "timeline",
+      });
+    });
+    it("should save the icon and color of a status view", async () => {
+      const view = await client.views.create({ name: "styled-view", type: "status" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.icon, "bell");
+        result.current.form.set(path.color, color.construct("#00ff00"));
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await createTestClient().views.retrieve(view.key)).toEqual({
+        ...view,
+        icon: "bell",
+        color: color.construct("#00ff00"),
+      });
+    });
     it("should update the form when the view is updated externally", async () => {
       const existing = await client.views.create({
         name: "existing-view",
@@ -186,6 +248,34 @@ describe("View queries", () => {
       expect(result.current.variant).toEqual("error");
       expect(result.current.form.value().name).toEqual("typed-view");
     });
+    it("should refuse a name made only of spaces", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "   "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      const { status } = result.current.form.get(path.name);
+      expect(status.variant).toEqual("error");
+      expect(status.message).toEqual("Name is required");
+    });
+    it("should trim the name of a new view before it saves", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "  trimmed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const { key } = result.current.form.value();
+      if (key == null) throw new Error("the view has no key");
+      const stored = await createTestClient().views.retrieve(key);
+      expect(stored.name).toEqual("trimmed-view");
+    });
+    it("should trim the name of an existing view before it saves", async () => {
+      const view = await client.views.create({ name: "existing-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "  renamed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().views.retrieve(view.key);
+      expect(stored.name).toEqual("renamed-view");
+    });
     it("should save a view it starts from without a query", async () => {
       const view = await client.views.create({ name: "existing-view", type: "range" });
       const { result } = renderHook(
@@ -210,6 +300,24 @@ describe("View queries", () => {
       });
       const retrieved = await client.views.retrieve(view.key);
       expect(retrieved.name).toEqual("renamed-view");
+    });
+  });
+  describe("useSetFields", () => {
+    it("should set the icon and color of a view", async () => {
+      const created = await client.views.create({ name: "styled-view", type: "range" });
+      const { result } = renderHook(() => View.useSetFields(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: created.key,
+          actions: [
+            view.set({ path: ["icon"], value: "Range" }),
+            view.set({ path: ["color"], value: "#FF0000" }),
+          ],
+        });
+      });
+      const retrieved = await createTestClient().views.retrieve(created.key);
+      expect(retrieved.icon).toEqual("Range");
+      expect(retrieved.color).toEqual(color.construct("#FF0000"));
     });
   });
 });

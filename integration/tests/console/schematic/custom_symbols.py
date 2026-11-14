@@ -151,7 +151,7 @@ class CustomSymbols(ConsoleCase):
         editor.clear_region_fill_color(region_index=0)
         editor.assert_preview_fill("#body", "rgb(90, 135, 197)")
         swatch_color = editor.get_region_fill_swatch_color(region_index=0)
-        assert swatch_color == "rgba(90, 135, 197, 1)", (
+        assert swatch_color == "#5a87c5", (
             f"Auto fill swatch should show the SVG's fill, got {swatch_color}"
         )
 

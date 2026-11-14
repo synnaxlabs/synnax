@@ -10,6 +10,7 @@
 import { type PropsWithChildren } from "react";
 
 import { Selector } from "@/app/selector";
+import { Settings } from "@/app/settings";
 import { Arc } from "@/feature/arc";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -30,6 +31,7 @@ const TABS: Panel.Tabs = {
   ...Schematic.TABS,
   ...Table.TABS,
   ...Task.TABS,
+  ...Settings.TABS,
 };
 
 export interface ContextProps extends PropsWithChildren {}

@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import group as group_, project as project_
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import (
     Key,
@@ -42,8 +42,6 @@ class _DeleteRequest(BaseModel):
 class _CopyRequest(BaseModel):
     key: Key
     name: str
-    snapshot: bool
-    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -70,7 +68,7 @@ class Client:
     """Client for creating, retrieving, renaming, copying, and deleting schematics.
 
     A schematic is a diagram of symbols and the connections between them. Every
-    schematic belongs to a project, or to a range when it is a snapshot.
+    schematic belongs to a project.
     """
 
     symbols: symbol.Client
@@ -98,16 +96,15 @@ class Client:
     ) -> Schematic | list[Schematic]:
         """Create one or more schematics.
 
-        :param schematics: A single schematic or a list of them. Each one belongs to
-            exactly one of a project and a range. When omitted, a schematic is created
-            from the ``name`` and ``project`` keyword arguments.
+        :param schematics: A single schematic or a list of them. Each one belongs to a
+            project. When omitted, a schematic is created from the ``name`` and
+            ``project`` keyword arguments.
         :param name: The name of the schematic to create when ``schematics`` is omitted.
-        :param project: The key of the project that owns the schematic when
+        :param project: The key of the project that holds the schematic when
             ``schematics`` is omitted.
         :returns: The created schematic, or a list of created schematics when
             ``schematics`` is a list.
-        :raises ValidationError: If a schematic does not belong to exactly one of a
-            project and a range.
+        :raises ValidationError: If a schematic does not belong to a project.
         """
         is_single = not isinstance(schematics, list)
         if schematics is None:
@@ -122,7 +119,6 @@ class Client:
         *,
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -138,7 +134,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -155,7 +150,6 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -186,7 +180,6 @@ class Client:
         :param where: A filter tree that the schematics must also match.
         :param keys: Keeps schematics with one of these keys.
         :param projects: Keeps the schematics owned by any of these projects.
-        :param ranges: Keeps the schematics owned by any of these ranges.
         :param groups: Keeps schematics in any of these groups.
         :param grouped: Keeps only schematics in a group when True, and only schematics
             in no group when False.
@@ -220,29 +213,16 @@ class Client:
             Empty,
         )
 
-    def copy(
-        self,
-        key: Key,
-        *,
-        name: str,
-        snapshot: bool = False,
-        range: ranger.Key | None = None,
-    ) -> Schematic:
-        """Copies a schematic. The copy belongs to the range when one is given, and to
-        the project of the original otherwise.
+    def copy(self, key: Key, *, name: str) -> Schematic:
+        """Copies a schematic into the project of the original.
 
         :param key: The key of the schematic to copy.
         :param name: The name of the copy.
-        :param snapshot: True to make the copy an immutable snapshot.
-        :param range: The key of the range that owns the copy.
         :returns: The copy.
         :raises NotFoundError: If no schematic exists for key.
-        :raises ValidationError: If range is given and no range exists for it.
         """
         return self._client.send(
-            "/schematic/copy",
-            _CopyRequest(key=key, name=name, snapshot=snapshot, range=range),
-            _CopyResponse,
+            "/schematic/copy", _CopyRequest(key=key, name=name), _CopyResponse
         ).schematic
 
     def delete(self, keys: Key | list[Key]) -> None:

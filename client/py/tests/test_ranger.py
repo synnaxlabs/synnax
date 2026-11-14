@@ -59,7 +59,7 @@ class TestRangeColor:
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
             color="#00ff00",
         )
-        assert rng.color == sy.Color(r=0, g=255, b=0, a=1.0)
+        assert rng.color == sy.Color(r=0, g=255, b=0)
 
 
 class TestRangeNotCreated:
@@ -111,7 +111,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
+        assert rng.color == sy.Color(r=255, g=0, b=0)
 
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
@@ -155,9 +155,7 @@ class TestRangeClient:
             client.ranges.create(
                 key=rng.key, name=rng.name, time_range=tr, color="#0000FF"
             )
-        assert client.ranges.retrieve(key=rng.key).color == sy.Color(
-            r=255, g=0, b=0, a=1.0
-        )
+        assert client.ranges.retrieve(key=rng.key).color == sy.Color(r=255, g=0, b=0)
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
@@ -344,7 +342,7 @@ class TestRangeClient:
             name=random_name(),
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        color = sy.Color(r=0, g=255, b=0, a=0.5)
+        color = sy.Color(r=0, g=255, b=0, a=128)
         client.ranges.set_color(rng.key, color)
         assert client.ranges.retrieve(key=rng.key).color == color
 
@@ -515,6 +513,19 @@ class TestRangeClient:
                 assert r[two_channels[1].key].key == two_channels[1].key
             assert counter.count == 2
 
+        def test_channel_not_found(self, rng: sy.Range) -> None:
+            """Should raise NotFoundError when no channel has the name"""
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
+                rng["not_found"]
+
+        def test_pattern(self, rng: sy.Range, two_channels: list[sy.Channel]) -> None:
+            """Should read a pattern as an exact name and find no channel"""
+            prefix = two_channels[0].name.removesuffix("_1")
+            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
+                rng[f"{prefix}_.*"].to_numpy()
+
     @pytest.mark.ranger
     class TestRangeKV:
         def test_set_get_delete_single(self, client: sy.Synnax) -> None:
@@ -573,105 +584,6 @@ class TestRangeClient:
             assert rng.meta_data["key"] == "test"
 
     @pytest.mark.ranger
-    class TestRangeAlias:
-        def test_basic_alias(self, client: sy.Synnax) -> None:
-            ch = client.channels.create(
-                name=random_name(), data_type=sy.DataType.INT8, virtual=True
-            )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            rng.set_alias(ch.key, "alt_test")
-            assert rng["alt_test"].key == ch.key
-            assert rng["alt_test"].name == ch.name
-
-        def test_alias_moved_to_another_channel(self, client: sy.Synnax) -> None:
-            """Should resolve an alias to the channel it moved to."""
-            first, second = client.channels.create(
-                [
-                    sy.Channel(
-                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
-                    ),
-                    sy.Channel(
-                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
-                    ),
-                ]
-            )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            moved, other = random_name(), random_name()
-            rng.set_alias(first.key, moved)
-            assert rng[moved].key == first.key
-            rng.set_alias(first.key, other)
-            rng.set_alias(second.key, moved)
-            assert rng[moved].key == second.key
-
-        def test_alias_not_found(self, client: sy.Synnax) -> None:
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match="Channel matching not_found not found"
-            ):
-                rng["not_found"]
-
-        def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match='Found no channel where name = "not_found"'
-            ):
-                rng.set_alias("not_found", "test")
-
-        def test_scoped_channel_pattern(self, client: sy.Synnax) -> None:
-            """Should read a scoped channel pattern as an exact name and find none."""
-            prefix = random_name()
-            for suffix in ("a", "b"):
-                client.channels.create(
-                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
-                )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
-                rng[f"{prefix}_.*"].to_numpy()
-
-        def test_set_alias_pattern(self, client: sy.Synnax) -> None:
-            """Should read a pattern as an exact name when it sets an alias."""
-            prefix = random_name()
-            for suffix in ("a", "b"):
-                client.channels.create(
-                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
-                )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
-            ):
-                rng.set_alias(f"{prefix}_.*", "test")
-
-        def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
-            """Should raise NotFoundError when a single alias has no channel."""
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            aliases = ranger.alias.Client(rng=rng.key, client=client._transport.unary)
-            with pytest.raises(
-                sy.NotFoundError, match="Alias matching not_found not found"
-            ):
-                aliases.resolve("not_found")
-
-    @pytest.mark.ranger
     class TestRangeChildren:
         def test_children_empty(self, client: sy.Synnax) -> None:
             """Should return empty list when range has no children"""
@@ -708,6 +620,32 @@ class TestRangeClient:
 
             child_names = {child.name for child in children}
             assert child_names == {"child1", "child2"}
+
+        def test_has_children(self, client: sy.Synnax) -> None:
+            """Should mark a retrieved range that has a child range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            child = parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            assert client.ranges.retrieve(key=parent_rng.key).has_children
+            assert not client.ranges.retrieve(key=child.key).has_children
+
+        def test_to_payload_has_children(self, client: sy.Synnax) -> None:
+            """Should keep has_children in the payload of a retrieved parent range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            retrieved = client.ranges.retrieve(key=parent_rng.key)
+            assert retrieved.to_payload().has_children
 
         def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax) -> None:
             """Client.create(parent=range) should attach the child under the parent"""
@@ -974,6 +912,84 @@ class TestRangeRetrieveFilters:
         assert all(r.parent == parent.key for r in res)
         assert client.ranges.retrieve(key=child.key).parent == parent.key
         assert client.ranges.retrieve(key=parent.key).parent is None
+
+    def test_nested(self, client: sy.Synnax) -> None:
+        """Should keep the nested ranges, or the top-level ranges when false"""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = parent.create_child_range(
+            name=random_name(), time_range=parent.time_range
+        )
+        keys = [parent.key, child.key]
+        nested = client.ranges.retrieve(key=keys, nested=True)
+        assert [r.key for r in nested] == [child.key]
+        top = client.ranges.retrieve(key=keys, nested=False)
+        assert [r.key for r in top] == [parent.key]
+
+    def test_labeled(self, client: sy.Synnax) -> None:
+        """Should keep the labeled ranges, or the ranges with no label when false"""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        labeled, bare = client.ranges.create(
+            [sy.Range(name=random_name(), time_range=tr) for _ in range(2)]
+        )
+        _create_label(client, labeled)
+        keys = [labeled.key, bare.key]
+        res = client.ranges.retrieve(key=keys, labeled=True)
+        assert [r.key for r in res] == [labeled.key]
+        res = client.ranges.retrieve(key=keys, labeled=False)
+        assert [r.key for r in res] == [bare.key]
+
+    @pytest.fixture
+    def staged(self, client: sy.Synnax) -> list[sy.Range]:
+        now = sy.TimeStamp.now()
+        hour = sy.TimeSpan.HOUR
+        return client.ranges.create(
+            [
+                sy.Range(name=random_name(), time_range=sy.TimeRange(start, end))
+                for start, end in [
+                    (now - 2 * hour, now - hour),
+                    (now - hour, now + hour),
+                    (now + hour, now + 2 * hour),
+                ]
+            ]
+        )
+
+    def test_stages(self, client: sy.Synnax, staged: list[sy.Range]) -> None:
+        """Should keep the ranges in the given stages at the Core's clock"""
+        done, running, planned = staged
+        keys = [r.key for r in staged]
+        res = client.ranges.retrieve(key=keys, stages="in_progress")
+        assert [r.key for r in res] == [running.key]
+        res = client.ranges.retrieve(key=keys, stages=["to_do", "completed"])
+        assert {r.key for r in res} == {planned.key, done.key}
+
+    def test_recent(self, client: sy.Synnax, staged: list[sy.Range]) -> None:
+        """Should keep the ranges that overlap the span ending now, or starting now
+        if negative"""
+        done, running, planned = staged
+        keys = [r.key for r in staged]
+        span = 90 * sy.TimeSpan.MINUTE
+        res = client.ranges.retrieve(key=keys, recent=span)
+        assert {r.key for r in res} == {done.key, running.key}
+        res = client.ranges.retrieve(key=keys, recent=-span)
+        assert {r.key for r in res} == {running.key, planned.key}
+
+    def test_order_by_end(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges by the end of their time range"""
+        order = ranger.Order(field="time_range_end")
+        first = client.ranges.retrieve(overlaps=window, order=order, limit=2)
+        after = ranger.Cursor(
+            key=first[-1].key, time_range_end=first[-1].time_range.end
+        )
+        rest = client.ranges.retrieve(overlaps=window, order=order, after=after)
+        assert [r.key for r in first + rest] == [r.key for r in window_ranges]
 
 
 @pytest.mark.ranger

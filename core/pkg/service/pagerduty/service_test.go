@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -112,8 +112,12 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			t := task.Task{Key: uuid.New(), Name: "Pump alerts", Type: pd.AlertTaskType}
-			Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+			t := taskv2.Task{
+				Key:  uuid.New(),
+				Name: "Pump alerts",
+				Type: pd.AlertTaskType,
+			}
+			Expect(gorp.NewCreate[taskv2.Key, taskv2.Task]().Entry(&t).Exec(ctx, db)).
 				To(Succeed())
 			old := v1.TaskConfig{Key: t.Key, RoutingKey: plainKey}
 			old.Alerts = []v1.Alert{{Key: "a", Status: "s"}}

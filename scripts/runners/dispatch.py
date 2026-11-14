@@ -13,7 +13,7 @@
 #     "boto3",
 #     "certifi>=2026.10.19",
 #     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.60,<0.61",
+#     "synnax>=0.61,<0.62",
 # ]
 # ///
 
@@ -59,7 +59,7 @@ RETRY_DELAY = 5 * sy.TimeSpan.SECOND
 # interrupted, so the signal only lands once the read returns.
 READ_TIMEOUT = sy.TimeSpan.SECOND
 
-Handler = Callable[[str], str]
+Handler = Callable[[str], str | None]
 Handlers = dict[str, dict[bool, Handler]]
 
 
@@ -109,7 +109,8 @@ def dispatch(
             continue
         log(f"{runner}: {command}={value}")
         try:
-            log(handler(runner))
+            if (skipped := handler(runner)) is not None:
+                log(skipped)
         except Exception as e:
             log.error(f"{runner} {command}={value}", e)
 

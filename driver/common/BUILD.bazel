@@ -33,6 +33,7 @@ cc_library(
         "//driver/task",
         "//driver/transform",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/loop",

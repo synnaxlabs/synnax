@@ -363,7 +363,8 @@ func sameJSON(v any, b []byte) bool {
 }
 
 // missingFrom returns the path of a member that the JSON form of v holds and the object
-// b lacks, or nil when b holds every member.
+// b lacks, or nil when b holds every member. A v whose JSON form is not an object, such
+// as a color that writes a hex string, has no members to lack.
 func missingFrom(v any, b []byte) ([]string, error) {
 	var got, want map[string]any
 	if err := json.Unmarshal(b, &got); err != nil {
@@ -372,6 +373,9 @@ func missingFrom(v any, b []byte) ([]string, error) {
 	encoded, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
+	}
+	if encoded[0] != '{' {
+		return nil, nil
 	}
 	if err = json.Unmarshal(encoded, &want); err != nil {
 		return nil, err

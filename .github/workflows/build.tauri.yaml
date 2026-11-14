@@ -214,9 +214,9 @@ jobs:
         if: steps.config.outputs.release == 'true'
         run: npm install -g @posthog/cli@0.18.9
 
-      - name: Install trusted-signing-cli
+      - name: Set up trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        run: cargo install trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build app (signed)
         if: inputs.sign_binaries

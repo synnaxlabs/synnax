@@ -75,7 +75,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
 		// The file's only edge has no config and connects to a node it lacks.
 		Expect(sch.Edges).To(BeEmpty())
@@ -105,12 +104,11 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		pipe, ok := sch.Edges[0].Config.Variant.(versions.PipeEdgeConfig)
 		Expect(ok).To(BeTrue())
 		Expect(pipe.StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
 		// The file's only edge has no config and connects to a node it lacks.
 		Expect(sch.Edges).To(BeEmpty())
@@ -142,7 +140,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
-		Expect(sch.Snapshot).To(BeFalse())
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges).To(BeEmpty())
 		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
@@ -153,7 +150,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
 		Expect(sch.Edges).To(BeEmpty())
 		Expect(valveConfig(sch, "n1").StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.
@@ -161,7 +158,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		func(ctx SpecContext, path string, nodes int) {
 			s := decode(ctx, path)
 			Expect(s.Nodes).To(HaveLen(nodes))
-			Expect(s.Snapshot).To(BeFalse())
 			// The Console's per-node render state — id, type, selected, measured — does
 			// not survive: a stored node keeps only key, position, and z-index.
 			for _, n := range s.Nodes {
@@ -202,7 +198,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		// The state's only edge carries no data bag, so it gets the default pipe.
 		expectDefaultPipe(s)
 		Expect(nodeConfig(s, "n1").Variant).ToNot(BeNil())
-		Expect(s.Snapshot).To(BeFalse())
 	})
 
 	It("Should lift the Console state that added a legend", func(ctx SpecContext) {

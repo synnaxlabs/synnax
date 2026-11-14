@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { http, type task } from "@synnaxlabs/client";
-import { json, record } from "@synnaxlabs/x";
+import { json, payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -32,7 +32,7 @@ const readConfigZ = http.readConfigZ;
 
 const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
-  enumValues: http.enumEntryZ
+  enumValues: payload.enumEntryZ
     .array()
     .check(checkDuplicateKeys("label", "enum label"))
     .default(() => []),

@@ -30,7 +30,7 @@ func tankCfg(label, hex string) schematic.NodeConfig {
 	GinkgoHelper()
 	cfg := schematic.TankNodeConfig{Label: schematic.LabelConfig{Label: label}}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	nc := schematic.NodeConfig{Variant: cfg}
 	nc.ApplyDefaults()
@@ -42,7 +42,7 @@ func pipeCfg(hex string) schematic.EdgeConfig {
 	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{Segments: []schematic.Segment{}}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	return schematic.EdgeConfig{
 		Variant: schematic.PipeEdgeConfig{SegmentedEdgeConfig: cfg},
@@ -841,6 +841,33 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.Units).To(Equal(""))
 	})
 
+	It("Should keep a zero precision", func() {
+		cfg := decodeConfig(`{"variant": "value", "precision": 0}`).
+			Variant.(schematic.ValueNodeConfig)
+		Expect(cfg.Precision).To(HaveValue(BeZero()))
+	})
+
+	It("Should leave an omitted precision absent", func() {
+		cfg := decodeConfig(`{"variant": "value"}`).Variant.(schematic.ValueNodeConfig)
+		Expect(cfg.Precision).To(BeNil())
+	})
+
+	DescribeTable("Should reject a precision that is not a byte", func(p string) {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
+			{"key": "v1", "config": {"variant": "value", "precision": `+p+`}}}}`), &a)).
+			To(MatchError(ContainSubstring("precision")))
+	},
+		Entry("fraction", "2.6"),
+		Entry("negative", "-1"),
+		Entry("above the byte range", "300"),
+	)
+
+	It("Should reject a precision above 17", func() {
+		cfg := decodeConfig(`{"variant": "value", "precision": 18}`)
+		Expect(cfg.Validate()).To(MatchError(ContainSubstring("precision")))
+	})
+
 	It("Should reject a config naming an unknown variant", func() {
 		var a schematic.Action
 		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
@@ -901,7 +928,7 @@ var _ = Describe("Path actions", func() {
 			))
 			Expect(
 				tank(next).StrokeColor,
-			).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+			).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 		})
 
 		It("Should set a field of an edge config", func() {

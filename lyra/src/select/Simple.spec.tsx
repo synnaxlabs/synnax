@@ -360,21 +360,17 @@ describe("Select.Simple", () => {
     };
 
     it("should draw an outlined trigger by default", () => {
-      const { classList } = trigger();
-      expect(classList.contains("lyra-btn--outlined")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(false);
+      expect(trigger().classList.contains("lyra-btn--outlined")).toBe(true);
     });
 
-    it("should draw a shadow trigger on the outlined chassis", () => {
+    it("should draw a shadow trigger with the shadow variant", () => {
       const { classList } = trigger("shadow");
-      expect(classList.contains("lyra-btn--outlined")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(true);
+      expect(classList.contains("lyra-btn--shadow")).toBe(true);
+      expect(classList.contains("lyra-btn--outlined")).toBe(false);
     });
 
-    it("should draw a text trigger without the shadow modifier", () => {
-      const { classList } = trigger("text");
-      expect(classList.contains("lyra-btn--text")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(false);
+    it("should draw a text trigger with the text variant", () => {
+      expect(trigger("text").classList.contains("lyra-btn--text")).toBe(true);
     });
   });
 

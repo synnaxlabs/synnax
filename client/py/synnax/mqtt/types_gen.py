@@ -17,29 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_, device as device_, task
-from x import telem
-
-TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
-
-TIME_FORMAT_UNIX_SEC: Literal["unix_sec"] = "unix_sec"
-
-TIME_FORMAT_UNIX_MS: Literal["unix_ms"] = "unix_ms"
-
-TIME_FORMAT_UNIX_US: Literal["unix_us"] = "unix_us"
-
-TIME_FORMAT_UNIX_NS: Literal["unix_ns"] = "unix_ns"
-
-
-TimeFormat = Literal["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]
-
-JSON_TYPE_NUMBER: Literal["number"] = "number"
-
-JSON_TYPE_STRING: Literal["string"] = "string"
-
-JSON_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
-
-
-JSONType = Literal["number", "string", "boolean"]
+from x import payload, telem
 
 SPARKPLUG_DATA_TYPE_INT8: Literal["int8"] = "int8"
 
@@ -93,25 +71,35 @@ QO_S_EXACTLY_ONCE: Literal["exactly_once"] = "exactly_once"
 
 QoS = Literal["at_most_once", "at_least_once", "exactly_once"]
 
-GENERATOR_TYPE_UUID: Literal["uuid"] = "uuid"
 
-GENERATOR_TYPE_TIMESTAMP: Literal["timestamp"] = "timestamp"
-
-
-GeneratorType = Literal["uuid", "timestamp"]
-
-
-class EnumEntry(BaseModel):
-    """Maps a string label in a JSON payload to a numeric channel value for enum-style
-    parsing (e.g. "ON" -> 1, "OFF" -> 0).
+class ReadField(BaseModel):
+    """Is a single value extracted from the JSON payload of a topic.
 
     Attributes:
-        label: Is the string label in the JSON payload.
-        value: Is the numeric channel value the label maps to.
+        key: Uniquely identifies the field within the entry.
+        name: Is the human-readable field name.
+        disabled: Is true when the field is excluded from the task.
+        channel: Is the Synnax channel the extracted value is written to.
+        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
+            takes the whole payload.
+        data_type: Is the data type of the extracted value.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
+        enum_values: Maps string labels in the payload to numeric channel values.
     """
 
-    label: str = ""
-    value: float = 0
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    disabled: bool = False
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    pointer: str = ""
+    data_type: telem.DataType = telem.DataType("float64")
+    time_format: payload.TimeFormat | None = None
+    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class BaseReadEntry(BaseModel):
@@ -128,6 +116,32 @@ class BaseReadEntry(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ChannelField(BaseModel):
+    """Is the command channel value placed into the payload of a target.
+
+    Attributes:
+        pointer: Is the JSON Pointer where the channel value is placed in the payload.
+            An empty pointer sends the bare value as the entire payload, in which case
+            the target may not declare any additional fields.
+        json_type: Is the JSON type the channel value is serialized as.
+        channel: Is the Synnax command channel that triggers the publish.
+        name: Is the human-readable name of the command channel.
+        data_type: Is the data type of the command channel.
+        time_format: Is the output encoding when the command channel holds timestamps.
+            An unset format is ISO 8601.
+        enum_values: Maps numeric channel values to string labels. Only valid when
+            json_type is 'string'.
+    """
+
+    pointer: str = ""
+    json_type: payload.JSONType = "number"
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    name: str = ""
+    data_type: telem.DataType = telem.DataType("float64")
+    time_format: payload.TimeFormat | None = None
+    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
 
 class BaseWriteField(BaseModel):
@@ -199,67 +213,43 @@ class EdgeTag(BaseModel):
         return hash(self.key)
 
 
-class ReadField(BaseModel):
-    """Is a single value extracted from the JSON payload of a topic.
+class PlainReadEntry(BaseReadEntry):
+    """Reads JSON payloads from one topic."""
 
-    Attributes:
-        key: Uniquely identifies the field within the entry.
-        name: Is the human-readable field name.
-        disabled: Is true when the field is excluded from the task.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the payload. An empty pointer
-            takes the whole payload.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the payload to numeric channel values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    disabled: bool = False
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: TimeFormat | None = None
-    enum_values: list[EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+    type: Literal["plain"] = "plain"
+    topic: str = ""
+    qos: QoS = "at_most_once"
+    retained_ignored: bool = False
+    fields: list[ReadField] = Field(default_factory=list)
+    index: str = ""
 
 
-class ChannelField(BaseModel):
-    """Is the command channel value placed into the payload of a target.
+class SparkplugReadEntry(BaseReadEntry):
+    """Reads one Sparkplug B tag."""
 
-    Attributes:
-        pointer: Is the JSON Pointer where the channel value is placed in the payload.
-            An empty pointer sends the bare value as the entire payload, in which case
-            the target may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
-        channel: Is the Synnax command channel that triggers the publish.
-        name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
-    """
-
-    pointer: str = ""
-    json_type: JSONType = "number"
+    type: Literal["sparkplug"] = "sparkplug"
+    group: str = ""
+    edge_node: str = ""
+    device: str = ""
+    tag: str = ""
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
     data_type: telem.DataType = telem.DataType("float64")
-    time_format: TimeFormat | None = None
-    enum_values: list[EnumEntry] = Field(default_factory=list)
+
+
+# Is a single source of an MQTT read task. The type field selects a plain topic
+# with a JSON payload or a Sparkplug B tag.
+ReadEntry = Annotated[
+    PlainReadEntry | SparkplugReadEntry,
+    Field(discriminator="type"),
+]
 
 
 class StaticWriteField(BaseWriteField):
     """Places a fixed value in the payload."""
 
     type: Literal["static"] = "static"
-    json_type: JSONType = "number"
+    json_type: payload.JSONType = "number"
     value: JsonValue
 
 
@@ -267,8 +257,8 @@ class GeneratedWriteField(BaseWriteField):
     """Places a freshly generated UUID or timestamp in the payload."""
 
     type: Literal["generated"] = "generated"
-    generator: GeneratorType = "uuid"
-    time_format: TimeFormat | None = None
+    generator: payload.GeneratorType = "uuid"
+    time_format: payload.TimeFormat | None = None
 
 
 # Is an additional payload field on a plain write target. The type field selects
@@ -303,36 +293,21 @@ class EdgeConfig(task.StartConfig):
         return hash(self.key)
 
 
-class PlainReadEntry(BaseReadEntry):
-    """Reads JSON payloads from one topic."""
+class ReadConfig(task.PersistConfig):
+    """Configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
+    a broker device and writes their values to Synnax channels.
 
-    type: Literal["plain"] = "plain"
-    topic: str = ""
-    qos: QoS = "at_most_once"
-    retained_ignored: bool = False
-    fields: list[ReadField] = Field(default_factory=list)
-    index: str = ""
+    Attributes:
+        device: Is the key of the broker device to read from.
+        entries: Contains the topics and tags to read.
+    """
 
+    device: device_.Key = ""
+    entries: list[ReadEntry] = Field(default_factory=list)
 
-class SparkplugReadEntry(BaseReadEntry):
-    """Reads one Sparkplug B tag."""
-
-    type: Literal["sparkplug"] = "sparkplug"
-    group: str = ""
-    edge_node: str = ""
-    device: str = ""
-    tag: str = ""
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-
-
-# Is a single source of an MQTT read task. The type field selects a plain topic
-# with a JSON payload or a Sparkplug B tag.
-ReadEntry = Annotated[
-    PlainReadEntry | SparkplugReadEntry,
-    Field(discriminator="type"),
-]
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class PlainWriteTarget(BaseWriteTarget):
@@ -365,23 +340,6 @@ WriteTarget = Annotated[
     PlainWriteTarget | SparkplugWriteTarget,
     Field(discriminator="type"),
 ]
-
-
-class ReadConfig(task.PersistConfig):
-    """Configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
-    a broker device and writes their values to Synnax channels.
-
-    Attributes:
-        device: Is the key of the broker device to read from.
-        entries: Contains the topics and tags to read.
-    """
-
-    device: device_.Key = ""
-    entries: list[ReadEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class WriteConfig(task.StartConfig):

@@ -59,7 +59,7 @@ Type enum {
         @doc value "identifies a range."
     }
     range_alias      = "range-alias" {
-        @doc value "identifies an alias of a channel on a range."
+        @doc value "identifies a range alias. The Core no longer stores range aliases."
     }
     role             = "role" {
         @doc value "identifies an access control role."

@@ -118,7 +118,12 @@ var _ = Describe("Signals", Ordered, func() {
 	It("Should publish device sets and deletes", func(ctx SpecContext) {
 		sets := openStreamer(ctx, "sy_ni_device_set")
 		deletes := openStreamer(ctx, "sy_ni_device_delete")
-		d := device.Device{Rack: rackSvc.EmbeddedKey, Name: "PXI-6255"}
+		d := device.Device{
+			Rack:         rackSvc.EmbeddedKey,
+			Name:         "PXI-6255",
+			ResourceName: "Mod1",
+			Model:        "PXI-6255",
+		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())

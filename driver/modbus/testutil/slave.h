@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <set>
@@ -81,6 +82,9 @@ class Slave {
     std::vector<int> request_log;
     /// @brief the one-time delay before the next reply to each unit. Guarded by mu.
     std::map<int, std::chrono::milliseconds> stalls;
+    /// @brief whether a request that stall_next delays has arrived. Guarded by mu.
+    bool stalled = false;
+    std::condition_variable stalled_cv;
     /// @brief the units whose next reply goes out damaged. Guarded by mu.
     std::set<int> damaged;
     /// @brief the number of client connections accepted. Guarded by mu.
@@ -252,8 +256,10 @@ class Slave {
             if (const auto it = stalls.find(unit); it != stalls.end()) {
                 stall = it->second;
                 stalls.erase(it);
+                stalled = true;
             }
         }
+        stalled_cv.notify_all();
         std::this_thread::sleep_for(stall);
         std::lock_guard lock(mu);
         requests_by_function[function_code]++;
@@ -516,6 +522,14 @@ public:
     void stall_next(const int unit, const std::chrono::milliseconds delay) {
         std::lock_guard lock(mu);
         stalls[unit] = delay;
+    }
+
+    /// @brief waits until a request that stall_next delays arrives, or until the
+    /// timeout.
+    /// @returns true if one arrived.
+    bool wait_for_stall(const std::chrono::milliseconds timeout) {
+        std::unique_lock lock(mu);
+        return stalled_cv.wait_for(lock, timeout, [this] { return stalled; });
     }
 
     /// @brief flips the last CRC byte of the next reply to the unit, as line noise

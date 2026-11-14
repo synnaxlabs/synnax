@@ -17,9 +17,9 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
-  color,
+  type color,
   DataType,
-  type notation,
+  notation,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -27,7 +27,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+// The row's notation prop shadows the namespace inside the row component.
+const PRECISION_BOUNDS = notation.PRECISION_BOUNDS;
 const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
@@ -76,9 +77,8 @@ const ChannelRow = ({
     dispatch(log.setChannelTimestampFormat({ channel, format }));
   const handleTimeZoneChange = (timeZone: TimeZone) =>
     dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
-  // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
-    dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+    dispatch(log.setChannelColor({ channel, color: c }));
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -88,7 +88,6 @@ const ChannelRow = ({
     );
   if (config == null) return null;
   const { alias, timestampConfig, precision, notation } = config;
-  const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
       itemKey={channel}
@@ -138,6 +137,7 @@ const ChannelRow = ({
               onClear={() => handlePrecisionChange()}
               endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
+              integer
               disabled={disabled}
               shrink={false}
               variant="shadow"
@@ -172,7 +172,7 @@ const ChannelRow = ({
           </>
         )}
         <Color.Swatch
-          value={hasCustomColor ? config.color : undefined}
+          value={config.color}
           fallback={defaultColor}
           onChange={handleColorChange}
           disabled={disabled}

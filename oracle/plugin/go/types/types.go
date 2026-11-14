@@ -819,11 +819,11 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if genMethods && len(embeds) > 0 {
 		sd.DefaultRecurse = append(
 			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
+			embedRecurseSteps(embeds, nil, data, defaultsRule)...,
 		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
-			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
+			embedRecurseSteps(embeds, nil, data, validateRule)...,
 		)
 	}
 	if sd.IsGeneric {
@@ -859,7 +859,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			}
 			sd.DefaultFills = append(sd.DefaultFills, fills...)
 		}
-		if step, ok := goRecurseStep(field, fd, defaultsHasOwn, neverSkip); ok {
+		if step, ok := goRecurseStep(field, fd, defaultsRule); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
 		if validateSkip(field, fd) {
@@ -870,9 +870,9 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, fd)...,
+			goConstraintChecks(field, defaultOnly.Contains(field.Name), fd)...,
 		)
-		if step, ok := goRecurseStep(field, fd, validateHasOwn, validateSkip); ok {
+		if step, ok := goRecurseStep(field, fd, validateRule); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
@@ -1519,6 +1519,12 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 	for i := range {{$s.Receiver}}.{{.GoName}} {
 		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
+			{{$s.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
 		value.ApplyDefaults()
@@ -1594,7 +1600,13 @@ func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
+{{- if .Optional}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $s.ConstraintChecks}}
 {{- $val := printf "%s.%s" $s.Receiver .GoName}}
@@ -1637,6 +1649,12 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$s.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
@@ -1741,6 +1759,12 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
 		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
+			{{$vt.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
+		}
+	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
 		value.ApplyDefaults()
@@ -1757,7 +1781,13 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
+{{- if .Optional}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $vt.ConstraintChecks}}
 {{- $val := printf "%s.%s" $vt.Receiver .GoName}}
@@ -1800,6 +1830,12 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
 		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "nested_slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
+			v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i][j].Validate(), "{{.JSONName}}", strconv.Itoa(i), strconv.Itoa(j)) })
+		}
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
@@ -1918,22 +1954,24 @@ func (u *{{.Name}}) ApplyDefaults() {
 	}
 }
 {{- end}}
-{{- if .NeedsValidate}}
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u {{.Name}}) Validate() error {
+	v := validate.New("{{.Name}}")
+	v.Ternary("{{.DiscJSONName}}", u.Variant == nil, "required")
+{{- if .ValidatesVariants}}
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
 {{- if .NeedsValidate}}
 	case {{.TypeName}}:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 {{- end}}
 {{- end}}
 	}
-	return nil
-}
 {{- end}}
+	return v.Error()
+}
 {{- if .Base}}
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

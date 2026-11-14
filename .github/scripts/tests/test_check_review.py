@@ -142,7 +142,7 @@ class TestReview:
         assert harness.run()[0] == "pending"
 
     def test_ignores_a_review_for_another_base(self, harness: Harness) -> None:
-        harness.reviews("head", review(key="42:release/core-0.57"))
+        harness.reviews("head", review(key="42:release/0.57"))
         assert harness.run()[0] == "pending"
 
     def test_ignores_a_review_of_another_pull_request(self, harness: Harness) -> None:

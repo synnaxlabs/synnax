@@ -11,90 +11,57 @@ package v12
 
 import (
 	"context"
-	"encoding/json/v2"
+	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
-	"github.com/synnaxlabs/x/set"
 )
 
-// MigrateSchematic lifts a v11 schematic into v12 by moving each entry of the configs
-// map onto the node or edge it configures. A node with no node config draws nothing, so
-// it is dropped, and so is an edge whose source or target is dropped. An edge with no
-// edge config gets the default pipe, which the Console drew for it before v0.55.
+// MigrateSchematic lifts a v11 schematic into v12. It keeps the precision of each
+// numeric symbol as a whole number.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
-	s, err := autoMigrateSchematic(ctx, old)
+	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	kept := make(set.Set[string], len(s.Nodes))
-	nodes := s.Nodes[:0]
-	for _, n := range s.Nodes {
-		ok, err := convert[NodeConfig, EdgeConfig](old.Configs, n.Key, &n.Config)
-		if err != nil {
-			return Schematic{}, err
-		}
-		if ok {
-			nodes = append(nodes, n)
-			kept.Add(n.Key)
+	// A tank declares its numeric fields inline, so the generated copy skips the
+	// precision whose type changed.
+	for k, cfg := range old.Configs {
+		if o, ok := cfg.Variant.(v10.TankElementConfig); ok {
+			n := out.Configs[k].Variant.(TankElementConfig)
+			n.Precision = migratePrecision(o.Precision)
+			out.Configs[k] = ElementConfig{Variant: n}
 		}
 	}
-	s.Nodes = nodes
-	edges := s.Edges[:0]
-	for _, e := range s.Edges {
-		if !kept.Contains(e.Source.Node) || !kept.Contains(e.Target.Node) {
-			continue
-		}
-		ok, err := convert[EdgeConfig, NodeConfig](old.Configs, e.Key, &e.Config)
-		if err != nil {
-			return Schematic{}, err
-		}
-		if !ok {
-			e.Config = EdgeConfig{
-				Variant: PipeEdgeConfig{
-					SegmentedEdgeConfig: SegmentedEdgeConfig{Segments: []Segment{}},
-				},
-			}
-		}
-		edges = append(edges, e)
-	}
-	s.Edges = edges
-	return s, nil
+	return out, nil
 }
 
-// MigrateNode copies the node. MigrateSchematic sets its config from the configs map.
-func MigrateNode(ctx context.Context, old v11.Node) (Node, error) {
-	return autoMigrateNode(ctx, old)
-}
+// Migration lifts stored schematics from v11 to v12, which stores the precision as an
+// optional byte.
+var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
-// MigrateEdge copies the edge. MigrateSchematic sets its config from the configs map.
-func MigrateEdge(ctx context.Context, old v11.Edge) (Edge, error) {
-	return autoMigrateEdge(ctx, old)
-}
-
-// convert decodes the config stored under key into dst. It returns false when no
-// config is stored under key, or when the stored config is of the Other element kind.
-func convert[C, Other any](
-	configs map[string]v11.ElementConfig,
-	key string,
-	dst *C,
-) (bool, error) {
-	cfg, ok := configs[key]
-	if !ok || cfg.Variant == nil {
-		return false, nil
-	}
-	b, err := json.Marshal(cfg)
+// MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
+// the precision to a whole number and clamps it to 0 through 17. A NaN precision
+// becomes 0.
+func MigrateNumericTelemConfig(
+	ctx context.Context,
+	old v11.NumericTelemConfig,
+) (NumericTelemConfig, error) {
+	cfg, err := autoMigrateNumericTelemConfig(ctx, old)
 	if err != nil {
-		return false, err
+		return NumericTelemConfig{}, err
 	}
-	if err = json.Unmarshal(b, dst); err == nil {
-		return true, nil
-	}
-	var other Other
-	if json.Unmarshal(b, &other) == nil {
-		return false, nil
-	}
-	return false, err
+	cfg.Precision = migratePrecision(old.Precision)
+	return cfg, nil
 }
 
-var Migration = migrate.NewEntry("v62_configs_on_nodes", MigrateSchematic)
+// maxPrecision is the most significant digits a float64 holds.
+const maxPrecision = 17
+
+func migratePrecision(p float64) *uint8 {
+	if math.IsNaN(p) {
+		return new(uint8(0))
+	}
+	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
+}

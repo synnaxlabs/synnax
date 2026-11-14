@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, query, type ranger, schematic } from "@synnaxlabs/client";
-import { array, compare, verbs } from "@synnaxlabs/x";
+import { type project, query, schematic } from "@synnaxlabs/client";
+import { compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -70,13 +70,16 @@ const configsEqual = (
 };
 
 export const useAllConfigs = Scope.bindHook(
-  createSelector(schematic.configsOf, configsEqual),
+  createSelector((s, _, client) => client.schematics.configsOf(s), configsEqual),
 );
 
 // Value equality keeps the map's reference stable across unrelated config edits,
 // so consumers memoizing on it re-run only when group membership changes.
 export const useParentOf = Scope.bindHook(
-  createSelector((s) => Group.buildParentOf(schematic.configsOf(s)), compare.mapsEqual),
+  createSelector(
+    (s, _, client) => Group.buildParentOf(client.schematics.configsOf(s)),
+    compare.mapsEqual,
+  ),
 );
 
 export interface ConfigParams extends KeyParams {
@@ -90,15 +93,16 @@ const configOf = (
   (nodes.find((n) => n.key === elKey) ?? edges.find((e) => e.key === elKey))?.config;
 
 export const useElementConfig = Scope.bindHook(
-  createSelector<ElementConfig | undefined, ConfigParams>((s, { elKey }) =>
-    configOf(s, elKey),
+  createSelector<ElementConfig | undefined, ConfigParams>(
+    (s, { elKey }, client) => client.schematics.configsOf(s)[elKey],
   ),
 );
 
 const useField = Scope.bindHook(
-  createSelector<schematic.ElementField, ConfigParams>(({ edges }, { elKey }) =>
-    edges.some((e) => e.key === elKey) ? "edges" : "nodes",
-  ),
+  createSelector<schematic.ElementField, ConfigParams>((s, { elKey }, client) => {
+    const config = client.schematics.configsOf(s)[elKey];
+    return config == null ? "nodes" : schematic.fieldOf(config);
+  }),
 );
 
 interface FieldConfigParams extends ConfigParams {
@@ -130,8 +134,8 @@ export interface ConfigsParams extends KeyParams {
 }
 
 export const useConfigs = Scope.bindHook(
-  createSelector<Map<string, ElementConfig>, ConfigsParams>((s, { keys }) => {
-    const configs = schematic.configsOf(s);
+  createSelector<Map<string, ElementConfig>, ConfigsParams>((s, { keys }, client) => {
+    const configs = client.schematics.configsOf(s);
     const result = new Map<string, ElementConfig>();
     for (const elKey of keys) {
       const cfg = configs[elKey];
@@ -155,8 +159,6 @@ export const useNodes = Scope.bindHook(
     (a, b) => compare.arraysEqual(a, b),
   ),
 );
-
-export const useIsSnapshot = Scope.bindHook(createSelector(({ snapshot }) => snapshot));
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
@@ -198,33 +200,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     await client.schematics.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
-});
-
-export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> {}
-
-export interface SnapshotParams {
-  schematics: SnapshotPair | SnapshotPair[];
-  range: ranger.Key;
-}
-
-export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SNAPSHOT,
-  update: async ({ client, data }) => {
-    const { schematics, range } = data;
-    await Promise.all(
-      array.toArray(schematics).map(
-        async (s) =>
-          await client.schematics.copy({
-            key: s.key,
-            name: `${s.name} (Snapshot)`,
-            snapshot: true,
-            range,
-          }),
-      ),
-    );
-    return data;
-  },
 });
 
 const augmentWithEdgeSegments = (

@@ -163,7 +163,7 @@ describe("Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 12 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 14 });
     });
   });
 

@@ -11,21 +11,109 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni::chassis {
 
+struct Identity;
+struct Configuration;
+struct Where;
 struct StatusDetails;
+struct Cursor;
+struct RetrieveRequest;
 struct Chassis;
+struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
+
+/// @brief Identity holds the chassis fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the chassis is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the chassis. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the chassis, a GUID that
+    /// survives renames.
+    std::string resource_name;
+    /// @brief model is the product name of the chassis.
+    std::string model;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Configuration holds the chassis fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the chassis.
+    std::string name;
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Where is a filter that selects NI chassis.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief serial selects by serial.
+    ::x::filter::Field<::x::filter::String> serial;
+    /// @brief resource_name selects by resource_name.
+    ::x::filter::Field<::x::filter::String> resource_name;
+    /// @brief model selects by model.
+    ::x::filter::Field<::x::filter::String> model;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails identifies the chassis and rack that a status pertains to.
 struct StatusDetails {
@@ -38,7 +126,81 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Cursor is a position in an order of chassis: the sort value and the key of a
+/// chassis.
+struct Cursor {
+    /// @brief key is the key of the chassis at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a chassis.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the chassis that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the chassis strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most chassis to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve chassis.
+struct RetrieveRequest {
+    /// @brief where selects the chassis to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the chassis that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the chassis strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most chassis to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Chassis is an NI chassis that holds device modules.
 struct Chassis {
@@ -59,6 +221,15 @@ struct Chassis {
     std::optional<Status> status;
 
     static Chassis parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the chassis a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief chassis are the chassis the request selects.
+    std::vector<Chassis> chassis;
+
+    static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

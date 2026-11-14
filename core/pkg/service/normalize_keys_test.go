@@ -29,7 +29,6 @@ import (
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	projectversions "github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
-	aliasversions "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
 	kvversions "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
 	rangerversions "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	symbolversions "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
@@ -49,7 +48,6 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 		Expect(chain).ToNot(BeEmpty())
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},
-	Entry("alias", aliasversions.Migrations),
 	Entry("arc", arcversions.NewMigrations(uuid.Nil(), parser.Config{})),
 	Entry("auth", authversions.Migrations),
 	Entry("channel", channelversions.Migrations),

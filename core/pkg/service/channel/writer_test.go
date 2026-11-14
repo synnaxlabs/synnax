@@ -266,7 +266,7 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("empty name", "", "name cannot be empty"),
+			Entry("empty name", "", "name: required"),
 			Entry("name starting with a digit", "1sensor", "cannot start with a digit"),
 			Entry("name with spaces", "my channel", "contains invalid characters"),
 			Entry(
@@ -1231,6 +1231,20 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring("name: required")))
 			})
+			It("Should reject renaming to an empty name", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        "named",
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+				})).To(MatchError(ContainSubstring("name: required")))
+			})
 			It(
 				"Should allow renaming to a name with special characters",
 				func(ctx SpecContext) {
@@ -1380,6 +1394,8 @@ var _ = Describe("Writer", func() {
 						})
 					}()
 					Eventually(removing).Should(BeClosed())
+					// The removal can start before the delete commits.
+					Eventually(deleted).Should(Receive(BeNil()))
 					read := make(chan bool, 1)
 					go func() {
 						defer GinkgoRecover()
@@ -1388,7 +1404,6 @@ var _ = Describe("Writer", func() {
 							Exists(ctx, slow.DB))
 					}()
 					Eventually(read).Should(Receive(BeFalse()))
-					Eventually(deleted).Should(Receive(BeNil()))
 				},
 			)
 		})
@@ -1660,6 +1675,13 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).
 							Rename(ctx, ch.Key(), "invalid name", false)
 					})).To(MatchError(ContainSubstring("contains invalid characters")))
+				})
+			})
+			Context("new name is empty", func() {
+				It("Should return the same error as create", func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+					})).To(MatchError(ContainSubstring("name: required")))
 				})
 			})
 			Context("new name is a duplicate", func() {

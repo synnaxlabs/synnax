@@ -228,6 +228,22 @@ describe("range/Toolbar", () => {
       expect((await client.ranges.retrieve(created.key)).name).toBe(rng.name);
     });
 
+    it("opens the Sift upload modal for a range on the Core", async () => {
+      const rng = await createTestRange(client);
+      await renderToolbar({ ranges: [toState(rng)] });
+      await openContextMenu(rng.name);
+      fireEvent.click(await screen.findByText("Upload to Sift"));
+      expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
+    });
+
+    it("offers no Sift upload for a local range", async () => {
+      const local = createLocalRangeState(uniqueRangeName("local"));
+      await renderToolbar({ ranges: [local] });
+      await openContextMenu(local.name);
+      expect(await screen.findByText("Save to Core")).toBeTruthy();
+      expect(screen.queryByText("Upload to Sift")).toBeNull();
+    });
+
     it("persists a local range to the Core via Save to Core", async () => {
       const local = createLocalRangeState(uniqueRangeName("save"));
       const { store } = await renderToolbar({ ranges: [local] });

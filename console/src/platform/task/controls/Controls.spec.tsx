@@ -51,15 +51,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
 });
 
 describe("Controls.Controls", () => {
-  it("should hide the actions when the task is a snapshot", async () => {
-    const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { client, values: { snapshot: true } },
-    );
-    await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
-    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
-  });
-
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(
@@ -186,10 +177,10 @@ describe("Controls.Controls", () => {
       expect(getSetting("Auto start").textContent).toBe("On");
     });
 
-    it("should show the settings of a snapshot without letting them change", async () => {
+    it("should show the settings in preview mode without letting them change", async () => {
       const { form } = await renderInTaskFormWithClient(
         <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-        { client, values: { snapshot: true, config: SETTINGS }, mode: "preview" },
+        { client, values: { config: SETTINGS }, mode: "preview" },
       );
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.getAttribute("aria-disabled")).toBe("true");

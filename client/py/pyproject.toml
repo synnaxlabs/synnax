@@ -158,6 +158,7 @@ markers = [
     "project: mark test as a project test",
     "panel: mark test as a panel test",
     "rack: mark test as a rack test",
+    "sift: mark test as a sift test",
     "ranger: mark test as a ranger test",
     "resource: mark test as a resource test",
     "role: mark test as a role test",

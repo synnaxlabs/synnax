@@ -20,18 +20,19 @@
 #include "absl/log/log_sink_registry.h"
 
 namespace driver::common {
-/// @brief captures the text of every warning line while in scope.
-class WarningSink final : public absl::LogSink {
+/// @brief captures the text of every line logged at Severity while in scope.
+template<absl::LogSeverity Severity>
+class SeveritySink final : public absl::LogSink {
     std::mutex mu;
     std::vector<std::string> lines;
 
 public:
-    WarningSink() { absl::AddLogSink(this); }
+    SeveritySink() { absl::AddLogSink(this); }
 
-    ~WarningSink() override { absl::RemoveLogSink(this); }
+    ~SeveritySink() override { absl::RemoveLogSink(this); }
 
     void Send(const absl::LogEntry &entry) override {
-        if (entry.log_severity() != absl::LogSeverity::kWarning) return;
+        if (entry.log_severity() != Severity) return;
         std::lock_guard lock(this->mu);
         this->lines.emplace_back(entry.text_message());
     }
@@ -44,4 +45,7 @@ public:
         });
     }
 };
+
+using WarningSink = SeveritySink<absl::LogSeverity::kWarning>;
+using ErrorSink = SeveritySink<absl::LogSeverity::kError>;
 }

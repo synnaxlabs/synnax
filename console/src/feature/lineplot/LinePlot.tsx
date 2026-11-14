@@ -31,6 +31,7 @@ import {
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
+import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -73,6 +74,7 @@ const RangeAnnotationContextMenu = ({
         <Icon.CSV />
         Download as CSV
       </Menu.Item>
+      <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -168,6 +170,7 @@ const ContextMenuContent = ({
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
           </Menu.Item>
+          <Sift.Range.UploadRegionMenuItem name={name} getTimeRange={getTimeRange} />
           <Menu.Divider />
         </>
       )}

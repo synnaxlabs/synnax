@@ -17,12 +17,8 @@ const styleZ = z.object({
   color: colorZ,
 });
 
-export type Style = z.infer<typeof styleZ>;
-
 export const paletteZ = z.object({
   key: z.string(),
   name: z.string(),
   swatches: z.array(styleZ),
 });
-
-export type Palette = z.infer<typeof paletteZ>;

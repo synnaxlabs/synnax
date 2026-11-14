@@ -20,6 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -89,30 +90,30 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.ChannelField{
 				Pointer:    "test_1",
-				JSONType:   v1.JSONType("number"),
+				JSONType:   payload.JSONType("number"),
 				Channel:    channel.Key(4),
 				Name:       "test_4",
 				DataType:   telem.DataType("test_5"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{{Label: "test_8", Value: 9.5}},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{{Label: "test_8", Value: 9.5}},
 			}),
 			Entry("zero values", v1.ChannelField{
 				Pointer:    "",
-				JSONType:   v1.JSONType(""),
+				JSONType:   payload.JSONType(""),
 				Channel:    channel.Key(0),
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: []v1.EnumEntry{},
+				EnumValues: []payload.EnumEntry{},
 			}),
 			Entry("empty collections", v1.ChannelField{
 				Pointer:    "test_1",
-				JSONType:   v1.JSONType("number"),
+				JSONType:   payload.JSONType("number"),
 				Channel:    channel.Key(4),
 				Name:       "test_4",
 				DataType:   telem.DataType("test_5"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{},
 			}),
 		)
 	})
@@ -197,21 +198,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("EnumEntry", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.EnumEntry) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.EnumEntry
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.EnumEntry{Label: "test_1", Value: 2.5}),
-			Entry("zero values", v1.EnumEntry{Label: "", Value: 0}),
-		)
-	})
 	Describe("ReadConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.ReadConfig) {
@@ -242,8 +228,8 @@ var _ = Describe("Codec", func() {
 								Channel:    channel.Key(14),
 								Pointer:    "test_14",
 								DataType:   telem.DataType("test_15"),
-								TimeFormat: new(v1.TimeFormat("iso8601")),
-								EnumValues: []v1.EnumEntry{{Label: "test_18", Value: 19.5}},
+								TimeFormat: new(payload.TimeFormat("iso8601")),
+								EnumValues: []payload.EnumEntry{{Label: "test_18", Value: 19.5}},
 							},
 						},
 						Index: "test_20",
@@ -290,8 +276,8 @@ var _ = Describe("Codec", func() {
 						Channel:    channel.Key(9),
 						Pointer:    "test_9",
 						DataType:   telem.DataType("test_10"),
-						TimeFormat: new(v1.TimeFormat("iso8601")),
-						EnumValues: []v1.EnumEntry{{Label: "test_13", Value: 14.5}},
+						TimeFormat: new(payload.TimeFormat("iso8601")),
+						EnumValues: []payload.EnumEntry{{Label: "test_13", Value: 14.5}},
 					},
 				},
 				Index: "test_15",
@@ -326,8 +312,8 @@ var _ = Describe("Codec", func() {
 				Channel:    channel.Key(5),
 				Pointer:    "test_5",
 				DataType:   telem.DataType("test_6"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{{Label: "test_9", Value: 10.5}},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{{Label: "test_9", Value: 10.5}},
 			}),
 			Entry("zero values", v1.ReadField{
 				Key:        "",
@@ -337,7 +323,7 @@ var _ = Describe("Codec", func() {
 				Pointer:    "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: []v1.EnumEntry{},
+				EnumValues: []payload.EnumEntry{},
 			}),
 			Entry("empty collections", v1.ReadField{
 				Key:        "test_1",
@@ -346,8 +332,8 @@ var _ = Describe("Codec", func() {
 				Channel:    channel.Key(5),
 				Pointer:    "test_5",
 				DataType:   telem.DataType("test_6"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{},
 			}),
 		)
 	})
@@ -397,17 +383,17 @@ var _ = Describe("Codec", func() {
 						Retained:        true,
 						Channel: v1.ChannelField{
 							Pointer:    "test_9",
-							JSONType:   v1.JSONType("number"),
+							JSONType:   payload.JSONType("number"),
 							Channel:    channel.Key(12),
 							Name:       "test_12",
 							DataType:   telem.DataType("test_13"),
-							TimeFormat: new(v1.TimeFormat("iso8601")),
-							EnumValues: []v1.EnumEntry{{Label: "test_16", Value: 17.5}},
+							TimeFormat: new(payload.TimeFormat("iso8601")),
+							EnumValues: []payload.EnumEntry{{Label: "test_16", Value: 17.5}},
 						},
 						Fields: []v1.WriteField{
 							{Variant: v1.StaticWriteField{
 								BaseWriteField: fullyPopulatedBaseWriteField,
-								JSONType:       v1.JSONType("number"),
+								JSONType:       payload.JSONType("number"),
 								Value:          any(map[string]any{"key_20": "value_20"}),
 							}},
 						},
@@ -441,13 +427,13 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("static variant", v1.WriteField{Variant: v1.StaticWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
-				JSONType:       v1.JSONType("number"),
+				JSONType:       payload.JSONType("number"),
 				Value:          any(map[string]any{"key_2": "value_2"}),
 			}}),
 			Entry("generated variant", v1.WriteField{Variant: v1.GeneratedWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
-				Generator:      v1.GeneratorType("uuid"),
-				TimeFormat:     new(v1.TimeFormat("iso8601")),
+				Generator:      payload.GeneratorType("uuid"),
+				TimeFormat:     new(payload.TimeFormat("iso8601")),
 			}}),
 		)
 	})
@@ -469,17 +455,17 @@ var _ = Describe("Codec", func() {
 				Retained:        true,
 				Channel: v1.ChannelField{
 					Pointer:    "test_5",
-					JSONType:   v1.JSONType("number"),
+					JSONType:   payload.JSONType("number"),
 					Channel:    channel.Key(8),
 					Name:       "test_8",
 					DataType:   telem.DataType("test_9"),
-					TimeFormat: new(v1.TimeFormat("iso8601")),
-					EnumValues: []v1.EnumEntry{{Label: "test_12", Value: 13.5}},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{{Label: "test_12", Value: 13.5}},
 				},
 				Fields: []v1.WriteField{
 					{Variant: v1.StaticWriteField{
 						BaseWriteField: fullyPopulatedBaseWriteField,
-						JSONType:       v1.JSONType("number"),
+						JSONType:       payload.JSONType("number"),
 						Value:          any(map[string]any{"key_16": "value_16"}),
 					}},
 				},
@@ -552,12 +538,12 @@ func BenchmarkEncodeDecodeBaseWriteTarget(b *testing.B) {
 func BenchmarkEncodeDecodeChannelField(b *testing.B) {
 	seed := v1.ChannelField{
 		Pointer:    "test_1",
-		JSONType:   v1.JSONType("number"),
+		JSONType:   payload.JSONType("number"),
 		Channel:    channel.Key(4),
 		Name:       "test_4",
 		DataType:   telem.DataType("test_5"),
-		TimeFormat: new(v1.TimeFormat("iso8601")),
-		EnumValues: []v1.EnumEntry{{Label: "test_8", Value: 9.5}},
+		TimeFormat: new(payload.TimeFormat("iso8601")),
+		EnumValues: []payload.EnumEntry{{Label: "test_8", Value: 9.5}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -634,23 +620,6 @@ func BenchmarkEncodeDecodeEdgeTag(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeEnumEntry(b *testing.B) {
-	seed := v1.EnumEntry{Label: "test_1", Value: 2.5}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.EnumEntry
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v1.ReadConfig{
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -671,8 +640,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 						Channel:    channel.Key(14),
 						Pointer:    "test_14",
 						DataType:   telem.DataType("test_15"),
-						TimeFormat: new(v1.TimeFormat("iso8601")),
-						EnumValues: []v1.EnumEntry{{Label: "test_18", Value: 19.5}},
+						TimeFormat: new(payload.TimeFormat("iso8601")),
+						EnumValues: []payload.EnumEntry{{Label: "test_18", Value: 19.5}},
 					},
 				},
 				Index: "test_20",
@@ -708,8 +677,8 @@ func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 				Channel:    channel.Key(9),
 				Pointer:    "test_9",
 				DataType:   telem.DataType("test_10"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{{Label: "test_13", Value: 14.5}},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{{Label: "test_13", Value: 14.5}},
 			},
 		},
 		Index: "test_15",
@@ -737,8 +706,8 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 		Channel:    channel.Key(5),
 		Pointer:    "test_5",
 		DataType:   telem.DataType("test_6"),
-		TimeFormat: new(v1.TimeFormat("iso8601")),
-		EnumValues: []v1.EnumEntry{{Label: "test_9", Value: 10.5}},
+		TimeFormat: new(payload.TimeFormat("iso8601")),
+		EnumValues: []payload.EnumEntry{{Label: "test_9", Value: 10.5}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -789,17 +758,17 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				Retained:        true,
 				Channel: v1.ChannelField{
 					Pointer:    "test_9",
-					JSONType:   v1.JSONType("number"),
+					JSONType:   payload.JSONType("number"),
 					Channel:    channel.Key(12),
 					Name:       "test_12",
 					DataType:   telem.DataType("test_13"),
-					TimeFormat: new(v1.TimeFormat("iso8601")),
-					EnumValues: []v1.EnumEntry{{Label: "test_16", Value: 17.5}},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{{Label: "test_16", Value: 17.5}},
 				},
 				Fields: []v1.WriteField{
 					{Variant: v1.StaticWriteField{
 						BaseWriteField: fullyPopulatedBaseWriteField,
-						JSONType:       v1.JSONType("number"),
+						JSONType:       payload.JSONType("number"),
 						Value:          any(map[string]any{"key_20": "value_20"}),
 					}},
 				},
@@ -824,7 +793,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 func BenchmarkEncodeDecodeWriteField(b *testing.B) {
 	seed := v1.WriteField{Variant: v1.StaticWriteField{
 		BaseWriteField: fullyPopulatedBaseWriteField,
-		JSONType:       v1.JSONType("number"),
+		JSONType:       payload.JSONType("number"),
 		Value:          any(map[string]any{"key_2": "value_2"}),
 	}}
 	w := orc.NewWriter(0)
@@ -850,17 +819,17 @@ func BenchmarkEncodeDecodeWriteTarget(b *testing.B) {
 		Retained:        true,
 		Channel: v1.ChannelField{
 			Pointer:    "test_5",
-			JSONType:   v1.JSONType("number"),
+			JSONType:   payload.JSONType("number"),
 			Channel:    channel.Key(8),
 			Name:       "test_8",
 			DataType:   telem.DataType("test_9"),
-			TimeFormat: new(v1.TimeFormat("iso8601")),
-			EnumValues: []v1.EnumEntry{{Label: "test_12", Value: 13.5}},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{{Label: "test_12", Value: 13.5}},
 		},
 		Fields: []v1.WriteField{
 			{Variant: v1.StaticWriteField{
 				BaseWriteField: fullyPopulatedBaseWriteField,
-				JSONType:       v1.JSONType("number"),
+				JSONType:       payload.JSONType("number"),
 				Value:          any(map[string]any{"key_16": "value_16"}),
 			}},
 		},
@@ -1001,12 +970,12 @@ func FuzzDecodeChannelField(f *testing.F) {
 	{
 		seed := v1.ChannelField{
 			Pointer:    "test_1",
-			JSONType:   v1.JSONType("number"),
+			JSONType:   payload.JSONType("number"),
 			Channel:    channel.Key(4),
 			Name:       "test_4",
 			DataType:   telem.DataType("test_5"),
-			TimeFormat: new(v1.TimeFormat("iso8601")),
-			EnumValues: []v1.EnumEntry{{Label: "test_8", Value: 9.5}},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{{Label: "test_8", Value: 9.5}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1017,12 +986,12 @@ func FuzzDecodeChannelField(f *testing.F) {
 	{
 		seed := v1.ChannelField{
 			Pointer:    "",
-			JSONType:   v1.JSONType(""),
+			JSONType:   payload.JSONType(""),
 			Channel:    channel.Key(0),
 			Name:       "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: []v1.EnumEntry{},
+			EnumValues: []payload.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1033,12 +1002,12 @@ func FuzzDecodeChannelField(f *testing.F) {
 	{
 		seed := v1.ChannelField{
 			Pointer:    "test_1",
-			JSONType:   v1.JSONType("number"),
+			JSONType:   payload.JSONType("number"),
 			Channel:    channel.Key(4),
 			Name:       "test_4",
 			DataType:   telem.DataType("test_5"),
-			TimeFormat: new(v1.TimeFormat("iso8601")),
-			EnumValues: []v1.EnumEntry{},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1204,45 +1173,6 @@ func FuzzDecodeEdgeTag(f *testing.F) {
 	})
 }
 
-func FuzzDecodeEnumEntry(f *testing.F) {
-	{
-		seed := v1.EnumEntry{Label: "test_1", Value: 2.5}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.EnumEntry{Label: "", Value: 0}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.EnumEntry
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.EnumEntry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
@@ -1264,8 +1194,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 							Channel:    channel.Key(14),
 							Pointer:    "test_14",
 							DataType:   telem.DataType("test_15"),
-							TimeFormat: new(v1.TimeFormat("iso8601")),
-							EnumValues: []v1.EnumEntry{{Label: "test_18", Value: 19.5}},
+							TimeFormat: new(payload.TimeFormat("iso8601")),
+							EnumValues: []payload.EnumEntry{{Label: "test_18", Value: 19.5}},
 						},
 					},
 					Index: "test_20",
@@ -1343,8 +1273,8 @@ func FuzzDecodeReadEntry(f *testing.F) {
 					Channel:    channel.Key(9),
 					Pointer:    "test_9",
 					DataType:   telem.DataType("test_10"),
-					TimeFormat: new(v1.TimeFormat("iso8601")),
-					EnumValues: []v1.EnumEntry{{Label: "test_13", Value: 14.5}},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{{Label: "test_13", Value: 14.5}},
 				},
 			},
 			Index: "test_15",
@@ -1403,8 +1333,8 @@ func FuzzDecodeReadField(f *testing.F) {
 			Channel:    channel.Key(5),
 			Pointer:    "test_5",
 			DataType:   telem.DataType("test_6"),
-			TimeFormat: new(v1.TimeFormat("iso8601")),
-			EnumValues: []v1.EnumEntry{{Label: "test_9", Value: 10.5}},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{{Label: "test_9", Value: 10.5}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1421,7 +1351,7 @@ func FuzzDecodeReadField(f *testing.F) {
 			Pointer:    "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: []v1.EnumEntry{},
+			EnumValues: []payload.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1437,8 +1367,8 @@ func FuzzDecodeReadField(f *testing.F) {
 			Channel:    channel.Key(5),
 			Pointer:    "test_5",
 			DataType:   telem.DataType("test_6"),
-			TimeFormat: new(v1.TimeFormat("iso8601")),
-			EnumValues: []v1.EnumEntry{},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1529,17 +1459,17 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					Retained:        true,
 					Channel: v1.ChannelField{
 						Pointer:    "test_9",
-						JSONType:   v1.JSONType("number"),
+						JSONType:   payload.JSONType("number"),
 						Channel:    channel.Key(12),
 						Name:       "test_12",
 						DataType:   telem.DataType("test_13"),
-						TimeFormat: new(v1.TimeFormat("iso8601")),
-						EnumValues: []v1.EnumEntry{{Label: "test_16", Value: 17.5}},
+						TimeFormat: new(payload.TimeFormat("iso8601")),
+						EnumValues: []payload.EnumEntry{{Label: "test_16", Value: 17.5}},
 					},
 					Fields: []v1.WriteField{
 						{Variant: v1.StaticWriteField{
 							BaseWriteField: fullyPopulatedBaseWriteField,
-							JSONType:       v1.JSONType("number"),
+							JSONType:       payload.JSONType("number"),
 							Value:          any(map[string]any{"key_20": "value_20"}),
 						}},
 					},
@@ -1604,7 +1534,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 	{
 		seed := v1.WriteField{Variant: v1.StaticWriteField{
 			BaseWriteField: fullyPopulatedBaseWriteField,
-			JSONType:       v1.JSONType("number"),
+			JSONType:       payload.JSONType("number"),
 			Value:          any(map[string]any{"key_2": "value_2"}),
 		}}
 		w := orc.NewWriter(0)
@@ -1616,8 +1546,8 @@ func FuzzDecodeWriteField(f *testing.F) {
 	{
 		seed := v1.WriteField{Variant: v1.GeneratedWriteField{
 			BaseWriteField: fullyPopulatedBaseWriteField,
-			Generator:      v1.GeneratorType("uuid"),
-			TimeFormat:     new(v1.TimeFormat("iso8601")),
+			Generator:      payload.GeneratorType("uuid"),
+			TimeFormat:     new(payload.TimeFormat("iso8601")),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1656,17 +1586,17 @@ func FuzzDecodeWriteTarget(f *testing.F) {
 			Retained:        true,
 			Channel: v1.ChannelField{
 				Pointer:    "test_5",
-				JSONType:   v1.JSONType("number"),
+				JSONType:   payload.JSONType("number"),
 				Channel:    channel.Key(8),
 				Name:       "test_8",
 				DataType:   telem.DataType("test_9"),
-				TimeFormat: new(v1.TimeFormat("iso8601")),
-				EnumValues: []v1.EnumEntry{{Label: "test_12", Value: 13.5}},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{{Label: "test_12", Value: 13.5}},
 			},
 			Fields: []v1.WriteField{
 				{Variant: v1.StaticWriteField{
 					BaseWriteField: fullyPopulatedBaseWriteField,
-					JSONType:       v1.JSONType("number"),
+					JSONType:       payload.JSONType("number"),
 					Value:          any(map[string]any{"key_16": "value_16"}),
 				}},
 			},

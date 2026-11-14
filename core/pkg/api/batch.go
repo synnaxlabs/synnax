@@ -25,7 +25,6 @@ const (
 	PathGroupDispatch           = "/group/dispatch"
 	PathRangeDispatch           = "/range/dispatch"
 	PathRangeKVDispatch         = "/range/kv/dispatch"
-	PathRangeAliasDispatch      = "/range/alias/dispatch"
 	PathProjectDispatch         = "/project/dispatch"
 	PathSchematicDispatch       = "/schematic/dispatch"
 	PathSchematicSymbolDispatch = "/schematic/symbol/dispatch"
@@ -63,7 +62,6 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathGroupDispatch:           batch.Route(l.Group.Dispatch),
 		PathRangeDispatch:           batch.Route(l.Range.Dispatch),
 		PathRangeKVDispatch:         batch.Route(l.KV.Dispatch),
-		PathRangeAliasDispatch:      batch.Route(l.Alias.Dispatch),
 		PathProjectDispatch:         batch.Route(l.Project.Dispatch),
 		PathSchematicDispatch:       batch.Route(l.Schematic.Dispatch),
 		PathSchematicSymbolDispatch: batch.Route(l.Symbol.Dispatch),

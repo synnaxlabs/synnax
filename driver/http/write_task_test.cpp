@@ -27,6 +27,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -1334,6 +1335,7 @@ TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
 
 /// @brief it should report a NaN command as a task warning and keep running.
 TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
+    x::breaker::Breaker cancel;
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {{
@@ -1373,7 +1375,7 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
         std::make_shared<pipeline::testutil::WriterFactory>(),
         pipeline::testutil::simple_streamer_factory({1}, reads)
     );
-    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_TRUE(write_task.start("start", cancel));
 
     ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
         [&] { return server.received_requests().size(); },
@@ -1678,7 +1680,7 @@ TEST(HTTPWriteTask, EnumMappingNumericToString) {
     ep.channel.pointer = "/state";
     ep.channel.json_type = "string";
     ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0},
     };
@@ -1725,7 +1727,7 @@ TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
     ep.channel.pointer = "/state";
     ep.channel.json_type = "string";
     ep.channel.channel = 1;
-    ep.channel.enum_values = std::vector<::synnax::http::EnumEntry>{
+    ep.channel.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0},
     };

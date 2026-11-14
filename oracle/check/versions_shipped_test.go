@@ -440,6 +440,12 @@ Channel struct {
 `)
 				Expect(messages()).To(BeEmpty())
 			})
+
+		It("Should pass a shipped chain marked removed", func() {
+			write(root, "schemas/synnax/versions/channel/removed", "")
+			write(root, "schemas/synnax/versions/other/v0.oracle", shippedV0)
+			Expect(messages()).To(BeEmpty())
+		})
 	})
 
 	Describe("Rejected changes", func() {
@@ -1020,6 +1026,25 @@ Channel struct {
 			write(root, "schemas/synnax/versions/other/v0.oracle", shippedV0)
 			Expect(messages()).To(ContainElement(
 				"schemas/synnax/channel v0 is gone, which core/v0.60.1 shipped",
+			))
+		})
+
+		It("Should fail a removed chain that a remaining stored type imports", func() {
+			const holder = `
+import "schemas/synnax/versions/channel/v0"
+
+Holder struct {
+    key     uuid @key
+    channel channel.Channel
+
+    @go marshal
+}
+`
+			write(root, "schemas/synnax/versions/channel/removed", "")
+			write(releaseRoot, "schemas/synnax/versions/holder/v0.oracle", holder)
+			write(root, "schemas/synnax/versions/holder/v0.oracle", holder)
+			Expect(messages()).To(ContainElement(
+				"no version chain for schemas/synnax/channel",
 			))
 		})
 

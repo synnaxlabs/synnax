@@ -9,7 +9,7 @@
 
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import { NoopRuntime, type Runtime, type StoreState } from "@synnaxlabs/drift";
-import { TauriRuntime } from "@synnaxlabs/drift/tauri";
+import { TauriRuntime, type TauriRuntimeProps } from "@synnaxlabs/drift/tauri";
 import { isTauri } from "@tauri-apps/api/core";
 
 export type Engine = "tauri" | "web";
@@ -19,13 +19,17 @@ export const ENGINE: Engine = isTauri() ? "tauri" : "web";
 // The same as the main window's in tauri.conf.json.
 const TRAFFIC_LIGHT_POSITION = { x: 12, y: 23 };
 
+export interface CreateDriftProps extends Pick<TauriRuntimeProps, "beforeClose"> {}
+
 /** Creates the Drift runtime for the engine the Console runs in. */
-export const createDrift = <
-  S extends StoreState,
-  A extends Action = UnknownAction,
->(): Runtime<S, A> =>
+export const createDrift = <S extends StoreState, A extends Action = UnknownAction>({
+  beforeClose,
+}: CreateDriftProps = {}): Runtime<S, A> =>
   ENGINE === "tauri"
-    ? new TauriRuntime<S, A>({ trafficLightPosition: TRAFFIC_LIGHT_POSITION })
+    ? new TauriRuntime<S, A>({
+        trafficLightPosition: TRAFFIC_LIGHT_POSITION,
+        beforeClose,
+      })
     : new NoopRuntime<S, A>();
 
 /** True when the app opens no `synnax://` links, so a copied link opens nothing. */

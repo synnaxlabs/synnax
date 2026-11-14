@@ -113,6 +113,7 @@ type Channel struct {
 // schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
+	v.NotEmptyString("name", c.Name)
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}

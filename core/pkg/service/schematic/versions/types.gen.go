@@ -11,558 +11,558 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
+import "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 
 // Key is a unique identifier for a schematic, represented as a UUID.
-type Key = v12.Key
+type Key = v14.Key
 
 // Node is a diagram node representing a symbol in the schematic.
-type Node = v12.Node
+type Node = v14.Node
 
 // Handle is a reference to a specific connection point on a specific node. For
 // schematics, param is the symbol handle key (e.g. inlet, outlet).
-type Handle = v12.Handle
+type Handle = v14.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge = v12.Edge
+type Edge = v14.Edge
 
 // Segment is a single orthogonal run in an edge's connector path.
-type Segment = v12.Segment
+type Segment = v14.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig = v12.SegmentedEdgeConfig
+type SegmentedEdgeConfig = v14.SegmentedEdgeConfig
 
 // EdgeConfig is the configuration of one edge. The variant selects the visual style of
 // the connection.
-type EdgeConfig = v12.EdgeConfig
+type EdgeConfig = v14.EdgeConfig
 
 // EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant = v12.EdgeConfigVariant
+type EdgeConfigVariant = v14.EdgeConfigVariant
 
 // EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType = v12.EdgeConfigType
+type EdgeConfigType = v14.EdgeConfigType
 
 const (
 	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = v12.PipeEdgeConfigType
+	PipeEdgeConfigType EdgeConfigType = v14.PipeEdgeConfigType
 	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = v12.ElectricEdgeConfigType
+	ElectricEdgeConfigType EdgeConfigType = v14.ElectricEdgeConfigType
 	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = v12.SecondaryEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = v14.SecondaryEdgeConfigType
 	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = v12.JacketedEdgeConfigType
+	JacketedEdgeConfigType EdgeConfigType = v14.JacketedEdgeConfigType
 	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = v12.HydraulicEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = v14.HydraulicEdgeConfigType
 	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = v12.PneumaticEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = v14.PneumaticEdgeConfigType
 	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = v12.DataEdgeConfigType
+	DataEdgeConfigType EdgeConfigType = v14.DataEdgeConfigType
 )
 
-type PipeEdgeConfig = v12.PipeEdgeConfig
-type ElectricEdgeConfig = v12.ElectricEdgeConfig
-type SecondaryEdgeConfig = v12.SecondaryEdgeConfig
-type JacketedEdgeConfig = v12.JacketedEdgeConfig
-type HydraulicEdgeConfig = v12.HydraulicEdgeConfig
-type PneumaticEdgeConfig = v12.PneumaticEdgeConfig
-type DataEdgeConfig = v12.DataEdgeConfig
+type PipeEdgeConfig = v14.PipeEdgeConfig
+type ElectricEdgeConfig = v14.ElectricEdgeConfig
+type SecondaryEdgeConfig = v14.SecondaryEdgeConfig
+type JacketedEdgeConfig = v14.JacketedEdgeConfig
+type HydraulicEdgeConfig = v14.HydraulicEdgeConfig
+type PneumaticEdgeConfig = v14.PneumaticEdgeConfig
+type DataEdgeConfig = v14.DataEdgeConfig
 
 // FlexAlignment is a flex alignment for laid-out content.
-type FlexAlignment = v12.FlexAlignment
+type FlexAlignment = v14.FlexAlignment
 
 const (
 	// FlexAlignmentStart aligns content to the start.
-	FlexAlignmentStart FlexAlignment = v12.FlexAlignmentStart
+	FlexAlignmentStart FlexAlignment = v14.FlexAlignmentStart
 	// FlexAlignmentCenter aligns content to the center.
-	FlexAlignmentCenter FlexAlignment = v12.FlexAlignmentCenter
+	FlexAlignmentCenter FlexAlignment = v14.FlexAlignmentCenter
 	// FlexAlignmentEnd aligns content to the end.
-	FlexAlignmentEnd FlexAlignment = v12.FlexAlignmentEnd
+	FlexAlignmentEnd FlexAlignment = v14.FlexAlignmentEnd
 	// FlexAlignmentStretch stretches content to fill the available space.
-	FlexAlignmentStretch FlexAlignment = v12.FlexAlignmentStretch
+	FlexAlignmentStretch FlexAlignment = v14.FlexAlignmentStretch
 )
 
 // ComponentSize is a discrete size preset for interactive components.
-type ComponentSize = v12.ComponentSize
+type ComponentSize = v14.ComponentSize
 
 const (
 	// ComponentSizeTiny is the smallest preset.
-	ComponentSizeTiny ComponentSize = v12.ComponentSizeTiny
+	ComponentSizeTiny ComponentSize = v14.ComponentSizeTiny
 	// ComponentSizeSmall is the preset between tiny and medium.
-	ComponentSizeSmall ComponentSize = v12.ComponentSizeSmall
+	ComponentSizeSmall ComponentSize = v14.ComponentSizeSmall
 	// ComponentSizeMedium is the default preset.
-	ComponentSizeMedium ComponentSize = v12.ComponentSizeMedium
+	ComponentSizeMedium ComponentSize = v14.ComponentSizeMedium
 	// ComponentSizeLarge is the preset between medium and huge.
-	ComponentSizeLarge ComponentSize = v12.ComponentSizeLarge
+	ComponentSizeLarge ComponentSize = v14.ComponentSizeLarge
 	// ComponentSizeHuge is the largest preset.
-	ComponentSizeHuge ComponentSize = v12.ComponentSizeHuge
+	ComponentSizeHuge ComponentSize = v14.ComponentSizeHuge
 )
 
 // ButtonMode is the actuation behavior of a button: fire writes once on click,
 // momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
-type ButtonMode = v12.ButtonMode
+type ButtonMode = v14.ButtonMode
 
 const (
 	// ButtonModeFire writes once on click.
-	ButtonModeFire ButtonMode = v12.ButtonModeFire
+	ButtonModeFire ButtonMode = v14.ButtonModeFire
 	// ButtonModeMomentary writes on press and clears on release.
-	ButtonModeMomentary ButtonMode = v12.ButtonModeMomentary
+	ButtonModeMomentary ButtonMode = v14.ButtonModeMomentary
 	// ButtonModePulse writes a one-cycle pulse.
-	ButtonModePulse ButtonMode = v12.ButtonModePulse
+	ButtonModePulse ButtonMode = v14.ButtonModePulse
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig = v12.LabelConfig
+type LabelConfig = v14.LabelConfig
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig = v12.LabeledConfig
+type LabeledConfig = v14.LabeledConfig
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
-type ControlStateConfig = v12.ControlStateConfig
+type ControlStateConfig = v14.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig = v12.ToggleConfig
+type ToggleConfig = v14.ToggleConfig
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
-type StaticSymbolConfig = v12.StaticSymbolConfig
+type StaticSymbolConfig = v14.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig = v12.ToggleSymbolConfig
+type ToggleSymbolConfig = v14.ToggleSymbolConfig
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
-type DummyToggleSymbolConfig = v12.DummyToggleSymbolConfig
+type DummyToggleSymbolConfig = v14.DummyToggleSymbolConfig
 
 // StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping = v12.StateMapping
+type StateMapping = v14.StateMapping
 
 // NodeConfig is the configuration of one node. The variant selects the symbol rendered
 // for the node and the fields that accompany it.
-type NodeConfig = v12.NodeConfig
+type NodeConfig = v14.NodeConfig
 
 // NodeConfigVariant is implemented by every NodeConfig variant.
-type NodeConfigVariant = v12.NodeConfigVariant
+type NodeConfigVariant = v14.NodeConfigVariant
 
 // NodeConfigType is the "variant" value that selects a variant of NodeConfig.
-type NodeConfigType = v12.NodeConfigType
+type NodeConfigType = v14.NodeConfigType
 
 const (
 	// CapNodeConfigType selects the CapNodeConfig variant.
-	CapNodeConfigType NodeConfigType = v12.CapNodeConfigType
+	CapNodeConfigType NodeConfigType = v14.CapNodeConfigType
 	// FilterNodeConfigType selects the FilterNodeConfig variant.
-	FilterNodeConfigType NodeConfigType = v12.FilterNodeConfigType
+	FilterNodeConfigType NodeConfigType = v14.FilterNodeConfigType
 	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
-	FlowStraightenerNodeConfigType NodeConfigType = v12.FlowStraightenerNodeConfigType
+	FlowStraightenerNodeConfigType NodeConfigType = v14.FlowStraightenerNodeConfigType
 	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
-	HeaterElementNodeConfigType NodeConfigType = v12.HeaterElementNodeConfigType
+	HeaterElementNodeConfigType NodeConfigType = v14.HeaterElementNodeConfigType
 	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
-	IsoCapNodeConfigType NodeConfigType = v12.IsoCapNodeConfigType
+	IsoCapNodeConfigType NodeConfigType = v14.IsoCapNodeConfigType
 	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
-	IsoFilterNodeConfigType NodeConfigType = v12.IsoFilterNodeConfigType
+	IsoFilterNodeConfigType NodeConfigType = v14.IsoFilterNodeConfigType
 	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
-	NozzleNodeConfigType NodeConfigType = v12.NozzleNodeConfigType
+	NozzleNodeConfigType NodeConfigType = v14.NozzleNodeConfigType
 	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
-	OrificeNodeConfigType NodeConfigType = v12.OrificeNodeConfigType
+	OrificeNodeConfigType NodeConfigType = v14.OrificeNodeConfigType
 	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
-	OrificePlateNodeConfigType NodeConfigType = v12.OrificePlateNodeConfigType
+	OrificePlateNodeConfigType NodeConfigType = v14.OrificePlateNodeConfigType
 	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
-	StrainerNodeConfigType NodeConfigType = v12.StrainerNodeConfigType
+	StrainerNodeConfigType NodeConfigType = v14.StrainerNodeConfigType
 	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
-	StrainerConeNodeConfigType NodeConfigType = v12.StrainerConeNodeConfigType
+	StrainerConeNodeConfigType NodeConfigType = v14.StrainerConeNodeConfigType
 	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
-	ThrusterNodeConfigType NodeConfigType = v12.ThrusterNodeConfigType
+	ThrusterNodeConfigType NodeConfigType = v14.ThrusterNodeConfigType
 	// VentNodeConfigType selects the VentNodeConfig variant.
-	VentNodeConfigType NodeConfigType = v12.VentNodeConfigType
+	VentNodeConfigType NodeConfigType = v14.VentNodeConfigType
 	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
-	FlowmeterGeneralNodeConfigType NodeConfigType = v12.FlowmeterGeneralNodeConfigType
+	FlowmeterGeneralNodeConfigType NodeConfigType = v14.FlowmeterGeneralNodeConfigType
 	// FlowmeterElectromagneticNodeConfigType selects the
 	// FlowmeterElectromagneticNodeConfig variant.
-	FlowmeterElectromagneticNodeConfigType NodeConfigType = v12.FlowmeterElectromagneticNodeConfigType
+	FlowmeterElectromagneticNodeConfigType NodeConfigType = v14.FlowmeterElectromagneticNodeConfigType
 	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
 	// variant.
-	FlowmeterVariableAreaNodeConfigType NodeConfigType = v12.FlowmeterVariableAreaNodeConfigType
+	FlowmeterVariableAreaNodeConfigType NodeConfigType = v14.FlowmeterVariableAreaNodeConfigType
 	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
-	FlowmeterCoriolisNodeConfigType NodeConfigType = v12.FlowmeterCoriolisNodeConfigType
+	FlowmeterCoriolisNodeConfigType NodeConfigType = v14.FlowmeterCoriolisNodeConfigType
 	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
-	FlowmeterNozzleNodeConfigType NodeConfigType = v12.FlowmeterNozzleNodeConfigType
+	FlowmeterNozzleNodeConfigType NodeConfigType = v14.FlowmeterNozzleNodeConfigType
 	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
-	FlowmeterVenturiNodeConfigType NodeConfigType = v12.FlowmeterVenturiNodeConfigType
+	FlowmeterVenturiNodeConfigType NodeConfigType = v14.FlowmeterVenturiNodeConfigType
 	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
 	// variant.
-	FlowmeterRingPistonNodeConfigType NodeConfigType = v12.FlowmeterRingPistonNodeConfigType
+	FlowmeterRingPistonNodeConfigType NodeConfigType = v14.FlowmeterRingPistonNodeConfigType
 	// FlowmeterPositiveDisplacementNodeConfigType selects the
 	// FlowmeterPositiveDisplacementNodeConfig variant.
-	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v12.FlowmeterPositiveDisplacementNodeConfigType
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v14.FlowmeterPositiveDisplacementNodeConfigType
 	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
-	FlowmeterTurbineNodeConfigType NodeConfigType = v12.FlowmeterTurbineNodeConfigType
+	FlowmeterTurbineNodeConfigType NodeConfigType = v14.FlowmeterTurbineNodeConfigType
 	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
-	FlowmeterPulseNodeConfigType NodeConfigType = v12.FlowmeterPulseNodeConfigType
+	FlowmeterPulseNodeConfigType NodeConfigType = v14.FlowmeterPulseNodeConfigType
 	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
 	// variant.
-	FlowmeterFloatSensorNodeConfigType NodeConfigType = v12.FlowmeterFloatSensorNodeConfigType
+	FlowmeterFloatSensorNodeConfigType NodeConfigType = v14.FlowmeterFloatSensorNodeConfigType
 	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
-	FlowmeterOrificeNodeConfigType NodeConfigType = v12.FlowmeterOrificeNodeConfigType
+	FlowmeterOrificeNodeConfigType NodeConfigType = v14.FlowmeterOrificeNodeConfigType
 	// BoxNodeConfigType is the configuration for box annotation symbols.
-	BoxNodeConfigType NodeConfigType = v12.BoxNodeConfigType
+	BoxNodeConfigType NodeConfigType = v14.BoxNodeConfigType
 	// ButtonNodeConfigType is the configuration for button symbols.
-	ButtonNodeConfigType NodeConfigType = v12.ButtonNodeConfigType
+	ButtonNodeConfigType NodeConfigType = v14.ButtonNodeConfigType
 	// CircleNodeConfigType is the configuration for circle annotation symbols.
-	CircleNodeConfigType NodeConfigType = v12.CircleNodeConfigType
+	CircleNodeConfigType NodeConfigType = v14.CircleNodeConfigType
 	// GaugeNodeConfigType is the configuration for gauge symbols.
-	GaugeNodeConfigType NodeConfigType = v12.GaugeNodeConfigType
+	GaugeNodeConfigType NodeConfigType = v14.GaugeNodeConfigType
 	// InputNodeConfigType is the configuration for free-form input symbols.
-	InputNodeConfigType NodeConfigType = v12.InputNodeConfigType
+	InputNodeConfigType NodeConfigType = v14.InputNodeConfigType
 	// LightNodeConfigType is the configuration for indicator light symbols.
-	LightNodeConfigType NodeConfigType = v12.LightNodeConfigType
+	LightNodeConfigType NodeConfigType = v14.LightNodeConfigType
 	// LineNodeConfigType is the configuration for straight line symbols.
-	LineNodeConfigType NodeConfigType = v12.LineNodeConfigType
+	LineNodeConfigType NodeConfigType = v14.LineNodeConfigType
 	// OffPageReferenceNodeConfigType is the configuration for off-page reference
 	// symbols.
-	OffPageReferenceNodeConfigType NodeConfigType = v12.OffPageReferenceNodeConfigType
+	OffPageReferenceNodeConfigType NodeConfigType = v14.OffPageReferenceNodeConfigType
 	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
-	PolygonNodeConfigType NodeConfigType = v12.PolygonNodeConfigType
+	PolygonNodeConfigType NodeConfigType = v14.PolygonNodeConfigType
 	// SelectNodeConfigType is the configuration for select symbols.
-	SelectNodeConfigType NodeConfigType = v12.SelectNodeConfigType
+	SelectNodeConfigType NodeConfigType = v14.SelectNodeConfigType
 	// ScaleNodeConfigType is the configuration for standalone scale symbols.
-	ScaleNodeConfigType NodeConfigType = v12.ScaleNodeConfigType
+	ScaleNodeConfigType NodeConfigType = v14.ScaleNodeConfigType
 	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
-	SetpointNodeConfigType NodeConfigType = v12.SetpointNodeConfigType
+	SetpointNodeConfigType NodeConfigType = v14.SetpointNodeConfigType
 	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
 	// symbols.
-	StateIndicatorNodeConfigType NodeConfigType = v12.StateIndicatorNodeConfigType
+	StateIndicatorNodeConfigType NodeConfigType = v14.StateIndicatorNodeConfigType
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
-	StringDisplayNodeConfigType NodeConfigType = v12.StringDisplayNodeConfigType
+	StringDisplayNodeConfigType NodeConfigType = v14.StringDisplayNodeConfigType
 	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
-	SwitchNodeConfigType NodeConfigType = v12.SwitchNodeConfigType
+	SwitchNodeConfigType NodeConfigType = v14.SwitchNodeConfigType
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
-	TextBoxNodeConfigType NodeConfigType = v12.TextBoxNodeConfigType
+	TextBoxNodeConfigType NodeConfigType = v14.TextBoxNodeConfigType
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
-	ValueNodeConfigType NodeConfigType = v12.ValueNodeConfigType
+	ValueNodeConfigType NodeConfigType = v14.ValueNodeConfigType
 	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
-	AgitatorNodeConfigType NodeConfigType = v12.AgitatorNodeConfigType
+	AgitatorNodeConfigType NodeConfigType = v14.AgitatorNodeConfigType
 	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
-	CrossBeamAgitatorNodeConfigType NodeConfigType = v12.CrossBeamAgitatorNodeConfigType
+	CrossBeamAgitatorNodeConfigType NodeConfigType = v14.CrossBeamAgitatorNodeConfigType
 	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
-	FlatBladeAgitatorNodeConfigType NodeConfigType = v12.FlatBladeAgitatorNodeConfigType
+	FlatBladeAgitatorNodeConfigType NodeConfigType = v14.FlatBladeAgitatorNodeConfigType
 	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
 	// variant.
-	HeatExchangerGeneralNodeConfigType NodeConfigType = v12.HeatExchangerGeneralNodeConfigType
+	HeatExchangerGeneralNodeConfigType NodeConfigType = v14.HeatExchangerGeneralNodeConfigType
 	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
-	HeatExchangerMNodeConfigType NodeConfigType = v12.HeatExchangerMNodeConfigType
+	HeatExchangerMNodeConfigType NodeConfigType = v14.HeatExchangerMNodeConfigType
 	// HeatExchangerStraightTubeNodeConfigType selects the
 	// HeatExchangerStraightTubeNodeConfig variant.
-	HeatExchangerStraightTubeNodeConfigType NodeConfigType = v12.HeatExchangerStraightTubeNodeConfigType
+	HeatExchangerStraightTubeNodeConfigType NodeConfigType = v14.HeatExchangerStraightTubeNodeConfigType
 	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
-	HelicalAgitatorNodeConfigType NodeConfigType = v12.HelicalAgitatorNodeConfigType
+	HelicalAgitatorNodeConfigType NodeConfigType = v14.HelicalAgitatorNodeConfigType
 	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
-	PaddleAgitatorNodeConfigType NodeConfigType = v12.PaddleAgitatorNodeConfigType
+	PaddleAgitatorNodeConfigType NodeConfigType = v14.PaddleAgitatorNodeConfigType
 	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
-	PropellerAgitatorNodeConfigType NodeConfigType = v12.PropellerAgitatorNodeConfigType
+	PropellerAgitatorNodeConfigType NodeConfigType = v14.PropellerAgitatorNodeConfigType
 	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
-	RotaryMixerNodeConfigType NodeConfigType = v12.RotaryMixerNodeConfigType
+	RotaryMixerNodeConfigType NodeConfigType = v14.RotaryMixerNodeConfigType
 	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
-	StaticMixerNodeConfigType NodeConfigType = v12.StaticMixerNodeConfigType
+	StaticMixerNodeConfigType NodeConfigType = v14.StaticMixerNodeConfigType
 	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
-	CavityPumpNodeConfigType NodeConfigType = v12.CavityPumpNodeConfigType
+	CavityPumpNodeConfigType NodeConfigType = v14.CavityPumpNodeConfigType
 	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
 	// variant.
-	CentrifugalCompressorNodeConfigType NodeConfigType = v12.CentrifugalCompressorNodeConfigType
+	CentrifugalCompressorNodeConfigType NodeConfigType = v14.CentrifugalCompressorNodeConfigType
 	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
-	CompressorNodeConfigType NodeConfigType = v12.CompressorNodeConfigType
+	CompressorNodeConfigType NodeConfigType = v14.CompressorNodeConfigType
 	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
-	DiaphragmPumpNodeConfigType NodeConfigType = v12.DiaphragmPumpNodeConfigType
+	DiaphragmPumpNodeConfigType NodeConfigType = v14.DiaphragmPumpNodeConfigType
 	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
-	EjectionPumpNodeConfigType NodeConfigType = v12.EjectionPumpNodeConfigType
+	EjectionPumpNodeConfigType NodeConfigType = v14.EjectionPumpNodeConfigType
 	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
-	EjectorCompressorNodeConfigType NodeConfigType = v12.EjectorCompressorNodeConfigType
+	EjectorCompressorNodeConfigType NodeConfigType = v14.EjectorCompressorNodeConfigType
 	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
 	// variant.
-	LiquidRingCompressorNodeConfigType NodeConfigType = v12.LiquidRingCompressorNodeConfigType
+	LiquidRingCompressorNodeConfigType NodeConfigType = v14.LiquidRingCompressorNodeConfigType
 	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
-	PistonPumpNodeConfigType NodeConfigType = v12.PistonPumpNodeConfigType
+	PistonPumpNodeConfigType NodeConfigType = v14.PistonPumpNodeConfigType
 	// PumpNodeConfigType selects the PumpNodeConfig variant.
-	PumpNodeConfigType NodeConfigType = v12.PumpNodeConfigType
+	PumpNodeConfigType NodeConfigType = v14.PumpNodeConfigType
 	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
 	// variant.
-	RollerVaneCompressorNodeConfigType NodeConfigType = v12.RollerVaneCompressorNodeConfigType
+	RollerVaneCompressorNodeConfigType NodeConfigType = v14.RollerVaneCompressorNodeConfigType
 	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
-	ScrewPumpNodeConfigType NodeConfigType = v12.ScrewPumpNodeConfigType
+	ScrewPumpNodeConfigType NodeConfigType = v14.ScrewPumpNodeConfigType
 	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
-	TurboCompressorNodeConfigType NodeConfigType = v12.TurboCompressorNodeConfigType
+	TurboCompressorNodeConfigType NodeConfigType = v14.TurboCompressorNodeConfigType
 	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
-	VacuumPumpNodeConfigType NodeConfigType = v12.VacuumPumpNodeConfigType
+	VacuumPumpNodeConfigType NodeConfigType = v14.VacuumPumpNodeConfigType
 	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
-	BurstDiscNodeConfigType NodeConfigType = v12.BurstDiscNodeConfigType
+	BurstDiscNodeConfigType NodeConfigType = v14.BurstDiscNodeConfigType
 	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
-	FlameArrestorNodeConfigType NodeConfigType = v12.FlameArrestorNodeConfigType
+	FlameArrestorNodeConfigType NodeConfigType = v14.FlameArrestorNodeConfigType
 	// FlameArrestorDetonationNodeConfigType selects the
 	// FlameArrestorDetonationNodeConfig variant.
-	FlameArrestorDetonationNodeConfigType NodeConfigType = v12.FlameArrestorDetonationNodeConfigType
+	FlameArrestorDetonationNodeConfigType NodeConfigType = v14.FlameArrestorDetonationNodeConfigType
 	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
 	// variant.
-	FlameArrestorExplosionNodeConfigType NodeConfigType = v12.FlameArrestorExplosionNodeConfigType
+	FlameArrestorExplosionNodeConfigType NodeConfigType = v14.FlameArrestorExplosionNodeConfigType
 	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
 	// variant.
-	FlameArrestorFireResNodeConfigType NodeConfigType = v12.FlameArrestorFireResNodeConfigType
+	FlameArrestorFireResNodeConfigType NodeConfigType = v14.FlameArrestorFireResNodeConfigType
 	// FlameArrestorFireResDetonationNodeConfigType selects the
 	// FlameArrestorFireResDetonationNodeConfig variant.
-	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v12.FlameArrestorFireResDetonationNodeConfigType
+	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v14.FlameArrestorFireResDetonationNodeConfigType
 	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
-	IsoBurstDiscNodeConfigType NodeConfigType = v12.IsoBurstDiscNodeConfigType
+	IsoBurstDiscNodeConfigType NodeConfigType = v14.IsoBurstDiscNodeConfigType
 	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
-	AngledValveNodeConfigType NodeConfigType = v12.AngledValveNodeConfigType
+	AngledValveNodeConfigType NodeConfigType = v14.AngledValveNodeConfigType
 	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
-	AngledReliefValveNodeConfigType NodeConfigType = v12.AngledReliefValveNodeConfigType
+	AngledReliefValveNodeConfigType NodeConfigType = v14.AngledReliefValveNodeConfigType
 	// AngledSpringLoadedReliefValveNodeConfigType selects the
 	// AngledSpringLoadedReliefValveNodeConfig variant.
-	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = v12.AngledSpringLoadedReliefValveNodeConfigType
+	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = v14.AngledSpringLoadedReliefValveNodeConfigType
 	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
-	BallValveNodeConfigType NodeConfigType = v12.BallValveNodeConfigType
+	BallValveNodeConfigType NodeConfigType = v14.BallValveNodeConfigType
 	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
-	BreatherValveNodeConfigType NodeConfigType = v12.BreatherValveNodeConfigType
+	BreatherValveNodeConfigType NodeConfigType = v14.BreatherValveNodeConfigType
 	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
-	ButterflyValveOneNodeConfigType NodeConfigType = v12.ButterflyValveOneNodeConfigType
+	ButterflyValveOneNodeConfigType NodeConfigType = v14.ButterflyValveOneNodeConfigType
 	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
-	ButterflyValveTwoNodeConfigType NodeConfigType = v12.ButterflyValveTwoNodeConfigType
+	ButterflyValveTwoNodeConfigType NodeConfigType = v14.ButterflyValveTwoNodeConfigType
 	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
-	CheckValveNodeConfigType NodeConfigType = v12.CheckValveNodeConfigType
+	CheckValveNodeConfigType NodeConfigType = v14.CheckValveNodeConfigType
 	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
 	// variant.
-	CheckValveWithArrowNodeConfigType NodeConfigType = v12.CheckValveWithArrowNodeConfigType
+	CheckValveWithArrowNodeConfigType NodeConfigType = v14.CheckValveWithArrowNodeConfigType
 	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
-	ElectricRegulatorNodeConfigType NodeConfigType = v12.ElectricRegulatorNodeConfigType
+	ElectricRegulatorNodeConfigType NodeConfigType = v14.ElectricRegulatorNodeConfigType
 	// ElectricRegulatorMotorizedNodeConfigType selects the
 	// ElectricRegulatorMotorizedNodeConfig variant.
-	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = v12.ElectricRegulatorMotorizedNodeConfigType
+	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = v14.ElectricRegulatorMotorizedNodeConfigType
 	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
-	FourWayValveNodeConfigType NodeConfigType = v12.FourWayValveNodeConfigType
+	FourWayValveNodeConfigType NodeConfigType = v14.FourWayValveNodeConfigType
 	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
-	GateValveNodeConfigType NodeConfigType = v12.GateValveNodeConfigType
+	GateValveNodeConfigType NodeConfigType = v14.GateValveNodeConfigType
 	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
-	IsoCheckValveNodeConfigType NodeConfigType = v12.IsoCheckValveNodeConfigType
+	IsoCheckValveNodeConfigType NodeConfigType = v14.IsoCheckValveNodeConfigType
 	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
-	ManualValveNodeConfigType NodeConfigType = v12.ManualValveNodeConfigType
+	ManualValveNodeConfigType NodeConfigType = v14.ManualValveNodeConfigType
 	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
-	NeedleValveNodeConfigType NodeConfigType = v12.NeedleValveNodeConfigType
+	NeedleValveNodeConfigType NodeConfigType = v14.NeedleValveNodeConfigType
 	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
-	RegulatorNodeConfigType NodeConfigType = v12.RegulatorNodeConfigType
+	RegulatorNodeConfigType NodeConfigType = v14.RegulatorNodeConfigType
 	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
-	RegulatorManualNodeConfigType NodeConfigType = v12.RegulatorManualNodeConfigType
+	RegulatorManualNodeConfigType NodeConfigType = v14.RegulatorManualNodeConfigType
 	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
-	ReliefValveNodeConfigType NodeConfigType = v12.ReliefValveNodeConfigType
+	ReliefValveNodeConfigType NodeConfigType = v14.ReliefValveNodeConfigType
 	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
-	SolenoidValveNodeConfigType NodeConfigType = v12.SolenoidValveNodeConfigType
+	SolenoidValveNodeConfigType NodeConfigType = v14.SolenoidValveNodeConfigType
 	// SpringLoadedReliefValveNodeConfigType selects the
 	// SpringLoadedReliefValveNodeConfig variant.
-	SpringLoadedReliefValveNodeConfigType NodeConfigType = v12.SpringLoadedReliefValveNodeConfigType
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = v14.SpringLoadedReliefValveNodeConfigType
 	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
-	ThreeWayValveNodeConfigType NodeConfigType = v12.ThreeWayValveNodeConfigType
+	ThreeWayValveNodeConfigType NodeConfigType = v14.ThreeWayValveNodeConfigType
 	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
-	ThreeWayBallValveNodeConfigType NodeConfigType = v12.ThreeWayBallValveNodeConfigType
+	ThreeWayBallValveNodeConfigType NodeConfigType = v14.ThreeWayBallValveNodeConfigType
 	// ValveNodeConfigType selects the ValveNodeConfig variant.
-	ValveNodeConfigType NodeConfigType = v12.ValveNodeConfigType
+	ValveNodeConfigType NodeConfigType = v14.ValveNodeConfigType
 	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
-	CrossJunctionNodeConfigType NodeConfigType = v12.CrossJunctionNodeConfigType
+	CrossJunctionNodeConfigType NodeConfigType = v14.CrossJunctionNodeConfigType
 	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
-	CylinderNodeConfigType NodeConfigType = v12.CylinderNodeConfigType
+	CylinderNodeConfigType NodeConfigType = v14.CylinderNodeConfigType
 	// TankNodeConfigType is the configuration for tank vessel symbols.
-	TankNodeConfigType NodeConfigType = v12.TankNodeConfigType
+	TankNodeConfigType NodeConfigType = v14.TankNodeConfigType
 	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
-	TJunctionNodeConfigType NodeConfigType = v12.TJunctionNodeConfigType
+	TJunctionNodeConfigType NodeConfigType = v14.TJunctionNodeConfigType
 	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
 	// symbols.
-	CustomActuatorNodeConfigType NodeConfigType = v12.CustomActuatorNodeConfigType
+	CustomActuatorNodeConfigType NodeConfigType = v14.CustomActuatorNodeConfigType
 	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
-	CustomStaticNodeConfigType NodeConfigType = v12.CustomStaticNodeConfigType
+	CustomStaticNodeConfigType NodeConfigType = v14.CustomStaticNodeConfigType
 	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
-	GroupBoxNodeConfigType NodeConfigType = v12.GroupBoxNodeConfigType
+	GroupBoxNodeConfigType NodeConfigType = v14.GroupBoxNodeConfigType
 )
 
-type CapNodeConfig = v12.CapNodeConfig
-type FilterNodeConfig = v12.FilterNodeConfig
-type FlowStraightenerNodeConfig = v12.FlowStraightenerNodeConfig
-type HeaterElementNodeConfig = v12.HeaterElementNodeConfig
-type IsoCapNodeConfig = v12.IsoCapNodeConfig
-type IsoFilterNodeConfig = v12.IsoFilterNodeConfig
-type NozzleNodeConfig = v12.NozzleNodeConfig
-type OrificeNodeConfig = v12.OrificeNodeConfig
-type OrificePlateNodeConfig = v12.OrificePlateNodeConfig
-type StrainerNodeConfig = v12.StrainerNodeConfig
-type StrainerConeNodeConfig = v12.StrainerConeNodeConfig
-type ThrusterNodeConfig = v12.ThrusterNodeConfig
-type VentNodeConfig = v12.VentNodeConfig
-type FlowmeterGeneralNodeConfig = v12.FlowmeterGeneralNodeConfig
-type FlowmeterElectromagneticNodeConfig = v12.FlowmeterElectromagneticNodeConfig
-type FlowmeterVariableAreaNodeConfig = v12.FlowmeterVariableAreaNodeConfig
-type FlowmeterCoriolisNodeConfig = v12.FlowmeterCoriolisNodeConfig
-type FlowmeterNozzleNodeConfig = v12.FlowmeterNozzleNodeConfig
-type FlowmeterVenturiNodeConfig = v12.FlowmeterVenturiNodeConfig
-type FlowmeterRingPistonNodeConfig = v12.FlowmeterRingPistonNodeConfig
-type FlowmeterPositiveDisplacementNodeConfig = v12.FlowmeterPositiveDisplacementNodeConfig
-type FlowmeterTurbineNodeConfig = v12.FlowmeterTurbineNodeConfig
-type FlowmeterPulseNodeConfig = v12.FlowmeterPulseNodeConfig
-type FlowmeterFloatSensorNodeConfig = v12.FlowmeterFloatSensorNodeConfig
-type FlowmeterOrificeNodeConfig = v12.FlowmeterOrificeNodeConfig
+type CapNodeConfig = v14.CapNodeConfig
+type FilterNodeConfig = v14.FilterNodeConfig
+type FlowStraightenerNodeConfig = v14.FlowStraightenerNodeConfig
+type HeaterElementNodeConfig = v14.HeaterElementNodeConfig
+type IsoCapNodeConfig = v14.IsoCapNodeConfig
+type IsoFilterNodeConfig = v14.IsoFilterNodeConfig
+type NozzleNodeConfig = v14.NozzleNodeConfig
+type OrificeNodeConfig = v14.OrificeNodeConfig
+type OrificePlateNodeConfig = v14.OrificePlateNodeConfig
+type StrainerNodeConfig = v14.StrainerNodeConfig
+type StrainerConeNodeConfig = v14.StrainerConeNodeConfig
+type ThrusterNodeConfig = v14.ThrusterNodeConfig
+type VentNodeConfig = v14.VentNodeConfig
+type FlowmeterGeneralNodeConfig = v14.FlowmeterGeneralNodeConfig
+type FlowmeterElectromagneticNodeConfig = v14.FlowmeterElectromagneticNodeConfig
+type FlowmeterVariableAreaNodeConfig = v14.FlowmeterVariableAreaNodeConfig
+type FlowmeterCoriolisNodeConfig = v14.FlowmeterCoriolisNodeConfig
+type FlowmeterNozzleNodeConfig = v14.FlowmeterNozzleNodeConfig
+type FlowmeterVenturiNodeConfig = v14.FlowmeterVenturiNodeConfig
+type FlowmeterRingPistonNodeConfig = v14.FlowmeterRingPistonNodeConfig
+type FlowmeterPositiveDisplacementNodeConfig = v14.FlowmeterPositiveDisplacementNodeConfig
+type FlowmeterTurbineNodeConfig = v14.FlowmeterTurbineNodeConfig
+type FlowmeterPulseNodeConfig = v14.FlowmeterPulseNodeConfig
+type FlowmeterFloatSensorNodeConfig = v14.FlowmeterFloatSensorNodeConfig
+type FlowmeterOrificeNodeConfig = v14.FlowmeterOrificeNodeConfig
 
 // BoxNodeConfig is the configuration for box annotation symbols.
-type BoxNodeConfig = v12.BoxNodeConfig
+type BoxNodeConfig = v14.BoxNodeConfig
 
 // ButtonNodeConfig is the configuration for button symbols.
-type ButtonNodeConfig = v12.ButtonNodeConfig
+type ButtonNodeConfig = v14.ButtonNodeConfig
 
 // CircleNodeConfig is the configuration for circle annotation symbols.
-type CircleNodeConfig = v12.CircleNodeConfig
+type CircleNodeConfig = v14.CircleNodeConfig
 
 // GaugeNodeConfig is the configuration for gauge symbols.
-type GaugeNodeConfig = v12.GaugeNodeConfig
+type GaugeNodeConfig = v14.GaugeNodeConfig
 
 // InputNodeConfig is the configuration for free-form input symbols.
-type InputNodeConfig = v12.InputNodeConfig
+type InputNodeConfig = v14.InputNodeConfig
 
 // LightNodeConfig is the configuration for indicator light symbols.
-type LightNodeConfig = v12.LightNodeConfig
+type LightNodeConfig = v14.LightNodeConfig
 
 // LineNodeConfig is the configuration for straight line symbols.
-type LineNodeConfig = v12.LineNodeConfig
+type LineNodeConfig = v14.LineNodeConfig
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
-type OffPageReferenceNodeConfig = v12.OffPageReferenceNodeConfig
+type OffPageReferenceNodeConfig = v14.OffPageReferenceNodeConfig
 
 // PolygonNodeConfig is the configuration for polygon annotation symbols.
-type PolygonNodeConfig = v12.PolygonNodeConfig
+type PolygonNodeConfig = v14.PolygonNodeConfig
 
 // SelectNodeConfig is the configuration for select symbols.
-type SelectNodeConfig = v12.SelectNodeConfig
+type SelectNodeConfig = v14.SelectNodeConfig
 
 // ScaleNodeConfig is the configuration for standalone scale symbols.
-type ScaleNodeConfig = v12.ScaleNodeConfig
+type ScaleNodeConfig = v14.ScaleNodeConfig
 
 // SetpointNodeConfig is the configuration for numeric setpoint symbols.
-type SetpointNodeConfig = v12.SetpointNodeConfig
+type SetpointNodeConfig = v14.SetpointNodeConfig
 
 // StateIndicatorNodeConfig is the configuration for multi-state indicator symbols.
-type StateIndicatorNodeConfig = v12.StateIndicatorNodeConfig
+type StateIndicatorNodeConfig = v14.StateIndicatorNodeConfig
 
 // StringDisplayNodeConfig is the configuration for live string display symbols.
-type StringDisplayNodeConfig = v12.StringDisplayNodeConfig
-type SwitchNodeConfig = v12.SwitchNodeConfig
+type StringDisplayNodeConfig = v14.StringDisplayNodeConfig
+type SwitchNodeConfig = v14.SwitchNodeConfig
 
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
-type TextBoxNodeConfig = v12.TextBoxNodeConfig
+type TextBoxNodeConfig = v14.TextBoxNodeConfig
 
 // ValueNodeConfig is the configuration for live telemetry value symbols.
-type ValueNodeConfig = v12.ValueNodeConfig
-type AgitatorNodeConfig = v12.AgitatorNodeConfig
-type CrossBeamAgitatorNodeConfig = v12.CrossBeamAgitatorNodeConfig
-type FlatBladeAgitatorNodeConfig = v12.FlatBladeAgitatorNodeConfig
-type HeatExchangerGeneralNodeConfig = v12.HeatExchangerGeneralNodeConfig
-type HeatExchangerMNodeConfig = v12.HeatExchangerMNodeConfig
-type HeatExchangerStraightTubeNodeConfig = v12.HeatExchangerStraightTubeNodeConfig
-type HelicalAgitatorNodeConfig = v12.HelicalAgitatorNodeConfig
-type PaddleAgitatorNodeConfig = v12.PaddleAgitatorNodeConfig
-type PropellerAgitatorNodeConfig = v12.PropellerAgitatorNodeConfig
-type RotaryMixerNodeConfig = v12.RotaryMixerNodeConfig
-type StaticMixerNodeConfig = v12.StaticMixerNodeConfig
-type CavityPumpNodeConfig = v12.CavityPumpNodeConfig
-type CentrifugalCompressorNodeConfig = v12.CentrifugalCompressorNodeConfig
-type CompressorNodeConfig = v12.CompressorNodeConfig
-type DiaphragmPumpNodeConfig = v12.DiaphragmPumpNodeConfig
-type EjectionPumpNodeConfig = v12.EjectionPumpNodeConfig
-type EjectorCompressorNodeConfig = v12.EjectorCompressorNodeConfig
-type LiquidRingCompressorNodeConfig = v12.LiquidRingCompressorNodeConfig
-type PistonPumpNodeConfig = v12.PistonPumpNodeConfig
-type PumpNodeConfig = v12.PumpNodeConfig
-type RollerVaneCompressorNodeConfig = v12.RollerVaneCompressorNodeConfig
-type ScrewPumpNodeConfig = v12.ScrewPumpNodeConfig
-type TurboCompressorNodeConfig = v12.TurboCompressorNodeConfig
-type VacuumPumpNodeConfig = v12.VacuumPumpNodeConfig
-type BurstDiscNodeConfig = v12.BurstDiscNodeConfig
-type FlameArrestorNodeConfig = v12.FlameArrestorNodeConfig
-type FlameArrestorDetonationNodeConfig = v12.FlameArrestorDetonationNodeConfig
-type FlameArrestorExplosionNodeConfig = v12.FlameArrestorExplosionNodeConfig
-type FlameArrestorFireResNodeConfig = v12.FlameArrestorFireResNodeConfig
-type FlameArrestorFireResDetonationNodeConfig = v12.FlameArrestorFireResDetonationNodeConfig
-type IsoBurstDiscNodeConfig = v12.IsoBurstDiscNodeConfig
-type AngledValveNodeConfig = v12.AngledValveNodeConfig
-type AngledReliefValveNodeConfig = v12.AngledReliefValveNodeConfig
-type AngledSpringLoadedReliefValveNodeConfig = v12.AngledSpringLoadedReliefValveNodeConfig
-type BallValveNodeConfig = v12.BallValveNodeConfig
-type BreatherValveNodeConfig = v12.BreatherValveNodeConfig
-type ButterflyValveOneNodeConfig = v12.ButterflyValveOneNodeConfig
-type ButterflyValveTwoNodeConfig = v12.ButterflyValveTwoNodeConfig
-type CheckValveNodeConfig = v12.CheckValveNodeConfig
-type CheckValveWithArrowNodeConfig = v12.CheckValveWithArrowNodeConfig
-type ElectricRegulatorNodeConfig = v12.ElectricRegulatorNodeConfig
-type ElectricRegulatorMotorizedNodeConfig = v12.ElectricRegulatorMotorizedNodeConfig
-type FourWayValveNodeConfig = v12.FourWayValveNodeConfig
-type GateValveNodeConfig = v12.GateValveNodeConfig
-type IsoCheckValveNodeConfig = v12.IsoCheckValveNodeConfig
-type ManualValveNodeConfig = v12.ManualValveNodeConfig
-type NeedleValveNodeConfig = v12.NeedleValveNodeConfig
-type RegulatorNodeConfig = v12.RegulatorNodeConfig
-type RegulatorManualNodeConfig = v12.RegulatorManualNodeConfig
-type ReliefValveNodeConfig = v12.ReliefValveNodeConfig
+type ValueNodeConfig = v14.ValueNodeConfig
+type AgitatorNodeConfig = v14.AgitatorNodeConfig
+type CrossBeamAgitatorNodeConfig = v14.CrossBeamAgitatorNodeConfig
+type FlatBladeAgitatorNodeConfig = v14.FlatBladeAgitatorNodeConfig
+type HeatExchangerGeneralNodeConfig = v14.HeatExchangerGeneralNodeConfig
+type HeatExchangerMNodeConfig = v14.HeatExchangerMNodeConfig
+type HeatExchangerStraightTubeNodeConfig = v14.HeatExchangerStraightTubeNodeConfig
+type HelicalAgitatorNodeConfig = v14.HelicalAgitatorNodeConfig
+type PaddleAgitatorNodeConfig = v14.PaddleAgitatorNodeConfig
+type PropellerAgitatorNodeConfig = v14.PropellerAgitatorNodeConfig
+type RotaryMixerNodeConfig = v14.RotaryMixerNodeConfig
+type StaticMixerNodeConfig = v14.StaticMixerNodeConfig
+type CavityPumpNodeConfig = v14.CavityPumpNodeConfig
+type CentrifugalCompressorNodeConfig = v14.CentrifugalCompressorNodeConfig
+type CompressorNodeConfig = v14.CompressorNodeConfig
+type DiaphragmPumpNodeConfig = v14.DiaphragmPumpNodeConfig
+type EjectionPumpNodeConfig = v14.EjectionPumpNodeConfig
+type EjectorCompressorNodeConfig = v14.EjectorCompressorNodeConfig
+type LiquidRingCompressorNodeConfig = v14.LiquidRingCompressorNodeConfig
+type PistonPumpNodeConfig = v14.PistonPumpNodeConfig
+type PumpNodeConfig = v14.PumpNodeConfig
+type RollerVaneCompressorNodeConfig = v14.RollerVaneCompressorNodeConfig
+type ScrewPumpNodeConfig = v14.ScrewPumpNodeConfig
+type TurboCompressorNodeConfig = v14.TurboCompressorNodeConfig
+type VacuumPumpNodeConfig = v14.VacuumPumpNodeConfig
+type BurstDiscNodeConfig = v14.BurstDiscNodeConfig
+type FlameArrestorNodeConfig = v14.FlameArrestorNodeConfig
+type FlameArrestorDetonationNodeConfig = v14.FlameArrestorDetonationNodeConfig
+type FlameArrestorExplosionNodeConfig = v14.FlameArrestorExplosionNodeConfig
+type FlameArrestorFireResNodeConfig = v14.FlameArrestorFireResNodeConfig
+type FlameArrestorFireResDetonationNodeConfig = v14.FlameArrestorFireResDetonationNodeConfig
+type IsoBurstDiscNodeConfig = v14.IsoBurstDiscNodeConfig
+type AngledValveNodeConfig = v14.AngledValveNodeConfig
+type AngledReliefValveNodeConfig = v14.AngledReliefValveNodeConfig
+type AngledSpringLoadedReliefValveNodeConfig = v14.AngledSpringLoadedReliefValveNodeConfig
+type BallValveNodeConfig = v14.BallValveNodeConfig
+type BreatherValveNodeConfig = v14.BreatherValveNodeConfig
+type ButterflyValveOneNodeConfig = v14.ButterflyValveOneNodeConfig
+type ButterflyValveTwoNodeConfig = v14.ButterflyValveTwoNodeConfig
+type CheckValveNodeConfig = v14.CheckValveNodeConfig
+type CheckValveWithArrowNodeConfig = v14.CheckValveWithArrowNodeConfig
+type ElectricRegulatorNodeConfig = v14.ElectricRegulatorNodeConfig
+type ElectricRegulatorMotorizedNodeConfig = v14.ElectricRegulatorMotorizedNodeConfig
+type FourWayValveNodeConfig = v14.FourWayValveNodeConfig
+type GateValveNodeConfig = v14.GateValveNodeConfig
+type IsoCheckValveNodeConfig = v14.IsoCheckValveNodeConfig
+type ManualValveNodeConfig = v14.ManualValveNodeConfig
+type NeedleValveNodeConfig = v14.NeedleValveNodeConfig
+type RegulatorNodeConfig = v14.RegulatorNodeConfig
+type RegulatorManualNodeConfig = v14.RegulatorManualNodeConfig
+type ReliefValveNodeConfig = v14.ReliefValveNodeConfig
 
 // SolenoidValveNodeConfig is the configuration for solenoid valve symbols.
-type SolenoidValveNodeConfig = v12.SolenoidValveNodeConfig
-type SpringLoadedReliefValveNodeConfig = v12.SpringLoadedReliefValveNodeConfig
-type ThreeWayValveNodeConfig = v12.ThreeWayValveNodeConfig
-type ThreeWayBallValveNodeConfig = v12.ThreeWayBallValveNodeConfig
-type ValveNodeConfig = v12.ValveNodeConfig
-type CrossJunctionNodeConfig = v12.CrossJunctionNodeConfig
+type SolenoidValveNodeConfig = v14.SolenoidValveNodeConfig
+type SpringLoadedReliefValveNodeConfig = v14.SpringLoadedReliefValveNodeConfig
+type ThreeWayValveNodeConfig = v14.ThreeWayValveNodeConfig
+type ThreeWayBallValveNodeConfig = v14.ThreeWayBallValveNodeConfig
+type ValveNodeConfig = v14.ValveNodeConfig
+type CrossJunctionNodeConfig = v14.CrossJunctionNodeConfig
 
 // CylinderNodeConfig is the configuration for cylinder vessel symbols.
-type CylinderNodeConfig = v12.CylinderNodeConfig
+type CylinderNodeConfig = v14.CylinderNodeConfig
 
 // TankNodeConfig is the configuration for tank vessel symbols.
-type TankNodeConfig = v12.TankNodeConfig
-type TJunctionNodeConfig = v12.TJunctionNodeConfig
+type TankNodeConfig = v14.TankNodeConfig
+type TJunctionNodeConfig = v14.TJunctionNodeConfig
 
 // CustomActuatorNodeConfig is the configuration for user-defined actuator symbols.
-type CustomActuatorNodeConfig = v12.CustomActuatorNodeConfig
+type CustomActuatorNodeConfig = v14.CustomActuatorNodeConfig
 
 // CustomStaticNodeConfig is the configuration for user-defined static symbols.
-type CustomStaticNodeConfig = v12.CustomStaticNodeConfig
+type CustomStaticNodeConfig = v14.CustomStaticNodeConfig
 
 // GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
 // of grouped symbols. Groups nest: a member may itself be a group.
-type GroupBoxNodeConfig = v12.GroupBoxNodeConfig
+type GroupBoxNodeConfig = v14.GroupBoxNodeConfig
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
-type Schematic = v12.Schematic
+type Schematic = v14.Schematic
 
 // ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
-type ScaleIndicatorConfig = v12.ScaleIndicatorConfig
+type ScaleIndicatorConfig = v14.ScaleIndicatorConfig
 
 // PageType names the kinds of page an off-page reference can link to.
-type PageType = v12.PageType
+type PageType = v14.PageType
 
 const (
 	// PageTypeSchematic is a schematic page.
-	PageTypeSchematic PageType = v12.PageTypeSchematic
+	PageTypeSchematic PageType = v14.PageTypeSchematic
 	// PageTypeLineplot is a line plot page.
-	PageTypeLineplot PageType = v12.PageTypeLineplot
+	PageTypeLineplot PageType = v14.PageTypeLineplot
 	// PageTypeLog is a log page.
-	PageTypeLog PageType = v12.PageTypeLog
+	PageTypeLog PageType = v14.PageTypeLog
 	// PageTypeTable is a table page.
-	PageTypeTable PageType = v12.PageTypeTable
+	PageTypeTable PageType = v14.PageTypeTable
 )
 
 // Page identifies a page an off-page reference links to.
-type Page = v12.Page
+type Page = v14.Page
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
-type StalenessConfig = v12.StalenessConfig
+type StalenessConfig = v14.StalenessConfig
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
-type NumericTelemConfig = v12.NumericTelemConfig
+type NumericTelemConfig = v14.NumericTelemConfig
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
-type ScaledConfig = v12.ScaledConfig
+type ScaledConfig = v14.ScaledConfig

@@ -19,6 +19,7 @@ import { box, type deep } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { Section } from "@/platform/section";
 import { DetailsHeader } from "@/platform/task/views/DetailsHeader";
 
 export interface PanesProps {
@@ -127,7 +128,7 @@ export const Panes = ({
       )}
     >
       <Flex.Box y empty inert={!visible} className={CSS.BE("panes", "list")}>
-        <Header.Header>
+        <Section.Header>
           <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
             {toggle}
             <Header.Title weight={500} color={10}>
@@ -135,7 +136,7 @@ export const Panes = ({
             </Header.Title>
           </Flex.Box>
           {listActions != null && <Header.Actions>{listActions}</Header.Actions>}
-        </Header.Header>
+        </Section.Header>
         {list}
       </Flex.Box>
       <Divider.Divider y />

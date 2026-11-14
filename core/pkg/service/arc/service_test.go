@@ -680,8 +680,12 @@ var _ = Describe("Build", func() {
 		})
 		createTempChannel(ctx, "build_out")
 		a := createAutomation(ctx, s)
-		Expect(dispatch(ctx, a.Base().Key, "", insert("build_in -> build_out"))).
-			To(Succeed())
+		// Only s must edit the Arc: the Service of the suite resyncs the Arcs that it
+		// edits, with a compile that this spec does not count.
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.NewWriter(tx).
+				Apply(ctx, a.Base().Key, insert("build_in -> build_out")...)
+		})).To(Succeed())
 		b := MustSucceed(s.Build(ctx, a.Base().Key))
 		createTempChannel(ctx, "build_in")
 		tsk := deploy(ctx, s, a, b)

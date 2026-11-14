@@ -27,8 +27,8 @@ channels in Synnax. To open it, click <Icon.Channel /> or press **C**. Drag a ch
 onto a line plot or a schematic, or double-click it to add it to the open line plot.
 
 To filter the toolbar, click <Icon.Search /> in its header and type part of a name.
-Under an active range, the search also matches aliases. Click <Icon.TreeView /> to show
-the results in their groups. Press **Escape** in the field to close the search.
+Click <Icon.TreeView /> to show the results in their groups. Press **Escape** in the
+field to close the search.
 
 <Video id="client/channels/search" />
 
@@ -171,9 +171,9 @@ floats = client.channels.retrieve(data_types=[sy.DataType.FLOAT32], is_index=Fal
 ```
 
 The filters are `search_term`, `data_types`, `not_data_types`, `is_index`, `virtual`,
-`internal`, `node_key`, and `limit`. Results match all the filters. Use `range_key` to
-include aliases from a range and search those aliases too. Set `include_status=True` to
-attach each channel's status; a channel with no status gets `None`.
+`internal`, `node_key`, and `limit`. Results match all the filters. Set
+`include_status=True` to attach each channel's status; a channel with no status gets
+`None`.
 
 To read past the first page, sort with `order` and pass the position of the last channel
 as `after`:
@@ -223,8 +223,8 @@ combine filters. Synnax returns only the channels that match all of the filters.
 
 <Divider.Divider x />
 
-## Find the channels of a range
+## Channels in a range
 
-A range can give channels a different name, called an
-[alias](/reference/ranges/aliases). To find channels by alias, or to read their data in
-a range, see [read and write range data](/reference/ranges/data).
+A range does not hold channels. It covers the data of every channel in its time
+interval. To read the data of a channel in a range, see
+[read and write range data](/reference/ranges/data).
