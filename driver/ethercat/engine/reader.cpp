@@ -111,14 +111,15 @@ x::errors::Error Engine::Reader::read(
 }
 
 std::string Engine::Reader::warning() {
-    const auto now = this->engine.config.host_clock.now();
+    const auto now = this->engine.config.host_clock.steady();
     std::string msg;
     const auto add = [&msg](const std::string &sentence) {
         msg += (msg.empty() ? "" : " ") + sentence;
     };
     const auto hold = [&](Drop &drop, std::atomic<uint64_t> &samples, auto reason) {
         if (samples.exchange(0, std::memory_order_relaxed) > 0) drop = {reason(), now};
-        if (!drop.reason.empty() && now - drop.at < DROP_HOLD) add(drop.reason);
+        if (!drop.reason.empty() && now - drop.at < DROP_HOLD.chrono())
+            add(drop.reason);
     };
     hold(this->failed, this->input->failed_samples, [this] {
         return errors::sentence(

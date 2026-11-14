@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <map>
@@ -321,7 +322,7 @@ public:
         /// @brief why samples were dropped, and when warning() last saw such a drop.
         struct Drop {
             std::string reason;
-            x::telem::TimeStamp at;
+            std::chrono::steady_clock::time_point at;
         };
         Drop failed;
         Drop overflowed;

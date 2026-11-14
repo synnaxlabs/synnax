@@ -1929,6 +1929,7 @@ TEST_F(EngineTest, FailedCycleWarningHoldsForTenSeconds) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
+    ASSERT_EQ(this->read_times(*reader, 1).size(), 1);
     this->master->stall();
     this->master->wait_until_stalled();
     // The fake clock ran the bus ahead of the reader before the stall.
