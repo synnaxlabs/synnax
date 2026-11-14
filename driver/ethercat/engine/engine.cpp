@@ -132,16 +132,26 @@ bool serves(
            });
 }
 
-/// @brief tells the user to switch a slave to Synnax when it refused its sync
-/// configuration while it held the mode of another program at the scan.
-void advise_switch(const slave::Properties &props, slave::Refusal &refusal) {
+/// @brief tells the user to switch a slave to Synnax, or to restart its power after a
+/// switch, when it refused its sync configuration while it held the mode or the layout
+/// of another program at the scan. op_mode is the sync mode that the user picked.
+void advise_switch(
+    const slave::Properties &props,
+    const std::optional<dc::Choice> &op_mode,
+    slave::Refusal &refusal
+) {
     if (refusal.code != INVALID_DC_SYNC || !props.settings) return;
+    if (props.switched()) {
+        refusal.advice = "Restart the power of the device.";
+        return;
+    }
     const auto mode = props.settings->value("mode", x::json::json::object());
     auto program = mode.value("shared_with", "");
     if (program.empty()) program = mode.value("only_read_by", "");
     if (program.empty()) return;
     refusal.advice = std::format(
-        "The device is set up for {}. In Configure, switch the device to Synnax.",
+        "{}The device is set up for {}. In Configure, switch the device to Synnax.",
+        op_mode ? slave::DC_SYNC_ADVICE + " " : "",
         program
     );
 }
@@ -535,8 +545,14 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             refused = std::move(activation.refusals);
             for (const auto &s: this->slaves)
                 if (const auto it = refused.find(s.properties.position);
-                    it != refused.end())
-                    advise_switch(s.properties, it->second);
+                    it != refused.end()) {
+                    const auto cfg = plan.slaves.find(it->first);
+                    advise_switch(
+                        s.properties,
+                        cfg == plan.slaves.end() ? std::nullopt : cfg->second.op_mode,
+                        it->second
+                    );
+                }
             std::map<uint16_t, slave::Refusal> leaving;
             for (const auto &[pos, refusal]: refused) {
                 if (std::ranges::find(STALE_LAYOUT_CODES, refusal.code) !=

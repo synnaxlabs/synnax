@@ -1436,6 +1436,60 @@ TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
 
+/// @brief it should give the sync mode advice before the switch advice when the user
+/// picked the sync mode of a slave set up for another program.
+TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{
+                {1, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0300}}}
+            },
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. " +
+            slave::DC_SYNC_ADVICE +
+            " The device is set up for DewesoftX. In Configure, switch the device to "
+            "Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to restart the power of a slave that was switched to
+/// Synnax but still runs the layout of another program.
+TEST_F(EngineTest, ReaderOnASwitchedSlaveGetsPowerRestartAdvice) {
+    auto switched = io_slave(1);
+    switched.settings = x::json::json{
+        {"mode", {{"switch", x::json::json::array()}}},
+        {"channels",
+         {{{"entries",
+            {{{"index", 0x6000}, {"sub_index", 1}, {"only_read_by", "DewesoftX"}}}}}}},
+    };
+    this->master->add_slave(switched);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. Restart the power of the device."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
 /// @brief it should fail a reader on a slave that the bus started without, and stop the
 /// bus that the reader started.
 TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
