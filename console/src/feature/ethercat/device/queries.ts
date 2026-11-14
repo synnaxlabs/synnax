@@ -12,7 +12,12 @@ import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+} from "@/feature/ethercat/device/types";
 import {
   type Channel,
   READ_TYPE,
@@ -28,6 +33,20 @@ const { use: useSlaves, useResult: useResultSlaves } =
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
   useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
+
+/**
+ * The slaves on the rack with their statuses, or undefined until they resolve, on
+ * failure, or without a rack.
+ */
+export const useSlavesOnRack = (rack: number | undefined): SlaveDevice[] | undefined =>
+  useResultSlaves(
+    rack == null
+      ? null
+      : {
+          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL }, rack: { eq: rack } },
+          includeStatus: true,
+        },
+  ).data;
 
 export interface EnabledState {
   allEnabled: boolean;
