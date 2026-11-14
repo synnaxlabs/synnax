@@ -41,9 +41,10 @@ export interface OpenTabOptions {
   placement?: Placement;
   /**
    * Lands the tabs in a draft of the signed-in user: a draft that already holds the
-   * last tab, else the selected panel when it is such a draft, else a new draft.
+   * last tab, else the selected panel when it is such a draft, else a new draft with
+   * this name and icon.
    */
-  draft?: boolean;
+  draft?: Pick<panel.New, "name" | "icon">;
 }
 
 export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
@@ -162,7 +163,8 @@ export const useOpenTabs = (): OpenTabs => {
   };
   return (params: panel.NewTab[], options?: OpenTabOptions) => {
     if (params.length === 0) return;
-    const owner = options?.draft ? getUser() : undefined;
+    const draft = options?.draft;
+    const owner = draft != null ? getUser() : undefined;
     const panelKey =
       owner != null
         ? findDraft(owner, params, options?.singleton)
@@ -176,7 +178,8 @@ export const useOpenTabs = (): OpenTabs => {
     // that would race the create and fail with "panel not found", while the local
     // store update keeps focus optimistic.
     createPanel({
-      name: "New panel",
+      name: draft?.name ?? "New panel",
+      icon: draft?.icon,
       root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
       project: getSelectedProject(),
       owner,

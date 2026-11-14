@@ -95,6 +95,12 @@ std::string_view refusal_advice(const uint16_t code) {
     }
 }
 
+/// @brief describes what a slave did with a datagram that failed with the working
+/// counter wkc: below 0 means no frame came back.
+std::string_view response(const int wkc) {
+    return wkc < 0 ? "did not reply to" : "refused";
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
@@ -271,6 +277,32 @@ slave::Config Master::config(const uint16_t pos) const {
 master::Activation
 Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     auto &session = this->session.value();
+    // A slave whose EEPROM read failed has no identity and no SII layout to map.
+    std::map<uint16_t, slave::Refusal> unidentified;
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        const auto &rec = this->record(pos);
+        if (!this->config(pos).enabled || rec.eep_man != 0 || rec.eep_id != 0) continue;
+        unidentified[pos] = {
+            .reason = "gave no identity when the Driver read its EEPROM"
+        };
+        session.plan.slaves[pos].enabled = false;
+    }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}slave {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->slave_name(pos),
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
     auto [dc_setups, dc_err] = this->resolve_dc();
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
@@ -310,13 +342,15 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     );
     this->api->context.manualstatechange = 0;
 
-    if (iomap_size <= 0)
+    if (iomap_size <= 0) {
+        if (!unidentified.empty()) return refuse_unidentified();
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure PDO mapping"
             )
         };
+    }
 
     std::string failures;
     for (const auto &[pos, failure]: session.startup_failures)
@@ -344,6 +378,8 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // while it moves to SAFE-OP.
     session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
+    // The caller leaves out a refused slave only when the image maps another one.
+    if (!unidentified.empty()) return refuse_unidentified();
     if (auto err = this->start_dc()) return {.err = err};
 
     const int timeout = micros(this->cfg.state_change_timeout);
@@ -385,6 +421,7 @@ x::errors::Error Master::receive() {
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
     auto &session = *this->session;
 
+    session.shortfall.reset();
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
@@ -392,12 +429,15 @@ x::errors::Error Master::receive() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
     this->frames.fetch_add(1, std::memory_order_release);
 
-    if (wkc != session.expected_wkc)
+    if (wkc != session.expected_wkc) {
+        if (wkc < session.expected_wkc)
+            session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
         return x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " +
                 std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
         );
+    }
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
     // reference clock gives a frozen time, and a reset one goes back. The frame read
@@ -443,6 +483,11 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
     session.sent_at = sent_at;
     return x::errors::NIL;
+}
+
+std::optional<uint32_t> Master::shortfall() const {
+    if (!this->session) return std::nullopt;
+    return this->session->shortfall;
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
@@ -622,6 +667,12 @@ master::Image Master::image() {
         const auto output_bits = pdo::total_bits(props.output_pdos);
         const auto mapped_input_bits = this->record(props.position).Ibits;
         const auto mapped_output_bits = this->record(props.position).Obits;
+        // A frame adds 2 for each slave that takes its outputs and 1 for each slave
+        // that gives its inputs.
+        if (const uint32_t share = (mapped_output_bits > 0 ? 2 : 0) +
+                                   (mapped_input_bits > 0 ? 1 : 0);
+            share > 0)
+            image.working_counter_shares[props.position] = share;
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
@@ -902,19 +953,20 @@ template<std::integral T>
 x::errors::Error
 Master::write_dc_register(const uint16_t pos, const uint16_t address, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
-    if (this->api->write_register(
-            pos,
-            address,
-            {bytes.begin(), bytes.end()},
-            EC_TIMEOUTRET
-        ) == 1)
-        return x::errors::NIL;
+    const int wkc = this->api->write_register(
+        pos,
+        address,
+        {bytes.begin(), bytes.end()},
+        EC_TIMEOUTRET3
+    );
+    if (wkc == 1) return x::errors::NIL;
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) did not take a write to DC register 0x{:04X}",
+            "slave {} ({}) {} a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
+            response(wkc),
             address
         )
     );
@@ -924,16 +976,17 @@ template<std::integral T>
 std::pair<T, x::errors::Error>
 Master::read_dc_register(const uint16_t pos, const uint16_t address) {
     std::array<uint8_t, sizeof(T)> bytes{};
-    if (this->api->read_register(pos, address, bytes, EC_TIMEOUTRET) == 1)
-        return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
+    const int wkc = this->api->read_register(pos, address, bytes, EC_TIMEOUTRET3);
+    if (wkc == 1) return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
     return {
         0,
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) did not answer a read of DC register 0x{:04X}",
+                "slave {} ({}) {} a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
+                response(wkc),
                 address
             )
         )
@@ -1145,7 +1198,14 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
     const x::telem::TimeSpan latched_at(this->cfg.clock.steady().time_since_epoch());
-    if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
+    // A resend latches the times again after latched_at, so the latch gets one try.
+    const int latched = this->api->latch_receive_times(EC_TIMEOUTRET);
+    if (latched < 0)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "the frame that latches the receive times got no reply"
+        );
+    if (latched == 0)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no slave latched its receive time"
@@ -1283,6 +1343,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
                 .advice = refusal_advice(code),
+                .code = code,
             };
         msg += ": " + text;
     }

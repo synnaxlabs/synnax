@@ -19,8 +19,10 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
+#include "driver/errors/errors.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"
@@ -36,8 +38,14 @@ public:
 
     /// @brief reads the next scans_per_read scans of the stream, and waits for them
     /// when they have not arrived.
-    virtual x::errors::Error
-    e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
+    /// @returns driver::errors::NOMINAL_SHUTDOWN_ERROR if the breaker stops before the
+    /// scans arrive.
+    virtual x::errors::Error e_stream_read(
+        double *data,
+        int *dev_scan_backlog,
+        int *ljm_scan_backlog,
+        const x::breaker::Breaker &breaker
+    ) const = 0;
 
     /// @brief stops the stream. A failed stop still allows the next start, so a lost
     /// connection never blocks it.
@@ -150,7 +158,8 @@ public:
     x::errors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
-        int *ljm_scan_backlog
+        int *ljm_scan_backlog,
+        const x::breaker::Breaker &breaker
     ) const override {
         while (true) {
             const int code = this->ljm->e_stream_read(
@@ -160,6 +169,7 @@ public:
                 ljm_scan_backlog
             );
             if (code != LJME_NO_SCANS_RETURNED) return this->check(code);
+            if (!breaker.running()) return driver::errors::NOMINAL_SHUTDOWN_ERROR;
             this->poll_timer.sleep(STREAM_POLL_INTERVAL);
         }
     }
