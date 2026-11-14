@@ -55,22 +55,48 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   }),
 ];
 
+// The client learns the user at login, so reading it never touches the network.
+const cachedUser = (client: Params["client"]): user.Key | undefined => {
+  const cached = client.users.current.watch().getCached();
+  return query.isLive(cached) ? cached.key : undefined;
+};
+
+const hasTabs = (node: panel.Node): boolean =>
+  node.variant === "leaf"
+    ? node.tabs.length > 0
+    : hasTabs(node.first) || hasTabs(node.last);
+
 const applyMembership = (
   { client, store }: Params,
   candidates: panel.Panel[],
 ): void => {
+  // A draft holds work only while it holds a tab, so closing its last one deletes it.
+  const user = cachedUser(client);
+  const emptied = new Set(
+    candidates
+      .filter(({ owner, root }) => owner != null && owner === user && !hasTabs(root))
+      .map(({ key }) => key),
+  );
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const live = candidates.filter(
-    ({ key }) => !query.Deleted.matches(client.panels.watch(key).getCached()),
+    ({ key }) =>
+      !emptied.has(key) && !query.Deleted.matches(client.panels.watch(key).getCached()),
   );
+  const keys = live.map(({ key }) => key);
+  const win = selectActiveWindow(store.getState());
+  // Leaving an emptied draft returns to the panel the window showed before it. The
+  // optimistic delete hands the window to a strip neighbor, so this runs first.
+  if (win?.state.selected != null && emptied.has(win.state.selected)) {
+    const previous = win.state.mounted.find((key) => keys.includes(key));
+    if (previous != null) store.dispatch(select({ key: previous, windowKey: win.key }));
+  }
+  if (emptied.size > 0) client.panels.delete([...emptied]).catch(console.error);
   store.dispatch(
     reconcileOrder({ panels: live.map(({ key, name }) => ({ key, name })) }),
   );
-  const win = selectActiveWindow(store.getState());
   if (win == null) return;
-  const { selected } = win.state;
-  const keys = live.map(({ key }) => key);
+  const selected = selectActiveWindow(store.getState())?.state.selected;
   if (selected != null && keys.includes(selected)) return;
   if (keys.length === 0) {
     if (selected != null) store.dispatch(clearSelected({ windowKey: win.key }));
@@ -80,12 +106,6 @@ const applyMembership = (
   // entry is the strip's leftmost pill.
   const first = selectOrder(store.getState()).find((key) => keys.includes(key));
   store.dispatch(select({ key: first ?? keys[0], windowKey: win.key }));
-};
-
-// The client learns the user at login, so reading it never touches the network.
-const cachedUser = (client: Params["client"]): user.Key | undefined => {
-  const cached = client.users.current.watch().getCached();
-  return query.isLive(cached) ? cached.key : undefined;
 };
 
 const repairMembership = async (params: Params): Promise<void> => {

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type project, query, type user } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  panel,
+  type project,
+  query,
+  type user,
+} from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createPanelProject,
@@ -387,6 +393,38 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, theirs.key]));
     act(() => viewer.reauthenticate(TEST_CREDENTIALS));
     await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, mine.key]));
+  });
+
+  it("deletes a draft whose last tab closes and returns to the earlier panel", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const mike = await createProjectPanel(proj.key, { name: "mike" });
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, zulu.key);
+    store.dispatch(
+      Session.Panel.select({ key: draft.key, windowKey: Drift.MAIN_WINDOW }),
+    );
+    await mountMembership(store);
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, draft.key, mike.key, zulu.key]),
+    );
+    await client.panels.dispatch(draft.key, panel.removeTab({ key: tab }));
+    // The strip's leftmost pill is alpha and the draft's neighbor is mike or alpha, so
+    // landing on zulu proves the window went back.
+    await waitFor(() => expect(selectedPanel(store)).toBe(zulu.key));
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, mike.key, zulu.key]),
+    );
+    await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+      NotFoundError,
+    );
   });
 
   it("prunes a deleted panel from the strip order", async () => {
