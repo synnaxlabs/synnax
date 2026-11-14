@@ -13,7 +13,13 @@ import { DataType, primitive, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  canSwitch,
+  isShared,
+  of,
+  onlyReaderOf,
+  setUpBy,
+} from "@/feature/ethercat/device/setup";
 import {
   type SlaveDevice,
   type SlaveProperties,
@@ -135,6 +141,17 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
   );
 };
 
+/** @returns what the user must do when other software sets up the slave, or null. */
+const setupStep = (slave: SlaveDevice): string | null => {
+  const reader = setUpBy(slave.properties);
+  if (reader == null) return null;
+  const step = canSwitch(slave.properties)
+    ? "Switch it to Synnax"
+    : `Set it up for Synnax in ${reader}`;
+  const state = `Slave ${slave.name} is set up for ${reader}.`;
+  return `${state} ${step} before you start the task.`;
+};
+
 /** @returns why the slaves of the task cannot run on one network, or null. */
 const networkProblem = (slaves: SlaveDevice[]): string | null => {
   const networks = unique.unique(slaves.map((s) => s.properties.network)).sort();
@@ -176,7 +193,8 @@ interface CheckedConfig {
 /**
  * Checks the channels of a task against their slaves: one network for every slave, no
  * other device at the position of a slave, and for each enabled channel its entry and,
- * on inputs, the settings of the input it reads. Until both queries hold the slaves
+ * on inputs, the settings of the input it reads. It warns of a slave that other
+ * software sets up. Until both queries hold the slaves
  * they need, the check reports that they load, so a deploy cannot skip it.
  * @param query - The query of the slaves that the channels of the task use.
  * @param onRack - The query of the slaves on the rack of the task, with statuses.
@@ -200,7 +218,9 @@ export const slavesZ = (
       networkProblem(used),
       ...used.map((slave) => positionProblem(slave, onRackSlaves)),
     ].filter((p): p is string => p != null);
-    if (problems.length > 0) report(["channels"], problems.join(" "));
+    const steps = used.map(setupStep).filter((p): p is string => p != null);
+    if (problems.length > 0) report(["channels"], [...problems, ...steps].join(" "));
+    else if (steps.length > 0) report(["channels"], steps.join(" "), "warning");
     channels.forEach((ch, i) => {
       const slave = used.find((s) => s.key === ch.device);
       if (slave == null || ch.disabled) return;

@@ -384,7 +384,32 @@ describe("Read", () => {
       await screen.findByText("DewesoftX sets the settings of this device."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
-    expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
+  });
+
+  it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Switch it to Synnax before you ` +
+          "start the task.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+  });
+
+  it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
+    const slave = await createSharedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(deployed.config.channels[0].channel).not.toBe(0);
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
