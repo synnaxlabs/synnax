@@ -76,8 +76,7 @@ jobs:
         run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=stop
 
       - name: Back up
-        # Temporary, because a push has no inputs. Remove the second condition.
-        if: inputs.backup || github.event_name == 'push'
+        if: inputs.backup
         run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=backup
 
       - name: Install
