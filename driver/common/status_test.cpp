@@ -52,6 +52,25 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.description, "task validation error");
 }
 
+/// @brief it should send nothing for a start that its cancel ended, and answer the stop
+/// that follows as stopped.
+TEST(TestTaskStateHandler, testCancelledStartSendsNothing) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+    handler.error(
+        x::errors::Error(x::errors::CANCELLED, "bus start"),
+        "Failed to start task"
+    );
+    handler.send_start("start_cmd");
+    EXPECT_TRUE(ctx->statuses.empty());
+    handler.send_stop("stop_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Stopped task");
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "stop_cmd");
+}
+
 /// @brief it should echo the config hash the instance was built from.
 TEST(TestTaskStateHandler, testEchoesConfigHash) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -564,6 +583,43 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_EQ(ctx->statuses[0].description, "bad config");
     EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
     EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
+}
+
+/// @brief it should write no status for a configure that its cancel ended, so the
+/// start is answered as stopped.
+TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::CANCELLED, "bus start")},
+        "start_cmd",
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+}
+
+/// @brief it should report a cancel error as a failure while the start still runs.
+TEST(TestHandleConfigErr, testCancelErrorOfARunningStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    cancel.start();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::CANCELLED, "bus start")},
+        "start_cmd",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
 }
 
 /// @brief a config error should list each field error on its own line.

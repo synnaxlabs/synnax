@@ -305,6 +305,80 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
+namespace {
+/// @brief a configured device on eth0.
+const std::unordered_map<std::string, synnax::device::Device> CONFIGURED_ON_ETH0{
+    {"saved",
+     {.key = "saved",
+      .model = SLAVE_DEVICE_MODEL,
+      .configured = true,
+      .properties = {{"network", "eth0"}}}},
+};
+}
+
+/// @brief it should scan an interface that holds configured devices and has no slaves
+/// on each scan, report it, and show its slaves on the first scan that finds them.
+TEST_F(EtherCATScanProbeTest, ScansAnEmptyInterfaceWithConfiguredDevicesOnEachScan) {
+    this->master->set_name("Ethernet");
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+    );
+    for (std::size_t i = 0; i < 7; ++i) {
+        const auto [scanned, err] = this->scanner->scan(
+            {.count = i, .devices = &CONFIGURED_ON_ETH0}
+        );
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "No module answered on Ethernet. Check the cable and the power of the "
+            "first module."
+        );
+        EXPECT_TRUE(scanned.empty());
+    }
+    EXPECT_EQ(this->master->call_count("scan"), 7);
+    this->master->inject_scan_error(x::errors::NIL);
+    this->master->add_slave(
+        slave::Properties{.position = 1, .vendor_id = 0x1, .product_code = 0x2}
+    );
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->scanner->scan({.count = 7, .devices = &CONFIGURED_ON_ETH0}))
+            .size(),
+        1
+    );
+}
+
+/// @brief it should probe an empty interface every sixth scan when it holds only
+/// devices that a scan found.
+TEST_F(EtherCATScanProbeTest, ProbesAnEmptyInterfaceWithUnconfiguredDevices) {
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+    );
+    auto devices = CONFIGURED_ON_ETH0;
+    devices.at("saved").configured = false;
+    for (std::size_t i = 0; i < 7; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices}));
+    EXPECT_EQ(this->master->call_count("scan"), 2);
+}
+
+/// @brief it should scan an interface with configured devices whose replies a filter
+/// blocks on each scan, and report the filter.
+TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachScan) {
+    const auto blocked = x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        "No EtherCAT slaves found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
+        "on this adapter."
+    );
+    this->master->inject_scan_error(blocked);
+    for (std::size_t i = 0; i < 7; ++i) {
+        const auto err = this->scanner
+                             ->scan({.count = i, .devices = &CONFIGURED_ON_ETH0})
+                             .second;
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, blocked.data);
+    }
+    EXPECT_EQ(this->master->call_count("scan"), 7);
+}
+
 /// @brief it should report an interface whose replies a filter blocks on each scan, and
 /// still probe it only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {

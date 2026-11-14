@@ -45,8 +45,9 @@ public:
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
-    /// @param cancel stops when the task manager stops its workers, after it stops its
-    /// tasks. A task should end a long wait when it stops.
+    /// @param cancel stops when a stop cancels a start, or when the task manager stops
+    /// its tasks. A task should end a long wait when it stops. Valid only during the
+    /// call.
     virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
@@ -151,10 +152,13 @@ class SynnaxContext final : public Context {
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
-    /// @brief guards operations.
+    /// @brief guards operations and cancelled.
     std::mutex operations_mu;
-    /// @brief the open operations, by the key of their command.
+    /// @brief the open operations and the cancelled ones, by the key of their command.
     std::unordered_map<std::string, std::shared_ptr<Operation>> operations;
+    /// @brief the last cancelled operation of each task. It stays in operations, so a
+    /// late answer from its task answers nothing.
+    std::unordered_map<synnax::task::Key, std::shared_ptr<Operation>> cancelled;
 
     /// @returns the open operation of the command that status answers, or null.
     std::shared_ptr<Operation> operation(const synnax::task::Status &status) {
@@ -209,11 +213,12 @@ public:
 
     bool statuses_stale() override { return this->statuses->stale(); }
 
-    /// @brief opens an operation that runs cmd on the task called name. The statuses
-    /// that answer cmd go through it until end. The operation must not outlive this
-    /// context.
+    /// @brief opens an operation that runs cmd on task, which is called name. The
+    /// statuses that answer cmd go through it until end. The operation must not
+    /// outlive this context.
     /// @param limit how long a step with no limit of its own may run.
     std::shared_ptr<Operation> begin(
+        const synnax::task::Key &task,
         const std::string &name,
         const synnax::task::Command &cmd,
         const std::string &config_hash,
@@ -221,6 +226,7 @@ public:
     ) {
         auto op = std::make_shared<Operation>(
             [this](synnax::task::Status &status) { this->write(status); },
+            task,
             name,
             cmd,
             config_hash,
@@ -233,22 +239,35 @@ public:
         return op;
     }
 
-    /// @brief stops sending the statuses of op through it and closes op. A later
-    /// status for its command is written as it is.
-    void end(const std::shared_ptr<Operation> &op) {
-        {
-            std::lock_guard lock{this->operations_mu};
-            const auto it = this->operations.find(op->cmd.key);
-            if (it != this->operations.end() && it->second == op)
-                this->operations.erase(it);
+    /// @brief closes op. A later status for its command is written as it is, unless
+    /// op was cancelled. Then the status still goes through op, so it answers nothing.
+    /// @returns the joined starts that got no final status.
+    std::vector<synnax::task::Command> end(const std::shared_ptr<Operation> &op) {
+        auto joined = op->close();
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->operations.find(op->cmd.key);
+        if (it == this->operations.end() || it->second != op) return joined;
+        if (op->token().running()) {
+            this->operations.erase(it);
+            return joined;
         }
-        op->close();
+        auto &last = this->cancelled[op->task];
+        if (last != nullptr) {
+            const auto prev = this->operations.find(last->cmd.key);
+            if (prev != this->operations.end() && prev->second == last)
+                this->operations.erase(prev);
+        }
+        last = op;
+        return joined;
     }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
+
+/// @brief the type of a command that stops a task. A stop cancels a start that runs.
+const std::string STOP_CMD_TYPE = "stop";
 
 class Factory {
 public:
@@ -270,8 +289,9 @@ public:
 
     /// @brief builds a live instance of the task if this factory handles its type.
     /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
-    /// @param cancel stops when the task manager stops its workers. A factory should
-    /// end a long wait when it stops.
+    /// @param cancel stops when a stop cancels the start, or when the task manager
+    /// stops its tasks. A factory should end a long wait when it stops. Valid only
+    /// during the call.
     /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -444,6 +464,8 @@ private:
         synnax::task::Key task_key;
         synnax::task::Task task;
         synnax::task::Command cmd;
+        /// @brief the running start that this stop cancelled, or null.
+        std::shared_ptr<Operation> cancelled;
     };
 
     /// @brief per-task state tracked by the manager. Exists exactly while the row is
@@ -465,6 +487,9 @@ private:
         /// @brief the operation the claiming worker runs, null when idle. Guarded by
         /// Manager::mu.
         std::shared_ptr<Operation> op;
+        /// @brief true while op is a boot deploy, which may start the task. Guarded
+        /// by Manager::mu.
+        bool booting = false;
 
         [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
             std::lock_guard lock{this->mu};
@@ -518,8 +543,9 @@ private:
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
-    /// @brief stops all running tasks.
-    void stop_all_tasks();
+    /// @brief stops all running tasks. A start that this cancels fails with cause, such
+    /// as "The Driver stopped".
+    void stop_all_tasks(const std::string &cause);
     /// @brief re-reads this rack's name so a rename made before the streamer opened
     /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
     void retrieve_rack_name();
@@ -561,10 +587,13 @@ private:
     /// outage left stored: "Starting task" with a failed start, and a running task with
     /// a stopped one. Replaces only a status that this rack wrote, does nothing once
     /// this run wrote a status for the task, and never starts the task. Call it after
-    /// the boot deploy of the task.
+    /// the boot deploy of the task, unless the deploy was cancelled.
     void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
+    /// @brief answers a stop that cancelled the start of a task, which left no live
+    /// instance.
+    void answer_cancelled_start(const synnax::task::Key &key, Operation &operation);
     /// @brief answers a command for a task with no live instance with an error, so its
     /// sender does not wait out a timeout.
     void refuse_command(const synnax::task::Key &key, Operation &operation);
