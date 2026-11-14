@@ -2082,7 +2082,50 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = -1;
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+}
+
+/// @brief it should say that a USB adapter can hold frames back when no frame comes
+/// back, but only while a frame came back less than a second before, even when the
+/// sends fail.
+TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
+    const auto clock = x::loop::fake_clock();
+    auto api = std::make_unique<MockAPI>();
+    this->mock = api.get();
+    this->master = std::make_unique<Master>(
+        std::move(api),
+        "eth0",
+        Config{
+            .pre_op_timeout = x::telem::MILLISECOND * 100,
+            .state_change_timeout = x::telem::MINUTE,
+            .init_timeout = x::telem::MILLISECOND * 100,
+            .clock = clock,
+        }
+    );
+    this->mock->usb_interfaces.insert("eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    this->mock->receive_return = -1;
+    clock.sleep(x::telem::SECOND - x::telem::MILLISECOND);
+    ASSERT_NIL(this->master->send());
+    const auto late = this->master->receive();
+    ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
+    EXPECT_EQ(
+        late.data,
+        "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
+        "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
+    );
+    clock.sleep(x::telem::MILLISECOND);
+    this->mock->send_return = 0;
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    const auto dead = this->master->receive();
+    ASSERT_OCCURRED_AS(dead, errors::CYCLIC_ERROR);
+    EXPECT_EQ(dead.data, "process data receive failed");
 }
 
 /// @brief it should fail a receive whose working counter is not the expected count.

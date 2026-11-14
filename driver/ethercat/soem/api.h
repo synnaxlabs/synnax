@@ -52,6 +52,9 @@ public:
     /// outside Windows.
     virtual std::optional<std::string> adapter_name(const char *ifname) = 0;
 
+    /// @brief returns true when the adapter of ifname is on USB. Always false on macOS.
+    virtual bool on_usb(const char *ifname) = 0;
+
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
 
@@ -196,6 +199,8 @@ public:
     bool dewesoft_filter_bound(const char *ifname) override;
 
     std::optional<std::string> adapter_name(const char *ifname) override;
+
+    bool on_usb(const char *ifname) override;
 
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 

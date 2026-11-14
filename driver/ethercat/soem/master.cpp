@@ -115,6 +115,11 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
+/// What receive() says when no frame comes back.
+constexpr auto NO_FRAME = "process data receive failed";
+/// How recently a frame must have come back for a failed receive on a USB adapter to
+/// blame a late frame. A dead link gets the plain reason after it.
+constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
 
 namespace {
 /// The SOEM packet error codes of an SDO transfer.
@@ -293,7 +298,15 @@ master::Activation Master::activate(
                 "master already activated"
             )
         };
-    this->session.emplace().plan = plan;
+    auto &session = this->session.emplace();
+    session.plan = plan;
+    if (this->api->on_usb(this->iface_name.c_str()))
+        session.late_frame_err = x::errors::Error(
+            errors::CYCLIC_ERROR,
+            std::string(NO_FRAME) + ". " + this->name() +
+                " is a USB adapter, which can hold frames back. Use a PCIe or onboard "
+                "Ethernet adapter, or a lower sample rate"
+        );
     return this->start(start_cycle);
 }
 
@@ -462,8 +475,13 @@ x::errors::Error Master::receive() {
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0)
-        return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    if (wkc < 0) {
+        if (session.late_frame_err && session.frame_sent_at &&
+            this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
+            return session.late_frame_err;
+        return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+    }
+    session.frame_sent_at = session.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != session.expected_wkc) {
