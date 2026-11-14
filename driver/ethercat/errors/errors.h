@@ -79,6 +79,38 @@ const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 /// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
 std::string sdo_abort_reason(uint32_t code);
 
+/// @brief why a slave did not complete an SDO transfer.
+struct SDOFailure {
+    /// @brief how the transfer failed.
+    enum class Kind : uint8_t {
+        /// @brief no reply came back.
+        NO_REPLY,
+        /// @brief the slave aborted the transfer with abort_code.
+        ABORTED,
+        /// @brief the reply was not the SDO response to the request.
+        UNEXPECTED_FRAME,
+        /// @brief the reply held more data than the request had room for.
+        ANSWER_TOO_LARGE,
+    };
+
+    /// @brief how the transfer failed.
+    Kind kind = Kind::NO_REPLY;
+    /// @brief the abort code of an ABORTED transfer.
+    uint32_t abort_code = 0;
+
+    /// @brief returns the failure for the abort code of a master that reports only
+    /// abort codes, where 0 means no reply.
+    static SDOFailure from_abort_code(uint32_t code) {
+        if (code == 0) return {};
+        return {.kind = Kind::ABORTED, .abort_code = code};
+    }
+
+    /// @brief returns why the transfer failed, such as "no response".
+    [[nodiscard]] std::string reason() const;
+
+    bool operator==(const SDOFailure &) const = default;
+};
+
 /// @brief returns error text as a sentence: the first letter in upper case and a period
 /// at the end.
 inline std::string sentence(std::string text) {

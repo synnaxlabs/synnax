@@ -106,21 +106,40 @@ constexpr uint8_t DISABLED_GROUP = 2;
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 
 namespace {
-/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
-/// for the object, or 0 when it holds none.
-uint32_t pop_sdo_abort(
+/// The SOEM packet error codes of an SDO transfer.
+constexpr uint16_t UNEXPECTED_FRAME = 1;
+constexpr uint16_t CONTAINER_TOO_SMALL = 3;
+
+/// @brief empties the SOEM error list, returning why the latest SDO transfer of the
+/// object in it failed. With no error for the object, the transfer got no reply.
+errors::SDOFailure pop_sdo_failure(
     API &api,
     const uint16_t slave,
     const uint16_t index,
     const uint8_t sub_index
 ) {
-    uint32_t code = 0;
+    using Kind = errors::SDOFailure::Kind;
+    errors::SDOFailure failure;
     ec_errort err{};
-    while (api.poperror(err))
-        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
-            err.Index == index && err.SubIdx == sub_index)
-            code = static_cast<uint32_t>(err.AbortCode);
-    return code;
+    while (api.poperror(err)) {
+        if (err.Slave != slave || err.Index != index || err.SubIdx != sub_index)
+            continue;
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR)
+            failure = {
+                .kind = Kind::ABORTED,
+                .abort_code = static_cast<uint32_t>(err.AbortCode),
+            };
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR && err.ErrorCode == UNEXPECTED_FRAME
+        )
+            failure = {.kind = Kind::UNEXPECTED_FRAME};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR &&
+            err.ErrorCode == CONTAINER_TOO_SMALL
+        )
+            failure = {.kind = Kind::ANSWER_TOO_LARGE};
+    }
+    return failure;
 }
 
 /// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
@@ -218,12 +237,18 @@ x::errors::Error Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
-        const auto code = pop_sdo_abort(*this->api, pos, param.index, param.sub_index);
+        const auto
+            failure = pop_sdo_failure(*this->api, pos, param.index, param.sub_index);
+        if (failure.kind == errors::SDOFailure::Kind::ABORTED)
+            return x::errors::Error(
+                errors::STARTUP_PARAMETER_REJECTED,
+                "rejected startup parameter " + param.to_string() + ": " +
+                    failure.reason()
+            );
         return x::errors::Error(
-            code == 0 ? errors::STARTUP_PARAMETER_ERROR
-                      : errors::STARTUP_PARAMETER_REJECTED,
-            "rejected startup parameter " + param.to_string() + ": " +
-                errors::sdo_abort_reason(code)
+            errors::STARTUP_PARAMETER_ERROR,
+            "failed to write startup parameter " + param.to_string() + ": " +
+                failure.reason()
         );
     }
     return x::errors::NIL;
@@ -685,7 +710,7 @@ Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_ind
         coe::read_error(
             index,
             sub_index,
-            pop_sdo_abort(*this->api, pos, index, sub_index)
+            pop_sdo_failure(*this->api, pos, index, sub_index)
         )
     };
 }
@@ -696,7 +721,7 @@ Master::read_object(const uint16_t pos, const uint16_t index) {
     int size = static_cast<int>(bytes.size());
     if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
         0) {
-        pop_sdo_abort(*this->api, pos, index, 0);
+        pop_sdo_failure(*this->api, pos, index, 0);
         return std::nullopt;
     }
     bytes.resize(static_cast<size_t>(size));

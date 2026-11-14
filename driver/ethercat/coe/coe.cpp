@@ -62,9 +62,12 @@ parse_entries(const std::vector<uint8_t> &bytes, const size_t size) {
     return entries;
 }
 
-const x::errors::Error &abort_type(const uint32_t abort_code) {
-    if (abort_code == ABORT_OBJECT_MISSING) return OBJECT_MISSING;
-    if (abort_code == ABORT_SUBINDEX_MISSING) return SUBINDEX_MISSING;
+const x::errors::Error &failure_type(const errors::SDOFailure &failure) {
+    using Kind = errors::SDOFailure::Kind;
+    if (failure.kind == Kind::NO_REPLY) return NO_REPLY;
+    if (failure.kind != Kind::ABORTED) return errors::SDO_READ_ERROR;
+    if (failure.abort_code == ABORT_OBJECT_MISSING) return OBJECT_MISSING;
+    if (failure.abort_code == ABORT_SUBINDEX_MISSING) return SUBINDEX_MISSING;
     return errors::SDO_READ_ERROR;
 }
 }
@@ -92,12 +95,24 @@ Read with_complete_access(Read read, ReadAll read_all) {
     };
 }
 
+x::errors::Error read_error(
+    const uint16_t index,
+    const uint8_t sub_index,
+    const errors::SDOFailure &failure
+) {
+    return x::errors::Error(
+        failure_type(failure),
+        "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
+            failure.reason()
+    );
+}
+
 x::errors::Error
 read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
-    return x::errors::Error(
-        abort_type(abort_code),
-        "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
-            errors::sdo_abort_reason(abort_code)
+    return read_error(
+        index,
+        sub_index,
+        errors::SDOFailure::from_abort_code(abort_code)
     );
 }
 

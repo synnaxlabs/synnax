@@ -68,8 +68,11 @@ struct MockSlaveInfo {
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index.
+    /// sub-index. A code of 0 makes the read time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO read replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_read_packet_errors;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -524,7 +527,13 @@ public:
         }
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
-            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            if (abort->second != 0)
+                this->push_sdo_abort(slave, index, sub_index, abort->second);
+            return 0;
+        }
+        if (const auto packet = info.sdo_read_packet_errors.find({index, sub_index});
+            packet != info.sdo_read_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
             return 0;
         }
         const auto &objects = info.sdo_objects;
@@ -571,6 +580,22 @@ public:
         err.Index = index;
         err.SubIdx = sub_index;
         err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    /// @brief appends a SOEM packet error for the object to the SOEM error list.
+    void push_packet_error(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        uint16_t code
+    ) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_PACKET_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.ErrorCode = code;
         this->errors.push_back(err);
     }
 

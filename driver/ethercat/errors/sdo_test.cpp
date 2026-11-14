@@ -29,4 +29,22 @@ TEST(SDOAbortReasonTest, ReportsNoResponseForZero) {
 TEST(SDOAbortReasonTest, GivesTheValueOfAnUnknownCode) {
     EXPECT_EQ(sdo_abort_reason(0x0BADC0DE), "unknown abort code 0x0BADC0DE");
 }
+
+/// @brief it should give the reason of each kind of SDO failure.
+TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
+    using Kind = SDOFailure::Kind;
+    EXPECT_EQ(SDOFailure{}.reason(), "no response");
+    EXPECT_EQ(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x06090011}).reason(),
+        "Subindex does not exist"
+    );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::UNEXPECTED_FRAME}.reason(),
+        "the slave sent an unexpected reply"
+    );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::ANSWER_TOO_LARGE}.reason(),
+        "the reply is larger than the read allows"
+    );
+}
 }

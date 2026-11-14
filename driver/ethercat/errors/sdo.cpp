@@ -56,12 +56,29 @@ constexpr std::array<std::pair<uint32_t, std::string_view>, 32> ABORT_REASONS{{
     {0x08000023, "Object dictionary dynamic generation failed or no object dictionary"},
     {0x08000024, "No data available"},
 }};
-}
 
-std::string sdo_abort_reason(const uint32_t code) {
-    if (code == 0) return "no response";
+std::string abort_reason(const uint32_t code) {
     for (const auto &[known, reason]: ABORT_REASONS)
         if (known == code) return std::string(reason);
     return std::format("unknown abort code 0x{:08X}", code);
+}
+}
+
+std::string sdo_abort_reason(const uint32_t code) {
+    return SDOFailure::from_abort_code(code).reason();
+}
+
+std::string SDOFailure::reason() const {
+    switch (this->kind) {
+        case Kind::NO_REPLY:
+            return "no response";
+        case Kind::ABORTED:
+            return abort_reason(this->abort_code);
+        case Kind::UNEXPECTED_FRAME:
+            return "the slave sent an unexpected reply";
+        case Kind::ANSWER_TOO_LARGE:
+            return "the reply is larger than the read allows";
+    }
+    std::unreachable();
 }
 }
