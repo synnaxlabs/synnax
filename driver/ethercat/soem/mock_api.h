@@ -638,7 +638,13 @@ public:
     ) override {
         const auto &entries = this->slave_infos.at(od_list->Slave - 1).oe_entries;
         const auto it = entries.find({od_list->Index[item], sub_index});
-        if (it == entries.end()) return 0;
+        if (it == entries.end()) {
+            ec_errort err{};
+            err.Etype = EC_ERR_TYPE_SDOINFO_ERROR;
+            err.Slave = od_list->Slave;
+            this->errors.push_back(err);
+            return 0;
+        }
         oe_list->Entries++;
         std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
         oe_list->DataType[sub_index] = it->second.second;

@@ -1115,21 +1115,6 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should report a serial read with no reply after an earlier error of the
-/// slave, and with an emergency from the slave during the read.
-TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoReplyAfterOtherErrors) {
-    auto slave = create_coe_slave(0x5555);
-    slave.sdo_read_aborts[{0x1018, 4}] = 0;
-    slave.sdo_read_emergencies.insert({0x1018, 4});
-    this->add_slave(slave);
-    ec_errort earlier{};
-    earlier.Etype = EC_ERR_TYPE_MBX_ERROR;
-    earlier.Slave = 1;
-    this->mock->errors.push_back(earlier);
-    const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
-}
-
 /// @brief it should not read the CoE serial number of a slave without CoE.
 TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
     auto slave = create_coe_slave(0x5555);
@@ -2721,6 +2706,18 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     EXPECT_EQ(inputs[1].bit_length, 7);
     EXPECT_EQ(inputs[2].sub_index, 17);
     EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
+}
+
+/// @brief it should report a serial read with no reply after a failed SDO info read of
+/// the slave, and with an emergency from the slave during the read.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoReplyAfterOtherErrors) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->slave_infos[0].oe_entries.clear();
+    this->mock->slave_infos[0].sdo_read_aborts[{0x1018, 4}] = 0;
+    this->mock->slave_infos[0].sdo_read_emergencies.insert({0x1018, 4});
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
 }
 
 /// @brief it should leave the PDO name empty when the CoE object has no name.
