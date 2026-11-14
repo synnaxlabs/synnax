@@ -2150,19 +2150,8 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
 /// back, but only while a frame came back less than a second before, even when the
 /// sends fail.
 TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
-    const auto clock = x::loop::fake_clock();
-    auto api = std::make_unique<MockAPI>();
-    this->mock = api.get();
-    this->master = std::make_unique<Master>(
-        std::move(api),
-        "eth0",
-        Config{
-            .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MINUTE,
-            .init_timeout = x::telem::MILLISECOND * 100,
-            .clock = clock,
-        }
-    );
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->mock->usb_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     this->initialize_with_slave();
@@ -2170,7 +2159,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = -1;
-    clock.sleep(x::telem::SECOND - x::telem::MILLISECOND);
+    clock.skip(x::telem::SECOND - x::telem::MILLISECOND);
     ASSERT_NIL(this->master->send());
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
@@ -2179,7 +2168,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
         "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
         "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
     );
-    clock.sleep(x::telem::MILLISECOND);
+    clock.skip(x::telem::MILLISECOND);
     this->mock->send_return = 0;
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto dead = this->master->receive();
