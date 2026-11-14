@@ -132,14 +132,15 @@ export const ChannelUsage = ({
     names.length === 0 ? null : { where: { name: { in: names } } },
   );
   const count = Channel.useResultCountLimited();
-  const { data: info } = License.useResult({});
+  const license = License.useResult({});
   if (creations == null || (names.length > 0 && named == null)) return null;
+  if (license.variant === "loading") return null;
   const inUse = count.data;
   // A count that fails, as for a user who cannot retrieve channels, leaves it out.
   if (inUse == null && count.variant !== "error") return null;
   const held = new Set((named ?? []).map(({ name }) => name));
   const creates = creations.reduce((n, c) => (held.has(c.name) ? n : n + c.count), 0);
-  const cap = info?.license?.channels ?? 0;
+  const cap = license.data?.license?.channels ?? 0;
   let message = `Start creates ${channelsText(creates)}`;
   if (inUse == null) message += ".";
   else message += cap === 0 ? `, ${inUse} in use.` : `, ${inUse} of ${cap} in use.`;
