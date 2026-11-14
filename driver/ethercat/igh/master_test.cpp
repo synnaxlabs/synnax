@@ -593,7 +593,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -609,6 +609,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"

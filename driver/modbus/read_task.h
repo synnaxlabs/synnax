@@ -483,7 +483,7 @@ public:
     ):
         config(std::move(cfg)), devs(devs), sample_clock(this->config.sample_rate) {}
 
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         auto [d, err] = this->devs->acquire(
             this->config.props.connection,
             this->config.props.requests

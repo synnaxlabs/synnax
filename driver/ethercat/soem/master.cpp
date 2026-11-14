@@ -60,6 +60,13 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// The waits between the clock restores of a slave whose restores fail.
+const x::breaker::Config CLOCK_RETRY{
+    .name = "clock_restore",
+    .base_interval = x::telem::MILLISECOND * 100,
+    .scale = 2,
+    .max_interval = x::telem::SECOND * 10,
+};
 /// Timeout for one SDO (Service Data Object) read or write in microseconds.
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
@@ -85,8 +92,8 @@ int micros(const x::telem::TimeSpan span) {
 }
 
 /// @brief returns what the user can do about a slave that refuses a state with the AL
-/// status code, or an empty view for no advice.
-std::string_view refusal_advice(const uint16_t code) {
+/// status code, or an empty string for no advice.
+std::string refusal_advice(const uint16_t code) {
     switch (code) {
         case 0x001D: // Invalid output configuration
         case 0x001E: // Invalid input configuration
@@ -115,23 +122,48 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
+/// What receive() says when no frame comes back.
+constexpr auto NO_FRAME = "process data receive failed";
+/// How recently a frame must have come back for a failed receive on a USB adapter to
+/// blame a late frame. A dead link gets the plain reason after it.
+constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
 
 namespace {
-/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
-/// for the object, or 0 when it holds none.
-uint32_t pop_sdo_abort(
-    API &api,
-    const uint16_t slave,
-    const uint16_t index,
-    const uint8_t sub_index
-) {
-    uint32_t code = 0;
+/// The SOEM packet error codes of an SDO transfer.
+constexpr uint16_t UNEXPECTED_FRAME = 1;
+constexpr uint16_t CONTAINER_TOO_SMALL = 3;
+
+/// @brief empties the SOEM error list. Call it before an SDO transfer, so that
+/// pop_sdo_failure sees only the errors of that transfer.
+void clear_errors(API &api) {
+    ec_errort err{};
+    while (api.poperror(err)) {}
+}
+
+/// @brief empties the SOEM error list, returning why the SDO transfer since
+/// clear_errors failed. With no error, the transfer got no reply.
+errors::SDOFailure pop_sdo_failure(API &api) {
+    using Kind = errors::SDOFailure::Kind;
+    errors::SDOFailure failure;
     ec_errort err{};
     while (api.poperror(err))
-        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
-            err.Index == index && err.SubIdx == sub_index)
-            code = static_cast<uint32_t>(err.AbortCode);
-    return code;
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR)
+            failure = {
+                .kind = Kind::ABORTED,
+                .abort_code = static_cast<uint32_t>(err.AbortCode),
+            };
+        else if (err.Etype == EC_ERR_TYPE_MBX_ERROR)
+            failure = {.kind = Kind::MAILBOX_ERROR};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR && err.ErrorCode == UNEXPECTED_FRAME
+        )
+            failure = {.kind = Kind::UNEXPECTED_REPLY};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR &&
+            err.ErrorCode == CONTAINER_TOO_SMALL
+        )
+            failure = {.kind = Kind::REPLY_TOO_LARGE};
+    return failure;
 }
 
 /// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
@@ -219,6 +251,7 @@ x::errors::Error Master::write_parameters(
 ) {
     for (const auto &param: parameters) {
         const auto data = param.bytes();
+        clear_errors(*this->api);
         if (this->api->SDOwrite(
                 pos,
                 param.index,
@@ -229,12 +262,17 @@ x::errors::Error Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
+        const auto failure = pop_sdo_failure(*this->api);
+        if (failure.kind == errors::SDOFailure::Kind::ABORTED)
+            return x::errors::Error(
+                errors::startup_parameter_error(failure.abort_code),
+                "rejected startup parameter " + param.to_string() + ": " +
+                    failure.reason()
+            );
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "rejected startup parameter " + param.to_string() + ": " +
-                errors::sdo_abort_reason(
-                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-                )
+            "failed to write startup parameter " + param.to_string() + ": " +
+                failure.reason()
         );
     }
     return x::errors::NIL;
@@ -246,7 +284,7 @@ bool Master::write_startup_parameters(
 ) {
     const auto err = this->write_parameters(pos, parameters);
     if (err)
-        this->session.value().startup_failures[pos] = err.data;
+        this->session.value().startup_failures[pos] = err;
     else
         this->session.value().startup_failures.erase(pos);
     return !err;
@@ -267,7 +305,15 @@ master::Activation Master::activate(
                 "master already activated"
             )
         };
-    this->session.emplace().plan = plan;
+    auto &session = this->session.emplace();
+    session.plan = plan;
+    if (this->api->on_usb(this->iface_name.c_str()))
+        session.late_frame_err = x::errors::Error(
+            errors::CYCLIC_ERROR,
+            std::string(NO_FRAME) + ". " + this->name() +
+                " is a USB adapter, which can hold frames back. Use a PCIe or onboard "
+                "Ethernet adapter, or a lower sample rate"
+        );
     return this->start(start_cycle);
 }
 
@@ -356,11 +402,16 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     }
 
     std::string failures;
-    for (const auto &[pos, failure]: session.startup_failures)
+    // One failure with no abort code is enough for a retry to help.
+    auto type = errors::STARTUP_PARAMETER_REJECTED;
+    for (const auto &[pos, failure]: session.startup_failures) {
         failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
-                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " + failure;
-    if (!failures.empty())
-        return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
+                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                    failure.data;
+        if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
+            type = errors::STARTUP_PARAMETER_ERROR;
+    }
+    if (!failures.empty()) return {.err = x::errors::Error(type, failures)};
 
     // A startup parameter can change the slave's PDO assignment.
     for (const auto pos: parameterized) {
@@ -431,8 +482,13 @@ x::errors::Error Master::receive() {
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0)
-        return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    if (wkc < 0) {
+        if (session.late_frame_err && session.frame_sent_at &&
+            this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
+            return session.late_frame_err;
+        return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+    }
+    session.frame_sent_at = session.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != session.expected_wkc) {
@@ -528,7 +584,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (const auto it = session.startup_failures.find(i);
             it != session.startup_failures.end()) {
             h.faulted = true;
-            h.startup_error = it->second;
+            h.startup_error = it->second.data;
         }
         if (breaker.running()) this->recover(i, breaker);
     }
@@ -542,7 +598,7 @@ x::errors::Error Master::write(
     std::lock_guard lock(this->mailbox_mu);
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
-            errors::STARTUP_PARAMETER_ERROR,
+            err,
             "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
@@ -564,34 +620,48 @@ void Master::update_lost(const uint16_t pos) {
 }
 
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
-    if (this->session.value().startup_failures.contains(pos)) return;
+    auto &session = this->session.value();
+    if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;
-    if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
+    const auto retry = session.clock_retries.find(pos);
+    const bool waits = retry != session.clock_retries.end() &&
+                       this->cfg.clock.steady() < retry->second.at;
+    if (state == EC_STATE_OPERATIONAL)
+        session.clock_retries.erase(pos);
+    else if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->record(pos).state = EC_STATE_SAFE_OP + EC_STATE_ACK;
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        // From PRE-OP, the next check restores the clock again.
+        // From PRE-OP, a later check restores the clock again.
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+    } else if (state > EC_STATE_NONE && !waits) {
         auto params = this->config(pos).startup_parameters;
-        const bool has_dc = this->record(pos).hasdc != 0;
-        if (has_dc || !params.empty())
+        const bool restores = this->restores_clock(pos);
+        if (this->record(pos).hasdc && !restores) session.unrestored_clocks.insert(pos);
+        if (restores || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
-                [this, pos, &breaker, params = std::move(params), has_dc](uint16_t) {
-                    if (!this->write_startup_parameters(pos, params) || !has_dc) return;
+                [this, pos, &breaker, params = std::move(params), restores](uint16_t) {
+                    if (!this->write_startup_parameters(pos, params) || !restores)
+                        return;
+                    auto &s = this->session.value();
                     const auto err = this->restore_dc(pos, breaker);
-                    if (err)
-                        this->session.value().dc_restore_errors[pos] = err.data;
-                    else
-                        this->session.value().dc_restore_errors.erase(pos);
+                    if (!err) {
+                        s.dc_restore_errors.erase(pos);
+                        return;
+                    }
+                    s.dc_restore_errors[pos] = err.data;
+                    auto &retry = s.clock_retries[pos];
+                    retry.failures++;
+                    retry.at = this->cfg.clock.steady() +
+                               CLOCK_RETRY.interval(retry.failures).chrono();
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
-        if (this->session.value().startup_failures.contains(pos)) {
+        if (session.startup_failures.contains(pos)) {
             this->record(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
@@ -616,9 +686,7 @@ void Master::populate_slaves() {
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
-    ec_errort err{};
-    // Only the errors of this read can show that the slave answered it.
-    while (this->api->poperror(err)) {}
+    clear_errors(*this->api);
     uint32_t serial = 0;
     int size = sizeof(serial);
     if (this->api->SDOread(
@@ -636,6 +704,7 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
     // A slave that answers the read with an error, such as an SDO abort or a mailbox
     // error, has no CoE serial number. An emergency is no answer.
     bool answered = false;
+    ec_errort err{};
     while (this->api->poperror(err))
         answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
     if (!answered)
@@ -765,17 +834,11 @@ std::pair<uint32_t, x::errors::Error>
 Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
     uint32_t value = 0;
     int size = sizeof(value);
+    clear_errors(*this->api);
     if (this->api->SDOread(pos, index, sub_index, FALSE, &size, &value, SDO_TIMEOUT) >
         0)
         return {value, x::errors::NIL};
-    return {
-        0,
-        coe::read_error(
-            index,
-            sub_index,
-            pop_sdo_abort(*this->api, pos, index, sub_index)
-        )
-    };
+    return {0, coe::read_error(index, sub_index, pop_sdo_failure(*this->api))};
 }
 
 std::optional<std::vector<uint8_t>>
@@ -784,7 +847,7 @@ Master::read_object(const uint16_t pos, const uint16_t index) {
     int size = static_cast<int>(bytes.size());
     if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
         0) {
-        pop_sdo_abort(*this->api, pos, index, 0);
+        clear_errors(*this->api);
         return std::nullopt;
     }
     bytes.resize(static_cast<size_t>(size));
@@ -1259,7 +1322,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         if (other == pos || this->record(other).group != ENABLED_GROUP ||
             !this->record(other).hasdc || this->record(other).islost ||
             (this->record(other).state & 0x0F) < EC_STATE_SAFE_OP ||
-            this->restore_failed(other))
+            this->restore_failed(other) ||
+            this->session.value().unrestored_clocks.contains(other))
             continue;
         const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
             other,
@@ -1346,6 +1410,12 @@ bool Master::al_error(const uint16_t pos) const {
 
 bool Master::restore_failed(const uint16_t pos) const {
     return this->session.value().dc_restore_errors.contains(pos);
+}
+
+bool Master::restores_clock(const uint16_t pos) const {
+    if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
+    const auto &setups = this->session.value().dc_setups;
+    return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();
 }
 
 bool Master::wait_for_frame(

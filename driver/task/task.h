@@ -486,6 +486,18 @@ private:
     void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
+    /// @brief tells the sender of a start command that the start began, so it waits
+    /// for the result instead of taking the Driver as down. Does nothing for any other
+    /// command.
+    void announce_start(
+        const synnax::task::Key &key,
+        const std::string &name,
+        const std::string &config_hash,
+        const synnax::task::Command &cmd
+    );
+    /// @brief replaces a "Starting task" status that a previous Driver run or a run
+    /// before a Core outage left stored with a failed start.
+    void fail_interrupted_start(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(
         const synnax::task::Task &tsk,
