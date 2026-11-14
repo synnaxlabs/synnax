@@ -82,14 +82,21 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
         names = {p: d.name for p, d in sorted(found.items())}
         raise TimeoutError(f"Expected the slaves {SLAVES} present, but found {names}")
     for pos in STGS:
-        client.devices.dispatch(
-            slaves[pos].key,
-            sy.device.set(
-                sy.device.SetPayload(path=["properties", "op_mode"], value=STG_DC)
-            ),
-        )
-        slaves[pos].properties["op_mode"] = STG_DC
+        set_op_mode(client, slaves[pos], STG_DC)
     return slaves
+
+
+def set_op_mode(
+    client: sy.Synnax, slave: sy.Device, op_mode: dict[str, JsonValue]
+) -> None:
+    """Sets the sync mode that the next bus start gives the slave."""
+    client.devices.dispatch(
+        slave.key,
+        sy.device.set(
+            sy.device.SetPayload(path=["properties", "op_mode"], value=op_mode)
+        ),
+    )
+    slave.properties["op_mode"] = op_mode
 
 
 def create_read_task(
@@ -99,6 +106,8 @@ def create_read_task(
     name: str,
     sample_rate: sy.Rate,
     stream_rate: sy.Rate,
+    auto_start: bool = False,
+    startup_parameters: list[sy.ethercat.SlaveStartupParameters] | None = None,
 ) -> sy.ethercat.ReadTask:
     """Returns a task that reads u1 to u4 of the first 6xSTG into `hitl_ethercat_u1`
     to `hitl_ethercat_u4`, and the cycle counter of each 6xSTG into
@@ -126,7 +135,12 @@ def create_read_task(
             )
         )
     return sy.ethercat.ReadTask(
-        name=name, sample_rate=sample_rate, stream_rate=stream_rate, channels=channels
+        name=name,
+        sample_rate=sample_rate,
+        stream_rate=stream_rate,
+        channels=channels,
+        auto_start=auto_start,
+        startup_parameters=startup_parameters,
     )
 
 

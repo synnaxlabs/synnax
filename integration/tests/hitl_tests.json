@@ -10,6 +10,7 @@
       "tests": [
         { "case": "hitl/ethercat" },
         { "case": "hitl/ethercat_settings" },
+        { "case": "hitl/ethercat_commands" },
         { "case": "hitl/ethercat_arc" }
       ]
     },
@@ -24,6 +25,11 @@
         { "case": "hitl/crio_ni" },
         { "case": "hitl/crio_arc" }
       ]
+    },
+    {
+      "sequence_name": "EtherCAT Driver restarts",
+      "isolated": true,
+      "tests": [{ "case": "hitl/ethercat_restarts" }]
     }
   ]
 }
