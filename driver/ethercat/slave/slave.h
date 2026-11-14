@@ -471,7 +471,8 @@ struct Identity {
 /// @brief returns the indices of saved in order of saved position, then name.
 inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
     std::vector<size_t> order(saved.size());
-    std::ranges::iota(order, size_t{0});
+    // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
+    std::iota(order.begin(), order.end(), 0);
     std::ranges::sort(order, {}, [&saved](const size_t i) {
         return std::tie(saved[i].position, saved[i].name);
     });
