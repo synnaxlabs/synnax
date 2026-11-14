@@ -390,7 +390,7 @@ TEST(ReadSettings, SelectsTheDescriptionOfTheRevision) {
     );
     ASSERT_TRUE(inputs.has_value());
     EXPECT_TRUE(inputs.value()["device"].empty());
-    EXPECT_EQ(inputs.value()["mode"]["index"], 0x8020);
+    EXPECT_FALSE(inputs.value().contains("mode"));
 }
 
 /// @brief it should return no settings for a revision that no description of the

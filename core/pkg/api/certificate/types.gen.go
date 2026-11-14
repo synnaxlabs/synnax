@@ -12,6 +12,8 @@
 package certificate
 
 import (
+	"strconv"
+
 	servicecertificate "github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -86,4 +88,16 @@ func (r RetrieveRequest) Validate() error {
 type RetrieveResponse struct {
 	// Certificates are the certificates the request selects.
 	Certificates []servicecertificate.Certificate `json:"certificates" msgpack:"certificates"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Certificates {
+		v.Exec(func() error {
+			return validate.PathedError(r.Certificates[i].Validate(), "certificates", strconv.Itoa(i))
+		})
+	}
+	return v.Error()
 }

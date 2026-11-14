@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -33,6 +36,34 @@ protected:
     synnax::device::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
+
+    /// @brief returns the properties of a slave of the saved model on the bus.
+    [[nodiscard]] static slave::Properties
+    slave_properties(const uint16_t position, const uint32_t serial) {
+        return {
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "Test Slave",
+            .output_pdos = {
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = false,
+                 .name = "control_word",
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = false,
+                 .name = "setpoint",
+                 .data_type = x::telem::INT32_T},
+            },
+        };
+    }
 
     void SetUp() override {
         this->cancel.start();
@@ -65,31 +96,7 @@ protected:
         );
 
         mock_master = std::make_shared<testutil::Master>();
-        mock_master->add_slave(
-            slave::Properties{
-                .position = 1,
-                .vendor_id = 0x1,
-                .product_code = 0x2,
-                .serial = SLAVE_SERIAL,
-                .name = "Test Slave",
-                .output_pdos = {
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = false,
-                     .name = "control_word",
-                     .data_type = x::telem::INT16_T},
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = false,
-                     .name = "setpoint",
-                     .data_type = x::telem::INT32_T},
-                },
-            }
-        );
+        mock_master->add_slave(slave_properties(1, SLAVE_SERIAL));
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
@@ -406,6 +413,40 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
     EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
 }
 
+/// @brief it should fail a start that discovers the slaves while another task starts
+/// the bus, once the start timeout passes.
+TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    engine::Config engine_cfg;
+    engine_cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto sink = [&] {
+        auto parser = x::json::Parser(cfg);
+        WriteTaskConfig task_cfg(this->client, parser);
+        EXPECT_NIL(parser.error());
+        return std::make_unique<WriteTaskSink>(this->engine, std::move(task_cfg));
+    };
+    const auto first = sink();
+    const auto second = sink();
+    this->mock_master->hold_activate();
+    std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
+    this->mock_master->wait_until_activating();
+    const auto err = second->start("second", this->cancel);
+    this->mock_master->release_activate();
+    starter.join();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    ASSERT_NIL(first->stop());
+}
+
 /// @brief it should write the stop value of each channel when the task stops.
 TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
@@ -428,6 +469,31 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     ASSERT_NIL(sink.stop());
     EXPECT_FALSE(this->engine->running());
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
+}
+
+/// @brief it should write to a slave with its serial number at the position where it is
+/// on the bus, not at its saved position.
+TEST_F(EtherCATWriteTest, SinkWritesASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(6),
+        static_cast<int16_t>(0x5678)
+    );
+    EXPECT_EQ(this->mock_master->get_output<int16_t>(0), 0);
+    ASSERT_NIL(sink.stop());
 }
 
 /// @brief it should wake the next state read for a command written before the state
@@ -617,10 +683,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
     const auto err = sink.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(
-        err.data,
-        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
-    );
+    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
 }
 
 }
