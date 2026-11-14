@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -412,6 +413,8 @@ private:
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
+    /// @brief the number of runs started, which names the current run.
+    std::atomic<uint64_t> runs{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -464,8 +467,9 @@ private:
     void start_workers();
     /// @brief stops workers and waits for them to finish.
     void stop_workers();
-    /// @brief main loop for worker threads - pops and executes operations.
-    void worker_loop();
+    /// @brief main loop for worker threads - pops and executes operations until run
+    /// ends.
+    void worker_loop(uint64_t run);
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.

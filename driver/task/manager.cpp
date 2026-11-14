@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -102,6 +103,13 @@ x::errors::Error Manager::configure_initial_tasks() {
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // An entry left by a worker of an earlier run that is still stuck holds a task
+        // that this run does not deploy. Its removal waits for that worker.
+        for (const auto &[key, _]: this->entries)
+            if (std::ranges::none_of(tasks, [&](const auto &t) {
+                    return t.key == key;
+                }))
+                this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         for (const auto &task: tasks) {
             VLOG(1) << "queuing configure for task " << task;
             const auto entry = this->entry_for(task.key);
@@ -148,10 +156,11 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     }
     this->start_workers();
     const auto err = this->serve(on_started);
-    // Workers run the shutdown of each task, so they stop last. Every run ends with no
-    // tasks and no workers, so the next run starts clean.
+    // Workers run the shutdown of each task, so they stop last. The next run starts
+    // with no statuses, so it never re-sends one of a task deleted in an outage.
     this->stop_all_tasks();
     this->stop_workers();
+    this->statuses->clear();
     return err;
 }
 
@@ -349,9 +358,10 @@ void Manager::stop_all_tasks() {
         }
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
-    // A worker stuck past the deadline is still alive and using the map.
+    // The entry of a worker stuck past the deadline stays, so the next run waits for
+    // that worker before it deploys or removes the task.
     std::lock_guard<std::mutex> lock(this->mu);
-    this->entries.clear();
+    std::erase_if(this->entries, [](const auto &e) { return !e.second->processing; });
 }
 
 void Manager::process_task_delete(const x::telem::Series &series) {
@@ -365,11 +375,12 @@ void Manager::process_task_delete(const x::telem::Series &series) {
 
 void Manager::start_workers() {
     this->breaker.start();
+    const auto run = ++this->runs;
     for (size_t i = 0; i < this->worker_count; i++) {
         auto done = std::make_shared<std::atomic<bool>>(false);
         this->workers.push_back(
-            {std::thread([this, done] {
-                 this->worker_loop();
+            {std::thread([this, done, run] {
+                 this->worker_loop(run);
                  *done = true;
              }),
              done}
@@ -400,13 +411,17 @@ void Manager::stop_workers() {
     if (this->monitor_thread.joinable()) this->monitor_thread.join();
 }
 
-void Manager::worker_loop() {
-    while (this->breaker.running()) {
+void Manager::worker_loop(const uint64_t run) {
+    // A worker detached by an earlier run exits once its op returns.
+    const auto serving = [this, run] {
+        return this->breaker.running() && this->runs == run;
+    };
+    while (serving()) {
         std::unique_lock<std::mutex> lock(this->mu);
         // Wait until there's work we can actually process - not just ops in the queue,
         // but ops whose entries aren't currently being processed by another worker.
-        this->cv.wait(lock, [this] {
-            if (!this->breaker.running()) return true;
+        this->cv.wait(lock, [this, &serving] {
+            if (!serving()) return true;
             for (const auto &op: this->op_queue) {
                 const auto it = this->entries.find(op.task_key);
                 if (it != this->entries.end() && !it->second->processing.load())
@@ -414,7 +429,7 @@ void Manager::worker_loop() {
             }
             return false;
         });
-        if (!this->breaker.running()) break;
+        if (!serving()) break;
 
         // Find and claim the first available op. An op whose entry is gone was
         // queued before the task was deleted or released.
@@ -632,6 +647,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             if (entry->instance == nullptr) return;
             LOG(INFO) << "shutting down task " << entry->instance->name();
             entry->instance->stop(false);
+            entry->instance = nullptr;
+            this->clear_deploy(entry);
             break;
         }
         case Op::Type::REMOVE: {

@@ -316,6 +316,11 @@ struct Config {
     /// it logs in with the password and loads the saved rack. Writes the rack with this
     /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
+
+    /// @brief checks the Core again, after the Driver lost it.
+    /// @returns an error when the Core is now another cluster, or became compatible or
+    /// incompatible with this Driver. The Driver must then start again to load it.
+    [[nodiscard]] x::errors::Error check_core() const;
 };
 
 /// @brief clears the persisted state file, removing all cached information.

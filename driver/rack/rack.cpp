@@ -62,9 +62,12 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.manager
         );
     }
-    while (this->breaker.running()) {
+    while (true) {
         const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
-        if (this->should_exit(err, on_shutdown)) return;
+        if (this->should_exit(err, on_shutdown) || !this->breaker.running()) return;
+        // The factories hold the Core version and cluster from startup, so a new one
+        // needs a new Driver process.
+        if (this->should_exit(cfg.check_core(), on_shutdown)) return;
     }
 }
 

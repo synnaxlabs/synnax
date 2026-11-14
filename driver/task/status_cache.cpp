@@ -96,4 +96,10 @@ void StatusCache::claim(const synnax::task::Key &key) {
     std::lock_guard lock{this->mu};
     this->released.erase(synnax::task::resource_id(key));
 }
+
+void StatusCache::clear() {
+    std::lock_guard lock{this->mu};
+    this->entries.clear();
+    this->is_stale = false;
+}
 }
