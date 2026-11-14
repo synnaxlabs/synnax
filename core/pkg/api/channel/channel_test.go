@@ -532,7 +532,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
-	Describe("Count", func() {
+	Describe("CountLimited", func() {
 		var u user.User
 		BeforeEach(func(ctx SpecContext) {
 			u = MustSucceed(rbactestutil.CreateUser(
@@ -549,7 +549,7 @@ var _ = Describe("Service", func() {
 				[]access.Action{access.ActionRetrieve},
 				channel.ResourceID(ch.Key()),
 			)
-			Expect(countChannels(AuthedCtx(ctx, u), apichannel.CountRequest{})).
+			Expect(countLimited(AuthedCtx(ctx, u), apichannel.CountLimitedRequest{})).
 				Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should count a stored channel and leave out a virtual one", func(
@@ -562,7 +562,7 @@ var _ = Describe("Service", func() {
 				resource.ID{Type: resource.TypeChannel},
 			)
 			before := MustSucceed(
-				countChannels(AuthedCtx(ctx, u), apichannel.CountRequest{}),
+				countLimited(AuthedCtx(ctx, u), apichannel.CountLimitedRequest{}),
 			)
 			Expect(before.Count).To(Equal(channelSvc.CountLimited()))
 			createChannel(ctx, telem.Float32T)
@@ -574,8 +574,8 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, &idx)
 			})).To(Succeed())
-			Expect(countChannels(AuthedCtx(ctx, u), apichannel.CountRequest{})).
-				To(Equal(apichannel.CountResponse{Count: before.Count + 1}))
+			Expect(countLimited(AuthedCtx(ctx, u), apichannel.CountLimitedRequest{})).
+				To(Equal(apichannel.CountLimitedResponse{Count: before.Count + 1}))
 		})
 	})
 	Describe("RetrieveDataTypes", func() {

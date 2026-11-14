@@ -202,8 +202,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	return r
 }
 
-// CountLimited returns how many channels count toward the channel limit: the channels
-// that are neither internal nor virtual.
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
 func (s *Service) CountLimited() uint32 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

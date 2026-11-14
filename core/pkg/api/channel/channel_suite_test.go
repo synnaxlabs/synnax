@@ -62,9 +62,9 @@ var (
 		apichannel.RetrieveRequest,
 		apichannel.RetrieveResponse,
 	]
-	countChannels freighter.UnaryHandler[
-		apichannel.CountRequest,
-		apichannel.CountResponse,
+	countLimited freighter.UnaryHandler[
+		apichannel.CountLimitedRequest,
+		apichannel.CountLimitedResponse,
 	]
 	author user.User
 )
@@ -93,7 +93,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
-	countChannels = bind.Read(binder, apiSvc.Count)
+	countLimited = bind.Read(binder, apiSvc.CountLimited)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

@@ -89,7 +89,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// CHANNEL
-	t.ChannelCount = noop.UnaryServer[apichannel.CountRequest, apichannel.CountResponse]{}
+	t.ChannelCountLimited = noop.UnaryServer[
+		apichannel.CountLimitedRequest,
+		apichannel.CountLimitedResponse,
+	]{}
 	t.ChannelDispatch = noop.UnaryServer[
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,
