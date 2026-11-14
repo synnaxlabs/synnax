@@ -127,7 +127,9 @@ private:
     /// number, or with serial number 0, its network and position. Else a slave with a
     /// serial number takes the stored device of its model at its position saved with
     /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
-    /// new key that no stored device holds. No slave takes a device in kept.
+    /// new key that no stored device holds. A slave whose serial number the master
+    /// could not read takes only the stored device of its model at its position, and
+    /// else gets an empty key. No slave takes a device in kept.
     [[nodiscard]] static std::vector<std::string> slave_keys(
         const std::vector<slave::DiscoveryResult> &slaves,
         const std::string &master_key,
