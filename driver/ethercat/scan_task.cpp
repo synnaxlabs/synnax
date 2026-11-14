@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <format>
 #include <iterator>
 #include <map>
 #include <set>
@@ -161,6 +162,36 @@ void add_settings_error(const std::string &error, synnax::device::Status &status
     if (!status.description.empty()) status.description += ' ';
     status.description += "Failed to read the settings: " + error +
                           ". The Driver tries again while no task uses the port.";
+    status.variant = synnax::status::VARIANT_WARNING;
+}
+
+/// @brief warns on status when the card holds a mode whose sync mode its SII does not
+/// list, and the user chose no sync mode.
+void add_unlisted_op_mode(
+    const slave::Properties &saved,
+    synnax::device::Status &status
+) {
+    if (saved.config.op_mode || !saved.settings) return;
+    const auto mode = saved.settings->find("mode");
+    if (mode == saved.settings->end() || !mode->contains("unlisted_assign_activate"))
+        return;
+    const auto aa = mode->at("unlisted_assign_activate").get<uint16_t>();
+    if (!status.description.empty()) status.description += ' ';
+    if (saved.op_modes.empty())
+        status.description += std::format(
+            "The mode of the module needs the sync mode with assign activate value "
+            "{:#06x}, but the module lists no sync modes. The Driver uses SM sync, and "
+            "the module can refuse to start.",
+            aa
+        );
+    else
+        status.description += std::format(
+            "The mode of the module needs the sync mode with assign activate value "
+            "{:#06x}, but the module does not list it. The Driver uses another sync "
+            "mode, and the module can refuse to start. Choose a sync mode for the "
+            "device.",
+            aa
+        );
     status.variant = synnax::status::VARIANT_WARNING;
 }
 
@@ -370,9 +401,10 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(props, status))
+    else if (set_setup_status(props, status)) {
         add_settings_error(sts.settings_error, status);
-    else if (
+        add_unlisted_op_mode(saved, status);
+    } else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
@@ -394,6 +426,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
             status.variant = synnax::status::VARIANT_WARNING;
         }
         add_settings_error(sts.settings_error, status);
+        add_unlisted_op_mode(saved, status);
     }
     dev.status = std::move(status);
     return {std::move(dev), is_enabled};

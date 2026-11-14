@@ -60,7 +60,8 @@ public:
     x::errors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
-        int *ljm_scan_backlog
+        int *ljm_scan_backlog,
+        const x::breaker::Breaker &
     ) const override {
         if (this->should_fail) return x::errors::Error("mock failure");
         if (auto err = next(this->stream_read_errors)) return err;

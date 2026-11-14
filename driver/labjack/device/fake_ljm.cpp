@@ -24,6 +24,7 @@ constexpr int NO_RESPONSE_BYTES_RECEIVED = 1263;
 // so its callers reach its state only through global functions.
 std::atomic<int> late_scans_reads = 0;
 std::atomic<int> lost_stream_reads = 0;
+std::atomic<int> stalled_stream_reads = 0;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
@@ -44,6 +45,9 @@ int LJM_WriteLibraryConfigS(const char *, double) {
 int LJM_eStreamRead(const int handle, double *data, int *, int *) {
     if (handle == driver::labjack::device::LATE_SCANS_HANDLE &&
         late_scans_reads++ < driver::labjack::device::LATE_SCANS_EMPTY_READS)
+        return NO_SCANS_RETURNED;
+    if (handle == driver::labjack::device::STALLED_STREAM_HANDLE &&
+        stalled_stream_reads++ < driver::labjack::device::STALLED_STREAM_EMPTY_READS)
         return NO_SCANS_RETURNED;
     if (handle == driver::labjack::device::LOST_STREAM_HANDLE)
         return lost_stream_reads++ == 0 ? NO_SCANS_RETURNED
