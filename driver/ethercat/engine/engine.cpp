@@ -431,6 +431,7 @@ void Engine::supervise() {
         auto health = this->master->check(this->bus);
         for (const auto &[pos, left]: this->left_out)
             health.push_back({.position = pos, .refusal = left.refusal});
+        std::vector<uint16_t> restarted;
         for (const auto &h: health) {
             if (h.refusal) continue;
             const auto prev = std::ranges::find(
@@ -438,6 +439,11 @@ void Engine::supervise() {
                 h.position,
                 &slave::Health::position
             );
+            // A power restart brings a lost slave back in INIT or BOOT, and a cable
+            // pull that trips its watchdog brings it back in SAFE-OP.
+            if (prev != last.end() && prev->lost && !h.lost &&
+                (h.state == slave::State::INIT || h.state == slave::State::BOOT))
+                restarted.push_back(h.position);
             const bool was_operational = prev == last.end() || prev->operational();
             if (was_operational && !h.operational())
                 LOG(WARNING) << "[ethercat] slave " << h.position << " on "
@@ -460,6 +466,17 @@ void Engine::supervise() {
                                   (!h.lost && h.state == slave::State::SAFE_OP
                                        ? 0
                                        : it->second.inputs);
+        }
+        if (!restarted.empty()) {
+            const auto now = this->config.host_clock.now();
+            std::lock_guard lock(this->restarts_mu);
+            for (const auto &s: this->image.slaves)
+                if (std::ranges::find(restarted, s.properties.position) !=
+                    restarted.end()) {
+                    LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
+                              << this->iface << " restarted";
+                    this->restarts[restart_key(s.properties)] = now;
+                }
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
@@ -592,6 +609,17 @@ void Engine::stop_locked() {
     this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
+    // The supervisor counts the restarts on the running bus, where changed() also
+    // reports a slave stuck in INIT.
+    if (auto [restarted, err] = this->restarted_locked(); err)
+        LOG(WARNING) << "[ethercat] failed to check " << this->iface
+                     << " for restarted slaves: " << err.message();
+    else {
+        std::erase_if(restarted, [this](const uint16_t pos) {
+            return !this->left_out.contains(pos);
+        });
+        this->track_restarts_locked(restarted);
+    }
     this->master->deactivate();
     this->image = {};
     this->cycle_mhz.store(0, std::memory_order_release);
@@ -902,7 +930,10 @@ x::telem::Rate Engine::cycle_rate() const {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) return {this->slaves, x::errors::NIL};
+    if (this->running()) {
+        this->track_restarts_locked({});
+        return {this->slaves, x::errors::NIL};
+    }
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
     const auto [change, change_err] = this->master->changed();
@@ -919,7 +950,10 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) return {this->slaves, x::errors::NIL};
+    if (this->running()) {
+        this->track_restarts_locked({});
+        return {this->slaves, x::errors::NIL};
+    }
     return this->rediscover_locked();
 }
 
@@ -1006,18 +1040,23 @@ std::pair<std::set<uint16_t>, x::errors::Error> Engine::restarted_locked() {
     return {std::move(change.restarted), err};
 }
 
+Engine::RestartKey Engine::restart_key(const slave::Properties &props) {
+    return {
+        props.vendor_id,
+        props.product_code,
+        props.serial,
+        props.serial == 0 ? props.position : uint16_t{0},
+    };
+}
+
 void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
     if (!this->master->restarts_visible()) return;
     const auto now = this->config.host_clock.now();
+    std::lock_guard lock(this->restarts_mu);
     decltype(this->restarts) found;
     for (auto &slave: this->slaves) {
         const auto &props = slave.properties;
-        const RestartKey key{
-            props.vendor_id,
-            props.product_code,
-            props.serial,
-            props.serial == 0 ? props.position : uint16_t{0},
-        };
+        const auto key = restart_key(props);
         const auto it = this->restarts.find(key);
         const auto at = it == this->restarts.end() || restarted.contains(props.position)
                           ? now
