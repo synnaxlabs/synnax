@@ -201,10 +201,9 @@ const problemsOf = (
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
   const taskWide = [
     networkProblem(used),
-    ...used.flatMap((slave) => [
-      positionProblem(slave, onRack),
-      serialProblem(slave, onRack),
-    ]),
+    ...used.map(
+      (slave) => positionProblem(slave, onRack) ?? serialProblem(slave, onRack),
+    ),
   ].filter((p): p is string => p != null);
   const problems: Problem[] =
     taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
