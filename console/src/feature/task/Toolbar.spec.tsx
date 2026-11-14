@@ -29,8 +29,22 @@ import {
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+} from "vitest";
 
+import { EtherCAT } from "@/feature/ethercat";
+import {
+  createIdentifier,
+  createSlaveDevice,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
 import { Analytics } from "@/platform/analytics";
@@ -723,5 +737,98 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       expect(await screen.findByText("Start")).toBeTruthy();
     });
+  });
+});
+
+describe("task/Toolbar channels of a deleted EtherCAT task", () => {
+  // Slaves stay on the Core, and a slave keeps its rack from deletion.
+  let slaveRack: rack.Rack;
+  beforeAll(async () => {
+    slaveRack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  });
+
+  const createChannels = async (count: number): Promise<channel.Channel[]> => {
+    const index = await client.channels.create({
+      name: uniqueName("ecat_time"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    return await client.channels.create(
+      Array.from({ length: count }, () => ({
+        name: uniqueName("ecat_channel"),
+        dataType: "uint16",
+        index: index.key,
+      })),
+    );
+  };
+
+  const createReadTask = async (channels: channel.Channel[]) => {
+    const slave = await createSlaveDevice(client, slaveRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+    });
+    return await createTask({
+      type: EtherCAT.Task.READ_TYPE,
+      config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+        channels: channels.map((c, i) => ({
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, {
+            ...STATUS_ENTRY,
+            subIndex: i + 1,
+          }),
+          channel: c.key,
+        })),
+      }),
+    });
+  };
+
+  const retrieveKeys = async (channels: channel.Channel[]): Promise<channel.Key[]> =>
+    (
+      await client.channels.retrieve({
+        where: { key: { in: channels.map(({ key }) => key) } },
+      })
+    ).map(({ key }) => key);
+
+  const deleteTask = async (t: task.Task): Promise<void> => {
+    await openContextMenuUntil(t.name, "Delete");
+    fireEvent.click(screen.getByText("Delete"));
+    await screen.findByText(`Are you sure you want to delete ${t.name}?`);
+    fireEvent.click(findButton("Delete"));
+  };
+
+  it("deletes the channels of the task after a second confirmation", async () => {
+    const channels = await createChannels(2);
+    const t = await createReadTask(channels);
+    await renderToolbar();
+    await deleteTask(t);
+    await screen.findByText("Are you sure you want to delete 2 channels?");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => expect(await retrieveKeys(channels)).toEqual([]));
+  });
+
+  it("does not offer a channel that another task names", async () => {
+    const [own, shared] = await createChannels(2);
+    const t = await createReadTask([own, shared]);
+    await createReadTask([shared]);
+    await renderToolbar();
+    await deleteTask(t);
+    await screen.findByText(`Are you sure you want to delete ${own.name}?`);
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () =>
+      expect(await retrieveKeys([own, shared])).toEqual([shared.key]),
+    );
+  });
+
+  it("keeps the channels when the user cancels", async () => {
+    const channels = await createChannels(1);
+    const t = await createReadTask(channels);
+    await renderToolbar();
+    await deleteTask(t);
+    await screen.findByText(`Are you sure you want to delete ${channels[0].name}?`);
+    fireEvent.click(findButton("Cancel"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
+      NotFoundError.matches(e),
+    );
+    expect(await retrieveKeys(channels)).toEqual([channels[0].key]);
   });
 });

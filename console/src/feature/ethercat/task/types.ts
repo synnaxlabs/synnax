@@ -91,6 +91,20 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
+/** @returns the keys of the Synnax channels that the read task config names. */
+export const readChannelsOf = (config: unknown): channel.Key[] =>
+  READ_SCHEMAS.config
+    .parse(config)
+    .channels.map(({ channel }) => channel)
+    .filter(primitive.isNonZero);
+
+/** @returns the keys of the Synnax channels that the write task config names. */
+export const writeChannelsOf = (config: unknown): channel.Key[] =>
+  WRITE_SCHEMAS.config
+    .parse(config)
+    .channels.flatMap(({ cmdChannel, stateChannel }) => [cmdChannel, stateChannel])
+    .filter(primitive.isNonZero);
+
 export type EntryReadChannel = ethercat.EntryReadChannel;
 
 export type EntryWriteChannel = ethercat.EntryWriteChannel;

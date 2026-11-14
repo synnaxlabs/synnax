@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { arc, query, task } from "@synnaxlabs/client";
+import { arc, type channel, query, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,10 +21,11 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
-import { useState } from "react";
+import { Access, Arc, Channel, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { array, unique } from "@synnaxlabs/x";
+import { useRef, useState } from "react";
 
+import { EtherCAT } from "@/feature/ethercat";
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
 import {
@@ -65,9 +66,25 @@ const INITIAL_QUERY: Task.ListQuery = {
 
 const filter = (task: task.Task) => !task.internal;
 
+// The task types whose Start creates the channels that their configs name. Deleting a
+// task of another type offers no channels.
+const CHANNELS_OF: Record<string, (config: unknown) => channel.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.readChannelsOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.writeChannelsOf,
+};
+
+const channelsOf = ({ type, config }: task.Task): channel.Key[] =>
+  CHANNELS_OF[type]?.(config) ?? [];
+
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
+  const confirmDeleteChannels = Modals.useConfirmDelete({
+    type: "Channel",
+    description: "No other task uses them. This action cannot be undone.",
+  });
+  // The channels of the tasks being deleted that no other task names.
+  const ownedChannels = useRef<channel.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -88,7 +105,10 @@ const Content = () => {
     },
   });
 
-  // The row of an Arc deletes the Arc, as the menu of the Arc does.
+  const { update: deleteChannels } = Channel.useDelete();
+
+  // The row of an Arc deletes the Arc, as the menu of the Arc does. The Core refuses to
+  // delete a channel that a task uses, so the channels go after their tasks.
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: async ({
       data: keys,
@@ -102,7 +122,24 @@ const Content = () => {
       const taskKeys = rows
         .filter(({ type }) => type !== arc.task.TYPE)
         .map(({ key }) => key);
+      const deleted = new Set(taskKeys);
+      const used = new Set(
+        getItem(data)
+          .filter(({ key }) => !deleted.has(key))
+          .flatMap(channelsOf),
+      );
+      ownedChannels.current = unique
+        .unique(rows.flatMap(channelsOf))
+        .filter((key) => !used.has(key));
       return taskKeys.length > 0 ? taskKeys : false;
+    },
+    afterSuccess: async ({ client }) => {
+      const keys = ownedChannels.current;
+      ownedChannels.current = [];
+      if (keys.length === 0) return;
+      const channels = await client.channels.retrieve({ where: { key: { in: keys } } });
+      if (channels.length > 0 && (await confirmDeleteChannels(channels)))
+        deleteChannels(channels.map(({ key }) => key));
     },
   });
 
