@@ -1575,6 +1575,49 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should fail a task that was starting when its rack went silent",
+			func(ctx SpecContext) {
+				// The rack and its tasks commit together, so the rack cannot go silent
+				// before the tasks exist.
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
+				t := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Starting Task",
+					Status: &task.Status{
+						Variant: status.VariantLoading,
+						Message: "Starting task",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{ConfigHash: "deployed"},
+					},
+				}
+				Expect(svc.NewWriter(createTx).Create(ctx, t)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(stat.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&taskStatus).
+						Exec(ctx, db)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Failed to start task"))
+					g.Expect(taskStatus.Variant).To(Equal(status.VariantError))
+					g.Expect(taskStatus.Description).To(Equal(
+						"The Core lost contact with the Driver on suspect rack " +
+							"while the task was starting.",
+					))
+					g.Expect(taskStatus.Details).To(Equal(task.StatusDetails{
+						ConfigHash: "deployed",
+						Rack:       r.Key,
+					}))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
 			"Should not copy the rack's problem onto a task that is not running",
 			func(ctx SpecContext) {
 				// The rack and its tasks commit together, so the rack cannot go silent

@@ -29,6 +29,7 @@ import {
   createSlaveChannels,
   fillStartupParameters,
   retrieveAndValidateSlaves,
+  settingProblem,
 } from "@/feature/ethercat/task/configure";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
@@ -51,6 +52,7 @@ import {
   readNameSuffix,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
+import { useEntryProblem } from "@/feature/ethercat/task/useEntryProblem";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -93,6 +95,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
+  const held = PForm.useFieldValue(path.config.startupParameters);
+  const problem =
+    useEntryProblem(ch, slave, "inputs") ??
+    (slave != null && hasEntry(ch) && !ch.disabled
+      ? settingProblem(slave, ch, held)
+      : null);
   const named =
     slave != null &&
     dataTypes != null &&
@@ -103,7 +111,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       nameDirection="y"
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
-      status={ch.type === "unresolved" ? "error" : undefined}
+      status={problem == null ? undefined : "error"}
       path={entry}
       channel={ch.channel}
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}

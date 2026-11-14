@@ -220,6 +220,8 @@ public:
     int latch_count = 0;
     /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
     int64_t latched_at = 0;
+    /// @brief the timeout of the last latch_receive_times call.
+    int latch_timeout = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
 
@@ -413,7 +415,8 @@ public:
         return this->sync_dc_return;
     }
 
-    int latch_receive_times(int) override {
+    int latch_receive_times(const int timeout) override {
+        this->latch_timeout = timeout;
         this->latched_at = now();
         this->latch_count++;
         return this->latch_return;

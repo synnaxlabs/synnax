@@ -109,6 +109,16 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
+    /// @brief the positions of the slaves with no identity on one interface.
+    struct Unidentified {
+        /// @brief the slaves with no identity at the last rediscovery.
+        std::set<uint16_t> seen;
+        /// @brief the slaves with no identity at each of the last two rediscoveries.
+        /// A restart clears by the next rediscovery, so only these are reported.
+        std::set<uint16_t> reported;
+    };
+    /// @brief the slaves with no identity on each interface.
+    std::unordered_map<std::string, Unidentified> unidentified;
 
     /// @brief creates the slave device with key for the given slave, and returns
     /// whether its saved config enables it. The status names any invalid property, and
