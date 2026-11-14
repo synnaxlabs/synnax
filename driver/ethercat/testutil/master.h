@@ -16,6 +16,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <set>
 #include <span>
@@ -52,6 +53,9 @@ class Master final : public master::Master {
     master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
+    /// @brief the number of starts left that each slave refuses, keyed by position. A
+    /// slave in refusing and not here refuses every start.
+    std::map<uint16_t, size_t> refusals_left;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -250,10 +254,19 @@ public:
     }
 
     /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
-    /// at position is on the bus, as when the slave refuses a state.
-    void refuse(const uint16_t position, slave::Refusal refusal) {
+    /// at position is on the bus, as when the slave refuses a state. The slave refuses
+    /// only the next starts when starts is set.
+    void refuse(
+        const uint16_t position,
+        slave::Refusal refusal,
+        const std::optional<size_t> starts = std::nullopt
+    ) {
         std::lock_guard lock(this->mu);
         this->refusing[position] = std::move(refusal);
+        if (starts)
+            this->refusals_left[position] = *starts;
+        else
+            this->refusals_left.erase(position);
     }
 
     /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
@@ -316,6 +329,7 @@ public:
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
         this->refusing.clear();
+        this->refusals_left.clear();
         this->inject_scan_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
@@ -514,8 +528,14 @@ public:
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
-            if (const auto it = this->refusing.find(pos); it != this->refusing.end())
-                refused.insert(*it);
+            const auto it = this->refusing.find(pos);
+            if (it == this->refusing.end()) continue;
+            refused.insert(*it);
+            if (const auto left = this->refusals_left.find(pos);
+                left != this->refusals_left.end() && --left->second == 0) {
+                this->refusals_left.erase(left);
+                this->refusing.erase(it);
+            }
         }
         if (!refused.empty()) {
             return {
