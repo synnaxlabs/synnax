@@ -176,21 +176,17 @@ void add_unlisted_op_mode(
         return;
     const auto aa = mode->at("unlisted_assign_activate").get<uint16_t>();
     if (!status.description.empty()) status.description += ' ';
-    if (saved.op_modes.empty())
-        status.description += std::format(
-            "The mode of the module needs the sync mode with assign activate value "
-            "{:#06x}, but the module lists no sync modes. The Driver uses SM sync, and "
-            "the module can refuse to start.",
-            aa
-        );
-    else
-        status.description += std::format(
-            "The mode of the module needs the sync mode with assign activate value "
-            "{:#06x}, but the module does not list it. The Driver uses another sync "
-            "mode, and the module can refuse to start. Choose a sync mode for the "
-            "device.",
-            aa
-        );
+    status.description += std::format(
+        "The mode of the module needs the sync mode with assign activate value "
+        "{:#06x}, ",
+        aa
+    );
+    status.description += saved.op_modes.empty()
+                            ? "but the module lists no sync modes. The Driver uses SM "
+                              "sync, and the module can refuse to start."
+                            : "but the module does not list it. The Driver uses "
+                              "another sync mode, and the module can refuse to start. "
+                              "Choose a sync mode for the device.";
     status.variant = synnax::status::VARIANT_WARNING;
 }
 
