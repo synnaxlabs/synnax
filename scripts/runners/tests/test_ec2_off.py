@@ -53,4 +53,5 @@ class TestRun:
         aws = Instances()
         line = ec2_off.run(RUNNER, aws=cast(AWS, aws), github=Runners(busy=True))
         assert aws.stopped == []
+        assert line is not None
         assert "busy" in line
