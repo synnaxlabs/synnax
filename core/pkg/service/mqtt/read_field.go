@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// validateReadConfig checks the rules of cfg that need no other resource: each field
-// has a kind, the enum labels of a field are valid, and an enabled bytes field has a
-// pointer, because the read task does not read a raw payload.
+// validateReadConfig checks the rules of cfg that need no other resource: the enum
+// labels of a field are valid, and an enabled bytes field has a pointer, because the
+// read task does not read a raw payload.
 func validateReadConfig(cfg *ReadConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -32,13 +32,6 @@ func validateReadConfig(cfg *ReadConfig) error {
 	return v2.PlainFields(cfg, func(path string, entry PlainReadEntry) error {
 		for i, f := range entry.Fields {
 			fieldPath := path + "." + strconv.Itoa(i)
-			if f.Variant == nil {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"%s.type: required",
-					fieldPath,
-				)
-			}
 			if err := v2.ReadOf(f).Validate(); err != nil {
 				return errors.Wrap(err, fieldPath)
 			}
