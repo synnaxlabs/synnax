@@ -251,7 +251,8 @@ class Engine {
     /// @brief returns the settings of each slave on the latest scan, keyed by position,
     /// with the startup parameters of settings. A slave in left_out is disabled.
     /// @returns errors::SLAVE_CONFIG_ERROR when two saved slaves that find one slave on
-    /// the scan have different settings.
+    /// the scan have different settings, or errors::ACTIVATION_ERROR when the serial
+    /// number of that slave is unread, since a new scan can tell them apart.
     [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
     plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
     void stop_locked();
