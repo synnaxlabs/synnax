@@ -125,6 +125,7 @@ func (a AnalogReadChannel) Validate() error {
 	if a.NegChan != nil {
 		v.LessThanEq("neg_chan", *a.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(a.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -214,6 +215,7 @@ func (t ThermocoupleReadChannel) Validate() error {
 	if t.NegChan != nil {
 		v.LessThanEq("neg_chan", *t.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(t.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -337,16 +339,18 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AnalogReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThermocoupleReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

@@ -155,6 +155,14 @@ func (a *AnalogReadChannel) ApplyDefaults() {
 	a.Scale.ApplyDefaults()
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogReadChannel) Validate() error {
+	v := validate.New("AnalogReadChannel")
+	v.Exec(func() error { return validate.PathedError(a.Scale.Validate(), "scale") })
+	return v.Error()
+}
+
 // DigitalReadChannel reads a digital input line.
 type DigitalReadChannel struct {
 	BaseReadChannel
@@ -242,6 +250,7 @@ func (t ThermocoupleReadChannel) Validate() error {
 	v := validate.New("ThermocoupleReadChannel")
 	v.Ternaryf("thermocouple_type", !t.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", t.ThermocoupleType)
 	v.Ternaryf("units", !t.Units.IsValid(), "invalid units: %v", t.Units)
+	v.Exec(func() error { return validate.PathedError(t.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -365,14 +374,18 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
+	case AnalogReadChannel:
+		v.Exec(variant.Validate)
 	case ThermocoupleReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -576,6 +589,14 @@ func (u *WriteChannel) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
 	switch variant := u.Variant.(type) {
@@ -707,6 +728,9 @@ func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteConfig) Validate() error {
 	v := validate.New("WriteConfig")
 	v.GreaterThan("state_rate", w.StateRate, 0)
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 

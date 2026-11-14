@@ -1712,6 +1712,43 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     EXPECT_EQ(status.description, "");
 }
 
+/// @brief returns the slave in Synnax mode with a catalog that marks no entry, as an
+/// unmarked slave reads after a switch.
+[[nodiscard]] slave::Properties unmarked_in_synnax_mode(slave::Properties props) {
+    props.settings.value()["channels"] = x::json::json::array();
+    props.settings.value()["mode"]["switch"] = x::json::json::array();
+    props.settings.value()["mode"]["value"] = 0;
+    return props;
+}
+
+/// @brief it should ask for a power restart of a slave with an unmarked catalog until
+/// the slave restarts after its switch.
+TEST_F(EtherCATScanModeTest, AsksForARestartOfAnUnmarkedSlaveUntilItRestarts) {
+    this->start(true);
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto held = this->scan_status();
+    EXPECT_EQ(held.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(held.message, "Restart the power of the device");
+    EXPECT_EQ(
+        held.description,
+        "Synnax cannot tell if the switch took effect until the device restarts."
+    );
+    EXPECT_EQ(this->scan_status().message, held.message);
+    this->master->restart_slave(1);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should not ask for a power restart of an unmarked slave when its master
+/// cannot see a restart.
+TEST_F(EtherCATScanModeTest, DoesNotAskForARestartWhenTheMasterSeesNoRestart) {
+    this->start(true);
+    this->master->hide_restarts();
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
+}
+
 /// @brief it should ask for bus 1 before the power restart of a switched slave on bus
 /// 2.
 TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
@@ -1800,8 +1837,8 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     );
 }
 
-/// @brief it should write the time of a switch, to the second, with the properties of
-/// each scan, also when the devices of the scan do not hold it.
+/// @brief it should write the time of a switch with the properties of each scan, also
+/// when the devices of the scan do not hold it.
 TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     this->start(true);
     const auto before = x::telem::TimeStamp::now();
@@ -1815,13 +1852,12 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     const auto at = x::telem::TimeStamp(
         scanned.at(0).properties.at("switched_at").get<int64_t>()
     );
-    EXPECT_EQ(at.nanoseconds() % x::telem::SECOND.nanoseconds(), 0);
-    EXPECT_GT(at, before - x::telem::SECOND);
+    EXPECT_GE(at, before);
     EXPECT_LE(at, x::telem::TimeStamp::now());
 }
 
-/// @brief it should write a switch time that the Core gives back unchanged, so that the
-/// next scan finds no change.
+/// @brief it should find no change in a switch time that the Core gives back as a
+/// double.
 TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
     this->start(true);
     ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);

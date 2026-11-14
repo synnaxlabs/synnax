@@ -11,6 +11,7 @@
 #include <format>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
@@ -153,11 +154,13 @@ bool marks_entries(const slave::Properties &props) {
 }
 
 /// @brief sets status to a warning when other software sets up the slave in a way that
-/// keeps Synnax from using it, when the slave left Synnax mode after the switch at
-/// switch_time, or when Synnax is on the wrong bus of the slave. Returns whether it set
-/// one.
+/// keeps Synnax from using it, when the slave must restart to finish the switch at
+/// switch_time or left Synnax mode after it, or when Synnax is on the wrong bus of the
+/// slave. restarted_at is the last restart of the slave that the master saw. Returns
+/// whether it set one.
 bool set_setup_status(
     const slave::Properties &props,
+    const std::optional<x::telem::TimeStamp> &restarted_at,
     const x::telem::TimeStamp switch_time,
     synnax::device::Status &status
 ) {
@@ -168,12 +171,22 @@ bool set_setup_status(
     const auto bus = mode.value("bus", 0);
     auto reader = props.only_reader();
     if (reader.empty()) reader = mode.value("only_read_by", "");
+    // The entries of a catalog that marks none show no switch, so only a restart of the
+    // slave after the switch shows that it took effect.
+    const bool unconfirmed = mode.contains("switch") && mode.at("switch").empty() &&
+                             !marks_entries(props) && restarted_at &&
+                           *restarted_at < switch_time;
     const bool reverted = switch_time != x::telem::TimeStamp(0) &&
                           mode.contains("switch") && !mode.at("switch").empty();
-    if (props.switched()) {
+    if (props.switched() || unconfirmed) {
         status.message = "Restart the power of the device";
-        if (bus == 2)
-            status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
+        if (unconfirmed)
+            status.description = "Synnax cannot tell if the switch took effect until "
+                                 "the device restarts.";
+        if (bus == 2) {
+            if (!status.description.empty()) status.description += ' ';
+            status.description += "First, connect Synnax to EtherCAT bus 1 IN.";
+        }
     } else if (reverted) {
         if (reader.empty()) reader = mode.value("shared_with", "");
         const auto at = utc_minute(switch_time);
@@ -493,7 +506,9 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
                              "network. The Driver reads it again on a later scan. If "
                              "the module stays in this status, restart its power.";
         status.variant = synnax::status::VARIANT_WARNING;
-    } else if (set_setup_status(saved, switched_at(json_props), status)) {
+    } else if (
+        set_setup_status(saved, slave.restarted_at, switched_at(json_props), status)
+    ) {
         add_settings_error(sts.settings_error, status);
         add_unlisted_op_mode(saved, status);
     } else if (
@@ -795,13 +810,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         return;
     }
     {
-        // The Core stores the time as a double, which holds whole seconds exactly, so
-        // the next scan finds no change.
-        const auto now = x::telem::TimeStamp::now().nanoseconds();
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp(
-            now - now % x::telem::SECOND.nanoseconds()
-        );
+        this->switch_times[dev.key] = x::telem::TimeStamp::now();
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
