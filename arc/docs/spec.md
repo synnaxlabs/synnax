@@ -187,8 +187,8 @@ timestamp := now() // i64 ns from now() builtin
 ### Dimensional compatibility
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; two values with units give no unit, and
-  so does a number divided by a value with a unit
+- **Multiplication/Division**: Always valid; two values with units give no unit, and so
+  does a number divided by a value with a unit
 - **Exponentiation**: If base has dimensions, exponent must be a literal integer
 
 ```arc

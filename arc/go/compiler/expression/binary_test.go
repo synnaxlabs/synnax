@@ -3068,9 +3068,7 @@ var _ = Describe("CompileOperand", func() {
 	in := func(unit *types.Unit) types.Type {
 		return types.WithUnit(types.I64(), unit)
 	}
-	// compile runs CompileOperand for an operand of type t that pushes local 0.
-	// analyzed
-	// is the type that the analyzer gave the operand.
+	// compile compiles an operand of type t that the analyzer typed as analyzed.
 	compile := func(
 		bCtx SpecContext,
 		left, analyzed, t types.Type,
