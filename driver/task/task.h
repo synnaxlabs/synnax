@@ -464,8 +464,8 @@ private:
         synnax::task::Key task_key;
         synnax::task::Task task;
         synnax::task::Command cmd;
-        /// @brief true for a stop that cancelled a running start of the task.
-        bool cancelled_start = false;
+        /// @brief the running start that this stop cancelled, or null.
+        std::shared_ptr<Operation> cancelled;
     };
 
     /// @brief per-task state tracked by the manager. Exists exactly while the row is

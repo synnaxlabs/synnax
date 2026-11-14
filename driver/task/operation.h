@@ -105,6 +105,10 @@ public:
     /// was cancelled. The caller runs them as their own commands.
     std::vector<synnax::task::Command> close();
 
+    /// @returns true if close answered the start as stopped, because a stop cancelled
+    /// it before the start sent a final status of its own.
+    [[nodiscard]] bool ended_by_stop();
+
 private:
     const Writer write;
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.operation"}};
@@ -128,6 +132,8 @@ private:
     bool warned = false;
     /// @brief true when a stop command cancelled the operation.
     bool stopped = false;
+    /// @brief true when close answered the start because of a stop.
+    bool stop_answered = false;
     bool finished = false;
     bool closed = false;
 

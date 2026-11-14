@@ -371,9 +371,13 @@ public:
     void release_all() { release = true; }
 };
 
-/// @brief a factory whose configure blocks until cancelled, then fails.
+/// @brief a factory whose configure blocks until cancelled. It then returns with no
+/// status, as a configure that its cancel ended does, or fails with its own error.
 class CancelledConfigureFactory final : public Factory {
 public:
+    /// @brief the description of the configure's own error, or empty for none.
+    std::string error;
+
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
@@ -383,12 +387,14 @@ public:
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         while (cancel.running())
             cancel.wait_for(10 * x::telem::MILLISECOND);
+        if (this->error.empty()) return {nullptr, true};
         synnax::task::Status status{
             .variant = synnax::status::VARIANT_ERROR,
-            .message = "configure cancelled",
+            .message = "Failed to configure task",
             .details = {.cmd = cmd_key, .config_hash = task.config_hash},
             .owner = synnax::task::resource_id(task.key),
         };
+        status.description = this->error;
         ctx->set_status(status);
         return {nullptr, true};
     }
@@ -1341,9 +1347,6 @@ TEST_F(TaskManagerTest, CommandAfterRefusedPinnedStartAnswersNotRunning) {
          .config_hash = "stale",
          .pinned = true}
     );
-    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.details.cmd == "pinned-cmd";
-    });
     send_cmd(client, {.task = task.key, .type = "stop", .key = "stop-cmd"});
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "stop-cmd";
@@ -1930,6 +1933,37 @@ TEST_F(TaskManagerTest, StopOfACancelledConfigureAnswersStopped) {
     EXPECT_EQ(stopped.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stopped.message, "Stopped task");
     EXPECT_EQ(stopped.description, "The stop cancelled the start.");
+    EXPECT_FALSE(stopped.details.running);
+}
+
+/// @brief it should answer a stop with the error of a start that failed on its own
+/// while the stop waited, since that error says what to fix.
+TEST_F(TaskManagerTest, StopKeepsTheErrorOfAStartThatFailedOnItsOwn) {
+    auto factory = std::make_unique<CancelledConfigureFactory>();
+    factory->error = "Npcap is not installed";
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_stop(client, task);
+    const auto stopped = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "stop-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(stopped.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(stopped.message, "Failed to configure task");
+    EXPECT_EQ(stopped.description, "Npcap is not installed");
     EXPECT_FALSE(stopped.details.running);
 }
 

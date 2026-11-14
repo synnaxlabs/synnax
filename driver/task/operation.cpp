@@ -193,6 +193,7 @@ std::vector<synnax::task::Command> Operation::close() {
         status.details.running = false;
         status.details.config_hash = this->config_hash;
         if (this->stopped) {
+            this->stop_answered = true;
             status.variant = synnax::status::VARIANT_SUCCESS;
             status.message = "Stopped task";
             status.description = "A stop ended the start before it finished.";
@@ -205,5 +206,10 @@ std::vector<synnax::task::Command> Operation::close() {
     }
     this->send(std::move(status), keys);
     return {};
+}
+
+bool Operation::ended_by_stop() {
+    std::lock_guard lock{this->mu};
+    return this->stop_answered;
 }
 }

@@ -152,6 +152,8 @@ const Error NOT_SUPPORTED = SY.sub("not_supported");
 
 const Error INTERNAL = SY.sub("internal");
 const Error UNEXPECTED = SY.sub("unexpected");
+/// @brief work that stopped because its caller cancelled it.
+const Error CANCELLED = SY.sub("cancelled");
 const Error CONTROL = SY.sub("control");
 const Error UNAUTHORIZED = CONTROL.sub("unauthorized");
 }

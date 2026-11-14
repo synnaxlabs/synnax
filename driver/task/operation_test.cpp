@@ -232,6 +232,22 @@ TEST_F(OperationTest, CloseKeepsTheAnswerOfACancelledStart) {
     EXPECT_EQ(written[0].message, "start cancelled");
 }
 
+/// @brief it should say that a stop ended a start only when close answered the start.
+TEST_F(OperationTest, EndedByStopOnlyWhenCloseAnswers) {
+    ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
+    EXPECT_FALSE(op.ended_by_stop());
+    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.ended_by_stop());
+}
+
+/// @brief it should not say that a stop ended a start that sent its own final status.
+TEST_F(OperationTest, NotEndedByStopAfterTheTaskAnswers) {
+    ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
+    op.answer(final_status("Failed to configure task"));
+    EXPECT_TRUE(op.close().empty());
+    EXPECT_FALSE(op.ended_by_stop());
+}
+
 /// @brief it should stop the token on cancel and tell the stop that it arrived.
 TEST_F(OperationTest, CancelStopsTheTokenAndAnswersTheStop) {
     op.step(loading("Starting task"), x::telem::MINUTE);

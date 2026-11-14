@@ -302,9 +302,10 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         const auto it = this->entries.find(cmd.task);
         if (it == this->entries.end()) continue;
         const auto &running = it->second->op;
-        const bool cancelled = cmd.type == STOP_CMD_TYPE && running != nullptr &&
-                               running->cmd.type == synnax::task::START_CMD_TYPE &&
-                               running->cancel(cmd);
+        std::shared_ptr<Operation> cancelled;
+        if (cmd.type == STOP_CMD_TYPE && running != nullptr &&
+            running->cmd.type == synnax::task::START_CMD_TYPE && running->cancel(cmd))
+            cancelled = running;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
         this->cv.notify_one();
@@ -657,7 +658,9 @@ void Manager::execute_op(
         case Op::Type::COMMAND: {
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
-                if (op.cancelled_start)
+                // A start that failed on its own keeps its error, which says what to
+                // fix.
+                if (op.cancelled != nullptr && op.cancelled->ended_by_stop())
                     this->answer_cancelled_start(op.task_key, operation);
                 else if (!op.cmd.key.empty())
                     this->refuse_command(op.task_key, operation);
