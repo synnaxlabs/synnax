@@ -765,8 +765,11 @@ describe("Read", () => {
       position,
       pdos: createPDOs(),
     };
-    const stale = await createSlaveDevice(client, testRack.key, props);
-    const connected = await createSlaveDevice(client, testRack.key, {
+    // The Core copies "Driver not running" onto each device of a rack that is silent
+    // for 5 s, which clears the connected status. A new rack holds that off.
+    const ownRack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const stale = await createSlaveDevice(client, ownRack.key, props);
+    const connected = await createSlaveDevice(client, ownRack.key, {
       ...props,
       identifier: createIdentifier(),
     });
@@ -776,7 +779,7 @@ describe("Read", () => {
       variant: "success",
       message: "Device connected",
       time: TimeStamp.now(),
-      details: { rack: testRack.key, connected: true },
+      details: { rack: ownRack.key, connected: true },
     });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
