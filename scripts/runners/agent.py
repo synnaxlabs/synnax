@@ -9,15 +9,14 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["psutil", "synnax>=0.61,<0.62"]
+# dependencies = ["boto3", "psutil", "synnax>=0.61,<0.62"]
 # ///
 
 """Writes this machine's CPU, memory, and disk usage to Synnax every 5 seconds.
 
-Runs on each runner instance, started at boot by the runner-agent systemd unit
-(Ubuntu) or the RunnerAgent scheduled task (Windows), both deployed over SSM from
-scripts/gen_fleet.py. Four float32 channels on one index, all created by
-controller.py:
+Runs on each runner instance, started at boot by the runner-agent systemd unit (Ubuntu)
+or the RunnerAgent scheduled task (Windows). Four float32 channels on one index, all
+created by controller.py:
 
     <runner>_cpu           percent CPU used over the last interval
     <runner>_mem           percent of RAM in use
@@ -37,7 +36,10 @@ CPU and IO priority and exits if another copy is already running.
 The GitHub runner is started and stopped by <runner>_gh_cmd. A stop waits for the
 running job to finish. One minute without Synnax at boot starts the runner anyway.
 
-    uv run agent.py
+Logs in with the API key in the Parameter Store parameter /runners/agent-api-key, read
+with the role of the instance.
+
+    uv run agent.py --host <address> --secure
 """
 
 import argparse
@@ -45,9 +47,11 @@ import json
 import os
 import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
+import boto3
 import numpy as np
 import psutil
 import synnax as sy
@@ -69,6 +73,8 @@ RUNNER_FILES = tuple(p / ".runner" for p in RUNNER_DIRS)
 NAME_CACHE = Path(__file__).with_name("runner_name.txt")
 # Verifies the Core's certificate when the deploy puts the file beside this script.
 CA_CERT = Path(__file__).with_name("ca.crt")
+# The SecureString parameter that holds the API key the agents log in with.
+API_KEY_PARAMETER = "/runners/agent-api-key"
 ROOT = "C:\\" if sys.platform == "win32" else "/"
 SCRIPT = Path(__file__).name
 ABBREVIATIONS = {"windows": "win", "build_bot": "build", "tester": "test"}
@@ -77,7 +83,7 @@ PUBLISH_AUTHORITY = sy.Authority.ABSOLUTE
 
 
 def channel_name(source: str, runner: str) -> str:
-    """Keep in sync with common.channel_name; runner/ deploys alone."""
+    """Keep in sync with common.channel_name. The agent deploys without common.py."""
     name = re.sub(r"[^A-Za-z0-9]+", "_", runner)
     for long, short in ABBREVIATIONS.items():
         name = name.replace(long, short)
@@ -99,6 +105,12 @@ def close_quietly(resource: Closeable | None) -> None:
         resource.close()
     except Exception:
         pass
+
+
+class ParameterStore(Protocol):
+    def get_parameter(
+        self, *, Name: str, WithDecryption: bool = ...
+    ) -> Mapping[str, Any]: ...
 
 
 def runner_name() -> str | None:
@@ -146,24 +158,24 @@ def deprioritize() -> None:
     try:
         if sys.platform == "win32":
             p.nice(psutil.IDLE_PRIORITY_CLASS)
+            p.ionice(psutil.IOPRIO_VERYLOW)
         else:
             p.nice(19)
-        if hasattr(p, "ionice"):
-            p.ionice(
-                psutil.IOPRIO_VERYLOW
-                if sys.platform == "win32"
-                else psutil.IOPRIO_CLASS_IDLE
-            )
+        if sys.platform == "linux":
+            p.ionice(psutil.IOPRIO_CLASS_IDLE)
     except Exception as e:
         warn("deprioritize", e)
 
 
 def connect(
-    args: argparse.Namespace, names: dict[str, str], control: Runner | None
+    args: argparse.Namespace,
+    names: dict[str, str],
+    control: Runner | None,
+    store: ParameterStore,
 ) -> sy.Synnax:
     """Connects and resolves the channels, retrying forever; a booting machine must not
-    depend on anything but the Core coming back, and controller.py creating this
-    runner's channels. A runner never started yet starts after CONNECT_GRACE."""
+    depend on anything but its API key, the Core coming back, and controller.py creating
+    this runner's channels. A runner never started yet starts after CONNECT_GRACE."""
     wanted = set(names.values())
     if args.no_runner:
         wanted -= {names["log"], names["cmd"], names["state"]}
@@ -177,11 +189,11 @@ def connect(
             control.apply(True, "no Synnax")
         client = None
         try:
+            key = store.get_parameter(Name=API_KEY_PARAMETER, WithDecryption=True)
             client = sy.Synnax(
                 host=args.host,
                 port=args.port,
-                username=args.username,
-                password=args.password,
+                api_key=str(key["Parameter"]["Value"]),
                 secure=args.secure,
                 ca_cert=str(CA_CERT) if args.secure and CA_CERT.exists() else None,
             )
@@ -196,11 +208,15 @@ def connect(
 
 
 def run(
-    args: argparse.Namespace, names: dict[str, str], runner: str, control: Runner | None
+    args: argparse.Namespace,
+    names: dict[str, str],
+    runner: str,
+    control: Runner | None,
+    store: ParameterStore,
 ) -> None:
     """One connected session, sampling until something breaks. Returning hands control
     back to main(), which connects again; nothing here is fatal."""
-    client = connect(args, names, control)
+    client = connect(args, names, control, store)
     print(f"reporting {sorted(names.values())}", flush=True)
     psutil.cpu_percent(None)
     loop = sy.Loop(INTERVAL)
@@ -245,8 +261,7 @@ def run(
                 close_quietly(writer)
                 writer = None
                 failures += 1
-                # A Core restart kills this client's auth token; reopening on the
-                # same client can never succeed, so drop the session.
+                # A Core restart voids the token of this client, so drop the session.
                 if failures >= MAX_WRITE_FAILURES:
                     raise
                 sy.sleep(REOPEN_DELAY)
@@ -258,8 +273,7 @@ def run(
             except Exception as e:
                 warn("log", e)
                 close_quietly(log)
-                # Reopening talks to the Core, so a failure here ends the session
-                # rather than the process.
+                # Reopening talks to the Core, so a failure here ends the session.
                 queued = log.queue
                 log = Log(client, names["log"])
                 log.queue = queued
@@ -276,8 +290,6 @@ def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("--host", required=True)
     p.add_argument("--port", type=int, default=9090)
-    p.add_argument("--username", default="synnax")
-    p.add_argument("--password", required=True)
     p.add_argument("--secure", action="store_true", help="connect over TLS")
     p.add_argument("--runner-name", default=None, help="override the .runner name")
     p.add_argument(
@@ -303,9 +315,10 @@ def main() -> None:
         "state": channel_name("gh_state", runner),
     }
     control = None if args.no_runner else Runner()
+    store = boto3.client("ssm", region_name="us-east-1")
     while True:
         try:
-            run(args, names, runner, control)
+            run(args, names, runner, control, store)
         except Exception as e:
             warn("session", e)
         sy.sleep(SESSION_DELAY)

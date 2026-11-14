@@ -141,12 +141,13 @@ class Runner:
         self.log(f"gh_cmd={enabled} ({why}): {doing} runner")
         self.attempted = time.monotonic()
         if sys.platform == "win32":
+            quiet = "-ErrorAction SilentlyContinue"
             script = (
                 f"Start-ScheduledTask -TaskName '{TASK}'"
                 if enabled
                 # Stopping the task alone leaves Runner.Listener up.
-                else f"Stop-ScheduledTask -TaskName '{TASK}' -ErrorAction SilentlyContinue; "
-                "Stop-Process -Name 'Runner.Listener' -Force -ErrorAction SilentlyContinue"
+                else f"Stop-ScheduledTask -TaskName '{TASK}' {quiet}; "
+                f"Stop-Process -Name 'Runner.Listener' -Force {quiet}"
             )
             cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", script]
         else:

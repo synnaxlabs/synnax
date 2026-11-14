@@ -37,7 +37,7 @@ class Log:
         self.writer = client.open_writer(
             sy.TimeStamp.now(), [name], authorities=PUBLISH_AUTHORITY, name=name
         )
-        self.offsets = {p: size for p, size in self.sizes().items()}
+        self.offsets = self.sizes()
 
     def log(self, line: str) -> None:
         print(line, flush=True)
