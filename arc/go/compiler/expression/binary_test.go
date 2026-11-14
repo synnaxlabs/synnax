@@ -12,10 +12,14 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -3052,5 +3056,59 @@ var _ = Describe("Binary Operations", func() {
 				),
 			)
 		})
+	})
+})
+
+var _ = Describe("CompileOperand", func() {
+	var (
+		ms = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s  = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		pa = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+	)
+	in := func(unit *types.Unit) types.Type {
+		return types.WithUnit(types.I64(), unit)
+	}
+	// compile compiles an operand of type t that the analyzer typed as analyzed.
+	compile := func(
+		bCtx SpecContext,
+		left, analyzed, t types.Type,
+	) ([]byte, *types.Unit, error) {
+		GinkgoHelper()
+		ctx := NewContext(bCtx)
+		operand := MustSucceed(parser.ParseExpression("x"))
+		ctx.TypeMap[operand] = analyzed
+		_, unit, err := expression.CompileOperand(ctx, left, operand,
+			func(c ccontext.Context[parser.IExpressionContext]) (types.Type, error) {
+				c.Writer.WriteLocalGet(0)
+				return t, nil
+			})
+		if err != nil {
+			return nil, nil, err
+		}
+		return FinalizeContext(ctx), unit, nil
+	}
+
+	DescribeTable("should compile an operand in the unit that it and the stack meet in",
+		func(bCtx SpecContext, left, operand types.Type, unit *types.Unit, ops ...any) {
+			bytes, got := MustSucceed2(compile(bCtx, left, operand, operand))
+			Expect(got).To(BeIdenticalTo(unit))
+			Expect(bytes).To(MatchOpcodes(ops...))
+		},
+		Entry("the same unit", in(s), in(s), s, OpLocalGet, 0),
+		Entry("a stack value in the larger unit", in(s), in(ms), ms,
+			OpI64Const, int64(1000), OpI64Mul, OpLocalGet, 0),
+		Entry("an operand in the larger unit", in(ms), in(s), ms,
+			OpLocalGet, 0, OpI64Const, int64(1000), OpI64Mul),
+		Entry("an operand with no unit", in(s), types.I64(), s, OpLocalGet, 0),
+		Entry("a stack value with no unit", types.I64(), in(s), s, OpLocalGet, 0),
+		Entry("another dimension", in(s), in(pa), s, OpLocalGet, 0),
+	)
+
+	It("should reject an operand in a smaller unit that was not analyzed", func(
+		bCtx SpecContext,
+	) {
+		Expect(compile(bCtx, in(s), types.I64(), in(ms))).Error().To(MatchError(
+			"operand in ms was not analyzed before a value in s",
+		))
 	})
 })

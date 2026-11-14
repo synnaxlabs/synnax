@@ -183,10 +183,16 @@ func compileIndexedAssignment(
 	}
 
 	// Step 3: Compile and push value expression
-	if _, err := expression.Compile(
+	exprType, err := expression.Compile(
 		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
-	); err != nil {
+	)
+	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
+	}
+	if !types.Equal(elemType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
+			return err
+		}
 	}
 
 	// Stack is now: [series_handle, index, value]
@@ -196,6 +202,33 @@ func compileIndexedAssignment(
 	ctx.Writer.WriteOpcode(wasm.OpDrop)
 
 	return nil
+}
+
+// compileCompoundValue compiles the value that op joins to the target on the stack.
+func compileCompoundValue(
+	ctx context.Context[parser.IAssignmentContext],
+	op string,
+	target types.Type,
+) (types.Type, error) {
+	var (
+		expr     = ctx.AST.Expression()
+		elem     = target.Unwrap()
+		exprType types.Type
+		err      error
+	)
+	if op == "*" || op == "/" {
+		exprType, _, err = expression.CompileOperand(
+			ctx, target, expr, expression.Compile,
+		)
+		elem.Unit = exprType.Unwrap().Unit
+	} else {
+		exprType, err = expression.Compile(ctx.Child(expr).WithHint(elem))
+	}
+	if err != nil || exprType.Kind == types.KindSeries ||
+		types.Equal(elem, exprType) {
+		return exprType, err
+	}
+	return exprType, expression.EmitCast(ctx, exprType, elem)
 }
 
 // compileIndexedCompoundAssignment handles indexed compound assignment statements
@@ -229,16 +262,9 @@ func compileIndexedCompoundAssignment(
 	// Stack: [handle, index, current_value]
 
 	// Step 3: Compile RHS expression
-	exprType, err := expression.Compile(
-		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
-	)
+	_, err := compileCompoundValue(ctx, op, elemType)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
-	}
-	if !types.Equal(elemType, exprType) {
-		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
-			return err
-		}
 	}
 	// Stack: [handle, index, current_value, expr_value]
 
@@ -275,13 +301,10 @@ func compileSeriesCompoundAssignment(
 
 	ctx.Writer.WriteLocalGet(scope.ID)
 
-	exprType, err := expression.Compile(
-		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
-	)
+	exprType, err := compileCompoundValue(ctx, op, varType)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
 	}
-
 	isScalar := exprType.Kind != types.KindSeries
 	if err = ctx.Resolver.EmitSeriesArithmetic(
 		ctx.Writer,
@@ -329,17 +352,9 @@ func compileCompoundAssignment(
 	op := compoundOpToString(compoundOp)
 	ctx.Writer.WriteLocalGet(scope.ID)
 
-	exprType, err := expression.Compile(
-		ctx.Child(ctx.AST.Expression()).WithHint(varType),
-	)
+	_, err := compileCompoundValue(ctx, op, varType)
 	if err != nil {
 		return err
-	}
-
-	if !types.Equal(varType, exprType) {
-		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
-			return err
-		}
 	}
 
 	if varType.Kind == types.KindString && op == "+" {

@@ -799,9 +799,13 @@ var _ = Describe("Variable duration", func() {
 		currentTime = 0
 		module = stable.NewHost()
 	})
-	// build wires source -> stable with a var-bound duration: Value holds the
+	// buildUnits wires source -> stable with a var-bound duration: Value holds the
 	// declared initial and setDuration writes the variable's live slot.
-	build := func(initial telem.TimeSpan) {
+	buildUnits := func(initial telem.TimeSpan, from, to *types.Unit) {
+		elem := types.I64()
+		elem.Unit = from
+		ref := types.VarRef(elem, "v")
+		ref.Unit = to
 		prog := ir.IR{
 			Nodes: ir.Nodes{
 				{
@@ -815,18 +819,14 @@ var _ = Describe("Variable duration", func() {
 					Key:  "v",
 					Type: "variable",
 					Outputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.I64()},
+						{Name: ir.DefaultOutputParam, Type: elem},
 					},
 				},
 				{
 					Key:  "stable",
 					Type: "stable_for",
 					Inputs: types.Params{
-						{
-							Name:  "duration",
-							Type:  types.VarRef(types.I64(), "v"),
-							Value: initial,
-						},
+						{Name: "duration", Type: ref, Value: initial},
 						{Name: ir.DefaultInputParam, Type: types.U8()},
 					},
 					Outputs: types.Params{
@@ -845,6 +845,7 @@ var _ = Describe("Variable duration", func() {
 			*s.Node("v").Output(0) = telem.NewSeriesV(int64(d))
 		}
 	}
+	build := func(initial telem.TimeSpan) { buildUnits(initial, nil, nil) }
 	ingest := func(v uint8, at telem.TimeStamp) {
 		*s.Node("source").Output(0) = telem.NewSeriesV(v)
 		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
@@ -861,6 +862,29 @@ var _ = Describe("Variable duration", func() {
 		)
 		return fired
 	}
+
+	It(
+		"Should convert a live duration to the unit of the input",
+		func(ctx SpecContext) {
+			buildUnits(
+				telem.Second,
+				&types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"},
+				&types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"},
+			)
+			n := MustSucceed(module.Create(cfg))
+			// The variable holds 2 in seconds.
+			setDuration(2)
+			ingest(5, telem.SecondTS)
+			currentTime = telem.SecondTS
+			Expect(next(ctx, n)).To(BeFalse())
+			currentTime = 2*telem.SecondTS + telem.SecondTS/2
+			ingest(5, currentTime)
+			Expect(next(ctx, n)).To(BeFalse())
+			currentTime = 3 * telem.SecondTS
+			ingest(5, currentTime)
+			Expect(next(ctx, n)).To(BeTrue())
+		},
+	)
 
 	It("Should honor the declared initial before any write", func(ctx SpecContext) {
 		build(telem.Second)

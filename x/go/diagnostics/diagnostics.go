@@ -168,27 +168,51 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
+// Replacement is new text for the code at a node.
+type Replacement struct {
+	// Node is the code to replace.
+	Node antlr.ParserRuleContext
+	// Text is the new code.
+	Text string
+}
+
 // WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
 func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
-	var at Diagnostic
-	at.SetRange(ctx)
-	start, stop := ctx.GetStart(), ctx.GetStop()
-	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
-		"hint: change `%s` to `%s`",
-		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
-		newText,
-	)}
-	if at.Range != d.Range {
-		note.Location.Range = at.Range
+	return d.WithReplacements(Replacement{Node: ctx, Text: newText})
+}
+
+// WithReplacements attaches one fix that makes each replacement, and its hint note.
+func (d Diagnostic) WithReplacements(replacements ...Replacement) Diagnostic {
+	var (
+		edits = make([]protocol.TextEdit, len(replacements))
+		texts = make([]string, len(replacements))
+	)
+	for i, r := range replacements {
+		var at Diagnostic
+		at.SetRange(r.Node)
+		edits[i] = protocol.TextEdit{Range: at.Range, NewText: r.Text}
+		texts[i] = "`" + r.Text + "`"
+	}
+	to := strings.Join(texts, " and ")
+	// The hint of one replacement names the code that it changes.
+	hint := "hint: change to " + to
+	if len(replacements) == 1 {
+		start, stop := replacements[0].Node.GetStart(), replacements[0].Node.GetStop()
+		hint = fmt.Sprintf(
+			"hint: change `%s` to %s",
+			start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
+			to,
+		)
+	}
+	note := protocol.DiagnosticRelatedInformation{Message: hint}
+	if edits[0].Range != d.Range {
+		note.Location.Range = edits[0].Range
 	}
 	if d.hinted {
 		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
 	}
 	d.Notes = append(d.Notes, note)
-	return d.WithEdits(
-		fmt.Sprintf("Change to `%s`", newText),
-		protocol.TextEdit{Range: at.Range, NewText: newText},
-	)
+	return d.WithEdits("Change to "+to, edits...)
 }
 
 // WithEdits returns a copy of the diagnostic with a fix of the title and edits.

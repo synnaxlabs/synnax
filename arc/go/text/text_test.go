@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -25,9 +26,11 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	xdiagnostics "github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // findNodeByKey finds a node by key and asserts it exists
@@ -129,6 +132,24 @@ func scopeNodeRefs(scope ir.Scope) []string {
 	return keys
 }
 
+// applyFix returns source with the edits of fix.
+func applyFix(source string, fix xdiagnostics.Fix) string {
+	offset := func(p protocol.Position) int {
+		lines := strings.SplitAfter(source, "\n")
+		return len(strings.Join(lines[:p.Line], "")) + int(p.Character)
+	}
+	edits := slices.Clone(fix.Edits)
+	slices.SortFunc(edits, func(a, b protocol.TextEdit) int {
+		return offset(b.Range.Start) - offset(a.Range.Start)
+	})
+	applied := source
+	for _, edit := range edits {
+		applied = applied[:offset(edit.Range.Start)] + edit.NewText +
+			applied[offset(edit.Range.End):]
+	}
+	return applied
+}
+
 var _ = Describe("Text", func() {
 	Describe("Variables", func() {
 		varResolver := []symbol.Symbol{
@@ -156,6 +177,41 @@ var _ = Describe("Text", func() {
 				Type: types.Chan(types.I64()),
 				ID:   904,
 			},
+		}
+		analyzeText := func(
+			ctx SpecContext,
+			source string,
+		) (ir.IR, *xdiagnostics.Diagnostics) {
+			GinkgoHelper()
+			return text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				NewRoot(nil, varResolver...),
+			)
+		}
+		// expectFixes applies each fix of the one diagnostic of code in source, and
+		// expects fixed with no diagnostics.
+		expectFixes := func(
+			ctx SpecContext,
+			source string,
+			code xdiagnostics.ErrorCode,
+			fixed []string,
+		) xdiagnostics.Diagnostic {
+			GinkgoHelper()
+			_, diagnostics := analyzeText(ctx, source)
+			found := lo.Filter(
+				*diagnostics,
+				func(d xdiagnostics.Diagnostic, _ int) bool { return d.Code == code },
+			)
+			Expect(found).To(HaveLen(1), diagnostics.String())
+			Expect(found[0].Fixes).To(HaveLen(len(fixed)))
+			for i, fix := range found[0].Fixes {
+				applied := applyFix(source, fix)
+				Expect(applied).To(Equal(fixed[i]))
+				_, after := analyzeText(ctx, applied)
+				Expect(*after).To(BeEmpty())
+			}
+			return found[0]
 		}
 
 		variableNodes := func(inter ir.IR) []ir.Node {
@@ -458,6 +514,693 @@ var _ = Describe("Text", func() {
 					"expected the chained head read to bind to the alias register")
 			},
 		)
+
+		DescribeTable("Should convert a variable to the unit of the input",
+			func(ctx SpecContext, declaration string, expected telem.TimeSpan) {
+				source := declaration + "\ncount_ch -> wait(duration=d) -> flag_ch"
+				inter, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				duration := MustBeOk(
+					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				)
+				Expect(duration.Type).To(Equal(types.TimeSpan()))
+				Expect(duration.Value).To(Equal(expected))
+			},
+			Entry("inferred seconds", `d := 5s`, 5*telem.Second),
+			Entry("inferred milliseconds", `d := 500ms`, 500*telem.Millisecond),
+			Entry("typed milliseconds from seconds", `d i64 ms := 5s`, 5*telem.Second),
+			Entry("typed nanoseconds", `d i64 ns := 5s`, 5*telem.Second),
+			Entry("negated", `d := -5s`, -5*telem.Second),
+		)
+
+		DescribeTable(
+			"Should convert a literal to the unit of the variable it is written to",
+			func(ctx SpecContext, declaration, write string, expected any) {
+				source := "sequence main {\n" + declaration + "\nstage s1 {\n" + write +
+					" -> d\n}\n}"
+				inter, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				value := MustBeOk(
+					findNodeByKey(inter.Nodes, "const_0").Inputs.Get("value"),
+				)
+				Expect(value.Value).To(Equal(expected))
+				register := MustBeOk(
+					findNodeByKey(
+						inter.Nodes,
+						"var_d_0",
+					).Outputs.Get(
+						ir.DefaultOutputParam,
+					),
+				)
+				Expect(register.Type.Unit.Name).To(Equal(value.Type.Unit.Name))
+			},
+			Entry("seconds into minutes", `d := 1min`, `120s`, telem.TimeSpan(2)),
+			Entry("minutes into seconds", `d := 30s`, `2min`, telem.TimeSpan(120)),
+			Entry("the same unit", `d := 1min`, `2min`, telem.TimeSpan(2)),
+			Entry("a typed variable", `d i64 min := 1min`, `120s`, telem.TimeSpan(2)),
+			Entry("no unit on the literal", `d := 1min`, `5`, telem.TimeSpan(5)),
+			Entry("a pressure", `d := 1.0bar`, `200.0kPa`, 2.0),
+		)
+
+		DescribeTable(
+			"Should convert a variable written to a variable of another unit",
+			func(ctx SpecContext, declarations, write, from, to string) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\ncount_ch -> f\"{d} {other}\" -> msg_ch\n}\n}"
+				resolver := append([]symbol.Symbol{{
+					Name: "msg_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+					ID:   950,
+				}}, varResolver...)
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				scale := findNodeByKey(inter.Nodes, "scale_0")
+				Expect(scale.Type).To(Equal(compiler.ScaleSyntheticPrefix + "scale_0"))
+				Expect(scale.Inputs[0].Type.Unit.Name).To(Equal(from))
+				Expect(scale.Outputs[0].Type.Unit.Name).To(Equal(to))
+				fn := MustBeOk(inter.Functions.Find(scale.Type))
+				Expect(fn.Inputs).To(Equal(scale.Inputs))
+				Expect(fn.Outputs).To(Equal(scale.Outputs))
+				register := findNodeByKey(inter.Nodes, "var_d_0")
+				Expect(register.Outputs[0].Type.Unit.Name).To(Equal(to))
+				Expect(hasEdge(inter, "scale_0", "var_d_0")).To(BeTrue())
+			},
+			Entry("a flow", "d := 1min\nother := 120s", `other -> d`, "s", "min"),
+			Entry("typed variables",
+				"d i64 ms := 1s\nother i64 min := 2min", `other -> d`, "min", "ms"),
+			Entry(
+				"floats",
+				"d := 1.0bar\nother := 250.0kPa",
+				`other -> d`,
+				"kPa",
+				"bar",
+			),
+			Entry("a reassigned source",
+				"d := 1min\nother := 120s", "180s -> other\nother -> d", "s", "min"),
+		)
+
+		DescribeTable("Should warn when a converted write truncates an integer",
+			func(ctx SpecContext, declarations, write string, warns bool) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\n}\n}"
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				truncates := ContainSubstring("truncates an integer toward zero")
+				if warns {
+					Expect(diagnostics.String()).To(truncates)
+				} else {
+					Expect(diagnostics.String()).ToNot(truncates)
+				}
+			},
+			Entry("an assignment to a larger unit",
+				"d := 1min\nother := 120s", `d = other`, true),
+			Entry("a flow to a smaller unit",
+				"d := 1min\nother := 120s", `d -> other`, false),
+			Entry("an assignment to a smaller unit",
+				"d := 1min\nother := 120s", `other = d`, false),
+			Entry("a float", "d := 1.0bar\nother := 250.0kPa", `other -> d`, false),
+			Entry("a float assigned to an untyped integer",
+				"d := 1min\nother := 90.0s", `d = other`, false),
+			Entry("a literal", "d := 1min", `120s -> d`, false),
+			Entry("an assigned literal that leaves a remainder",
+				"d := 1min", `d = 90s`, true),
+		)
+
+		DescribeTable("Should warn when a value truncates an integer on its way",
+			func(ctx SpecContext, source string, warnings int) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitTruncation.Code
+					},
+				)).To(HaveLen(warnings), diagnostics.String())
+			},
+			Entry("an argument in a function",
+				"func g(m i64 min) i64 min {\nreturn m\n}\n"+
+					"func f(x i64 s) i64 min {\nreturn g(x)\n}", 1),
+			Entry("a literal with no remainder in a function",
+				"func f() i64 min {\ny i64 min := 120s\nreturn y\n}", 0),
+			Entry("a float in a function",
+				"func f(x f64 s) f64 min {\nreturn x\n}", 0),
+			Entry("a smaller unit in a function",
+				"func f(x i64 min) i64 s {\nreturn x\n}", 0),
+			Entry("a literal with a remainder as an input",
+				"func hold(x i64 min) i64 min {\nreturn x\n}\n"+
+					"count_ch -> hold(x=90s) -> count_ch", 1),
+			Entry("a constant with a remainder as an input",
+				"d := 1500us\nfunc hold(x i64 ms) i64 ms {\nreturn x\n}\n"+
+					"count_ch -> hold(x=d) -> count_ch", 1),
+			Entry("a typed declaration at the top level", "d i64 s := 1500ms", 1),
+			Entry(
+				"a typed declaration in a sequence",
+				"sequence main {\nd i64 s := 1500ms\nstage s1 {\nd -> count_ch\n}\n}",
+				1,
+			),
+			Entry(
+				"a typed declaration that an input reads",
+				"import time\nd i64 s := 1500ms\ncount_ch -> time.wait(d) -> flag_ch",
+				1,
+			),
+			Entry("a calculation as an input",
+				"d := 90s\nfunc hold(x i64 min) i64 min {\nreturn x\n}\n"+
+					"count_ch -> hold(x=d * 2) -> count_ch", 1),
+			Entry("a smaller unit by a factor that is not whole",
+				"func f(x i64 psi) i64 Pa {\nreturn x\n}", 1),
+			Entry("a literal by a factor that is not whole",
+				"func f() i64 Pa {\ny i64 Pa := 5psi\nreturn y\n}", 1),
+			Entry("a calculation by a factor that is not whole",
+				"func f(x i64 psi, y i64 Pa) i64 Pa {\nreturn x + y\n}", 1),
+			Entry("a calculation by a whole factor",
+				"func f(x i64 s, y i64 ms) i64 ms {\nreturn x + y\n}", 0),
+			Entry(
+				"a series element in a function",
+				"func f(x i64 s) i64 min {\nys := [1min]\nys[0] = x\nreturn ys[0]\n}",
+				1,
+			),
+		)
+
+		DescribeTable("Should fix a write that truncates an integer",
+			func(ctx SpecContext, source string, fixed ...string) {
+				found := expectFixes(ctx, source, codes.UnitTruncation.Code, fixed)
+				Expect(found.Notes).To(HaveLen(len(fixed)))
+			},
+			Entry("a declaration",
+				"func f() {\nd i64 min := 90s\n}",
+				"func f() {\nd f64 min := 90s\n}",
+				"func f() {\nd i64 s := 90s\n}"),
+			Entry("a stateful declaration",
+				"func f() {\nd i64 min $= 90s\n}",
+				"func f() {\nd f64 min $= 90s\n}",
+				"func f() {\nd i64 s $= 90s\n}"),
+			Entry("a declaration of another integer type",
+				"func f() {\nd i32 min := 90s\n}",
+				"func f() {\nd f64 min := 90s\n}",
+				"func f() {\nd i32 s := 90s\n}"),
+			Entry("an assignment of a literal",
+				"func f() {\nd i64 min := 0min\nd = 90s\n}",
+				"func f() {\nd f64 min := 0min\nd = 90s\n}",
+				"func f() {\nd i64 s := 0s\nd = 90s\n}"),
+			Entry("an assignment of a variable",
+				"func f(x i64 s) {\nd i64 min := 0min\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 0min\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd i64 s := 0s\nd = x\n}"),
+			Entry("an assignment to a variable with no declared type",
+				"func f(x i64 s) {\nd := 5min\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 5min\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd := 300s\nd = x\n}"),
+			Entry("a compound assignment of a calculation",
+				"func f(x i64 s) {\nd i64 min := 0\nd += x * 2\n}",
+				"func f(x i64 s) {\nd f64 min := 0\nd += f64 s(x * 2)\n}",
+				"func f(x i64 s) {\nd i64 s := 0\nd += x * 2\n}"),
+			Entry("an assignment to a variable declared from a number with no unit",
+				"func f(x i64 s) {\nd i64 min := 5\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 5\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd i64 s := 300\nd = x\n}"),
+			Entry("an assignment to a variable that is not whole in the other unit",
+				"func f(x i64 Pa) {\nd i64 psi := 5psi\nd = x\n}",
+				"func f(x i64 Pa) {\nd f64 psi := 5psi\nd = f64 Pa(x)\n}"),
+			Entry("a flow of a variable",
+				"sequence main {\nd := 1min\nspan := 90s\nstage s1 {\nspan -> d\n}\n}",
+				"sequence main {\nd f64 min := 1min\nspan := 90s\n"+
+					"stage s1 {\nf64 s(span) -> d\n}\n}",
+				"sequence main {\nd := 60s\nspan := 90s\nstage s1 {\nspan -> d\n}\n}"),
+			Entry("a flow of a calculation",
+				"sequence main {\nd := 1min\nspan := 90s\n"+
+					"stage s1 {\nspan * 60 -> d\n}\n}",
+				"sequence main {\nd f64 min := 1min\nspan := 90s\n"+
+					"stage s1 {\nf64 s(span * 60) -> d\n}\n}",
+				"sequence main {\nd := 60s\nspan := 90s\n"+
+					"stage s1 {\nspan * 60 -> d\n}\n}"),
+			Entry("a flow of a literal",
+				"sequence main {\nd $= 1min\nstage s1 {\n90s -> d\n}\n}",
+				"sequence main {\nd f64 min $= 1min\nstage s1 {\n90s -> d\n}\n}",
+				"sequence main {\nd $= 60s\nstage s1 {\n90s -> d\n}\n}"),
+			Entry("a declaration from a variable",
+				"func f(x i64 s) {\nd i64 min := x\n}"),
+			Entry("an assignment to a variable declared from a variable",
+				"func f(x i64 s, y i64 min) {\nd i64 min := y\nd = x\n}"),
+			Entry("a result of a function",
+				"func f(x i64 s) i64 min {\nreturn x\n}"),
+			Entry("a series declaration",
+				"func f() {\nys series i64 s := [1500ms]\n}"),
+		)
+
+		DescribeTable(
+			"Should warn when a cast with no unit removes a unit that converts",
+			func(ctx SpecContext, source string, warnings int) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitDropped.Code
+					},
+				)).To(HaveLen(warnings), diagnostics.String())
+			},
+			Entry(
+				"a declaration in a function",
+				"func f() {\nd i64 ms := i64(5s)\n}",
+				1,
+			),
+			Entry(
+				"a declaration in a sequence",
+				"sequence main {\nd i64 ms := i64(5s)\nstage s1 {\nd -> count_ch\n}\n}",
+				1,
+			),
+			Entry("an assignment of a variable",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}", 1),
+			Entry("an assignment in a stage",
+				"sequence main {\nd i64 ms := 0ms\nstage s1 {\nd = i64(5s)\n}\n}", 1),
+			Entry("a result", "func f(x i64 s) i64 ms {\nreturn i64(x)\n}", 1),
+			Entry("an argument",
+				"func g(m i64 ms) {\n}\nfunc f(x i64 s) {\ng(i64(x))\n}", 1),
+			Entry("an input", "import time\nsequence main {\nt := 5s\nstage s1 {\n"+
+				"count_ch -> time.wait(i64(t)) -> flag_ch\n}\n}", 1),
+			Entry("the same unit", "func f() {\nd i64 s := i64(5s)\n}", 0),
+			Entry("another dimension", "func f() {\nd i64 psi := i64(5s)\n}", 0),
+			Entry("a target with no unit", "func f() {\nd i64 := i64(5s)\n}", 0),
+			Entry("a cast with a unit", "func f() {\nd i64 ms := i64 s(5)\n}", 0),
+		)
+
+		It(
+			"Should give a number divided by a unit value no unit",
+			func(ctx SpecContext) {
+				_, diagnostics := analyzeText(
+					ctx,
+					"func f(t i64 s) i64 {\nreturn 10 / t\n}",
+				)
+				Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+			},
+		)
+
+		DescribeTable("Should check a compound product or quotient as its calculation",
+			func(ctx SpecContext, declaration, op, message string) {
+				for _, write := range []string{"x " + op + "= t", "x = x " + op + " t"} {
+					_, diagnostics := analyzeText(ctx, "func f(t i64 s) {\nx "+
+						declaration+"\n"+write+"\n}")
+					if message == "" {
+						Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+						continue
+					}
+					Expect(diagnostics.String()).To(ContainSubstring(message))
+				}
+			},
+			Entry("a number divided by a unit value", `i64 := 10`, "/", ""),
+			Entry("a number times a unit value", `i64 := 10`, "*",
+				"'x' has no unit and cannot take a value in s"),
+			Entry("two units of one dimension", `i64 min := 4min`, "*", ""),
+			Entry("two units of two dimensions", `i64 psi := 4psi`, "/", ""),
+		)
+
+		notWhole := "a series of i64 in psi does not convert to Pa, " +
+			"use a float series or the same unit"
+		DescribeTable(
+			"Should check an integer series that meets a value in a smaller unit",
+			func(ctx SpecContext, body, message string) {
+				_, diagnostics := analyzeText(ctx, "func f() {\n"+body+"\n}")
+				if message == "" {
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					return
+				}
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a sum by a factor that is not whole",
+				"xs := [5psi]\nys := xs + 1Pa", notWhole),
+			Entry("a product by a factor that is not whole",
+				"xs := [5psi]\nys := xs * 1Pa", notWhole),
+			Entry("a comparison by a factor that is not whole",
+				"xs := [5psi]\nbs := xs > 1Pa", notWhole),
+			Entry("a compound product by a factor that is not whole",
+				"xs := [5psi]\nxs *= 1Pa", notWhole),
+			Entry("a series by a factor that is not whole",
+				"xs := [5psi]\nps := [5Pa]\nys := xs + ps", notWhole),
+			Entry("a 32-bit series by a factor that does not fit",
+				"xs series i32 min := [5min]\nys := xs + 1ns",
+				"a series of i32 in min does not convert to ns"),
+			Entry("a compound sum, which converts the value",
+				"xs := [5psi]\nxs += 1Pa", ""),
+			Entry("a series in the smaller unit", "ps := [5Pa]\nys := ps + 1psi", ""),
+			Entry("a float series", "xs := [5.0psi]\nys := xs + 1.0Pa", ""),
+			Entry("a whole factor", "xs := [5min]\nys := xs + 1s", ""),
+		)
+
+		DescribeTable("Should fix a cast that removes a unit",
+			func(ctx SpecContext, source string, fixed ...string) {
+				expectFixes(ctx, source, codes.UnitDropped.Code, fixed)
+			},
+			Entry("a literal",
+				"func f() {\nd i64 ms := i64(5s)\n}",
+				"func f() {\nd i64 ms := 5s\n}",
+				"func f() {\nd i64 ms := 5ms\n}"),
+			Entry("a float literal into an integer",
+				"func f() {\nd i64 ms := i64(1.5s)\n}",
+				"func f() {\nd i64 ms := i64 ms(1.5s)\n}"),
+			Entry("a variable",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}",
+				"func f(x i64 s) {\nd i64 ms := 0ms\nd = i64 ms(x)\n}"),
+		)
+
+		DescribeTable("Should reject a value with a unit for a name with no unit",
+			func(ctx SpecContext, source, message string, fixed ...string) {
+				found := expectFixes(ctx, source, codes.UnitMissing.Code, fixed)
+				Expect(found.Message).To(Equal(message))
+			},
+			Entry("an assignment",
+				"import time\nsequence main {\nlast $= 0\n"+
+					"stage s1 {\nlast = time.now()\n}\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"import time\nsequence main {\nlast i64 ns $= 0\n"+
+					"stage s1 {\nlast = time.now()\n}\n}",
+				"import time\nsequence main {\nlast $= 0\n"+
+					"stage s1 {\nlast = i64(time.now())\n}\n}"),
+			Entry(
+				"an assignment after a read",
+				"import time\nsequence main {\nlast $= 0\nq i64 ns := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = time.now()\n}\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"import time\nsequence main {\nlast i64 ns $= 0\nq i64 ns := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = time.now()\n}\n}",
+				"import time\nsequence main {\nlast $= 0\nq i64 ns := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = i64(time.now())\n}\n}",
+			),
+			Entry("a flow of a literal",
+				"sequence main {\nlast i64 := 0\nstage s1 {\n5s -> last\n}\n}",
+				"'last' has no unit and cannot take a value in s",
+				"sequence main {\nlast i64 s := 0\nstage s1 {\n5s -> last\n}\n}",
+				"sequence main {\nlast i64 := 0\nstage s1 {\ni64(5s) -> last\n}\n}"),
+			Entry("a flow of a variable",
+				"sequence main {\nlast i64 := 0\nspan := 5s\n"+
+					"stage s1 {\nspan -> last\n}\n}",
+				"'last' has no unit and cannot take a value in s",
+				"sequence main {\nlast i64 s := 0\nspan := 5s\n"+
+					"stage s1 {\nspan -> last\n}\n}",
+				"sequence main {\nlast i64 := 0\nspan := 5s\n"+
+					"stage s1 {\ni64(span) -> last\n}\n}"),
+			Entry("an assignment in a function",
+				"import time\nfunc f() {\nlast := 0\nlast = time.now()\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"import time\nfunc f() {\nlast i64 ns := 0\nlast = time.now()\n}",
+				"import time\nfunc f() {\nlast := 0\nlast = i64(time.now())\n}"),
+			Entry("a compound assignment",
+				"func f() {\ntotal i64 := 0\ntotal += 5ms\n}",
+				"'total' has no unit and cannot take a value in ms",
+				"func f() {\ntotal i64 ms := 0\ntotal += 5ms\n}",
+				"func f() {\ntotal i64 := 0\ntotal += i64(5ms)\n}"),
+			Entry("a result",
+				"func f() {d i64 ns} i64 {\nreturn d\n}",
+				"the result of 'f' has no unit and cannot take a value in ns",
+				"func f() {d i64 ns} i64 ns {\nreturn d\n}",
+				"func f() {d i64 ns} i64 {\nreturn i64(d)\n}"),
+			Entry("a parameter",
+				"import time\nfunc f(start i64) i64 {\nreturn i64(start)\n}\n"+
+					"func g() i64 {\nreturn f(time.now())\n}",
+				"parameter 'start' of 'f' has no unit and cannot take a value in ns",
+				"import time\nfunc f(start i64 ns) i64 {\nreturn i64(start)\n}\n"+
+					"func g() i64 {\nreturn f(time.now())\n}",
+				"import time\nfunc f(start i64) i64 {\nreturn i64(start)\n}\n"+
+					"func g() i64 {\nreturn f(i64(time.now()))\n}"),
+			Entry("a parameter of a flow call",
+				"d := 5s\nfunc f(x i64) i64 {\nreturn i64(x)\n}\n"+
+					"count_ch -> f(x=d) -> count_ch",
+				"parameter 'x' of 'f' has no unit and cannot take a value in s",
+				"d := 5s\nfunc f(x i64 s) i64 {\nreturn i64(x)\n}\n"+
+					"count_ch -> f(x=d) -> count_ch",
+				"d := 5s\nfunc f(x i64) i64 {\nreturn i64(x)\n}\n"+
+					"count_ch -> f(x=i64(d)) -> count_ch"),
+			Entry("a parameter in braces",
+				"func f() {x i64} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(t)\n}",
+				"parameter 'x' of 'f' has no unit and cannot take a value in s",
+				"func f() {x i64 s} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(t)\n}",
+				"func f() {x i64} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(i64(t))\n}"),
+			Entry(
+				"a series element",
+				"func f(x i64 ms) i64 {\nys := [1, 2]\nys[0] = x\nreturn ys[0]\n}",
+				"'ys' has no unit and cannot take a value in ms",
+				"func f(x i64 ms) i64 {\nys := [1, 2]\nys[0] = i64(x)\nreturn ys[0]\n}",
+			),
+		)
+
+		DescribeTable("Should accept a value with a unit where the unit has a place",
+			func(ctx SpecContext, source string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("a declaration, which takes the unit",
+				"import time\nfunc f() i64 ns {\nstart i64 := time.now()\n"+
+					"start = time.now()\nreturn start\n}"),
+			Entry("a cast, which drops the unit",
+				"import time\nfunc f(start i64) i64 {\nreturn start\n}\n"+
+					"func g() i64 {\nreturn f(i64(time.now()))\n}"),
+			Entry("a channel with no unit",
+				"sequence main {\nstage s1 {\n5s -> count_ch\n}\n}"),
+		)
+
+		DescribeTable("Should reject a series written to a series in another unit",
+			func(ctx SpecContext, source, message string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+				Expect(diagnostics.Errors()[0].Message).To(Equal(message))
+			},
+			Entry("an assignment",
+				"func f() i64 ms {\nxs := [1s, 2s]\nys := [1ms, 2ms]\nys = xs\n"+
+					"return ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+			Entry("a declaration",
+				"func f() i64 ms {\nxs := [1s, 2s]\nys series i64 ms := xs\n"+
+					"return ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+			Entry("a result",
+				"func f() series i64 ms {\nxs := [1s, 2s]\nreturn xs\n}",
+				"the result of 'f' is a series in ms and cannot take a series in s"),
+			Entry("an argument",
+				"func g(v series i64 ms) i64 ms {\nreturn v[0]\n}\n"+
+					"func f() i64 ms {\nxs := [1s, 2s]\nreturn g(xs)\n}",
+				"parameter 'v' of 'g' is a series in ms and cannot take a series in s"),
+			Entry("a compound assignment",
+				"func f() i64 ms {\nxs := [1s]\nys := [1ms]\nys += xs\nreturn ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+		)
+
+		DescribeTable("Should give one error",
+			func(ctx SpecContext, source, message string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+				Expect(diagnostics.Errors()[0].Message).To(ContainSubstring(message))
+			},
+			Entry("series elements of different dimensions",
+				"func f() i64 s {\nxs := [1s, 5psi]\nreturn xs[0]\n}",
+				"series element 2 has incompatible type"),
+			Entry("a value with a unit declared as a string",
+				"func f() i64 {\nx str := 5ms\nreturn 0\n}",
+				"integer is not compatible with str"),
+		)
+
+		DescribeTable(
+			"Should reject a write between untyped variables of different kinds",
+			func(ctx SpecContext, write, message string) {
+				source := "sequence main {\na := 5s\nb := 0.5ms\nstage s1 {\n" + write +
+					"\n}\n}"
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(*diagnostics).To(HaveLen(1), diagnostics.String())
+				Expect((*diagnostics)[0].Message).To(Equal(message))
+			},
+			Entry("an integer to a float", `a -> b`,
+				"a value type integer does not match channel b value type float"),
+			Entry("a float to an integer", `b -> a`,
+				"b value type float does not match channel a value type integer"),
+		)
+
+		DescribeTable("Should accept a calculation with variables in another unit",
+			func(ctx SpecContext, statement string) {
+				source := "import time\nsequence main {\nd := 1min\nt := 120s\n" +
+					"u f64 ms $= 5.0s\nc := t + t\nstage s1 {\n" + statement + "\n}\n}"
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("an input", `count_ch -> time.wait(t * 2) -> flag_ch`),
+			Entry("an input with two variables",
+				`count_ch -> time.wait(t * i64(u)) -> flag_ch`),
+			Entry("a flow into a variable",
+				"t * 60 -> d\ncount_ch -> time.wait(1s) -> flag_ch"),
+			Entry("an assignment",
+				"d = t * 60\ncount_ch -> time.wait(1s) -> flag_ch"),
+			Entry("a variable that is set from a calculation",
+				`count_ch -> time.wait(c * 2) -> flag_ch`),
+			Entry("a typed declaration",
+				"x i64 ns := t + t\ncount_ch -> time.wait(x) -> flag_ch"),
+			Entry("a variable that is set from a cast",
+				"x := i64 ms(5s)\ncount_ch -> time.wait(x) -> flag_ch"),
+		)
+
+		It("Should accept a variable that is not finite as an input in another unit",
+			func(ctx SpecContext) {
+				_, diagnostics := analyzeText(ctx, "import math\nx f64 s := math.inf\n"+
+					"func hold(v f64 ms) i64 {\nreturn 1\n}\n"+
+					"count_ch -> hold(v=x) -> out_ch")
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			})
+
+		DescribeTable("Should accept a calculation in the unit of its target",
+			func(ctx SpecContext, statement string) {
+				source := "import time\nsequence main {\nd := 1min\nn i64 ns := 5s\n" +
+					"stage s1 {\n" + statement + "\n}\n}"
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("literals", `count_ch -> time.wait(10ms + 10ms) -> flag_ch`),
+			Entry("a variable in the unit of the input",
+				`count_ch -> time.wait(n * 2) -> flag_ch`),
+			Entry("a variable in the unit of the variable written",
+				"d * 2 -> d\ncount_ch -> time.wait(n) -> flag_ch"),
+		)
+
+		DescribeTable(
+			"Should warn when an input truncates a reassigned integer variable",
+			func(ctx SpecContext, unit, body string, warns bool) {
+				source := "func hold(x i64 " + unit + ") i64 " + unit +
+					" {\nreturn x\n}\n" +
+					"sequence main {\nd i64 s := 120s\nstage s1 {\n" + body + "\n}\n}"
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitTruncation.Code
+					},
+				)
+				if !warns {
+					Expect(found).To(BeEmpty())
+					return
+				}
+				Expect(found).To(HaveLen(1), diagnostics.String())
+			},
+			Entry("a write before the call", "min",
+				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", true),
+			Entry("a write after the call", "min",
+				"count_ch -> hold(x=d) -> count_ch\nd = 100s", true),
+			Entry("an input in a smaller unit", "ms",
+				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", false),
+			Entry("a variable that is set one time", "min",
+				"count_ch -> hold(x=d) -> count_ch", false),
+		)
+
+		DescribeTable("Should not convert a write that needs no conversion",
+			func(ctx SpecContext, declarations, write string) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\n}\n}"
+				inter, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				for _, n := range inter.Nodes {
+					Expect(n.Type).ToNot(HavePrefix(compiler.ScaleSyntheticPrefix))
+				}
+			},
+			Entry("the same unit", "d := 1min\nother := 2min", `other -> d`),
+			Entry("no unit on the source", "d := 1min\nother := 2", `other -> d`),
+			Entry("a channel", "d := 1min", `count_ch -> d`),
+		)
+
+		DescribeTable("Should reject a value that does not convert to its target",
+			func(ctx SpecContext, source, message string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"a flow of another dimension",
+				"sequence main {\nd := 1min\nother := 100psi\nstage s1 {\nother -> d\n}\n}",
+				"incompatible dimensions: cannot write psi to 'd' (min)",
+			),
+			Entry(
+				"an assignment of another dimension",
+				"sequence main {\nd := 1min\nother := 100psi\nstage s1 {\nd = other\n}\n}",
+				"incompatible dimensions: cannot write psi to 'd' (min)",
+			),
+			Entry("a literal of another dimension",
+				"sequence main {\nd := 1min\nstage s1 {\n5psi -> d\n}\n}",
+				"incompatible"),
+			Entry("a float into an integer",
+				"sequence main {\nd := 5\nstage s1 {\n2.5 -> d\n}\n}",
+				"does not match"),
+			Entry("an input of another dimension",
+				"p := 100psi\ncount_ch -> wait(duration=p) -> flag_ch",
+				"incompatible dimensions: cannot write psi to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("an input of another kind",
+				"d := 5s\nfunc hold(x f64 ns) f64 {\nreturn x\n}\n"+
+					"count_ch -> hold(x=d) -> flag_ch",
+				"expected f64, got i64"),
+		)
+
+		It("Should convert a reassigned variable on its way into a function", func(
+			ctx SpecContext,
+		) {
+			source := `
+			func hold(x i64 ns) i64 ns {
+			    return x
+			}
+			sequence main {
+			    d := 5s
+			    stage s1 {
+			        d = 6s
+			        count_ch -> hold(x=d) -> count_ch
+			    }
+			}`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			scale := findNodeByKey(inter.Nodes, "scale_0")
+			Expect(scale.Type).To(Equal(compiler.ScaleSyntheticPrefix + "scale_0"))
+			Expect(scale.Inputs[0].Type).To(Equal(
+				types.VarRef(MustBeOk(
+					findNodeByKey(
+						inter.Nodes,
+						"var_d_0",
+					).Outputs.Get(
+						ir.DefaultOutputParam,
+					),
+				).Type, "var_d_0"),
+			))
+			x := MustBeOk(findNodeByKey(inter.Nodes, "hold_0").Inputs.Get("x"))
+			Expect(x.Type).To(Equal(types.VarRef(types.TimeSpan(), "scale_0")))
+			Expect(x.Value).To(Equal(5 * telem.Second))
+			Expect(hasEdge(inter, nodeReading(inter, 901), "scale_0")).To(BeTrue(),
+				"the trigger must fire the conversion")
+		})
+
+		It("Should stamp both units on a reassigned variable of another unit", func(
+			ctx SpecContext,
+		) {
+			source := `
+			sequence main {
+			    d := 5s
+			    stage s1 {
+			        d = 6s
+			        count_ch -> wait(duration=d) -> flag_ch
+			    }
+			}`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+			Expect(duration.Type.Unit.Name).To(Equal("ns"))
+			Expect(duration.Type.Elem.Unit.Name).To(Equal("s"))
+			up, down := types.InputScale(duration.Type)
+			Expect(up).To(Equal(1e9))
+			Expect(down).To(Equal(1e-9))
+			Expect(duration.Value).To(Equal(5 * telem.Second))
+		})
 
 		It("Should sample a computed config input per fire", func(ctx SpecContext) {
 			source := `count_ch -> wait(duration=1s+1s) -> flag_ch`
@@ -8762,7 +9505,7 @@ time.wait(duration=500ms) -> output`
 				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
-				`func good() f64 {
+				`func good() f64 psi {
     return 100psi + 50psi
 }`,
 				true, "",
@@ -9142,7 +9885,7 @@ time.wait(duration=500ms) -> output`
 			func(ctx SpecContext) {
 				inter := analyze(ctx, `
 			import time
-			func f(t i64 ns) {n u8} i64 {
+			func f(t i64 ns) {n u8} i64 ns {
 				return t
 			}
 			trig -> f(time.now()) -> out`)
@@ -9166,7 +9909,7 @@ time.wait(duration=500ms) -> output`
 			func(ctx SpecContext) {
 				inter := analyze(ctx, `
 			import time
-			func f(t i64 ns) {} i64 {
+			func f(t i64 ns) {} i64 ns {
 				return t
 			}
 			flag -> select() -> {

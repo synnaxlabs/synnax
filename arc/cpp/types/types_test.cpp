@@ -180,3 +180,54 @@ TEST(TypesTest, ChannelsJSONRoundTrip) {
     ASSERT_EQ(parsed.read.at(1), "channel_a");
     ASSERT_EQ(parsed.write.at(3), "channel_c");
 }
+
+/// @brief builds a type with a time unit of the given name and scale.
+arc::types::Type with_unit(arc::types::Type t, std::string name, const double scale) {
+    arc::types::Unit unit;
+    unit.dimensions.time = 1;
+    unit.scale = scale;
+    unit.name = std::move(name);
+    t.unit = unit;
+    return t;
+}
+
+/// @brief builds a var ref to variable v with values of type elem.
+arc::types::Type var_ref(const arc::types::Type &elem) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::VarRef;
+    t.name = "v";
+    t.elem = x::mem::indirect<arc::types::Type>(elem);
+    return t;
+}
+
+/// @brief it should give the factor between the two units of a var ref.
+TEST(InputScale, ScaleOfAnInput) {
+    using arc::types::input_scale;
+    arc::types::Type i64;
+    i64.kind = arc::types::Kind::I64;
+    const auto seconds = with_unit(i64, "s", 1e9);
+    const auto nanoseconds = with_unit(i64, "ns", 1);
+    EXPECT_EQ(input_scale(with_unit(var_ref(seconds), "ns", 1)).first, 1e9);
+    EXPECT_EQ(input_scale(with_unit(var_ref(nanoseconds), "s", 1e9)).first, 1e-9);
+    EXPECT_EQ(
+        input_scale(with_unit(var_ref(with_unit(i64, "um", 1e-6)), "nm", 1e-9)).first,
+        1e3
+    );
+    EXPECT_EQ(input_scale(var_ref(seconds)).first, 1);
+    EXPECT_EQ(input_scale(with_unit(var_ref(i64), "ns", 1)).first, 1);
+    EXPECT_EQ(input_scale(seconds).first, 1);
+}
+
+/// @brief it should give the inverse factor between the two units of a var ref.
+TEST(InputScale, InverseScaleOfAnInput) {
+    using arc::types::input_scale;
+    arc::types::Type i64;
+    i64.kind = arc::types::Kind::I64;
+    const auto nanoseconds = with_unit(i64, "ns", 1);
+    EXPECT_EQ(input_scale(with_unit(var_ref(nanoseconds), "s", 1e9)).second, 1e9);
+    EXPECT_EQ(
+        input_scale(with_unit(var_ref(with_unit(i64, "nm", 1e-9)), "um", 1e-6)).second,
+        1e3
+    );
+    EXPECT_EQ(input_scale(nanoseconds).second, 1);
+}

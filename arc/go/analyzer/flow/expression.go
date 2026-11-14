@@ -237,13 +237,14 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	}
 }
 
-// BindOutput binds the untyped output of the node registered for expr to t, the type
-// of the variable it writes, so its literals take t.
+// BindOutput binds the output of the node registered for expr to t, the type of the
+// variable it writes.
 func BindOutput[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
 	t types.Type,
 ) {
+	expression.TakeUnit(ctx, expr, t.Unit)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil {
 		return

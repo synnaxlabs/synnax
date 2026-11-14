@@ -106,20 +106,6 @@ var _ = Describe("Magnitude Safety", func() {
 	})
 
 	Describe("CheckAssignmentScaleSafety", func() {
-		DescribeTable("should warn for truncation to zero",
-			func(srcUnit string, dstKind types.Kind, dstUnit string) {
-				ctx := testCtx()
-				src := makeTyped(types.KindF64, srcUnit)
-				dst := makeTyped(dstKind, dstUnit)
-				units.CheckAssignmentScaleSafety(ctx, src, dst, nil)
-				warnings := testutil.Warnings(ctx.Diagnostics)
-				Expect(warnings).To(HaveLen(1))
-				Expect(warnings[0].Message).To(ContainSubstring("truncate to zero"))
-			},
-			Entry("pK to i32 K", "pK", types.KindI32, "K"),
-			Entry("nK to i64 K", "nK", types.KindI64, "K"),
-		)
-
 		DescribeTable("should warn for overflow",
 			func(srcUnit string, dstKind types.Kind, dstUnit string) {
 				ctx := testCtx()

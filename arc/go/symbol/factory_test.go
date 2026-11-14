@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -367,4 +368,29 @@ var _ = Describe("IsComputed", func() {
 			Expect(v.IsComputed()).To(BeFalse())
 		},
 	)
+})
+
+var _ = Describe("Initializer", func() {
+	It("Should return the initializer of a variable", func() {
+		stmt := MustSucceed(parser.ParseStatement("x := 5s"))
+		sym := symbol.Symbol{
+			Kind: symbol.KindVariable,
+			AST:  stmt.VariableDeclaration().LocalVariable(),
+		}
+		Expect(sym.Initializer().GetText()).To(Equal("5s"))
+	})
+
+	It("Should return the initializer of a stateful variable", func() {
+		stmt := MustSucceed(parser.ParseStatement("x $= 2 * 3"))
+		sym := symbol.Symbol{
+			Kind: symbol.KindStatefulVariable,
+			AST:  stmt.VariableDeclaration().StatefulVariable(),
+		}
+		Expect(sym.Initializer().GetText()).To(Equal("2*3"))
+	})
+
+	It("Should return nil for a symbol with no initializer", func() {
+		sym := symbol.Symbol{Kind: symbol.KindChannel}
+		Expect(sym.Initializer()).To(BeNil())
+	})
 })

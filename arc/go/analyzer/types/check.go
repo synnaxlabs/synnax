@@ -103,6 +103,26 @@ func Check(
 	return nil
 }
 
+// CheckConverted checks actual against expected when the lowering converts between
+// their units. Two untyped types stay apart, so each keeps its own unit.
+func CheckConverted(
+	cs *constraints.System,
+	expected, actual types.Type,
+	source antlr.ParserRuleContext,
+	reason string,
+) error {
+	expected, actual = cs.ApplySubstitutions(expected), cs.ApplySubstitutions(actual)
+	expected.Unit, actual.Unit = nil, nil
+	if expected.Kind == types.KindVariable && actual.Kind == types.KindVariable {
+		if constrainedTo(expected, types.KindIntegerConstant) !=
+			constrainedTo(actual, types.KindIntegerConstant) {
+			return newTypeMismatchError(expected, actual, reason)
+		}
+		return nil
+	}
+	return Check(cs, expected, actual, source, reason)
+}
+
 // newTypeMismatchError creates a typeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
 func newTypeMismatchError(

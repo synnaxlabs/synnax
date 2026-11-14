@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -56,6 +58,19 @@ struct Config {
 };
 
 class State;
+
+/// @brief multiplies v by up, or divides it by down. A whole factor keeps an integer
+/// exact.
+template<typename T>
+T scale_input(const T v, const double up, const double down) {
+    const auto whole = [](const double factor) {
+        return std::trunc(factor) == factor &&
+               factor <= static_cast<double>(std::numeric_limits<T>::max());
+    };
+    if (whole(up)) return v * static_cast<T>(up);
+    if (whole(down)) return v / static_cast<T>(down);
+    return static_cast<T>(static_cast<double>(v) * up);
+}
 
 class Node {
     friend class State;
@@ -257,9 +272,11 @@ public:
     [[nodiscard]] T numeric_input(const std::string &name) const {
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
-        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
-            return s->at<T>(-1);
         const auto &p = this->params[i];
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty()) {
+            const auto [up, down] = types::input_scale(p.type);
+            return scale_input(s->at<T>(-1), up, down);
+        }
         if (const auto v = types::to_sample_value(p.value, p.type))
             return x::telem::cast<T>(*v);
         return 0;

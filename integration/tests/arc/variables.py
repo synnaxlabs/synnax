@@ -357,7 +357,7 @@ func pass_through(v i64) {n u8} i64 {
     return v
 }
 
-func stamp(t i64 ns) {n u8} i64 {
+func stamp(t i64 ns) {n u8} i64 ns {
     return t
 }
 

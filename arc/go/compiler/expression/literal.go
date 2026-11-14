@@ -100,8 +100,14 @@ func compileSeriesLiteral(
 
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
-		if _, err := Compile(ctx.Child(expr).WithHint(*elemType)); err != nil {
+		t, err := Compile(ctx.Child(expr).WithHint(*elemType))
+		if err != nil {
 			return types.Type{}, err
+		}
+		if t = t.UnwrapChan(); types.UnitsConvertible(t.Unit, elemType.Unit) {
+			if err = EmitCast(ctx, t, *elemType); err != nil {
+				return types.Type{}, err
+			}
 		}
 		ctx.Resolver.EmitSeriesSetElement(ctx.Writer, ctx.WriterID, *elemType)
 	}
@@ -112,22 +118,24 @@ func compileSeriesLiteral(
 func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
 ) (types.Type, error) {
-	targetType := ctx.Hint
-
-	if !targetType.IsValid() || !targetType.IsNumeric() ||
-		targetType.Kind == types.KindVariable {
-		targetType = types.Type{}
-		if parent := ctx.AST.GetParent(); parent != nil {
-			if litCtx, ok := parent.(parser.ILiteralContext); ok {
-				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-					targetType = inferredType
-				}
-			}
+	var (
+		targetType = ctx.Hint
+		inferred   types.Type
+	)
+	if parent := ctx.AST.GetParent(); parent != nil {
+		if litCtx, ok := parent.(parser.ILiteralContext); ok {
+			inferred = ctx.TypeMap[litCtx]
 		}
 	}
-
+	if !targetType.IsValid() || !targetType.IsNumeric() ||
+		targetType.Kind == types.KindVariable {
+		targetType = inferred
+	}
 	targetType = targetType.Unwrap()
-	targetType.Unit = nil
+	// A literal beside a value of another dimension keeps its number.
+	if types.UnitsIncompatible(inferred.Unit, targetType.Unit) {
+		targetType.Unit = nil
+	}
 
 	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
 	if err != nil {

@@ -340,7 +340,261 @@ flow_trigger -> f64(in_i32) -> flow_num_i32_to_f64
 flow_trigger -> i32(in_f64) -> flow_num_f64_to_i32
 flow_trigger -> f32(in_f64) -> flow_num_f64_to_f32
 flow_trigger -> i32(in_f64) + 100 -> flow_num_arith
+
+// ──────────────────────── Unit conversion ────────────────────────
+// A value written to a variable of another unit of the same dimension converts. Each
+// variable then goes to a channel, which has no unit.
+sequence unit_main {
+    lit := 1min
+    flow_up := 1min
+    flow_down := 1s
+    assign_up := 1min
+    assign_down := 1s
+    typed i64 ms := 1s
+    truncated := 5min
+    pressure := 1.0bar
+    gauge i64 bar := 0bar
+    volts := 0.0V
+    live := 1min
+    calc := 1min
+    src_s := 120s
+    src_min := 2min
+    src_short := 90s
+    src_kpa := 250.0kPa
+    src_psi i64 psi := 100psi
+    src_mv := 2500.0mV
+    src_live := 60s
+    held i64 s := 1500ms
+    fold_bare i64 ms := i64(5s)
+    fold_unit i64 ms := i64 s(5)
+    stage convert {
+        120s -> lit
+        src_s -> flow_up
+        src_min -> flow_down
+        assign_up = src_s
+        assign_down = src_min
+        src_min -> typed
+        src_short -> truncated
+        src_kpa -> pressure
+        src_psi -> gauge
+        src_mv -> volts
+        src_s * 2 -> calc
+        unit_live_in -> src_live
+        src_live -> live
+        lit -> unit_lit
+        flow_up -> unit_flow_up
+        flow_down -> unit_flow_down
+        assign_up -> unit_assign_up
+        assign_down -> unit_assign_down
+        typed -> unit_typed
+        truncated -> unit_truncated
+        pressure -> unit_pressure
+        gauge -> unit_gauge
+        volts -> unit_volts
+        live -> unit_live
+        calc -> unit_calc
+        fold_bare -> unit_fold_bare
+        fold_unit -> unit_fold_unit
+        flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
+        5000ms -> held
+        flow_trigger -> unit_to_ms(x=held) -> unit_fn_written
+        1 -> unit_ready
+    }
+}
+start_conversion_cmd => unit_main
+// A variable converts to the unit of a function input.
+unit_bar := 1.0bar
+func unit_to_psi(x f64 psi) f64 psi {
+    return x
+}
+flow_trigger -> unit_to_psi(x=unit_bar) -> unit_fn_psi
+// So does a variable that is assigned again, in the stage above.
+func unit_to_ms(x i64 ms) i64 ms {
+    return x
+}
+// A function gives its result as the number in its unit.
+func unit_five() i64 ms {
+    return 5ms
+}
+flow_trigger -> unit_five() -> unit_fn_ret
+// A number divided by a value with a unit has no unit.
+func unit_ratio() i64 ms {
+    t := 2s
+    x i64 ms := 10 / t
+    return x
+}
+flow_trigger -> unit_ratio() -> unit_fn_ratio
+// So does a compound division.
+func unit_divide() i64 {
+    t := 2s
+    total i64 := 10
+    total /= t
+    return total
+}
+flow_trigger -> unit_divide() -> unit_fn_divide
+// An input takes the value that a variable holds, not the text of its declaration.
+unit_held i64 s := 1500ms
+flow_trigger -> unit_to_ms(x=unit_held) -> unit_fn_held
+unit_cast := i64 s(5000ms)
+flow_trigger -> unit_to_ms(x=unit_cast) -> unit_fn_cast
+unit_bare i64 s := 2
+flow_trigger -> unit_to_ms(x=unit_bare) -> unit_fn_bare
 """
+
+# Every line with a comment is an error or a warning that the compiler gives in one
+# pass, and [1 fix] or [2 fix] gives its number of quick fixes. UNIT_ERRORS holds the
+# text that the Core must report for them.
+UNIT_ERRORS_SOURCE = """
+import time
+
+// ─────────────── top-level variables ───────────────
+t := 120s
+u := 500ms
+p := 100psi
+twice := t + t
+typed i64 ns := t + t                             // converts
+
+func show(x i64 ns) str {
+    return f"x={x}"
+}
+
+// ─────────────── flow ───────────────
+time.wait(t * 2) -> "wait" -> unit_log            // converts
+time.interval(t + u) -> "interval" -> unit_log    // converts
+time.wait(twice * 2) -> "chain" -> unit_log       // converts
+time.wait(p) -> "pressure" -> unit_log            // error, another dimension
+time.interval(1s) -> show(x=t * 2) -> unit_log    // converts
+time.interval(1s) -> label(x=t) -> unit_log       // [2 fix] error, no unit, parameter
+
+// ─────────────── function body ───────────────
+func hold() {d i64 ns} i64 {
+    return d                                      // [2 fix] error, no unit, result
+}
+
+func in_body() i64 {
+    local := 5s
+    return hold(local)                            // converts
+}
+
+func plain(x i64) i64 {
+    return x
+}
+
+func label(x i64) str {
+    return f"x={x}"
+}
+
+func stamp() i64 {
+    return time.now()                             // [2 fix] error, no unit, result
+}
+
+func to_min(m i64 min) i64 min {
+    return m
+}
+
+func res(x i64 s) i64 min {
+    return x                                      // warning, truncation, result
+}
+
+func bad_result(c i64 psi) i64 s {
+    return c                                      // error, another dimension, result
+}
+
+func body(x i64 s) i64 {
+    local := 5s
+    k := plain(local)                             // [2 fix] error, no unit, parameter
+    a i64 s := 5psi                               // error, dimension, declaration
+    m i64 min := 90s                              // [2 fix] truncation, declaration
+    q i64 Pa := 5psi                              // [2 fix] warning, factor not whole
+    g i64 ms := i64(5s)                           // [2 fix] warning, unit removed
+    total i64 := 0
+    total += 5ms                                  // [2 fix] error, no unit, compound
+    acc i64 min := 0min
+    acc += x                                      // [2 fix] truncation, compound
+    w := to_min(x)                                // warning, truncation, argument
+    xs := [1s, 2s]
+    ys := [1ms, 2ms]
+    ys = xs                                       // error, series in another unit
+    zs := [1s, 5psi]                              // error, elements of two dimensions
+    ps := [5psi]
+    qs := ps + 1Pa                                // error, series factor not whole
+    ms := [1min]
+    ms[0] = x                                     // warning, truncation, element
+    ls series i64 s := [1500ms]                   // warning, truncation, series literal
+    b i64 bar := 2bar
+    c i64 psi := 5psi
+    e := b + c                                    // warning, truncation, calculation
+    r i64 s := 0s
+    r = c                                         // error, dimension, assignment
+    r += c                                        // error, another dimension, compound
+    return 0
+}
+
+// ─────────────── sequence and stage ───────────────
+sequence main {
+    d := 1min
+    span := 90s
+    whole := 120s
+    n := 5
+    f := 0.5ms
+    count := 0
+
+    stage write {
+        whole * 60 -> d                           // [2 fix] warning, truncation
+        span * 60 -> d                            // [2 fix] warning, truncation
+        d = span * 2                              // [2 fix] warning, truncation
+        p -> d                                    // error, another dimension
+        d = p                                     // error, another dimension
+        5psi -> d                                 // error, another dimension
+        2.5 -> n                                  // error, float into an integer
+        whole -> d                                // [2 fix] warning, truncation
+        span -> d                                 // [2 fix] warning, truncation
+        n = span                                  // [2 fix] error, no unit
+        90s -> d                                  // [2 fix] truncation, literal
+        span -> count                             // [2 fix] error, no unit, flow
+        span -> f                                 // error, integer into a float
+        time.wait(span / 2) => next               // converts
+    }
+
+    stage done {
+        "done" -> unit_log
+    }
+}
+
+start_conversion_cmd => main
+"""
+
+# The text that the Core must report for UNIT_ERRORS_SOURCE, in the order of its lines.
+UNIT_ERRORS = [
+    "incompatible dimensions: cannot write psi to parameter 'duration' of "
+    "'time.wait' (ns)",
+    "parameter 'x' of 'label' has no unit and cannot take a value in s",
+    "hint: change `i64` to `i64 s`",
+    "hint: change `t` to `i64(t)`",
+    "the result of 'hold' has no unit and cannot take a value in ns",
+    "the result of 'stamp' has no unit and cannot take a value in ns",
+    "unit conversion from s to min truncates an integer toward zero",
+    "incompatible dimensions: cannot write psi to the result of 'bad_result' (s)",
+    "parameter 'x' of 'plain' has no unit and cannot take a value in s",
+    "incompatible dimensions: cannot write psi to 'a' (s)",
+    "hint: change `m i64 min := 90s` to `m f64 min := 90s`",
+    "unit conversion from psi to Pa truncates an integer toward zero",
+    "the cast to i64 removes the unit s, so 'g' takes the number in ms",
+    "'total' has no unit and cannot take a value in ms",
+    "'ys' is a series in ms and cannot take a series in s",
+    "series element 2 has incompatible type",
+    "a series of i64 in psi does not convert to Pa, use a float series or the "
+    "same unit",
+    "unit conversion from ms to s truncates an integer toward zero",
+    "unit conversion from bar to psi truncates an integer toward zero",
+    "incompatible dimensions: cannot write psi to 'r' (s)",
+    "incompatible dimensions: cannot write psi to 'd' (min)",
+    "does not match channel n value type",
+    "'n' has no unit and cannot take a value in s",
+    "hint: change `d := 1min` to `d := 60s`",
+    "'count' has no unit and cannot take a value in s",
+    "does not match channel f value type",
+]
 
 INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_i32", sy.DataType.INT32),
@@ -371,6 +625,7 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_spec_half_u16", sy.DataType.UINT16),
     ("in_spec_neg_i16", sy.DataType.INT16),
     ("in_spec_cast_wide_i16", sy.DataType.INT64),
+    ("unit_live_in", sy.DataType.INT64),
 ]
 
 
@@ -824,6 +1079,32 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("flow_num_f64_to_i32", sy.DataType.INT32),
     ("flow_num_f64_to_f32", sy.DataType.FLOAT32),
     ("flow_num_arith", sy.DataType.INT32),
+    # Unit conversion
+    ("unit_lit", sy.DataType.INT64),
+    ("unit_flow_up", sy.DataType.INT64),
+    ("unit_flow_down", sy.DataType.INT64),
+    ("unit_assign_up", sy.DataType.INT64),
+    ("unit_assign_down", sy.DataType.INT64),
+    ("unit_typed", sy.DataType.INT64),
+    ("unit_truncated", sy.DataType.INT64),
+    ("unit_pressure", sy.DataType.FLOAT64),
+    ("unit_gauge", sy.DataType.INT64),
+    ("unit_volts", sy.DataType.FLOAT64),
+    ("unit_live", sy.DataType.INT64),
+    ("unit_ready", sy.DataType.UINT8),
+    ("unit_fn_psi", sy.DataType.FLOAT64),
+    ("unit_fn_live", sy.DataType.INT64),
+    ("unit_calc", sy.DataType.INT64),
+    ("unit_fn_ret", sy.DataType.INT64),
+    ("unit_fn_ratio", sy.DataType.INT64),
+    ("unit_fn_divide", sy.DataType.INT64),
+    ("unit_fn_written", sy.DataType.INT64),
+    ("unit_fn_held", sy.DataType.INT64),
+    ("unit_fn_cast", sy.DataType.INT64),
+    ("unit_fn_bare", sy.DataType.INT64),
+    ("unit_fold_bare", sy.DataType.INT64),
+    ("unit_fold_unit", sy.DataType.INT64),
+    ("unit_log", sy.DataType.STRING),
     # Narrow integer types, widened to i64 in Arc
     *(
         (name, sy.DataType.INT64)
@@ -883,6 +1164,8 @@ class Conversion(ArcCase):
         self._test_f64()
         self._test_flow_context()
         self._test_narrow()
+        self._test_units()
+        self._test_unit_errors()
 
     def _test_32(self) -> None:
         self.log("=== i32 = 42, u32 = 42 ===")
@@ -994,3 +1277,43 @@ class Conversion(ArcCase):
         self.wait_for_eq("flow_num_f64_to_i32", 3)
         self.wait_for_near("flow_num_f64_to_f32", 3.5, tolerance=1e-5)
         self.wait_for_eq("flow_num_arith", 103)
+
+    def _test_units(self) -> None:
+        self.log("=== Unit conversion ===")
+        self.wait_for_eq("unit_ready", 1)
+        self.wait_for_eq("unit_lit", 2)
+        self.wait_for_eq("unit_flow_up", 2)
+        self.wait_for_eq("unit_flow_down", 120)
+        self.wait_for_eq("unit_assign_up", 2)
+        self.wait_for_eq("unit_assign_down", 120)
+        self.wait_for_eq("unit_typed", 120_000)
+        self.wait_for_eq("unit_truncated", 1)
+        self.wait_for_near("unit_pressure", 2.5, tolerance=1e-9)
+        self.wait_for_eq("unit_gauge", 6)
+        self.wait_for_near("unit_volts", 2.5, tolerance=1e-9)
+        self.wait_for_eq("unit_live", 1)
+        self.wait_for_eq("unit_calc", 4)
+        self.wait_for_eq("unit_fold_bare", 5)
+        self.wait_for_eq("unit_fold_unit", 5000)
+        self.log("Writing 180 s to the source variable")
+        self.writer.write("unit_live_in", 180)
+        self.wait_for_eq("unit_live", 3)
+        self.writer.write("flow_trigger", 1)
+        self.wait_for_near("unit_fn_psi", 14.5038, tolerance=1e-3)
+        self.wait_for_eq("unit_fn_live", 180_000)
+        self.wait_for_eq("unit_fn_ret", 5)
+        self.wait_for_eq("unit_fn_ratio", 5)
+        self.wait_for_eq("unit_fn_divide", 5)
+        self.wait_for_eq("unit_fn_written", 5000)
+        self.wait_for_eq("unit_fn_held", 1000)
+        self.wait_for_eq("unit_fn_cast", 5000)
+        self.wait_for_eq("unit_fn_bare", 2000)
+
+    def _test_unit_errors(self) -> None:
+        self.log("=== Unit conversion errors ===")
+        self._assert_configure_error(
+            UNIT_ERRORS_SOURCE,
+            name_prefix="UnitErrors",
+            substr=UNIT_ERRORS[0],
+            expect=UNIT_ERRORS[1:],
+        )

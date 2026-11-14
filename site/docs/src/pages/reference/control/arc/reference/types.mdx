@@ -208,14 +208,10 @@ Strings have no index, no slice, and no `<` or `>`. To put values in text, use
 A type can carry one unit after the type name: `f64 psi`, `i64 ns`. A literal gets a
 unit from its suffix: `14.7psi`, `50ms`. Arc checks units at compile time.
 
-A unit literal becomes its value in the base unit of its dimension: `14.7psi` is
-`101352.97` (Pa), and `50ms` is `50000000` (ns). A unit on a type does not change the
-stored value, so an `f64 psi` variable set to `14.7psi` holds `101352.97`. Durations
-work because timers take nanoseconds.
+A value is the number in the unit of its type, so `p := 14.7psi` holds `14.7`.
 
-Do not compare a raw sensor value with a pressure or temperature unit literal. With
-`x := 400.0`, `x > 300psi` is false, because `300psi` is `2068428.0`. Write the plain
-number: `x > 300.0`.
+A number with no unit takes the unit of the value that it is added to, compared with, or
+written to. With `x := 400.0`, `x > 300psi` compares `400.0` with `300.0`.
 
 | Dimension   | Units                                                                          |
 | ----------- | ------------------------------------------------------------------------------ |
@@ -236,19 +232,20 @@ number: `x > 300.0`.
 | Operation              | Rule                                                   | Error                                                                                   |
 | ---------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | `+`, `-`, `%`, compare | Units must have the same dimension, or one has no unit | `incompatible dimensions: length^1 vs time^1`                                           |
-| `*`, `/`               | Always allowed. The dimensions combine.                |                                                                                         |
+| `*`, `/`               | Always allowed                                         |                                                                                         |
 | `^`                    | A value with a unit needs a literal integer exponent   | `power operation with dimensioned base requires a literal integer exponent: dimensions` |
 | `^`                    | The exponent has no unit                               | `exponent in power operation must be dimensionless, got time^1: dimensions`             |
 
-You cannot write a compound unit such as `f64 m/s`. It comes only from `*` and `/`.
+Arc has no compound units such as `m/s`. A product or a quotient of two values with a
+unit is a number with no unit: `2s / 500ms` is `4`.
 
 A duration literal in a variable has the unit of its suffix: `d := 5s` is an `i64 s`.
-Timer parameters need an `i64 ns`, so declare the variable with that type:
+Timer parameters have the type `i64 ns`, and accept a variable in any time unit:
 
 ```arc channels="vent_vlv_cmd, start_cmd" bodies="vent"
 import time
 
-hold i64 ns := 5s
+hold := 5s
 
 sequence vent {
     1 -> vent_vlv_cmd
@@ -259,5 +256,16 @@ sequence vent {
 start_cmd == 1 => vent
 ```
 
-Without the type, the call fails with
-`type mismatch in argument 'duration' of 'time.wait': expected i64 ns, got i64 s`.
+A value converts when it meets another unit of the same dimension. A calculation uses
+the smaller unit. A variable, an input, and a function result use their own unit.
+
+| Code, with `d := 1min` | Result                                                          |
+| ---------------------- | --------------------------------------------------------------- |
+| `d + 30s`              | `90`, in `s`                                                    |
+| `120s -> d`            | `d` is `2`                                                      |
+| `90s -> d`             | `d` is `1`, with a warning that the integer truncates           |
+| `t := 90s`, `t -> d`   | `d` is `1`, with a warning that the integer truncates           |
+| `p := 5psi`, `p -> d`  | Error, `incompatible dimensions: cannot write psi to 'd' (min)` |
+| `q i64 Pa := 5psi`     | `q` is `34473`, with a warning that the integer truncates       |
+| `[1s, 500ms]`          | `[1000, 500]`, in `ms`                                          |
+| `ys = xs`              | Error, `'ys' is a series in ms and cannot take a series in s`   |

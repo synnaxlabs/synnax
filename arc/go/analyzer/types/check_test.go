@@ -239,6 +239,78 @@ var _ = Describe("Check", func() {
 		)
 	})
 
+	Describe("CheckConverted", func() {
+		unit := func(name string, scale float64) *types.Unit {
+			return &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}
+		}
+		untyped := func(name string, u *types.Unit) types.Type {
+			constraint := types.IntegerConstraint()
+			t := types.Variable(name, &constraint)
+			t.Unit = u
+			return t
+		}
+
+		It("should succeed for the same kind with different units", func() {
+			ast := testutil.NewMockAST(1)
+			expected := types.Type{Kind: types.KindI64, Unit: unit("min", 6e10)}
+			actual := types.Type{Kind: types.KindI64, Unit: unit("s", 1e9)}
+			Expect(
+				atypes.CheckConverted(cs, expected, actual, ast, "test"),
+			).To(Succeed())
+		})
+
+		It("should fail for different kinds", func() {
+			ast := testutil.NewMockAST(1)
+			expected := types.Type{Kind: types.KindI64, Unit: unit("min", 6e10)}
+			actual := types.Type{Kind: types.KindF64, Unit: unit("s", 1e9)}
+			Expect(atypes.CheckConverted(cs, expected, actual, ast, "test")).Error().
+				To(MatchError(ContainSubstring("type mismatch")))
+		})
+
+		It("should leave two untyped types apart", func() {
+			ast := testutil.NewMockAST(1)
+			expected, actual := untyped(
+				"d",
+				unit("min", 6e10),
+			), untyped(
+				"other",
+				unit("s", 1e9),
+			)
+			Expect(
+				atypes.CheckConverted(cs, expected, actual, ast, "test"),
+			).To(Succeed())
+			Expect(cs.ApplySubstitutions(expected)).To(Equal(expected))
+			Expect(cs.ApplySubstitutions(actual)).To(Equal(actual))
+		})
+
+		It("should fail for two untyped types of different kinds", func() {
+			ast := testutil.NewMockAST(1)
+			constraint := types.FloatConstraint()
+			expected := types.Variable("d", &constraint)
+			expected.Unit = unit("ms", 1e6)
+			actual := untyped("other", unit("s", 1e9))
+			Expect(atypes.CheckConverted(cs, expected, actual, ast, "test")).Error().
+				To(MatchError(ContainSubstring("type mismatch")))
+			Expect(atypes.CheckConverted(cs, actual, expected, ast, "test")).Error().
+				To(MatchError(ContainSubstring("type mismatch")))
+		})
+
+		It(
+			"should give an untyped type the kind of a typed one and keep its unit",
+			func() {
+				ast := testutil.NewMockAST(1)
+				expected := types.Type{Kind: types.KindI32, Unit: unit("min", 6e10)}
+				actual := untyped("other", unit("s", 1e9))
+				Expect(
+					atypes.CheckConverted(cs, expected, actual, ast, "test"),
+				).To(Succeed())
+				resolved := cs.ApplySubstitutions(actual)
+				Expect(resolved.Kind).To(Equal(types.KindI32))
+				Expect(resolved.Unit.Name).To(Equal("s"))
+			},
+		)
+	})
+
 	Describe("Unit Compatibility", func() {
 		It("should fail for same kind with different non-nil units", func() {
 			ast := testutil.NewMockAST(1)

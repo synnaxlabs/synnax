@@ -18,15 +18,12 @@ The `time` module has timers and the clock. Import it with `import time`. `inter
 `wait` are flow functions: a function body cannot call them.
 
 The `period` and `duration` parameters have the type `i64 ns`. They take a duration
-literal, such as `500ms`, or a variable of type `i64 ns`. A frequency such as `10hz`
-fails with `cannot convert time^-1 to time^1: incompatible: dimensions`. For 10 times a
-second, use `100ms`. A variable declared as `hold := 5s` has the type `i64 s`, and gives
-error ARC3002 `expected i64 ns, got i64 s`. Declare it with the type:
+literal, such as `500ms`, or a duration variable in any time unit.
 
 ```arc channels="ign_cmd" bodies="fire"
 import time
 
-hold i64 ns := 5s
+hold := 5s
 
 sequence fire {
     time.wait(duration=hold) => next

@@ -1866,6 +1866,159 @@ TEST(NumericInputTest, ReturnsALiteralParamsConfiguredValue) {
     EXPECT_EQ(c.numeric_input<uint8_t>("offset"), 9);
 }
 
+/// @brief builds a time unit of the given name and scale.
+types::Unit time_unit(std::string name, const double scale) {
+    types::Unit unit;
+    unit.dimensions.time = 1;
+    unit.scale = scale;
+    unit.name = std::move(name);
+    return unit;
+}
+
+/// @brief binds "span" of c to variable v, in the units from and to.
+std::shared_ptr<State> new_unit_input_state(
+    const types::Kind elem,
+    const types::Unit &from,
+    const types::Unit &to,
+    x::json::json initial
+) {
+    ir::IR prog;
+    auto out = value_param(ir::default_output_param, elem);
+    out.type.unit = from;
+    prog.nodes.push_back(make_node("v", "variable", {}, {out}));
+    auto span = var_param("span", elem, "v", std::move(initial));
+    span.type.elem->unit = from;
+    span.type.unit = to;
+    prog.nodes.push_back(make_node("c", "consumer", {span}));
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief numeric_input should convert the latest value to the unit of the input.
+TEST(NumericInputTest, ConvertsTheLatestValueToTheUnitOfTheInput) {
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        time_unit("s", 1e9),
+        time_unit("ns", 1),
+        5000000000
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{5, 2});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 2000000000);
+}
+
+/// @brief numeric_input should read the declared initial in the unit of the input.
+TEST(NumericInputTest, ReadsTheDeclaredInitialInTheUnitOfTheInput) {
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        time_unit("s", 1e9),
+        time_unit("ns", 1),
+        5000000000
+    );
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 5000000000);
+}
+
+/// @brief numeric_input should keep a large integer exact.
+TEST(NumericInputTest, KeepsALargeIntegerExact) {
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        time_unit("s", 1e9),
+        time_unit("ns", 1),
+        0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{9007199255});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 9007199255000000000);
+}
+
+/// @brief numeric_input should convert to a larger unit.
+TEST(NumericInputTest, ConvertsToALargerUnit) {
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        time_unit("ns", 1),
+        time_unit("s", 1e9),
+        0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{3000000000});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 3);
+}
+
+/// @brief numeric_input should keep an integer exact for a larger unit.
+TEST(NumericInputTest, KeepsAnIntegerExactForALargerUnit) {
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        time_unit("ms", 1e6),
+        time_unit("h", 3600e9),
+        0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{3600000, 7200000});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 2);
+}
+
+/// @brief numeric_input should convert a float.
+TEST(NumericInputTest, ConvertsAFloat) {
+    const auto s = new_unit_input_state(
+        types::Kind::F64,
+        time_unit("ms", 1e6),
+        time_unit("s", 1e9),
+        0.0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<double>{1500.0});
+    EXPECT_EQ(c.numeric_input<double>("span"), 1.5);
+}
+
+/// @brief builds a unit of the given name, scale, and dimensions.
+types::Unit
+unit_of(std::string name, const double scale, const types::Dimensions &dimensions) {
+    types::Unit unit;
+    unit.dimensions = dimensions;
+    unit.scale = scale;
+    unit.name = std::move(name);
+    return unit;
+}
+
+/// @brief numeric_input should convert a pressure by a factor that is not whole.
+TEST(NumericInputTest, ConvertsAPressureByAFactorThatIsNotWhole) {
+    types::Dimensions pressure;
+    pressure.length = -1;
+    pressure.mass = 1;
+    pressure.time = -2;
+    const auto s = new_unit_input_state(
+        types::Kind::F64,
+        unit_of("bar", 1e5, pressure),
+        unit_of("psi", 6894.76, pressure),
+        0.0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<double>{2.0});
+    EXPECT_NEAR(c.numeric_input<double>("span"), 29.0075361579, 1e-9);
+}
+
+/// @brief numeric_input should keep an integer length exact.
+TEST(NumericInputTest, KeepsAnIntegerLengthExact) {
+    types::Dimensions length;
+    length.length = 1;
+    const auto s = new_unit_input_state(
+        types::Kind::I64,
+        unit_of("um", 1e-6, length),
+        unit_of("nm", 1e-9, length),
+        0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{3});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), 3000);
+}
+
 /// @brief numeric_input should return zero for an unknown input.
 TEST(NumericInputTest, ReturnsZeroForAnUnknownInput) {
     const auto s = new_numeric_input_state();

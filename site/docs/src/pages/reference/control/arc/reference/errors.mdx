@@ -61,6 +61,38 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Cast the `bool` to `u8` first, such as `i32(u8(b))`.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  {...Arc.diagnostic(
+    "ARC2007",
+    ["'<v>'", "<unit>"],
+    ["parameter '<p>' of '<f>'", "<unit>"],
+    ["the result of '<f>'", "<unit>"],
+  )}
+>
+  <Problem.Cause>
+    A value with a unit goes to a variable, a parameter, or a function result that has
+    no unit.
+  </Problem.Cause>
+  <Problem.Fix>
+    Declare the unit that the hint shows. To drop the unit, cast the value: `i64(t)`.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC2008", ["<unit>", "<unit>"])}>
+  <Problem.Cause>
+    An integer converts to another unit, such as `s` to `min`, and loses its fraction.
+  </Problem.Cause>
+  <Problem.Fix>Use the same unit on the two sides, or a float.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC2009", ["<T>", "<unit>", "'<v>'", "<unit>"])}>
+  <Problem.Cause>
+    A cast with no unit, such as `i64(5s)`, removes the unit of a value that goes to a
+    target in another unit of the same dimension.
+  </Problem.Cause>
+  <Problem.Fix>To convert the value, give the cast the unit: `i64 ms(5s)`.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>
   <Problem.Cause>The call has no argument for a required parameter.</Problem.Cause>
   <Problem.Fix>Add the argument. The note shows the signature.</Problem.Fix>
@@ -71,9 +103,7 @@ In the messages below, `<name>` stands for a value that changes.
   message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
 >
   <Problem.Cause>An argument has the wrong type.</Problem.Cause>
-  <Problem.Fix>
-    Convert the value. For a duration in a variable, declare the variable as `i64 ns`.
-  </Problem.Fix>
+  <Problem.Fix>Convert the value.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item {...Arc.diagnostic("ARC3003", ["<f>", "<n>"])}>

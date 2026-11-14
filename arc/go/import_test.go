@@ -72,7 +72,7 @@ var _ = Describe("Imports", func() {
 		It("Should reject time.now without an import", func() {
 			d := analyze(`
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -86,7 +86,7 @@ func get_now() {t u8} i64 {
 import time
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -107,7 +107,7 @@ trig -> time.now() -> now_out
 import ( time control )
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -203,7 +203,7 @@ trig -> set_authority(value=200, channel=valve_cmd)
 import ( time time )
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -292,7 +292,7 @@ import time
 import control
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})

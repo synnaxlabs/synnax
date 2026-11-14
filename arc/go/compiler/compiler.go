@@ -49,6 +49,10 @@ import (
 
 const FmtStrSyntheticPrefix = "fmt$"
 
+// ScaleSyntheticPrefix marks a synthesized function that converts its input to the
+// unit of its output.
+const ScaleSyntheticPrefix = "scale$"
+
 type compiledFunction struct {
 	scopeName string
 	typeIdx   uint32
@@ -113,6 +117,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		}
 		if strings.HasPrefix(i.Key, ir.DispatcherSyntheticPrefix) {
 			cf, err := compileDispatcherSynthetic(compCtx, i, program.Functions)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
+		if strings.HasPrefix(i.Key, ScaleSyntheticPrefix) {
+			cf, err := compileScaleSynthetic(compCtx, i)
 			if err != nil {
 				return Output{}, err
 			}
@@ -229,7 +241,12 @@ func compileItem(
 			)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
+		var t types.Type
+		t, err = expression.Compile(ctx.Child(exprCtx))
+		if err == nil && types.UnitsConvertible(t.Unit, results.Unit) {
+			err = expression.EmitCast(ctx, t, results)
+		}
+		if err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
 				"failed to compile expression '%s'",
@@ -268,11 +285,6 @@ func functionScope(fn ir.Function) (*symbol.Symbol, error) {
 	return fn.Symbol, nil
 }
 
-func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
-	_, err := expression.Compile(ctx)
-	return err
-}
-
 // compileFmtStrSynthetic emits a WASM body returning the formatted string
 // handle for an analyzer-synthesized Function. Lifted variable reads arrive
 // as params.
@@ -303,6 +315,42 @@ func compileFmtStrSynthetic(
 	}
 	strTerm := parser.StringTerminal(lit)
 	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
+		return compiledFunction{}, err
+	}
+	return compiledFunction{
+		scopeName: fn.Key,
+		typeIdx:   typeIdx,
+		writer:    ctx.Writer,
+	}, nil
+}
+
+// compileScaleSynthetic emits a WASM body that returns its one input in the unit of
+// its output. An integer truncates toward zero.
+func compileScaleSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+) (compiledFunction, error) {
+	if len(fn.Inputs) != 1 || len(fn.Outputs) != 1 {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s takes one input and one output", fn.Key,
+		)
+	}
+	in, out := fn.Inputs[0].Type, fn.Outputs[0].Type
+	if in.Kind == types.KindVarRef && in.Elem != nil {
+		in = *in.Elem
+	}
+	if !types.UnitsConvertible(in.Unit, out.Unit) || in.Kind != out.Kind {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
+		)
+	}
+	ctx := rootCtx.WithNewWriter()
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.ConvertType(in)},
+		Results: []wasm.ValueType{wasm.ConvertType(out)},
+	})
+	ctx.Writer.WriteLocalGet(0)
+	if err := expression.EmitUnitScale(ctx, in, out.Unit); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{

@@ -125,6 +125,36 @@ func matchParam[T antlr.ParserRuleContext](
 	return positional[arg.Index], true
 }
 
+// parameterType returns the type node of the parameter name of fnName in this module.
+func parameterType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fnName, name string,
+) antlr.ParserRuleContext {
+	fn, err := ctx.Scope.Resolve(ctx, fnName)
+	if err != nil || fn.Root() != ctx.Scope.Root() {
+		return nil
+	}
+	decl, ok := fn.AST.(parser.IFunctionDeclarationContext)
+	if !ok {
+		return nil
+	}
+	if inputs := decl.InputList(); inputs != nil {
+		for _, input := range inputs.AllInput() {
+			if input.IDENTIFIER().GetText() == name {
+				return input.Type_()
+			}
+		}
+	}
+	if triggers := decl.TriggerList(); triggers != nil {
+		for _, trigger := range triggers.AllTrigger() {
+			if trigger.IDENTIFIER().GetText() == name {
+				return trigger.Type_()
+			}
+		}
+	}
+	return nil
+}
+
 // checkArgType checks arg's type against param, dereferencing a channel argument to
 // its value type unless param is itself channel-typed.
 func checkArgType[T antlr.ParserRuleContext](
@@ -141,13 +171,65 @@ func checkArgType[T antlr.ParserRuleContext](
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}
-	if err := atypes.Check(ctx.Constraints, param.Type, argType, arg.AST,
+	paramType, check := param.Type, atypes.Check
+	// Lowering warns for a flow variable, which can be a constant.
+	if paramType.Unwrap().Kind != types.KindVariable {
+		converts, ok := CheckUnits(ctx, Write{
+			AST:         arg.AST,
+			Expr:        arg.Expr,
+			Source:      argType,
+			Target:      paramType,
+			Subject:     fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
+			Declaration: parameterType(ctx, fnName, param.Name),
+			Lowered:     readsFlowVariable(ctx, arg.Expr),
+		})
+		if !ok {
+			return
+		}
+		if converts {
+			check = atypes.CheckConverted
+		}
+	}
+	if err := check(ctx.Constraints, paramType, argType, arg.AST,
 		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
 		d := codes.FuncArgType.Wrap(err, arg.AST)
 		if cast, ok := atypes.CastOf(err); ok {
 			d = d.WithFix(arg.Expr, cast+"("+parser.GetExpressionText(arg.Expr)+")")
 		}
 		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
+	}
+}
+
+// readsFlowVariable reports whether expr names a variable outside a function body.
+func readsFlowVariable[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+) bool {
+	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
+		return false
+	}
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return false
+	}
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	return err == nil && sym.IsValueVariable()
+}
+
+// TakeUnit gives the node registered for expr the unit of the target of its value.
+func TakeUnit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	unit *types.Unit,
+) {
+	node, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || len(node.Type.Outputs) == 0 ||
+		!types.UnitsConvertible(node.Type.Outputs[0].Type.Unit, unit) {
+		return
+	}
+	node.Type.Outputs[0].Type.Unit = unit
+	if node.Kind == symbol.KindConstant {
+		node.Type.Inputs[0].Type.Unit = unit
 	}
 }
 

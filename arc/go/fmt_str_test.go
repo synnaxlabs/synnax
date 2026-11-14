@@ -52,6 +52,24 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		return lastString(out, 101)
 	}
 
+	// Runs a whole program that writes to log, driven by a u8 trigger.
+	runProgram := func(ctx SpecContext, program string) string {
+		GinkgoHelper()
+		resolver := channelSymbols(map[string]channelDef{
+			"trig": {types.U8(), 100},
+			"log":  {types.String(), 101},
+		})
+		h := newRuntimeHarness(ctx, program, resolver,
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.StringT},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[uint8](1))
+		h.Tick(ctx, telem.Millisecond)
+		out, _ := h.Flush()
+		return lastString(out, 101)
+	}
+
 	runFmtChannel := func(
 		ctx SpecContext,
 		source, arcType string,
@@ -254,28 +272,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("two bool placeholders", `f"{true} and {false}"`, "true and false"),
 		)
 
-		// Runs a program that renders a bool placeholder into log, driven by a
-		// u8 trigger. Bool-channel placeholders wait on read_bool/write_bool.
-		runBoolProgram := func(ctx SpecContext, program string) string {
-			GinkgoHelper()
-			resolver := channelSymbols(map[string]channelDef{
-				"trig": {types.U8(), 100},
-				"log":  {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx, program, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			h.Tick(ctx, telem.Millisecond)
-			out, _ := h.Flush()
-			return lastString(out, 101)
-		}
-
 		DescribeTable("renders a literal-const bool variable placeholder",
 			func(ctx SpecContext, program, expected string) {
-				Expect(runBoolProgram(ctx, program)).To(Equal(expected))
+				Expect(runProgram(ctx, program)).To(Equal(expected))
 			},
 			Entry("flow context true", `flag := true
 trig -> f"v={flag}" -> log`, "v=true"),
@@ -291,6 +290,28 @@ trig -> f()`, "v=true"),
     log = f"v={b}"
 }
 trig -> f()`, "v=false"),
+		)
+	})
+
+	Describe("Unit variable placeholders", func() {
+		DescribeTable("renders a flow variable in the unit of its type",
+			func(ctx SpecContext, program, expected string) {
+				Expect(runProgram(ctx, program)).To(Equal(expected))
+			},
+			Entry("inferred integer", `r := 10khz
+trig -> f"v={r}" -> log`, "v=10"),
+			Entry("inferred float", `q := 14.7psi
+trig -> f"v={q}" -> log`, "v=14.7"),
+			Entry("inferred duration", `d := 5s
+trig -> f"v={d}" -> log`, "v=5"),
+			Entry("typed duration", `d i64 ns := 5s
+trig -> f"v={d}" -> log`, "v=5000000000"),
+			Entry("typed duration in milliseconds", `d i64 ms := 5s
+trig -> f"v={d}" -> log`, "v=5000"),
+			Entry("duration in a plain integer", `d i64 := 5s
+trig -> f"v={d}" -> log`, "v=5"),
+			Entry("pressure in a plain float", `q f64 := 14.7psi
+trig -> f"v={q}" -> log`, "v=14.7"),
 		)
 	})
 

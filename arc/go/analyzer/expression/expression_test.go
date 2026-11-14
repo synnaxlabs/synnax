@@ -2266,10 +2266,10 @@ var _ = Describe("Expressions", func() {
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 			Entry("time.now()", `
 				import time
-				func testFunc() i64 { return time.now() }
+				func testFunc() i64 ns { return time.now() }
 			`),
 			Entry("bare now() (deprecated)", `
-				func testFunc() i64 { return now() }
+				func testFunc() i64 ns { return now() }
 			`),
 		)
 

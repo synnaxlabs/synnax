@@ -56,6 +56,27 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "bool to %s is experimental; a future release may only allow bool to u8",
 	}
+	// UnitMissing indicates a value with a unit that goes to a variable, a parameter,
+	// or a result with no unit.
+	UnitMissing = diagnostics.Kind{
+		Code:     "ARC2007",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "%s has no unit and cannot take a value in %s",
+	}
+	// UnitTruncation indicates an integer that converts to a larger unit, which
+	// truncates it.
+	UnitTruncation = diagnostics.Kind{
+		Code:     "ARC2008",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "unit conversion from %s to %s truncates an integer toward zero",
+	}
+	// UnitDropped indicates a cast with no unit that removes the unit of a value which
+	// goes to a target in another unit of the same dimension.
+	UnitDropped = diagnostics.Kind{
+		Code:     "ARC2009",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "the cast to %s removes the unit %s, so %s takes the number in %s",
+	}
 
 	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
@@ -114,6 +135,9 @@ var All = []diagnostics.Kind{
 	NaNComparison,
 	TruthyCondition,
 	BoolCast,
+	UnitMissing,
+	UnitTruncation,
+	UnitDropped,
 	FuncArgMissing,
 	FuncArgType,
 	FuncArgExtra,
