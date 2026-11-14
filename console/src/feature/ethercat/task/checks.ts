@@ -107,6 +107,20 @@ const settingProblem = (
   return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
+/** @returns the step that tells the user which of the two devices to delete. */
+const deleteStep = (
+  slave: SlaveDevice,
+  other: SlaveDevice,
+  onRack: SlaveDevice[],
+): string => {
+  const connected = (d: SlaveDevice): boolean =>
+    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const stale = connected(slave) ? other : connected(other) ? slave : null;
+  return stale == null
+    ? "Delete the one that is not on the network."
+    : `Delete ${stale.name}, which is not connected.`;
+};
+
 /**
  * @returns why the slave cannot start because another device on the rack is at its
  * network and position, or null. The problem names the device that is not connected,
@@ -121,16 +135,9 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
       o.properties.position === position,
   );
   if (other == null) return null;
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  const step =
-    stale == null
-      ? "Delete the one that is not on the network."
-      : `Delete ${stale.name}, which is not connected.`;
   return (
     `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
-    `${network}. ${step}`
+    `${network}. ${deleteStep(slave, other, onRack)}`
   );
 };
 
@@ -151,15 +158,10 @@ const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null
       p.serial === serial,
   );
   if (other == null) return null;
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  const step =
-    stale == null
-      ? "Delete the one that is not on the network."
-      : `Delete ${stale.name}, which is not connected.`;
-  const pair = `Slaves ${slave.name} and ${other.name}`;
-  return `${pair} have the same serial number ${serial}. ${step}`;
+  return (
+    `Slaves ${slave.name} and ${other.name} have the same serial number ${serial}. ` +
+    `${deleteStep(slave, other, onRack)}`
+  );
 };
 
 /** @returns why the slaves of the task cannot run on one network, or null. */

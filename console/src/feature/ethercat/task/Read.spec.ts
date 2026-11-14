@@ -723,8 +723,9 @@ describe("Read", () => {
   });
 
   describe("a slave with the serial number of another device", () => {
-    const createPair = async () => {
+    const createPair = async (overrides: { position?: number } = {}) => {
       const identity = {
+        ...overrides,
         vendorId: 0xde,
         productCode: 0x5,
         serial: Math.floor(Math.random() * 2 ** 31) + 1,
@@ -762,6 +763,22 @@ describe("Read", () => {
         await screen.findByText(
           `Slaves ${stale.name} and ${connected.name} have the same serial number ` +
             `${serial}. Delete ${stale.name}, which is not connected.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should report only the position of a pair at one position", async () => {
+      const position = Math.floor(Math.random() * 2 ** 31);
+      const { stale, connected } = await createPair({ position });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+      });
+      // The whole text matches only when the error carries no serial problem.
+      expect(
+        await screen.findByText(
+          `Slaves ${stale.name} and ${connected.name} are both at position ` +
+            `${position} on eth0. Delete ${stale.name}, which is not connected.`,
         ),
       ).toBeTruthy();
     });
