@@ -277,10 +277,11 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, empty at boot. A boot configure that does not
-/// auto-start logs its failures instead of reporting them. A successful configure
-/// writes no status: the start that follows it answers the command. cancel is passed
-/// to the auto-start.
+/// command driving the deploy, empty at boot. A boot configure that does not auto-start
+/// logs its failures instead of reporting them. A successful configure writes no
+/// status: the start that follows it answers the command. Only a boot configure
+/// auto-starts the task, because the start command of a deploy starts it with its own
+/// key. cancel is passed to the auto-start.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -307,7 +308,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
             ctx->set_status(status);
         return {std::move(res.first.task), true};
     }
-    if (res.first.auto_start) {
+    if (boot && res.first.auto_start) {
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

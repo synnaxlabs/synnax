@@ -672,6 +672,32 @@ TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
     EXPECT_TRUE(ctx->statuses.empty());
 }
 
+/// @brief auto-start should not start a task that a start command deploys, so the
+/// start command starts it with its own key.
+TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    auto recording = std::make_unique<RecordingTask>();
+    auto *raw = recording.get();
+    res.task = std::move(recording);
+    res.auto_start = true;
+    cancel.start();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL},
+        "start_cmd",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+    EXPECT_TRUE(raw->cmds.empty());
+}
+
 /// @brief auto-start at boot should exec the start command instead of writing a
 /// configure status.
 TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
