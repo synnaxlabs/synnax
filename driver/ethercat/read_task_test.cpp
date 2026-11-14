@@ -558,6 +558,40 @@ TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should fail a start that discovers the slaves while another task starts
+/// the bus, once the start timeout passes.
+TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartFailsAtTheStartTimeout) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    engine::Config engine_cfg;
+    engine_cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto source = [&] {
+        auto parser = x::json::Parser(cfg);
+        ReadTaskConfig task_cfg(this->client, parser);
+        EXPECT_NIL(parser.error());
+        return std::make_unique<ReadTaskSource>(this->engine, std::move(task_cfg));
+    };
+    const auto first = source();
+    const auto second = source();
+    this->mock_master->hold_activate();
+    std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
+    this->mock_master->wait_until_activating();
+    const auto err = second->start("second", this->cancel);
+    this->mock_master->release_activate();
+    starter.join();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    ASSERT_NIL(first->stop());
+}
+
 /// @brief it should reject a stream rate that does not divide the sample rate.
 TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
     auto cfg = this->create_base_config();

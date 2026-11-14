@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <functional>
 #include <future>
 #include <map>
 #include <memory>
@@ -2450,6 +2452,265 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     // The second try ends at 50 s, so a third would end at 75 s.
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should count the time that an open spends before the start, such as the
+/// read of the slave settings, against the start timeout.
+TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->set_activate_duration(x::telem::SECOND * 25);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    auto cfg = quick_start_config();
+    cfg.start_retry.max_retries = 10;
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    cfg.slave_configs = [clock] {
+        clock.sleep(x::telem::SECOND * 25);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Activate failed.");
+    // The first try ends at 50 s, so a second would end at 75 s.
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should fail an open that still waits for the start of another task at the
+/// start timeout.
+TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should fail a writer that still waits for the start of another task at the
+/// start timeout.
+TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should end the wait of an open for the start of another task when its
+/// cancel stops.
+TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    x::breaker::Breaker canceled;
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(canceled)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+}
+
+/// @brief it should fail an open that reads the slave settings while another open does,
+/// when that other open still starts the bus at the deadline.
+TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    const auto second_reads = std::make_shared<std::promise<void>>();
+    const auto reads = std::make_shared<std::atomic<int>>(0);
+    cfg.slave_configs =
+        [this, reads, second_reads, second_read = second_reads->get_future().share()] {
+            if (reads->fetch_add(1) == 0)
+                second_read.wait();
+            else {
+                second_reads->set_value();
+                this->master->wait_until_activating();
+            }
+            return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+        };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::atomic<int> finished = 0;
+    std::array<x::errors::Error, 2> errs;
+    const auto open = [&](x::errors::Error &err) {
+        err = this->engine
+                  ->open_reader(
+                      {IN_I16},
+                      x::telem::Rate(100),
+                      1,
+                      this->engine->begin_start(this->cancel)
+                  )
+                  .second;
+        finished++;
+    };
+    std::thread first(open, std::ref(errs[0]));
+    std::thread second(open, std::ref(errs[1]));
+    for (int i = 0; i < 5000 && finished.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    EXPECT_EQ(finished.load(), 1);
+    this->master->release_activate();
+    first.join();
+    second.join();
+    const auto &failed = errs[0] ? errs[0] : errs[1];
+    ASSERT_OCCURRED_AS(failed, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(failed.data, "Another task is still starting on eth0.");
+    EXPECT_NIL(errs[0] ? errs[1] : errs[0]);
+}
+
+/// @brief it should fail a start whose deadline passed in the read of the slave
+/// settings, before its first try.
+TEST_F(EngineTest, StartWithNoTimeLeftFailsBeforeItsFirstTry) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    Config cfg;
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    cfg.slave_configs = [clock] {
+        clock.sleep(x::telem::MINUTE);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "The start on eth0 ran out of time.");
+    EXPECT_EQ(this->master->call_count("activate"), 0);
+}
+
+/// @brief it should name the other start when a start that waited behind it has no time
+/// left for a try.
+TEST_F(EngineTest, LateStartBehindAnotherStartNamesTheOtherStart) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    auto cfg = quick_start_config();
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    const auto reads = std::make_shared<std::atomic<int>>(0);
+    cfg.slave_configs = [clock, reads] {
+        if (reads->fetch_add(1) == 1) clock.sleep(x::telem::MINUTE);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    this->master->hold_activate();
+    std::thread first([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        this->master->release_activate();
+    });
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    releaser.join();
+    first.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should end the wait between two tries of a failed start when the cancel of
+/// the open stops.
+TEST_F(EngineTest, StartRetryWaitEndsWhenCanceled) {
+    auto cfg = quick_start_config();
+    cfg.start_retry.base_interval = x::telem::MINUTE;
+    cfg.start_retry.max_interval = x::telem::MINUTE;
+    cfg.start_timeout = x::telem::HOUR;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread opener([this, &cancel, &res] {
+        res = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(cancel)
+        );
+    });
+    ASSERT_EVENTUALLY_EQ(this->master->call_count("activate"), 1);
+    const auto stopping = std::chrono::steady_clock::now();
+    cancel.stop();
+    opener.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(5));
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
 /// @brief it should retry activation of the master until it succeeds, then open the
