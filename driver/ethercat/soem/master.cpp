@@ -1281,6 +1281,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
                 .advice = refusal_advice(code),
+                .code = code,
             };
         msg += ": " + text;
     }
