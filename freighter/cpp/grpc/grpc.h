@@ -62,8 +62,7 @@ struct Keepalive {
     std::chrono::milliseconds timeout = std::chrono::seconds(20);
 };
 
-/// @brief how long a unary call waits for its response when its context sets no
-/// deadline.
+/// @brief the default Pool::unary_timeout.
 const std::chrono::milliseconds UNARY_TIMEOUT = std::chrono::seconds(60);
 
 class Pool {
