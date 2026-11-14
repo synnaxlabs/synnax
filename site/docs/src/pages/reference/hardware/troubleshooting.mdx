@@ -85,10 +85,10 @@ start a task, it shows "Failed to configure task", with this text in the descrip
 <Problem.Cause>
 
 The Driver did not answer the command in 10 seconds. The Driver is running, but the
-device takes too long to start or stop. After 60 seconds, the Driver gives up and the
-status changes to "Failed to complete task operation". The Driver does not run a new
-command for the task until the old command ends, so starting the task again does not
-help.
+device takes too long to start or stop. After 60 seconds, the status also says "Still
+working after 1m.", and the Driver keeps working on the command. The Driver does not run
+a new command for the task until the old command ends, so starting the task again does
+not help.
 
 </Problem.Cause>
 <Problem.Fix>

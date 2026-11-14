@@ -172,8 +172,9 @@ or `false`.
 </Field.Item>
 
 <Field.Item name="--op-timeout" default="60">
-  The number of seconds after which a task operation that has not finished gives the
-  task the error "Failed to complete task operation".
+  The number of seconds that one step of a task operation, such as a start, can run
+  before the task status warns "Still working after" that time. The operation keeps
+  running.
 </Field.Item>
 
 <Field.Item name="--poll-interval" default="1">
