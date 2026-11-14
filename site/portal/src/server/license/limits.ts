@@ -10,7 +10,7 @@
 // The browser imports this file, so it must not import anything that reaches the
 // database.
 
-import { type License } from "@/server/db/schema";
+import { type License, type Organization } from "@/server/db/schema";
 
 export const MAX_NAME_LENGTH = 64;
 
@@ -50,3 +50,15 @@ export const term = (lic: License): string => {
 /** channels describes a cap on channels per Core, where 0 is no cap. */
 export const channels = (cap: number): string =>
   cap === 0 ? "Unlimited" : String(cap);
+
+/**
+ * DESKTOP_CHANNELS is the Desktop channel cap of a personal organization with none set:
+ * 50 channels and the 5 metrics channels that each Core counts.
+ */
+export const DESKTOP_CHANNELS = 55;
+
+/** desktopCap is the channel cap of the Desktop licenses of a personal organization. */
+export const desktopCap = ({
+  desktopChannels,
+}: Pick<Organization, "desktopChannels">): number =>
+  desktopChannels ?? DESKTOP_CHANNELS;

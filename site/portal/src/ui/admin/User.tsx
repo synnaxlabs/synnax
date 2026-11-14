@@ -16,12 +16,15 @@ import { type ReactElement } from "react";
 
 import { type Activity } from "@/page";
 import { personURL } from "@/server/analytics";
+import { type Organization } from "@/server/db/schema";
 import { type Account, roleName } from "@/server/directory";
 import { type Machine } from "@/server/license/desktop";
+import { channels, desktopCap } from "@/server/license/limits";
 import { isActive, MONTH } from "@/server/usage";
 import { type Detail, type Membership } from "@/server/user";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
+import { ChannelsDialog } from "@/ui/admin/ChannelsDialog";
 import { navigate, post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import { type Clock, machineName, statusOf } from "@/ui/format";
@@ -43,10 +46,18 @@ const TEAM_COLUMNS = "minmax(0, 2fr) 14rem 3rem";
 const moment = (t: Date | null, clock: Clock): string =>
   t == null ? "Never" : clock.dateTime(t);
 
+const describeCap = (personal: Organization | null): string => {
+  const cap = channels(
+    desktopCap({ desktopChannels: personal?.desktopChannels ?? null }),
+  );
+  return personal?.desktopChannels == null ? `${cap} (default)` : cap;
+};
+
 /** User is one account's staff page: its Desktop use, machines, teams, and activity. */
 export const User = ({
   account,
   usage,
+  personal,
   machines,
   teams,
   activity,
@@ -74,6 +85,9 @@ export const User = ({
             <Icon.OpenExternal />
             Open in PostHog
           </Button.Button>
+          {personal != null && (
+            <ChannelsDialog userID={account.userID} personal={personal} />
+          )}
           <DeleteDialog account={account} />
         </>
       }
@@ -82,6 +96,7 @@ export const User = ({
         <Fact label="Last Desktop login" value={moment(usage.lastLogin, clock)} />
         <Fact label="Last active" value={moment(usage.lastActive, clock)} />
         <Fact label="Active days" value={`${usage.days} of the last ${MONTH}`} />
+        <Fact label="Desktop channels" value={describeCap(personal)} />
         <Fact label="Joined" value={clock.date(account.joinedAt)} />
         <Fact label="User ID" value={account.userID} code />
       </Facts>

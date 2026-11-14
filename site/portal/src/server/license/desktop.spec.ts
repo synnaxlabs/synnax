@@ -21,6 +21,7 @@ import {
   mintSecret,
   renew,
   resolve,
+  setChannels,
   superseded,
   TERM_MS,
   unlink,
@@ -88,6 +89,7 @@ describe("desktop ledger", () => {
 
   const signer = () => createHarness(store).portal.signer;
   const LATER = new Date(NOW.getTime() + 60_000);
+  const STAFF = "user_staff";
 
   const linkMachine = async (fingerprint = [HASH_A], now = NOW) =>
     await link(store, signer(), {
@@ -121,7 +123,7 @@ describe("desktop ledger", () => {
         edition: "desktop",
         term: "subscription",
         nodes: 1,
-        channels: 50,
+        channels: 55,
         label: "stand-1",
         expiresAt: expiryFrom(NOW),
         maxVersion: null,
@@ -205,6 +207,19 @@ describe("desktop ledger", () => {
       const first = await linkMachine([HASH_A]);
       const second = await linkMachine([HASH_C]);
       expect(first.secret).not.toBe(second.secret);
+    });
+
+    it("should issue the channel cap set for the user", async () => {
+      await linkMachine([HASH_A]);
+      await setChannels(store, {
+        userID: "user_a",
+        channels: 200,
+        actor: STAFF,
+        now: NOW,
+      });
+      const second = await linkMachine([HASH_C], LATER);
+      expect(second.license.channels).toBe(200);
+      expect(readKey(second.key)).toMatchObject({ channels: 200 });
     });
   });
 
@@ -374,6 +389,33 @@ describe("desktop ledger", () => {
       expect(await eventsOf("renew")).toHaveLength(0);
     });
 
+    it("should give the license the channel cap set for the user", async () => {
+      const linked = await linkMachine();
+      await store.query
+        .update(organization)
+        .set({ desktopChannels: 120 })
+        .where(eq(organization.key, linked.license.organization));
+      const machine = await resolve(store, linked.secret);
+      const { key, license: lic } = await renew(store, signer(), {
+        machine,
+        now: RENEWED,
+      });
+      expect(lic.channels).toBe(120);
+      expect((await licenseRow(lic.key)).channels).toBe(120);
+      expect(readKey(key)).toMatchObject({ channels: 120 });
+    });
+
+    it("should give the license the default cap when none is set", async () => {
+      const linked = await linkMachine();
+      await store.query
+        .update(license)
+        .set({ channels: 50 })
+        .where(eq(license.key, linked.license.key));
+      const machine = await resolve(store, linked.secret);
+      const renewed = await renew(store, signer(), { machine, now: RENEWED });
+      expect(renewed.license.channels).toBe(55);
+    });
+
     it("should refuse a machine unlinked after it was resolved", async () => {
       const linked = await linkMachine();
       const machine = await resolve(store, linked.secret);
@@ -445,6 +487,99 @@ describe("desktop ledger", () => {
       });
       expect((await licenseRow(lic.key)).revokedAt).toBeNull();
       expect((await activationRow(act.key)).releasedAt).toBeNull();
+    });
+  });
+
+  describe("setChannels", () => {
+    const set = async (channels: number | null, userID = "user_a") =>
+      await setChannels(store, { userID, channels, actor: STAFF, now: LATER });
+
+    const capOf = async (org: string) =>
+      (
+        await store.query
+          .select({ desktopChannels: organization.desktopChannels })
+          .from(organization)
+          .where(eq(organization.key, org))
+      )[0].desktopChannels;
+
+    it("should store the cap and change each license that is not revoked", async () => {
+      const kept = await linkMachine([HASH_A]);
+      const gone = await linkMachine([HASH_C]);
+      await unlink(store, {
+        activationKey: gone.activation.key,
+        actor: "user_a",
+        now: NOW,
+      });
+      await set(200);
+      expect(await capOf(kept.license.organization)).toBe(200);
+      expect((await licenseRow(kept.license.key)).channels).toBe(200);
+      expect((await licenseRow(gone.license.key)).channels).toBe(55);
+    });
+
+    it("should record the change and amend each license it changes", async () => {
+      const linked = await linkMachine();
+      await set(200);
+      expect(await eventsOf("change_desktop_channels")).toEqual([
+        expect.objectContaining({
+          at: LATER,
+          actor: STAFF,
+          organization: linked.license.organization,
+          license: null,
+          detail: { from: null, to: 200 },
+        }),
+      ]);
+      expect(await eventsOf("amend")).toEqual([
+        expect.objectContaining({
+          at: LATER,
+          actor: STAFF,
+          organization: linked.license.organization,
+          license: linked.license.key,
+          detail: { channels: { from: 55, to: 200 } },
+        }),
+      ]);
+    });
+
+    it("should allow unlimited channels", async () => {
+      const linked = await linkMachine();
+      await set(0);
+      expect((await licenseRow(linked.license.key)).channels).toBe(0);
+    });
+
+    it("should restore the default cap", async () => {
+      const linked = await linkMachine();
+      await set(200);
+      await set(null);
+      expect(await capOf(linked.license.organization)).toBeNull();
+      expect((await licenseRow(linked.license.key)).channels).toBe(55);
+    });
+
+    it("should bring a license to the cap when the cap does not change", async () => {
+      const linked = await linkMachine();
+      await store.query
+        .update(license)
+        .set({ channels: 50 })
+        .where(eq(license.key, linked.license.key));
+      await set(null);
+      expect((await licenseRow(linked.license.key)).channels).toBe(55);
+      expect(await eventsOf("change_desktop_channels")).toHaveLength(0);
+      expect(await eventsOf("amend")).toHaveLength(1);
+    });
+
+    it("should refuse a cap that is not a whole number of at least 0", async () => {
+      await linkMachine();
+      for (const channels of [-1, 1.5, Number.NaN])
+        await expect(set(channels)).rejects.toMatchObject({
+          status: 400,
+          message: "Channels must be a whole number, 0 for unlimited",
+        });
+      expect(await eventsOf("amend")).toHaveLength(0);
+    });
+
+    it("should throw a 404 for a user with no personal organization", async () => {
+      await expect(set(200, "user_gone")).rejects.toMatchObject({
+        status: 404,
+        message: "Personal organization not found",
+      });
     });
   });
 });

@@ -36,6 +36,13 @@
       "when": 1793211621494,
       "tag": "0004_referral",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794626776673,
+      "tag": "0005_desktop_channels",
+      "breakpoints": true
     }
   ]
 }

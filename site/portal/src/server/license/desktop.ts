@@ -22,6 +22,8 @@ import {
 } from "@/server/db/schema";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
+import { changes } from "@/server/license/issue";
+import { desktopCap } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 import { ensurePersonal } from "@/server/organization";
 import { DESKTOP } from "@/server/usage";
@@ -30,8 +32,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** TERM_MS is how long a desktop license runs before it needs a renewal. */
 export const TERM_MS = 30 * DAY_MS;
-
-const CHANNEL_LIMIT = 50;
 
 export const mintSecret = (): string => randomBytes(32).toString("base64url");
 
@@ -103,9 +103,9 @@ export const machinesFor = async (
 
 /**
  * link issues a desktop license for the user's personal organization, bound to one
- * machine, and returns its license key beside the secret that renews it. A machine that
- * logs in again replaces its earlier link, so it stays one entry. Nothing is stored
- * when signing fails.
+ * machine and with the channel cap of the organization, and returns its license key
+ * beside the secret that renews it. A machine that logs in again replaces its earlier
+ * link, so it stays one entry. Nothing is stored when signing fails.
  */
 export const link = async (
   store: Store,
@@ -116,8 +116,8 @@ export const link = async (
   const secret = mintSecret();
   const linked = await store.transact(async (tx) => {
     // Serializes a user's links, so a concurrent one sees this link and supersedes it.
-    await tx
-      .select({ key: organization.key })
+    const [locked] = await tx
+      .select({ desktopChannels: organization.desktopChannels })
       .from(organization)
       .where(eq(organization.key, org.key))
       .for("update");
@@ -149,7 +149,7 @@ export const link = async (
         edition: "desktop",
         term: "subscription",
         nodes: 1,
-        channels: CHANNEL_LIMIT,
+        channels: desktopCap(locked),
         label: machineName,
         expiresAt: expiryFrom(now),
         issuedBy: userID,
@@ -221,9 +221,10 @@ export interface Renewed {
 }
 
 /**
- * renew slides the expiry of a machine's license and returns a fresh license key.
- * Throws a 403 with the code `unlinked` when the machine was unlinked after `resolve`
- * found it. Nothing is stored when signing fails.
+ * renew slides the expiry of a machine's license, gives it the channel cap of its
+ * organization, and returns a fresh license key. Throws a 403 with the code `unlinked`
+ * when the machine was unlinked after `resolve` found it. Nothing is stored when
+ * signing fails.
  */
 export const renew = async (
   store: Store,
@@ -233,7 +234,10 @@ export const renew = async (
   await store.transact(async (tx) => {
     // Serializes the user's Desktop use with their links, so one is the day's first.
     const [org] = await tx
-      .select({ owner: organization.ownerUserID })
+      .select({
+        owner: organization.ownerUserID,
+        desktopChannels: organization.desktopChannels,
+      })
       .from(organization)
       .where(eq(organization.key, row.license.organization))
       .for("update");
@@ -242,7 +246,7 @@ export const renew = async (
     const previous = await lastUse(tx, row.license.organization);
     const [lic] = await tx
       .update(license)
-      .set({ expiresAt: expiryFrom(now) })
+      .set({ expiresAt: expiryFrom(now), channels: desktopCap(org) })
       .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
       .returning();
     if (lic == null) throw forbidden(LOGGED_OUT, UNLINKED);
@@ -314,5 +318,78 @@ export const unlink = async (
       activation: activationKey,
       detail: {},
     });
+  });
+};
+
+export interface SetChannelsArgs {
+  /** userID is the Clerk user ID of the user whose personal organization changes. */
+  userID: string;
+  /** channels is the cap, 0 for unlimited, or null for the default. */
+  channels: number | null;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * setChannels sets the channel cap of a user's Desktop licenses and changes each
+ * license that is not revoked, so its machine gets the cap at its next renewal. Staff
+ * only.
+ * @throws {HTTPError} 400 when the cap is not a whole number of at least 0, and 404
+ * when the user has no personal organization.
+ */
+export const setChannels = async (
+  store: Store,
+  { userID, channels, actor, now }: SetChannelsArgs,
+): Promise<void> => {
+  if (channels != null && (!Number.isInteger(channels) || channels < 0))
+    throw badRequest("Channels must be a whole number, 0 for unlimited");
+  await store.transact(async (tx) => {
+    // Locks the personal organization first, as link and renew do.
+    const [org] = await tx
+      .select()
+      .from(organization)
+      .where(eq(organization.ownerUserID, userID))
+      .for("update");
+    if (org == null) throw notFound("Personal organization");
+    if (org.desktopChannels !== channels) {
+      await tx
+        .update(organization)
+        .set({ desktopChannels: channels })
+        .where(eq(organization.key, org.key));
+      await tx.insert(event).values({
+        at: now,
+        kind: "change_desktop_channels",
+        actor,
+        organization: org.key,
+        detail: { from: org.desktopChannels, to: channels },
+      });
+    }
+    const cap = desktopCap({ desktopChannels: channels });
+    const live = await tx
+      .select()
+      .from(license)
+      .where(
+        and(
+          eq(license.organization, org.key),
+          eq(license.edition, "desktop"),
+          isNull(license.revokedAt),
+        ),
+      );
+    for (const before of live) {
+      if (before.channels === cap) continue;
+      const [after] = await tx
+        .update(license)
+        .set({ channels: cap })
+        .where(eq(license.key, before.key))
+        .returning();
+      await tx.insert(event).values({
+        at: now,
+        kind: "amend",
+        actor,
+        organization: org.key,
+        license: after.key,
+        detail: changes(before, after),
+      });
+    }
   });
 };
