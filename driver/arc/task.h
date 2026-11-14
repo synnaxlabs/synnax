@@ -369,7 +369,7 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
