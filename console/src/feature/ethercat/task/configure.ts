@@ -18,6 +18,7 @@ import {
   SLAVE_SCHEMAS,
   type SlaveDevice,
 } from "@/feature/ethercat/device/types";
+import { type CheckedConfig, checkSlaves } from "@/feature/ethercat/task/checks";
 import {
   type EntryChannel,
   type EntryReadChannel,
@@ -64,16 +65,19 @@ export const createSlaveChannels = async <C extends Channel>(
 };
 
 /**
- * Retrieves the slaves the channels use. The form checks the slaves and channels before
- * a deploy reaches this.
+ * Retrieves the slaves the channels use and runs the checks of the form on them, as a
+ * deploy can start before the form loads the slaves.
  * @returns the slaves, their rack, and the enabled channels with an entry on each
  * slave.
  * @throws {NotFoundError} if a slave of a channel no longer exists.
+ * @throws {Error} if the task cannot start on its slaves.
  */
 export const retrieveSlaves = async <C extends Channel>(
   client: Synnax,
-  channels: C[],
+  pdoType: PDOType,
+  config: CheckedConfig & { channels: C[] },
 ): Promise<Slaves<C>> => {
+  const { channels } = config;
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
@@ -81,6 +85,14 @@ export const retrieveSlaves = async <C extends Channel>(
   });
   PlatformDevice.checkFound(slaveKeys, slaves);
   for (const slave of slaves) PlatformDevice.checkConfigured(slave);
+  const onRack = await client.devices.retrieve({
+    make: MAKE,
+    model: SLAVE_MODEL,
+    rack: slaves[0].rack,
+    schemas: SLAVE_SCHEMAS,
+    includeStatus: true,
+  });
+  checkSlaves(pdoType, config, slaves, onRack);
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(

@@ -127,10 +127,9 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const query = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
-  const slaves = query.data;
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const onRack = useSlavesOnRack(slaves?.[0]?.rack);
-  PForm.useCheck(path.config, slavesZ("outputs", query, onRack));
+  PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
@@ -184,7 +183,8 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<WriteChannel>(
     client,
-    config.channels,
+    "outputs",
+    config,
   );
 
   for (const slave of slaves) {
