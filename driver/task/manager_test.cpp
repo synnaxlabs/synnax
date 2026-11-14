@@ -227,6 +227,7 @@ public:
 class TimeoutTaskFactory final : public Factory {
 public:
     std::atomic<bool> release{false};
+    std::atomic<int> configures{0};
     std::condition_variable cv;
     std::mutex mu;
 
@@ -235,9 +236,9 @@ public:
         const synnax::task::Task &task,
         const std::string &cmd_key
     ) override {
-        if (task.type == SYNTHETIC_TASK_TYPE)
-            return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
-        return {nullptr, false};
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        ++configures;
+        return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
     }
 
     void release_all() {
@@ -367,10 +368,11 @@ protected:
     /// @brief asserts that no status for task is reported by a driver on this rack.
     /// The Core writes placeholder statuses on create with no rack stamped, so the
     /// rack key is what separates them from driver reports. Pass any_rack = true for
-    /// a task never created, where every status is a defect.
+    /// a task never created, where every status is a defect. Watches for wait.
     void expect_no_driver_status(
         const synnax::task::Task &task,
-        const bool any_rack = false
+        const bool any_rack = false,
+        const x::telem::TimeSpan wait = 300 * x::telem::MILLISECOND
     ) {
         std::atomic<bool> received = false;
         std::thread reader([&] {
@@ -386,7 +388,7 @@ protected:
                 }
             }
         });
-        std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+        std::this_thread::sleep_for(wait.chrono());
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
@@ -1211,6 +1213,31 @@ TEST_F(TaskManagerTest, Timeout) {
     ASSERT_EQ(s.details.config_hash, task.config_hash);
     ASSERT_FALSE(s.details.running);
 
+    f->release_all();
+}
+
+TEST_F(TaskManagerTest, TimeoutForTaskOnOtherRackStaysSilent) {
+    auto factory = std::make_unique<TimeoutTaskFactory>();
+    auto *f = factory.get();
+    start_manager(
+        std::move(factory),
+        {.op_timeout = x::telem::SECOND, .poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(f->configures.load(), 1);
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
+    expect_no_driver_status(task, false, 2 * x::telem::SECOND);
     f->release_all();
 }
 
