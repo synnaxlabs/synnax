@@ -2363,6 +2363,50 @@ TEST_F(EngineTest, StartWithNoTimeLeftFailsBeforeItsFirstTry) {
     EXPECT_EQ(this->master->call_count("activate"), 0);
 }
 
+/// @brief it should name the other start when a start that waited behind it has no time
+/// left for a try.
+TEST_F(EngineTest, LateStartBehindAnotherStartNamesTheOtherStart) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    auto cfg = quick_start_config();
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    const auto reads = std::make_shared<std::atomic<int>>(0);
+    cfg.slave_configs = [clock, reads] {
+        if (reads->fetch_add(1) == 1) clock.sleep(x::telem::MINUTE);
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    this->master->hold_activate();
+    std::thread first([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        this->master->release_activate();
+    });
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    releaser.join();
+    first.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
 /// @brief it should end the wait between two tries of a failed start when the cancel of
 /// the open stops.
 TEST_F(EngineTest, StartRetryWaitEndsWhenCanceled) {

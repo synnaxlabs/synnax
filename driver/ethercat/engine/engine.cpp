@@ -53,6 +53,15 @@ x::errors::Error start_late_error(const std::string &network) {
         "The start on " + network + " ran out of time."
     );
 }
+
+/// @brief returns the error of a start whose deadline passed while or after it waited
+/// for another start.
+x::errors::Error start_blocked_error(const std::string &network) {
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "Another task is still starting on " + network + "."
+    );
+}
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
@@ -555,7 +564,9 @@ x::errors::Error Engine::start_locked(
     const auto &retry = this->config.start_retry;
     int failures = 0;
     x::telem::TimeSpan longest_try(0);
-    if (clock.steady() >= start.deadline) return start_late_error(this->network_name);
+    if (clock.steady() >= start.deadline)
+        return start.blocked ? start_blocked_error(this->network_name)
+                             : start_late_error(this->network_name);
     while (true) {
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
         const auto try_started = clock.steady();
@@ -1026,12 +1037,10 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
     while (!lock.try_lock()) {
+        start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
         if (this->config.host_clock.steady() >= start.deadline)
-            return x::errors::Error(
-                errors::ACTIVATION_ERROR,
-                "Another task is still starting on " + this->network_name + "."
-            );
+            return start_blocked_error(this->network_name);
         start.cancel.wait_for(LOCK_POLL_INTERVAL);
     }
     return x::errors::NIL;

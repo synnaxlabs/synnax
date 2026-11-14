@@ -81,6 +81,9 @@ public:
         std::chrono::steady_clock::time_point deadline;
         /// @brief ends the start when it stops.
         x::breaker::Breaker &cancel;
+        /// @brief whether the start waited for another call on the network. The Engine
+        /// sets it.
+        mutable bool blocked = false;
     };
 
 private:
