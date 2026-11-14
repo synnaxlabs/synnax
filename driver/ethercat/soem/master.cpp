@@ -100,6 +100,8 @@ std::string_view refusal_advice(const uint16_t code) {
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
+// SOEM indexes its group list by the group of each slave.
+static_assert(DISABLED_GROUP < EC_MAXGROUP);
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
