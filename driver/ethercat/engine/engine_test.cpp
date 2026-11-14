@@ -3447,6 +3447,43 @@ TEST_F(EngineTest, StopCountsADisabledSlaveThatRestartedAsRestarted) {
     EXPECT_GE(slaves[1].restarted_at.value(), back);
 }
 
+/// @brief it should give a slave that is off the bus when the bus stops a new restart
+/// time when a later scan finds it, as it restarts when its power returns.
+TEST_F(EngineTest, StopGivesASlaveOffTheBusANewRestartTimeWhenItReturns) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto off = x::telem::TimeStamp::now();
+    this->master->remove_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto back = x::telem::TimeStamp::now();
+    this->master->add_slave(io_slave(1));
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), off);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should not scan the bus at a stop when the same slaves still answer.
+TEST_F(EngineTest, StopScansOnlyWhenTheSlaveCountChanged) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->clear_call_log();
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    EXPECT_EQ(this->master->call_count("scan"), 0);
+}
+
 /// @brief it should not count a slave of the running bus that changed() reports at stop
 /// as restarted, as SOEM reports a slave stuck in INIT that still answers.
 TEST_F(EngineTest, StopCountsAStuckSlaveOnTheRunningBusAsNotRestarted) {

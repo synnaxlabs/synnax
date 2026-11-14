@@ -286,10 +286,9 @@ class Engine {
     /// since the last scan. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rescan_locked(const std::set<uint16_t> &restarted);
-    /// @brief returns the positions of the slaves that restarted since the last scan of
-    /// the master, or none when the master has no scan or cannot see a restart.
-    /// Requires mu.
-    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
+    /// @brief returns how the bus changed since the last scan of the master, or no
+    /// change when the master has no scan or cannot see a restart. Requires mu.
+    std::pair<master::Change, x::errors::Error> changed_locked();
     /// @brief records now as the restart time of each slave in slaves that restarted
     /// names or that the last scan did not find, and gives each slave in slaves its
     /// time. Forgets the slaves that slaves lacks. Requires mu.

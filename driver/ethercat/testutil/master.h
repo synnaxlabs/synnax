@@ -168,6 +168,15 @@ public:
         this->slave_list.push_back(std::move(result));
     }
 
+    /// @brief takes the slave at position off the bus, as when its power is off.
+    /// add_slave() puts it back. A scan sees the change only after deactivate().
+    void remove_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        std::erase_if(this->slave_list, [position](const auto &s) {
+            return s.properties.position == position;
+        });
+    }
+
     /// @brief replaces the slave at position with props. A scan sees the change only
     /// after deactivate(), as a restarted slave on a real bus.
     void replace_slave(const uint16_t position, slave::Properties props) {

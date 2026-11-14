@@ -552,8 +552,9 @@ x::errors::Error Engine::start_locked(
     };
     this->left_out.clear();
     // The activation brings a restarted slave up, so changed() misses it afterwards.
-    auto [restarted, restarted_err] = this->restarted_locked();
-    if (restarted_err) return restarted_err;
+    auto [change, change_err] = this->changed_locked();
+    if (change_err) return change_err;
+    auto &restarted = change.restarted;
     // The cached scan holds the setup from before the restart.
     if (!restarted.empty()) this->master->deactivate();
     std::set<uint16_t> reset;
@@ -664,14 +665,20 @@ void Engine::stop_locked() {
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
     // The supervisor counts the restarts of the slaves it checks, where changed() also
     // reports a slave stuck in INIT.
-    if (auto [restarted, err] = this->restarted_locked(); err)
+    if (auto [change, err] = this->changed_locked(); err)
         LOG(WARNING) << "[ethercat] failed to check " << this->iface
                      << " for restarted slaves: " << err.message();
     else {
-        std::erase_if(restarted, [this](const uint16_t pos) {
+        std::erase_if(change.restarted, [this](const uint16_t pos) {
             return !this->unchecked.contains(pos);
         });
-        this->track_restarts_locked(restarted);
+        this->track_restarts_locked(change.restarted);
+        // A slave off the bus now restarts when its power returns, so the scan that
+        // finds it again gives it a new time.
+        if (change.stale)
+            if (const auto scan_err = this->rescan_locked({}).second)
+                LOG(WARNING) << "[ethercat] failed to scan " << this->iface
+                             << " for slaves off the bus: " << scan_err.message();
     }
     this->master->deactivate();
     this->image = {};
@@ -1154,9 +1161,9 @@ Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_in
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rediscover_locked() {
-    const auto [restarted, err] = this->restarted_locked();
+    const auto [change, err] = this->changed_locked();
     if (err) return {{}, err};
-    return this->rescan_locked(restarted);
+    return this->rescan_locked(change.restarted);
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
@@ -1169,12 +1176,12 @@ Engine::rescan_locked(const std::set<uint16_t> &restarted) {
     return {this->slaves, x::errors::NIL};
 }
 
-std::pair<std::set<uint16_t>, x::errors::Error> Engine::restarted_locked() {
+std::pair<master::Change, x::errors::Error> Engine::changed_locked() {
     if (!this->master->restarts_visible()) return {{}, x::errors::NIL};
     auto [change, err] = this->master->changed();
     // A master that has no scan has nothing to compare.
     if (err.matches(errors::MASTER_INIT_ERROR)) return {{}, x::errors::NIL};
-    return {std::move(change.restarted), err};
+    return {std::move(change), err};
 }
 
 Engine::RestartKey Engine::restart_key(const slave::Properties &props) {
