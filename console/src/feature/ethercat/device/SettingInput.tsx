@@ -9,16 +9,17 @@
 
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Field } from "@/feature/ethercat/device/settings";
+import { type Field, valueText } from "@/feature/ethercat/device/settings";
 
 interface BaseProps {
   field: Field;
   /** Undefined shows the field as not set. */
   value: number | undefined;
   problem?: string;
+  /** Says why the value changed. A problem hides it. */
+  note?: string;
 }
 
 interface RequiredProps extends BaseProps {
@@ -36,18 +37,11 @@ interface OptionalProps extends BaseProps {
 const inSentence = (name: string): string =>
   /^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name;
 
-/** @returns the shortest text that reads back as the float32 value. */
-const float32Text = (value: number): string => {
-  let digits = 1;
-  while (Math.fround(Number(value.toPrecision(digits))) !== value) digits++;
-  return Number(value.toPrecision(digits)).toString();
-};
-
 /** @returns the value that the slave held at the scan, or undefined for no option. */
-const heldText = ({ value, options, dataType }: Field): string | undefined => {
+const heldText = (field: Field): string | undefined => {
+  const { value, options } = field;
   if (value == null) return undefined;
-  if (options == null)
-    return DataType.FLOAT32.equals(dataType) ? float32Text(value) : value.toString();
+  if (options == null) return valueText(field, value);
   return options.find((o) => o.value === value)?.name;
 };
 
@@ -58,14 +52,14 @@ export type SettingInputProps = RequiredProps | OptionalProps;
  * shows the value that the slave held at the scan as its placeholder.
  */
 export const SettingInput = (props: SettingInputProps): ReactElement => {
-  const { field, value, problem, onChange } = props;
+  const { field, value, problem, note, onChange } = props;
   const status = problem == null ? undefined : "error";
   const held = heldText(field);
   const clear = props.allowNone === true ? () => props.onChange(null) : undefined;
   return (
     <Input.Item
       label={field.name}
-      helpText={problem}
+      helpText={problem ?? note}
       status={status}
       padHelpText={false}
     >
