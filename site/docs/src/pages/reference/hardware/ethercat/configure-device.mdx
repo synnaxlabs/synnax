@@ -32,6 +32,9 @@ The Console and the Driver call a module a slave, as EtherCAT does. A message th
 
 - An Ethernet port on the computer that runs the Driver, cabled to the first module. Use
   a port for EtherCAT only, and do not connect it to a switch or to your office network.
+  Use a PCIe or onboard port if you can, because a USB adapter can
+  [drop samples](/reference/hardware/ethercat/read-task#a-usb-adapter-drops-samples) at
+  high rates.
 - Packet capture access:
   - **Windows** -> install [Npcap](https://npcap.com/#download). The default install
     options work. If DewesoftX is installed,

@@ -114,7 +114,7 @@ public:
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}
 
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
