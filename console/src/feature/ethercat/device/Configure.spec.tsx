@@ -939,31 +939,45 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         device.set({ path: ["properties", "settings"], value: settings }),
       );
 
-    /** Builds the settings of a card whose catalog marks no entry for DewesoftX. */
-    const createUnmarkedSettings = (shared: boolean) => ({
-      ...createDewesoftXSettings(shared),
-      channels: createSettingsDescription().channels,
-    });
-
-    it("should keep the note of the last scan until a scan reads the switch", async () => {
-      const slave = await clickSwitch();
-      expect(screen.getByText("Only DewesoftX can use this device")).toBeTruthy();
-      expect(screen.queryByText("Restart the power of the device")).toBeNull();
+    it("should show the answer of the Driver until a scan reads the card", async () => {
+      const slave = await clickSwitch({
+        message: "Switched the card to Synnax only",
+        description: "Restart the power of the device in slot 1 to finish.",
+      });
+      expect(
+        await screen.findByText("Restart the power of the device in slot 1 to finish."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
       await scanSwitched(slave);
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
-      expect(screen.queryByText("Switch to Synnax")).toBeNull();
+      expect(
+        screen.queryByText("Restart the power of the device in slot 1 to finish."),
+      ).toBeNull();
     });
 
-    it("should ask for no power restart once a scan finds the card in Synnax mode", async () => {
-      const slave = await clickSwitch(
-        {},
-        { settings: createUnmarkedSettings(true), inputs: [STRAIN_ENTRY] },
-      );
-      await scanSwitched(slave, createUnmarkedSettings(false));
-      await waitFor(() =>
-        expect(screen.queryByText("DewesoftX sets up this device")).toBeNull(),
-      );
-      expect(screen.queryByText("Restart the power of the device")).toBeNull();
+    it("should say that a card runs Synnax only when the Driver says so", async () => {
+      await clickSwitch({
+        message: "Switched the card to Synnax only",
+        description: "The device in slot 1 runs Synnax only now.",
+      });
+      expect(
+        await screen.findByText("The device in slot 1 runs Synnax only now."),
+      ).toBeTruthy();
+      expect(screen.queryByText(/Restart the power/)).toBeNull();
+    });
+
+    it("should warn of a switch that the card did not save", async () => {
+      await clickSwitch({
+        variant: "warning",
+        message: "Switched the card to Synnax until a power restart",
+        description: "The device in slot 1 did not save the switch.",
+      });
+      expect(
+        await screen.findByText("Switched the card to Synnax until a power restart"),
+      ).toBeTruthy();
+      expect(
+        screen.getByText("The device in slot 1 did not save the switch."),
+      ).toBeTruthy();
     });
 
     it("should show why the card did not switch", async () => {

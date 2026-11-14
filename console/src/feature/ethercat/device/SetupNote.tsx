@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { status, type task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, type ReactNode } from "react";
+import { deep } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { useResultSlave, useSetStandalone } from "@/feature/ethercat/device/queries";
 import { canSwitch, of } from "@/feature/ethercat/device/setup";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  type SlaveDevice,
+  type SlaveProperties,
+} from "@/feature/ethercat/device/types";
 import { Docs } from "@/platform/docs";
 
 const SETUP_DOCS = "hardware/ethercat/dewesoft#set-up-a-module-in-synnax";
@@ -59,14 +63,24 @@ interface ReaderNoteProps {
   slave: SlaveDevice;
   reader: string;
   shared: boolean;
+  onSwitched: (answer: task.Status) => void;
 }
 
 /**
  * Says which program sets up the slave, offers the switch to Synnax only when the slave
  * has one, and shows why a switch failed.
  */
-const ReaderNote = ({ slave, reader, shared }: ReaderNoteProps): ReactElement => {
-  const { update, variant, status: result } = useSetStandalone();
+const ReaderNote = ({
+  slave,
+  reader,
+  shared,
+  onSwitched,
+}: ReaderNoteProps): ReactElement => {
+  const {
+    update,
+    variant,
+    status: result,
+  } = useSetStandalone({ afterSuccess: ({ data }) => onSwitched(data.answer) });
   const openDocs = Docs.useOpen(SETUP_DOCS);
   const action = canSwitch(slave.properties) ? (
     <Button.Button
@@ -99,7 +113,10 @@ const ReaderNote = ({ slave, reader, shared }: ReaderNoteProps): ReactElement =>
 };
 
 /** @returns the note for the slave, or null when Synnax alone sets it up. */
-const noteOf = (slave: SlaveDevice): ReactElement | null => {
+const noteOf = (
+  slave: SlaveDevice,
+  onSwitched: (answer: task.Status) => void,
+): ReactElement | null => {
   const { properties } = slave;
   const setup = of(properties);
   if (setup.kind === "switched")
@@ -114,9 +131,20 @@ const noteOf = (slave: SlaveDevice): ReactElement | null => {
   if (setup.kind === "bus")
     return <NoteBody variant="warning" title="Connect Synnax to EtherCAT bus 1 IN" />;
   return (
-    <ReaderNote slave={slave} reader={setup.reader} shared={setup.kind === "shared"} />
+    <ReaderNote
+      slave={slave}
+      reader={setup.reader}
+      shared={setup.kind === "shared"}
+      onSwitched={onSwitched}
+    />
   );
 };
+
+interface Answer {
+  status: task.Status;
+  /** The properties of the slave when the Driver answered. */
+  properties: SlaveProperties;
+}
 
 export interface SetupNoteProps {
   deviceKey: string;
@@ -133,8 +161,22 @@ export const SetupNote = ({
   aligned = false,
 }: SetupNoteProps): ReactElement | null => {
   const { data: slave } = useResultSlave({ key: deviceKey });
+  const [answer, setAnswer] = useState<Answer | null>(null);
   if (slave == null) return null;
-  const note = noteOf(slave);
+  // The answer of the Driver holds until a scan changes the slave.
+  const note =
+    answer != null && deep.equal(answer.properties, slave.properties) ? (
+      <NoteBody
+        variant={answer.status.variant === "success" ? "info" : "warning"}
+        title={answer.status.message}
+      >
+        {answer.status.description != null && (
+          <Detail>{answer.status.description}</Detail>
+        )}
+      </NoteBody>
+    ) : (
+      noteOf(slave, (status) => setAnswer({ status, properties: slave.properties }))
+    );
   if (note == null || !aligned) return note;
   return <Form.Aligned>{note}</Form.Aligned>;
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status } from "@synnaxlabs/client";
+import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -97,12 +97,19 @@ export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
 
+export interface SetStandaloneResult extends SetStandaloneParams {
+  /** The answer of the Driver to the switch, which says what the user does next. */
+  answer: task.Status;
+}
+
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
- * slave to Synnax only. The slave changes after its power restarts. When a stop or the
- * switch fails, starts the tasks again.
+ * slave to Synnax only. When a stop or the switch fails, starts the tasks again.
  */
-export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
+export const { useUpdate: useSetStandalone } = Flux.createUpdate<
+  SetStandaloneParams,
+  SetStandaloneResult
+>({
   name: "EtherCAT slave",
   verbs: SWITCH,
   update: async ({ client, data }) => {
@@ -126,7 +133,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
     const tasks = running.filter((t) =>
       devicesOf(t.config).some((k) => onNetwork.has(k)),
     );
-    let switched = false;
+    let answer: task.Status | undefined;
     try {
       await Promise.all(
         tasks.map(async (t) => {
@@ -145,14 +152,14 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
         timeout: TimeSpan.seconds(30),
       });
       if (res.variant === "error") throw status.toError(res);
-      switched = true;
+      answer = res;
+      return { ...data, answer };
     } finally {
       // A task that fails to start shows its own error.
-      if (!switched)
+      if (answer == null)
         await Promise.allSettled(
           tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
         );
     }
-    return data;
   },
 });
