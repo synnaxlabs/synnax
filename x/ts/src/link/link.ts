@@ -19,3 +19,25 @@ const urlRegex = new RegExp(
 );
 
 export const is = (string: string): boolean => urlRegex.test(string);
+
+// Punctuation at the end belongs to the sentence around a link.
+const embeddedRegex = /https?:\/\/[^\s"'<>]*[^\s"'<>.,;:!?)\]}]/g;
+
+/** A link in a text, from start up to end. */
+export interface Span {
+  start: number;
+  end: number;
+  url: string;
+}
+
+/**
+ * @returns each link in the text, in order. A closing parenthesis stays in a link only
+ * when the link opens it.
+ */
+export const find = (text: string): Span[] =>
+  Array.from(text.matchAll(embeddedRegex), ({ 0: match, index }) => {
+    let end = index + match.length;
+    let open = match.split("(").length - match.split(")").length;
+    for (; open > 0 && text[end] === ")"; open--) end++;
+    return { start: index, end, url: text.slice(index, end) };
+  });
