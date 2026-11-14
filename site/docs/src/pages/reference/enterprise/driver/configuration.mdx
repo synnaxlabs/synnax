@@ -177,8 +177,9 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">
-  The number of seconds after which a task operation that has not finished, such as a
-  start, gives the task the error "Failed to complete task operation".
+  The number of seconds that one step of a task operation, such as a start, can run
+  before the task status warns "Still working after" that time. The operation keeps
+  running.
 </Field.Item>
 
 <Field.Item name="poll_interval" default="1">
