@@ -60,6 +60,7 @@ const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"}
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
     .advice = slave::DC_SYNC_ADVICE,
+    .code = 0x0030,
 };
 /// @brief a refusal of a slave that kept the layout of its earlier mode.
 const slave::Refusal STALE_LAYOUT_REFUSAL{
@@ -1585,10 +1586,105 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
-        "configuration. Fix the device, then stop every task on the network to try it "
-        "again. To fix \"Invalid DC SYNC configuration\", right-click the device, "
-        "select Configure, and pick another sync mode."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. To fix \"Invalid DC SYNC configuration\", right-click the "
+        "device, select Configure, and pick another sync mode."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to switch a slave to Synnax when it refused its DC
+/// sync configuration in the mode of another program.
+TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to switch a slave to Synnax when it refuses its sync
+/// configuration in a mode whose data only another program reads.
+TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"only_read_by", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should give the sync mode advice before the switch advice when the user
+/// picked the sync mode of a slave set up for another program.
+TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    Config cfg;
+    cfg.slave_configs = [shared] {
+        return std::pair{
+            std::vector{saved(
+                shared,
+                {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0300}}
+            )},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. " +
+            slave::DC_SYNC_ADVICE +
+            " The device is set up for DewesoftX. In Configure, switch the device to "
+            "Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to restart the power of a slave that was switched to
+/// Synnax but still runs the layout of another program.
+TEST_F(EngineTest, ReaderOnASwitchedSlaveGetsPowerRestartAdvice) {
+    auto switched = io_slave(1);
+    switched.settings = x::json::json{
+        {"mode", {{"switch", x::json::json::array()}}},
+        {"channels",
+         {{{"entries",
+            {{{"index", 0x6000}, {"sub_index", 1}, {"only_read_by", "DewesoftX"}}}}}}},
+    };
+    this->master->add_slave(switched);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. Restart the power of the device."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -1601,9 +1697,8 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
-        "settings. Fix the device, then stop every task on the network to try it "
-        "again."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it again."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
@@ -1763,9 +1858,9 @@ TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid input "
-        "configuration. Fix the device, then stop every task on the network to try it "
-        "again. If the mode of the device changed, restart its power."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
+        "input configuration. Fix the device, then stop every task on the network to "
+        "try it again. If the mode of the device changed, restart its power."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -2114,6 +2209,25 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
+/// @brief it should give the latest reason of a run of failed cycles in the warning, as
+/// the reason can change before a cycle succeeds.
+TEST_F(EngineTest, FailedCycleWarningGivesTheLatestReason) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(x::errors::Error(errors::CYCLIC_ERROR, "first"));
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "second")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: second.");
 }
 
 /// @brief it should report the samples a reader dropped because it fell behind the bus

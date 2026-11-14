@@ -210,7 +210,7 @@ protected:
         ReadTaskConfig task_cfg(client, parser);
         EXPECT_NIL(parser.error());
         auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
-        EXPECT_NIL(source->start());
+        EXPECT_NIL(source->start("start_cmd", this->cancel));
         return source;
     }
 
@@ -374,7 +374,7 @@ TEST_F(EtherCATReadTest, StartIgnoresTheSlaveOfADisabledChannel) {
     ASSERT_EQ(task_cfg.channels.size(), 1);
     EXPECT_EQ(task_cfg.channels[0]->synnax_key, enabled_ch.key);
     ReadTaskSource source(engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     ASSERT_NIL(source.stop());
 }
 
@@ -538,7 +538,7 @@ TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker brk;
     brk.start();
     x::telem::Frame frame;
@@ -583,7 +583,7 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     const auto receives = this->mock_master->call_count("receive");
     this->mock_master->inject_receive_error(
@@ -615,7 +615,7 @@ TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     this->mock_master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(
         this->engine->health().size() == 1 && this->engine->health()[0].lost
@@ -696,7 +696,7 @@ TEST_F(EtherCATReadTest, SourceAppliesTheCalibrationOfTheSlave) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     this->mock_master->set_input<int32_t>(2, -100);
     x::breaker::Breaker brk;
     brk.start();
@@ -725,7 +725,7 @@ TEST_F(EtherCATReadTest, SourceScalesACalibratedChannelAfterItsCalibration) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     this->mock_master->set_input<int32_t>(2, -100);
     x::breaker::Breaker brk;
     brk.start();
@@ -751,7 +751,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
     EXPECT_EQ(
         err.data,
@@ -806,7 +806,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     ASSERT_NIL(parser.error());
 
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     this->mock_master->set_input<int16_t>(0, static_cast<int16_t>(0xABCD));
     this->mock_master->set_input<int32_t>(2, 0x12345678);
@@ -1346,7 +1346,7 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     ASSERT_NIL(parser.error());
 
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     x::breaker::Breaker brk;
 
@@ -1391,7 +1391,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     );
 
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
