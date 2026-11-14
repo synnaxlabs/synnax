@@ -9,6 +9,7 @@
 
 import { label, user } from "@synnaxlabs/client";
 import {
+  CERTIFICATE,
   createTestClient,
   createTestClientWithPolicy,
   RoleClients,
@@ -22,18 +23,21 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
 import { renderPalette } from "@/feature/command/testutil";
+import { Secret } from "@/feature/secret";
 import { findCommand } from "@/platform/command/testutil";
 import {
   createPanelWrapper,
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { Tree } from "@/platform/tree";
 import {
   assertDefined,
   awaitGranted,
@@ -62,9 +66,11 @@ const renderSettings = async (as = client): Promise<void> => {
   const { Content } = Settings.TABS.settings;
   const { wrapper } = await createConsoleWrapper({ client: as });
   render(
-    <Suspense fallback={null}>
-      <Content />
-    </Suspense>,
+    <Tree.Provider items={Secret.TREE_ITEMS}>
+      <Suspense fallback={null}>
+        <Content />
+      </Suspense>
+    </Tree.Provider>,
     { wrapper },
   );
 };
@@ -74,17 +80,51 @@ const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisibl
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
-    for (const name of ["Appearance", "Storage", "General", "Labels", "License"]) {
+    const sections = [
+      "Appearance",
+      "Storage",
+      "General",
+      "Labels",
+      "Secrets",
+      "Certificates",
+      "License",
+    ];
+    for (const name of sections) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
   });
 
-  it("should hide License and Labels from a user who cannot use them", async () => {
+  it("should hide the sections that a user cannot use", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
-    expect(screen.queryByRole("menuitem", { name: "License" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Labels" })).toBeNull();
+    for (const name of ["License", "Labels", "Secrets", "Certificates"])
+      expect(screen.queryByRole("menuitem", { name })).toBeNull();
+  });
+
+  it("should show the Certificates page for a certificate that uses a secret", async () => {
+    const c = await client.certificates.set({
+      name: uniqueName("certificate"),
+      source: "stored",
+      ...CERTIFICATE,
+    });
+    assert(c.source === "stored" && c.privateKey != null);
+    const privateKey = await client.secrets.retrieve(c.privateKey);
+    try {
+      await renderSettings();
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Secrets" }));
+      const item = await screen.findByRole("option", { name: privateKey.name });
+      const count = await within(item).findByText("Used by 1");
+      await act(async () => {
+        fireEvent.click(count);
+      });
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(await within(dialog).findByText(c.name));
+      expect(await screen.findByRole("heading", { name: "Certificates" })).toBeTruthy();
+    } finally {
+      await client.certificates.delete(c.key);
+      await client.secrets.delete(c.privateKey);
+    }
   });
 
   it("should show the Labels page when Edit labels runs", async () => {

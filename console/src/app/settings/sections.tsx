@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, license } from "@synnaxlabs/client";
+import { certificate, label, license, secret } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -18,9 +18,11 @@ import { Core } from "@/feature/core";
 import { Label } from "@/feature/label";
 import { License } from "@/feature/license";
 import { Persist } from "@/feature/persist";
+import { Secret } from "@/feature/secret";
 import { Theme } from "@/feature/theme";
 import { Version } from "@/feature/version";
 import { Settings } from "@/platform/settings";
+import { Session } from "@/session";
 
 const Labels = (): ReactElement => (
   <Settings.Page title="Labels">
@@ -29,6 +31,33 @@ const Labels = (): ReactElement => (
 );
 
 const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
+
+const CERTIFICATES_SECTION = "certificates";
+
+const Secrets = (): ReactElement => {
+  const dispatch = Session.useDispatch();
+  return (
+    <Settings.Page title="Secrets">
+      <Secret.Secrets
+        onSelectCertificate={() =>
+          dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
+        }
+      />
+    </Settings.Page>
+  );
+};
+
+const useSecretsVisible = (): boolean =>
+  Access.useRetrieveGranted(secret.TYPE_RESOURCE_ID);
+
+const Certificates = (): ReactElement => (
+  <Settings.Page title="Certificates">
+    <Secret.Certificates />
+  </Settings.Page>
+);
+
+const useCertificatesVisible = (): boolean =>
+  Access.useRetrieveGranted(certificate.TYPE_RESOURCE_ID);
 
 const Appearance = (): ReactElement => (
   <Settings.Page title="Appearance">
@@ -96,6 +125,20 @@ export const GROUPS: Settings.Group[] = [
         icon: <Icon.Label />,
         Content: Labels,
         useVisible: useLabelsVisible,
+      },
+      {
+        key: "secrets",
+        name: "Secrets",
+        icon: <Icon.Secret />,
+        Content: Secrets,
+        useVisible: useSecretsVisible,
+      },
+      {
+        key: CERTIFICATES_SECTION,
+        name: "Certificates",
+        icon: <Icon.Certificate />,
+        Content: Certificates,
+        useVisible: useCertificatesVisible,
       },
       {
         key: "license",
