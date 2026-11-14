@@ -25,6 +25,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import {
   createCalibratedDescription,
   createDewesoftXSettings,
+  createExcitationDescription,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -384,6 +385,40 @@ describe("Read", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
     expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
+  });
+
+  it("should note a moved excitation voltage until the next change", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createExcitationDescription(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...EXCITATION, value: 24 }] },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Bipolar/ }));
+    expect(
+      await screen.findByText("Excitation voltage changed from 24 V to 12 V."),
+    ).toBeTruthy();
+    // The value stays at 12 V, so a change back to unipolar moves nothing.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Unipolar/ }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Excitation voltage changed from 24 V to 12 V."),
+      ).toBeNull(),
+    );
   });
 
   it("should share the settings of an input between the entries that read it", async () => {

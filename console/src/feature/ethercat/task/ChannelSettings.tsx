@@ -11,14 +11,16 @@ import { type ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv, deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
 import {
   check,
   findInput,
+  type Note,
   problemAt,
+  sameAddress,
   set,
   valueAt,
   visibleFields,
@@ -57,6 +59,7 @@ export const ChannelSettings = ({
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
+  const [moved, setMoved] = useState<{ device: string; notes: Note[] }>();
   const input = findInput(slave?.properties.settings, ch);
   if (input == null || slave == null) return null;
   const reader = setUpBy(slave.properties);
@@ -71,6 +74,7 @@ export const ChannelSettings = ({
   const fields = input.settings;
   const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
   const problems = check(input, values);
+  const notes = moved?.device === ch.device ? moved.notes : [];
   return (
     <PForm.Section title="Settings">
       {visibleFields(fields, values).map((field) => (
@@ -79,9 +83,12 @@ export const ChannelSettings = ({
           field={field}
           value={valueAt(fields, values, field)}
           problem={problemAt(problems, field)?.message}
-          onChange={(value) =>
-            onChange(withParameters(held, ch.device, set(fields, values, field, value)))
-          }
+          note={notes.find((n) => sameAddress(n, field))?.message}
+          onChange={(value) => {
+            const change = set(fields, values, field, value);
+            setMoved({ device: ch.device, notes: change.notes });
+            onChange(withParameters(held, ch.device, change.values));
+          }}
         />
       ))}
     </PForm.Section>
