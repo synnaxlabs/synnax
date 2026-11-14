@@ -14,6 +14,7 @@ import {
   query,
   type resource,
   UnexpectedError,
+  type user,
 } from "@synnaxlabs/client";
 import { array, color, compare, deep, type optional, verbs } from "@synnaxlabs/x";
 
@@ -49,25 +50,30 @@ export const useResultAppearance = createResultSelector(
   (a, b) => a.icon === b.icon && color.equals(a.color, b.color),
 );
 
-export type RetrieveKeysByProjectQuery = { project: project.Key };
+export type RetrieveKeysByProjectQuery = { project: project.Key; user: user.Key };
 
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
 // The answer carries keys alone: consumers read each panel's own fields, so a rename
-// must not re-answer the query.
+// must not re-answer the query. It holds the shared panels and the user's drafts.
 export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { project } }) =>
-    keysOf((await client.panels.watch({ projects: [project] }).retrieve()).records),
-  onChange: ({ client, query: { project } }, handler) =>
+  retrieve: async ({ client, query: { project, user } }) =>
+    keysOf(
+      (await client.panels.watch({ where: panel.visibleTo(project, user) }).retrieve())
+        .records,
+    ),
+  onChange: ({ client, query: { project, user } }, handler) =>
     client.panels
-      .watch({ projects: [project] })
+      .watch({ where: panel.visibleTo(project, user) })
       .onChange((w) => handler(w == null ? undefined : keysOf(w.records))),
-  getCached: ({ client, query: { project } }) => {
-    const window = client.panels.watch({ projects: [project] }).getCached();
+  getCached: ({ client, query: { project, user } }) => {
+    const window = client.panels
+      .watch({ where: panel.visibleTo(project, user) })
+      .getCached();
     return window == null ? undefined : keysOf(window.records);
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
@@ -185,6 +191,9 @@ export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useIcon = Scope.bindHook(createSelector(({ icon }) => icon));
+
+/** Reports whether the panel is a draft, which has an owner. */
+export const useDraft = Scope.bindHook(createSelector(({ owner }) => owner != null));
 
 export const useColor = Scope.bindHook(
   createSelector(({ color }) => color, deep.equal),

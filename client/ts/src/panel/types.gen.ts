@@ -15,6 +15,7 @@ import { z } from "zod";
 import { group } from "@/group";
 import { project } from "@/project";
 import { resource } from "@/resource";
+import { user } from "@/user";
 
 export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
@@ -65,6 +66,8 @@ export type Where = {
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
+  owners?: user.Key[];
+  owned?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -87,6 +90,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   grouped: z.boolean().optional(),
   /** projects matches the panels in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
+  /** owners matches the drafts of any of the given users. */
+  owners: zod.nullToUndefined(user.keyZ.array()),
+  /** owned matches the drafts, or the shared panels when false. */
+  owned: z.boolean().optional(),
 });
 
 /**
@@ -226,6 +233,8 @@ export const panelZ = z.object({
   group: group.keyZ.optional(),
   /** project is the project that holds the panel. */
   project: project.keyZ.optional(),
+  /** owner is the user whose draft the panel is. Nil for a shared panel. */
+  owner: user.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

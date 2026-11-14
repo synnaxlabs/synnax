@@ -75,6 +75,8 @@ const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
+const OPEN_DIALOG = `.${CSS.BE("dialog", "frame")}.${CSS.visible(true)}`;
+
 const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
   while (!candidate.classList.contains(CONTEXT_TARGET)) {
@@ -195,10 +197,12 @@ export const useContextMenu = (): UseContextMenuReturn => {
     const back = returnFocusRef.current;
     returnFocusRef.current = null;
     // An item that moved the focus, such as one that opened a modal, keeps it there.
+    const menu = menuRef.current;
     if (
       returnFocus &&
       back?.isConnected === true &&
-      menuRef.current?.contains(document.activeElement) === true
+      menu != null &&
+      Dialog.contains(menu, document.activeElement)
     )
       back.focus({ preventScroll: true });
     setMenuState(INITIAL_STATE);
@@ -211,6 +215,8 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const visibleRef = useSyncedRef(state.visible);
   const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
     if (stage !== "start" || !visibleRef.current) return;
+    // A menu with an open submenu leaves Escape to it, so Escape closes one level.
+    if (menuRef.current?.querySelector(OPEN_DIALOG) != null) return;
     hideMenu();
     stopPropagation();
   };

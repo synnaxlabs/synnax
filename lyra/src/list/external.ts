@@ -16,4 +16,3 @@ export * from "@/list/Scroll";
 export * from "@/list/useCombinedData";
 export * from "@/list/useMapData";
 export * from "@/list/useStaticData";
-export * from "@/list/useTransformedData";

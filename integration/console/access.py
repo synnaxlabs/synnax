@@ -12,18 +12,16 @@ Console RBAC UI automation helpers.
 
 These helpers only cover functionality that EXISTS in the Console UI:
 - User registration (with role selection)
-- Assigning roles to users (context menu → modal)
-- Drag-drop user onto role
-- Rename/delete roles via context menu (non-internal only)
+- The Users page of Settings: change a user's role, rename, and delete
 
 NOT implemented in Console UI (no helpers for these):
-- Create role (no UI exists)
+- Create, rename, or delete a role
 - Create/edit/view policies (hidden from UI)
 """
 
-import time
+import re
 
-from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 import synnax as sy
 from console.base import ResourceClient
@@ -33,9 +31,9 @@ from console.layout import LayoutClient
 class AccessClient(ResourceClient):
     """Console RBAC client for existing role/user UI functionality."""
 
-    SHORTCUT_KEY = "u"
-    ROLE_ITEM_PREFIX = "role:"
-    USER_ITEM_PREFIX = "user:"
+    SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
+    USER_ITEM_SELECTOR = ".console-user-members__item"
+    USER_SEARCH_PLACEHOLDER = "Search users"
 
     def __init__(self, layout: LayoutClient):
         super().__init__(layout)
@@ -195,21 +193,23 @@ class AccessClient(ResourceClient):
     # Permission probes
     # -------------------------------------------------------------------------
 
-    def users_toolbar_visible(self) -> bool:
-        """Report whether the Users toolbar opens for the current user.
+    def users_page_visible(self) -> bool:
+        """Report whether Settings shows the Users page to the current user.
 
-        The toolbar is gated on user update, so only an Owner sees it. Leaves
-        the toolbar closed.
+        The page is gated on user update, so only an Owner sees it. Leaves
+        Settings closed.
         """
-        self.layout.press_key(self.SHORTCUT_KEY)
-        roles = self.layout.page.locator(f"div[id^='{self.ROLE_ITEM_PREFIX}']")
+        if not self.layout.command_exists("Open settings"):
+            return False
+        nav = self._open_settings()
+        users = nav.get_by_role("menuitem", name="Users", exact=True)
         try:
-            roles.first.wait_for(state="visible", timeout=2000)
+            users.wait_for(state="visible", timeout=2000)
             return True
         except PlaywrightTimeoutError:
             return False
         finally:
-            self.layout.press_escape()
+            self.layout.close_tab("Settings")
 
     # -------------------------------------------------------------------------
     # User Registration (with role selection)
@@ -236,13 +236,21 @@ class AccessClient(ResourceClient):
 
         self.layout.command_palette("Register user")
 
-        sy.sleep(0.3)
+        # Settings can sit behind the dialog with its own "Password" and "Role", so
+        # every field lookup stays inside the dialog.
+        modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        fields = (
+            ("Name", name if name is not None else username),
+            ("Username", username),
+            ("Password", password),
+        )
+        for label, value in fields:
+            modal.locator(f"text={label}").locator("..").locator(
+                "input, textarea"
+            ).first.fill(value)
 
-        self.layout.fill_input_field("Name", name if name is not None else username)
-        self.layout.fill_input_field("Username", username)
-        self.layout.fill_input_field("Password", password)
-
-        self.layout.click_btn("Role")
+        self._role_picker(modal).click()
         self.layout.select_from_dropdown(role_name, placeholder="Search")
 
         self.layout.page.get_by_role("button", name="Register", exact=True).click()
@@ -253,59 +261,29 @@ class AccessClient(ResourceClient):
             raise AssertionError(f"Failed to register user {username!r}")
 
     # -------------------------------------------------------------------------
-    # Role Assignment (context menu → modal)
+    # Users page of Settings
     # -------------------------------------------------------------------------
 
     def assign_role_to_user(self, *, username: str, role_name: str) -> None:
-        """Assign a role to a user via the context menu modal.
+        """Change a user's role with the role picker on their line.
 
-        This uses the "Change role" context menu option on a user,
-        which opens a modal with a role dropdown.
-
-        :param username: The username of the user.
+        :param username: The name of the user.
         :param role_name: The name of the role to assign.
         """
-        self._show_users_panel()
-
-        user_item = self._find_user_item(username)
-        if user_item is None:
-            raise ValueError(f"User '{username}' not found in users panel")
-
-        self.ctx_menu.action(user_item, "Change role")
-
-        try:
-            self.layout.wait_for_selector_visible(self.layout.MODAL_SELECTOR)
-        except PlaywrightTimeoutError as e:
-            raise RuntimeError("Assign role modal did not open") from e
-
-        self.layout.click_btn("Role")
+        self._role_picker(self._get_user_item(username)).click()
         self.layout.select_from_dropdown(role_name, placeholder="Search")
 
-        self.layout.page.get_by_role("button", name="Assign", exact=True).click()
-        sy.sleep(0.3)
+    def wait_for_user_role(
+        self, username: str, *, role_name: str, timeout: int = 5000
+    ) -> None:
+        """Wait until the Users page shows a user with a role.
 
-    def drag_user_to_role(self, username: str, role_name: str) -> None:
-        """Assign a role to a user via drag-drop in the resource tree.
-
-        :param username: The username of the user to drag.
-        :param role_name: The name of the role to drop onto.
+        :param username: The name of the user.
+        :param role_name: The role the user must hold.
+        :param timeout: Maximum time to wait, in milliseconds.
         """
-        self._show_users_panel()
-
-        user_item = self._find_user_item(username)
-        if user_item is None:
-            raise ValueError(f"User '{username}' not found")
-
-        role_item = self._find_role_item(role_name)
-        if role_item is None:
-            raise ValueError(f"Role '{role_name}' not found")
-
-        self.layout.drag(user_item, role_item)
-        sy.sleep(0.3)
-
-    # -------------------------------------------------------------------------
-    # User Rename/Delete
-    # -------------------------------------------------------------------------
+        picker = self._role_picker(self._get_user_item(username))
+        expect(picker).to_have_text(role_name, timeout=timeout)
 
     def rename_user(self, *, name: str, new_name: str) -> None:
         """Rename a user via the "Rename" context menu action.
@@ -313,247 +291,67 @@ class AccessClient(ResourceClient):
         :param name: The current name of the user.
         :param new_name: The new name of the user.
         """
-        user_item = self._find_user_item(name)
-        if user_item is None:
-            raise ValueError(f"User '{name}' not found in users panel")
-
-        self.ctx_menu.action(user_item, "Rename")
-
-        name_element = user_item.locator("p.lyra-text--editable")
-        name_element.click()
-        name_element.fill(new_name)
-        self.layout.press_enter()
-        sy.sleep(1)
+        self.layout.rename_in_place(self._get_user_item(name), new_name)
 
     def delete_user(self, username: str) -> None:
         """Delete a user via context menu with confirmation.
 
-        :param username: The username to delete.
+        :param username: The name of the user to delete.
         """
-        user_item = self._find_user_item(username)
-        if user_item is None:
-            raise ValueError(f"User '{username}' not found in users panel")
+        self.layout.delete_with_confirmation(self._get_user_item(username))
+        expect(self._user_items(username)).to_have_count(0, timeout=5000)
 
-        self.layout.delete_with_confirmation(user_item)
-        self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
+    def find_user_item(self, name: str) -> Locator | None:
+        """Search the Users page for a user.
 
-    def delete_users(self, usernames: list[str]) -> None:
-        """Delete multiple users via multi-select and context menu.
-
-        :param usernames: List of usernames to delete.
+        :param name: The name of the user.
+        :returns: The user's line, or None if the search does not list them.
         """
-        self._show_users_panel()
-
-        first_item = self._find_user_item(usernames[0])
-        if first_item is None:
-            raise ValueError(f"User '{usernames[0]}' not found")
-        first_item.click()
-
-        last_item = first_item
-        for username in usernames[1:]:
-            item = self._find_user_item(username)
-            if item is None:
-                raise ValueError(f"User '{username}' not found")
-            item.click(modifiers=["ControlOrMeta"])
-            last_item = item
-
-        self.ctx_menu.action(last_item, "Delete")
-        self.layout.confirm_delete()
-
-        for username in usernames:
-            self.tree.wait_for_removal(self.USER_ITEM_PREFIX, username)
-
-    # -------------------------------------------------------------------------
-    # Role Rename/Delete (context menu)
-    # -------------------------------------------------------------------------
-
-    def rename_role(self, *, old_name: str, new_name: str) -> None:
-        """Rename a role via context menu.
-
-        Note: Internal/system roles cannot be renamed.
-
-        :param old_name: The current name of the role.
-        :param new_name: The new name for the role.
-        """
-        role_item = self._find_role_item(old_name)
-        if role_item is None:
-            raise ValueError(f"Role '{old_name}' not found")
-
-        self.ctx_menu.action(role_item, "Rename")
-
-        role_name_element = role_item.locator("p.lyra-text--editable")
-        role_name_element.click()
-        role_name_element.fill(new_name)
-        self.layout.press_enter()
-        sy.sleep(0.2)
-
-    def delete_role(self, name: str) -> None:
-        """Delete a role via context menu.
-
-        Note: Internal/system roles cannot be deleted.
-
-        :param name: The name of the role to delete.
-        :raises AssertionError: If the delete surfaces an error notification.
-        """
-        role_item = self._find_role_item(name)
-        if role_item is None:
-            raise ValueError(f"Role '{name}' not found")
-
-        self.ctx_menu.action(role_item, "Delete")
-
-        if self.layout.is_modal_open():
-            self.layout.page.get_by_role(
-                "button", name="Delete", exact=True
-            ).first.click()
-            sy.sleep(0.3)
-
-        if self.layout.check_for_errors("delete"):
-            raise AssertionError(f"Failed to delete role {name!r}")
-
-    def is_role_modifiable(self, name: str) -> bool:
-        """Check if a role can be renamed/deleted (i.e., is not internal).
-
-        :param name: The name of the role to check.
-        :returns: True if the role can be modified, False if internal.
-        """
-        role_item = self._find_role_item(name)
-        if role_item is None:
-            raise ValueError(f"Role '{name}' not found")
-
-        self.ctx_menu.open_on(role_item)
-        rename_available = self.ctx_menu.has_option("Rename")
-        delete_available = self.ctx_menu.has_option("Delete")
-        self.ctx_menu.close()
-        return rename_available and delete_available
+        self._show_users_page()
+        self.layout.page.get_by_placeholder(
+            self.USER_SEARCH_PLACEHOLDER, exact=True
+        ).fill(name)
+        item = self._user_items(name).first
+        try:
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            return None
+        return item
 
     # -------------------------------------------------------------------------
     # Helper methods
     # -------------------------------------------------------------------------
 
-    def _show_users_panel(self) -> None:
-        """Show the users panel in the navigation drawer."""
-        self.layout.show_toolbar(self.SHORTCUT_KEY, item_prefix=self.ROLE_ITEM_PREFIX)
+    def _open_settings(self) -> Locator:
+        """Open the Settings tab, or show it if it is already open."""
+        nav = self.layout.page.locator(self.SETTINGS_NAV_SELECTOR)
+        if not nav.is_visible():
+            self.layout.command_palette("Open settings")
+            nav.wait_for(state="visible", timeout=5000)
+        return nav
 
-    def _find_user_item(self, username: str) -> Locator | None:
-        """Find a user item in the users panel by username.
+    def _show_users_page(self) -> None:
+        """Show the Users page of Settings."""
+        nav = self._open_settings()
+        nav.get_by_role("menuitem", name="Users", exact=True).click()
+        self.layout.page.get_by_placeholder(
+            self.USER_SEARCH_PLACEHOLDER, exact=True
+        ).wait_for(state="visible", timeout=5000)
 
-        Retries several times to handle tree refreshes that may temporarily
-        hide user items.
-        """
-        self._show_users_panel()
-        for _ in range(10):
-            item = self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
-            if item is not None:
-                return item
-            sy.sleep(0.2)
-        return None
+    def _user_items(self, name: str) -> Locator:
+        """The lines on the Users page whose name is ``name``."""
+        page = self.layout.page
+        return page.locator(self.USER_ITEM_SELECTOR).filter(
+            has=page.get_by_text(name, exact=True)
+        )
 
-    def ensure_user_visible(self, username: str, *, role_name: str) -> Locator:
-        """Find a user item, re-expanding its role if needed.
+    def _role_picker(self, scope: Locator) -> Locator:
+        """The role picker in a dialog or on a user's line."""
+        return scope.get_by_role("button", name=re.compile(r"^Role\b"))
 
-        After tree refreshes (e.g. login/logout, deletions), a role node
-        may auto-collapse. This method tries ``_find_user_item`` first,
-        and if the user isn't visible, collapses and re-expands the role
-        before retrying.
-
-        :param username: The username to find.
-        :param role_name: The role the user belongs to.
-        :returns: The Locator for the user item.
-        :raises ValueError: If the user is not found after retry.
-        """
-        item = self._find_user_item(username)
-        if item is not None:
-            return item
-
-        self.layout.page.screenshot(path="/tmp/ensure_user_visible_retry.png")
-
-        role_item = self._find_role_item(role_name)
-        if role_item is not None:
-            self.tree.collapse(role_item)
-
-        role_item = self._find_role_item(role_name)
-        if role_item is not None:
-            role_item.click()
-            sy.sleep(1)
-
-        self.layout.page.screenshot(path="/tmp/ensure_user_visible_after.png")
-
-        item = self._find_user_item(username)
+    def _get_user_item(self, name: str) -> Locator:
+        """Like find_user_item, but raises if the search does not list the user."""
+        item = self.find_user_item(name)
         if item is None:
-            raise ValueError(
-                f"User '{username}' not found under '{role_name}' after re-expand"
-            )
+            raise ValueError(f"User '{name}' not found on the Users page")
         return item
-
-    def _find_role_item(self, role_name: str) -> Locator | None:
-        """Find a role item in the resource tree by name."""
-        self._show_users_panel()
-        return self.tree.find_by_name(self.ROLE_ITEM_PREFIX, role_name)
-
-    def list_visible_roles(self) -> list[str]:
-        """List all roles visible in the resource tree.
-
-        :returns: List of role names.
-        """
-        self._show_users_panel()
-        return self.tree.list_names(self.ROLE_ITEM_PREFIX)
-
-    def expand_role(self, role_name: str) -> None:
-        """Expand a role node to show its child users.
-
-        :param role_name: The name of the role to expand.
-        """
-        self._show_users_panel()
-        role_item = self._find_role_item(role_name)
-        if role_item is None:
-            raise ValueError(f"Role '{role_name}' not found")
-        self.tree.expand(role_item)
-
-    def list_users_under_role(self, role_name: str) -> list[str]:
-        """List the users under a role.
-
-        The role must be expanded first.
-
-        :param role_name: The name of the role.
-        :returns: List of usernames under the role.
-        """
-        role_item = self._find_role_item(role_name)
-        if role_item is None:
-            raise ValueError(f"Role '{role_name}' not found")
-        return self.tree.list_nested_names(role_item, prefix=self.USER_ITEM_PREFIX)
-
-    def wait_for_user_role(
-        self,
-        username: str,
-        *,
-        role_name: str,
-        previous_role: str | None = None,
-        timeout: int = 5000,
-    ) -> None:
-        """Wait until the tree lists a user under a role.
-
-        The roles must be expanded first.
-
-        :param username: The username of the user.
-        :param role_name: The role the user must be under.
-        :param previous_role: A role the user must no longer be under.
-        :param timeout: Maximum time to wait, in milliseconds.
-        :raises PlaywrightTimeoutError: If the tree does not show the change in time.
-        """
-        deadline = time.monotonic() + timeout / 1000
-        while True:
-            users = self.list_users_under_role(role_name)
-            previous_users = (
-                []
-                if previous_role is None
-                else self.list_users_under_role(previous_role)
-            )
-            if username in users and username not in previous_users:
-                return
-            if time.monotonic() >= deadline:
-                raise PlaywrightTimeoutError(
-                    f"Tree did not list {username} under {role_name} within "
-                    f"{timeout}ms. {role_name}: {users}. {previous_role}: "
-                    f"{previous_users}"
-                )
-            self.layout.page.wait_for_timeout(100)

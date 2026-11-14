@@ -9,28 +9,63 @@
 
 import "@/feature/range/overview/Overview.css";
 
+import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
+import { Access, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
+import { type ReactElement, useState } from "react";
 
-import { ChildRanges } from "@/feature/range/overview/ChildRanges";
+import { Children } from "@/feature/range/overview/Children";
+import { Header } from "@/feature/range/overview/Header";
+import { MetaData } from "@/feature/range/overview/MetaData";
+import { AddLine } from "@/feature/range/overview/Section";
 import { Sift } from "@/feature/sift";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
-export const Overview: Panel.Content = () => {
-  const { key } = PlutoPanel.useTabResource();
-  // A subscribed read, so a delete throws to the tab's boundary instead of
-  // leaving the stale form on screen. Also warms the cache the sections share.
-  Ranger.use({ key });
+const NO_PAIRS: ranger.kv.Pair[] = [];
+
+interface BodyProps {
+  rangeKey: ranger.Key;
+}
+
+const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
+  const range = Ranger.use({ key });
+  const pairs = Ranger.useResultMetaData({ rangeKey: key }).data ?? NO_PAIRS;
+  const [adding, setAdding] = useState(false);
+  const openCreate = Range.useCreateModal();
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(key));
+  const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
+  const showMetaData = pairs.length > 0 || adding;
   return (
-    <Flex.Box key={key} y full className={CSS.BE("range", "overview")} empty>
-      <Flex.Box y grow gap="large">
-        <Range.Details rangeKey={key} />
-        <ChildRanges rangeKey={key} />
-        <Range.MetaData rangeKey={key} />
+    <div className={CSS.BE("range-overview", "scroll")}>
+      <Flex.Box y empty className={CSS.B("range-overview")}>
+        <Header range={range} />
+        {range.hasChildren ? (
+          <Children range={range} onCreate={handleCreate} />
+        ) : (
+          handleCreate != null && <AddLine onClick={handleCreate}>Child range</AddLine>
+        )}
+        {showMetaData ? (
+          <MetaData
+            rangeKey={key}
+            pairs={pairs}
+            adding={adding}
+            onAddingChange={setAdding}
+            preview={!canEdit}
+          />
+        ) : (
+          canEdit && <AddLine onClick={() => setAdding(true)}>Metadata</AddLine>
+        )}
         <Sift.Range.Uploads rangeKey={key} />
       </Flex.Box>
-    </Flex.Box>
+    </div>
   );
+};
+
+export const Overview: Panel.Content = () => {
+  const { key } = PlutoPanel.useTabResource();
+  // A tab can swap its range in place, so the key drops the state of the last range.
+  return <Body key={key} rangeKey={key} />;
 };

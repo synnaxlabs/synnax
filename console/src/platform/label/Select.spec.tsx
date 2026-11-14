@@ -51,6 +51,37 @@ describe("Label.Select", () => {
     expect(onChange.mock.calls[0][0]).toEqual([label.key]);
   });
 
+  it("should show the labels of its value before it first opens", async () => {
+    const label = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
+    expect(await screen.findByText(label.name)).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Search labels...")).toBeNull();
+  });
+
+  it("should remove a label from its tag before it first opens", async () => {
+    const label = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    const onChange = vi.fn();
+    await renderSelect(
+      <Label.SelectMultiple value={[label.key]} onChange={onChange} />,
+    );
+    fireEvent.click(await screen.findByLabelText(`Remove ${label.name}`));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls[0][0]).toEqual([]);
+  });
+
+  it("should keep its class name before it first opens", async () => {
+    const { container } = await renderSelect(
+      <Label.SelectMultiple value={[]} onChange={vi.fn()} className="labels" />,
+    );
+    expect(container.querySelector(".labels")).not.toBeNull();
+  });
+
   it("should add a created label to the value the field holds when it closes", async () => {
     const createdBefore = await client.labels.create({
       name: uniqueName("label"),

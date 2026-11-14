@@ -353,15 +353,17 @@ TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
     EXPECT_EQ(change[0]["sub_index"], 9);
 }
 
-/// @brief it should give a 6xSTG in SM mode no sync mode when the SII lists no mode
-/// with the catalog's assign activate value.
-TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
+/// @brief it should give a 6xSTG in SM mode no sync mode, and name the catalog's assign
+/// activate value, when the SII lists no mode with it.
+TEST(ReadSettings, NamesTheSyncModeThatTheSIIDoesNotList) {
     const std::vector<dc::OpMode> sm_only{{.name = "SM", .assign_activate = 0}};
     const auto settings = ASSERT_NIL_P(
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, sm_only, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_FALSE(settings.value()["mode"].contains("op_mode"));
+    const auto &mode = settings.value()["mode"];
+    EXPECT_FALSE(mode.contains("op_mode"));
+    EXPECT_EQ(mode["unlisted_assign_activate"], 0x0300);
 }
 
 /// @brief it should return no settings for a product that the catalog does not

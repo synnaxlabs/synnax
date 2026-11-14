@@ -182,6 +182,23 @@ describe("range", () => {
       await creating;
       expect(expectLive(local.ranges.watch(key).getCached()).labels).toContain(lbl.key);
     });
+    it("should keep a child that arrives before the create reply", async () => {
+      const key = uuid.create();
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const { responded, release } = holdResponses(local, "/range/create");
+      const creating = local.ranges.create({ key, name: "Parent late", timeRange });
+      await responded;
+      await client.ranges.create({ name: "Child", timeRange, parent: key });
+      await expect
+        .poll(() => expectLive(local.ranges.watch(key).getCached()).hasChildren)
+        .toBe(true);
+      release();
+      expect((await creating).hasChildren).toBe(true);
+      expect(expectLive(local.ranges.watch(key).getCached()).hasChildren).toBe(true);
+    });
   });
 
   describe("delete", () => {
@@ -263,6 +280,36 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved.map((r) => r.key)).toContain(range.key);
     });
+    it("should page ranges by end time", async () => {
+      const parent = await client.ranges.create({
+        name: "End Order Parent",
+        timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(100)),
+      });
+      const child = async (start: number, end: number) =>
+        await client.ranges.create({
+          name: `${start}-${end}`,
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+          parent: parent.key,
+        });
+      const late = await child(1, 50);
+      const early = await child(20, 25);
+      const middle = await child(30, 35);
+      const order: ranger.Order = { field: "time_range_end", descending: false };
+      const first = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        limit: 2,
+      });
+      expect(first.map((r) => r.key)).toEqual([early.key, middle.key]);
+      const last = first[1];
+      const rest = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        after: { key: last.key, timeRangeEnd: last.timeRange.end },
+      });
+      expect(rest.map((r) => r.key)).toEqual([late.key]);
+    });
+
     it("should retrieve ranges by search term", async () => {
       const prefix = `searchable-range-${id.create()}`;
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
@@ -420,6 +467,83 @@ describe("range", () => {
       ).toBeUndefined();
       const stored = await createTestClient().ranges.retrieve(child.key);
       expect(stored.parent).toBeUndefined();
+    });
+  });
+
+  describe("hasChildren", () => {
+    const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+
+    it("should mark a range that has a nested range", async () => {
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      const child = await client.ranges.create({
+        name: "Child",
+        timeRange,
+        parent: parent.key,
+      });
+      const stored = await createTestClient().ranges.retrieve([parent.key, child.key]);
+      expect(stored.map(({ name, hasChildren }) => [name, hasChildren])).toEqual(
+        expect.arrayContaining([
+          ["Parent", true],
+          ["Child", false],
+        ]),
+      );
+    });
+
+    it("should mark a cached range when another client creates a range in it", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      await waitForStreamLive(client.connection);
+      await remote.ranges.create({ name: "Created", timeRange, parent: parent.key });
+      await expect
+        .poll(() => expectLive(client.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+    });
+
+    it("should mark a cached range when another client moves a range into it", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      const moved = await client.ranges.create({ name: "Moved", timeRange });
+      await remote.ranges.retrieve(moved.key);
+      await waitForStreamLive(client.connection);
+      await remote.ranges.dispatch(
+        moved.key,
+        ranger.set({ path: ["parent"], value: parent.key }),
+      );
+      await expect
+        .poll(() => expectLive(client.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+    });
+
+    it("should mark a range that its create batch nests a range in", async () => {
+      const local = createTestClient();
+      const key = uuid.create();
+      const [parent, child] = await local.ranges.create([
+        { key, name: "Parent", timeRange },
+        { name: "Child", timeRange, parent: key },
+      ]);
+      expect([parent.hasChildren, child.hasChildren]).toEqual([true, false]);
+      expect(expectLive(local.ranges.watch(key).getCached()).hasChildren).toBe(true);
+    });
+
+    it("should keep the mark when a fetch that predates the child lands", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: id.create(), timeRange });
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.ranges.retrieve(parent.key);
+      const { responded, release } = holdResponses(local, "/range/retrieve");
+      const fetching = local.ranges.retrieve({ name: [parent.name] });
+      await responded;
+      await remote.ranges.create({ name: "Created", timeRange, parent: parent.key });
+      await expect
+        .poll(() => expectLive(local.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+      release();
+      await fetching;
+      expect(expectLive(local.ranges.watch(parent.key).getCached()).hasChildren).toBe(
+        true,
+      );
     });
   });
 

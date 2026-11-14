@@ -772,6 +772,47 @@ TEST(TestScanTask, TestRetryFailedCreate) {
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
 
+/// @brief it should send no status for a device whose create failed, and send it once
+/// the create works.
+TEST(TestScanTask, TestNoStatusForAFailedCreate) {
+    synnax::device::Device dev;
+    dev.key = "device1";
+    dev.name = "Device 1";
+    dev.status = synnax::device::Status{
+        .name = dev.name,
+        .owner = synnax::device::resource_id(dev.key),
+    };
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    const auto *cluster_api_ptr = cluster_api.get();
+    const x::errors::Error unreachable("unreachable", "Core unreachable");
+    cluster_api->create_errors = {unreachable};
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{{dev}, {dev}},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    EXPECT_TRUE(cluster_api_ptr->propagated_statuses.back().empty());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses.back().size(), 1);
+    EXPECT_EQ(cluster_api_ptr->propagated_statuses.back()[0].name, "Device 1");
+}
+
 /// @brief it should take over a scanned device that another rack holds, keep the fields
 /// that a user set, and create no device.
 TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
@@ -1445,6 +1486,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
 
 /// @brief it should delegate unknown commands to scanner exec handler.
 TEST(TestScanTask, testCustomCommandDelegation) {
+    x::breaker::Breaker cancel;
     ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
     auto *scanner_ptr = scanner.get();
@@ -1482,7 +1524,9 @@ TEST(TestScanTask, testCustomCommandDelegation) {
         .key = "test_cmd",
         .args = x::json::json{{"arg", "value"}}
     };
-    scan_task.exec(cmd);
+    cancel.start();
+    scan_task.exec(cmd, cancel);
+    cancel.stop();
 
     // Verify the scanner received the command
     ASSERT_EQ(scanner_ptr->exec_commands.size(), 1);
@@ -1561,6 +1605,7 @@ TEST(TestScanTask, testRunningTransitions) {
 /// early on a scanner start failure, and the pipeline it leaves behind must not block
 /// the retry.
 TEST(TestScanTask, testStartRecoversAfterFailedStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
     const auto start_err = x::errors::Error(x::errors::INTERNAL, "scanner unavailable");
@@ -1571,7 +1616,9 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
         .type = synnax::task::START_CMD_TYPE,
         .key = "start_1",
     };
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses[0].message, "Failed to start scan task");
@@ -1585,7 +1632,9 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
         .type = synnax::task::START_CMD_TYPE,
         .key = "start_2",
     };
-    scan_task->exec(retry);
+    cancel.start();
+    scan_task->exec(retry, cancel);
+    cancel.stop();
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Started scan task");
@@ -1597,6 +1646,7 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
 /// @brief it should answer a start on an already-running task with its current
 /// status, since nothing else writes one.
 TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
@@ -1609,7 +1659,9 @@ TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
         .key = "start_again",
     };
     const auto before = x::telem::TimeStamp::now();
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
 
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto ack = ctx->statuses[1];
@@ -1625,6 +1677,7 @@ TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
 /// @brief it should answer a stop on a task that never started, using the variant
 /// seeded at construction.
 TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
@@ -1634,7 +1687,9 @@ TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
         .type = STOP_CMD_TYPE,
         .key = "stop_1",
     };
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
 
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto ack = ctx->statuses[0];
@@ -1646,6 +1701,7 @@ TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
 
 /// @brief it should answer a command type nothing handles with an error.
 TEST(TestScanTask, testUnknownCommandAnswersWithError) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
@@ -1655,7 +1711,9 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
         .type = "not_a_command",
         .key = "unknown_1",
     };
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
 
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto ack = ctx->statuses[0];
@@ -1668,6 +1726,7 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
 /// @brief it should not let a scan warning claim the key of the start that
 /// preceded it.
 TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task, {x::errors::Error("scan failed")});
@@ -1677,7 +1736,9 @@ TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
         .type = synnax::task::START_CMD_TYPE,
         .key = "start_cmd",
     };
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");

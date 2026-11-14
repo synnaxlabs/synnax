@@ -1532,6 +1532,38 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("r.indexes.spanStart.Filter(")
 			})
 
+			It(
+				"Should sort by each sub-field that a mark names",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/event"
+
+					Span struct {
+						start int64
+						end   int64
+					}
+
+					Event struct {
+						key  uuid { @key }
+						span Span { @index sorted start end }
+						@resource type "event"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "event", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
+							"spanEnd *gorp.SortedIndex[uuid.UUID, Event, int64]",
+							"return e.Span.Start",
+							"return e.Span.End",
+							"func OrderBySpanStart(dir gorp.Direction) Order {",
+							"func OrderBySpanEnd(dir gorp.Direction) Order {",
+						)
+				},
+			)
+
 			It("Should sort a generic type over any", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/event"

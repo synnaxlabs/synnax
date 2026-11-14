@@ -93,6 +93,7 @@ class Engine {
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
 
+    struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
         /// @brief where one entry sits in the input image and in a sample.
@@ -104,6 +105,17 @@ class Engine {
             telem::Decoder decoder;
         };
         std::vector<Entry> entries;
+        /// @brief a slave that holds entries of the reader.
+        struct Slave {
+            uint16_t position = 0;
+            std::string name;
+            /// @brief set when a cycle dropped a sample because the slave was out.
+            std::atomic<bool> lost{false};
+            /// @brief whether the slave did not respond at the latest dropped sample.
+            std::atomic<bool> silent{false};
+        };
+        /// @brief the slaves of the entries, in ascending position.
+        std::vector<Slave> slaves;
         /// @brief what the reader writes to the slaves.
         Settings settings;
         x::telem::Rate rate;
@@ -124,9 +136,12 @@ class Engine {
         /// @brief cycles left until the next sample. Used only by the cycle thread.
         size_t countdown = 0;
 
+        /// @param bus the slaves of the running bus, which name the slaves of the
+        /// entries.
         Input(
             const std::vector<pdo::Entry> &entries,
             const std::vector<pdo::Offset> &offsets,
+            const std::vector<slave::DiscoveryResult> &bus,
             x::telem::Rate rate,
             size_t samples_per_read
         );
@@ -134,6 +149,12 @@ class Engine {
         /// @brief copies this reader's entries from the input image into the buffer.
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
+
+        /// @brief marks each slave of the reader in out as lost, and records whether it
+        /// responds.
+        /// @returns true when the reader has a slave in out. Called only by the cycle
+        /// thread.
+        bool lose(const Outage &out);
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -165,6 +186,9 @@ class Engine {
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
+    /// @brief the number of open_reader and open_writer calls in progress. One that
+    /// starts the bus holds mu for up to start_timeout.
+    std::atomic<size_t> opens{0};
     /// @brief the bus rate in millihertz, or zero when the bus is not running.
     std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
@@ -186,6 +210,23 @@ class Engine {
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
 
+    /// @brief the enabled slaves that the latest state read found out of OP.
+    struct Outage {
+        /// @brief the positions of the slaves, in ascending order.
+        std::vector<uint16_t> positions;
+        /// @brief the positions of the slaves that do not respond, in ascending order.
+        std::vector<uint16_t> silent;
+        /// @brief how far the slaves keep the working counter from a full cycle: the
+        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
+        /// a slave in SAFE-OP.
+        uint32_t shortfall = 0;
+
+        bool operator==(const Outage &) const = default;
+    };
+    std::mutex outage_mu;
+    Outage outage;
+    std::atomic<uint64_t> outage_version{0};
+
     mutable std::mutex cycle_err_mu;
     /// @brief why the latest failed cycle failed.
     x::errors::Error cycle_err;
@@ -206,6 +247,9 @@ class Engine {
     );
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief locks mu without waiting behind an open_reader or open_writer.
+    /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
+    std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
@@ -285,8 +329,10 @@ public:
         /// @brief blocks until a full read of samples is ready, writes each entry's
         /// samples to the series of the same index in the frame, and writes the time of
         /// each sample's cycle to times. Returns early with fewer samples when the bus
-        /// delivers less than a read within twice its duration, and returns NIL with no
-        /// samples when the breaker stops.
+        /// delivers less than a read within twice its duration. Returns NIL with no
+        /// samples when the breaker stops, or when the bus lost a slave of the reader
+        /// for the whole read. A cycle that only the slaves out of OP fall short in
+        /// drops the samples of only the readers of those slaves.
         /// @returns errors::CYCLE_FAILED when failed cycles dropped every sample, or
         /// errors::CYCLE_OVERRUN when the bus delivered nothing.
         [[nodiscard]] x::errors::Error read(
@@ -412,16 +458,21 @@ public:
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover();
 
-    /// @brief finds slave on the bus by its vendor, product, and serial number, or by
-    /// its position when it has no serial number. Then writes parameters to it while
-    /// the bus is stopped, and discovers the slaves again so that they show the change.
-    /// Thread-safe.
-    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus or when slave is
-    /// not on the bus, or the error of the write.
-    [[nodiscard]] x::errors::Error configure(
-        const slave::Properties &slave,
-        const std::vector<slave::StartupParameter> &parameters
-    );
+    /// @brief returns the parameters to write to a slave that configure found, or the
+    /// error that stops the write.
+    using Parameters = std::function<
+        std::pair<std::vector<slave::StartupParameter>, x::errors::Error>(
+            const slave::DiscoveryResult &
+        )>;
+
+    /// @brief finds slave on the stopped bus by its vendor, product, and serial number,
+    /// or by its position when it has no serial number. Then writes what parameters
+    /// returns for it, and discovers the slaves again so that they show the change.
+    /// Writes nothing when parameters returns none. Thread-safe.
+    /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus,
+    /// or when slave is not on the bus. Otherwise the error of parameters or the write.
+    [[nodiscard]] x::errors::Error
+    configure(const slave::Properties &slave, const Parameters &parameters);
 
     /// @brief reads an object of at most four bytes from the slave at position on the
     /// running bus, as an unsigned value. Thread-safe.

@@ -37,6 +37,10 @@ const STOP_LINE: &[u8] = b"stop\n";
 /// The name of the Core config file in the work directory.
 const CONFIG_FILE: &str = "core.json";
 
+/// The exit code of a Core whose data directory another process holds, `DataLocked` in
+/// the Core's `cmd/exit` package.
+const LOCKED_CODE: i32 = 75;
+
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
 pub struct Config {
@@ -52,6 +56,10 @@ pub struct Config {
     pub start_timeout: Duration,
     /// The longest a Core may take to exit after a stop request before it is killed.
     pub stop_timeout: Duration,
+    /// The pause between two starts while another process holds the data directory.
+    pub wait_interval: Duration,
+    /// The longest the supervisor waits for another process to free the data directory.
+    pub wait_timeout: Duration,
     /// The pause between two probes of a Core that is not ready.
     pub probe_interval: Duration,
     /// The pause between two probes of a Core that is ready.
@@ -74,6 +82,8 @@ impl Config {
             log_dir,
             start_timeout: Duration::from_secs(60),
             stop_timeout: Duration::from_secs(30),
+            wait_interval: Duration::from_secs(1),
+            wait_timeout: Duration::from_secs(60),
             probe_interval: Duration::from_millis(100),
             liveness_interval: Duration::from_secs(5),
             liveness_failures: 3,
@@ -102,12 +112,16 @@ pub enum Status {
     Running { connection: Connection },
     /// The Core exited unexpectedly and a new one is on its way.
     Restarting,
-    /// The restart policy gave up. `message` describes the last failure.
-    Failed { message: String },
-    /// The Core was asked to stop.
+    /// Another process holds the data directory. A Core starts once it is free.
+    Waiting,
+    /// The supervisor gave up on the Core. `message` describes the last failure.
+    Failed { reason: Reason, message: String },
+    /// The Core was asked to stop, and no new one follows.
     Stopping,
     /// The Core stopped on request.
     Stopped,
+    /// The Core stops, or has stopped, because the app exits. No status follows.
+    Exiting,
 }
 
 /// Why a Core exited without a stop request.
@@ -122,6 +136,8 @@ pub enum Reason {
     NotReady,
     /// A ready process stopped answering the probe.
     Unresponsive,
+    /// Another process held the data directory for longer than the wait timeout.
+    Locked,
 }
 
 /// How the last Core that was not asked to stop ended.
@@ -133,6 +149,8 @@ pub struct Exit {
     pub message: String,
     /// How long the Core had run.
     pub uptime_seconds: u64,
+    /// The exit code of a process that exited on its own.
+    pub exit_code: Option<i32>,
 }
 
 /// What the Cores of one launch have done so far.
@@ -141,7 +159,8 @@ pub struct Exit {
 pub struct History {
     /// The number of Cores started in this launch.
     pub starts: u32,
-    /// The number of Cores that exited without a stop request.
+    /// The number of Cores that exited without a stop request. A wait for the data
+    /// directory counts once, when it times out.
     pub exits: u32,
     /// The number of times the restart policy gave up on the Core.
     pub failures: u32,
@@ -153,15 +172,44 @@ pub struct History {
     pub time_to_ready_ms: Option<u64>,
     /// How the last Core exited without a stop request.
     pub last_exit: Option<Exit>,
+    /// The number of waits for the data directory that ended.
+    pub waits: u32,
+    /// How long the last wait for the data directory took.
+    pub last_wait_ms: Option<u64>,
 }
 
 enum Request {
     /// Start a new Core, after a stop of the one that runs.
     Restart,
-    /// Stop the Core. The sender resolves once the Core process has exited.
-    Stop(oneshot::Sender<()>),
+    /// Stop the Core.
+    Stop(Stop),
     /// Stop the Core and erase what it stored. The sender resolves with the result.
     Reset(oneshot::Sender<io::Result<()>>),
+}
+
+struct Stop {
+    /// Resolves once the Core process has exited.
+    ack: oneshot::Sender<()>,
+    /// The app exits after the stop.
+    exit: bool,
+}
+
+impl Stop {
+    fn stopping(&self) -> Status {
+        if self.exit {
+            Status::Exiting
+        } else {
+            Status::Stopping
+        }
+    }
+
+    fn stopped(&self) -> Status {
+        if self.exit {
+            Status::Exiting
+        } else {
+            Status::Stopped
+        }
+    }
 }
 
 /// A handle to the supervisor task. Dropping every handle stops the Core.
@@ -195,6 +243,7 @@ impl Supervisor {
             status: status_tx,
             history: history_tx,
             requests: requests_rx,
+            waiting: None,
         };
         tokio::spawn(task.run());
         Ok(Self {
@@ -228,8 +277,23 @@ impl Supervisor {
 
     /// Stops the Core and resolves once its process has exited.
     pub async fn stop(&self) {
-        let (tx, rx) = oneshot::channel();
-        if self.requests.send(Request::Stop(tx)).await.is_ok() {
+        self.request_stop(false).await;
+    }
+
+    /// Stops the Core because the app exits, and resolves once its process has exited.
+    /// The status stays `Exiting`.
+    pub async fn stop_for_exit(&self) {
+        self.request_stop(true).await;
+    }
+
+    async fn request_stop(&self, exit: bool) {
+        let (ack, rx) = oneshot::channel();
+        if self
+            .requests
+            .send(Request::Stop(Stop { ack, exit }))
+            .await
+            .is_ok()
+        {
             // A dropped sender means the task is gone, and so is the Core.
             let _ = rx.await;
         }
@@ -256,9 +320,12 @@ enum Outcome {
         uptime: Duration,
         reason: Reason,
         message: String,
+        code: Option<i32>,
     },
+    /// The Core exited because another process holds the data directory.
+    Locked,
     /// The Core exited after a stop request.
-    Stopped(Option<oneshot::Sender<()>>),
+    Stopped(Option<Stop>),
     /// The Core exited after a restart request.
     Restart,
     /// The Core exited after a reset request.
@@ -275,17 +342,24 @@ struct Task {
     history: watch::Sender<History>,
     /// Closes when every `Supervisor` handle is dropped.
     requests: mpsc::Receiver<Request>,
+    /// When the current wait for the data directory began.
+    waiting: Option<Instant>,
 }
 
 impl Task {
     async fn run(mut self) {
         let mut policy = restart::Policy::new(self.cfg.restart);
         loop {
-            match self.run_once().await {
-                Outcome::Stopped(ack) => {
-                    self.status.send_replace(Status::Stopped);
-                    if let Some(ack) = ack {
-                        let _ = ack.send(());
+            let outcome = self.run_once().await;
+            if !matches!(outcome, Outcome::Locked) {
+                self.end_wait();
+            }
+            match outcome {
+                Outcome::Stopped(stop) => {
+                    let status = stop.as_ref().map_or(Status::Stopped, Stop::stopped);
+                    self.status.send_replace(status);
+                    if let Some(stop) = stop {
+                        let _ = stop.ack.send(());
                     }
                 }
                 Outcome::Restart => {
@@ -293,8 +367,34 @@ impl Task {
                     continue;
                 }
                 Outcome::Reset(ack) => self.erase(ack).await,
+                Outcome::Locked => {
+                    let since = *self.waiting.get_or_insert_with(Instant::now);
+                    if since.elapsed() < self.cfg.wait_timeout {
+                        self.status.send_replace(Status::Waiting);
+                        if self.backoff(self.cfg.wait_interval).await {
+                            continue;
+                        }
+                        self.end_wait();
+                    } else {
+                        self.end_wait();
+                        let message = format!(
+                            "the data directory stayed locked for {:?}",
+                            self.cfg.wait_timeout
+                        );
+                        self.record_exit(Exit {
+                            reason: Reason::Locked,
+                            message: message.clone(),
+                            uptime_seconds: 0,
+                            exit_code: Some(LOCKED_CODE),
+                        });
+                        self.give_up(Reason::Locked, message);
+                    }
+                }
                 Outcome::Exited {
-                    uptime, message, ..
+                    uptime,
+                    reason,
+                    message,
+                    ..
                 } => match policy.decide(uptime) {
                     restart::Decision::Restart(backoff) => {
                         self.status.send_replace(Status::Restarting);
@@ -302,10 +402,7 @@ impl Task {
                             continue;
                         }
                     }
-                    restart::Decision::GiveUp => {
-                        self.history.send_modify(|h| h.failures += 1);
-                        self.status.send_replace(Status::Failed { message });
-                    }
+                    restart::Decision::GiveUp => self.give_up(reason, message),
                 },
             }
             if !self.await_restart().await {
@@ -316,6 +413,30 @@ impl Task {
         }
     }
 
+    fn give_up(&self, reason: Reason, message: String) {
+        self.history.send_modify(|h| h.failures += 1);
+        self.status.send_replace(Status::Failed { reason, message });
+    }
+
+    fn record_exit(&self, exit: Exit) {
+        self.history.send_modify(move |h| {
+            h.exits += 1;
+            h.last_exit = Some(exit);
+        });
+    }
+
+    /// Records the end of the current wait for the data directory, if one runs.
+    fn end_wait(&mut self) {
+        let Some(since) = self.waiting.take() else {
+            return;
+        };
+        let took = since.elapsed().as_millis() as u64;
+        self.history.send_modify(|h| {
+            h.waits += 1;
+            h.last_wait_ms = Some(took);
+        });
+    }
+
     /// Waits out a restart backoff, which a restart request cuts short. It returns false
     /// when a stop request arrived first.
     async fn backoff(&mut self, backoff: Duration) -> bool {
@@ -323,9 +444,9 @@ impl Task {
             _ = tokio::time::sleep(backoff) => true,
             req = self.requests.recv() => match req {
                 Some(Request::Restart) => true,
-                Some(Request::Stop(ack)) => {
-                    self.status.send_replace(Status::Stopped);
-                    let _ = ack.send(());
+                Some(Request::Stop(stop)) => {
+                    self.status.send_replace(stop.stopped());
+                    let _ = stop.ack.send(());
                     false
                 }
                 Some(Request::Reset(ack)) => {
@@ -343,8 +464,8 @@ impl Task {
         loop {
             match self.requests.recv().await {
                 Some(Request::Restart) => return true,
-                Some(Request::Stop(ack)) => {
-                    let _ = ack.send(());
+                Some(Request::Stop(stop)) => {
+                    let _ = stop.ack.send(());
                 }
                 Some(Request::Reset(ack)) => self.erase(ack).await,
                 None => return false,
@@ -370,16 +491,14 @@ impl Task {
             uptime,
             reason,
             message,
+            code,
         } = &outcome
         {
-            let exit = Exit {
+            self.record_exit(Exit {
                 reason: *reason,
                 message: message.clone(),
                 uptime_seconds: uptime.as_secs(),
-            };
-            self.history.send_modify(move |h| {
-                h.exits += 1;
-                h.last_exit = Some(exit);
+                exit_code: *code,
             });
         }
         self.history.send_modify(|h| h.ready_at = None);
@@ -387,10 +506,11 @@ impl Task {
     }
 
     async fn supervise(&mut self, started: Instant) -> Outcome {
-        let exited = |reason: Reason, message: String| Outcome::Exited {
+        let exited = |reason: Reason, message: String, code: Option<i32>| Outcome::Exited {
             uptime: started.elapsed(),
             reason,
             message,
+            code,
         };
         let cfg = self.cfg.clone();
         let sweep = move || {
@@ -404,13 +524,23 @@ impl Task {
             return exited(
                 Reason::FailedToStart,
                 format!("failed to remove erased data: {err}"),
+                None,
             );
         }
         let (mut child, port) = match self.spawn() {
             Ok(v) => v,
-            Err(err) => return exited(Reason::FailedToStart, format!("failed to start: {err}")),
+            Err(err) => {
+                return exited(
+                    Reason::FailedToStart,
+                    format!("failed to start: {err}"),
+                    None,
+                );
+            }
         };
-        self.history.send_modify(|h| h.starts += 1);
+        // A wait for the data directory counts as one start.
+        if self.waiting.is_none() {
+            self.history.send_modify(|h| h.starts += 1);
+        }
         // Child::wait closes the stdin it still holds, and a closed stdin stops the
         // Core, so the pipe lives outside the child.
         let mut stdin = child.stdin.take();
@@ -424,10 +554,17 @@ impl Task {
         loop {
             tokio::select! {
                 status = child.wait() => {
-                    return exited(Reason::Crashed, match status {
-                        Ok(status) => format!("exited with {status}"),
-                        Err(err) => format!("failed to wait for exit: {err}"),
-                    });
+                    return match status {
+                        Ok(status) if status.code() == Some(LOCKED_CODE) => Outcome::Locked,
+                        Ok(status) => {
+                            exited(Reason::Crashed, format!("exited with {status}"), status.code())
+                        }
+                        Err(err) => exited(
+                            Reason::Crashed,
+                            format!("failed to wait for exit: {err}"),
+                            None,
+                        ),
+                    };
                 }
                 req = self.requests.recv() => match req {
                     Some(Request::Restart) => {
@@ -435,10 +572,10 @@ impl Task {
                         self.stop(&mut child, stdin.as_mut()).await;
                         return Outcome::Restart;
                     }
-                    Some(Request::Stop(ack)) => {
-                        self.status.send_replace(Status::Stopping);
+                    Some(Request::Stop(stop)) => {
+                        self.status.send_replace(stop.stopping());
                         self.stop(&mut child, stdin.as_mut()).await;
-                        return Outcome::Stopped(Some(ack));
+                        return Outcome::Stopped(Some(stop));
                     }
                     Some(Request::Reset(ack)) => {
                         self.status.send_replace(Status::Stopping);
@@ -456,11 +593,13 @@ impl Task {
                     return exited(
                         Reason::NotReady,
                         format!("not ready after {:?}", self.cfg.start_timeout),
+                        None,
                     );
                 }
                 Some((ok, took)) = probes.results.recv() => {
                     if ok && !ready {
                         ready = true;
+                        self.end_wait();
                         self.port = Some(port);
                         probes = Prober::start(
                             self.cfg.probe.clone(),
@@ -501,8 +640,9 @@ impl Task {
                                 "stopped answering after {missed} probes, slowest {} ms",
                                 slowest.as_millis()
                             ),
+                            None,
                         );
-                        self.status.send_replace(Status::Stopping);
+                        self.status.send_replace(Status::Restarting);
                         self.stop(&mut child, stdin.as_mut()).await;
                         return outcome;
                     }
@@ -631,6 +771,16 @@ mod tests {
         })
     }
 
+    /// A probe that passes once the file at `path` exists.
+    fn exists(path: PathBuf) -> probe::Probe {
+        Arc::new(move |_| {
+            let path = path.clone();
+            let answer: Pin<Box<dyn Future<Output = bool> + Send>> =
+                Box::pin(async move { path.exists() });
+            answer
+        })
+    }
+
     /// A stand-in Core that appends a line to `runs` on each start and stops on the
     /// stop line, which it records in `stops`, or when its stdin closes.
     const OBEDIENT: &str = r#"#!/bin/sh
@@ -645,6 +795,25 @@ exit 0
     const CRASHING: &str = r#"#!/bin/sh
 echo run >> "$(dirname "$0")/runs"
 exit 3
+"#;
+
+    /// A stand-in Core that finds its data directory locked on its first three starts.
+    /// Then it creates `ready` and behaves as `OBEDIENT`.
+    const LOCKED_THRICE: &str = r#"#!/bin/sh
+dir="$(dirname "$0")"
+echo run >> "$dir/runs"
+[ "$(wc -l < "$dir/runs" | tr -d ' ')" -le 3 ] && exit 75
+touch "$dir/ready"
+while read line; do
+  [ "$line" = stop ] && { echo stop >> "$dir/stops"; exit 0; }
+done
+exit 0
+"#;
+
+    /// A stand-in Core that always finds its data directory locked.
+    const LOCKED: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+exit 75
 "#;
 
     /// A stand-in Core that ignores every stop request.
@@ -725,6 +894,36 @@ while true; do sleep 1; done
             .unwrap()
     }
 
+    /// Collects each status change of `sup` from now until the Core runs.
+    fn record_until_running(sup: &Supervisor) -> JoinHandle<Vec<Status>> {
+        let mut rx = sup.subscribe();
+        rx.mark_unchanged();
+        tokio::spawn(async move {
+            let mut seen = Vec::new();
+            while rx.changed().await.is_ok() {
+                let status = rx.borrow_and_update().clone();
+                let done = matches!(status, Status::Running { .. });
+                seen.push(status);
+                if done {
+                    break;
+                }
+            }
+            seen
+        })
+    }
+
+    /// Waits until the supervisor has recorded `n` exits.
+    async fn wait_for_exits(sup: &Supervisor, n: u32) {
+        let poll = async {
+            while sup.history().exits < n {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(10), poll)
+            .await
+            .expect("timed out waiting for the exit");
+    }
+
     async fn wait_for(sup: &Supervisor, pred: impl Fn(&Status) -> bool) -> Status {
         let mut rx = sup.subscribe();
         tokio::time::timeout(Duration::from_secs(10), rx.wait_for(|s| pred(s)))
@@ -795,11 +994,13 @@ while true; do sleep 1; done
         let f = Fixture::new(CRASHING, always(false));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        let Status::Failed { message } = status else {
+        let Status::Failed { reason, message } = status else {
             unreachable!()
         };
+        assert_eq!(reason, Reason::Crashed);
         assert!(message.contains("exit status: 3"), "{message}");
         assert_eq!(f.runs(), 3);
+        assert_eq!(sup.history().last_exit.unwrap().exit_code, Some(3));
         sup.restart().await;
         wait_for(&sup, |s| matches!(s, Status::Starting)).await;
         wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
@@ -823,6 +1024,81 @@ while true; do sleep 1; done
     }
 
     #[tokio::test]
+    async fn waits_for_a_locked_data_directory_without_using_up_the_restart_policy() {
+        let mut f = Fixture::new(LOCKED_THRICE, always(false));
+        f.cfg.probe = exists(f.dir.path().join("ready"));
+        f.cfg.wait_interval = Duration::from_millis(5);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let seen = record_until_running(&sup);
+        let seen = tokio::time::timeout(Duration::from_secs(10), seen)
+            .await
+            .expect("timed out waiting for the Core")
+            .unwrap();
+        assert!(seen.contains(&Status::Waiting), "{seen:?}");
+        assert!(!seen.contains(&Status::Restarting), "{seen:?}");
+        // More starts than the restart policy allows.
+        f.wait_for_runs(4).await;
+        let history = sup.history();
+        assert_eq!(history.exits, 0);
+        assert_eq!(history.starts, 1);
+        assert_eq!(history.waits, 1);
+        assert!(history.last_wait_ms.is_some());
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn reports_exiting_through_a_stop_for_an_exit() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        let mut rx = sup.subscribe();
+        rx.mark_unchanged();
+        let seen = tokio::spawn(async move {
+            let mut seen = Vec::new();
+            while rx.changed().await.is_ok() {
+                seen.push(rx.borrow_and_update().clone());
+            }
+            seen
+        });
+        sup.stop_for_exit().await;
+        assert_eq!(sup.status(), Status::Exiting);
+        drop(sup);
+        let seen = seen.await.unwrap();
+        assert!(!seen.contains(&Status::Stopping), "{seen:?}");
+        assert!(!seen.contains(&Status::Stopped), "{seen:?}");
+    }
+
+    #[tokio::test]
+    async fn stops_while_it_waits_for_a_locked_data_directory() {
+        let mut f = Fixture::new(LOCKED, always(false));
+        f.cfg.wait_interval = Duration::from_secs(60);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Waiting)).await;
+        sup.stop().await;
+        assert_eq!(sup.status(), Status::Stopped);
+        assert_eq!(sup.history().waits, 1);
+    }
+
+    #[tokio::test]
+    async fn gives_up_on_a_data_directory_that_stays_locked() {
+        let mut f = Fixture::new(LOCKED, always(false));
+        f.cfg.wait_interval = Duration::from_millis(5);
+        f.cfg.wait_timeout = Duration::from_millis(100);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        let Status::Failed { reason, .. } = status else {
+            unreachable!()
+        };
+        assert_eq!(reason, Reason::Locked);
+        let history = sup.history();
+        assert_eq!(history.failures, 1);
+        assert_eq!(history.exits, 1);
+        assert_eq!(history.waits, 1);
+        assert!(history.last_wait_ms.unwrap() >= 100);
+        assert_eq!(history.last_exit.unwrap().exit_code, Some(LOCKED_CODE));
+    }
+
+    #[tokio::test]
     async fn kills_a_core_that_is_never_ready_and_counts_a_failed_run() {
         let mut f = Fixture::new(OBEDIENT, always(false));
         f.cfg.start_timeout = Duration::from_millis(50);
@@ -831,6 +1107,7 @@ while true; do sleep 1; done
         assert_eq!(
             status,
             Status::Failed {
+                reason: Reason::NotReady,
                 message: "not ready after 50ms".to_string()
             }
         );
@@ -860,7 +1137,7 @@ while true; do sleep 1; done
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(1).await;
         ok.store(false, Ordering::SeqCst);
-        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        wait_for_exits(&sup, 1).await;
         let history = sup.history();
         assert_eq!(history.exits, 1);
         let exit = history.last_exit.unwrap();
@@ -878,11 +1155,14 @@ while true; do sleep 1; done
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(1).await;
+        let seen = record_until_running(&sup);
         ok.store(false, Ordering::SeqCst);
-        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        wait_for_exits(&sup, 1).await;
         assert_eq!(f.stops(), 1);
         ok.store(true, Ordering::SeqCst);
-        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        let seen = seen.await.unwrap();
+        // A window keeps its workspace through a restart, but not through a stop.
+        assert!(!seen.contains(&Status::Stopping), "{seen:?}");
         sup.stop().await;
     }
 
@@ -906,7 +1186,7 @@ while true; do sleep 1; done
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(1).await;
         ok.store(false, Ordering::SeqCst);
-        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        wait_for_exits(&sup, 1).await;
         let message = sup.history().last_exit.unwrap().message;
         assert!(slowest_ms(&message) >= 40, "{message}");
         ok.store(true, Ordering::SeqCst);
@@ -929,7 +1209,7 @@ while true; do sleep 1; done
         });
         let f = Fixture::new(OBEDIENT, probe);
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
-        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        wait_for_exits(&sup, 1).await;
         let message = sup.history().last_exit.unwrap().message;
         assert!(slowest_ms(&message) < 300, "{message}");
         sup.stop().await;
@@ -971,20 +1251,7 @@ while true; do sleep 1; done
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(1).await;
-        let mut rx = sup.subscribe();
-        rx.mark_unchanged();
-        let seen = tokio::spawn(async move {
-            let mut seen = Vec::new();
-            while rx.changed().await.is_ok() {
-                let status = rx.borrow_and_update().clone();
-                let done = matches!(status, Status::Running { .. });
-                seen.push(status);
-                if done {
-                    break;
-                }
-            }
-            seen
-        });
+        let seen = record_until_running(&sup);
         sup.restart().await;
         let seen = tokio::time::timeout(Duration::from_secs(10), seen)
             .await
@@ -1020,6 +1287,7 @@ while true; do sleep 1; done
         let exit = second.last_exit.unwrap();
         assert_eq!(exit.reason, Reason::Crashed);
         assert!(exit.message.contains("signal"));
+        assert_eq!(exit.exit_code, None);
         sup.stop().await;
         assert_eq!(sup.history().ready_at, None);
     }

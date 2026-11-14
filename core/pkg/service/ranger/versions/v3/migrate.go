@@ -24,3 +24,48 @@ func MigrateRange(ctx context.Context, old v2.Range) (Range, error) {
 
 // Migration lifts stored ranges from v2 to v3.
 var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateRange)
+
+// MigrateWhere lifts a v2 range filter to v3. A v2 filter sets none of the lines that
+// v3 adds.
+func MigrateWhere(ctx context.Context, old v2.Where) (Where, error) {
+	and, err := migrateWheres(ctx, old.And)
+	if err != nil {
+		return Where{}, err
+	}
+	or, err := migrateWheres(ctx, old.Or)
+	if err != nil {
+		return Where{}, err
+	}
+	var not *Where
+	if old.Not != nil {
+		w, err := MigrateWhere(ctx, *old.Not)
+		if err != nil {
+			return Where{}, err
+		}
+		not = &w
+	}
+	return Where{
+		And:      and,
+		Or:       or,
+		Not:      not,
+		Key:      old.Key,
+		Name:     old.Name,
+		Overlaps: old.Overlaps,
+		Labels:   old.Labels,
+		Parents:  old.Parents,
+	}, nil
+}
+
+func migrateWheres(ctx context.Context, old []v2.Where) ([]Where, error) {
+	if old == nil {
+		return nil, nil
+	}
+	ws := make([]Where, len(old))
+	for i, w := range old {
+		var err error
+		if ws[i], err = MigrateWhere(ctx, w); err != nil {
+			return nil, err
+		}
+	}
+	return ws, nil
+}

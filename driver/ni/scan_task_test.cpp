@@ -678,6 +678,7 @@ TEST(ScannerTest, testCompletesHardwareOnLaterRead) {
 /// while the library does not load, and clear the warning on the first scan after it
 /// loads.
 TEST(ScannerTest, testWarnsUntilLibraryLoads) {
+    x::breaker::Breaker cancel;
     std::atomic<int> loads = 0;
     Factory factory(
         []() -> std::pair<std::shared_ptr<daqmx::SugaredAPI>, x::errors::Error> {
@@ -697,6 +698,7 @@ TEST(ScannerTest, testWarnsUntilLibraryLoads) {
     const auto ctx = std::make_shared<task::MockContext>(
         std::make_shared<synnax::Synnax>(new_test_client())
     );
+    cancel.start();
     auto [scan_task, handled] = factory.configure_task(
         ctx,
         synnax::task::Task{
@@ -704,8 +706,10 @@ TEST(ScannerTest, testWarnsUntilLibraryLoads) {
             .type = SCAN_TASK_TYPE,
             .config = {{"rate", 1}},
         },
-        task::NO_COMMAND
+        task::NO_COMMAND,
+        cancel
     );
+    cancel.stop();
     ASSERT_TRUE(handled);
     ASSERT_NE(scan_task, nullptr);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(

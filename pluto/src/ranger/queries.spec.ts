@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -70,7 +70,7 @@ describe("queries", () => {
         now.sub(TimeSpan.HOUR),
       );
       const expected = { to_do: toDo, in_progress: inProgress, completed };
-      for (const stage of Ranger.STAGES) {
+      for (const stage of ranger.STAGES) {
         const where = { and: [{ labels: [lbl.key] }, Ranger.stageWhere(stage, now)] };
         const { result } = renderHook(
           () => Flux.useList((c) => c.ranges, { name: "ranges", query: { where } }),
@@ -99,6 +99,68 @@ describe("queries", () => {
         expect(result.current.data).toEqual([
           { key: "key", value: "value", range: rng.key },
         ]),
+      );
+    });
+  });
+
+  describe("useResultAncestors", () => {
+    it("should map each range to its parent up to the top", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const top = await client.ranges.create({ name: "top", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: top.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const { result } = renderHook(
+        () => Ranger.useResultAncestors({ keys: [bottom.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          [bottom.key]: middle.key,
+          [middle.key]: top.key,
+          [top.key]: null,
+        }),
+      );
+    });
+
+    it("should follow a move of a range above to a parent it lacks", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const first = await client.ranges.create({ name: "first", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: first.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const second = await client.ranges.create({ name: "second", timeRange });
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Ranger.useResultAncestors({ keys: [bottom.key] }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      await waitFor(() => expect(result.current.data?.[middle.key]).toEqual(first.key));
+      await waitForStreamLive(reader.connection);
+      await client.ranges.dispatch(
+        middle.key,
+        ranger.set({ path: ["parent"], value: second.key }),
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          [bottom.key]: middle.key,
+          [middle.key]: second.key,
+          [second.key]: null,
+        }),
       );
     });
   });
@@ -179,6 +241,39 @@ describe("queries", () => {
         "time_range.start cannot be after time_range.end",
       );
       expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(rng.timeRange);
+    });
+  });
+
+  describe("useSetColor", () => {
+    it("should set the color of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "set_color_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useSetColor(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            color: color.construct("#ff0000"),
+          }),
+        ).toBe(true);
+      });
+      const { color: stored } = await client.ranges.retrieve(rng.key);
+      expect(stored == null ? undefined : color.hex(stored)).toEqual("#ff0000");
+    });
+
+    it("should clear the color of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "clear_color_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        color: "#00ff00",
+      });
+      const { result } = renderHook(() => Ranger.useSetColor(), { wrapper });
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key })).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).color).toBeUndefined();
     });
   });
 
@@ -483,6 +578,49 @@ describe("queries", () => {
       });
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       expect(await rng.kv.get("operator")).toBe("Ada");
+    });
+
+    it("should fail with Key is required for a blank key", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_blank",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set(pair.key, "   ");
+        result.current.form.set(pair.value, "Ada");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      expect(result.current.form.get(pair.key).status.message).toBe("Key is required");
+      expect(await rng.kv.list()).toEqual({});
+    });
+
+    it("should trim the key before it saves", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_trim",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(
+        () =>
+          Ranger.useCreateKVPairForm({
+            query: null,
+            initialValues: { key: "", value: "", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set(pair.key, "  operator  ");
+        result.current.form.set(pair.value, "Ada");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await rng.kv.list()).toEqual({ operator: "Ada" });
     });
   });
 

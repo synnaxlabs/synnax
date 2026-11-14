@@ -31,7 +31,7 @@ export interface BarProps extends Flex.BoxProps {
   disabled?: boolean;
   /** Shown when the status message is empty. */
   fallbackMessage?: string;
-  /** Status variant forwarded to the start/stop button. */
+  /** Status variant of the start/stop button. A loading one leaves an enabled Stop. */
   startStopVariant?: status.Variant;
   /** Rendered inside the action row, before the deploy controls. */
   extraActions?: ReactNode;
@@ -64,7 +64,10 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  const handleStartStop = () => (running ? onStop?.() : onDeploy?.());
+  // The button stays a working Stop while a start or stop loads.
+  const loading = startStopVariant === "loading";
+  const stoppable = running || loading;
+  const handleStartStop = () => (stoppable ? onStop?.() : onDeploy?.());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status
@@ -86,10 +89,10 @@ export const Bar = ({
                 disabled={disabled || startStopVariant === "loading"}
               />
               <StartStopButton
-                running={running}
+                running={stoppable}
                 onClick={handleStartStop}
                 disabled={disabled}
-                statusVariant={startStopVariant}
+                statusVariant={loading ? undefined : startStopVariant}
               />
             </>
           )}

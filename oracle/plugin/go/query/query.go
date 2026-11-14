@@ -613,7 +613,7 @@ func extractRetrieveInfo(
 			indexTextual bool
 		)
 		if hasIndex {
-			idx := indexInfo{
+			base := indexInfo{
 				FieldName:   field.Name,
 				GoName:      goFieldName,
 				Access:      access,
@@ -621,32 +621,41 @@ func extractRetrieveInfo(
 				ValueGoType: goType,
 				Kind:        "lookup",
 			}
+			fieldIndexes := []indexInfo{base}
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
 				sorts, err := resolution.Sorts([]resolution.Field{field}, table)
 				if err != nil {
 					return nil, errors.Wrapf(err, "%s", typ.QualifiedName)
 				}
-				sort := sorts[0]
-				idx.Kind, idx.Textual = "sorted", sort.Textual
-				idx.FieldName = sort.Name
-				if len(sort.Path) > 1 {
-					leaf := sort.Leaf()
-					idx.GoName += naming.GetFieldName(leaf)
-					idx.Access += "." + naming.GetFieldName(leaf)
-					idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
-				}
-				idx.GoType = idx.ValueGoType
-				if idx.Textual {
-					idx.GoType = "string"
-				}
+				fieldIndexes = lo.Map(
+					sorts,
+					func(sort resolution.Sort, _ int) indexInfo {
+						idx := base
+						idx.Kind, idx.Textual = "sorted", sort.Textual
+						idx.FieldName = sort.Name
+						if len(sort.Path) > 1 {
+							leaf := sort.Leaf()
+							idx.GoName += naming.GetFieldName(leaf)
+							idx.Access += "." + naming.GetFieldName(leaf)
+							idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
+						}
+						idx.GoType = idx.ValueGoType
+						if idx.Textual {
+							idx.GoType = "string"
+						}
+						return idx
+					},
+				)
 			}
-			// camelCase field name on the per-Retrieve indexes struct. Unexported
-			// because the indexes struct itself is unexported.
-			idx.StructField = naming.LowerFirst(idx.GoName)
-			if idx.Access == access {
-				indexField, indexTextual = idx.StructField, idx.Textual
+			for _, idx := range fieldIndexes {
+				// camelCase field name on the per-Retrieve indexes struct. Unexported
+				// because the indexes struct itself is unexported.
+				idx.StructField = naming.LowerFirst(idx.GoName)
+				if idx.Access == access {
+					indexField, indexTextual = idx.StructField, idx.Textual
+				}
+				indexes = append(indexes, idx)
 			}
-			indexes = append(indexes, idx)
 		}
 
 		if hasFilter {

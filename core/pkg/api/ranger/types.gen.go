@@ -28,6 +28,9 @@ type Cursor struct {
 	// TimeRangeStart is the time range start of the range at the position, when the
 	// order sorts by it.
 	TimeRangeStart *telem.TimeStamp `json:"time_range_start,omitzero" msgpack:"time_range_start,omitempty"`
+	// TimeRangeEnd is the time range end of the range at the position, when the order
+	// sorts by it.
+	TimeRangeEnd *telem.TimeStamp `json:"time_range_end,omitzero" msgpack:"time_range_end,omitempty"`
 }
 
 // OrderField is a field that ranges can be sorted by.
@@ -38,13 +41,15 @@ const (
 	OrderFieldName OrderField = "name"
 	// OrderFieldTimeRangeStart sorts the ranges by time range start.
 	OrderFieldTimeRangeStart OrderField = "time_range_start"
+	// OrderFieldTimeRangeEnd sorts the ranges by time range end.
+	OrderFieldTimeRangeEnd OrderField = "time_range_end"
 )
 
 // IsValid reports whether o is one of the defined OrderField
 // values.
 func (o OrderField) IsValid() bool {
 	switch o {
-	case OrderFieldName, OrderFieldTimeRangeStart:
+	case OrderFieldName, OrderFieldTimeRangeStart, OrderFieldTimeRangeEnd:
 		return true
 	default:
 		return false

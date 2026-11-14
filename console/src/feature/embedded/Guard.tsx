@@ -23,6 +23,7 @@ import {
 
 import { ensure } from "@/feature/embedded/apiKey";
 import { useStatus } from "@/feature/embedded/Provider";
+import { type Status as SupervisorStatus } from "@/feature/embedded/supervisor";
 import { NAME } from "@/feature/embedded/useConnParams";
 import { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";
 import { useRestart } from "@/feature/embedded/useRestart";
@@ -35,7 +36,8 @@ import { Session } from "@/session";
 /**
  * Renders a splash instead of the workspace until the embedded Core runs, the session
  * settles, and the permissions are cached. Once the workspace is up, a restart of the
- * Core leaves it mounted; only a Core that stays down replaces it.
+ * Core leaves it mounted; a Core that waits, stays down, or stops for an exit replaces
+ * it.
  */
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const status = useStatus();
@@ -43,7 +45,9 @@ export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const settled = Session.useSettled();
   const selected = Session.Core.useSelectIsAnySelected();
   let content: ReactNode;
-  if (status.state === "failed") content = <Failed message={status.message} />;
+  if (status.state === "failed") content = <Failed {...status} />;
+  else if (status.state === "waiting") content = <Waiting />;
+  else if (status.state === "exiting") content = <Exiting />;
   else if (client == null || !selected || !settled)
     content = <Starting connected={client != null && selected} />;
   else
@@ -141,19 +145,45 @@ const Starting = ({ connected }: StartingProps): ReactElement => (
   </Body>
 );
 
-interface FailedProps {
-  message: string;
-}
+const Waiting = (): ReactElement => (
+  <Body delayed>
+    <Status.Summary
+      variant="loading"
+      message="Waiting for Synnax to stop..."
+      description="Synnax from the last session is still shutting down. It starts here when that finishes."
+    />
+  </Body>
+);
 
-const Failed = ({ message }: FailedProps): ReactElement => {
+const Exiting = (): ReactElement => (
+  <Body delayed>
+    <Status.Summary
+      variant="loading"
+      message="Stopping Synnax..."
+      description="Waiting for running tasks to stop."
+    />
+  </Body>
+);
+
+interface FailedProps extends Pick<
+  Extract<SupervisorStatus, { state: "failed" }>,
+  "reason" | "message"
+> {}
+
+const Failed = ({ reason, message }: FailedProps): ReactElement => {
   const openDiagnostics = useDiagnosticsModal();
   const restart = useRestart();
+  const locked = reason === "locked";
   return (
     <Body>
       <Status.Summary
         variant="error"
-        message="Synnax stopped unexpectedly"
-        description={message}
+        message={locked ? "Data folder in use" : "Synnax stopped unexpectedly"}
+        description={
+          locked
+            ? "Another Synnax process is still using the data folder. End it, then select Restart."
+            : message
+        }
       />
       <Flex.Box x gap="small">
         <Button.Button variant="outlined" onClick={() => openDiagnostics()}>

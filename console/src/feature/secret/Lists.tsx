@@ -32,7 +32,7 @@ import {
   type SelectCertificate,
   UsedBy,
   UsesBoundary,
-  useUses,
+  useUsesCount,
 } from "@/feature/secret/UsedBy";
 import { type Lists as ListsData, useLists } from "@/feature/secret/useLists";
 import { CSS } from "@/platform/css";
@@ -59,7 +59,7 @@ interface CountProps extends Pick<
 }
 
 const Count = ({ secretKey, ...rest }: CountProps): ReactElement | null => {
-  const count = useUses(secretKey).length;
+  const count = useUsesCount(secretKey);
   if (count === 0) return null;
   return (
     <Button.Button
@@ -115,14 +115,12 @@ const UsedByPopover = ({
       onVisibleChange={handleVisibleChange}
       location={POPOVER_LOCATION}
     >
-      <UsesBoundary>
-        <Count
-          secretKey={secretKey}
-          onPointerEnter={handleEnter}
-          onPointerLeave={scheduleClose}
-          onClick={() => setMode("pinned")}
-        />
-      </UsesBoundary>
+      <Count
+        secretKey={secretKey}
+        onPointerEnter={handleEnter}
+        onPointerLeave={scheduleClose}
+        onClick={() => setMode("pinned")}
+      />
       <Dialog.Dialog
         background={1}
         rounded="medium"

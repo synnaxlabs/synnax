@@ -61,7 +61,7 @@ class RoleOperatorPermissions(RoleCase):
         self.owner_creates_pages()
         self.login_as_role()
         self.assert_badge_names_role()
-        self.assert_users_toolbar_hidden()
+        self.assert_users_page_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
         self.tab_menu_offers_no_writes()

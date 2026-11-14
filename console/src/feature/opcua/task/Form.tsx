@@ -49,6 +49,7 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
+import { Section } from "@/platform/section";
 import { Task } from "@/platform/task";
 
 export interface ExtraItemProps<C extends Channel> {
@@ -176,7 +177,7 @@ const Header = <C extends Channel>({
       );
     }, "Failed to import channels");
   return (
-    <PHeader.Header className={CSS.B("opc-task-header")}>
+    <Section.Header className={CSS.B("opc-task-header")}>
       <PHeader.Title weight={500} color={10} level="p">
         Channels
       </PHeader.Title>
@@ -202,7 +203,7 @@ const Header = <C extends Channel>({
           <Icon.Export />
         </Button.Button>
       </PHeader.Actions>
-    </PHeader.Header>
+    </Section.Header>
   );
 };
 

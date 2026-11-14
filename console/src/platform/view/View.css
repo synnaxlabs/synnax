@@ -9,13 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-view__toolbar:not(:empty) {
-    padding: 1.5rem;
-}
-
+/* The search, the views, and the filters sit in one island inset from the panel. The
+   views bar holds the top, the filter bar the bottom, with a lighter line between. */
 .console-view__views {
-    padding: 1.5rem 1.25rem;
     flex-shrink: 0;
+    height: 7rem;
+    margin: 1rem 1.5rem 0;
+    padding: 0 1.25rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-bottom: none;
+    border-radius: var(--pluto-border-radius-large);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    background: var(--pluto-gray-l1);
 }
 
 /* Anchors the list's fetch-more observer at the end of the strip. A zero-width child
@@ -24,4 +30,33 @@
     flex-shrink: 0;
     width: 1px;
     align-self: stretch;
+}
+
+/* The search leads the views, split from them by a hairline as tall as the bar. */
+.console-view__search {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: stretch;
+    width: 45rem;
+    margin-right: 1rem;
+    padding: 0 1rem 0 1.25rem;
+    border-right: var(--pluto-border);
+}
+
+.console-view__create {
+    margin-left: 0.5rem;
+}
+
+/* Chips that wrap make the filter bar taller. The filter icon sits under the search
+   icon. */
+.console-view__toolbar {
+    min-height: 7rem;
+    margin: 0 1.5rem 1rem;
+    padding: 0.5rem 1.5rem 0.5rem 1rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-top-color: var(--pluto-gray-l4);
+    border-radius: var(--pluto-border-radius-large);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }

@@ -9,6 +9,7 @@
 
 import { access, panel, project, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -49,7 +50,7 @@ const createTab = (): panel.Tab => ({
   type: "t",
 });
 
-interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color"> {
+interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color" | "owner"> {
   name?: string;
   key?: panel.Key;
   tab?: panel.Tab;
@@ -452,6 +453,32 @@ describe("Panel.Selector", () => {
       await waitFor(() =>
         expect(Session.Panel.selectSelected(store.getState())).toEqual(source.key),
       );
+    });
+  });
+
+  describe("drafts", () => {
+    it("should mark the user's drafts and hide the drafts of others", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const me = (await client.users.current.retrieve()).key;
+      const role = await createEmptyRole(client);
+      const other = await client.users.create({
+        username: uuid.create(),
+        password: "test",
+        name: "other",
+        role: role.key,
+      });
+      const shared = await createProjectPanel(proj.key, { name: "shared" });
+      const mine = await createProjectPanel(proj.key, { name: "mine", owner: me });
+      const theirs = await createProjectPanel(proj.key, {
+        name: "theirs",
+        owner: other.key,
+      });
+      await renderStrip([shared, mine], proj.key);
+      expect(screen.queryByText(theirs.name)).toBeNull();
+      const pill = (name: string) =>
+        screen.getAllByRole("tab").find((tab) => tab.textContent?.includes(name));
+      expect(pill(mine.name)?.textContent).toContain("Draft");
+      expect(pill(shared.name)?.textContent).not.toContain("Draft");
     });
   });
 

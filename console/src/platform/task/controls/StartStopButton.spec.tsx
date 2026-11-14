@@ -53,6 +53,15 @@ describe("Controls.StartStopButton", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("should ignore the second click of a double click", async () => {
+    const onClick = vi.fn();
+    await renderWithConsole(<StartStopButton running={false} onClick={onClick} />);
+    const button = screen.getByRole("button");
+    fireEvent.click(button, { detail: 1 });
+    fireEvent.click(button, { detail: 2 });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it("should not invoke onClick when disabled", async () => {
     const onClick = vi.fn();
     await renderWithConsole(

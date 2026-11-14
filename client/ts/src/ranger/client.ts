@@ -24,7 +24,7 @@ import { actions } from "@/actions";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { query } from "@/query";
-import { createOf, encode, reduceAll } from "@/ranger/actions";
+import { createOf, encode, parentOf, reduceAll } from "@/ranger/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -118,12 +118,25 @@ export class Range {
   readonly parent?: Key;
   /** The keys of the labels attached to the range. */
   readonly labels: label.Key[];
+  /**
+   * Whether a range is nested in the range. It can stay true after the last nested
+   * range leaves, until the range is retrieved again.
+   */
+  readonly hasChildren: boolean;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
   private readonly rangeClient: Client;
 
   constructor(
-    { name, timeRange = TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
+    {
+      name,
+      timeRange = TimeRange.ZERO,
+      key,
+      color: color_,
+      parent,
+      labels,
+      hasChildren,
+    }: Payload,
     { frameClient, kv, labelClient, rangeClient }: RangeConstructionOptions,
   ) {
     this.key = key;
@@ -131,6 +144,7 @@ export class Range {
     this.timeRange = timeRange;
     this.parent = parent;
     this.labels = labels;
+    this.hasChildren = hasChildren;
     this.frameClient = frameClient;
     this.color = color_;
     this.kv = kv;
@@ -149,6 +163,7 @@ export class Range {
       timeRange: this.timeRange,
       color: this.color,
       labels: this.labels,
+      hasChildren: this.hasChildren,
     };
     if (this.parent != null) r.parent = this.parent;
     return r;
@@ -268,7 +283,22 @@ export class Client extends query.Retriever<
         return created == null ? undefined : this.sugarOne(created);
       },
     });
-    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
+    const listener = dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ);
+    // The Core derives hasChildren only on read, so a range that a create or a move
+    // places under a parent marks the parent here. The parent keeps the mark after its
+    // last child leaves.
+    cache.listen({
+      ...listener,
+      onChange: (frames) => {
+        listener.onChange(frames);
+        frames.forEach(({ actions }) =>
+          actions.forEach((action) => {
+            const parent = parentOf(action);
+            if (parent != null) this.markParent(parent);
+          }),
+        );
+      },
+    });
     const single = cache.queries<Key, Range, Key, Range>({
       name: "range",
       table: ranges,
@@ -340,7 +370,7 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
-    // A label change streamed during the request is newer than the reply.
+    // A label change or a child streamed during the request is newer than the reply.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,
@@ -350,7 +380,11 @@ export class Client extends query.Retriever<
       const cached = this.store.get(r.key);
       return cached == null
         ? r
-        : this.sugarOne({ ...r.payload, labels: cached.labels });
+        : this.sugarOne({
+            ...r.payload,
+            labels: cached.labels,
+            hasChildren: r.hasChildren || cached.hasChildren,
+          });
     });
     this.store.set(res);
     return single ? res[0] : res;
@@ -370,6 +404,14 @@ export class Client extends query.Retriever<
   ): destructor.Destructor {
     return this.store.set(key, (p) =>
       p == null ? undefined : this.sugarOne({ ...p.payload, labels: update(p.labels) }),
+    );
+  }
+
+  private markParent(key: Key): void {
+    this.store.set(key, (p) =>
+      p == null || p.hasChildren
+        ? p
+        : this.sugarOne({ ...p.payload, hasChildren: true }),
     );
   }
 

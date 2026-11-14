@@ -47,13 +47,6 @@
       "lyra-list__item",
       "lyra-list__virtualizer"
     ],
-    "console/src/feature/range/explorer/Explorer.css": [
-      "lyra-list__sentinel",
-      "lyra-list__virtualizer",
-      "lyra-tags"
-    ],
-    "console/src/feature/range/list/List.css": ["lyra-tags"],
-    "console/src/feature/range/overview/Overview.css": ["lyra--hidden", "lyra-header"],
     "console/src/feature/schematic/symbol/edit/Edit.css": [
       "lyra-modal",
       "lyra-modal__body"
@@ -122,7 +115,6 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/Form.css": ["lyra-header"],
     "console/src/platform/task/views/GroupTree.css": [
       "lyra--selected",
       "lyra-btn",

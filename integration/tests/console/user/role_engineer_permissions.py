@@ -27,7 +27,7 @@ class RoleEngineerPermissions(RoleCase):
     def run(self) -> None:
         self.login_as_role()
         self.assert_badge_names_role()
-        self.assert_users_toolbar_hidden()
+        self.assert_users_page_hidden()
         self.creation_commands_are_offered()
         self.mosaic_is_interactive()
         self.tab_menu_offers_the_writes()

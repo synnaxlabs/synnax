@@ -29,11 +29,39 @@
 
 namespace synnax::ranger {
 
+inline std::pair<::service::ranger::pb::Stage, x::errors::Error>
+stage_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::ranger::pb::Stage> kMap = {
+        {STAGE_TO_DO, ::service::ranger::pb::STAGE_TO_DO},
+        {STAGE_IN_PROGRESS, ::service::ranger::pb::STAGE_IN_PROGRESS},
+        {STAGE_COMPLETED, ::service::ranger::pb::STAGE_COMPLETED},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Stage value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+stage_from_pb(::service::ranger::pb::Stage pb) {
+    switch (pb) {
+        case ::service::ranger::pb::STAGE_TO_DO:
+            return {STAGE_TO_DO, x::errors::NIL};
+        case ::service::ranger::pb::STAGE_IN_PROGRESS:
+            return {STAGE_IN_PROGRESS, x::errors::NIL};
+        case ::service::ranger::pb::STAGE_COMPLETED:
+            return {STAGE_COMPLETED, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Stage protobuf value")};
+    }
+}
+
 inline std::pair<::api::ranger::pb::OrderField, x::errors::Error>
 order_field_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::api::ranger::pb::OrderField> kMap = {
         {ORDER_FIELD_NAME, ::api::ranger::pb::ORDER_FIELD_NAME},
         {ORDER_FIELD_TIME_RANGE_START, ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_START},
+        {ORDER_FIELD_TIME_RANGE_END, ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_END},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -48,6 +76,8 @@ order_field_from_pb(::api::ranger::pb::OrderField pb) {
             return {ORDER_FIELD_NAME, x::errors::NIL};
         case ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_START:
             return {ORDER_FIELD_TIME_RANGE_START, x::errors::NIL};
+        case ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_END:
+            return {ORDER_FIELD_TIME_RANGE_END, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized OrderField protobuf value")};
     }
@@ -109,6 +139,7 @@ Range::to_proto() const {
         pb.add_labels(item.to_string());
     }
     if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
+    pb.set_has_children(this->has_children);
     return {pb, x::errors::NIL};
 }
 
@@ -141,6 +172,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.parent = v;
     }
+    cpp.has_children = pb.has_children();
     return {cpp, x::errors::NIL};
 }
 
@@ -195,6 +227,17 @@ Where::to_proto() const {
             wrapper->add_values(item.to_string());
         }
     }
+    if (this->nested.has_value()) pb.set_nested(*this->nested);
+    if (this->labeled.has_value()) pb.set_labeled(*this->labeled);
+    if (this->stages.has_value()) {
+        auto *wrapper = pb.mutable_stages();
+        for (const auto &item: *this->stages) {
+            auto [v, err] = stage_to_pb(item);
+            if (err) return {{}, err};
+            wrapper->add_values(v);
+        }
+    }
+    if (this->recent.has_value()) pb.set_recent(this->recent->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -247,6 +290,19 @@ Where::from_proto(const ::service::ranger::pb::Where &pb) {
             cpp.parents->push_back(v);
         }
     }
+    if (pb.has_nested()) cpp.nested = pb.nested();
+    if (pb.has_labeled()) cpp.labeled = pb.labeled();
+    if (pb.has_stages()) {
+        cpp.stages.emplace();
+        for (const auto &item: pb.stages().values()) {
+            auto [v, err] = stage_from_pb(
+                static_cast<::service::ranger::pb::Stage>(item)
+            );
+            if (err) return {{}, err};
+            cpp.stages->push_back(v);
+        }
+    }
+    if (pb.has_recent()) cpp.recent = ::x::telem::TimeSpan::from_proto(pb.recent());
     return {cpp, x::errors::NIL};
 }
 
@@ -256,6 +312,8 @@ inline std::pair<::api::ranger::pb::Cursor, x::errors::Error> Cursor::to_proto()
     if (this->name.has_value()) pb.set_name(*this->name);
     if (this->time_range_start.has_value())
         pb.set_time_range_start(this->time_range_start->to_proto());
+    if (this->time_range_end.has_value())
+        pb.set_time_range_end(this->time_range_end->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -270,6 +328,8 @@ Cursor::from_proto(const ::api::ranger::pb::Cursor &pb) {
     if (pb.has_name()) cpp.name = pb.name();
     if (pb.has_time_range_start())
         cpp.time_range_start = ::x::telem::TimeStamp::from_proto(pb.time_range_start());
+    if (pb.has_time_range_end())
+        cpp.time_range_end = ::x::telem::TimeStamp::from_proto(pb.time_range_end());
     return {cpp, x::errors::NIL};
 }
 

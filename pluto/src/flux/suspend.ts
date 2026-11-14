@@ -268,6 +268,11 @@ export interface PendingFetch<Data> {
   promise: Promise<Data> | null;
   /** Records the promise this attempt suspends on. */
   set: (promise: Promise<Data>) => void;
+  /**
+   * Wraps a value as {@link fulfilled} does, but returns the same promise while the
+   * value stays the same. A replay must pass `use` the promise its attempt read.
+   */
+  fulfill: (value: Data) => Promise<Data>;
 }
 
 /**
@@ -285,6 +290,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
   // across the replay.
   "use no memo";
   const pending = useRef<{ query: Query | null; promise: Promise<Data> } | null>(null);
+  const settled = useRef<{ value: Data; promise: Promise<Data> } | null>(null);
   useLayoutEffect(() => {
     pending.current = null;
   });
@@ -294,6 +300,11 @@ export const usePendingFetch = <Query extends query.Params, Data>(
     promise: held != null && held.query === q ? held.promise : null,
     set: (promise) => {
       pending.current = { query: q, promise };
+    },
+    fulfill: (value) => {
+      if (settled.current?.value !== value)
+        settled.current = { value, promise: fulfilled(value) };
+      return settled.current.promise;
     },
   };
   /* eslint-enable synnax/react-compiler */
@@ -322,7 +333,7 @@ export const promiseFor = <Query extends query.Params, Data extends query.Data>(
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
-    return fulfilled(settled.data);
+    return pending.fulfill(settled.data);
   }
   const promise = ensureFetch(params, fetchParams);
   pending.set(promise);
