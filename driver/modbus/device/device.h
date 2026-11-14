@@ -739,8 +739,8 @@ private:
         return true;
     }
 
-    /// @returns the longest time that one request may hold the turn. Each attempt
-    /// waits for the gap, a connect, a late reply, and its own reply.
+    /// @returns the longest time that one request may hold the turn. Each attempt waits
+    /// for the gap, a connect, a late reply, and its own reply.
     [[nodiscard]] x::telem::TimeSpan
     turn_limit(const ConnectionConfig &cfg, const x::telem::TimeSpan delay) const {
         const auto gap = std::max(delay, this->frame_gap);
@@ -757,8 +757,13 @@ private:
         const Request &request
     ) {
         {
+            const auto now = Clock::now();
+            auto limit = this->turn_limit(cfg, delay).chrono();
+            // The late reply of an earlier request can take longer than cfg.timeout.
+            if (this->stale && this->transport == Transport::TCP)
+                limit += std::max(this->stale_until - now, Clock::duration::zero());
             std::lock_guard lock(this->mu);
-            this->turn_ends = Clock::now() + this->turn_limit(cfg, delay).chrono();
+            this->turn_ends = now + limit;
         }
         if (auto err = this->demoted(cfg.unit_id)) return err;
         const auto gap = std::max(delay, this->frame_gap);
@@ -823,8 +828,8 @@ public:
     /// that holds the turn stays within the time that its timeout and retries allow.
     /// @param interrupted fails the request at once when set, and stops its retries.
     /// Set it, then call wake().
-    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait
-    /// or a request held the turn past its limit, INTERRUPTED if interrupted was set
+    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait or
+    /// a request held the turn past its limit, INTERRUPTED if interrupted was set
     /// before the turn came, or the classified error of the last attempt.
     template<typename Request>
     x::errors::Error exec(
@@ -871,6 +876,7 @@ public:
     /// @brief wakes the requests that wait for their turn, so that each checks its
     /// interrupted flag.
     void wake() {
+        // A waiter that read the flag before the store holds mu until it waits.
         { std::lock_guard lock(this->mu); }
         this->released.notify_all();
     }

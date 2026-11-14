@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <map>
 #include <optional>
 #include <string>
@@ -1453,8 +1454,8 @@ TEST(DeviceTest, InterruptStopsRetriesOfHeldTurn) {
     slave.stop();
 }
 
-/// @brief it should fail a request that waits for its turn only after the request
-/// that holds the turn runs past the time that its timeout and retries allow.
+/// @brief it should fail a request that waits for its turn only after the request that
+/// holds the turn runs past the time that its timeout and retries allow.
 TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1687;
@@ -1469,6 +1470,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
         return modbus_read_registers(ctx, 0, 1, &reg);
     };
     const std::atomic<bool> interrupted = false;
+    std::promise<void> held;
     // One attempt holds the turn for up to 3 timeouts plus ATTEMPT_SLACK: 1.3 s.
     std::thread holding([&] {
         ASSERT_NIL(conn.sequence(
@@ -1476,6 +1478,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
             x::telem::TimeSpan(0),
             false,
             [&](const auto &send) {
+                held.set_value();
                 const auto err = send(read);
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 return err;
@@ -1484,7 +1487,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
             interrupted
         ));
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    held.get_future().wait();
     const auto start = std::chrono::steady_clock::now();
     const auto err = conn.exec(
         cfg,
@@ -1503,6 +1506,61 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
     );
     EXPECT_GT(waited, std::chrono::milliseconds(1000));
     EXPECT_LT(waited, std::chrono::milliseconds(1800));
+    slave.stop();
+}
+
+/// @brief it should let a request that waits for its turn wait while the holder waits
+/// for the late reply of an earlier request, even when that reply takes longer than the
+/// holder's own timeout.
+TEST(DeviceTest, TurnWaitCountsLateReplyOfEarlierRequest) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1689;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Connection conn(modbus_new_tcp_pi("127.0.0.1", "1689"), "127.0.0.1:1689", DEMOTION);
+    ConnectionConfig slow{"127.0.0.1", 1689};
+    slow.timeout = x::telem::SECOND * 2;
+    slow.retries = 0;
+    ConnectionConfig fast{"127.0.0.1", 1689};
+    fast.timeout = x::telem::MILLISECOND * 50;
+    fast.retries = 0;
+    const auto read = [](modbus_t *ctx) {
+        uint16_t reg = 0;
+        return modbus_read_registers(ctx, 0, 1, &reg);
+    };
+    const std::atomic<bool> interrupted = false;
+    // The slow request times out at 2 s, and its reply comes at 3.5 s. The fast request
+    // then waits 1.5 s for that reply, past its own limit of 1.15 s.
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(3500));
+    ASSERT_OCCURRED_AS(
+        conn.exec(slow, x::telem::TimeSpan(0), false, read, std::nullopt, interrupted),
+        UNREACHABLE
+    );
+    std::promise<void> held;
+    std::thread holding([&] {
+        ASSERT_NIL(conn.sequence(
+            fast,
+            x::telem::TimeSpan(0),
+            false,
+            [&](const auto &send) {
+                held.set_value();
+                return send(read);
+            },
+            std::nullopt,
+            interrupted
+        ));
+    });
+    held.get_future().wait();
+    const auto err = conn.exec(
+        fast,
+        x::telem::TimeSpan(0),
+        false,
+        read,
+        std::nullopt,
+        interrupted
+    );
+    holding.join();
+    ASSERT_NIL(err);
     slave.stop();
 }
 
