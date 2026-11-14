@@ -127,8 +127,12 @@ public:
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
             entries.push_back({.entry = ch->entry, .stop_value = ch->stop_value});
-        auto [wtr, err] = this->engine
-                              ->open_writer(entries, this->cfg.execution_rate, start);
+        auto [wtr, err] = this->engine->open_writer(
+            entries,
+            this->cfg.execution_rate,
+            start,
+            [this] { this->warning_changed(); }
+        );
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;
@@ -137,6 +141,15 @@ public:
     x::errors::Error stop() override {
         this->writer.reset();
         return x::errors::NIL;
+    }
+
+    common::Warning held_warning() override {
+        auto description = this->writer->warning();
+        if (description.empty()) return {};
+        return {
+            .message = "Interrupted outputs",
+            .description = std::move(description)
+        };
     }
 
     x::errors::Error write(x::telem::Frame &frame) override {

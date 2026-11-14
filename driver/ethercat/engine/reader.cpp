@@ -136,17 +136,11 @@ std::string Engine::Reader::warning() {
             this->slave_drops[i],
             slave.lost.exchange(false, std::memory_order_acquire),
             [&slave] {
-                return slave.silent.load(std::memory_order_relaxed)
-                         ? std::format(
-                               "Lost contact with slave {} ({}).",
-                               slave.position,
-                               slave.name
-                           )
-                         : std::format(
-                               "Slave {} ({}) is not in OP.",
-                               slave.position,
-                               slave.name
-                           );
+                return out_of_op(
+                    slave.position,
+                    slave.name,
+                    slave.silent.load(std::memory_order_relaxed)
+                );
             }
         );
     }
