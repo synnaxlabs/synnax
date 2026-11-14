@@ -62,6 +62,10 @@ struct Keepalive {
     std::chrono::milliseconds timeout = std::chrono::seconds(20);
 };
 
+/// @brief how long a unary call waits for its response when its context sets no
+/// deadline.
+const std::chrono::milliseconds UNARY_TIMEOUT = std::chrono::seconds(60);
+
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
@@ -71,13 +75,22 @@ class Pool {
     Keepalive keepalive;
 
 public:
+    /// @brief how long a unary call waits for its response when its context sets no
+    /// deadline. Each attempt of a retried call gets the full time.
+    const std::chrono::milliseconds unary_timeout;
+
     /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
     /// server against the trust anchors described by priv::ssl_credentials.
-    explicit Pool(const bool secure = false, const Keepalive keepalive = {}):
+    explicit Pool(
+        const bool secure = false,
+        const Keepalive keepalive = {},
+        const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
+    ):
         credentials(
             secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
         ),
-        keepalive(keepalive) {}
+        keepalive(keepalive),
+        unary_timeout(unary_timeout) {}
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
@@ -88,9 +101,10 @@ public:
     /// @brief instantiates a gRPC pool with the provided credentials.
     explicit Pool(
         const std::shared_ptr<::grpc::ChannelCredentials> &credentials,
-        const Keepalive keepalive = {}
+        const Keepalive keepalive = {},
+        const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
     ):
-        credentials(credentials), keepalive(keepalive) {}
+        credentials(credentials), keepalive(keepalive), unary_timeout(unary_timeout) {}
 
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
@@ -171,7 +185,9 @@ public:
         ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);
-        if (req_ctx.deadline) grpc_ctx.set_deadline(*req_ctx.deadline);
+        grpc_ctx.set_deadline(req_ctx.deadline.value_or(
+            std::chrono::system_clock::now() + this->pool->unary_timeout
+        ));
 
         // Execute request.
         auto channel = this->pool->get_channel(req_ctx.target);
