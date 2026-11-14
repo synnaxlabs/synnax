@@ -2022,6 +2022,34 @@ TEST_F(TaskManagerTest, ManagerStopCancelsARunningStart) {
     EXPECT_EQ(s.message, "start cancelled");
 }
 
+/// @brief it should not run a joined start again when the task manager stops, even
+/// when the start that it joined ends with no final status.
+TEST_F(TaskManagerTest, ManagerStopDropsJoinedStarts) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    factory->silent = true;
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.shutdown_timeout = 10 * x::telem::SECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_start(client, task, "start-2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-2";
+    });
+    const auto stopping = x::telem::TimeStamp::now();
+    manager->stop();
+    thread.join();
+    EXPECT_LT(x::telem::TimeStamp::now() - stopping, 5 * x::telem::SECOND);
+    EXPECT_EQ(f->starts.load(), 1);
+}
+
 TEST_F(TaskManagerTest, CommandFIFO) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
