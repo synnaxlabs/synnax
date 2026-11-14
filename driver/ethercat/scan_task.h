@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -18,6 +19,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/ethercat/ethercat.h"
@@ -109,6 +111,12 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
+    /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
+    mutable std::mutex switch_mu;
+    /// @brief the time of the last switch to Synnax only of each slave, keyed by device
+    /// key. Each scan writes it to the properties of the device, so that the scan is
+    /// their only writer.
+    std::unordered_map<std::string, x::telem::TimeStamp> switch_times;
 
     /// @brief creates the slave device with key for the given slave, and returns
     /// whether its saved config enables it. The status names any invalid property, and
@@ -149,7 +157,7 @@ private:
     void test_interface(const synnax::task::Command &cmd) const;
 
     /// @brief handles the set_standalone command.
-    void set_standalone(const synnax::task::Command &cmd) const;
+    void set_standalone(const synnax::task::Command &cmd);
 };
 
 }

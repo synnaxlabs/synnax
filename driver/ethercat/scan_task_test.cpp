@@ -1279,7 +1279,9 @@ protected:
                    {"settings", x::json::json::array()},
                    {"requires", x::json::json::array()}}}},
                 {"mode",
-                 {{"value", shared ? 1 : 0},
+                 {{"index", this->standalone[0].index},
+                  {"sub_index", this->standalone[0].sub_index},
+                  {"value", shared ? 1 : 0},
                   {"shared", shared},
                   {"bus", 1},
                   {"switch", change}}},
@@ -1322,11 +1324,29 @@ protected:
         return devices.at(0).status.value();
     }
 
+    /// @brief the key of the device of the slave.
+    [[nodiscard]] std::string device_key() const {
+        return "ethercat_1_2_" + std::to_string(this->props.serial);
+    }
+
+    /// @brief scans once with a stored device that a switch at time recorded, and
+    /// returns the status of the only slave device.
+    [[nodiscard]] synnax::device::Status scan_switched_at(const int64_t time) const {
+        Devices devices;
+        store(devices, this->device_key(), this->props);
+        devices[this->device_key()].properties["switched_at"] = time;
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = 1, .devices = &devices})
+        );
+        EXPECT_EQ(scanned.size(), 1);
+        return scanned.at(0).status.value();
+    }
+
     /// @brief creates the device of the slave and sends the set_standalone command for
     /// it. Returns the status that the command sets.
     synnax::task::Status set_standalone() {
         synnax::device::Device dev{
-            .key = "ethercat_1_2_" + std::to_string(this->props.serial),
+            .key = this->device_key(),
             .rack = this->rack.key,
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
@@ -1477,7 +1497,10 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
-    EXPECT_EQ(status.description, "Restart the power of the device to finish.");
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
     EXPECT_EQ(
         this->master->written(),
         (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
@@ -1486,13 +1509,183 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     );
 }
 
+/// @brief it should write the time of a switch with the properties of each scan, also
+/// when the devices of the scan do not hold it.
+TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
+    this->start(true);
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    Devices devices;
+    store(devices, this->device_key(), this->props);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    const auto at = x::telem::TimeStamp(
+        scanned.at(0).properties.at("switched_at").get<int64_t>()
+    );
+    EXPECT_GE(at, before);
+    EXPECT_LE(at, x::telem::TimeStamp::now());
+}
+
+/// @brief it should warn about a slave that left Synnax mode after a switch, and give
+/// the time of the switch.
+TEST_F(EtherCATScanModeTest, WarnsAboutASlaveThatLeftSynnaxModeAfterASwitch) {
+    this->start(true);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX again");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went "
+        "back to DewesoftX mode. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should warn about a switched slave that holds a mode that its catalog
+/// does not list.
+TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
+    this->start(false, 0x6041);
+    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Left Synnax mode");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
+        "a mode that its catalog does not list. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should not warn about a switched slave that is still in Synnax mode.
+TEST_F(EtherCATScanModeTest, DoesNotWarnAboutASwitchedSlaveInSynnaxMode) {
+    this->start(false, 0x6041);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+}
+
 /// @brief it should write nothing to a slave that already runs Synnax only.
 TEST_F(EtherCATScanModeTest, SetStandaloneWritesNothingToAStandaloneSlave) {
     this->start(false, 0x6041);
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(status.description, "The device already runs Synnax only.");
+    EXPECT_EQ(status.description, "The device in slot 1 already runs Synnax only.");
     EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should ask for no power restart when the slave maps only entries that
+/// Synnax reads after the switch.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForNoRestartWhenTheEntriesChange) {
+    this->start(true);
+    auto switched = this->props;
+    switched.input_pdos[0].index = 0x6001;
+    this->master->replace_after_write(1, switched);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
+    EXPECT_EQ(status.description, "The device in slot 1 runs Synnax only now.");
+}
+
+/// @brief it should report a switch that the slave did not save.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) {
+    this->start(true);
+    this->master->fail_write(
+        0x8020,
+        2,
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:02")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax until a power restart");
+    EXPECT_EQ(
+        status.description,
+        "The device in slot 1 did not save the switch, so it goes back to its saved "
+        "mode when its power restarts. Rejected 0x8020:02."
+    );
+}
+
+/// @brief it should ask for a power restart, not report an unsaved switch, when the
+/// scan after a switch that the slave took fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedScan) {
+    this->start(true);
+    this->master->fail_scan_after_write(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no slaves")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the scan after the switch cannot read
+/// the settings of the slave.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedSettingsRead) {
+    this->start(true);
+    auto switched = this->props;
+    switched.input_pdos[0].index = 0x6001;
+    switched.settings.reset();
+    this->master->replace_after_write(1, switched);
+    this->master->fail_settings_read(1, "failed to read 0x8020:09: no response");
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the catalog of the slave marks no
+/// entry, so the scan cannot show that the switch took effect.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartWhenNoEntryIsMarked) {
+    this->start(true);
+    auto switched = this->props;
+    switched.settings.value()["channels"] = x::json::json::array();
+    this->master->replace_after_write(1, switched);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should fail a switch when the slave holds another mode after writes that
+/// it answered.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveKeeps) {
+    this->start(true);
+    this->master->set_object(1, 0x8020, 9, 1);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "The device holds mode 1 after the switch.");
+}
+
+/// @brief it should fail a switch when the read of the mode after it fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAFailedReadOfTheMode) {
+    this->start(true);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read 0x8020:09: Object does not exist in the object dictionary."
+    );
+}
+
+/// @brief it should report a failed switch when the slave does not take the mode.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveDidNotTake) {
+    this->start(true);
+    this->master->fail_write(
+        0x8020,
+        9,
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:09")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "Rejected 0x8020:09.");
 }
 
 /// @brief it should refuse to switch a slave while a task runs its bus.
