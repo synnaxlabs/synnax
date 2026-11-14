@@ -53,7 +53,8 @@ protected:
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
     /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
-    /// such as a hardware read. Runs on the thread that calls stop().
+    /// such as a hardware read. Runs on the thread that calls stop(), once for each
+    /// stop of a running pipeline.
     virtual void interrupt() {}
 
 public:
@@ -86,14 +87,14 @@ public:
     /// itself. If done so, the pipeline breaker will be stopped, but the thread will
     /// not be joined. If calling stop() from within the pipeline itself, it's important
     /// that stop() be called again before the pipeline is destructed to properly join
-    /// the thread. From any other thread, stop() calls interrupt() after the breaker
-    /// stops and before it joins the thread.
+    /// the thread. From any other thread, a stop() that stops the breaker calls
+    /// interrupt() before it joins the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
         if (this->thread.get_id() == std::this_thread::get_id() ||
             !this->thread.joinable())
             return stopped;
-        this->interrupt();
+        if (stopped) this->interrupt();
         this->thread.join();
         return stopped;
     }
