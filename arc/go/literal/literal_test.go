@@ -736,6 +736,47 @@ var _ = Describe("Literal Parser", func() {
 	})
 })
 
+var _ = Describe("Convert", func() {
+	var (
+		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		bar = &types.Unit{Dimensions: types.DimPressure, Scale: 1e5, Name: "bar"}
+	)
+	in := func(t types.Type, unit *types.Unit) types.Type {
+		t.Unit = unit
+		return t
+	}
+
+	DescribeTable("value in the unit of the target",
+		func(
+			value float64,
+			from *types.Unit,
+			target types.Type,
+			want any,
+			truncated bool,
+		) {
+			parsed := MustSucceed(literal.Convert(value, from, target))
+			Expect(parsed.Value).To(Equal(want))
+			Expect(parsed.Truncated).To(Equal(truncated))
+		},
+		Entry("an integer time to a smaller unit",
+			2.0, s, in(types.I64(), ms), telem.TimeSpan(2000), false),
+		Entry("an integer time with no remainder",
+			2000.0, ms, in(types.I64(), s), telem.TimeSpan(2), false),
+		Entry("an integer time with a remainder",
+			1500.0, ms, in(types.I64(), s), telem.TimeSpan(1), true),
+		Entry("an integer that is not a time",
+			2.0, bar, in(types.I64(), pa), int64(200000), false),
+		Entry("a float", 1500.0, ms, in(types.F64(), s), 1.5, false),
+	)
+
+	It("Should reject a unit of another dimension", func() {
+		Expect(literal.Convert(1, s, in(types.I64(), pa))).Error().
+			To(MatchError(units.ErrIncompatibleDimensions))
+	})
+})
+
 var _ = Describe("Boolean literals", func() {
 	It("Should parse true with no target type", func() {
 		parsed := MustSucceed(literal.Parse(getLiteral("true"), types.Type{}))

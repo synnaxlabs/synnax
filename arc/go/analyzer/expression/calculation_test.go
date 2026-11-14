@@ -30,6 +30,8 @@ var (
 	unitS   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
 	unitMin = &types.Unit{Dimensions: types.DimTime, Scale: 60e9, Name: "min"}
 	unitPa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+	unitPsi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+	unitNS  = &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
 )
 
 var _ = Describe("CheckUnits", func() {
@@ -105,6 +107,74 @@ var _ = Describe("CheckUnits", func() {
 		Expect(converts).To(BeTrue())
 		Expect(*diag).To(BeEmpty())
 	})
+})
+
+var _ = Describe("CheckOperandUnits", func() {
+	in := func(t types.Type, unit *types.Unit) types.Type {
+		return types.WithUnit(t, unit)
+	}
+	check := func(
+		bCtx SpecContext,
+		left, right types.Type,
+	) (*diagnostics.Diagnostics, bool) {
+		GinkgoHelper()
+		expr := MustSucceed(parser.ParseExpression("x"))
+		ctx := acontext.NewRoot(bCtx, expr, nil)
+		ok := expression.CheckOperandUnits(ctx, left, right)
+		return ctx.Diagnostics, ok
+	}
+
+	DescribeTable("operands that convert",
+		func(bCtx SpecContext, left, right types.Type, warnings ...string) {
+			diag, ok := check(bCtx, left, right)
+			Expect(ok).To(BeTrue())
+			Expect(diag.Errors()).To(BeEmpty())
+			found := testutil.Warnings(diag)
+			Expect(found).To(HaveLen(len(warnings)), diag.String())
+			for i, w := range found {
+				Expect(w.Code).To(Equal(codes.UnitTruncation.Code))
+				Expect(w.Message).To(ContainSubstring(warnings[i]))
+			}
+		},
+		Entry("the same unit", in(types.I64(), unitS), in(types.I64(), unitS)),
+		Entry("a whole factor", in(types.I64(), unitS), in(types.I64(), unitMS)),
+		Entry("a factor that is not whole",
+			in(types.I64(), unitPsi), in(types.I64(), unitPa), "from psi to Pa"),
+		Entry("the larger unit on the right",
+			in(types.I64(), unitPa), in(types.I64(), unitPsi), "from psi to Pa"),
+		Entry("a float by a factor that is not whole",
+			in(types.F64(), unitPsi), in(types.F64(), unitPa)),
+		Entry("another dimension", in(types.I64(), unitS), in(types.I64(), unitPa)),
+		Entry("no unit on one side", in(types.I64(), unitS), types.I64()),
+		Entry("an integer series by a whole factor",
+			types.Series(in(types.I64(), unitS)), in(types.I64(), unitMS)),
+		Entry("an integer series in the smaller unit",
+			types.Series(in(types.I64(), unitPa)), in(types.I64(), unitPsi),
+			"from psi to Pa"),
+		Entry("a float series by a factor that is not whole",
+			types.Series(in(types.F64(), unitPsi)), in(types.F64(), unitPa)),
+	)
+
+	DescribeTable("integer series that do not convert",
+		func(bCtx SpecContext, left, right types.Type, message string) {
+			diag, ok := check(bCtx, left, right)
+			Expect(ok).To(BeFalse())
+			Expect(diag.Errors()).To(HaveLen(1), diag.String())
+			Expect(diag.Errors()[0].Message).To(Equal(message))
+		},
+		Entry("a series on the left",
+			types.Series(in(types.I64(), unitPsi)), in(types.I64(), unitPa),
+			"a series of i64 in psi does not convert to Pa, use a float series or the "+
+				"same unit"),
+		Entry("a series on the right",
+			in(types.I64(), unitPa), types.Series(in(types.I64(), unitPsi)),
+			"a series of i64 in psi does not convert to Pa, use a float series or the "+
+				"same unit"),
+		Entry("a 32-bit series by a whole factor that does not fit",
+			types.Series(in(types.I32(), unitMin)), in(types.I32(), unitNS),
+			"a series of i32 in min does not convert to ns, use a float series or the "+
+				"same unit"),
+	)
 })
 
 var _ = Describe("TakeUnit", func() {
