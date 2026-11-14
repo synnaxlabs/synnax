@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -328,8 +329,10 @@ public:
         this->ctx->set_rack_name(this->rack.name);
     }
 
-    /// @brief runs the main task manager loop, blocking until stop() is called.
-    /// Safe to call stop() from another thread.
+    /// @brief runs the main task manager loop, blocking until stop() is called or the
+    /// connection to the Core fails. Safe to call stop() from another thread. Call it
+    /// again after an error to run the tasks again; it is not safe to call while a call
+    /// is in progress.
     x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
@@ -420,6 +423,8 @@ private:
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
+    /// @brief the number of runs started, which names the current run.
+    std::atomic<uint64_t> runs{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -437,6 +442,9 @@ private:
         synnax::channel::Channel rack_set;
     } channels;
 
+    /// @brief configures the tasks and applies the events of the Core until the
+    /// streamer stops.
+    x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
@@ -469,8 +477,9 @@ private:
     void start_workers();
     /// @brief stops workers and waits for them to finish.
     void stop_workers();
-    /// @brief main loop for worker threads - pops and executes operations.
-    void worker_loop();
+    /// @brief main loop for worker threads - pops and executes operations until run
+    /// ends.
+    void worker_loop(uint64_t run);
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.

@@ -76,3 +76,10 @@ export const Entry = ({ label, description, children }: EntryProps): ReactElemen
     {children}
   </Flex.Box>
 );
+
+/** Holds content that is not a list of entries, such as a form, inside a card. */
+export const Body = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box y className={CSS.BE("settings", "body")}>
+    {children}
+  </Flex.Box>
+);
