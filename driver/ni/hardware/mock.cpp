@@ -34,6 +34,22 @@ x::errors::Error Base::stop() {
     return err;
 }
 
+x::errors::Error Base::abort() {
+    {
+        std::lock_guard lock(this->mu);
+        this->abort_call_count++;
+    }
+    this->aborted.notify_all();
+    return x::errors::NIL;
+}
+
+void Base::wait_for_abort(const std::chrono::nanoseconds timeout) {
+    std::unique_lock lock(this->mu);
+    this->aborted.wait_for(lock, timeout, [this] {
+        return this->abort_call_count > 0;
+    });
+}
+
 template<typename T>
 Reader<T>::Reader(
     const std::vector<x::errors::Error> &start_errors,
@@ -49,6 +65,7 @@ ReadResult Reader<T>::read(size_t samples_per_channel, std::vector<T> &data) {
     const auto
         &resp = read_responses[std::min(read_call_count, read_responses.size() - 1)];
     read_call_count++;
+    if (resp.waits_for_abort) this->wait_for_abort(std::chrono::seconds(5));
     if (!resp.data.empty()) std::copy(resp.data.begin(), resp.data.end(), data.begin());
     ReadResult res;
     res.error = resp.error;

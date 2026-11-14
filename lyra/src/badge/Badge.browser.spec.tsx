@@ -21,7 +21,7 @@ const expectColors = (el: Element, text: string, fill: string): void => {
 describe("Badge", () => {
   it("should be gray without a status", async () => {
     const { getByText } = await renderThemed(<Badge.Badge>Dev3</Badge.Badge>);
-    expectColors(getByText("Dev3").element(), "--pluto-gray-l9", "--pluto-gray-l3");
+    expectColors(getByText("Dev3").element(), "--pluto-gray-l10", "--pluto-gray-l3");
   });
 
   it.each([

@@ -20,7 +20,7 @@ class MockTask final : public task::Task {
 public:
     explicit MockTask() = default;
 
-    void exec(synnax::task::Command &cmd) override {}
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {}
     void stop(bool will_reconfigure) override {}
     [[nodiscard]] std::string name() const override { return "mock_task"; }
 };
@@ -30,7 +30,8 @@ public:
     std::pair<std::unique_ptr<task::Task>, x::errors::Error> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) {
         this->cmd_keys.push_back(cmd_key);
         configured_tasks.push_back(task);
@@ -104,18 +105,22 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_SeveralExisting) {
 
 /// @brief it should successfully configure initial factory tasks.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     const auto ctx = std::make_shared<driver::task::MockContext>(client);
     const auto factory = std::make_unique<MockFactory>();
+    cancel.start();
     auto tasks = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "test_task",
         SYNTHETIC_TASK_TYPE,
-        "test_integration"
+        "test_integration",
+        cancel
     );
+    cancel.stop();
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].first.name, "test_task");
     ASSERT_EQ(tasks[0].first.type, SYNTHETIC_TASK_TYPE);
@@ -126,6 +131,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
 
 /// @brief it should skip configuration when task type already exists.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ctx = std::make_shared<driver::task::MockContext>(client);
@@ -136,33 +142,40 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(existing_task));
+    cancel.start();
     auto tasks = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "new_task",
         SYNTHETIC_TASK_TYPE,
-        "test_integration"
+        "test_integration",
+        cancel
     );
+    cancel.stop();
     ASSERT_TRUE(tasks.empty());
     ASSERT_TRUE(factory->configured_tasks.empty());
 }
 
 /// @brief it should return the created task with no instance when configuration fails.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     factory->should_fail = true;
+    cancel.start();
     auto tasks = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "test_task",
         SYNTHETIC_TASK_TYPE,
-        "test_integration"
+        "test_integration",
+        cancel
     );
+    cancel.stop();
     ASSERT_EQ(tasks.size(), 1);
     EXPECT_EQ(tasks[0].first.name, "test_task");
     EXPECT_EQ(tasks[0].first.rack, rack.key);
@@ -172,29 +185,36 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
 
 /// @brief it should configure multiple tasks of different types.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
+    cancel.start();
     auto tasks1 = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "task1",
         SYNTHETIC_TASK_TYPE,
-        "test_integration"
+        "test_integration",
+        cancel
     );
+    cancel.stop();
     ASSERT_EQ(tasks1.size(), 1);
     ASSERT_EQ(tasks1[0].first.name, "task1");
     ASSERT_EQ(tasks1[0].first.type, SYNTHETIC_TASK_TYPE);
+    cancel.start();
     auto tasks2 = configure_initial_factory_tasks(
         factory.get(),
         ctx,
         rack,
         "task2",
         ALT_SYNTHETIC_TASK_TYPE,
-        "test_integration"
+        "test_integration",
+        cancel
     );
+    cancel.stop();
     ASSERT_EQ(tasks2.size(), 1);
     ASSERT_EQ(tasks2[0].first.name, "task2");
     ASSERT_EQ(tasks2[0].first.type, ALT_SYNTHETIC_TASK_TYPE);

@@ -128,7 +128,11 @@ x::errors::Error Manager::configure_initial_tasks() {
     }
     if (queued > 0) this->cv.notify_all();
     VLOG(1) << "configuring initial tasks from factories";
-    auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
+    auto initial_tasks = this->factory->configure_initial_tasks(
+        this->ctx,
+        this->rack,
+        this->breaker
+    );
     {
         std::lock_guard<std::mutex> lock(this->mu);
         // The streamer opens after this, so a task created here gets no set event and
@@ -589,7 +593,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd);
+                    entry->instance->exec(cmd, this->breaker);
                     break;
                 }
             }
@@ -601,7 +605,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             auto [driver_task, handled] = this->factory->configure_task(
                 this->ctx,
                 tsk,
-                op.cmd.key
+                op.cmd.key,
+                this->breaker
             );
             {
                 std::lock_guard entry_lock{entry->mu};
@@ -613,7 +618,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd);
+                    entry->instance->exec(cmd, this->breaker);
                 }
                 break;
             }
@@ -647,7 +652,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
-            entry->instance->exec(cmd);
+            entry->instance->exec(cmd, this->breaker);
             break;
         }
         case Op::Type::SHUTDOWN: {
