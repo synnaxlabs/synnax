@@ -71,14 +71,16 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
 };
 
 // The shared Core accumulates ranges across runs, so a fresh range may fall outside the
-// list's first page. Narrow to it through the view search before interacting.
+// list's first page. Narrow to it through the view search before interacting. Return
+// the row, not the name: the name turns editable when the update grant lands, which
+// replaces its node.
 const revealRange = async (name: string): Promise<HTMLElement> => {
   await enableEditing();
   const search = await waitFor(() =>
     screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
   );
   fireEvent.change(search, { target: { value: name } });
-  return await screen.findByText(name);
+  return await screen.findByRole("listitem", { name });
 };
 
 const searchRanges = async (term: string): Promise<void> => {
