@@ -76,14 +76,18 @@ protected:
     std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
-        // A loaded Windows host can take tens of milliseconds to cycle two frames.
+        // A loaded Windows host can take over 100 ms to cycle two frames.
         this->create_master(x::telem::SECOND);
         this->brk.start();
     }
 
     /// @brief replaces the master with one on a new mock that gives the DC clocks
-    /// dc_settle_timeout to settle.
-    void create_master(const x::telem::TimeSpan dc_settle_timeout) {
+    /// dc_settle_timeout to settle and the slaves state_change_timeout to change state,
+    /// which includes the wait for two frames in SAFE-OP.
+    void create_master(
+        const x::telem::TimeSpan dc_settle_timeout,
+        const x::telem::TimeSpan state_change_timeout = x::telem::SECOND
+    ) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(
@@ -91,7 +95,7 @@ protected:
             "eth0",
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
-                .state_change_timeout = x::telem::MILLISECOND * 100,
+                .state_change_timeout = state_change_timeout,
                 .init_timeout = x::telem::MILLISECOND * 100,
                 .dc_settle_timeout = dc_settle_timeout,
             }
@@ -1049,6 +1053,114 @@ TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
     EXPECT_FALSE(slaves[0].properties.settings.has_value());
 }
 
+/// @brief returns a slave in PRE-OP with CoE whose SII serial number is 0 and whose
+/// CoE identity object holds serial.
+MockSlaveInfo create_coe_slave(const uint32_t serial) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = 0x1234;
+    slave.eep_id = 0x5678;
+    slave.name = "CoESlave";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x1018, 4}, serial}};
+    return slave;
+}
+
+/// @brief it should read the serial number of a slave from its CoE identity object.
+TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
+    this->add_slave(create_coe_slave(0x5555));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave whose CoE identity object has
+/// no serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave whose CoE serial number is
+/// 0.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should keep the SII serial number of a slave that aborts the read of its
+/// CoE serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave that answers the read of its
+/// CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_mailbox_errors.insert({0x1018, 4});
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should not read the CoE serial number of a slave without CoE.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.mbx_proto = 0;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should report a read of the serial number of a slave that gets no answer.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoAnswer) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
+}
+
+/// @brief it should give serial number 0 to a slave with the identity of a slave
+/// before it, so that each serial number names one slave.
+TEST_F(SOEMMasterTest, ScanGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
+/// @brief it should keep the serial numbers of two products with one serial number.
+TEST_F(SOEMMasterTest, ScanKeepsOneSerialNumberOnTwoProducts) {
+    this->add_slave(create_coe_slave(0x5555));
+    auto other = create_coe_slave(0x5555);
+    other.eep_id = 0x9999;
+    this->add_slave(other);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0x5555);
+}
+
 ////////////////////// Activation //////////////////////
 
 /// @brief it should activate a scanned bus.
@@ -1119,6 +1231,7 @@ TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
 /// without the error flag, even if an old AL status code remains.
 TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1391,7 +1504,9 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
-    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(err.data, "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP");
 }
 
 /// @brief it should start the bus cycle once send() works and before it requests SAFE-
@@ -1446,6 +1561,7 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
 /// @brief it should fail a send before SAFE-OP and the receive after it when the
 /// reference clock frame does not come back, so no caller reads a stale DC time.
 TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1475,6 +1591,7 @@ TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
 /// @brief it should fail activation without a request for OP when no frame passes the
 /// slaves in SAFE-OP, since a slave with outputs refuses OP until one does.
 TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -2440,6 +2557,18 @@ TEST_F(SOEMMasterTest, CheckReportsALatchFrameThatGotNoReply) {
     );
 }
 
+/// @brief it should send the frame that latches the receive times only once, since a
+/// resend latches them again after the host time that the master read.
+TEST_F(SOEMMasterTest, CheckGivesTheLatchFrameOneTry) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->check_while_cycling();
+    ASSERT_EQ(this->mock->latch_count, 1);
+    // SOEM sends a frame again only when its timeout is longer than EC_TIMEOUTRET.
+    EXPECT_EQ(this->mock->latch_timeout, EC_TIMEOUTRET);
+}
+
 /// @brief it should request PRE-OP and never OP on each check of a slave whose clock
 /// restore failed while it stays in SAFE-OP, as when a PRE-OP request gets lost.
 TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
@@ -2584,8 +2713,8 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
         "eth0",
         Config{
             .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MILLISECOND * 100,
-            .init_timeout = x::telem::MILLISECOND * 300,
+            .state_change_timeout = x::telem::SECOND,
+            .init_timeout = x::telem::MILLISECOND * 1500,
         }
     );
     this->initialize_with_slave();
@@ -2593,7 +2722,10 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
     this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
     const auto start = std::chrono::steady_clock::now();
     this->master->deactivate();
-    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+    EXPECT_GE(
+        std::chrono::steady_clock::now() - start,
+        std::chrono::milliseconds(1500)
+    );
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in
@@ -2713,6 +2845,18 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     EXPECT_EQ(inputs[1].bit_length, 7);
     EXPECT_EQ(inputs[2].sub_index, 17);
     EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
+}
+
+/// @brief it should report a serial read with no reply after a failed SDO info read of
+/// the slave, and with an emergency from the slave during the read.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoReplyAfterOtherErrors) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->slave_infos[0].oe_entries.clear();
+    this->mock->slave_infos[0].sdo_read_aborts[{0x1018, 4}] = 0;
+    this->mock->slave_infos[0].sdo_read_emergencies.insert({0x1018, 4});
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
 }
 
 /// @brief it should leave the PDO name empty when the CoE object has no name.
@@ -2913,6 +3057,31 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
             {1, 0x8000, 0x15, {0x03, 0x00}},
             {1, 0x8000, 0x19, {0x02}},
         })
+    );
+}
+
+/// @brief it should keep the CoE serial number of a slave that it discovers again
+/// after its startup parameters.
+TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
+}
+
+/// @brief it should keep the failed serial read of a parameterized slave after
+/// activation.
+TEST_F(SOEMMasterTest, ActivateKeepsTheFailedSerialReadOfAParameterizedSlave) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    this->add_slave(slave);
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
+        "failed to read 0x1018:04: no response"
     );
 }
 
@@ -3282,7 +3451,8 @@ class Bus {
           "eth0",
           {
               .pre_op_timeout = x::telem::MILLISECOND * 100,
-              .state_change_timeout = x::telem::MILLISECOND * 100,
+              // A loaded Windows host can take over 100 ms to cycle two frames.
+              .state_change_timeout = x::telem::SECOND,
               .init_timeout = x::telem::MILLISECOND * 100,
               .dc_settle_timeout = x::telem::MILLISECOND * 50,
           }) {}
