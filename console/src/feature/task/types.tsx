@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv } from "@synnaxlabs/x";
 
@@ -47,3 +48,16 @@ export const parseType = (type: string): string => {
     caseconv.capitalize(first);
   return `${[name, ...rest].join(" ")} task`;
 };
+
+// The task types whose Start creates the channels that their configs name.
+const OWNED_CHANNELS: Record<string, (config: unknown) => channel.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.readChannelsOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.writeChannelsOf,
+};
+
+/**
+ * @returns the keys of the channels that the Start of the task creates. A task of a
+ * type that names channels it does not own, such as a Sift upload, returns none.
+ */
+export const ownedChannelsOf = ({ type, config }: task.Task): channel.Key[] =>
+  OWNED_CHANNELS[type]?.(config) ?? [];
