@@ -95,6 +95,12 @@ std::string_view refusal_advice(const uint16_t code) {
     }
 }
 
+/// @brief describes what a slave did with a datagram that failed with the working
+/// counter wkc: below 0 means no frame came back.
+std::string_view response(const int wkc) {
+    return wkc < 0 ? "did not reply to" : "refused";
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
@@ -947,19 +953,20 @@ template<std::integral T>
 x::errors::Error
 Master::write_dc_register(const uint16_t pos, const uint16_t address, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
-    if (this->api->write_register(
-            pos,
-            address,
-            {bytes.begin(), bytes.end()},
-            EC_TIMEOUTRET
-        ) == 1)
-        return x::errors::NIL;
+    const int wkc = this->api->write_register(
+        pos,
+        address,
+        {bytes.begin(), bytes.end()},
+        EC_TIMEOUTRET3
+    );
+    if (wkc == 1) return x::errors::NIL;
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) did not take a write to DC register 0x{:04X}",
+            "slave {} ({}) {} a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
+            response(wkc),
             address
         )
     );
@@ -969,16 +976,17 @@ template<std::integral T>
 std::pair<T, x::errors::Error>
 Master::read_dc_register(const uint16_t pos, const uint16_t address) {
     std::array<uint8_t, sizeof(T)> bytes{};
-    if (this->api->read_register(pos, address, bytes, EC_TIMEOUTRET) == 1)
-        return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
+    const int wkc = this->api->read_register(pos, address, bytes, EC_TIMEOUTRET3);
+    if (wkc == 1) return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
     return {
         0,
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) did not answer a read of DC register 0x{:04X}",
+                "slave {} ({}) {} a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
+                response(wkc),
                 address
             )
         )
@@ -1190,7 +1198,14 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
     const x::telem::TimeSpan latched_at(this->cfg.clock.steady().time_since_epoch());
-    if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
+    // A resend latches the times again after latched_at, so the latch gets one try.
+    const int latched = this->api->latch_receive_times(EC_TIMEOUTRET);
+    if (latched < 0)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "the frame that latches the receive times got no reply"
+        );
+    if (latched == 0)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             "no slave latched its receive time"

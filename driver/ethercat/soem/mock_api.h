@@ -188,6 +188,8 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief the timeouts of write_register and read_register, in call order.
+    std::vector<int> register_timeouts;
     /// @brief slaves whose register writes return a working counter of 0.
     std::set<uint16_t> unwritable_slaves;
     /// @brief the number of state change requests before each register write, in the
@@ -199,7 +201,7 @@ public:
     std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
-    /// @brief registers, keyed by slave and address, whose reads get no answer.
+    /// @brief registers, keyed by slave and address, whose reads get no reply.
     std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
     /// @brief the host clock that the reference clock of host_dc_offset and
@@ -421,8 +423,9 @@ public:
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         this->requests_before_write.push_back(this->state_change_requests.size());
         const int wkc = this->unwritable_slaves.contains(slave)
                           ? 0
@@ -445,14 +448,15 @@ public:
         uint16_t slave,
         uint16_t address,
         std::span<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         const auto it = this->register_values.find({slave, address});
         const auto bytes = x::binary::to_little_endian(
             it == this->register_values.end() ? int64_t{0} : it->second
         );
         std::copy_n(bytes.begin(), data.size(), data.begin());
-        if (this->unanswered_reads.contains({slave, address})) return 0;
+        if (this->unanswered_reads.contains({slave, address})) return EC_NOFRAME;
         return this->read_register_return;
     }
 
