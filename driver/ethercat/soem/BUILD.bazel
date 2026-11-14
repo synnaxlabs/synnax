@@ -93,6 +93,16 @@ cc_library(
 )
 
 cc_test(
+    name = "api_linux_test",
+    srcs = ["api_linux_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "api_windows_test",
     srcs = ["api_windows_test.cpp"],
     linkopts = ["/DEFAULTLIB:iphlpapi.lib"],

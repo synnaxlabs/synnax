@@ -27,6 +27,7 @@
 namespace driver::ethercat::soem {
 namespace {
 struct Adapter {
+    std::string guid;
     std::string interface_name;
     std::string name;
 };
@@ -55,10 +56,30 @@ std::optional<Adapter> first_ethernet_adapter() {
     for (const auto *a = buf.data(); a != nullptr; a = a->Next)
         if (a->IfType == IF_TYPE_ETHERNET_CSMACD)
             return Adapter{
+                .guid = a->AdapterName,
                 .interface_name = std::string("\\Device\\NPF_") + a->AdapterName,
                 .name = to_utf8(a->FriendlyName),
             };
     return std::nullopt;
+}
+
+std::optional<std::wstring> pnp_instance_id(const std::string &guid) {
+    const auto path = L"SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-"
+                      L"11CE-BFC1-08002BE10318}\\" +
+                      std::wstring(guid.begin(), guid.end()) + L"\\Connection";
+    wchar_t id[512] = {};
+    DWORD size = static_cast<DWORD>(sizeof(id));
+    if (RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            path.c_str(),
+            L"PnPInstanceID",
+            RRF_RT_REG_SZ,
+            nullptr,
+            id,
+            &size
+        ) != ERROR_SUCCESS)
+        return std::nullopt;
+    return std::wstring(id);
 }
 }
 
@@ -71,12 +92,27 @@ TEST(ProdAPIWindows, ReadsTheNameOfAnAdapter) {
 }
 
 /// @brief it should find no filter and no name for an adapter that does not exist.
+/// @brief it should find an adapter on USB when Windows enumerates it on USB.
+TEST(ProdAPIWindows, ReadsWhetherAnAdapterIsOnUSB) {
+    const auto adapter = first_ethernet_adapter();
+    if (!adapter.has_value()) GTEST_SKIP() << "no Ethernet adapter";
+    const auto id = pnp_instance_id(adapter->guid);
+    ASSERT_TRUE(id.has_value());
+    ProdAPI api;
+    EXPECT_EQ(
+        api.on_usb(adapter->interface_name.c_str()),
+        id.value().starts_with(L"USB\\")
+    );
+}
+
 TEST(ProdAPIWindows, FindsNothingForAnUnknownAdapter) {
     ProdAPI api;
     const char *unknown = "\\Device\\NPF_{00000000-0000-0000-0000-000000000000}";
     EXPECT_FALSE(api.dewesoft_filter_bound(unknown));
     EXPECT_EQ(api.adapter_name(unknown), std::nullopt);
+    EXPECT_FALSE(api.on_usb(unknown));
     EXPECT_FALSE(api.dewesoft_filter_bound("\\Device\\NPF_Loopback"));
     EXPECT_EQ(api.adapter_name("\\Device\\NPF_Loopback"), std::nullopt);
+    EXPECT_FALSE(api.on_usb("\\Device\\NPF_Loopback"));
 }
 }
