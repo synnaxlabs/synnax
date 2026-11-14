@@ -109,6 +109,33 @@ const settingProblem = (
 };
 
 /**
+ * @returns why the slave cannot start because another device on the rack is at its
+ * network and position, or null. The problem names the device that is not connected,
+ * which the user deletes.
+ */
+const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
+  const { network, position } = slave.properties;
+  const other = onRack.find(
+    (o) =>
+      o.key !== slave.key &&
+      o.properties.network === network &&
+      o.properties.position === position,
+  );
+  if (other == null) return null;
+  const connected = (d: SlaveDevice): boolean =>
+    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const stale = connected(slave) ? other : connected(other) ? slave : null;
+  const step =
+    stale == null
+      ? "Delete the one that is not on the network."
+      : `Delete ${stale.name}, which is not connected.`;
+  return (
+    `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
+    `${network}. ${step}`
+  );
+};
+
+/**
  * @returns why the slave cannot start because another device on the rack is the same
  * module: the same vendor, product, and serial number. The problem names the device
  * that is not connected, which the user deletes. A slave with no serial number has no
@@ -176,9 +203,10 @@ interface CheckedConfig {
 
 /**
  * Checks the channels of a task against their slaves: one network for every slave, no
- * other device with the serial number of a slave, and for each enabled channel its
- * entry and, on inputs, the settings of the input it reads. Until both queries hold
- * the slaves they need, the check reports that they load, so a deploy cannot skip it.
+ * other device at the position or with the serial number of a slave, and for each
+ * enabled channel its entry and, on inputs, the settings of the input it reads. Until
+ * both queries hold the slaves they need, the check reports that they load, so a
+ * deploy cannot skip it.
  * @param query - The query of the slaves that the channels of the task use.
  * @param onRack - The query of the slaves on the rack of the task, with statuses.
  */
@@ -199,7 +227,10 @@ export const slavesZ = (
     const onRackSlaves = onRack.data ?? [];
     const problems = [
       networkProblem(used),
-      ...used.map((slave) => serialProblem(slave, onRackSlaves)),
+      ...used.flatMap((slave) => [
+        positionProblem(slave, onRackSlaves),
+        serialProblem(slave, onRackSlaves),
+      ]),
     ].filter((p): p is string => p != null);
     if (problems.length > 0) report(["channels"], problems.join(" "));
     channels.forEach((ch, i) => {
