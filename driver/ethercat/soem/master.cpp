@@ -100,6 +100,8 @@ std::string_view refusal_advice(const uint16_t code) {
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
+// SOEM indexes its group list by the group of each slave.
+static_assert(DISABLED_GROUP < EC_MAXGROUP);
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -388,6 +390,7 @@ x::errors::Error Master::receive() {
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
     auto &session = *this->session;
 
+    session.shortfall.reset();
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
@@ -395,12 +398,15 @@ x::errors::Error Master::receive() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
     this->frames.fetch_add(1, std::memory_order_release);
 
-    if (wkc != session.expected_wkc)
+    if (wkc != session.expected_wkc) {
+        if (wkc < session.expected_wkc)
+            session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
         return x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " +
                 std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
         );
+    }
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
     // reference clock gives a frozen time, and a reset one goes back. The frame read
@@ -446,6 +452,11 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
     session.sent_at = sent_at;
     return x::errors::NIL;
+}
+
+std::optional<uint32_t> Master::shortfall() const {
+    if (!this->session) return std::nullopt;
+    return this->session->shortfall;
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
@@ -625,6 +636,12 @@ master::Image Master::image() {
         const auto output_bits = pdo::total_bits(props.output_pdos);
         const auto mapped_input_bits = this->record(props.position).Ibits;
         const auto mapped_output_bits = this->record(props.position).Obits;
+        // A frame adds 2 for each slave that takes its outputs and 1 for each slave
+        // that gives its inputs.
+        if (const uint32_t share = (mapped_output_bits > 0 ? 2 : 0) +
+                                   (mapped_input_bits > 0 ? 1 : 0);
+            share > 0)
+            image.working_counter_shares[props.position] = share;
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
@@ -1286,6 +1303,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
                 .advice = refusal_advice(code),
+                .code = code,
             };
         msg += ": " + text;
     }

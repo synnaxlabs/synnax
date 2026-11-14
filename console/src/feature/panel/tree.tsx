@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { renderIcon } from "@/feature/panel/icon";
+import { Appearance } from "@/platform/appearance";
 import { type Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
@@ -22,7 +22,7 @@ interface ItemIconProps {
 
 const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
   const { data } = Panel.useResultAppearance({ key: panelKey });
-  return data == null ? <Icon.Panel /> : renderIcon(data);
+  return Appearance.renderIcon({ ...data, fallback: Icon.Panel });
 };
 
 /** Lists the panels that sit in a group. */

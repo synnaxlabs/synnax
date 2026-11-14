@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -277,6 +279,30 @@ var _ = Describe("Export", func() {
 	It("Should drop a group with no exported members", func(ctx SpecContext) {
 		proj := createProject(ctx, "Sparse")
 		createGroup(ctx, "Empty Group", proj.ResourceID())
+		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		Expect(files).To(HaveLen(1))
+		Expect(members).To(BeEmpty())
+	})
+
+	It("Should leave a draft out of the export", func(ctx SpecContext) {
+		proj := createProject(ctx, "Drafts")
+		draft := panel.Panel{Name: "Scratch", Root: leaf(), Project: &proj.Key}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			r := role.Role{Name: "drafter"}
+			if err := roleSvc.NewWriter(tx, false).Create(ctx, &r); err != nil {
+				return err
+			}
+			u, err := userSvc.NewWriter(tx).Create(ctx, user.User{
+				Key:  uuid.New(),
+				Name: "drafter",
+				Role: r.Key,
+			})
+			if err != nil {
+				return err
+			}
+			draft.Owner = &u.Key
+			return panelSvc.NewWriter(tx).Create(ctx, &draft)
+		})).To(Succeed())
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())

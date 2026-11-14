@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -72,6 +73,10 @@ class Master final : public master::Master {
     ec_domain_state_t input_domain_state;
     /// @brief output domain state for WKC checking.
     ec_domain_state_t output_domain_state;
+    /// @brief the working counter of the latest cycle that every slave took part in.
+    std::optional<uint32_t> full_working_counter;
+    /// @brief what shortfall() returns.
+    std::optional<uint32_t> latest_shortfall;
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
@@ -130,6 +135,12 @@ public:
 
     std::pair<uint32_t, x::errors::Error>
     read(uint16_t position, uint16_t index, uint8_t sub_index) override;
+
+    /// @brief returns nullopt until a cycle that every slave took part in gives the
+    /// full working counter, since IgH does not report the count it expects.
+    [[nodiscard]] std::optional<uint32_t> shortfall() const override {
+        return this->latest_shortfall;
+    }
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {

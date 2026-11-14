@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Settings } from "@/app/settings";
 import {
@@ -19,6 +19,7 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { Session } from "@/session";
 
 const client = createTestClient();
 
@@ -28,21 +29,34 @@ const settingsTabs = (root: panel.Node): panel.Tab[] => {
 };
 
 describe("Settings.useOpen", () => {
-  it("should open one Settings tab in the panel, however often it runs", async () => {
-    const existing = await createServerPanel(client, {
+  it("should open one Settings tab in a draft, however often it runs", async () => {
+    const me = (await client.users.current.retrieve()).key;
+    const shared = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "view", key: uuid.create(), type: "other" }],
     });
-    const { wrapper } = await createPanelWrapper({ client, panelKey: existing.key });
-    await primePanel(wrapper, existing.key);
+    const proj = shared.project;
+    if (proj == null) throw new Error("expected a project");
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      project: proj,
+      panelKey: shared.key,
+    });
+    await primePanel(wrapper, shared.key);
+    // Stands in for the strip, which keeps the list live.
+    const visible = client.panels.watch({ where: panel.visibleTo(proj, me) });
+    onTestFinished(visible.onChange(() => {}));
+    await visible.retrieve();
+    const drafts = async () =>
+      await client.panels.retrieve({ projects: [proj], owners: [me] });
     const { result } = renderHook(() => Settings.useOpen(), { wrapper });
     await act(async () => result.current());
-    await waitFor(async () => {
-      const doc = await client.panels.retrieve(existing.key);
-      expect(settingsTabs(doc.root)).toHaveLength(1);
-    });
+    await waitFor(async () => expect(await drafts()).toHaveLength(1));
     await act(async () => result.current());
-    const doc = await client.panels.retrieve(existing.key);
-    expect(settingsTabs(doc.root)).toHaveLength(1);
+    const [draft] = await drafts();
+    expect(await drafts()).toHaveLength(1);
+    expect(settingsTabs(draft.root)).toHaveLength(1);
+    expect(Session.Panel.selectSelected(store.getState())).toBe(draft.key);
+    expect(settingsTabs((await client.panels.retrieve(shared.key)).root)).toEqual([]);
   });
 });

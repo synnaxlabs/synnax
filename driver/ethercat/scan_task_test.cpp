@@ -443,6 +443,137 @@ TEST_F(EtherCATScanStatusTest, KeysASlaveBySerialNumber) {
     EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
 }
 
+namespace {
+using Devices = std::unordered_map<std::string, synnax::device::Device>;
+
+/// @brief adds a stored slave device with key for the slave that props describes.
+void store(Devices &devices, const std::string &key, const slave::Properties &props) {
+    devices[key] = synnax::device::Device{
+        .key = key,
+        .model = SLAVE_DEVICE_MODEL,
+        .name = props.name,
+        .properties = props.to_json().get<x::json::json::object_t>(),
+    };
+}
+
+/// @brief the properties of a slave on network with the given identity.
+slave::Properties identity(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial,
+    const std::string &network = "eth0"
+) {
+    return {
+        .network = network,
+        .position = position,
+        .vendor_id = 0x1,
+        .product_code = product_code,
+        .serial = serial,
+        .name = "Slave",
+    };
+}
+}
+
+/// @brief it should keep the device of a slave with its serial number after the slave
+/// moves to another position.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveThatMoved) {
+    Devices devices;
+    store(devices, "saved", identity(4, 0x2, 12345));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(0).properties.at("position"), 1);
+}
+
+/// @brief it should keep the device of a slave with no serial number at its position.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWithNoSerialAtItsPosition) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+}
+
+/// @brief it should give the serial number to a device saved without one at the
+/// position of a slave of the same model.
+TEST_F(EtherCATScanStatusTest, GivesTheSerialToADeviceSavedWithoutOne) {
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+    EXPECT_EQ(scanned.at(0).properties.at("serial"), 12345);
+}
+
+/// @brief it should give a new device to a slave at the position of a saved device of
+/// another model.
+TEST_F(EtherCATScanStatusTest, KeepsADeviceOfAnotherModelAtThePosition) {
+    Devices devices;
+    store(devices, "ethercat_eth0_1_3_1", identity(1, 0x3, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_1_2_12345");
+}
+
+/// @brief it should give a new device to a slave at the position of a saved device of
+/// another unit of its model.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfAnotherUnitAtThePosition) {
+    Devices devices;
+    store(devices, "replaced", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_1_2_12345");
+}
+
+/// @brief it should give a slave with no serial number a new key when a device that
+/// moved with another slave holds the key of its position.
+TEST_F(EtherCATScanStatusTest, GivesANewKeyWhenAMovedDeviceHoldsTheKey) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    this->master->add_slave(identity(2, 0x2, 777));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1_2");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
+    EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
+}
+
+/// @brief it should give the device of a serial number to one slave when slaves on two
+/// networks have the serial number.
+TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
+    auto manager = std::make_unique<testutil::Manager>();
+    for (const auto *network: {"eth0", "eth1"}) {
+        auto master = std::make_shared<testutil::Master>();
+        master->add_slave(identity(1, 0x2, 777, network));
+        manager->configure(network, master);
+    }
+    const auto pool = std::make_shared<engine::Pool>(
+        std::move(manager),
+        NO_SLAVE_CONFIGS
+    );
+    Scanner scanner(this->ctx, this->scan_task(), ScanTaskConfig{}, pool);
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(scanner.scan({.count = 1, .devices = &devices}));
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_1_2_777");
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {

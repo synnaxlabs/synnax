@@ -134,6 +134,8 @@ class Master final : public master::Master {
         /// @brief what receive returns after a send that held process data back, or NIL
         /// after a send that did not. Only the cycle uses it.
         x::errors::Error held_err;
+        /// @brief what shortfall() returns. Only the cycle uses it.
+        std::optional<uint32_t> shortfall;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
@@ -181,6 +183,8 @@ public:
     read(uint16_t position, uint16_t index, uint8_t sub_index) override;
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
+
+    [[nodiscard]] std::optional<uint32_t> shortfall() const override;
 
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0

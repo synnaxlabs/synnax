@@ -20,7 +20,14 @@ import {
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
@@ -439,6 +446,54 @@ describe("use", () => {
         retrieve: async () => 7,
       });
       expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
+    });
+
+    it("should replay a cached read that comes before a suspending read", async () => {
+      const { use: useCached } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 4,
+      });
+      const useBoth = ({ key }: { key: string }): number =>
+        useCached({ key }) + useFetched({ key });
+      expect(await mountThroughTransition(useBoth, "replay-cached-first")).toEqual([]);
+    });
+
+    it("should replay a settled read that comes before a suspending read", async () => {
+      const { use: useSettled } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 0,
+      });
+      const key = "replay-settled-first";
+      expect(await mountThroughTransition(useSettled, key)).toEqual([]);
+      cleanup();
+      const useBoth = (q: { key: string }): number => useSettled(q) + useFetched(q);
+      expect(await mountThroughTransition(useBoth, key)).toEqual([]);
+    });
+
+    it("should replay a cached ensure that comes before a suspending read", async () => {
+      const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const useBoth = (q: { key: string }): number => {
+        useEnsure(q);
+        return useFetched(q);
+      };
+      expect(await mountThroughTransition(useBoth, "replay-ensure-first")).toEqual([]);
     });
   });
 

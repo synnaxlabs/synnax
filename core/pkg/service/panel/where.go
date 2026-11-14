@@ -12,3 +12,7 @@ package panel
 // MatchGrouped returns a filter for panels in a group when grouped is true, and for
 // panels in no group when grouped is false.
 func MatchGrouped(grouped bool) Filter { return MatchHasGroup(grouped) }
+
+// MatchOwned returns a filter for the drafts when owned is true, and for the shared
+// panels when owned is false.
+func MatchOwned(owned bool) Filter { return MatchHasOwner(owned) }
