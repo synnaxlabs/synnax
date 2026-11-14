@@ -21,6 +21,8 @@ namespace {
 const auto WAIT_SLICE = x::telem::MILLISECOND * 100;
 /// @brief slack added to the read timeout for scheduling jitter.
 const auto READ_TIMEOUT_SLACK = x::telem::MILLISECOND * 200;
+/// @brief how long warning() keeps a drop after the last call that saw one.
+const auto DROP_HOLD = x::telem::SECOND * 10;
 }
 
 Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
@@ -109,12 +111,21 @@ x::errors::Error Engine::Reader::read(
 }
 
 std::string Engine::Reader::warning() {
+    const auto now = this->engine.config.host_clock.steady();
     std::string msg;
     const auto add = [&msg](const std::string &sentence) {
         msg += (msg.empty() ? "" : " ") + sentence;
     };
-    if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        add(errors::sentence("Bus cycles failed: " + this->engine.cycle_error().data));
+    const auto hold = [&](Drop &drop, std::atomic<uint64_t> &samples, auto reason) {
+        if (samples.exchange(0, std::memory_order_relaxed) > 0) drop = {reason(), now};
+        if (!drop.reason.empty() && now - drop.at < DROP_HOLD.chrono())
+            add(drop.reason);
+    };
+    hold(this->failed, this->input->failed_samples, [this] {
+        return errors::sentence(
+            "Bus cycles failed: " + this->engine.cycle_error().data
+        );
+    });
     for (auto &slave: this->input->slaves)
         if (slave.lost.exchange(false, std::memory_order_acquire))
             add(slave.silent.load(std::memory_order_relaxed)
@@ -128,10 +139,11 @@ std::string Engine::Reader::warning() {
                           slave.position,
                           slave.name
                       ));
-    if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        add(
+    hold(this->overflowed, this->input->overflowed_samples, [] {
+        return std::string(
             "The task cannot keep up with the bus. Lower the stream rate for the task."
         );
+    });
     return msg;
 }
 }
