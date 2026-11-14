@@ -2335,7 +2335,7 @@ TEST_F(EngineTest, RediscoverStampsASlaveThatRestartedSinceTheLastScan) {
 }
 
 /// @brief it should stamp a slave that restarted since the last scan when a task starts
-/// the bus.
+/// the bus, and scan the bus again first.
 TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     const auto clock = x::loop::fake_clock();
     this->master->add_slave(io_slave(1));
@@ -2346,8 +2346,15 @@ TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     ASSERT_NIL_P(this->engine->discover());
     clock.sleep(x::telem::SECOND);
     this->master->restart_slave(1);
+    this->master->clear_call_log();
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto calls = this->master->call_log();
+    ASSERT_GE(calls.size(), 3);
+    EXPECT_EQ(
+        std::vector(calls.begin(), calls.begin() + 3),
+        (std::vector<std::string>{"changed", "deactivate", "scan"})
     );
     const auto slaves = ASSERT_NIL_P(this->engine->discover());
     ASSERT_EQ(slaves.size(), 2);

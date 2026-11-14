@@ -518,6 +518,8 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     // The activation brings a restarted slave up, so changed() misses it afterwards.
     auto [restarted, restarted_err] = this->restarted_locked();
     if (restarted_err) return restarted_err;
+    // The cached scan holds the setup from before the restart.
+    if (!restarted.empty()) this->master->deactivate();
     std::set<uint16_t> reset;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
