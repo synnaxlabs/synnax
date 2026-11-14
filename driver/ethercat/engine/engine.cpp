@@ -398,9 +398,11 @@ void Engine::run() {
                 continue;
             }
             input->countdown = decimation - 1;
-            if (err && out == nullptr)
+            if (!err)
+                input->push(inputs, latched_at);
+            else if (out == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else if (!err || !input->lose(*out))
+            else if (!input->lose(*out))
                 input->push(inputs, latched_at);
         }
 

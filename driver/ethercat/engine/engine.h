@@ -150,8 +150,8 @@ class Engine {
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
 
-        /// @brief marks each slave of the reader at a position in out as lost.
-        /// @param out positions in ascending order.
+        /// @brief marks each slave of the reader in out as lost, and records whether it
+        /// responds.
         /// @returns true when the reader has a slave in out. Called only by the cycle
         /// thread.
         bool lose(const Outage &out);
