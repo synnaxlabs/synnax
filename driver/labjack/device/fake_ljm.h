@@ -33,4 +33,7 @@ constexpr int LOST_STREAM_HANDLE = 5;
 /// LJME_NO_SCANS_RETURNED, for at least five seconds.
 constexpr int STALLED_STREAM_HANDLE = 6;
 constexpr int STALLED_STREAM_EMPTY_READS = 5000;
+/// @brief the name of a fake function, bool(), that blocks until a stream read of
+/// STALLED_STREAM_HANDLE returns no scans. It returns false if none does in 5 seconds.
+constexpr const char *WAIT_FOR_STALLED_READ = "Fake_WaitForStalledRead";
 }

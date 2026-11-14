@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 
 #include "gtest/gtest.h"
 
@@ -597,6 +598,41 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ASSERT_NIL(result.error);
     EXPECT_EQ(result.warning.message, "Dropped samples");
     EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should return an empty frame and a warning that names the slave while the
+/// bus lost the only slave of the task.
+TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 1 && this->engine->health()[0].lost
+    );
+    this->mock_master->set_shortfall(1);
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    common::ReadResult result;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        (result = source.read(brk, frame), frame.empty()),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(1)
+    );
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Lost contact with slave 1 (Test Slave).");
     brk.stop();
     ASSERT_NIL(source.stop());
 }
