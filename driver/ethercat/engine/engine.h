@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <map>
@@ -33,6 +34,12 @@ namespace driver::ethercat::engine {
 /// position, in the order they are written.
 using Settings = std::map<uint16_t, std::vector<slave::StartupParameter>>;
 
+/// @brief the settings that the Core saved for one slave.
+struct SavedSlave {
+    slave::Identity identity;
+    slave::Config config;
+};
+
 /// @brief Configuration for the Engine.
 struct Config {
     /// @brief lends the cycle thread an RT core while the bus runs. Without it, the
@@ -55,15 +62,16 @@ struct Config {
     x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
     x::loop::HostClock host_clock;
-    /// @brief returns the settings of each slave, keyed by position. An open_reader or
-    /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
-    /// can run on several threads at once. Only an open that then starts the bus uses
-    /// the result, and only that open fails on an error. A slave missing from the map
-    /// runs with the defaults of slave::Config.
-    std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
-        slave_configs = [] {
-            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
-        };
+    /// @brief returns the saved settings of the slaves. An open_reader or open_writer
+    /// that finds the bus stopped calls it outside the engine's lock, so it can run on
+    /// several threads at once. Only an open that then starts the bus uses the result,
+    /// and only that open fails on an error. The bus start finds each saved slave with
+    /// slave::locate, and fails when two saved slaves that find one slave have
+    /// different settings. A slave on the bus with no saved settings runs with the
+    /// defaults of slave::Config.
+    std::function<std::pair<std::vector<SavedSlave>, x::errors::Error>()>
+        slave_configs =
+            [] { return std::pair{std::vector<SavedSlave>{}, x::errors::NIL}; };
 
     Config() = default;
 };
@@ -234,8 +242,21 @@ class Engine {
     void run();
     void supervise();
     /// @param mhz the bus rate in millihertz.
-    [[nodiscard]] x::errors::Error
-    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
+    /// @param settings the startup parameters of the opening task, keyed by position on
+    /// the bus.
+    [[nodiscard]] x::errors::Error start_locked(
+        uint64_t mhz,
+        const std::vector<SavedSlave> &saved,
+        const Settings &settings
+    );
+    /// @brief returns the settings of each slave on the latest scan, keyed by position,
+    /// with the startup parameters of settings. A slave in left_out is disabled.
+    /// @returns errors::SLAVE_CONFIG_ERROR when two saved slaves that find one slave on
+    /// the scan have different settings, or errors::ACTIVATION_ERROR when the serial
+    /// number of that slave is unread and one of the two has a serial number, since a
+    /// new scan can tell them apart.
+    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,
     /// then a sentence for each slave in left_out. The error ends with each distinct
@@ -253,7 +274,7 @@ class Engine {
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
-    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    [[nodiscard]] std::pair<std::vector<SavedSlave>, x::errors::Error>
     read_slave_configs(std::unique_lock<std::mutex> &lock) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
@@ -318,6 +339,15 @@ public:
         std::shared_ptr<Input> input;
         /// @brief the decoded values of one entry in a read.
         std::vector<uint8_t> values;
+        /// @brief why samples were dropped, and when warning() last saw such a drop.
+        struct Drop {
+            std::string reason;
+            std::chrono::steady_clock::time_point at;
+        };
+        Drop failed;
+        Drop overflowed;
+        /// @brief the drop of each slave in input->slaves, by index.
+        std::vector<Drop> slave_drops;
 
     public:
         Reader(Engine &engine, std::shared_ptr<Input> input);
@@ -341,8 +371,10 @@ public:
             x::telem::Series &times
         );
 
-        /// @brief explains, in full sentences, why samples were dropped since the last
-        /// call, or returns an empty string when none were.
+        /// @brief explains, in full sentences, why samples were dropped, or returns an
+        /// empty string when none were. Each reason stays in the warning for 10 seconds
+        /// after the last call that saw it, so a task that keeps dropping keeps one
+        /// warning.
         [[nodiscard]] std::string warning();
     };
 
@@ -403,6 +435,18 @@ public:
     Engine(const Engine &) = delete;
     Engine &operator=(const Engine &) = delete;
 
+    /// @brief the time limit and the cancel of one task start.
+    struct Start {
+        /// @brief the time at which the start fails.
+        std::chrono::steady_clock::time_point deadline;
+        /// @brief ends the start when it stops.
+        x::breaker::Breaker &cancel;
+    };
+
+    /// @brief returns a start that fails Config::start_timeout from now, or when cancel
+    /// stops.
+    [[nodiscard]] Start begin_start(x::breaker::Breaker &cancel) const;
+
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running. Writes settings to the slaves before the first
@@ -422,6 +466,7 @@ public:
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
         size_t samples_per_read,
+        const Start &start,
         const Settings &settings = {}
     );
 
@@ -435,7 +480,8 @@ public:
     /// error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
-        x::telem::Rate execution_rate
+        x::telem::Rate execution_rate,
+        const Start &start
     );
 
     /// @brief returns the name that messages to the user give the network, as
