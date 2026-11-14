@@ -713,6 +713,18 @@ DiscoveryResult unread_on_bus(
     return result;
 }
 
+/// @brief returns a slave at position on the bus that was below PRE-OP at the scan,
+/// with serial as the serial number from its SII.
+DiscoveryResult starting_on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0
+) {
+    auto result = on_bus(position, product_code, serial);
+    result.status.starting = true;
+    return result;
+}
+
 using Positions = std::vector<uint16_t>;
 using Located = std::vector<std::optional<uint16_t>>;
 }
@@ -899,6 +911,18 @@ TEST(Locate, IgnoresAnUnreadSerialNumber) {
     EXPECT_EQ(
         locate({saved(2, 0x1, 777)}, {unread_on_bus(5, 0x1, 777)}),
         (Located{std::nullopt})
+    );
+}
+
+/// @brief it should find a slave that was below PRE-OP at the scan only at its saved
+/// position, as its serial number is unread.
+TEST(Locate, FindsAStartingSlaveOnlyAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1, 999), starting_on_bus(5, 0x1, 888)}
+        ),
+        (Located{1, std::nullopt})
     );
 }
 

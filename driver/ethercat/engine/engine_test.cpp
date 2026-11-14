@@ -1162,6 +1162,33 @@ TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
+/// @brief it should give a slave that was below PRE-OP at the scan the settings saved
+/// at its position.
+TEST_F(EngineTest, StartingSlaveTakesTheSettingsAtItsPosition) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [unit, params] {
+        return std::pair{
+            std::vector{saved(unit, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
 namespace {
 /// @brief an engine configuration whose slave settings save two units of one model at
 /// position 1 with different settings: serial 8 disabled, and serial 7 with params.
@@ -1233,6 +1260,33 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
         "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
         "with different settings, and the slave did not give its serial number: no "
         "answer."
+    );
+    EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should fail the start when two saved devices with different settings find
+/// a slave that stays below PRE-OP, and say that the slave is still starting up.
+TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->set_starting(1, true);
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config({})
+    );
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
+        "with different settings, and the slave did not give its serial number: it is "
+        "still starting up."
     );
     EXPECT_GT(this->master->call_count("scan"), 1);
 }
