@@ -152,10 +152,9 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const query = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
-  const slaves = query.data;
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const onRack = useSlavesOnRack(slaves?.[0]?.rack);
-  PForm.useCheck(path.config, slavesZ("inputs", query, onRack));
+  PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
@@ -214,10 +213,11 @@ const checkNamesUnique = (names: string[]): void => {
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<ReadChannel>(
     client,
-    config.channels,
+    "inputs",
+    config,
   );
 
-  // The name check runs before any create, so its failure leaves nothing behind.
+  // The checks run before any create, so their failure leaves nothing behind.
   config.startupParameters = fillStartupParameters(
     slaves,
     config.channels,

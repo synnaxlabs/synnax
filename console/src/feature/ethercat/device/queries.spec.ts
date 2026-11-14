@@ -146,7 +146,7 @@ describe("useResultSlave", () => {
 });
 
 describe("useSlavesByKeys", () => {
-  it("should run the query of the slaves the keys name once there are keys", async () => {
+  it("should retrieve the slaves the keys name once there are keys", async () => {
     const first = await createSlaveDevice(rack.key, { network: "eth0" });
     const second = await createSlaveDevice(rack.key, { network: "eth1" });
     const none: string[] = [];
@@ -155,10 +155,10 @@ describe("useSlavesByKeys", () => {
       { wrapper, initialProps: { keys: none } },
     );
     await act(async () => {});
-    expect(result.current.variant).toBe("disabled");
+    expect(result.current).toBeUndefined();
     rerender({ keys: [first.key, second.key] });
     await waitFor(() =>
-      expect(result.current.data?.map(({ key }) => key).sort()).toEqual(
+      expect(result.current?.map(({ key }) => key).sort()).toEqual(
         [first.key, second.key].sort(),
       ),
     );

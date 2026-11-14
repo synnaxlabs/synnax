@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ethercat } from "@synnaxlabs/client";
-import { type Flux } from "@synnaxlabs/pluto";
-import { DataType, primitive, unique } from "@synnaxlabs/x";
+import { ethercat } from "@synnaxlabs/client";
+import { DataType, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
@@ -148,66 +147,77 @@ const networkProblem = (slaves: SlaveDevice[]): string | null => {
   return null;
 };
 
-/**
- * @returns why the check cannot run yet on the slaves of the query, or null. A query
- * that loads with earlier data that holds every key is ready.
- */
-const loadProblem = (
-  query: Flux.Result<SlaveDevice[]>,
-  keys: device.Key[],
-): string | null => {
-  if (query.variant === "error") {
-    const { message, description } = query.status;
-    return description == null ? `${message}.` : `${message}. ${description}`;
-  }
-  if (query.variant === "success") return null;
-  const loaded = query.data ?? [];
-  if (keys.every((k) => loaded.some((s) => s.key === k))) return null;
-  return "Loading the slaves of the task.";
-};
-
 /** The parts of the config of an EtherCAT task that its checks read. */
-interface CheckedConfig {
+export interface CheckedConfig {
   channels: Channel[];
   /** The settings that a read task writes. A write task has none. */
   startupParameters?: ethercat.SlaveStartupParameters[];
 }
 
+interface Problem {
+  path: PropertyKey[];
+  message: string;
+}
+
 /**
- * Checks the channels of a task against their slaves: one network for every slave, no
- * other device at the position of a slave, and for each enabled channel its entry and,
- * on inputs, the settings of the input it reads. Until both queries hold the slaves
- * they need, the check reports that they load, so a deploy cannot skip it.
- * @param query - The query of the slaves that the channels of the task use.
- * @param onRack - The query of the slaves on the rack of the task, with statuses.
+ * @returns why the task cannot start on its slaves: task-wide problems at the channel
+ * list, and each problem of an enabled channel at that channel. A channel whose slave
+ * is not in slaves is not checked.
+ */
+const problemsOf = (
+  pdoType: PDOType,
+  { channels, startupParameters = [] }: CheckedConfig,
+  slaves: SlaveDevice[],
+  onRack: SlaveDevice[],
+): Problem[] => {
+  const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
+  const taskWide = [
+    networkProblem(used),
+    ...used.map((slave) => positionProblem(slave, onRack)),
+  ].filter((p): p is string => p != null);
+  const problems: Problem[] =
+    taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
+  channels.forEach((ch, i) => {
+    const slave = used.find((s) => s.key === ch.device);
+    if (slave == null || ch.disabled) return;
+    const enabled = channels.filter((o) => !o.disabled && o.device === ch.device);
+    let message = entryProblem(slave, enabled, ch, pdoType);
+    if (message == null && pdoType === "inputs" && hasEntry(ch))
+      message = settingProblem(slave, ch, startupParameters);
+    if (message != null) problems.push({ path: ["channels", i], message });
+  });
+  return problems;
+};
+
+/**
+ * Checks the channels of a task against their slaves as the user edits: one network
+ * for every slave, no other device at the position of a slave, and for each enabled
+ * channel its entry and, on inputs, the settings of the input it reads. A channel whose
+ * slave has not loaded is not checked, so a deploy runs {@link checkSlaves} too.
+ * @param slaves - The slaves that the channels of the task use.
+ * @param onRack - The slaves on the rack of the task, with their statuses.
  */
 export const slavesZ = (
   pdoType: PDOType,
-  query: Flux.Result<SlaveDevice[]>,
-  onRack: Flux.Result<SlaveDevice[]>,
+  slaves: SlaveDevice[],
+  onRack: SlaveDevice[],
 ): z.ZodType =>
-  Task.check<CheckedConfig>(({ channels, startupParameters = [] }, report) => {
-    const keys = unique.unique(
-      channels.map(({ device }) => device).filter(primitive.isNonZero),
-    );
-    const slaves = query.data ?? [];
-    const used = slaves.filter((s) => keys.includes(s.key));
-    const usedKeys = used.map(({ key }) => key);
-    const unloaded = loadProblem(query, keys) ?? loadProblem(onRack, usedKeys);
-    if (unloaded != null) return report(["channels"], unloaded);
-    const onRackSlaves = onRack.data ?? [];
-    const problems = [
-      networkProblem(used),
-      ...used.map((slave) => positionProblem(slave, onRackSlaves)),
-    ].filter((p): p is string => p != null);
-    if (problems.length > 0) report(["channels"], problems.join(" "));
-    channels.forEach((ch, i) => {
-      const slave = used.find((s) => s.key === ch.device);
-      if (slave == null || ch.disabled) return;
-      const enabled = channels.filter((o) => !o.disabled && o.device === ch.device);
-      let problem = entryProblem(slave, enabled, ch, pdoType);
-      if (problem == null && pdoType === "inputs" && hasEntry(ch))
-        problem = settingProblem(slave, ch, startupParameters);
-      if (problem != null) report(["channels", i], problem);
-    });
-  });
+  Task.check<CheckedConfig>((config, report) =>
+    problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message }) =>
+      report(path, message),
+    ),
+  );
+
+/**
+ * Runs the checks of {@link slavesZ} on the slaves.
+ * @throws {Error} with the first problem.
+ */
+export const checkSlaves = (
+  pdoType: PDOType,
+  config: CheckedConfig,
+  slaves: SlaveDevice[],
+  onRack: SlaveDevice[],
+): void => {
+  const [problem] = problemsOf(pdoType, config, slaves, onRack);
+  if (problem != null) throw new Error(problem.message);
+};
