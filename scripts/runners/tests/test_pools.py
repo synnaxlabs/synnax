@@ -25,7 +25,6 @@ from publisher import Publisher
 
 BUILD = {"self-hosted", "ubuntu-build-bot"}
 MAC = {"self-hosted", "macos-build-bot"}
-REVIEW = {"self-hosted", "review"}
 
 
 class TestPools:
@@ -44,13 +43,13 @@ class TestPoolChannels:
 
     def test_should_name_the_counts_of_every_pool_and_the_total(self) -> None:
         names = count_channels()
-        assert len(names) == 32
+        assert len(names) == 30
         assert "runner_macos_build_queued" in names
         assert "runner_total_busy" in names
 
     def test_should_name_the_wait_of_every_pool_and_the_total(self) -> None:
         names = wait_channels()
-        assert len(names) == 8
+        assert len(names) == 6
         assert "runner_win_test_queue_wait" in names
         assert "runner_total_queue_wait" in names
 
@@ -82,17 +81,6 @@ class TestPoolCounts:
         assert values["runner_total_queued"] == 5
         assert values["runner_total_busy"] == 2
         assert values["runner_total_offline"] == 1
-
-    def test_should_count_only_the_queue_of_an_unlisted_pool(self) -> None:
-        values = pool_counts(
-            status={"r": BUSY},
-            labels={"r": REVIEW},
-            queued={"review": 2},
-            booting=set(),
-        )
-        assert values["runner_review_queued"] == 2
-        assert values["runner_total_queued"] == 2
-        assert values["runner_total_busy"] == 0
 
     def test_should_report_zero_without_runners_or_jobs(self) -> None:
         values = pool_counts(status={}, labels={}, queued={}, booting=set())

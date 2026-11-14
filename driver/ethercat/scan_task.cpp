@@ -113,10 +113,10 @@ std::string pdo_error_description(const std::string &error) {
 const std::string SWITCHED_AT = "switched_at";
 
 /// @brief returns the time of the last switch to Synnax only in props, or 0 when they
-/// hold none.
+/// hold none. The Core gives the time back as a double.
 x::telem::TimeStamp switched_at(const nlohmann::json &props) {
     const auto at = props.find(SWITCHED_AT);
-    if (at == props.end() || !at->is_number_integer()) return x::telem::TimeStamp(0);
+    if (at == props.end() || !at->is_number()) return x::telem::TimeStamp(0);
     return x::telem::TimeStamp(at->get<int64_t>());
 }
 
@@ -269,6 +269,11 @@ bool has_identity(const slave::DiscoveryResult &slave) {
     return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
 }
 
+/// @brief whether the master could not read the serial number of the slave.
+bool serial_unread(const slave::DiscoveryResult &slave) {
+    return !slave.status.serial_error.empty();
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -343,6 +348,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 rediscovery_needed = true;
                 continue;
             }
+            if (serial_unread(slave)) {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                             << " on " << key << " gave no serial number ("
+                             << slave.status.serial_error << "), rediscovering";
+                rediscovery_needed = true;
+                if (keys[i].empty()) continue;
+            }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
                 keys[i],
@@ -402,6 +414,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
+    if (!sts.serial_error.empty()) slave_props.erase("serial");
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
     {
@@ -506,37 +519,47 @@ std::vector<std::string> Scanner::slave_keys(
     if (scan_ctx.devices != nullptr)
         for (const auto &[key, dev]: *scan_ctx.devices) {
             if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            auto [props, err] = parse_properties(dev.properties);
-            if (!err) stored.emplace(key, std::move(props));
+            // A device with invalid properties keeps the fields that parse.
+            stored.emplace(key, parse_properties(dev.properties).first);
         }
-    const auto find = [&](const slave::Properties &live, const bool by_serial) {
+    const auto find = [&](const slave::DiscoveryResult &slave, const bool by_serial) {
+        const auto &live = slave.properties;
         const auto it = std::ranges::find_if(stored, [&](const auto &s) {
             const auto &p = s.second;
             if (kept.contains(s.first) || p.vendor_id != live.vendor_id ||
                 p.product_code != live.product_code)
                 return false;
+            const bool same_slot = p.network == master_key &&
+                                   p.position == live.position;
+            if (serial_unread(slave)) return !by_serial && same_slot;
             if (by_serial && live.serial != 0) return p.serial == live.serial;
-            return p.serial == 0 && p.network == master_key &&
-                   p.position == live.position;
+            return p.serial == 0 && same_slot;
         });
         return it == stored.end() ? std::string() : it->first;
     };
+    // A stored device with an identity that no slave took is the device of another
+    // unit. A device with no identity is the device of the slave that its key names.
+    const auto taken = [&](const std::string &key) {
+        if (kept.contains(key)) return true;
+        const auto it = stored.find(key);
+        return it != stored.end() &&
+               (it->second.vendor_id != 0 || it->second.product_code != 0);
+    };
     std::vector<std::string> keys(slaves.size());
-    // A device saved with no serial number goes to a slave with one at its position
-    // only after each slave has taken its own device.
+    // A device goes to a slave by its position only after each slave has taken its
+    // own device.
     for (const bool by_serial: {true, false})
         for (size_t i = 0; i < slaves.size(); ++i) {
             if (!keys[i].empty() || !has_identity(slaves[i])) continue;
-            keys[i] = find(slaves[i].properties, by_serial);
+            keys[i] = find(slaves[i], by_serial);
             if (!keys[i].empty()) kept.insert(keys[i]);
         }
     for (size_t i = 0; i < slaves.size(); ++i) {
-        if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+        if (!keys[i].empty() || !has_identity(slaves[i]) || serial_unread(slaves[i]))
+            continue;
         const auto base = generate_slave_key(slaves[i].properties, master_key);
         auto key = base;
-        // Another slave's device can hold the key, as after it took a device by
-        // position.
-        for (int n = 2; kept.contains(key) || stored.contains(key); ++n)
+        for (int n = 2; taken(key); ++n)
             key = base + "_" + std::to_string(n);
         keys[i] = key;
         kept.insert(key);
@@ -727,8 +750,13 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         return;
     }
     {
+        // The Core stores the time as a double, which holds whole seconds exactly, so
+        // the next scan finds no change.
+        const auto now = x::telem::TimeStamp::now().nanoseconds();
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp::now();
+        this->switch_times[dev.key] = x::telem::TimeStamp(
+            now - now % x::telem::SECOND.nanoseconds()
+        );
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {

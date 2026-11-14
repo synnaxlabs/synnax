@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstring>
+#include <mutex>
 
 #include "driver/labjack/device/fake_ljm.h"
 
@@ -25,6 +28,9 @@ constexpr int NO_RESPONSE_BYTES_RECEIVED = 1263;
 std::atomic<int> late_scans_reads = 0;
 std::atomic<int> lost_stream_reads = 0;
 std::atomic<int> stalled_stream_reads = 0;
+std::mutex stalled_mu;
+std::condition_variable stalled_cv;
+bool stalled = false;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
@@ -47,8 +53,14 @@ int LJM_eStreamRead(const int handle, double *data, int *, int *) {
         late_scans_reads++ < driver::labjack::device::LATE_SCANS_EMPTY_READS)
         return NO_SCANS_RETURNED;
     if (handle == driver::labjack::device::STALLED_STREAM_HANDLE &&
-        stalled_stream_reads++ < driver::labjack::device::STALLED_STREAM_EMPTY_READS)
+        stalled_stream_reads++ < driver::labjack::device::STALLED_STREAM_EMPTY_READS) {
+        {
+            std::lock_guard lock(stalled_mu);
+            stalled = true;
+        }
+        stalled_cv.notify_all();
         return NO_SCANS_RETURNED;
+    }
     if (handle == driver::labjack::device::LOST_STREAM_HANDLE)
         return lost_stream_reads++ == 0 ? NO_SCANS_RETURNED
                                         : NO_RESPONSE_BYTES_RECEIVED;
@@ -82,6 +94,11 @@ void LJM_ErrorToString(const int err, char *err_string) {
         std::strcpy(err_string, "STREAM_BUFFER_FULL");
     else
         std::strcpy(err_string, "FAKE_FAILURE");
+}
+
+bool Fake_WaitForStalledRead() {
+    std::unique_lock lock(stalled_mu);
+    return stalled_cv.wait_for(lock, std::chrono::seconds(5), [] { return stalled; });
 }
 }
 #pragma GCC visibility pop

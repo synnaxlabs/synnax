@@ -12,6 +12,7 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -610,6 +611,81 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
             x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
             x::telem::MILLISECOND * 100
         );
+}
+
+/// @brief it should keep sample times in order through cycles that a lost slave makes
+/// short, while the distributed clock runs ahead of the host clock.
+TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
+    constexpr size_t SAMPLES = 9;
+    this->master->add_slave(io_slave(1));
+    this->master->set_host_dc(1.005);
+    // After 1000 frames, the mapped DC time runs about 30 ms ahead of the host clock.
+    this->master->record_dc(1000);
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    ASSERT_EQ(this->master->recorded_dc().size(), 1000);
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t s = 0; s < SAMPLES; ++s) {
+        this->master->wait_until_stalled();
+        this->master->set_shortfall(
+            s >= 3 && s < 6 ? std::optional<uint32_t>(3) : std::nullopt
+        );
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+    EXPECT_EQ(reader->warning(), "");
+}
+
+/// @brief it should keep sample times in order when full cycles return after the
+/// reference clock was lost, which leaves its distributed clock time behind.
+TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
+    constexpr size_t SAMPLES = 9;
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_step(this->period);
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t s = 0; s < SAMPLES; ++s) {
+        this->master->wait_until_stalled();
+        const bool lost = s >= 3 && s < 6;
+        this->master->set_shortfall(lost ? std::optional<uint32_t>(3) : std::nullopt);
+        // SOEM repeats the last DC time of a frame that misses the reference clock.
+        this->master->set_dc_step(lost ? x::telem::TimeSpan(0) : this->period);
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
 }
 
 /// @brief it should decode each sample of reads that cross the end of the sample
@@ -1687,6 +1763,138 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
         "(Slave1) is not in OP: not responding. Slave 2 (Slave2) is not in OP: SAFE-OP "
         "+ ERROR: Sync manager watchdog."
     );
+}
+
+/// @brief it should drop the samples of only the readers of a lost slave while the
+/// slave explains the short working counter, name the slave, and read it again when it
+/// returns.
+TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto lost = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+    ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 0);
+    EXPECT_EQ(lost->warning(), "Lost contact with slave 1 (Slave1).");
+    this->master->set_shortfall(std::nullopt);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
+}
+
+/// @brief it should name a slave that responds out of OP by its state, not as lost.
+TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(2);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// further short than the slaves out of OP explain.
+TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(4);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+    const auto err = reader->read(this->brk, frame, times);
+    ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
+    EXPECT_EQ(
+        err.data,
+        "Every bus cycle failed: short by 4. Slave 1 (Slave1) is not in OP: not "
+        "responding."
+    );
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// short by less than the slaves out of OP miss.
+TEST_F(EngineTest, ShortCycleBelowTheLostSlavesFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(1);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when a slave in OP falls short
+/// beside a slave in SAFE-OP, which misses only its outputs, so that no reader takes
+/// the stale inputs of the slave in OP.
+TEST_F(EngineTest, ShortCycleBeyondASafeOpSlaveFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    auto inputs_only = io_slave(2);
+    inputs_only.output_pdos.clear();
+    this->master->add_slave(inputs_only);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 3 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(3);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// short while every slave is in OP.
+TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_shortfall(1);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+    const auto err = reader->read(this->brk, frame, times);
+    ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
+    EXPECT_EQ(err.data, "Every bus cycle failed: short by 1.");
 }
 
 /// @brief it should name no slave in the warning of cycles that failed for another

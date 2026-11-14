@@ -71,7 +71,7 @@ class Master final : public master::Master {
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     /// @brief the working counter share of each slave in the latest activation.
-    std::map<uint16_t, uint32_t> shares;
+    std::map<uint16_t, master::WorkingCounterShare> shares;
     /// @brief the shortfall of each cycle that set_shortfall() sets.
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
@@ -204,6 +204,14 @@ public:
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.settings_error = error;
+    }
+
+    /// @brief makes the serial number read of the slave at position fail with error.
+    void fail_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.serial_error = error;
     }
 
     /// @brief injects an error to be returned by scan().
@@ -877,9 +885,11 @@ private:
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;
-            if (const uint32_t share = (props.output_pdos.empty() ? 0 : 2) +
-                                       (props.input_pdos.empty() ? 0 : 1);
-                share > 0)
+            if (const master::WorkingCounterShare share{
+                    .outputs = props.output_pdos.empty() ? 0U : 2U,
+                    .inputs = props.input_pdos.empty() ? 0U : 1U,
+                };
+                share != master::WorkingCounterShare{})
                 this->shares[props.position] = share;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
