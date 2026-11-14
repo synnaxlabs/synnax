@@ -585,15 +585,15 @@ private:
             }
             if (!this->err && interrupted) this->err = INTERRUPTED;
             waiting--;
-            if (this->err) {
-                // One less waiting request can let another take the turn.
-                lock.unlock();
-                conn.released.notify_all();
-                return;
+            if (!this->err) {
+                conn.write_went_ahead = write && conn.waiting_reads > 0;
+                conn.busy = true;
+                conn.turn_ends = Clock::now() + limit.chrono();
             }
-            conn.write_went_ahead = write && conn.waiting_reads > 0;
-            conn.busy = true;
-            conn.turn_ends = Clock::now() + limit.chrono();
+            lock.unlock();
+            // A request that waited for this one to go first now waits until turn_ends,
+            // and one less waiting request can let another take the turn.
+            conn.released.notify_all();
         }
 
         ~Turn() {
