@@ -121,10 +121,11 @@ const deleteStep = (
 ): string => {
   const connected = (d: SlaveDevice): boolean =>
     onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  return stale == null
-    ? "Delete the one that is not on the network."
-    : `Delete ${stale.name}, which is not connected.`;
+  const slaveConnected = connected(slave);
+  if (slaveConnected === connected(other))
+    return "Delete the one that is not on the network.";
+  const stale = slaveConnected ? other : slave;
+  return `Delete ${stale.name}, which is not connected.`;
 };
 
 /**
@@ -148,17 +149,19 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
 };
 
 /**
- * @returns why the slave cannot start because another device on the rack is the same
+ * @returns why the slave cannot start because another device on its network is the same
  * module: the same vendor, product, and serial number. The problem names the device
  * that is not connected, which the user deletes. A slave with no serial number has no
- * problem, as the Driver cannot tell its module apart.
+ * problem, as the Driver cannot tell its module apart. The Driver keeps a serial number
+ * unique on one network only, so two networks can each hold a module with it.
  */
 const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
-  const { vendorId, productCode, serial } = slave.properties;
+  const { network, vendorId, productCode, serial } = slave.properties;
   if (serial === 0) return null;
   const other = onRack.find(
     ({ key, properties: p }) =>
       key !== slave.key &&
+      p.network === network &&
       p.vendorId === vendorId &&
       p.productCode === productCode &&
       p.serial === serial,

@@ -99,6 +99,23 @@ const deployRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) 
   return deployed;
 };
 
+/**
+ * Marks the slave as connected, as a scan does. The Core clears the mark on each device
+ * of a rack that is silent for 5 s, so the slave needs a rack that its spec creates.
+ */
+const markConnected = async (slave: Pick<device.Device, "key" | "name" | "rack">) =>
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Device connected",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
+
+const createRack = async () =>
+  await client.racks.create({ name: uniqueName("ecat_rack") });
+
 const awaitStatus = async (
   statuses: Status.NotificationSpec[],
   pattern: RegExp,
@@ -861,33 +878,28 @@ describe("Read", () => {
   });
 
   describe("a slave with the serial number of another device", () => {
+    const createIdentity = () => ({
+      vendorId: 0xde,
+      productCode: 0x5,
+      serial: Math.floor(Math.random() * 2 ** 31) + 1,
+    });
+
     const createPair = async (overrides: { position?: number } = {}) => {
-      const identity = {
-        ...overrides,
-        vendorId: 0xde,
-        productCode: 0x5,
-        serial: Math.floor(Math.random() * 2 ** 31) + 1,
-      };
-      const stale = await createSlaveDevice(client, testRack.key, {
+      const identity = { ...overrides, ...createIdentity() };
+      const ownRack = await createRack();
+      const stale = await createSlaveDevice(client, ownRack.key, {
         ...identity,
         identifier: createIdentifier(),
         network: "eth0",
         pdos: createPDOs(),
       });
-      const connected = await createSlaveDevice(client, testRack.key, {
+      const connected = await createSlaveDevice(client, ownRack.key, {
         ...identity,
         identifier: createIdentifier(),
         network: "eth0",
         pdos: createPDOs(),
       });
-      await client.statuses.set({
-        owner: device.resourceID(connected.key),
-        name: connected.name,
-        variant: "success",
-        message: "Device connected",
-        time: TimeStamp.now(),
-        details: { rack: testRack.key, connected: true },
-      });
+      await markConnected(connected);
       return { stale, connected, serial: identity.serial };
     };
 
@@ -920,6 +932,36 @@ describe("Read", () => {
         ),
       ).toBeTruthy();
     });
+
+    it("should report no device with the serial number on another network", async () => {
+      const identity = createIdentity();
+      const onEth0 = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const onEth1 = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth1",
+        pdos: createPDOs(),
+      });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(onEth0.key, STATUS_ENTRY),
+          EtherCAT.Task.createEntryReadChannel(onEth1.key, STATUS_ENTRY),
+        ],
+      });
+      // The whole text matches only when the error carries no serial problem.
+      expect(
+        await screen.findByText(
+          "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+            "one network.",
+        ),
+      ).toBeTruthy();
+    });
   });
 
   it("should name the slave that is not connected at the position of another device", async () => {
@@ -930,22 +972,13 @@ describe("Read", () => {
       position,
       pdos: createPDOs(),
     };
-    // The Core copies "Driver not running" onto each device of a rack that is silent
-    // for 5 s, which clears the connected status. A new rack holds that off.
-    const ownRack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const ownRack = await createRack();
     const stale = await createSlaveDevice(client, ownRack.key, props);
     const connected = await createSlaveDevice(client, ownRack.key, {
       ...props,
       identifier: createIdentifier(),
     });
-    await client.statuses.set({
-      owner: device.resourceID(connected.key),
-      name: connected.name,
-      variant: "success",
-      message: "Device connected",
-      time: TimeStamp.now(),
-      details: { rack: ownRack.key, connected: true },
-    });
+    await markConnected(connected);
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
@@ -954,6 +987,32 @@ describe("Read", () => {
       await screen.findByText(
         `Slaves ${stale.name} and ${connected.name} are both at position ` +
           `${position} on eth0. Delete ${stale.name}, which is not connected.`,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should name neither slave at one position when both are connected", async () => {
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const ownRack = await createRack();
+    const props = { network: "eth0", position, pdos: createPDOs() };
+    const first = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      identifier: createIdentifier(),
+    });
+    const second = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      identifier: createIdentifier(),
+    });
+    await markConnected(first);
+    await markConnected(second);
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(first.key, STATUS_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slaves ${first.name} and ${second.name} are both at position ${position} ` +
+          "on eth0. Delete the one that is not on the network.",
       ),
     ).toBeTruthy();
   });
