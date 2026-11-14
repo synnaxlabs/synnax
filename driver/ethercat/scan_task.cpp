@@ -108,6 +108,21 @@ std::string pdo_error_description(const std::string &error) {
     return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
+/// @brief the value of the mode in the settings of props, or null when they hold none.
+nlohmann::json mode_value(const nlohmann::json &props) {
+    const auto settings = props.find("settings");
+    if (settings == props.end() || !settings->contains("mode")) return nullptr;
+    return settings->at("mode").value("value", nlohmann::json());
+}
+
+/// @brief whether props hold an input or an output PDO.
+bool holds_pdos(const nlohmann::json &props) {
+    const auto pdos = props.find("pdos");
+    return pdos != props.end() &&
+           (!pdos->value("inputs", nlohmann::json::array()).empty() ||
+            !pdos->value("outputs", nlohmann::json::array()).empty());
+}
+
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
 /// string when Synnax can read each of them.
 std::string only_reader(const slave::Properties &props) {
@@ -312,6 +327,20 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
+    // An incomplete read keeps the stored PDOs and settings, unless the slave now holds
+    // another mode.
+    const auto mode = mode_value(slave_props);
+    const bool same_mode = mode.is_null() || mode == mode_value(json_props);
+    const bool pdos_kept = same_mode && !sts.pdo_discovery_error.empty() &&
+                           holds_pdos(json_props);
+    if (pdos_kept) {
+        LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << props.position << " on "
+                     << master_key
+                     << " keeps its stored PDOs: " << sts.pdo_discovery_error;
+        slave_props.erase("pdos");
+    }
+    if (same_mode && !sts.settings_error.empty() && json_props.contains("settings"))
+        slave_props.erase("settings");
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
@@ -345,11 +374,11 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(props, status))
+    else if (set_setup_status(saved, status))
         add_settings_error(sts.settings_error, status);
     else if (
-        !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
-        props.output_pdos.empty()
+        !sts.pdo_discovery_error.empty() && saved.input_pdos.empty() &&
+        saved.output_pdos.empty()
     ) {
         status.message = "Failed to discover PDOs";
         status.description = pdo_error_description(sts.pdo_discovery_error);
@@ -360,11 +389,17 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
                 return !p.is_padding();
             }));
         };
-        status.message = "Discovered (" + objects(props.input_pdos) + " inputs, " +
-                         objects(props.output_pdos) + " outputs)";
+        status.message = "Discovered (" + objects(saved.input_pdos) + " inputs, " +
+                         objects(saved.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
-        // A fallback, such as the SII after a failed CoE read, gives PDOs and an error.
-        if (!sts.pdo_discovery_error.empty()) {
+        if (pdos_kept) {
+            status.description = "The last scan did not read all the PDOs, so the "
+                                 "device keeps the PDOs of an earlier scan. The Driver "
+                                 "tries again while no task uses the port.";
+            status.variant = synnax::status::VARIANT_WARNING;
+        } else if (!sts.pdo_discovery_error.empty()) {
+            // A fallback, such as the SII after a failed CoE read, gives PDOs and an
+            // error.
             status.description = pdo_error_description(sts.pdo_discovery_error);
             status.variant = synnax::status::VARIANT_WARNING;
         }
