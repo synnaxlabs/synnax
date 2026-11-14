@@ -66,6 +66,34 @@ protected:
         });
     }
 
+    /// @brief returns the properties of a slave of the saved model on the bus.
+    [[nodiscard]] static slave::Properties
+    slave_properties(const uint16_t position, const uint32_t serial) {
+        return {
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "Test Slave",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "status_word",
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "sensor_value",
+                 .data_type = x::telem::INT32_T},
+            },
+        };
+    }
+
     void SetUp() override {
         this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -97,31 +125,7 @@ protected:
         );
 
         mock_master = std::make_shared<testutil::Master>();
-        mock_master->add_slave(
-            slave::Properties{
-                .position = 1,
-                .vendor_id = 0x1,
-                .product_code = 0x2,
-                .serial = SLAVE_SERIAL,
-                .name = "Test Slave",
-                .input_pdos = {
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = true,
-                     .name = "status_word",
-                     .data_type = x::telem::INT16_T},
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = true,
-                     .name = "sensor_value",
-                     .data_type = x::telem::INT32_T},
-                },
-            }
-        );
+        mock_master->add_slave(this->slave_properties(1, SLAVE_SERIAL));
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
@@ -1285,6 +1289,60 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should read a slave with its serial number at the position where it is on
+/// the bus, not at its saved position.
+TEST_F(EtherCATReadTest, SourceReadsASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto source = start_scaled_source(
+        {{"type", "linear"}, {"slope", 1}, {"offset", 0}}
+    );
+    this->mock_master->set_input<int16_t>(0, 11);
+    this->mock_master->set_input<int16_t>(6, 22);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        22.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should write the startup parameters of a slave with its serial number at
+/// the position where it is on the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParametersOfASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", 6}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_TRUE(this->mock_master->config(1).startup_parameters.empty());
+    const auto params = this->mock_master->config(2).startup_parameters;
+    ASSERT_EQ(params.size(), 1);
+    EXPECT_EQ(params[0].value, 6);
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should refuse to start when a slave on the bus is not the device that
 /// the task names.
 TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
@@ -1320,10 +1378,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
     const auto err = source.start();
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(
-        err.data,
-        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
-    );
+    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
 }
 
 }
