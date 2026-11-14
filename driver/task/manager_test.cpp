@@ -126,9 +126,16 @@ public:
 class StuckTaskFactory final : public Factory {
     class Instance final : public Task {
         StuckTaskFactory &factory;
+        const std::shared_ptr<Context> ctx;
+        const synnax::task::Key key;
 
     public:
-        explicit Instance(StuckTaskFactory &factory): factory(factory) {
+        Instance(
+            StuckTaskFactory &factory,
+            std::shared_ptr<Context> ctx,
+            const synnax::task::Key &key
+        ):
+            factory(factory), ctx(std::move(ctx)), key(key) {
             const int live = ++factory.live;
             int max = factory.max_live;
             while (live > max && !factory.max_live.compare_exchange_weak(max, live)) {}
@@ -137,7 +144,17 @@ class StuckTaskFactory final : public Factory {
         ~Instance() override { --this->factory.live; }
 
         [[nodiscard]] std::string name() const override { return "stuck"; }
-        void exec(synnax::task::Command &) override {}
+
+        void exec(synnax::task::Command &cmd) override {
+            synnax::task::Status status{
+                .variant = synnax::status::VARIANT_SUCCESS,
+                .message = "started",
+                .details = {.running = true, .cmd = cmd.key},
+                .owner = synnax::task::resource_id(this->key),
+            };
+            this->ctx->set_status(status);
+        }
+
         void stop(bool) override {}
     };
 
@@ -149,7 +166,7 @@ public:
     std::atomic<int> max_live{0};
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
-        const std::shared_ptr<Context> &,
+        const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
         const std::string &
     ) override {
@@ -159,7 +176,7 @@ public:
             while (!this->released)
                 std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
         }
-        return {std::make_unique<Instance>(*this), true};
+        return {std::make_unique<Instance>(*this, ctx, task.key), true};
     }
 };
 
@@ -710,9 +727,9 @@ TEST_F(TaskManagerTest, StuckWorkerKeepsItsTaskAcrossARun) {
     EXPECT_EQ(f->max_live.load(), 1);
 }
 
-/// @brief it should remove a task deleted during an outage once the worker stuck on
-/// it returns.
-TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageIsRemovedAfterItsStuckWorker) {
+/// @brief it should remove a task moved to another rack during an outage once the
+/// worker stuck on it returns, and write no status that the worker sends for it.
+TEST_F(TaskManagerTest, TaskMovedDuringAnOutageIsRemovedAfterItsStuckWorker) {
     auto factory = std::make_unique<StuckTaskFactory>();
     auto *f = factory.get();
     x::defer::defer release([f] { f->released = true; });
@@ -729,14 +746,20 @@ TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageIsRemovedAfterItsStuckWorker) {
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
     ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     pipe->pause();
-    ASSERT_NIL(rack.tasks.del(task.key));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
     pipe->resume();
     ASSERT_TRUE(wait_for_run(2));
     f->released = true;
     ASSERT_EVENTUALLY_EQ(f->max_live.load(), 1);
     ASSERT_EVENTUALLY_EQ(f->live.load(), 0);
     EXPECT_EQ(f->configures.load(), 1);
+    expect_no_driver_status(task);
 }
 #endif
 

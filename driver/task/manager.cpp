@@ -107,12 +107,14 @@ x::errors::Error Manager::configure_initial_tasks() {
         // removes stop their instances instead, and a remove does it silently.
         this->op_queue.clear();
         // An entry left by a worker of an earlier run that is still stuck holds a task
-        // that this run does not deploy. Its removal waits for that worker.
-        for (const auto &[key, _]: this->entries)
-            if (std::ranges::none_of(tasks, [&](const auto &t) {
-                    return t.key == key;
-                }))
-                this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
+        // that may have left this Driver. Its removal waits for that worker, and the
+        // statuses that the worker sends are dropped now.
+        for (const auto &[key, _]: this->entries) {
+            if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
+                continue;
+            this->statuses->drop(key);
+            this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
+        }
         for (const auto &task: tasks) {
             VLOG(1) << "queuing configure for task " << task;
             const auto entry = this->entry_for(task.key);
