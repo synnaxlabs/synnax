@@ -157,10 +157,12 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     this->start_workers();
     const auto err = this->serve(on_started);
     // Workers run the shutdown of each task, so they stop last. The next run starts
-    // with no statuses, so it never re-sends one of a task deleted in an outage.
+    // with no statuses and no control states, so it trusts nothing from before the
+    // outage, such as the status of a task deleted during it.
     this->stop_all_tasks();
     this->stop_workers();
     this->statuses->clear();
+    this->control_states->set({});
     return err;
 }
 
