@@ -119,6 +119,11 @@ var _ = Describe("HTTP", func() {
 			},
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
+			Entry(
+				"unary channel count limited",
+				http.MethodPost,
+				"/api/v1/channel/count-limited",
+			),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
