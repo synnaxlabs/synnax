@@ -117,21 +117,41 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 
 namespace {
-/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
-/// for the object, or 0 when it holds none.
-uint32_t pop_sdo_abort(
-    API &api,
-    const uint16_t slave,
-    const uint16_t index,
-    const uint8_t sub_index
-) {
-    uint32_t code = 0;
+/// The SOEM packet error codes of an SDO transfer.
+constexpr uint16_t UNEXPECTED_FRAME = 1;
+constexpr uint16_t CONTAINER_TOO_SMALL = 3;
+
+/// @brief empties the SOEM error list. Call it before an SDO transfer, so that
+/// pop_sdo_failure sees only the errors of that transfer.
+void clear_errors(API &api) {
+    ec_errort err{};
+    while (api.poperror(err)) {}
+}
+
+/// @brief empties the SOEM error list, returning why the SDO transfer since
+/// clear_errors failed. With no error, the transfer got no reply.
+errors::SDOFailure pop_sdo_failure(API &api) {
+    using Kind = errors::SDOFailure::Kind;
+    errors::SDOFailure failure;
     ec_errort err{};
     while (api.poperror(err))
-        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
-            err.Index == index && err.SubIdx == sub_index)
-            code = static_cast<uint32_t>(err.AbortCode);
-    return code;
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR)
+            failure = {
+                .kind = Kind::ABORTED,
+                .abort_code = static_cast<uint32_t>(err.AbortCode),
+            };
+        else if (err.Etype == EC_ERR_TYPE_MBX_ERROR)
+            failure = {.kind = Kind::MAILBOX_ERROR};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR && err.ErrorCode == UNEXPECTED_FRAME
+        )
+            failure = {.kind = Kind::UNEXPECTED_REPLY};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR &&
+            err.ErrorCode == CONTAINER_TOO_SMALL
+        )
+            failure = {.kind = Kind::REPLY_TOO_LARGE};
+    return failure;
 }
 
 /// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
@@ -219,6 +239,7 @@ x::errors::Error Master::write_parameters(
 ) {
     for (const auto &param: parameters) {
         const auto data = param.bytes();
+        clear_errors(*this->api);
         if (this->api->SDOwrite(
                 pos,
                 param.index,
@@ -229,11 +250,17 @@ x::errors::Error Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
-        const auto code = pop_sdo_abort(*this->api, pos, param.index, param.sub_index);
+        const auto failure = pop_sdo_failure(*this->api);
+        if (failure.kind == errors::SDOFailure::Kind::ABORTED)
+            return x::errors::Error(
+                errors::startup_parameter_error(failure.abort_code),
+                "rejected startup parameter " + param.to_string() + ": " +
+                    failure.reason()
+            );
         return x::errors::Error(
-            errors::startup_parameter_error(code),
-            "rejected startup parameter " + param.to_string() + ": " +
-                errors::sdo_abort_reason(code)
+            errors::STARTUP_PARAMETER_ERROR,
+            "failed to write startup parameter " + param.to_string() + ": " +
+                failure.reason()
         );
     }
     return x::errors::NIL;
@@ -620,9 +647,7 @@ void Master::populate_slaves() {
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
-    ec_errort err{};
-    // Only the errors of this read can show that the slave answered it.
-    while (this->api->poperror(err)) {}
+    clear_errors(*this->api);
     uint32_t serial = 0;
     int size = sizeof(serial);
     if (this->api->SDOread(
@@ -640,6 +665,7 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
     // A slave that answers the read with an error, such as an SDO abort or a mailbox
     // error, has no CoE serial number. An emergency is no answer.
     bool answered = false;
+    ec_errort err{};
     while (this->api->poperror(err))
         answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
     if (!answered)
@@ -769,17 +795,11 @@ std::pair<uint32_t, x::errors::Error>
 Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
     uint32_t value = 0;
     int size = sizeof(value);
+    clear_errors(*this->api);
     if (this->api->SDOread(pos, index, sub_index, FALSE, &size, &value, SDO_TIMEOUT) >
         0)
         return {value, x::errors::NIL};
-    return {
-        0,
-        coe::read_error(
-            index,
-            sub_index,
-            pop_sdo_abort(*this->api, pos, index, sub_index)
-        )
-    };
+    return {0, coe::read_error(index, sub_index, pop_sdo_failure(*this->api))};
 }
 
 std::optional<std::vector<uint8_t>>
@@ -788,7 +808,7 @@ Master::read_object(const uint16_t pos, const uint16_t index) {
     int size = static_cast<int>(bytes.size());
     if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
         0) {
-        pop_sdo_abort(*this->api, pos, index, 0);
+        clear_errors(*this->api);
         return std::nullopt;
     }
     bytes.resize(static_cast<size_t>(size));
