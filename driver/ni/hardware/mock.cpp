@@ -39,15 +39,20 @@ x::errors::Error Base::abort() {
         std::lock_guard lock(this->mu);
         this->abort_call_count++;
     }
-    this->aborted.notify_all();
+    this->cv.notify_all();
     return x::errors::NIL;
 }
 
 void Base::wait_for_abort(const std::chrono::nanoseconds timeout) {
     std::unique_lock lock(this->mu);
-    this->aborted.wait_for(lock, timeout, [this] {
-        return this->abort_call_count > 0;
-    });
+    this->blocked = true;
+    this->cv.notify_all();
+    this->cv.wait_for(lock, timeout, [this] { return this->abort_call_count > 0; });
+}
+
+bool Base::wait_until_blocked(const std::chrono::nanoseconds timeout) {
+    std::unique_lock lock(this->mu);
+    return this->cv.wait_for(lock, timeout, [this] { return this->blocked; });
 }
 
 template<typename T>
