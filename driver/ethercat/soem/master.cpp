@@ -280,6 +280,21 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         };
         session.plan.slaves[pos].enabled = false;
     }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}slave {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->slave_name(pos),
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
     auto [dc_setups, dc_err] = this->resolve_dc();
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
@@ -319,13 +334,15 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     );
     this->api->context.manualstatechange = 0;
 
-    if (iomap_size <= 0)
+    if (iomap_size <= 0) {
+        if (!unidentified.empty()) return refuse_unidentified();
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure PDO mapping"
             )
         };
+    }
 
     std::string failures;
     for (const auto &[pos, failure]: session.startup_failures)
@@ -354,21 +371,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
     // The caller leaves out a refused slave only when the image maps another one.
-    if (!unidentified.empty()) {
-        std::string msg;
-        for (const auto &[pos, refusal]: unidentified)
-            msg += std::format(
-                "{}slave {} ({}) {}",
-                msg.empty() ? "" : "; ",
-                pos,
-                this->slave_name(pos),
-                refusal.reason
-            );
-        return {
-            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
-            .refusals = std::move(unidentified),
-        };
-    }
+    if (!unidentified.empty()) return refuse_unidentified();
     if (auto err = this->start_dc()) return {.err = err};
 
     const int timeout = micros(this->cfg.state_change_timeout);

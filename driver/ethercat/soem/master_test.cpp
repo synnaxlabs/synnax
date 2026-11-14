@@ -1188,6 +1188,28 @@ TEST_F(SOEMMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
 
+/// @brief it should refuse a used slave with no identity when it is the only slave
+/// with process data.
+TEST_F(SOEMMasterTest, ActivateRefusesTheOnlySlaveWithIOWhenItHasNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    unidentified.name = "? M:00000000 I:00000000";
+    unidentified.Ibits = 16;
+    this->add_slave(unidentified);
+    ASSERT_NIL_P(this->master->scan());
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
+        "EEPROM"
+    );
+    EXPECT_EQ(this->activation.refusals.size(), 1);
+    EXPECT_TRUE(this->activation.refusals.contains(1));
+}
+
 /// @brief it should start a bus with a slave that has no identity when no task uses
 /// the slave.
 TEST_F(SOEMMasterTest, ActivateStartsPastAnUnusedSlaveWithNoIdentity) {
