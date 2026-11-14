@@ -10,6 +10,7 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -289,6 +290,8 @@ private:
     std::vector<T> buf;
     /// @brief builds the hardware for each run.
     MakeHardware make_hw;
+    /// @brief guards hw_reader against interrupt(), which runs on the stopping thread.
+    std::mutex hw_mu;
     /// @brief interface used to read data from the hardware. Populated on start
     /// and released on stop.
     std::unique_ptr<Hardware> hw_reader;
@@ -303,15 +306,20 @@ private:
         return this->cfg.sy_channels();
     }
 
+    void set_hw(std::unique_ptr<Hardware> hw) {
+        std::lock_guard lock(this->hw_mu);
+        this->hw_reader = std::move(hw);
+    }
+
     x::errors::Error start() override {
         // DAQmx rejects a second task with a live task's name.
-        this->hw_reader.reset();
+        this->set_hw(nullptr);
         auto [hw, err] = this->make_hw(this->cfg);
         if (err) return err;
-        this->hw_reader = std::move(hw);
+        this->set_hw(std::move(hw));
         (*this->sample_clock).reset();
         if (const auto start_err = this->hw_reader->start()) {
-            this->hw_reader.reset();
+            this->set_hw(nullptr);
             return start_err;
         }
         return x::errors::NIL;
@@ -320,8 +328,15 @@ private:
     x::errors::Error stop() override {
         if (this->hw_reader == nullptr) return x::errors::NIL;
         const auto err = this->hw_reader->stop();
-        this->hw_reader.reset();
+        this->set_hw(nullptr);
         return err;
+    }
+
+    void interrupt() override {
+        std::lock_guard lock(this->hw_mu);
+        if (this->hw_reader == nullptr) return;
+        if (const auto err = this->hw_reader->abort())
+            LOG(WARNING) << "[ni] failed to abort the read: " << err;
     }
 
     x::errors::Error restart() {
@@ -343,6 +358,9 @@ private:
             res.error = translate_error(this->start());
             this->curr_read_err = res.error;
             if (res.error) return res;
+            // A stop that came while this read built its hardware aborted nothing.
+            if (!breaker.running())
+                return {.error = driver::errors::NOMINAL_SHUTDOWN_ERROR};
         }
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
@@ -350,6 +368,8 @@ private:
 
         auto start = this->sample_clock->wait(breaker);
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
+        if (hw_res.error && !breaker.running())
+            return {.error = driver::errors::NOMINAL_SHUTDOWN_ERROR};
         // A non-zero skew means that our application cannot keep up with the
         // hardware acquisition rate. Skew tracking is only meaningful for
         // hardware-timed tasks.

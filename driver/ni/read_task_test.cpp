@@ -437,6 +437,34 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     EXPECT_EQ(stop_state.description, "Failed to read hardware");
 }
 
+/// @brief it should abort a read that waits for samples when the task stops, and
+/// report a successful stop.
+TEST_F(AnalogReadTest, testStopAbortsBlockedRead) {
+    parse_config();
+    const auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<hardware::mock::Reader<double>::ReadResponse>{{
+                .error = x::errors::Error(daqmx::DEVICE_DISCONNECTED, "aborted"),
+                .waits_for_abort = true,
+            }}
+        )
+    );
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    const auto stopping = std::chrono::steady_clock::now();
+    rt->stop("stop_cmd", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_EQ(mock_hw->abort_call_count.load(), 1);
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
 /// @brief it should correctly coerce read data types to the channel data type.
 TEST_F(AnalogReadTest, testDataTypeCoersion) {
     data_channel.data_type = x::telem::FLOAT32_T;
@@ -653,6 +681,7 @@ public:
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
 
     hardware::ReadResult read(size_t, std::vector<T> &) override {
         hardware::ReadResult res;
@@ -1626,6 +1655,7 @@ class PacedReader final : public hardware::Reader<double> {
 public:
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
     hardware::ReadResult read(size_t, std::vector<double> &) override {
         std::this_thread::sleep_for(std::chrono::milliseconds(40));
         return {};
