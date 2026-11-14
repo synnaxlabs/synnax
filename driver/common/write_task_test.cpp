@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
 #include <future>
 #include <iterator>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -913,6 +915,214 @@ TEST(TestCommonWriteTask, RepeatedWarningLogsOnce) {
     ASSERT_TRUE(w.task->start("start"));
     ASSERT_EVENTUALLY_EQ(log.count("0 is not valid"), 2);
     EXPECT_EQ(w.writes->size(), 1);
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief a sink whose hardware a spec loses and gets back.
+class HoldingSink final : public Sink {
+    std::mutex mu;
+    Warning held;
+
+public:
+    /// @brief the frames the sink wrote.
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    std::atomic<bool> running{false};
+    /// @brief the calls of held_warning().
+    std::atomic<size_t> reads{0};
+    /// @brief the calls of held_warning() while the sink was stopped.
+    std::atomic<size_t> stopped_reads{0};
+
+    explicit HoldingSink(Warning held, std::vector<synnax::channel::Key> commands):
+        Sink(std::move(commands)), held(std::move(held)) {}
+
+    x::errors::Error start() override {
+        this->running = true;
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        this->running = false;
+        return x::errors::NIL;
+    }
+
+    /// @brief skips a command of 0 with a warning of its own.
+    x::errors::Error write(x::telem::Frame &frame) override {
+        if (frame.at<uint8_t>(1, 0) == 0) {
+            this->warn({.message = "Skipped invalid command"});
+            return x::errors::NIL;
+        }
+        this->writes->push_back(frame.deep_copy());
+        return x::errors::NIL;
+    }
+
+    Warning held_warning() override {
+        ++this->reads;
+        if (!this->running) ++this->stopped_reads;
+        std::lock_guard lock(this->mu);
+        return this->held;
+    }
+
+    /// @brief holds warning, as the hardware thread of a sink does.
+    void hold(Warning warning) {
+        {
+            std::lock_guard lock(this->mu);
+            this->held = std::move(warning);
+        }
+        this->warning_changed();
+    }
+};
+
+/// @brief a write task that runs a HoldingSink on the given commands to channel 1, or
+/// with no command channels when commanded is false.
+struct HoldingWrite {
+    std::shared_ptr<driver::task::MockContext>
+        ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    HoldingSink *sink;
+    std::unique_ptr<WriteTask> task;
+
+    explicit HoldingWrite(
+        const std::vector<uint8_t> &commands,
+        Warning held = {},
+        const bool commanded = true
+    ) {
+        const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+        for (const auto v: commands)
+            reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+        auto s = std::make_unique<HoldingSink>(
+            std::move(held),
+            commanded ? std::vector<synnax::channel::Key>{1}
+                      : std::vector<synnax::channel::Key>{}
+        );
+        this->sink = s.get();
+        synnax::task::Task t;
+        t.key = x::uuid::create();
+        this->task = std::make_unique<WriteTask>(
+            t,
+            this->ctx,
+            x::breaker::Config{.name = "test", .base_interval = x::telem::MILLISECOND},
+            std::move(s),
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory({1}, reads)
+        );
+    }
+
+    /// @brief returns the message of the latest status.
+    [[nodiscard]] std::string message() const {
+        const auto statuses = this->ctx->snapshot();
+        return statuses.empty() ? "" : statuses.back().message;
+    }
+
+    /// @brief returns the description of the latest status.
+    [[nodiscard]] std::string description() const {
+        const auto statuses = this->ctx->snapshot();
+        return statuses.empty() ? "" : statuses.back().description;
+    }
+};
+
+/// @brief it should show a held warning as soon as the sink reports it, without a
+/// write, and clear it once the sink reports that it ended.
+TEST(TestCommonWriteTask, HeldWarningShowsWithoutAWrite) {
+    HoldingWrite w({});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F([&] { return w.message(); }, std::string("Started task"));
+    w.sink->hold(
+        {.message = "Lost device", .description = "Device 1 is not answering."}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return w.message(); }, std::string("Lost device"));
+    const auto warning = w.ctx->snapshot().back();
+    EXPECT_EQ(warning.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(warning.description, "Device 1 is not answering.");
+    EXPECT_TRUE(warning.details.running);
+    w.sink->hold({});
+    // The clear waits for the status window that the warning opened.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return w.message(); },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(w.ctx->snapshot().back().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(w.sink->writes->empty());
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should show a warning that the sink held before the task started.
+TEST(TestCommonWriteTask, HeldWarningShowsWhenTheTaskStarts) {
+    HoldingWrite w({}, {.message = "Lost device"});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return w.message(); },
+        std::string("Lost device"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should show the held warning of a sink with no command channels when the
+/// task starts.
+TEST(TestCommonWriteTask, HeldWarningShowsWhenATaskWithNoCommandsStarts) {
+    HoldingWrite w({}, {.message = "Lost device"}, false);
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return w.message(); },
+        std::string("Lost device"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should show the held warning again after a write that reports no warning
+/// of its own.
+TEST(TestCommonWriteTask, WriteShowsTheHeldWarningAfterItsOwn) {
+    WarningSink log;
+    HoldingWrite w({0, 1}, {.message = "Lost device"});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ(w.sink->writes->size(), 1);
+    // Each change of the shown warning logs it: at the start, then after each write.
+    ASSERT_EVENTUALLY_EQ(log.count("Lost device"), 2);
+    EXPECT_EQ(log.count("Skipped invalid command"), 1);
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should keep the warning of the latest write when a held warning ends.
+TEST(TestCommonWriteTask, EndedHeldWarningKeepsTheWarningOfAWrite) {
+    WarningSink log;
+    HoldingWrite w({0});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ(log.count("Skipped invalid command"), 1);
+    const size_t reads = w.sink->reads;
+    w.sink->hold({});
+    ASSERT_EVENTUALLY_GE(w.sink->reads.load(), reads + 1);
+    // Waits out the status window, so that a clear would reach the context.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    EXPECT_EQ(w.message(), "Skipped invalid command");
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should not read the held warning of a stopped sink.
+TEST(TestCommonWriteTask, StoppedSinkGivesNoHeldWarning) {
+    HoldingWrite w({});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_TRUE(w.task->stop("stop", true));
+    w.sink->hold(
+        {.message = "Lost device", .description = "Device 1 is not answering."}
+    );
+    // Gives the notifier time to see the stopped sink before the next start.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_TRUE(w.task->start("start"));
+    w.sink->hold(
+        {.message = "Lost device", .description = "Device 2 is not answering."}
+    );
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return w.description(); },
+        std::string("Device 2 is not answering."),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(w.sink->stopped_reads, 0);
     ASSERT_TRUE(w.task->stop("stop", true));
 }
 
