@@ -357,6 +357,24 @@ describe("Secret.Secrets", () => {
     });
   });
 
+  it("lists only the secrets that match the search", async () => {
+    const prefix = uniqueName("search");
+    const match = await client.secrets.set({
+      name: `${prefix}-match`,
+      source: "stored",
+      value: "v",
+    });
+    createdSecrets.push(match.key);
+    const other = await createSecret(client, createdSecrets);
+    await renderSecrets();
+    await screen.findByText(other.name);
+    fireEvent.change(screen.getByPlaceholderText("Search secrets"), {
+      target: { value: prefix },
+    });
+    await waitFor(() => expect(screen.queryByText(other.name)).toBeNull());
+    expect(screen.getByText(match.name)).toBeTruthy();
+  });
+
   it("offers no create button to a user who cannot create secrets", async () => {
     const s = await createSecret(client, createdSecrets);
     const reader = await createTestClientWithGrants(client, {
@@ -381,6 +399,46 @@ describe("Secret.Certificates", () => {
     await waitFor(async () =>
       expect((await client.certificates.retrieve(c.key)).name).toBe(renamed),
     );
+  });
+
+  it("lists only the certificates that match the search", async () => {
+    const { certificate: a } = await createCertificate();
+    const { certificate: b } = await createCertificate();
+    await renderCertificates();
+    await screen.findByText(b.name);
+    fireEvent.change(screen.getByPlaceholderText("Search certificates"), {
+      target: { value: a.name },
+    });
+    await waitFor(() => expect(screen.queryByText(b.name)).toBeNull());
+    expect(screen.getByText(a.name)).toBeTruthy();
+  });
+
+  it("selects and shows the certificate it is given", async () => {
+    const { certificate: c } = await createCertificate();
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Secret.Certificates selected={c.key} />, { wrapper });
+    const option = await screen.findByRole("option", { name: c.name });
+    expect(option.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("deletes every selected certificate after confirmation", async () => {
+    const { certificate: a } = await createCertificate();
+    const { certificate: b } = await createCertificate();
+    await renderCertificates();
+    for (const { name } of [a, b]) {
+      const option = await waitFor(() => getOption(name));
+      fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+    }
+    await openContextMenu(b.name);
+    expect(screen.queryByText("Rename")).toBeNull();
+    await clickAndSettle("Delete");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => {
+      for (const { key } of [a, b])
+        await expect(client.certificates.retrieve(key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+    });
   });
 
   it("deletes a certificate after confirmation", async () => {

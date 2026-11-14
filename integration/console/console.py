@@ -25,6 +25,7 @@ from console.pages import PagesClient
 from console.panels import PanelsClient
 from console.project import ProjectClient
 from console.range import Client as RangesClient
+from console.secrets import CertificateClient, SecretClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
 
@@ -45,10 +46,12 @@ class Console:
     cluster: ClusterClient
     docs: DocsClient
     labels: LabelClient
+    certificates: CertificateClient
     layout: LayoutClient
     notifications: NotificationsClient
     devices: DevicesClient
     ranges: RangesClient
+    secrets: SecretClient
     statuses: StatusesClient
     tasks: TaskClient
     project: ProjectClient
@@ -63,6 +66,8 @@ class Console:
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(layout=self.layout, client=self.client)
+        self.secrets = SecretClient(self.layout)
+        self.certificates = CertificateClient(self.layout)
         self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)

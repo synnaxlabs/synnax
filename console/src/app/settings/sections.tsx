@@ -39,8 +39,10 @@ const Secrets = (): ReactElement => {
   return (
     <Settings.Page title="Secrets">
       <Secret.Secrets
-        onSelectCertificate={() =>
-          dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
+        onSelectCertificate={(item) =>
+          dispatch(
+            Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION, item }),
+          )
         }
       />
     </Settings.Page>
@@ -52,7 +54,7 @@ const useSecretsVisible = (): boolean =>
 
 const Certificates = (): ReactElement => (
   <Settings.Page title="Certificates">
-    <Secret.Certificates />
+    <Secret.Certificates selected={Session.Nav.useSelectSettingsItem()} />
   </Settings.Page>
 );
 

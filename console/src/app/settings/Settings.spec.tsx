@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, user } from "@synnaxlabs/client";
+import { certificate, label, user } from "@synnaxlabs/client";
 import {
   CERTIFICATE,
   createTestClient,
@@ -42,6 +42,7 @@ import {
   assertDefined,
   awaitGranted,
   createConsoleWrapper,
+  createTestClientWithGrants,
   renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
@@ -102,6 +103,16 @@ describe("Settings", () => {
       expect(screen.queryByRole("menuitem", { name })).toBeNull();
   });
 
+  it("should show Certificates and not Secrets to a user who can read only certificates", async () => {
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [certificate.TYPE_RESOURCE_ID],
+    });
+    await awaitGranted(reader, certificate.TYPE_RESOURCE_ID, "retrieve");
+    await renderSettings(reader);
+    expect(await screen.findByRole("menuitem", { name: "Certificates" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Secrets" })).toBeNull();
+  });
+
   it("should show the Certificates page for a certificate that uses a secret", async () => {
     const c = await client.certificates.set({
       name: uniqueName("certificate"),
@@ -121,6 +132,8 @@ describe("Settings", () => {
       const dialog = await screen.findByRole("dialog");
       fireEvent.click(await within(dialog).findByText(c.name));
       expect(await screen.findByRole("heading", { name: "Certificates" })).toBeTruthy();
+      const picked = await screen.findByRole("option", { name: c.name });
+      await waitFor(() => expect(picked.getAttribute("aria-selected")).toBe("true"));
     } finally {
       await client.certificates.delete(c.key);
       await client.secrets.delete(c.privateKey);

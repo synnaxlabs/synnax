@@ -22,7 +22,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Certificate, type Flux, Secret } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { CertificatesMenu, SecretsMenu } from "@/feature/secret/ContextMenu";
 import { type SelectCertificate, UsedByPopover } from "@/feature/secret/UsedBy";
@@ -36,8 +36,24 @@ interface TableProps<K extends string, E extends { key: K }> {
   noun: string;
   action?: ReactNode;
   menu: Menu.ContextMenuProps["menu"];
+  /** An item to select and scroll to once the list holds it. */
+  selected?: K;
   children: List.ItemsProps<K>["children"];
 }
+
+interface ScrollToProps<K extends string> {
+  data: K[];
+  itemKey?: K;
+}
+
+const ScrollTo = <K extends string>({ data, itemKey }: ScrollToProps<K>): null => {
+  const { scrollToIndex } = List.useScroller<K>();
+  const index = itemKey == null ? -1 : data.indexOf(itemKey);
+  useEffect(() => {
+    if (index !== -1) scrollToIndex(index);
+  }, [itemKey, index !== -1]);
+  return null;
+};
 
 const Table = <K extends string, E extends { key: K }>({
   list,
@@ -45,11 +61,17 @@ const Table = <K extends string, E extends { key: K }>({
   noun,
   action,
   menu,
+  selected: initial,
   children,
 }: TableProps<K, E>): ReactElement => {
   const { data, getItem, subscribe, more, search, answered } = list;
   const [term, setTerm] = useState("");
-  const [selected, setSelected] = useState<K[]>([]);
+  const [selected, setSelected] = useState<K[]>(initial == null ? [] : [initial]);
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
+    setSelected(initial == null ? [] : [initial]);
+  }
   const menuProps = Menu.useContextMenu();
   const handleSearch = (next: string): void => {
     setTerm(next);
@@ -66,6 +88,7 @@ const Table = <K extends string, E extends { key: K }>({
       onChange={setSelected}
     >
       <Menu.ContextMenu menu={menu} {...menuProps} />
+      <ScrollTo data={data} itemKey={initial} />
       <Flex.Box y gap="medium">
         <Flex.Box x align="center" justify="between" gap="medium">
           <Input.Text
@@ -124,6 +147,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
       checkable
       align="center"
       aria-label={s.name}
+      className={CSS.BE("secret-settings", "item")}
     >
       <List.Cells>
         <List.Cell>
@@ -211,6 +235,7 @@ const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
       checkable
       align="center"
       aria-label={c.name}
+      className={CSS.BE("secret-settings", "item")}
     >
       <List.Cells>
         <List.Cell>
@@ -236,11 +261,16 @@ const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
 const certificatesMenu = Component.renderProp(CertificatesMenu);
 
+export interface CertificatesProps {
+  /** A certificate to select and scroll to. */
+  selected?: certificate.Key;
+}
+
 /**
  * Every certificate the user can read, with when it is valid. The menu of the selected
  * certificates renames or deletes them.
  */
-export const Certificates = (): ReactElement => {
+export const Certificates = ({ selected }: CertificatesProps): ReactElement => {
   const list = Certificate.useList({ pageSize: 100 });
   const now = useNow(nextMinute);
   return (
@@ -249,6 +279,7 @@ export const Certificates = (): ReactElement => {
       columns={CERTIFICATE_COLUMNS}
       noun="certificates"
       menu={certificatesMenu}
+      selected={selected}
     >
       {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
     </Table>
