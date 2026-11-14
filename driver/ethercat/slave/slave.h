@@ -365,8 +365,8 @@ struct Status {
     std::string pdo_discovery_error;
     /// @brief why the read of the settings failed, or empty when it succeeded.
     std::string settings_error;
-    /// @brief why the read of the serial number failed, or empty when it succeeded. A
-    /// slave with one has no known identity.
+    /// @brief why the read of the serial number got no answer, or empty when the slave
+    /// answered. The serial number of a slave with one is not known.
     std::string serial_error;
 };
 

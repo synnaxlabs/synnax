@@ -569,12 +569,26 @@ void Master::populate_slaves() {
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
-    const auto [serial, err] = this->read_sdo(pos, IDENTITY_INDEX, SERIAL_SUB_INDEX);
-    if (err.matches(coe::OBJECT_MISSING) || err.matches(coe::SUBINDEX_MISSING)) return;
-    if (err)
-        slave.status.serial_error = err.data;
-    else if (serial != 0)
-        slave.properties.serial = serial;
+    uint32_t serial = 0;
+    int size = sizeof(serial);
+    if (this->api->SDOread(
+            pos,
+            IDENTITY_INDEX,
+            SERIAL_SUB_INDEX,
+            FALSE,
+            &size,
+            &serial,
+            SDO_TIMEOUT
+        ) > 0) {
+        if (serial != 0) slave.properties.serial = serial;
+        return;
+    }
+    // A slave that aborts the read has no CoE serial number.
+    const auto code = pop_sdo_abort(*this->api, pos, IDENTITY_INDEX, SERIAL_SUB_INDEX);
+    if (code == 0)
+        slave.status
+            .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, code)
+                                .data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {

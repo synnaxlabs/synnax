@@ -1082,17 +1082,44 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should report why the serial number of a slave could not be read.
-TEST_F(SOEMMasterTest, ScanReportsAFailedSerialRead) {
+/// @brief it should keep the SII serial number of a slave whose CoE serial number is
+/// 0.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should keep the SII serial number of a slave that aborts the read of its
+/// CoE serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
     auto slave = create_coe_slave(0x5555);
-    slave.sdo_read_aborts[{0x1018, 4}] = 0x05040000;
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should not read the CoE serial number of a slave without CoE.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.mbx_proto = 0;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should report a read of the serial number of a slave that gets no answer.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoAnswer) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
     EXPECT_EQ(slaves[0].properties.serial, 0);
-    EXPECT_EQ(
-        slaves[0].status.serial_error,
-        "failed to read 0x1018:04: SDO protocol timed out"
-    );
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
 }
 
 /// @brief it should give serial number 0 to a slave with the identity of a slave
@@ -1105,6 +1132,17 @@ TEST_F(SOEMMasterTest, ScanGivesADuplicateSerialNumberToTheFirstSlave) {
     EXPECT_EQ(slaves[0].properties.serial, 0x5555);
     EXPECT_EQ(slaves[1].properties.serial, 0);
     EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
+/// @brief it should keep the serial numbers of two products with one serial number.
+TEST_F(SOEMMasterTest, ScanKeepsOneSerialNumberOnTwoProducts) {
+    this->add_slave(create_coe_slave(0x5555));
+    auto other = create_coe_slave(0x5555);
+    other.eep_id = 0x9999;
+    this->add_slave(other);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0x5555);
 }
 
 ////////////////////// Activation //////////////////////
@@ -2832,6 +2870,21 @@ TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
     this->activate_master();
     EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
+}
+
+/// @brief it should keep the failed serial read of a parameterized slave after
+/// activation.
+TEST_F(SOEMMasterTest, ActivateKeepsTheFailedSerialReadOfAParameterizedSlave) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    this->add_slave(slave);
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
+        "failed to read 0x1018:04: no response"
+    );
 }
 
 /// @brief it should fail activation and stop writing when a slave aborts a startup

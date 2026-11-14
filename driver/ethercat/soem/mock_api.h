@@ -68,7 +68,7 @@ struct MockSlaveInfo {
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index.
+    /// sub-index. A code of 0 makes the read get no answer.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
@@ -524,7 +524,8 @@ public:
         }
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
-            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            if (abort->second != 0)
+                this->push_sdo_abort(slave, index, sub_index, abort->second);
             return 0;
         }
         const auto &objects = info.sdo_objects;
