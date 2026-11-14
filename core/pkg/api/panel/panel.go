@@ -22,6 +22,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// OwnedTables returns the tables of the records that a user can own, so the write
+// binder lets the owner change them without other access. A draft panel is owned by
+// the user it uses.
+func OwnedTables() []string { return []string{string(resource.TypePanel)} }
+
 // ServiceConfig is the configuration for the panel API service.
 type ServiceConfig struct {
 	// Panel stores and retrieves panels.

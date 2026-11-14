@@ -801,9 +801,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	l := &Layer{config: cfg}
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
-		DB:   cfg.Distribution.DB,
-		RBAC: cfg.Service.RBAC,
-		Held: auth.HeldTables(),
+		DB:    cfg.Distribution.DB,
+		RBAC:  cfg.Service.RBAC,
+		Held:  auth.HeldTables(),
+		Owned: panel.OwnedTables(),
 	}); err != nil {
 		return nil, err
 	}

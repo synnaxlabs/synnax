@@ -20,9 +20,10 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() bind.ServiceConfig {
 		return bind.ServiceConfig{
-			DB:   &gorp.DB{},
-			RBAC: &rbac.Service{},
-			Held: []string{"held"},
+			DB:    &gorp.DB{},
+			RBAC:  &rbac.Service{},
+			Held:  []string{"held"},
+			Owned: []string{"owned"},
 		}
 	}
 
@@ -68,6 +69,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Held).To(Equal(cfg.Held))
+			Expect(merged.Owned).To(Equal(cfg.Owned))
 		})
 
 		It("Should keep the receiver's fields when the other's are nil", func() {
@@ -76,6 +78,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Held).To(Equal(cfg.Held))
+			Expect(merged.Owned).To(Equal(cfg.Owned))
 		})
 	})
 })

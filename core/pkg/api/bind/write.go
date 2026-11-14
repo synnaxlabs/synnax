@@ -142,9 +142,12 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 	for _, c := range changes {
 		// owner is zero for a record with a resource type.
 		var owner gorp.Target
+		owned := s.owned(c, subject)
 		if _, ok := resourceOf(c.Record); ok {
-			if err := need(actionOf(c.Kind), c.Record); err != nil {
-				return err
+			if !owned {
+				if err := need(actionOf(c.Kind), c.Record); err != nil {
+					return err
+				}
 			}
 		} else {
 			var err error
@@ -161,7 +164,11 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			if l.Target == owner || createdOrDeleted.Contains(l.Target) {
 				continue
 			}
-			if err := need(addedLinkAction(l.Kind), l.Target); err != nil {
+			action := addedLinkAction(l.Kind)
+			if owned {
+				action = access.ActionRetrieve
+			}
+			if err := need(action, l.Target); err != nil {
 				return err
 			}
 		}
@@ -171,7 +178,11 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				createdOrDeleted.Contains(l.Target) {
 				continue
 			}
-			if err := need(access.ActionUpdate, l.Target); err != nil {
+			action := access.ActionUpdate
+			if owned {
+				action = access.ActionRetrieve
+			}
+			if err := need(action, l.Target); err != nil {
 				return err
 			}
 		}
@@ -193,6 +204,31 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 		}
 	}
 	return nil
+}
+
+// owned reports whether the change is to a record of an owned table that the subject
+// owns both before and after the change.
+func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
+	if !slices.Contains(s.cfg.Owned, c.Record.Table) {
+		return false
+	}
+	usesSubject := func(links []gorp.Link) bool {
+		return slices.ContainsFunc(links, func(l gorp.Link) bool {
+			id, ok := resourceOf(l.Target)
+			return l.Kind == gorp.Use && ok && id == subject
+		})
+	}
+	// Links holds the links after a create or an update, and before a delete.
+	if c.Kind != gorp.ChangeUpdate {
+		return usesSubject(c.Links)
+	}
+	before := append(
+		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
+			return slices.Contains(c.Added, l)
+		}),
+		c.Removed...,
+	)
+	return usesSubject(c.Links) && usesSubject(before)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error

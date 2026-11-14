@@ -26,6 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -946,6 +948,100 @@ var _ = Describe("Write", func() {
 			Expect(labelExists(ctx, l.Key)).To(BeFalse())
 		},
 	)
+})
+
+var _ = Describe("Owned records", func() {
+	var (
+		owner, other user.User
+		proj         project.Project
+	)
+	BeforeEach(func(ctx SpecContext) {
+		owner, other = newUser(ctx), newUser(ctx)
+		proj = project.Project{Name: "drafts"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Project.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
+		grant(ctx, owner, access.ActionRetrieve, proj.ResourceID())
+	})
+	createDraft := func(ctx context.Context, by, of user.User) (panel.Panel, error) {
+		p := panel.Panel{Name: "draft", Project: &proj.Key, Owner: &of.Key}
+		return p, write(ctx, by, func(ctx context.Context, tx gorp.Tx) error {
+			return svc.Panel.NewWriter(tx).Create(ctx, &p)
+		})
+	}
+	setOwner := func(key panel.Key, to *user.Key) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return gorp.NewUpdate[panel.Key, panel.Panel]().
+				Where(gorp.MatchKeys[panel.Key, panel.Panel](key)).
+				Change(func(_ gorp.Context, p panel.Panel) panel.Panel {
+					p.Owner = to
+					return p
+				}).
+				Exec(ctx, tx)
+		}
+	}
+
+	It(
+		"Should let a user create, edit, and delete its own draft",
+		func(ctx SpecContext) {
+			p := MustSucceed(createDraft(ctx, owner, owner))
+			Expect(write(ctx, owner, func(ctx context.Context, tx gorp.Tx) error {
+				_, err := svc.Panel.NewWriter(tx).Apply(
+					ctx,
+					p.Key,
+					panel.NewSetAction(panel.SetPayload{Path: []string{"name"}, Value: "x"}),
+				)
+				return err
+			})).To(Succeed())
+			Expect(write(ctx, owner, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Panel.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(Succeed())
+		},
+	)
+
+	It("Should require retrieve on the project of an own draft", func(ctx SpecContext) {
+		_, err := createDraft(ctx, other, other)
+		Expect(err).To(denied(other, access.ActionRetrieve, proj.ResourceID()))
+	})
+
+	It("Should require create to make a draft for another user", func(ctx SpecContext) {
+		p, err := createDraft(ctx, owner, other)
+		Expect(err).To(denied(owner, access.ActionCreate, p.ResourceID()))
+	})
+
+	It(
+		"Should require update to edit the draft of another user",
+		func(ctx SpecContext) {
+			grant(ctx, other, access.ActionRetrieve, proj.ResourceID())
+			grant(ctx, owner, access.ActionUpdate, proj.ResourceID())
+			p := MustSucceed(createDraft(ctx, other, other))
+			Expect(write(ctx, owner, func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Panel.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(denied(owner, access.ActionDelete, p.ResourceID()))
+		},
+	)
+
+	It("Should require the usual access to share an own draft", func(ctx SpecContext) {
+		p := MustSucceed(createDraft(ctx, owner, owner))
+		Expect(write(ctx, owner, setOwner(p.Key, nil))).
+			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
+
+	It("Should require the usual access to take the draft of another user", func(
+		ctx SpecContext,
+	) {
+		grant(ctx, other, access.ActionRetrieve, proj.ResourceID())
+		p := MustSucceed(createDraft(ctx, other, other))
+		Expect(write(ctx, owner, setOwner(p.Key, &owner.Key))).
+			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
+
+	It("Should require the usual access to give a draft away", func(ctx SpecContext) {
+		p := MustSucceed(createDraft(ctx, owner, owner))
+		grant(ctx, owner, access.ActionRetrieve, other.ResourceID())
+		Expect(write(ctx, owner, setOwner(p.Key, &other.Key))).
+			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
 })
 
 var _ = Describe("WritePrepared", func() {

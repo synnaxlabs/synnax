@@ -36,6 +36,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Held []string
+	// Owned names the tables of the records that a user can own through a use link to
+	// that user, such as draft panels. A change to a record that the subject owns
+	// before and after it needs only retrieve on the records it links to.
+	Owned []string
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -45,6 +49,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Held = override.Slice(c.Held, other.Held)
+	c.Owned = override.Slice(c.Owned, other.Owned)
 	return c
 }
 

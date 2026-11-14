@@ -15,14 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -70,8 +63,6 @@ const renderSettings = async (as = client): Promise<void> => {
   );
 };
 
-const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisible?.();
-
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
@@ -116,25 +107,6 @@ describe("Settings", () => {
     await openCommandPalette();
     await selectCommand("Edit labels");
     expect(await screen.findByRole("heading", { name: "Labels" })).toBeTruthy();
-  });
-
-  it("should offer the gear and the command to a user who can open tabs", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { result } = renderHook(useOpenVisible, { wrapper });
-    render(<Settings.Button />, { wrapper });
-    expect(await screen.findByRole("button", { name: "Settings" })).toBeTruthy();
-    await waitFor(() => expect(result.current).toBe(true));
-  });
-
-  it("should hide the gear and the command from a user who cannot open tabs", async () => {
-    const { wrapper } = await createConsoleWrapper({
-      client: await createLimitedClient(),
-    });
-    const { result } = renderHook(useOpenVisible, { wrapper });
-    render(<Settings.Button />, { wrapper });
-    await act(async () => {});
-    expect(result.current).toBe(false);
-    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
   });
 
   it("should offer Edit labels to an Engineer", async () => {
