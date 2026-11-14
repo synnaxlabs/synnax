@@ -104,7 +104,8 @@ public:
     }
 
     /// @brief an optional function called to start the sink.
-    /// @param cmd_key the start command, or driver::task::NO_COMMAND at boot.
+    /// @param cmd_key the key of the start command, or driver::task::NO_COMMAND for an
+    /// auto-start.
     /// @param cancel stops running when the Driver cancels the start.
     /// @returns an error if the sink fails to start, at which point the task will not
     /// proceed with the rest of startup.

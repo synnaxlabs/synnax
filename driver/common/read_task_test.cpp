@@ -116,6 +116,7 @@ class ScriptedSource final : public Source {
 
 public:
     std::atomic<size_t> reads = 0;
+    std::atomic<size_t> interrupts = 0;
 
     explicit ScriptedSource(std::vector<ReadResult> script):
         script(std::move(script)) {}
@@ -134,6 +135,8 @@ public:
         this->reads++;
         return this->script[i];
     }
+
+    void interrupt() override { this->interrupts++; }
 };
 
 /// @brief a source whose read waits for an interrupt, or for five seconds.
@@ -144,6 +147,8 @@ class InterruptibleSource final : public Source {
 
 public:
     std::atomic<bool> reading = false;
+    /// @brief whether the interrupt, not the five-second limit, woke the read.
+    std::atomic<bool> woken = false;
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return synnax::framer::WriterConfig();
@@ -156,7 +161,7 @@ public:
     ReadResult read(x::breaker::Breaker &, x::telem::Frame &) override {
         std::unique_lock lock(this->mu);
         this->reading = true;
-        this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+        this->woken = this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
             return this->interrupted;
         });
         return {.error = errors::NOMINAL_SHUTDOWN_ERROR};
@@ -242,7 +247,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
 }
 
 /// @brief it should give the source the key and cancel token of the start command.
-TEST(TestCommonReadTask, ExecGivesTheSourceTheStartCommand) {
+TEST(TestCommonReadTask, testExecGivesTheSourceTheStartCommand) {
     x::breaker::Breaker cancel;
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->emplace_back(0, x::telem::Series(x::telem::TimeStamp::now()));
@@ -280,13 +285,35 @@ TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
     );
     ASSERT_TRUE(read_task.start("start_cmd", cancel));
     ASSERT_EVENTUALLY_TRUE(interruptible->reading.load());
-    const auto stopping = std::chrono::steady_clock::now();
     ASSERT_TRUE(read_task.stop("stop_cmd", true));
-    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_TRUE(interruptible->woken.load());
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
+/// @brief it should not interrupt the source when a critical read error stops the task.
+TEST(TestCommonReadTask, testCriticalReadErrorSkipsInterrupt) {
+    x::breaker::Breaker cancel;
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto source = std::make_unique<ScriptedSource>(
+        std::vector<ReadResult>{{.error = errors::CRITICAL_HARDWARE_ERROR}}
+    );
+    const auto *scripted = source.get();
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(source),
+        std::make_shared<pipeline::testutil::WriterFactory>()
+    );
+    ASSERT_TRUE(read_task.start("start_cmd", cancel));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    ASSERT_FALSE(read_task.stop("stop_cmd", true));
+    EXPECT_EQ(scripted->interrupts.load(), 0);
 }
 
 /// @brief a start on a running task should ack the command without reopening

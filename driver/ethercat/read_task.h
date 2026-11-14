@@ -281,13 +281,17 @@ public:
             fr.clear();
             return res;
         }
-        if (res.error = this->calibrations.transform(fr); res.error) return res;
-        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {
                 .message = "Dropped samples",
                 .description = std::move(description),
             };
+        if (this->times.empty()) {
+            fr.clear();
+            return res;
+        }
+        if (res.error = this->calibrations.transform(fr); res.error) return res;
+        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
             fr.series->at(i).write(this->times);
         return res;
