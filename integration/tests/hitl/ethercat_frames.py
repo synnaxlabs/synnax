@@ -26,6 +26,11 @@ USB_WARNING = re.compile(
     r"rate\."
 )
 """The adapter name comes from the station."""
+HOLD = 10 * sy.TimeSpan.SECOND
+"""How long the Driver keeps the warning after the last dropped sample."""
+MIN_GAP = HOLD - 1100 * sy.TimeSpan.MILLISECOND
+"""The Driver can send a status up to one 1 s window late, and stamps it with its wall
+clock, so a held warning can clear a little under 9 s after the last warning."""
 
 _STATUS_CHANNEL = "sy_status_set"
 _INDEX = "hitl_ethercat_time"
@@ -92,32 +97,43 @@ class _Read(TestCase):
 
 
 class EtherCATDroppedSamplesAt1kHz(_Read):
-    """Checks that a bus that drops frames on a USB adapter holds one warning that names
-    the adapter, and does not flip back to "Task running"."""
+    """Checks that a bus that drops frames on a USB adapter warns with a text that names
+    the adapter, and keeps each warning until the bus is quiet for HOLD."""
 
     task_name = "HITL EtherCAT Dropped Samples"
     SAMPLE_RATE = 1 * sy.Rate.KHZ
 
     def run(self) -> None:
         statuses, _ = self.read()
-        first = next(
-            (i for i, s in enumerate(statuses) if s.variant == "warning"), None
-        )
-        if first is None:
-            self.fail(f"Expected a Dropped samples warning in {DURATION}")
-        for status in statuses[first:]:
-            if status.variant != "warning":
+        last_warning: sy.TimeStamp | None = None
+        for status in statuses:
+            if status.variant == "warning":
+                if status.message != "Dropped samples" or not USB_WARNING.fullmatch(
+                    status.description
+                ):
+                    self.fail(
+                        "Expected Dropped samples with the USB adapter text, but got "
+                        f"{status_text(status)}"
+                    )
+                self.log(f"{status.time}: Dropped samples")
+                last_warning = status.time
+            elif last_warning is None:
+                continue
+            elif status.variant == "success" and status.message == "Task running":
+                gap = status.time - last_warning
+                self.log(f"{status.time}: Task running, {gap} after the last warning")
+                if gap < MIN_GAP:
+                    self.fail(
+                        f"Expected the warning to hold for at least {MIN_GAP}, but "
+                        f"Task running came {gap} after it"
+                    )
+            else:
                 self.fail(
-                    "Expected the warning to hold until the stop, but got "
+                    "Expected only the warning and Task running, but got "
                     f"{status.variant}: {status_text(status)}"
                 )
-            if status.message != "Dropped samples" or not USB_WARNING.fullmatch(
-                status.description
-            ):
-                self.fail(
-                    "Expected Dropped samples with the USB adapter text, but got "
-                    f"{status_text(status)}"
-                )
+        if last_warning is None:
+            self.fail(f"Expected a Dropped samples warning in {DURATION}")
 
 
 class EtherCATSamplesAt500Hz(_Read):
