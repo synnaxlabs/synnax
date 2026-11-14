@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <mutex>
 #include <string>
@@ -127,6 +128,41 @@ public:
     }
 };
 
+/// @brief a source whose read waits for an interrupt, or for five seconds.
+class InterruptibleSource final : public Source {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool interrupted = false;
+
+public:
+    std::atomic<bool> reading = false;
+
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
+        return synnax::framer::WriterConfig();
+    }
+
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return {};
+    }
+
+    ReadResult read(x::breaker::Breaker &, x::telem::Frame &) override {
+        std::unique_lock lock(this->mu);
+        this->reading = true;
+        this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->interrupted;
+        });
+        return {.error = errors::NOMINAL_SHUTDOWN_ERROR};
+    }
+
+    void interrupt() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->interrupted = true;
+        }
+        this->cv.notify_all();
+    }
+};
+
 const Warning FIRST_WARNING{.message = "Bad read", .description = "first warning"};
 const Warning SECOND_WARNING{.message = "Bad read", .description = "second warning"};
 
@@ -193,6 +229,32 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should interrupt a read that blocks when the task stops, and report a
+/// successful stop.
+TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto source = std::make_unique<InterruptibleSource>();
+    const auto *interruptible = source.get();
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(source),
+        std::make_shared<pipeline::testutil::WriterFactory>()
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_TRUE(interruptible->reading.load());
+    const auto stopping = std::chrono::steady_clock::now();
+    ASSERT_TRUE(read_task.stop("stop_cmd", true));
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 /// @brief a start on a running task should ack the command without reopening
@@ -849,6 +911,13 @@ TEST(TestCommonReadTask, testWarningLogsAfterTemporaryError) {
          {.warning = FIRST_WARNING}}
     ).run(5);
     EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+}
+
+/// @brief it should not log a read that ends because the task stopped as an error.
+TEST(TestCommonReadTask, testNominalShutdownLogsNoError) {
+    ErrorSink sink;
+    ScriptedRead({{.error = errors::NOMINAL_SHUTDOWN_ERROR}}).run(1);
+    EXPECT_EQ(sink.count(errors::NOMINAL_SHUTDOWN_ERROR.type), 0);
 }
 
 /// @brief it should log a warning once in each run.

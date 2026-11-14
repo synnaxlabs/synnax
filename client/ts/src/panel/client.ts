@@ -46,7 +46,12 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const LINES: Lines = { ...group.MEMBER_LINES, ...project.MEMBER_LINES };
+const LINES: Lines = {
+  ...group.MEMBER_LINES,
+  ...project.MEMBER_LINES,
+  owners: ({ owner }, keys) => owner != null && keys.includes(owner),
+  owned: ({ owner }, owned) => (owner != null) === owned,
+};
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -196,6 +201,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
    */
   async redo(key: Key): Promise<boolean> {
     return await this.dispatcher.redo(key);
+  }
+
+  /**
+   * Resolves once no dispatch to the panel that this client sent is in flight. Each
+   * one either reached the Core or failed and rolled back the cached panel, so read
+   * the panel again after this resolves.
+   */
+  async settled(key: Key): Promise<void> {
+    await this.dispatcher.settled(key);
   }
 
   /** Whether the panel has a live undo entry. */

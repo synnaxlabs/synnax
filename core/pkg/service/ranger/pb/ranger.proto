@@ -19,6 +19,13 @@ import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
 
+// Stage is where a range stands against the current time.
+enum Stage {
+  STAGE_TO_DO = 0;
+  STAGE_IN_PROGRESS = 1;
+  STAGE_COMPLETED = 2;
+}
+
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
 message Range {
@@ -37,6 +44,9 @@ message Range {
   // parent is the key of the range this range is nested in. Empty for a top-level
   // range.
   optional string parent = 6;
+  // has_children is true when a range is nested in the range, derived on read and not
+  // persisted.
+  bool has_children = 7;
 }
 message WhereList {
   repeated Where values = 1;
@@ -59,6 +69,9 @@ message LabelKeyList {
 message KeyList {
   repeated string values = 1;
 }
+message StageList {
+  repeated Stage values = 1;
+}
 
 // Where is a filter that selects ranges.
 message Where {
@@ -78,4 +91,13 @@ message Where {
   LabelKeyList labels = 7;
   // parents matches the ranges nested in any of the given ranges.
   KeyList parents = 8;
+  // nested matches the ranges nested in a range, or top-level ranges when false.
+  optional bool nested = 9;
+  // labeled matches ranges that have a label, or ranges with none when false.
+  optional bool labeled = 10;
+  // stages matches ranges in any of the given stages at the Core's clock.
+  StageList stages = 11;
+  // recent matches ranges that overlap the span ending now, or starting now if
+  // negative.
+  optional int64 recent = 12;
 }

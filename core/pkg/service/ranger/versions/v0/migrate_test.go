@@ -173,6 +173,27 @@ var _ = Describe("Migration", func() {
 		},
 	)
 	It(
+		"Should swap the ends of a range that starts after it ends",
+		func(ctx SpecContext) {
+			bareTable := MustSucceed(gorp.OpenTable(
+				ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db},
+			))
+			r := v0.Range{
+				Key:       uuid.New(),
+				Name:      "Inverted",
+				TimeRange: telem.TimeRange{Start: 20, End: 10},
+			}
+			Expect(bareTable.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			Expect(bareTable.Close()).To(Succeed())
+			runMigration(ctx)
+			var res v0.Range
+			Expect(gorp.NewRetrieve[v0.Key, v0.Range]().
+				Where(gorp.MatchKeys[v0.Key, v0.Range](r.Key)).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.TimeRange).To(Equal(telem.TimeRange{Start: 10, End: 20}))
+		},
+	)
+	It(
 		"Should keep a Ranges group on a store a v0.53 Core already migrated",
 		func(ctx SpecContext) {
 			Expect(db.Set(

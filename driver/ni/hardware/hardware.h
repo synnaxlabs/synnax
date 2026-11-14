@@ -9,6 +9,11 @@
 
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+
 #include "driver/common/read_task.h"
 #include "driver/ni/daqmx/sugared.h"
 
@@ -21,6 +26,10 @@ struct Hardware {
 
     /// @brief stops the task.
     [[nodiscard]] virtual x::errors::Error stop() = 0;
+
+    /// @brief ends a read or write that runs on another thread, which then returns an
+    /// error. Safe to call from any thread. Call stop() before the next start().
+    [[nodiscard]] virtual x::errors::Error abort() = 0;
 };
 
 struct ReadResult : common::ReadResult {
@@ -72,6 +81,9 @@ public:
 
     /// @brief implements the HardwareInterface to stop the DAQmx task.
     x::errors::Error stop() override;
+
+    /// @brief aborts the DAQmx task. A blocked read returns at once.
+    x::errors::Error abort() override;
 };
 
 /// @brief Implementation of digital output writing using DAQmx
@@ -164,6 +176,8 @@ struct Base : virtual Hardware {
     size_t start_call_count;
     /// @brief Number of times stop() was called
     size_t stop_call_count;
+    /// @brief Number of times abort() was called
+    std::atomic<size_t> abort_call_count = 0;
 
 protected:
     explicit Base(
@@ -171,9 +185,17 @@ protected:
         const std::vector<x::errors::Error> &stop_errors = {x::errors::NIL}
     );
 
+    /// @brief waits until abort() is called, or until the timeout.
+    void wait_for_abort(std::chrono::nanoseconds timeout);
+
 public:
     x::errors::Error start() override;
     x::errors::Error stop() override;
+    x::errors::Error abort() override;
+
+private:
+    std::mutex mu;
+    std::condition_variable aborted;
 };
 
 /// @brief Mock implementation of Reader interface for testing
@@ -186,6 +208,9 @@ public:
         std::vector<T> data;
         x::errors::Error error = x::errors::NIL;
         int64 skew = 0;
+        /// @brief whether the read waits up to five seconds for abort() before it
+        /// returns, as a DAQmx read waits for samples that never arrive.
+        bool waits_for_abort = false;
     };
 
     std::vector<ReadResponse> read_responses;
@@ -217,6 +242,7 @@ public:
 
     x::errors::Error start() override { return this->wrapped->start(); }
     x::errors::Error stop() override { return this->wrapped->stop(); }
+    x::errors::Error abort() override { return this->wrapped->abort(); }
     ReadResult read(size_t samples_per_channel, std::vector<T> &data) override {
         return this->wrapped->read(samples_per_channel, data);
     }
@@ -234,6 +260,7 @@ public:
 
     x::errors::Error start() override { return this->wrapped->start(); }
     x::errors::Error stop() override { return this->wrapped->stop(); }
+    x::errors::Error abort() override { return this->wrapped->abort(); }
     x::errors::Error write(const std::vector<T> &data) override {
         return this->wrapped->write(data);
     }

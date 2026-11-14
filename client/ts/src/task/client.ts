@@ -110,9 +110,9 @@ const isRackHealthy = (stat: status.Status): boolean =>
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 /**
- * How long an acknowledged command waits for its final status. The Driver fails an
- * operation that takes longer than 60 s, so this limit ends only a wait whose command
- * was lost, for example to a Driver restart.
+ * How long an acknowledged command waits for its next status. Each loading status
+ * restarts the wait, so this limit ends only a wait whose command was lost, for example
+ * to a Driver restart.
  */
 const FINAL_STATUS_TIMEOUT = TimeSpan.minutes(2);
 
@@ -150,8 +150,9 @@ export interface ExecuteCommandsParams {
 /** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   /**
-   * How long to wait for the Driver to acknowledge the command. Once it does, the wait
-   * for the final status lasts two minutes or the timeout, whichever is longer.
+   * How long to wait for the Driver to acknowledge the command. Once it does, each
+   * loading status restarts the wait for the next status, which lasts two minutes or
+   * the timeout, whichever is longer.
    */
   timeout?: CrudeTimeSpan;
 }
@@ -718,8 +719,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A waiting command shows each new problem of its rack, since the Core copies an
-  // outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core's outage copy
+  // carries no command key and so never answers the command.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
@@ -1036,7 +1037,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     ? parsedTimeout
     : FINAL_STATUS_TIMEOUT;
   const collect = async (
-    acknowledge: (cmd: string) => void,
+    acknowledge: (cmd: string, loading: boolean) => void,
   ): Promise<Status<StatusData>[]> => {
     let states: Status<StatusData>[] = [];
     while (true) {
@@ -1060,7 +1061,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         // Any reply acknowledges its command. A loading reply is not the final one.
-        acknowledge(state.details.cmd);
+        acknowledge(state.details.cmd, state.variant === "loading");
         if (state.variant === "loading") continue;
         states = [...states.filter((s) => s.key !== state.key), state];
         if (states.length === cmdKeys.length) return states;
@@ -1079,10 +1080,12 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         }, span.milliseconds);
       let timer = timeOutAfter(parsedTimeout);
       const acknowledged = new Set<string>();
-      const acknowledge = (cmd: string): void => {
-        if (acknowledged.has(cmd)) return;
+      // A loading status shows the Driver still works on its command, so once every
+      // command is acknowledged, it starts the wait again.
+      const acknowledge = (cmd: string, loading: boolean): void => {
+        const first = !acknowledged.has(cmd);
         acknowledged.add(cmd);
-        if (acknowledged.size < cmdKeys.length) return;
+        if (acknowledged.size < cmdKeys.length || (!first && !loading)) return;
         clearTimeout(timer);
         timer = timeOutAfter(finalTimeout);
       };

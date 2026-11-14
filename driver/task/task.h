@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -43,7 +44,9 @@ public:
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
-    virtual void exec(synnax::task::Command &cmd) {}
+    /// @param cancel stops when the task manager stops its workers, after it stops its
+    /// tasks. A task should end a long wait when it stops.
+    virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -178,12 +181,15 @@ inline constexpr auto NO_COMMAND = "";
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns each created task with its live instance, or with null when its
     /// configure failed.
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) {
         return {};
     }
@@ -192,11 +198,14 @@ public:
 
     /// @brief builds a live instance of the task if this factory handles its type.
     /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) = 0;
 
     virtual ~Factory() = default;
@@ -212,13 +221,14 @@ public:
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
             const std::string factory_name = factory->name();
             VLOG(1) << "[" << factory_name << "] configuring initial tasks";
-            auto new_tasks = factory->configure_initial_tasks(ctx, rack);
+            auto new_tasks = factory->configure_initial_tasks(ctx, rack, cancel);
             VLOG(1) << "[" << factory_name << "] configured " << new_tasks.size()
                     << " initial tasks";
             for (auto &task: new_tasks)
@@ -230,10 +240,11 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configure_task(ctx, task, cmd_key);
+            auto [t, ok] = factory->configure_task(ctx, task, cmd_key, cancel);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};
@@ -318,8 +329,10 @@ public:
         this->ctx->set_rack_name(this->rack.name);
     }
 
-    /// @brief runs the main task manager loop, blocking until stop() is called.
-    /// Safe to call stop() from another thread.
+    /// @brief runs the main task manager loop, blocking until stop() is called or the
+    /// connection to the Core fails. Safe to call stop() from another thread. Call it
+    /// again after an error to run the tasks again; it is not safe to call while a call
+    /// is in progress.
     x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
@@ -410,6 +423,8 @@ private:
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
+    /// @brief the number of runs started, which names the current run.
+    std::atomic<uint64_t> runs{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -427,6 +442,9 @@ private:
         synnax::channel::Channel rack_set;
     } channels;
 
+    /// @brief configures the tasks and applies the events of the Core until the
+    /// streamer stops.
+    x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
@@ -459,8 +477,9 @@ private:
     void start_workers();
     /// @brief stops workers and waits for them to finish.
     void stop_workers();
-    /// @brief main loop for worker threads - pops and executes operations.
-    void worker_loop();
+    /// @brief main loop for worker threads - pops and executes operations until run
+    /// ends.
+    void worker_loop(uint64_t run);
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
@@ -476,6 +495,9 @@ private:
         const std::string &config_hash,
         const synnax::task::Command &cmd
     );
+    /// @brief replaces a "Starting task" status that a previous Driver run or a run
+    /// before a Core outage left stored with a failed start.
+    void fail_interrupted_start(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(
         const synnax::task::Task &tsk,

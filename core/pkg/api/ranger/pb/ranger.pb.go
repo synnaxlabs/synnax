@@ -39,6 +39,7 @@ type OrderField int32
 const (
 	OrderField_ORDER_FIELD_NAME             OrderField = 0
 	OrderField_ORDER_FIELD_TIME_RANGE_START OrderField = 1
+	OrderField_ORDER_FIELD_TIME_RANGE_END   OrderField = 2
 )
 
 // Enum value maps for OrderField.
@@ -46,10 +47,12 @@ var (
 	OrderField_name = map[int32]string{
 		0: "ORDER_FIELD_NAME",
 		1: "ORDER_FIELD_TIME_RANGE_START",
+		2: "ORDER_FIELD_TIME_RANGE_END",
 	}
 	OrderField_value = map[string]int32{
 		"ORDER_FIELD_NAME":             0,
 		"ORDER_FIELD_TIME_RANGE_START": 1,
+		"ORDER_FIELD_TIME_RANGE_END":   2,
 	}
 )
 
@@ -90,8 +93,11 @@ type Cursor struct {
 	// time_range_start is the time range start of the range at the position, when the
 	// order sorts by it.
 	TimeRangeStart *int64 `protobuf:"varint,3,opt,name=time_range_start,json=timeRangeStart,proto3,oneof" json:"time_range_start,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// time_range_end is the time range end of the range at the position, when the order
+	// sorts by it.
+	TimeRangeEnd  *int64 `protobuf:"varint,4,opt,name=time_range_end,json=timeRangeEnd,proto3,oneof" json:"time_range_end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Cursor) Reset() {
@@ -141,6 +147,13 @@ func (x *Cursor) GetName() string {
 func (x *Cursor) GetTimeRangeStart() int64 {
 	if x != nil && x.TimeRangeStart != nil {
 		return *x.TimeRangeStart
+	}
+	return 0
+}
+
+func (x *Cursor) GetTimeRangeEnd() int64 {
+	if x != nil && x.TimeRangeEnd != nil {
+		return *x.TimeRangeEnd
 	}
 	return 0
 }
@@ -332,13 +345,15 @@ var File_core_pkg_api_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a'core/pkg/service/ranger/pb/ranger.proto\"\x80\x01\n" +
+	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a'core/pkg/service/ranger/pb/ranger.proto\"\xbe\x01\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12-\n" +
-	"\x10time_range_start\x18\x03 \x01(\x03H\x01R\x0etimeRangeStart\x88\x01\x01B\a\n" +
+	"\x10time_range_start\x18\x03 \x01(\x03H\x01R\x0etimeRangeStart\x88\x01\x01\x12)\n" +
+	"\x0etime_range_end\x18\x04 \x01(\x03H\x02R\ftimeRangeEnd\x88\x01\x01B\a\n" +
 	"\x05_nameB\x13\n" +
-	"\x11_time_range_start\"X\n" +
+	"\x11_time_range_startB\x11\n" +
+	"\x0f_time_range_end\"X\n" +
 	"\x05Order\x12/\n" +
 	"\x05field\x18\x01 \x01(\x0e2\x19.api.ranger.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
@@ -356,11 +371,12 @@ const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x06_afterB\b\n" +
 	"\x06_limit\"D\n" +
 	"\x10RetrieveResponse\x120\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges*D\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges*d\n" +
 	"\n" +
 	"OrderField\x12\x14\n" +
 	"\x10ORDER_FIELD_NAME\x10\x00\x12 \n" +
-	"\x1cORDER_FIELD_TIME_RANGE_START\x10\x01B\xa6\x01\n" +
+	"\x1cORDER_FIELD_TIME_RANGE_START\x10\x01\x12\x1e\n" +
+	"\x1aORDER_FIELD_TIME_RANGE_END\x10\x02B\xa6\x01\n" +
 	"\x11com.api.ranger.pbB\vRangerProtoP\x01Z.github.com/synnaxlabs/synnax/pkg/api/ranger/pb\xa2\x02\x03ARP\xaa\x02\rApi.Ranger.Pb\xca\x02\rApi\\Ranger\\Pb\xe2\x02\x19Api\\Ranger\\Pb\\GPBMetadata\xea\x02\x0fApi::Ranger::Pbb\x06proto3"
 
 var (

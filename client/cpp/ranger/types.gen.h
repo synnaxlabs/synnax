@@ -35,14 +35,19 @@
 namespace synnax::ranger {
 
 struct Range;
-struct Where;
 struct Cursor;
+struct Where;
 struct Order;
 struct RetrieveResponse;
 struct RetrieveRequest;
 
+constexpr const char *STAGE_TO_DO = "to_do";
+constexpr const char *STAGE_IN_PROGRESS = "in_progress";
+constexpr const char *STAGE_COMPLETED = "completed";
+
 constexpr const char *ORDER_FIELD_NAME = "name";
 constexpr const char *ORDER_FIELD_TIME_RANGE_START = "time_range_start";
+constexpr const char *ORDER_FIELD_TIME_RANGE_END = "time_range_end";
 
 using Key = x::uuid::UUID;
 
@@ -64,6 +69,9 @@ struct Range {
     /// @brief parent is the key of the range this range is nested in. Empty for a
     /// top-level range.
     std::optional<Key> parent;
+    /// @brief has_children is true when a range is nested in the range, derived on read
+    /// and not persisted.
+    bool has_children = false;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -74,6 +82,31 @@ struct Range {
     static std::pair<Range, x::errors::Error>
     from_proto(const ::service::ranger::pb::Range &pb);
     ranger::kv::Client kv;
+};
+
+/// @brief Cursor is a position in an order of ranges: the sort value and the key of a
+/// range.
+struct Cursor {
+    /// @brief key is the key of the range at the position.
+    Key key;
+    /// @brief name is the name of the range at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
+    /// @brief time_range_start is the time range start of the range at the position,
+    /// when the order sorts by it.
+    std::optional<::x::telem::TimeStamp> time_range_start;
+    /// @brief time_range_end is the time range end of the range at the position, when
+    /// the order sorts by it.
+    std::optional<::x::telem::TimeStamp> time_range_end;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ranger::pb::Cursor;
+    [[nodiscard]] std::pair<::api::ranger::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::ranger::pb::Cursor &pb);
 };
 
 /// @brief Where is a filter that selects ranges.
@@ -94,6 +127,16 @@ struct Where {
     ::x::filter::List<::synnax::label::Key> labels;
     /// @brief parents matches the ranges nested in any of the given ranges.
     ::x::filter::List<Key> parents;
+    /// @brief nested matches the ranges nested in a range, or top-level ranges when
+    /// false.
+    std::optional<bool> nested;
+    /// @brief labeled matches ranges that have a label, or ranges with none when false.
+    std::optional<bool> labeled;
+    /// @brief stages matches ranges in any of the given stages at the Core's clock.
+    ::x::filter::List<std::string> stages;
+    /// @brief recent matches ranges that overlap the span ending now, or starting now
+    /// if negative.
+    std::optional<::x::telem::TimeSpan> recent;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -128,28 +171,6 @@ struct Where {
     to_proto() const;
     static std::pair<Where, x::errors::Error>
     from_proto(const ::service::ranger::pb::Where &pb);
-};
-
-/// @brief Cursor is a position in an order of ranges: the sort value and the key of a
-/// range.
-struct Cursor {
-    /// @brief key is the key of the range at the position.
-    Key key;
-    /// @brief name is the name of the range at the position, when the order sorts by
-    /// it.
-    std::optional<std::string> name;
-    /// @brief time_range_start is the time range start of the range at the position,
-    /// when the order sorts by it.
-    std::optional<::x::telem::TimeStamp> time_range_start;
-
-    static Cursor parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::ranger::pb::Cursor;
-    [[nodiscard]] std::pair<::api::ranger::pb::Cursor, x::errors::Error>
-    to_proto() const;
-    static std::pair<Cursor, x::errors::Error>
-    from_proto(const ::api::ranger::pb::Cursor &pb);
 };
 
 /// @brief Order is a sort of ranges.

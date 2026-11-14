@@ -60,6 +60,12 @@ const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
     .advice = slave::DC_SYNC_ADVICE,
 };
+/// @brief a refusal of a slave that kept the layout of its earlier mode.
+const slave::Refusal STALE_LAYOUT_REFUSAL{
+    .reason = "refused SAFE-OP: Invalid input configuration",
+    .advice = slave::MODE_RESTART_ADVICE,
+    .code = 0x001E,
+};
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
 constexpr size_t I16_BYTE = 0;
@@ -1473,6 +1479,66 @@ TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
     EXPECT_EQ(this->read_times(*other, 1).size(), 1);
+}
+
+/// @brief it should start again with a slave that refused its layout once, as after a
+/// mode change, instead of leaving it out.
+TEST_F(EngineTest, StartsAgainWithASlaveThatRefusedAStaleLayout) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_TRUE(this->master->plan().slaves[1].enabled);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should start again with the only slave on the bus when it refuses its
+/// layout once.
+TEST_F(EngineTest, StartsAgainWithTheOnlySlaveWhenItRefusesAStaleLayout) {
+    this->master->refuse(0, STALE_LAYOUT_REFUSAL, 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should leave out a slave that refuses its layout again after the reset.
+TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_FALSE(this->master->plan().slaves[1].enabled);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid input "
+        "configuration. Fix the device, then stop every task on the network to try it "
+        "again. If the mode of the device changed, restart its power."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should leave out a slave with another refusal in the same pass that resets
+/// a slave with a stale layout.
+TEST_F(EngineTest, LeavesOutAnotherRefusalWhileItResetsAStaleLayout) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
+    this->master->refuse(2, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    auto plan = this->master->plan();
+    EXPECT_TRUE(plan.slaves[1].enabled);
+    EXPECT_FALSE(plan.slaves[2].enabled);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
 /// @brief it should cycle the bus while the slaves move to OP.

@@ -29,9 +29,8 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-/* The input chassis ladder: the button ladder without "filled", plus "shadow", an
-   edit-in-place cell whose invisible chassis materializes on hover. */
-export type Variant = Extract<Button.Variant, "outlined" | "text"> | "shadow";
+/** The button variants an input draws with. A shadow input is an edit-in-place cell. */
+export type Variant = Extract<Button.Variant, "outlined" | "text" | "shadow">;
 
 /** Base props shared by every input in the library. */
 export interface InputProps<I = unknown, O = I>

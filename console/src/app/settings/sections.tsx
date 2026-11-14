@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, license } from "@synnaxlabs/client";
+import { label, license, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -19,8 +19,29 @@ import { Label } from "@/feature/label";
 import { License } from "@/feature/license";
 import { Persist } from "@/feature/persist";
 import { Theme } from "@/feature/theme";
+import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
 import { Settings } from "@/platform/settings";
+
+const Profile = (): ReactElement => (
+  <Settings.Page title="Profile">
+    <User.ProfileSettings />
+  </Settings.Page>
+);
+
+const APIKeys = (): ReactElement => (
+  <Settings.Page title="API keys">
+    <User.KeySettings />
+  </Settings.Page>
+);
+
+const Users = (): ReactElement => (
+  <Settings.Page title="Users">
+    <User.Members />
+  </Settings.Page>
+);
+
+const useUsersVisible = (): boolean => Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
 
 const Labels = (): ReactElement => (
   <Settings.Page title="Labels">
@@ -83,13 +104,35 @@ const PREFERENCES: Settings.Section[] = [
   { key: "storage", name: "Storage", icon: <Icon.Database />, Content: Storage },
 ];
 
+// Desktop runs a single-user embedded Core, so it has no accounts to manage.
+const ACCOUNT: Settings.Group = {
+  key: "account",
+  name: "Account",
+  sections: [
+    { key: "profile", name: "Profile", icon: <Icon.User />, Content: Profile },
+    { key: "api_keys", name: "API keys", icon: <Icon.Lock />, Content: APIKeys },
+  ],
+};
+
 export const GROUPS: Settings.Group[] = [
+  ...(DESKTOP ? [] : [ACCOUNT]),
   { key: "preferences", name: "Preferences", sections: PREFERENCES },
   {
     key: "core",
     name: "Core",
     sections: [
       { key: "general", name: "General", icon: <Icon.Core />, Content: General },
+      ...(DESKTOP
+        ? []
+        : [
+            {
+              key: "users",
+              name: "Users",
+              icon: <Icon.User />,
+              Content: Users,
+              useVisible: useUsersVisible,
+            },
+          ]),
       {
         key: LABELS_SECTION,
         name: "Labels",

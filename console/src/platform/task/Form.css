@@ -60,17 +60,6 @@
             margin-top: 1rem;
         }
 
-        .console-task-channel-form-container {
-            border-radius: var(--pluto-border-radius-large);
-            overflow: hidden;
-            background: var(--pluto-gray-l1);
-            border-color: var(--pluto-gray-l6);
-
-            .lyra-header {
-                background: var(--pluto-gray-l2);
-            }
-        }
-
         .console-channel-list {
             overflow: hidden;
         }
