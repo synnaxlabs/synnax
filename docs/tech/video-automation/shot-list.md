@@ -28,8 +28,7 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
 - **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
   `console/schematics/edit-several-elements` (drag select box), symbol placement in any
   schematic shot.
-- **Context menus**: `console/calculated-channels/edit`,
-  `console/users/modal-change-role`, `device-drivers/task/toolbar`,
+- **Context menus**: `console/calculated-channels/edit`, `device-drivers/task/toolbar`,
   `device-drivers/ni/configure-device/ni-configure-device`,
   `device-drivers/labjack/configure-device/lj-configure`,
   `device-drivers/ethercat/configure-device/ethercat-configure`,
@@ -97,13 +96,12 @@ All on reference/get-started/sample-project.mdx.
 
 ## console/users
 
-- `console/users/register` (reference/enterprise/users.mdx) -> open the command palette
-  (Cmd/Ctrl+Shift+P) -> run "Register a User" -> fill username/password and pick a role
-  in the dialog -> submit -> the new user appears in the Users Toolbar.
-- `console/users/modal-change-role` (reference/enterprise/users.mdx) -> open the Users
-  Toolbar -> right-click an existing user -> select "Assign to role" -> pick a role from
-  the dropdown in the dialog and click "Assign" -> the user moves under the new role ->
-  requires a pre-seeded non-root user.
+- `console/users/register` (reference/enterprise/users.mdx) -> on the Users page of
+  Settings, click "Create user" -> fill name, username, and password and pick a role in
+  the dialog -> submit -> the new user appears in the table.
+- `console/users/modal-change-role` (reference/enterprise/users.mdx) -> on the Users
+  page of Settings, open the role select of an existing user -> pick a new role -> the
+  select shows it -> requires a pre-seeded non-root user.
 
 ## console/channels
 

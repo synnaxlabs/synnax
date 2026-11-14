@@ -168,6 +168,28 @@ describe("Write", () => {
     );
   });
 
+  it("should mark in the list each channel that shares an entry", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { outputs } = createRepeatedNamePDOs();
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[0]),
+      ],
+    });
+    const shared = await screen.findAllByRole("option", { name: /0x7030:01/ });
+    await waitFor(() =>
+      expect(shared.map((o) => o.classList.contains("lyra--status-error"))).toEqual([
+        true,
+        true,
+      ]),
+    );
+    const alone = screen.getByRole("option", { name: /0x7000:01/ });
+    expect(alone.classList.contains("lyra--status-error")).toBe(false);
+  });
+
   it("should block configuration when two channels use the same entry", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     const { outputs } = createRepeatedNamePDOs();
