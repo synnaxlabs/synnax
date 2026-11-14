@@ -13,6 +13,7 @@
 #include <format>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -478,8 +479,11 @@ void Engine::supervise() {
     }
 }
 
-x::errors::Error
-Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> configs) {
+x::errors::Error Engine::start_locked(
+    const uint64_t mhz,
+    const std::vector<SavedSlave> &saved,
+    const Settings &settings
+) {
     const auto start_cycle = [this, mhz](const master::Image &image) {
         this->image = image;
         {
@@ -494,7 +498,6 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     };
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
-        .slaves = std::move(configs),
     };
     this->left_out.clear();
     std::set<uint16_t> reset;
@@ -509,6 +512,9 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+        }
+        if (!err) {
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
@@ -542,12 +548,10 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             else
                 this->master->deactivate();
             if (!refused.empty() && io_left) {
-                for (const auto &[pos, refusal]: leaving) {
+                for (const auto &[pos, refusal]: leaving)
                     LOG(WARNING)
                         << "[ethercat] starting " << this->iface << " without slave "
                         << pos << ": it " << refusal.reason;
-                    plan.slaves[pos].enabled = false;
-                }
                 for (const auto &s: this->slaves)
                     if (const auto it = leaving.find(s.properties.position);
                         it != leaving.end())
@@ -602,7 +606,58 @@ void Engine::stop_locked() {
     this->slave_health.clear();
 }
 
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_locked(
+    const std::vector<SavedSlave> &saved,
+    const Settings &settings
+) const {
+    std::vector<slave::Identity> identities;
+    identities.reserve(saved.size());
+    for (const auto &s: saved)
+        identities.push_back(s.identity);
+    const auto found = slave::locate(identities, this->slaves);
+    std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, const slave::Identity *> owners;
+    for (size_t i = 0; i < saved.size(); ++i) {
+        const auto position = found[i];
+        if (!position) continue;
+        const auto &[identity, config] = saved[i];
+        const auto [owner, added] = owners.emplace(*position, &identity);
+        if (added) {
+            configs[*position] = config;
+            continue;
+        }
+        if (configs[*position] == config) continue;
+        const auto label = [](const slave::Identity &id) {
+            return id.serial == 0 ? id.name
+                                  : std::format("{} (serial {})", id.name, id.serial);
+        };
+        auto first = label(*owner->second);
+        auto second = label(identity);
+        if (second < first) std::swap(first, second);
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved for slave {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    *position,
+                    this->network_name
+                )
+            )
+        };
+    }
+    for (const auto &[pos, params]: settings)
+        configs[pos].add_startup_parameters(params);
+    for (const auto &[pos, _]: this->left_out)
+        configs[pos].enabled = false;
+    return {configs, x::errors::NIL};
+}
+
+std::pair<std::vector<SavedSlave>, x::errors::Error>
 Engine::read_slave_configs(std::unique_lock<std::mutex> &lock) const {
     while (!this->running()) {
         const auto stops = this->stops;
@@ -797,7 +852,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const bool output,
     const Settings &settings
 ) {
-    auto [configs, configs_err] = this->read_slave_configs(lock);
+    const auto [saved, configs_err] = this->read_slave_configs(lock);
     if (auto err = this->check_settings_locked(settings)) return {{}, err};
     auto reads = this->read_rates_locked();
     auto writes = this->write_rates_locked();
@@ -807,10 +862,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const bool started = !this->running();
     if (started) {
         if (configs_err) return {{}, configs_err};
-        for (const auto &[pos, params]: settings)
-            configs[pos].add_startup_parameters(params);
-        if (auto err = this->start_locked(mhz, std::move(configs)); err)
-            return {{}, err};
+        if (auto err = this->start_locked(mhz, saved, settings); err) return {{}, err};
     }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {

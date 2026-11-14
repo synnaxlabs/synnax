@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
-#include <format>
-#include <map>
-#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -77,13 +75,11 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-/// @brief returns the settings saved for each slave on the network, keyed by position.
-/// Its errors call the network name. At a position that holds a connected device, the
-/// devices that are not connected give way to it.
+/// @brief returns the settings saved for the slaves on the network. Its errors call the
+/// network name.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings and none of them is connected.
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
+/// properties, since the bus starts every slave on it.
+std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
     const std::string &network,
@@ -94,8 +90,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             .make = DEVICE_MAKE,
             .model = SLAVE_DEVICE_MODEL,
             .rack = rack,
-        },
-        {.include_status = true}
+        }
     );
     if (dev_err)
         return {
@@ -106,13 +101,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                     " from the Core: " + dev_err.data
             )
         };
-    const auto connected = [](const synnax::device::Device &dev) {
-        return dev.status.has_value() && dev.status->details.connected;
-    };
-    std::ranges::stable_partition(devices, connected);
-    std::map<uint16_t, slave::Config> configs;
-    std::map<uint16_t, std::string> labels;
-    std::set<uint16_t> held;
+    std::vector<engine::SavedSlave> saved;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -128,36 +117,19 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                         common::config_err_description(parser.error())
                 )
             };
-        const auto label = props.serial == 0
-                             ? dev.name
-                             : std::format("{} (serial {})", dev.name, props.serial);
-        const auto &config = props.config;
-        const auto [it, added] = configs.emplace(props.position, config);
-        if (added) {
-            labels[props.position] = label;
-            if (connected(dev)) held.insert(props.position);
-            continue;
-        }
-        if (it->second == config || (held.contains(props.position) && !connected(dev)))
-            continue;
-        const auto [first, second] = std::minmax(labels[props.position], label);
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "{} and {} are both saved at position {} on {} with different "
-                    "settings. Give them the same settings, or delete the device that "
-                    "is no longer on the bus.",
-                    first,
-                    second,
-                    props.position,
-                    name
-                )
-            )
-        };
+        saved.push_back({
+            .identity =
+                {
+                    .position = props.position,
+                    .vendor_id = props.vendor_id,
+                    .product_code = props.product_code,
+                    .serial = props.serial,
+                    .name = dev.name,
+                },
+            .config = props.config,
+        });
     }
-    return {configs, x::errors::NIL};
+    return {std::move(saved), x::errors::NIL};
 }
 }
 

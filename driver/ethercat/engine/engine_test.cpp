@@ -43,7 +43,7 @@ const std::string
 
 /// @brief a loader for a network with no saved slave settings.
 const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &, const std::string &) {
-    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
 };
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
@@ -100,6 +100,21 @@ slave::Properties io_slave(const uint16_t position) {
     };
 }
 
+/// @brief the saved settings of slave.
+SavedSlave saved(const slave::Properties &slave, slave::Config config) {
+    return {
+        .identity =
+            {
+                .position = slave.position,
+                .vendor_id = slave.vendor_id,
+                .product_code = slave.product_code,
+                .serial = slave.serial,
+                .name = slave.name,
+            },
+        .config = std::move(config),
+    };
+}
+
 pdo::Entry on_slave(pdo::Entry entry, const uint16_t position) {
     entry.slave_position = position;
     return entry;
@@ -126,14 +141,11 @@ Config quick_start_config() {
     return cfg;
 }
 
-/// @brief an engine configuration whose slave settings disable the slave at position.
-Config disabling(const uint16_t position) {
+/// @brief an engine configuration whose slave settings disable slave.
+Config disabling(const slave::Properties &slave) {
     Config cfg;
-    cfg.slave_configs = [position] {
-        return std::pair{
-            std::map<uint16_t, slave::Config>{{position, {.enabled = false}}},
-            x::errors::NIL
-        };
+    cfg.slave_configs = [slave] {
+        return std::pair{std::vector{saved(slave, {.enabled = false})}, x::errors::NIL};
     };
     return cfg;
 }
@@ -855,7 +867,11 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        disabling(io_slave(1))
+    );
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
@@ -870,8 +886,8 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     const auto disabled = std::make_shared<std::atomic<bool>>(true);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (disabled->load()) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (disabled->load()) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master, cfg);
@@ -899,8 +915,8 @@ TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
     const auto disabled = std::make_shared<bool>(false);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (*disabled) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (*disabled) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
@@ -923,7 +939,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{},
+            std::vector<SavedSlave>{},
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
@@ -944,10 +960,10 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
     cfg.slave_configs = [failing] {
         if (*failing)
             return std::pair{
-                std::map<uint16_t, slave::Config>{},
+                std::vector<SavedSlave>{},
                 x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
             };
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(
@@ -970,8 +986,8 @@ TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
     std::promise<void> release;
     Config cfg;
     cfg.slave_configs = [calls, disabled, released = release.get_future().share()] {
-        std::map<uint16_t, slave::Config> configs;
-        if (disabled->load()) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (disabled->load()) configs.push_back(saved(io_slave(1), {.enabled = false}));
         if (calls->fetch_add(1) == 0) released.wait();
         return std::pair{configs, x::errors::NIL};
     };
@@ -1000,8 +1016,8 @@ TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
     const auto disabled = std::make_shared<bool>(false);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (*disabled) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (*disabled) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
@@ -1024,7 +1040,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{},
+            std::vector<SavedSlave>{},
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
@@ -1045,10 +1061,10 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
     cfg.slave_configs = [failing] {
         if (*failing)
             return std::pair{
-                std::map<uint16_t, slave::Config>{},
+                std::vector<SavedSlave>{},
                 x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
             };
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(
@@ -1075,7 +1091,7 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     Config cfg;
     cfg.slave_configs = [params] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{{1, {.startup_parameters = params}}},
+            std::vector{saved(io_slave(1), {.startup_parameters = params})},
             x::errors::NIL
         };
     };
@@ -1084,6 +1100,85 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should give a moved slave the settings saved for it, not the settings of
+/// its old position.
+TEST_F(EngineTest, MovedSlaveTakesItsSavedSettings) {
+    auto other = io_slave(1);
+    other.serial = 8;
+    auto moved = io_slave(2);
+    moved.serial = 7;
+    this->master->add_slave(other);
+    this->master->add_slave(moved);
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    auto saved_at_1 = moved;
+    saved_at_1.position = 1;
+    Config cfg;
+    cfg.slave_configs = [saved_at_1, params] {
+        return std::pair{
+            std::vector{saved(saved_at_1, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->config(2).startup_parameters, params);
+    EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+}
+
+/// @brief it should give a slave whose serial number read got no answer the settings
+/// saved at its position.
+TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
+    this->master->add_slave(io_slave(1));
+    this->master->fail_serial_read(1, "no answer");
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [unit, params] {
+        return std::pair{
+            std::vector{saved(unit, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should start the bus when a saved slave is not on it, and give the slave
+/// at its saved position the defaults.
+TEST_F(EngineTest, SavedSlaveOffTheBusLeavesTheDefaults) {
+    this->master->add_slave(io_slave(1));
+    auto absent = io_slave(1);
+    absent.serial = 9;
+    Config cfg;
+    cfg.slave_configs = [absent] {
+        return std::pair{
+            std::vector{saved(absent, {.enabled = false})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_TRUE(this->master->config(1).enabled);
 }
 
 namespace {
@@ -1136,8 +1231,8 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{
-                {1, {.startup_parameters = measurement(1, 3).at(1)}}
+            std::vector{
+                saved(io_slave(1), {.startup_parameters = measurement(1, 3).at(1)})
             },
             x::errors::NIL
         };
@@ -1226,7 +1321,7 @@ TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
     Config cfg;
     cfg.slave_configs = [calls, released = release.get_future().share()] {
         if (calls->fetch_add(1) == 0) released.wait();
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
@@ -2134,7 +2229,11 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        disabling(io_slave(1))
+    );
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
@@ -2543,7 +2642,7 @@ TEST(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
         std::move(manager),
         [&loads](const std::string &network, const std::string &name) {
             loads.emplace_back(network, name);
-            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+            return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
         }
     );
     const auto engine = ASSERT_NIL_P(pool.acquire(NPF_INTERFACE));
