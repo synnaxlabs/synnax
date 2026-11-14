@@ -35,7 +35,7 @@ class EtherCATFirstScanStatus(TestCase):
     def run(self) -> None:
         owner = sy.device.resource_id(self.key)
         created: sy.TimeStamp | None = None
-        scanned: sy.TimeStamp | None = None
+        matched: list[sy.TimeStamp] = []
         with self.client.open_streamer([_DEVICES, _STATUSES]) as streamer:
             # Each pass sends the status of every device. No device set comes before
             # the delete, so this is not the status that the Driver sends after one.
@@ -53,18 +53,21 @@ class EtherCATFirstScanStatus(TestCase):
                     )
                 ):
                     created = at
-                if scanned is None and any(
-                    st.message == old.message for st in _owned(frame, owner)
-                ):
-                    scanned = at
-                # The Core can send the status of a create before its device.
-                if created is not None and scanned is not None:
+                matched += [
+                    at for st in _owned(frame, owner) if st.message == old.message
+                ]
+                # The create carries a status, which the Core can send before the
+                # device. The second status is the one that the pass sends.
+                if created is not None and len(matched) >= 2:
                     break
         if created is None:
             self.fail(f"Expected the scan to create slave {RESCANNED} again")
-        if scanned is None:
-            self.fail(f"Expected the status {old.message!r} for slave {RESCANNED}")
-        gap = sy.TimeSpan(abs(int(scanned) - int(created)))
+        if len(matched) < 2:
+            self.fail(
+                f"Expected the create and the scan to send {old.message!r} for slave "
+                f"{RESCANNED}"
+            )
+        gap = sy.TimeSpan(abs(int(matched[1]) - int(created)))
         if gap > PASS_GAP:
             self.fail(
                 f"Expected the status in the scan that created it, not {gap} later"
