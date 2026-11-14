@@ -246,7 +246,7 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
-            cancel,
+            this->engine->begin_start(cancel),
             this->cfg.settings
         );
         if (err) return err;
