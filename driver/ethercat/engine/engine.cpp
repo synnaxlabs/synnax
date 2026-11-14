@@ -183,7 +183,7 @@ std::string unapplied(
         const auto it = counts.find(props.position);
         if (it == counts.end() || it->second == 0 || !props.shared()) continue;
         const bool one = it->second == 1;
-        if (!text.empty()) text += " ";
+        if (!text.empty()) text += ' ';
         text += std::format(
             "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
             "setting{}. Remove {}, or switch the device to Synnax in Configure.",
