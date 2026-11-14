@@ -7,30 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { DataType, errors, primitive } from "@synnaxlabs/x";
+import { channel, type ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { errors, primitive } from "@synnaxlabs/x";
 
-import {
-  check,
-  fill,
-  findInput,
-  sameAddress,
-} from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
+import { isShared } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
-  type SlaveProperties,
 } from "@/feature/ethercat/device/types";
 import {
-  addressKey,
-  DIRECTIONS,
-  entryAt,
   type EntryChannel,
   type EntryReadChannel,
-  getUnresolvedMessage,
   hasEntry,
   mappedChannels,
   type PDOType,
@@ -42,83 +32,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 
 type Channel = ReadChannel | WriteChannel;
 
-export interface SlaveValidationResult<C extends Channel> {
+export interface Slaves<C extends Channel> {
   slaves: SlaveDevice[];
   rack: number;
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
-
-/** @returns the size in bytes of the number type that holds an entry. */
-const entryWidth = (bitLength: number): number => {
-  if (bitLength <= 8) return 1;
-  if (bitLength <= 16) return 2;
-  if (bitLength <= 32) return 4;
-  return 8;
-};
-
-/** @returns what the user must do before Synnax can read an entry of the slave. */
-const onlyReaderStep = (props: SlaveProperties): string => {
-  if (of(props).kind === "switched") return "Restart the power of the slave.";
-  return canSwitch(props)
-    ? "In Configure, switch the slave to Synnax."
-    : "Pick another entry.";
-};
-
-/**
- * @returns why the task cannot start with the enabled channel on the slave, or null.
- * channels holds the enabled channels of the task on the slave, ch among them.
- */
-export const entryProblem = (
-  slave: SlaveDevice,
-  channels: Channel[],
-  ch: Channel,
-  pdoType: PDOType,
-): string | null => {
-  if (ch.type === "unresolved") return getUnresolvedMessage(ch.pdo, slave, pdoType);
-  if (!hasEntry(ch))
-    return `A channel on slave ${slave.name} has no entry. Pick an entry.`;
-  const address = ethercat.formatAddress(ch);
-  const entry = entryAt(slave.properties.pdos[pdoType], ch);
-  if (entry == null)
-    return (
-      `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
-      "Pick an entry."
-    );
-  const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
-  if (reader != null)
-    return (
-      `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-      `reads. ${onlyReaderStep(slave.properties)}`
-    );
-  const dataType = new DataType(ch.dataType);
-  const width = entryWidth(entry.bitLength);
-  if (!(dataType.isInteger || dataType.isFloat) || dataType.density.valueOf() !== width)
-    return (
-      `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
-      `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
-      "byte number type."
-    );
-  const key = addressKey(ch);
-  if (channels.some((o) => o.key !== ch.key && hasEntry(o) && addressKey(o) === key))
-    return (
-      `More than one channel uses entry ${address} on slave ${slave.name}. ` +
-      "Pick a different entry for one of them."
-    );
-  return null;
-};
-
-const validateEntries = <C extends Channel>(
-  slave: SlaveDevice,
-  channels: C[],
-  pdoType: PDOType,
-): Extract<C, EntryChannel>[] => {
-  const enabled = channels.filter((ch) => !ch.disabled);
-  for (const ch of enabled) {
-    const problem = entryProblem(slave, enabled, ch, pdoType);
-    if (problem != null) throw new Error(problem);
-  }
-  return enabled.filter((ch): ch is Extract<C, EntryChannel> => hasEntry(ch));
-};
 
 /**
  * @returns a channel from create for each usable entry on the side of the slave with
@@ -146,109 +64,39 @@ export const createSlaveChannels = async <C extends Channel>(
 };
 
 /**
- * @throws {Error} if another device on the rack is at the network and position of the
- * slave. The error names the device that is not connected, which the user deletes.
+ * Retrieves the slaves the channels use. The form checks the slaves and channels before
+ * a deploy reaches this.
+ * @returns the slaves, their rack, and the enabled channels with an entry on each
+ * slave.
+ * @throws {NotFoundError} if a slave of a channel no longer exists.
  */
-const checkPositionFree = (slave: SlaveDevice, onRack: SlaveDevice[]): void => {
-  const { network, position } = slave.properties;
-  const other = onRack.find(
-    (o) =>
-      o.key !== slave.key &&
-      o.properties.network === network &&
-      o.properties.position === position,
-  );
-  if (other == null) return;
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  const step =
-    stale == null
-      ? "Delete the one that is not on the network."
-      : `Delete ${stale.name}, which is not connected.`;
-  throw new Error(
-    `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
-      `${network}. ${step}`,
-  );
-};
-
-/**
- * Retrieves the slaves the channels use and checks the entries of the enabled channels.
- * @returns the slaves, their rack, and the enabled channels of each slave.
- * @throws {Error} if the slaves are on different networks, if another device is at the
- * position of a slave, or if an enabled channel has no entry, an entry its slave lacks,
- * an input that only another program reads, or an entry another channel uses.
- */
-export const retrieveAndValidateSlaves = async <C extends Channel>(
+export const retrieveSlaves = async <C extends Channel>(
   client: Synnax,
   channels: C[],
-  pdoType: PDOType,
-): Promise<SlaveValidationResult<C>> => {
+): Promise<Slaves<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
   });
-
   PlatformDevice.checkFound(slaveKeys, slaves);
   for (const slave of slaves) PlatformDevice.checkConfigured(slave);
-
-  const networks = [...new Set(slaves.map((s) => s.properties.network))];
-  if (networks.length > 1)
-    throw new Error(
-      `All slaves must be on the same network. Found: ${networks.join(", ")}. ` +
-        "Pick slaves on one network.",
-    );
-  if (networks.length === 0 || !networks[0])
-    throw new Error(
-      "No network found for the selected slaves. Scan the network again.",
-    );
-
-  const onRack = await client.devices.retrieve({
-    make: MAKE,
-    model: SLAVE_MODEL,
-    rack: slaves[0].rack,
-    schemas: SLAVE_SCHEMAS,
-    includeStatus: true,
-  });
-  for (const slave of slaves) checkPositionFree(slave, onRack);
-
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(
       slave.key,
-      validateEntries(
-        slave,
-        channels.filter((ch) => ch.device === slave.key),
-        pdoType,
+      channels.filter(
+        (ch): ch is Extract<C, EntryChannel> =>
+          ch.device === slave.key && !ch.disabled && hasEntry(ch),
       ),
     );
-
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
-};
-
-/**
- * @returns why the task cannot start with the settings of the input that the channel
- * reads, or null. held holds the startup parameters of the task.
- */
-export const settingProblem = (
-  slave: SlaveDevice,
-  ch: EntryReadChannel,
-  held: ethercat.SlaveStartupParameters[],
-): string | null => {
-  if (isShared(slave.properties)) return null;
-  const input = findInput(slave.properties.settings, ch);
-  if (input == null) return null;
-  const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
-  const [problem] = check(input, fill(input.settings, prior));
-  if (problem == null) return null;
-  return `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`;
 };
 
 /**
  * @returns the startup parameters of each slave: a value for every field of each input
  * that an enabled channel reads, in the order of the slave's catalog. Values the task
  * held stay. A slave that other software sets up gets none.
- * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
 export const fillStartupParameters = (
   slaves: SlaveDevice[],
@@ -265,13 +113,9 @@ export const fillStartupParameters = (
     );
     const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
     const parameters: ethercat.StartupParameter[] = [];
-    for (const input of inputs) {
-      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
-      if (ch == null) continue;
-      const problem = settingProblem(slave, ch, held);
-      if (problem != null) throw new Error(problem);
-      parameters.push(...fill(input.settings, prior));
-    }
+    for (const input of inputs)
+      if (entries.some((e) => input.entries.some((a) => sameAddress(a, e))))
+        parameters.push(...fill(input.settings, prior));
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;
