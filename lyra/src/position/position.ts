@@ -25,7 +25,13 @@ export interface Params {
   container: box.Crude;
   target: box.Crude;
   dialog: box.Crude;
+  /** The gap between the target and the dialog, on each axis where they meet. */
   offset?: xy.Crude;
+  /**
+   * Moves the dialog out past each edge it aligns with on the target: up past a shared
+   * top edge, left past a shared left edge.
+   */
+  alignOffset?: number;
   initial?: LocationPreference;
   prefer?: LocationPreference | LocationPreference[];
   disable?: LocationPreference | LocationPreference[];
@@ -134,6 +140,7 @@ export const position = ({
   prefer,
   disable,
   offset,
+  alignOffset,
 }: Params): Return => {
   const options = buildOptions({ initial, prefer, disable });
   const containerBox = box.construct(containerCrude);
@@ -148,6 +155,7 @@ export const position = ({
         target: targetBox,
         dialog: dialogBox,
         offset,
+        alignOffset,
       });
       return res.area > best.area ? res : best;
     },
@@ -171,6 +179,7 @@ interface EvaluateOptionProps extends Option {
   target: box.Box;
   dialog: box.Box;
   offset?: xy.Crude;
+  alignOffset?: number;
 }
 
 interface EvaluateOptionReturn extends Return {
@@ -183,15 +192,17 @@ const evaluateOption = ({
   container,
   target,
   dialog,
-  offset,
+  offset = 0,
+  alignOffset = 0,
 }: EvaluateOptionProps): EvaluateOptionReturn => {
-  let targetPoint = box.xyLoc(target, targetCorner);
-  if (offset != null) {
-    const parsedOffset = xy.construct(offset);
-    if (targetCorner.x === dialogCorner.x) parsedOffset.x = 0;
-    if (targetCorner.y === dialogCorner.y) parsedOffset.y = 0;
-    targetPoint = xy.translate(targetPoint, targetCorner, parsedOffset);
-  }
+  const shift = xy.construct(offset);
+  if (targetCorner.x === dialogCorner.x) shift.x = alignOffset;
+  if (targetCorner.y === dialogCorner.y) shift.y = alignOffset;
+  const targetPoint = xy.translate(
+    box.xyLoc(target, targetCorner),
+    targetCorner,
+    shift,
+  );
   const dialogBox = box.constructWithAlternateRoot(
     targetPoint.x,
     targetPoint.y,
