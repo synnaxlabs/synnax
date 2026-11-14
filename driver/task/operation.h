@@ -65,12 +65,16 @@ public:
     /// configure and the exec that the operation runs.
     x::breaker::Breaker &token() { return this->breaker; }
 
-    /// @brief cancels a start that has no final status yet. A stop with a key gets a
-    /// loading status on the next check, so its sender knows the stop arrived.
-    /// @param stop the stop command that cancels the start, or empty when the task
-    /// manager cancels it as it stops its tasks.
+    /// @brief cancels a start that has no final status yet, for stop. A stop with a key
+    /// gets a loading status on the next check, so its sender knows the stop arrived.
     /// @returns true if the operation was cancelled.
-    bool cancel(const synnax::task::Command &stop = {});
+    bool cancel(const synnax::task::Command &stop);
+
+    /// @brief cancels a start that has no final status yet, as the task manager stops
+    /// its tasks. The failed start that close sends names cause, such as "The Driver
+    /// stopped".
+    /// @returns true if the operation was cancelled.
+    bool cancel(const std::string &cause);
 
     /// @brief adds start to this operation if this operation is an open start of
     /// config_hash that has sent a step. Before its first step, a start may still
@@ -106,7 +110,9 @@ public:
     std::vector<synnax::task::Command> close();
 
     /// @returns true if close answered the start as stopped, because a stop cancelled
-    /// it before the start sent a final status of its own.
+    /// it before the start sent a final status of its own. An operation with no
+    /// command, such as a boot deploy, sees no status of its task, so a stop that
+    /// cancelled it is always true here.
     [[nodiscard]] bool ended_by_stop();
 
 private:
@@ -134,6 +140,8 @@ private:
     bool stopped = false;
     /// @brief true when close answered the start because of a stop.
     bool stop_answered = false;
+    /// @brief why the task manager cancelled the operation, for the failed start.
+    std::string cause;
     bool finished = false;
     bool closed = false;
 

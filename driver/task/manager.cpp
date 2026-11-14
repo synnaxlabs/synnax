@@ -174,7 +174,12 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     // Workers run the shutdown of each task, so they stop last. The next run starts
     // with no statuses and no control states, so it trusts nothing from before the
     // outage, such as the status of a task deleted during it.
-    this->stop_all_tasks();
+    // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
+    // the next run connects again.
+    this->stop_all_tasks(
+        this->exit_early ? "The Driver stopped"
+                         : "The Driver lost its connection to the Core"
+    );
     this->stop_workers();
     this->statuses->clear();
     this->control_states->set({});
@@ -301,10 +306,12 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         std::lock_guard<std::mutex> lock(this->mu);
         const auto it = this->entries.find(cmd.task);
         if (it == this->entries.end()) continue;
-        const auto &running = it->second->op;
+        const auto &entry = it->second;
+        const auto &running = entry->op;
         std::shared_ptr<Operation> cancelled;
         if (cmd.type == STOP_CMD_TYPE && running != nullptr &&
-            running->cmd.type == synnax::task::START_CMD_TYPE && running->cancel(cmd))
+            (running->cmd.type == synnax::task::START_CMD_TYPE || entry->booting) &&
+            running->cancel(cmd))
             cancelled = running;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
@@ -362,13 +369,13 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     this->cv.notify_one();
 }
 
-void Manager::stop_all_tasks() {
+void Manager::stop_all_tasks(const std::string &cause) {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
-            if (entry->op != nullptr) entry->op->cancel();
+            if (entry->op != nullptr) entry->op->cancel(cause);
             this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
@@ -495,6 +502,7 @@ void Manager::worker_loop(const uint64_t run) {
                 this->op_timeout
             );
         }
+        entry->booting = op.type == Op::Type::DEPLOY && !op.task.key.is_nil();
         const auto operation = entry->op;
         lock.unlock();
         this->execute_op(op, entry, *operation);
@@ -507,6 +515,7 @@ void Manager::worker_loop(const uint64_t run) {
         for (const auto &start: std::views::reverse(unanswered))
             this->op_queue.push_front(Op{Op::Type::COMMAND, op.task_key, {}, start});
         entry->op = nullptr;
+        entry->booting = false;
         entry->processing = false;
         lock.unlock();
         this->cv.notify_all();
@@ -659,8 +668,12 @@ void Manager::execute_op(
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
                 // A start that failed on its own keeps its error, which says what to
-                // fix.
-                if (op.cancelled != nullptr && op.cancelled->ended_by_stop())
+                // fix. A boot deploy is the first op of its task in a run, so an
+                // error status now is its own.
+                const auto latest = this->statuses->latest(op.task_key);
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR;
+                if (op.cancelled != nullptr && op.cancelled->ended_by_stop() && !failed)
                     this->answer_cancelled_start(op.task_key, operation);
                 else if (!op.cmd.key.empty())
                     this->refuse_command(op.task_key, operation);

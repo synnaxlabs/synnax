@@ -51,10 +51,22 @@ bool Operation::cancel(const synnax::task::Command &stop) {
     {
         std::lock_guard lock{this->mu};
         if (this->finished || this->closed) return false;
-        if (!stop.type.empty()) this->stopped = true;
+        this->stopped = true;
         if (!stop.key.empty()) this->stopping = stop;
-        LOG(INFO) << "[task.operation] cancelling " << this->cmd << " on task "
+        LOG(INFO) << "[task.operation] stop cancelling " << this->cmd << " on task "
                   << this->name;
+    }
+    this->breaker.stop();
+    return true;
+}
+
+bool Operation::cancel(const std::string &cause) {
+    {
+        std::lock_guard lock{this->mu};
+        if (this->finished || this->closed) return false;
+        this->cause = cause;
+        LOG(INFO) << "[task.operation] cancelling " << this->cmd << " on task "
+                  << this->name << ": " << cause;
     }
     this->breaker.stop();
     return true;
@@ -185,7 +197,10 @@ std::vector<synnax::task::Command> Operation::close() {
         this->closed = true;
         if (this->finished) return {};
         if (this->breaker.running()) return std::exchange(this->joined, {});
-        if (this->cmd.type != synnax::task::START_CMD_TYPE) return {};
+        if (this->cmd.type != synnax::task::START_CMD_TYPE) {
+            this->stop_answered = this->stopped;
+            return {};
+        }
         this->finished = true;
         keys = this->keys();
         status.owner = synnax::task::resource_id(this->task);
@@ -200,8 +215,8 @@ std::vector<synnax::task::Command> Operation::close() {
         } else {
             status.variant = synnax::status::VARIANT_ERROR;
             status.message = "Failed to start task";
-            status.description = "The Driver stopped while the task was starting. "
-                                 "Start the task again.";
+            status.description = this->cause +
+                                 " while the task was starting. Start the task again.";
         }
     }
     this->send(std::move(status), keys);

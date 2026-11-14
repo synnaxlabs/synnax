@@ -487,6 +487,9 @@ private:
         /// @brief the operation the claiming worker runs, null when idle. Guarded by
         /// Manager::mu.
         std::shared_ptr<Operation> op;
+        /// @brief true while op is a boot deploy, which may start the task. Guarded
+        /// by Manager::mu.
+        bool booting = false;
 
         [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
             std::lock_guard lock{this->mu};
@@ -540,8 +543,9 @@ private:
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
-    /// @brief stops all running tasks.
-    void stop_all_tasks();
+    /// @brief stops all running tasks. A start that this cancels fails with cause, such
+    /// as "The Driver stopped".
+    void stop_all_tasks(const std::string &cause);
     /// @brief re-reads this rack's name so a rename made before the streamer opened
     /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
     void retrieve_rack_name();

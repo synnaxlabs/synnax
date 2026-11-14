@@ -350,22 +350,32 @@ public:
     x::telem::TimeSpan step_limit = x::telem::TimeSpan(0);
     /// @brief true when a start sends no final status.
     bool silent = false;
+    /// @brief true when a boot configure starts the task, as an auto-start does.
+    bool auto_start = false;
     /// @brief the context of the last configured task.
     std::shared_ptr<Context> ctx;
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &,
-        x::breaker::Breaker &
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         this->ctx = ctx;
-        return {
-            std::make_unique<
-                SlowStartTask>(ctx, task, release, starts, step_limit, silent),
-            true
-        };
+        auto slow = std::make_unique<SlowStartTask>(
+            ctx,
+            task,
+            release,
+            starts,
+            step_limit,
+            silent
+        );
+        if (this->auto_start && cmd_key == NO_COMMAND) {
+            synnax::task::Command start{.task = task.key, .type = "start"};
+            slow->exec(start, cancel);
+        }
+        return {std::move(slow), true};
     }
 
     void release_all() { release = true; }
@@ -377,6 +387,8 @@ class CancelledConfigureFactory final : public Factory {
 public:
     /// @brief the description of the configure's own error, or empty for none.
     std::string error;
+    /// @brief true once a configure started to wait for its cancel.
+    std::atomic<bool> waiting{false};
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -385,6 +397,7 @@ public:
         x::breaker::Breaker &cancel
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        this->waiting = true;
         while (cancel.running())
             cancel.wait_for(10 * x::telem::MILLISECOND);
         if (this->error.empty()) return {nullptr, true};
@@ -1965,6 +1978,87 @@ TEST_F(TaskManagerTest, StopKeepsTheErrorOfAStartThatFailedOnItsOwn) {
     EXPECT_EQ(stopped.message, "Failed to configure task");
     EXPECT_EQ(stopped.description, "Npcap is not installed");
     EXPECT_FALSE(stopped.details.running);
+}
+
+/// @brief it should cancel a slow auto-start at boot when a stop arrives, and then run
+/// the stop.
+TEST_F(TaskManagerTest, StopCancelsASlowAutoStartAtBoot) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    factory->auto_start = true;
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    ASSERT_EVENTUALLY_EQ(f->starts.load(), 1);
+    send_stop(client, task);
+    const auto stopped = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "stop-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(stopped.message, "stopped");
+    EXPECT_EQ(f->starts.load(), 1);
+}
+
+/// @brief it should answer a stop that cancelled a boot configure as a stop.
+TEST_F(TaskManagerTest, StopOfACancelledBootConfigureAnswersStopped) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<CancelledConfigureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    ASSERT_EVENTUALLY_TRUE(f->waiting.load());
+    send_stop(client, task);
+    const auto stopped = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "stop-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(stopped.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stopped.message, "Stopped task");
+    EXPECT_EQ(stopped.description, "The stop cancelled the start.");
+}
+
+/// @brief it should answer a stop with the error of a boot configure that failed on its
+/// own while the stop waited.
+TEST_F(TaskManagerTest, StopKeepsTheErrorOfABootConfigureThatFailedOnItsOwn) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<CancelledConfigureFactory>();
+    factory->error = "Npcap is not installed";
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    ASSERT_EVENTUALLY_TRUE(f->waiting.load());
+    send_stop(client, task);
+    const auto stopped = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "stop-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(stopped.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(stopped.message, "Failed to configure task");
+    EXPECT_EQ(stopped.description, "Npcap is not installed");
 }
 
 /// @brief it should join a second start of the same config to the running start, so
