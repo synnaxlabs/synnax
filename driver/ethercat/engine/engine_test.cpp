@@ -1339,6 +1339,34 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should return at once, without a retry, when a slave aborts a setting.
+TEST_F(EngineTest, RejectedSettingSkipsRetries) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_REJECTED, "rejected 0x8040:1C")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STARTUP_PARAMETER_REJECTED
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should retry a setting write that got no response, as from a slave whose
+/// mailbox is slow after a power restart.
+TEST_F(EngineTest, SettingWithNoResponseIsRetried) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "0x8040:1C: no response")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
@@ -2307,7 +2335,7 @@ TEST_F(EngineTest, RediscoverStampsASlaveThatRestartedSinceTheLastScan) {
 }
 
 /// @brief it should stamp a slave that restarted since the last scan when a task starts
-/// the bus.
+/// the bus, and scan the bus again first.
 TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     const auto clock = x::loop::fake_clock();
     this->master->add_slave(io_slave(1));
@@ -2318,8 +2346,15 @@ TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     ASSERT_NIL_P(this->engine->discover());
     clock.sleep(x::telem::SECOND);
     this->master->restart_slave(1);
+    this->master->clear_call_log();
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto calls = this->master->call_log();
+    ASSERT_GE(calls.size(), 3);
+    EXPECT_EQ(
+        std::vector(calls.begin(), calls.begin() + 3),
+        (std::vector<std::string>{"changed", "deactivate", "scan"})
     );
     const auto slaves = ASSERT_NIL_P(this->engine->discover());
     ASSERT_EQ(slaves.size(), 2);

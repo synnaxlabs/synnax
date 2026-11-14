@@ -97,9 +97,14 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(
+        synnax::task::Where{},
+        synnax::task::RetrieveOptions{.include_status = true}
+    );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
+    for (const auto &task: tasks)
+        this->fail_interrupted_start(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -575,6 +580,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     this->refuse_pinned_start(tsk, op.cmd);
                     break;
                 }
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
                 std::string deployed;
                 {
                     std::lock_guard entry_lock{entry->mu};
@@ -596,7 +602,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     entry->instance->exec(cmd, this->breaker);
                     break;
                 }
-            }
+            } else
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
@@ -649,6 +656,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 if (!op.cmd.key.empty()) this->refuse_command(op);
                 return;
             }
+            {
+                std::unique_lock entry_lock{entry->mu};
+                const auto name = entry->row.name;
+                const auto hash = entry->deployed_hash;
+                entry_lock.unlock();
+                this->announce_start(op.task_key, name, hash, op.cmd);
+            }
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
@@ -692,6 +706,43 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+}
+
+void Manager::announce_start(
+    const synnax::task::Key &key,
+    const std::string &name,
+    const std::string &config_hash,
+    const synnax::task::Command &cmd
+) {
+    if (cmd.type != synnax::task::START_CMD_TYPE || cmd.key.empty()) return;
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(key);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_LOADING;
+    status.message = "Starting task";
+    status.details.running = false;
+    status.details.cmd = cmd.key;
+    status.details.config_hash = config_hash;
+    this->ctx->set_status(status);
+}
+
+void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
+    if (!tsk.status.has_value() ||
+        tsk.status->variant != synnax::status::VARIANT_LOADING)
+        return;
+    // A Driver that stops mid-start leaves "Starting task" stored, and the Console
+    // disables Start and Stop while a start is loading.
+    auto status = *tsk.status;
+    status.time = x::telem::TimeStamp::now();
+    status.variant = synnax::status::VARIANT_ERROR;
+    status.message = "Failed to start task";
+    status.description = this->runs == 1
+                           ? "The Driver restarted while the task was starting. "
+                             "Start the task again."
+                           : "The Driver lost its connection to the Core while the "
+                             "task was starting. Start the task again.";
+    status.details.running = false;
+    this->ctx->set_status(status);
 }
 
 void Manager::refuse_pinned_start(

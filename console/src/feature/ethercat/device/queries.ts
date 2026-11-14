@@ -98,9 +98,17 @@ export interface SetStandaloneParams {
 }
 
 /**
+ * How long a switch waits for the Driver. Writes to several slaves can be slow. It ends
+ * before the default 60 s operation timeout of the Driver, whose error reply would read
+ * as a refusal while the switch still runs.
+ */
+const SWITCH_TIMEOUT = TimeSpan.seconds(50);
+
+/**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
- * slave to Synnax only. The slave changes after its power restarts. When a stop or the
- * switch fails, starts the tasks again.
+ * slave to Synnax only. The slave changes after its power restarts. When a stop fails
+ * or the Driver refuses the switch, starts the tasks again. When the Driver gives no
+ * answer, the switch may still run, so the tasks stay stopped.
  */
 export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
   name: "EtherCAT slave",
@@ -126,7 +134,14 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
     const tasks = running.filter((t) =>
       devicesOf(t.config).some((k) => onNetwork.has(k)),
     );
-    let switched = false;
+    const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
+    const restart = async (): Promise<void> => {
+      // A task that fails to start shows its own error.
+      await Promise.allSettled(
+        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+      );
+    };
+    let stopped = false;
     try {
       await Promise.all(
         tasks.map(async (t) => {
@@ -134,24 +149,26 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
           if (res.variant === "error") throw status.toError(res);
         }),
       );
-      const scanTask = await client.tasks.retrieve({
-        type: SCAN_TYPE,
-        rack,
-        one: true,
-      });
-      const res = await scanTask.executeCommandSync({
+      stopped = true;
+    } finally {
+      if (!stopped) await restart();
+    }
+    const res = await scanTask
+      .executeCommandSync({
         type: SET_STANDALONE_COMMAND,
         args: { device: key },
-        timeout: TimeSpan.seconds(30),
+        timeout: SWITCH_TIMEOUT,
+      })
+      .catch((e: unknown) => {
+        const then =
+          tasks.length === 0 ? "" : " Start your tasks again after you check it.";
+        throw new Error(`The switch may still be running. Check the device.${then}`, {
+          cause: e,
+        });
       });
-      if (res.variant === "error") throw status.toError(res);
-      switched = true;
-    } finally {
-      // A task that fails to start shows its own error.
-      if (!switched)
-        await Promise.allSettled(
-          tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
-        );
+    if (res.variant === "error") {
+      await restart();
+      throw status.toError(res);
     }
     return data;
   },

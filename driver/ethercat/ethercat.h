@@ -56,7 +56,8 @@ class Factory final : public task::Factory {
 public:
     /// @brief constructs a Factory with the default manager. Each bus start reads the
     /// settings of the slave devices saved on rack through client, and stops retrying
-    /// after op_timeout, the timeout of a task operation.
+    /// within three quarters of op_timeout, the timeout of a task operation, so its
+    /// error shows before the operation times out.
     Factory(
         std::shared_ptr<synnax::Synnax> client,
         synnax::rack::Key rack,
@@ -66,7 +67,8 @@ public:
 
     /// @brief constructs a Factory with a custom manager. Each bus start reads the
     /// settings of the slave devices saved on rack through client, and stops retrying
-    /// after op_timeout, the timeout of a task operation.
+    /// within three quarters of op_timeout, the timeout of a task operation, so its
+    /// error shows before the operation times out.
     Factory(
         std::unique_ptr<master::Manager> manager,
         std::shared_ptr<synnax::Synnax> client,
