@@ -1383,6 +1383,47 @@ TEST(DeviceTest, ProbeStopsWaitingForBusyConnection) {
     slave.stop();
 }
 
+/// @brief it should fail a request that waits for its turn when its device is
+/// interrupted, and fail its later requests at once.
+TEST(DeviceTest, InterruptEndsWaitForBusyConnection) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1684;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto busy = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1684}));
+    ConnectionConfig waiting_cfg{"127.0.0.1", 1684};
+    waiting_cfg.unit_id = 2;
+    auto waiting = ASSERT_NIL_P(manager.acquire(waiting_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(800));
+    std::thread slow([&] {
+        uint16_t r = 0;
+        ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &r));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    x::errors::Error err;
+    std::thread blocked([&] {
+        uint16_t r = 0;
+        err = waiting->read_registers(HoldingRegister, 0, 1, &r);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    waiting->interrupt();
+    blocked.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(400));
+    ASSERT_OCCURRED_AS(err, INTERRUPTED);
+    ASSERT_OCCURRED_AS(
+        waiting->read_registers(HoldingRegister, 0, 1, &reg),
+        INTERRUPTED
+    );
+    slow.join();
+    ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+    slave.stop();
+}
+
 /// @brief it should write each coil and register with its own request when the device
 /// writes with single function codes.
 TEST(DeviceTest, WritesWithSingleCodes) {
