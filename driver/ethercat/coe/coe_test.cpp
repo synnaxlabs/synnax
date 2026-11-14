@@ -433,11 +433,21 @@ TEST(CompleteAccessTest, ReadsEachSubIndexWhenTheWholeReadIsShort) {
     EXPECT_EQ(syncs[1].pdos[0].entries[2].sub_index, 17);
 }
 
-/// @brief it should report a read that got no answer as a read error, not as a missing
+/// @brief it should report a read that got no reply as no reply, not as a missing
 /// object.
-TEST(ReadErrorTest, ReportsNoAnswerAsAReadError) {
+TEST(ReadErrorTest, ReportsNoReply) {
+    const auto err = read_error(0x1C00, 0, errors::SDOFailure{});
+    ASSERT_OCCURRED_AS(err, NO_REPLY);
+    EXPECT_FALSE(err.matches(OBJECT_MISSING));
+    EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
+}
+
+/// @brief it should report a read with abort code 0 as a read error, not as no reply,
+/// since the master cannot tell why the read failed.
+TEST(ReadErrorTest, ReportsAbortCodeZeroAsAReadError) {
     const auto err = read_error(0x1C00, 0, 0);
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(NO_REPLY));
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
     EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
 }
@@ -449,5 +459,18 @@ TEST(ReadErrorTest, ReportsAMissingSubIndex) {
     ASSERT_OCCURRED_AS(err, SUBINDEX_MISSING);
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
     EXPECT_EQ(err.data, "failed to read 0x8040:1C: Subindex does not exist");
+}
+
+/// @brief it should report a reply that was not the SDO response as a read error, not
+/// as no reply.
+TEST(ReadErrorTest, ReportsAnUnexpectedReplyAsAReadError) {
+    const auto err = read_error(
+        0x8040,
+        28,
+        errors::SDOFailure{.kind = errors::SDOFailure::Kind::UNEXPECTED_REPLY}
+    );
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(NO_REPLY));
+    EXPECT_EQ(err.data, "failed to read 0x8040:1C: the slave sent an unexpected reply");
 }
 }

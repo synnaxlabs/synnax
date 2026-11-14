@@ -302,6 +302,7 @@ TEST_F(ModbusReadTest, testNoEnabledChannels) {
 
 /// @brief it should read coil values from Modbus device.
 TEST(ReadTask, testBasicReadTask) {
+    x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
     // Set up coil at address 0 with value 1 and ensure we have at least 1 coil mapped
     slave_cfg.coils[0] = 1;
@@ -385,7 +386,7 @@ TEST(ReadTask, testBasicReadTask) {
         factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(tsk.key));
@@ -414,6 +415,7 @@ TEST(ReadTask, testBasicReadTask) {
 /// @brief it should stop at once when a read waits for its turn behind a slow request
 /// from another device on the connection.
 TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
+    x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
     slave_cfg.coils[0] = 1;
     slave_cfg.host = "127.0.0.1";
@@ -481,7 +483,7 @@ TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
     busy_cfg.timeout = x::telem::SECOND * 5;
     auto busy = ASSERT_NIL_P(devs->acquire(busy_cfg));
 
-    task.start("start_cmd");
+    task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     slave.stall_next(2, std::chrono::milliseconds(3000));
     std::thread slow([&] {
@@ -503,6 +505,7 @@ TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
 /// @brief it should stop at once with no error when the read that holds the turn waits
 /// for a reply that does not come.
 TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
+    x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
     slave_cfg.coils[0] = 1;
     slave_cfg.host = "127.0.0.1";
@@ -569,7 +572,7 @@ TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
         factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
     slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(3000));
     ASSERT_TRUE(slave.wait_for_stall(std::chrono::seconds(5)));
@@ -585,6 +588,7 @@ TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
 
 /// @brief it should reconnect to a restarted server on the next start.
 TEST(ReadTask, testReconnectAfterServerRestart) {
+    x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
     slave_cfg.coils[0] = 1;
     slave_cfg.coils[1] = 0;
@@ -662,7 +666,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
         factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
@@ -674,7 +678,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(slave->start());
     x::defer::defer stop_slave([&slave] { slave->stop(); });
 
-    task.start("start_cmd_2");
+    task.start("start_cmd_2", cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[2].message, "Started task");
@@ -724,7 +728,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
         mock_factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
@@ -778,7 +782,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
         mock_factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
@@ -799,6 +803,7 @@ void expect_pi_from_word_swapped_device(
     const uint16_t second_register,
     const std::optional<bool> words_swapped
 ) {
+    x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
     slave_cfg.holding_registers[0] = first_register;
     slave_cfg.holding_registers[1] = second_register;
@@ -857,7 +862,7 @@ void expect_pi_from_word_swapped_device(
         ),
         factory
     );
-    task.start("start_cmd");
+    task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
     task.stop("stop_cmd", true);
     ASSERT_FLOAT_EQ(factory->writes->at(0).at<float>(data_channel.key, 0), 3.14159274F);
@@ -953,7 +958,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
         mock_factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
@@ -1046,7 +1051,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
         mock_factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
@@ -1114,7 +1119,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
         mock_factory
     );
 
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
@@ -1315,7 +1320,7 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
             factory
         );
 
-        task.start("start_cmd");
+        task.start("start_cmd", this->cancel);
         ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
         std::this_thread::sleep_for(RATE_SPAN.chrono());
         task.stop("stop_cmd", true);
@@ -1479,7 +1484,7 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
         std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
-    task.start("start_cmd");
+    task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
     task.stop("stop_cmd", true);
 
@@ -1608,7 +1613,7 @@ TEST_F(ModbusReadTest, testKeepsReadingAfterDroppedConnection) {
         ),
         mock_factory
     );
-    read_task.start("start_cmd");
+    read_task.start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
     slave.drop_connections();
     const auto after_drop = mock_factory->writes->size();

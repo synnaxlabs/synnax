@@ -248,6 +248,8 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
 
 class AnalogReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -363,7 +365,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
@@ -397,7 +399,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
             "Failed to start hardware"
         )})
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
     EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
@@ -420,7 +422,7 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
             )}
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -451,7 +453,7 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -485,7 +487,7 @@ TEST_F(AnalogReadTest, testStopAbortsBlockedRead) {
             }}
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_TRUE(mock_hw->wait_until_blocked(std::chrono::seconds(5)));
     const auto stopping = std::chrono::steady_clock::now();
     rt->stop("stop_cmd", true);
@@ -514,7 +516,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -549,8 +551,8 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses.size(), 2);
@@ -568,7 +570,7 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     rt->stop("stop_cmd1", true);
@@ -596,7 +598,7 @@ TEST_F(AnalogReadTest, testStartClaimsFreshHardware) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(make_hw_calls, 1);
     // The fixture and the running source both hold the mock.
@@ -607,7 +609,7 @@ TEST_F(AnalogReadTest, testStartClaimsFreshHardware) {
     // The stop released the source's claim on the hardware.
     EXPECT_EQ(mock_hw.use_count(), 1);
 
-    rt->start("start_cmd_2");
+    rt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(make_hw_calls, 2);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
@@ -639,7 +641,7 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
         }
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto failed = ctx->statuses[0];
     EXPECT_EQ(failed.details.cmd, "start_cmd");
@@ -647,7 +649,7 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
     EXPECT_EQ(failed.message, "Failed to start task");
     EXPECT_EQ(failed.description, "device not found");
 
-    rt->start("start_cmd_2");
+    rt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto recovered = ctx->statuses[1];
     EXPECT_EQ(recovered.details.cmd, "start_cmd_2");
@@ -682,7 +684,7 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
         }
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     // Read 1 hits RESOURCE_RESERVED and triggers an in-loop restart whose build
     // fails, releasing the hardware. The retried read claims build 3 and recovers.
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
@@ -714,7 +716,7 @@ TEST_F(AnalogReadTest, testTemporaryReadErrorRebuildsHardware) {
             }
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         mock_factory->writes->size(),
         1,
@@ -755,7 +757,7 @@ TEST_F(AnalogReadTest, testStopDuringRebuildSkipsRead) {
             };
         }
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
         rebuilding.load(),
         std::chrono::seconds(10),
@@ -810,9 +812,9 @@ TEST_F(AnalogReadTest, testStartNeverBuildsOverALiveClaim) {
         }
     );
 
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     EXPECT_EQ(live->load(), 1);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     EXPECT_EQ(builds, 2);
     EXPECT_EQ(live_at_build, 0);
     EXPECT_EQ(live->load(), 1);
@@ -822,6 +824,8 @@ TEST_F(AnalogReadTest, testStartNeverBuildsOverALiveClaim) {
 
 class DigitalReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -926,7 +930,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -966,7 +970,7 @@ TEST_F(DigitalReadTest, testNoSkewWarningsDuringNormalOperation) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1018,6 +1022,8 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
 
 class CounterReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
@@ -1133,7 +1139,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -1171,7 +1177,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
             x::errors::Error(errors::CRITICAL_HARDWARE_ERROR, "Counter failed to start")
         })
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
     EXPECT_EQ(state.owner, synnax::task::resource_id(task.key));
@@ -1194,7 +1200,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
             )}
         )
     );
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -1225,7 +1231,7 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
@@ -1263,7 +1269,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
@@ -1672,7 +1678,7 @@ TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1704,7 +1710,7 @@ TEST_F(CounterReadTest, testSkewWarningSuppressedForCounterRead) {
         )
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -1769,6 +1775,8 @@ public:
 /// writing to a live Core.
 class SharedIndexReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     struct Run {
         std::shared_ptr<task::MockContext> ctx;
         std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
@@ -1845,12 +1853,13 @@ protected:
 
     /// @brief starts first, then asserts that second fails and names first.
     static void assert_second_task_fails(Run &first, Run &second) {
-        first.read_task->start("start_first");
+        x::breaker::Breaker cancel;
+        first.read_task->start("start_first", cancel);
         ASSERT_EVENTUALLY_EQ(
             first.writers->writers_open.load(std::memory_order_acquire),
             1
         );
-        second.read_task->start("start_second");
+        second.read_task->start("start_second", cancel);
         ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
         const auto failed = second.ctx->snapshot().back();
         EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
@@ -1888,14 +1897,14 @@ TEST_F(SharedIndexReadTest, testRestartIgnoresReleasedWriter) {
     this->create_task("first_task", 0, first);
     this->create_task("second_task", 1, second);
     for (size_t i = 1; i <= 3; i++) {
-        first.read_task->start("start_first");
+        first.read_task->start("start_first", this->cancel);
         ASSERT_EVENTUALLY_EQ(
             first.writers->writers_open.load(std::memory_order_acquire),
             i
         );
         first.read_task->stop("stop_first", true);
     }
-    second.read_task->start("start_second");
+    second.read_task->start("start_second", this->cancel);
     ASSERT_EVENTUALLY_EQ(
         second.writers->writers_open.load(std::memory_order_acquire),
         1

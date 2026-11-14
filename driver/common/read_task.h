@@ -90,9 +90,15 @@ struct Source {
     [[nodiscard]] virtual std::vector<synnax::channel::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
+    /// @param cmd_key the key of the start command, or driver::task::NO_COMMAND for an
+    /// auto-start.
+    /// @param cancel stops running when the Driver cancels the start.
     /// @returns an error if the source fails to start, at which point the task
     /// will not proceed with the rest of startup.
-    virtual x::errors::Error start() { return x::errors::NIL; }
+    virtual x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
+        return x::errors::NIL;
+    }
 
     /// @brief an optional function called to stop the source.
     virtual x::errors::Error stop() { return x::errors::NIL; }
@@ -248,9 +254,9 @@ public:
         ) {}
 
     /// @brief executes the given command on the task.
-    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) override {
         if (cmd.type == "start")
-            this->start(cmd.key);
+            this->start(cmd.key, cancel);
         else if (cmd.type == "stop")
             this->stop(cmd.key, true);
         else if (cmd.type == "tare")
@@ -276,7 +282,7 @@ public:
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state. A task that is already running is not restarted:
     /// the command is answered with the current status.
-    bool start(const std::string &cmd_key) {
+    bool start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
         if (this->pipe.running()) {
             this->state.ack(cmd_key, true);
             return false;
@@ -284,7 +290,7 @@ public:
         this->state.reset();
         this->source->begin_run();
         const auto start_ok = !this->state.error(
-            this->source->internal->start(),
+            this->source->internal->start(cmd_key, cancel),
             "Failed to start task"
         );
         if (start_ok) this->pipe.start();

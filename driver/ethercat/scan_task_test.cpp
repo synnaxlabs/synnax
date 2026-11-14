@@ -680,6 +680,125 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
     );
 }
 
+namespace {
+/// @brief the device key of the slave of EtherCATScanStatusTest.
+const std::string SLAVE_KEY = "ethercat_1_2_12345";
+
+/// @brief an input entry of object 0x6000 at sub_index.
+pdo::Properties input(const uint8_t sub_index) {
+    return {
+        .pdo_index = 0x1A00,
+        .index = 0x6000,
+        .sub_index = sub_index,
+        .bit_length = 16,
+        .is_input = true,
+        .data_type = x::telem::INT16_T,
+    };
+}
+
+/// @brief the slave of EtherCATScanStatusTest with inputs and the settings of a card
+/// that holds mode value. Each entry of only_read alone reads input 0x6000:1.
+slave::Properties card(
+    std::vector<pdo::Properties> inputs,
+    const int value,
+    const std::vector<std::string> &only_read = {}
+) {
+    auto props = identity(1, 0x2, 12345);
+    props.input_pdos = std::move(inputs);
+    x::json::json channels = x::json::json::array();
+    for (const auto &reader: only_read)
+        channels.push_back({
+            {"entries",
+             {{{"index", 0x6000}, {"sub_index", 1}, {"only_read_by", reader}}}},
+            {"settings", x::json::json::array()},
+            {"requires", x::json::json::array()},
+        });
+    props.settings = x::json::json{
+        {"device", x::json::json::array()},
+        {"channels", channels},
+        {"mode", {{"value", value}, {"shared", false}}},
+    };
+    return props;
+}
+}
+
+/// @brief it should keep the stored PDOs of a slave whose PDO read is not complete, and
+/// count them in the status.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredPDOsOfAnIncompleteRead) {
+    Devices devices;
+    const auto stored = card({input(1), input(2)}, 1);
+    store(devices, SLAVE_KEY, stored);
+    this->master->replace_slave(1, card({input(1)}, 1));
+    this->master->fall_back_pdo_discovery(
+        1,
+        "failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII"
+    );
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), stored.to_json().at("pdos"));
+    const auto status = dev.status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (2 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII. PDO order may be unreliable. Verify data correctness after "
+        "configuration. The device keeps the PDOs of an earlier scan in place of the "
+        "PDOs of this scan."
+    );
+}
+
+/// @brief it should keep the stored settings of a slave whose settings read fails, and
+/// give the status of the stored mode.
+TEST_F(EtherCATScanStatusTest, GivesTheStatusOfTheStoredSettingsAfterAFailedRead) {
+    Devices devices;
+    const auto stored = card({input(1)}, 1, {"DewesoftX"});
+    store(devices, SLAVE_KEY, stored);
+    auto scanned = card({input(1)}, 1);
+    scanned.settings.reset();
+    this->master->replace_slave(1, scanned);
+    this->master->fail_settings_read(1, "failed to read 0x8020:09: no response");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("settings"), stored.to_json().at("settings"));
+    EXPECT_EQ(dev.status.value().message, "Set up for DewesoftX");
+}
+
+/// @brief it should keep the stored PDOs of a slave whose stored device holds no mode.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredPDOsOfADeviceWithNoStoredMode) {
+    Devices devices;
+    auto stored = card({input(1), input(2)}, 1);
+    stored.settings.reset();
+    store(devices, SLAVE_KEY, stored);
+    this->master->replace_slave(1, card({input(1)}, 1));
+    this->master->fall_back_pdo_discovery(1, "failed to read the PDO layout");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), stored.to_json().at("pdos"));
+}
+
+/// @brief it should replace the stored PDOs with an incomplete read of a slave that
+/// holds another mode.
+TEST_F(EtherCATScanStatusTest, ReplacesTheStoredReadOfASlaveInAnotherMode) {
+    Devices devices;
+    store(devices, SLAVE_KEY, card({input(1), input(2)}, 1));
+    const auto scanned = card({input(1)}, 2);
+    this->master->replace_slave(1, scanned);
+    this->master->fall_back_pdo_discovery(1, "failed to read the PDO layout");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), scanned.to_json().at("pdos"));
+}
+
 /// @brief it should show the PDOs of a fallback discovery with its error as a warning.
 TEST_F(EtherCATScanStatusTest, FallbackPDODiscoveryShowsItsPDOsAsAWarning) {
     this->master->fall_back_pdo_discovery(
