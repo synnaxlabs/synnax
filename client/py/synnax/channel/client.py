@@ -22,7 +22,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
-    CountResponse,
+    CountLimitedResponse,
     Cursor,
     Operation,
     Order,
@@ -241,15 +241,15 @@ class Client:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
 
-    def count(self) -> int:
-        """Retrieves how many channels count toward the channel limit of the license:
-        the channels that are neither internal nor virtual.
+    def count_limited(self) -> int:
+        """Retrieves how many channels count against the license channel limit (not
+        internal, not virtual).
 
         :returns: The number of channels.
         :raises AccessDenied: If the caller cannot retrieve every channel.
         """
         return send_required(
-            self._client, "/channel/count", Empty(), CountResponse
+            self._client, "/channel/count-limited", Empty(), CountLimitedResponse
         ).count
 
     @overload

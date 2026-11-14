@@ -33,7 +33,7 @@ import {
   singleWhere,
 } from "@/channel/payload";
 import {
-  countResponseZ,
+  countLimitedResponseZ,
   type Key,
   keyZ,
   type Name,
@@ -527,16 +527,16 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves how many channels count toward the channel limit of the license: the
-   * channels that are neither internal nor virtual.
+   * Retrieves how many channels count against the license channel limit (not internal,
+   * not virtual).
    * @throws {AccessDeniedError} if the caller cannot retrieve every channel.
    */
-  async count(): Promise<number> {
+  async countLimited(): Promise<number> {
     const { count } = await this.cfg.unary.send(
-      "/channel/count",
+      "/channel/count-limited",
       {},
       z.object({}),
-      countResponseZ,
+      countLimitedResponseZ,
     );
     return count;
   }
