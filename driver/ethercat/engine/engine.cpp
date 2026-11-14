@@ -1074,7 +1074,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
-    std::map<uint16_t, size_t> counts;
+    std::set<uint16_t> positions;
     if (started) {
         if (configs_err) return {{}, configs_err};
         if (auto err = this->start_locked(mhz, saved, settings, start))
@@ -1085,22 +1085,22 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
             this->stop_locked();
             return {{}, plan_err};
         }
-        this->device_parameter_counts.clear();
-        for (const auto &[pos, cfg]: configs)
-            this->device_parameter_counts[pos] = cfg.startup_parameters.size();
-        for (const auto &[pos, params]: settings)
-            configs[pos].add_startup_parameters(params);
-        for (const auto &[pos, cfg]: configs)
-            counts[pos] = cfg.startup_parameters.size();
+        this->device_configs = std::move(configs);
+        for (const auto &[pos, _]: this->device_configs)
+            positions.insert(pos);
     } else {
-        const auto device = [this](const uint16_t pos) -> size_t {
-            const auto it = this->device_parameter_counts.find(pos);
-            return it == this->device_parameter_counts.end() ? 0 : it->second;
-        };
         for (const auto &entry: entries)
-            counts[entry.slave_position] = device(entry.slave_position);
-        for (const auto &[pos, params]: settings)
-            counts[pos] = device(pos) + params.size();
+            positions.insert(entry.slave_position);
+    }
+    for (const auto &[pos, _]: settings)
+        positions.insert(pos);
+    std::map<uint16_t, size_t> counts;
+    for (const auto pos: positions) {
+        const auto it = this->device_configs.find(pos);
+        auto cfg = it == this->device_configs.end() ? slave::Config{} : it->second;
+        if (const auto params = settings.find(pos); params != settings.end())
+            cfg.add_startup_parameters(params->second);
+        counts[pos] = cfg.startup_parameters.size();
     }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {

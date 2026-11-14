@@ -1642,7 +1642,8 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
-/// running bus, and warn each reader of that slave of its skipped device settings.
+/// running bus, and warn each reader of that slave of its skipped settings, with a
+/// reader setting that replaces a device setting counted once.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
@@ -1683,12 +1684,26 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
         this->engine->begin_start(this->cancel),
         measurement(1, 6)
     ));
+    const auto replacing = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel),
+        Settings{
+            {1,
+             {{.index = 0x8040,
+               .sub_index = 2,
+               .data_type = x::telem::UINT16_T,
+               .value = 5}}}
+        }
+    ));
     EXPECT_TRUE(this->master->written().empty());
     const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
                             "not apply its 1 startup setting. Remove it, or switch the "
                             "device to Synnax in Configure.";
     EXPECT_EQ(first->unapplied(), one);
     EXPECT_EQ(second->unapplied(), one);
+    EXPECT_EQ(replacing->unapplied(), one);
     EXPECT_EQ(
         third->unapplied(),
         "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
