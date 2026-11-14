@@ -66,16 +66,6 @@ protected:
         });
     }
 
-    /// @brief sets whether the last scan found the device at key.
-    void set_connected(const std::string &key, const bool connected) const {
-        const auto dev = ASSERT_NIL_P(
-            this->client->devices.retrieve(key, {.include_status = true})
-        );
-        auto status = dev.status.value();
-        status.details.connected = connected;
-        ASSERT_NIL(this->client->statuses.set(status));
-    }
-
     void SetUp() override {
         this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -1140,19 +1130,18 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
     );
 }
 
-/// @brief it should start with the connected device when a disconnected device is saved
-/// at its position with different settings.
-TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
+/// @brief it should start a slave with the settings of its own device when a device
+/// with no serial number is saved at its position with other settings.
+TEST_F(EtherCATReadTest, StartGivesASlaveTheSettingsOfItsOwnDevice) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
+    removed.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(removed));
-    this->set_connected(removed.key, false);
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
     replacement.name = "EL3102";
     replacement.properties["serial"] = 54321;
     ASSERT_NIL(this->client->devices.create(replacement));
-    this->set_connected(replacement.key, true);
     this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
@@ -1179,17 +1168,18 @@ TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
     read_task->exec(stop, this->cancel);
 }
 
-/// @brief it should give the settings of agreeing devices at one position to the slave
-/// of their model there when none of them is connected.
-TEST_F(EtherCATReadTest, StartGivesAgreeingDevicesSettingsToTheSlaveAtTheirPosition) {
-    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
-    removed.properties["serial"] = 11111;
-    ASSERT_NIL(this->client->devices.create(removed));
-    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
-    replacement.key += "_replacement";
-    replacement.properties["serial"] = 54321;
-    ASSERT_NIL(this->client->devices.create(replacement));
-    this->add_bus_slave(2, 33333);
+/// @brief it should start a moved slave with its saved settings when the device of
+/// another slave is saved at its old position.
+TEST_F(EtherCATReadTest, StartGivesAMovedSlaveItsSettingsWhenAnotherHoldsItsPosition) {
+    auto moved = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    moved.properties["serial"] = 11111;
+    ASSERT_NIL(this->client->devices.create(moved));
+    auto staying = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
+    staying.key += "_staying";
+    staying.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(staying));
+    this->add_bus_slave(2, 54321);
+    this->add_bus_slave(4, 11111);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -1204,106 +1194,29 @@ TEST_F(EtherCATReadTest, StartGivesAgreeingDevicesSettingsToTheSlaveAtTheirPosit
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
-    EXPECT_FALSE(this->mock_master->config(2).enabled);
+    EXPECT_TRUE(this->mock_master->config(2).enabled);
+    EXPECT_FALSE(this->mock_master->config(4).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
-/// @brief it should fail to start, naming both devices, when two devices of different
-/// models at one position have the same settings and none of them is connected.
-TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionAreDifferentModels) {
-    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
-    removed.name = "EL3102";
-    removed.properties["serial"] = 11111;
-    ASSERT_NIL(this->client->devices.create(removed));
-    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
-    replacement.key += "_replacement";
-    replacement.name = "EL3104";
-    replacement.properties["serial"] = 54321;
-    replacement.properties["product_code"] = 0x3;
-    ASSERT_NIL(this->client->devices.create(replacement));
-    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
-    );
-    auto manager = std::make_unique<testutil::Manager>();
-    manager->configure(NETWORK_INTERFACE, this->mock_master);
-    Factory factory(std::move(manager), this->client, this->rack.key);
-    const synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "read",
-        .type = READ_TASK_TYPE,
-        .config = cfg,
-    };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
-    ASSERT_TRUE(ok);
-    synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
-    EXPECT_EQ(
-        this->ctx->statuses.back().description,
-        "EL3102 (serial 11111) and EL3104 (serial 54321) are both saved at position 2 "
-        "on eth0 as different models. Delete the device that is no longer on the bus."
-    );
-}
-
-/// @brief it should fail to start, naming both devices as different models, when two
-/// devices of different models at one position have different settings and none of
-/// them is connected.
-TEST_F(EtherCATReadTest, StartFailsWhenDevicesOfDifferentModelsAtAPositionDisagree) {
-    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
-    removed.name = "EL3102";
-    removed.properties["serial"] = 11111;
-    ASSERT_NIL(this->client->devices.create(removed));
-    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
-    replacement.key += "_replacement";
-    replacement.name = "EL3104";
-    replacement.properties["serial"] = 54321;
-    replacement.properties["product_code"] = 0x3;
-    ASSERT_NIL(this->client->devices.create(replacement));
-    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
-    auto cfg = this->create_base_config();
-    cfg["channels"].push_back(
-        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
-    );
-    auto manager = std::make_unique<testutil::Manager>();
-    manager->configure(NETWORK_INTERFACE, this->mock_master);
-    Factory factory(std::move(manager), this->client, this->rack.key);
-    const synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "read",
-        .type = READ_TASK_TYPE,
-        .config = cfg,
-    };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
-    ASSERT_TRUE(ok);
-    synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
-    EXPECT_EQ(
-        this->ctx->statuses.back().description,
-        "EL3102 (serial 11111) and EL3104 (serial 54321) are both saved at position 2 "
-        "on eth0 as different models. Delete the device that is no longer on the bus."
-    );
-}
-
-/// @brief it should fail to start, naming both devices, when two devices at one
-/// position have different settings, and start once their settings match.
+/// @brief it should fail to start, naming both devices, when two devices with no serial
+/// number at one position have different settings, and start once their settings match.
 TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
-    removed.properties["serial"] = 11111;
+    removed.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(removed));
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
-    replacement.name = "EL3102";
-    replacement.properties["serial"] = 54321;
+    replacement.name = "EL3102 spare";
+    replacement.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(replacement));
     this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
@@ -1328,9 +1241,9 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EL3102 (serial 11111) and EL3102 (serial 54321) are both saved at position 2 "
-        "on eth0 with different settings. Give them the same settings, or delete the "
-        "device that is no longer on the bus."
+        "EL3102 and EL3102 spare are both saved for slave 2 on eth0 with different "
+        "settings. Give them the same settings, or delete the device that is no longer "
+        "on the bus."
     );
     ASSERT_NIL(this->client->devices.dispatch(
         replacement.key,
