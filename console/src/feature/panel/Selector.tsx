@@ -10,6 +10,7 @@
 import "@/feature/panel/Selector.css";
 
 import { panel, query } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
@@ -169,6 +170,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   const name = Panel.useName({ key: tabKey });
   const icon = Panel.useIcon({ key: tabKey });
   const color = Panel.useColor({ key: tabKey });
+  const draft = Panel.useDraft({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = (name: string) => rename({ key: tabKey, name });
@@ -207,6 +209,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
         onChange={handleChange}
         disabled={!canEdit}
       />
+      {draft && <Badge.Badge>Draft</Badge.Badge>}
     </Tabs.Tab>
   );
 };
