@@ -93,12 +93,11 @@ const useDataTypes = (slaves: SlaveDevice[]): DataTypes | undefined => {
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
-  const ch = PForm.useFieldValue(entry);
+  const { value: ch, status } = PForm.useFieldState(entry);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
-  const { status } = PForm.useFieldState(entry);
   const named =
     slave != null &&
     dataTypes != null &&
