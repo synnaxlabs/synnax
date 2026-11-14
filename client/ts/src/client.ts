@@ -155,7 +155,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
   log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
   modbus_server: null,
-  ni_chassis: null,
+  ni_chassis: changes(ni.chassis.SET_CHANNEL_NAME, ni.chassis.DELETE_CHANNEL_NAME),
   ni_device: changes(ni.device.SET_CHANNEL_NAME, ni.device.DELETE_CHANNEL_NAME),
   node: null,
   opcua_server: null,
