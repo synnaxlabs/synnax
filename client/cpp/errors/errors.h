@@ -25,13 +25,14 @@ const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");
 /// @brief the Core refuses requests because its license has expired.
 const x::errors::Error LICENSE_EXPIRED = LICENSE.sub("expired");
 
-/// @brief whether the Core is unreachable or refuses requests until a license is
-/// activated. Both clear without a restart, so the caller can wait and retry.
+/// @brief whether the Core is unreachable, did not answer in time, or refuses requests
+/// until a license is activated. These clear without a restart, so the caller can wait
+/// and retry.
 /// @param err the error a request to the Core returned.
 /// @returns true if the caller should wait and retry, false if the error is permanent.
 inline bool is_temporarily_unavailable(const x::errors::Error &err) {
-    return err.matches(freighter::UNREACHABLE) || err.matches(LICENSE_MISSING) ||
-           err.matches(LICENSE_EXPIRED);
+    return err.matches(freighter::UNREACHABLE) || err.matches(freighter::TIMEOUT) ||
+           err.matches(LICENSE_MISSING) || err.matches(LICENSE_EXPIRED);
 }
 
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
