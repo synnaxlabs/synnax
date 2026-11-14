@@ -2080,6 +2080,45 @@ TEST_F(EngineTest, DiscoverGivesEachSlaveTheTimeOfItsLastRestart) {
     EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
 }
 
+/// @brief it should stamp a slave that restarted since the last scan when the scan task
+/// rediscovers the bus.
+TEST_F(EngineTest, RediscoverStampsASlaveThatRestartedSinceTheLastScan) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    const auto slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should stamp a slave that restarted since the last scan when a task starts
+/// the bus.
+TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
 /// @brief it should count a slave that the last scan did not find as restarted.
 TEST_F(EngineTest, RediscoverCountsANewSlaveAsRestarted) {
     const auto clock = x::loop::fake_clock();
@@ -2155,7 +2194,15 @@ TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     ASSERT_NIL(this->engine->configure(io_slave(0), standalone));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"deactivate", "scan", "write", "deactivate", "scan"})
+        (std::vector<std::string>{
+            "changed",
+            "deactivate",
+            "scan",
+            "write",
+            "changed",
+            "deactivate",
+            "scan",
+        })
     );
     EXPECT_EQ(
         this->master->written(),
@@ -2253,7 +2300,7 @@ TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
     }));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"deactivate", "scan"})
+        (std::vector<std::string>{"changed", "deactivate", "scan"})
     );
 }
 
