@@ -64,7 +64,7 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  // A stop cancels a start that is still loading, so the button stays a working Stop.
+  // The button stays a working Stop while a start or stop loads.
   const loading = startStopVariant === "loading";
   const stoppable = running || loading;
   const handleStartStop = () => (stoppable ? onStop?.() : onDeploy?.());
