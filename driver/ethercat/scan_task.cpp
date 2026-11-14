@@ -591,12 +591,15 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         return;
     }
     saved.name = dev.name;
-    bool wrote = false;
+    std::vector<slave::StartupParameter> written;
+    uint16_t position = 0;
+    std::pair<uint16_t, uint8_t> mode_object;
     const auto err = engine->configure(
         saved,
-        [&wrote](const slave::DiscoveryResult &found)
+        [&](const slave::DiscoveryResult &found)
             -> std::pair<std::vector<slave::StartupParameter>, x::errors::Error> {
             const auto &props = found.properties;
+            position = props.position;
             if (!props.settings || !props.settings->contains("mode"))
                 return {
                     {},
@@ -607,6 +610,10 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
                 };
             std::vector<slave::StartupParameter> parameters;
             x::json::Parser mode(props.settings->at("mode"));
+            mode_object = {
+                mode.field<uint16_t>("index"),
+                mode.field<uint8_t>("sub_index"),
+            };
             mode.iter("switch", [&parameters](x::json::Parser &param) {
                 parameters.push_back(slave::StartupParameter::parse(param));
             });
@@ -618,18 +625,89 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
                         common::config_err_description(mode.error())
                     )
                 };
-            wrote = !parameters.empty();
+            written = parameters;
             return {std::move(parameters), x::errors::NIL};
         }
     );
-    if (err) {
-        fail(err.data);
+    if (written.empty()) {
+        if (err) {
+            fail(err.data);
+            return;
+        }
+        task_status.variant = synnax::status::VARIANT_SUCCESS;
+        task_status.message = "Switched " + dev.name + " to Synnax only";
+        task_status.description = std::format(
+            "The device in slot {} already runs Synnax only.",
+            position
+        );
+        this->ctx->set_status(task_status);
         return;
     }
+    const auto sets_mode = [&mode_object](const slave::StartupParameter &p) {
+        return std::pair{p.index, p.sub_index} == mode_object;
+    };
+    const auto mode = std::ranges::find_if(written, sets_mode);
+    if (mode == written.end()) {
+        fail(err ? err.data : "the switch does not set the mode of the device");
+        return;
+    }
+    const auto [held, held_err] = engine->read(position, mode->index, mode->sub_index);
+    if (held_err || static_cast<double>(held) != mode->value) {
+        if (err)
+            fail(err.data);
+        else if (held_err)
+            fail(held_err.data);
+        else
+            fail(std::format("the device holds mode {} after the switch", held));
+        return;
+    }
+    if (err) {
+        task_status.variant = synnax::status::VARIANT_WARNING;
+        task_status.message = "Switched " + dev.name +
+                              " to Synnax until a power restart";
+        task_status.description = std::format(
+            "The device in slot {} did not save the switch, so it goes back to its "
+            "saved mode when its power restarts. Switch it again to save it. {}",
+            position,
+            errors::sentence(err.data)
+        );
+        this->ctx->set_status(task_status);
+        return;
+    }
+    // The other parameters save the mode. What a save object reads after a save
+    // differs by device, so the Driver only logs it.
+    for (const auto &save: written)
+        if (!sets_mode(save)) {
+            const auto [flag, flag_err] = engine->read(
+                position,
+                save.index,
+                save.sub_index
+            );
+            VLOG(1) << SCAN_LOG_PREFIX << dev.name << " reads "
+                    << (flag_err ? flag_err.data : std::to_string(flag)) << " at "
+                    << save.to_string() << " after the switch";
+        }
+    // configure discovered the slave again, with the entries of its new mode.
+    const auto [slaves, discover_err] = engine->discover();
+    const auto after = std::ranges::find(
+        slaves,
+        position,
+        [](const slave::DiscoveryResult &s) { return s.properties.position; }
+    );
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Switched " + dev.name + " to Synnax only";
-    task_status.description = wrote ? "Restart the power of the device to finish."
-                                    : "The device already runs Synnax only.";
+    const bool restart = discover_err || after == slaves.end() ||
+                         !only_reader(after->properties).empty();
+    task_status.description = restart
+                                ? std::format(
+                                      "Restart the power of the device in slot {} to "
+                                      "finish.",
+                                      position
+                                  )
+                                : std::format(
+                                      "The device in slot {} runs Synnax only now.",
+                                      position
+                                  );
     this->ctx->set_status(task_status);
 }
 }

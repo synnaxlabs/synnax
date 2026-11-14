@@ -86,9 +86,13 @@ class Master final : public master::Master {
     std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
-    /// @brief the value of each object that set_object() gave, by position, index, and
-    /// sub-index.
+    /// @brief the value of each object that set_object() or write() gave, by position,
+    /// index, and sub-index.
     std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief the error of each write to an object, by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, x::errors::Error> write_failures;
+    /// @brief the slave that the next write that succeeds replaces, by position.
+    std::optional<std::pair<uint16_t, slave::Properties>> replacement;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -706,8 +710,10 @@ public:
         return health;
     }
 
-    /// @brief records the write and adds the parameters to the slave in the latest
-    /// plan, or returns the error that inject_write_error() set.
+    /// @brief records the write, sets each object it names until one that fail_write()
+    /// names, and adds the parameters to the slave in the latest plan. Then replaces
+    /// the slave as replace_after_write() asks. Returns the error that
+    /// inject_write_error() or fail_write() set.
     x::errors::Error write(
         const uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -717,7 +723,36 @@ public:
         if (this->inject_write_err) return this->inject_write_err;
         this->writes.emplace_back(position, parameters);
         this->latest_plan.slaves[position].add_startup_parameters(parameters);
+        for (const auto &param: parameters) {
+            if (const auto it = this->write_failures.find(
+                    {param.index, param.sub_index}
+                );
+                it != this->write_failures.end())
+                return it->second;
+            this->objects[{position, param.index, param.sub_index}] = static_cast<
+                uint32_t>(param.value);
+        }
+        if (this->replacement) {
+            const auto [pos, props] = std::move(*this->replacement);
+            this->replacement.reset();
+            for (auto &slave: this->slave_list)
+                if (slave.properties.position == pos) slave.properties = props;
+        }
         return x::errors::NIL;
+    }
+
+    /// @brief makes each write to index:sub_index fail with err.
+    void
+    fail_write(const uint16_t index, const uint8_t sub_index, x::errors::Error err) {
+        std::lock_guard lock(this->mu);
+        this->write_failures[{index, sub_index}] = std::move(err);
+    }
+
+    /// @brief replaces the slave at position with props after the next write that
+    /// succeeds, as a slave that maps new entries when it takes a new mode.
+    void replace_after_write(const uint16_t position, slave::Properties props) {
+        std::lock_guard lock(this->mu);
+        this->replacement.emplace(position, std::move(props));
     }
 
     /// @brief returns the value that set_object() gave the object, or
