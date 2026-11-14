@@ -402,6 +402,12 @@ struct Status {
     /// @brief whether the slave was below PRE-OP when the master read it. The master
     /// then reads only its SII, such as its identity, PDOs, and sync modes.
     bool starting = false;
+
+    /// @brief whether the master did not read the serial number of the slave. The
+    /// serial number from its SII can then be wrong.
+    [[nodiscard]] bool serial_unread() const {
+        return this->starting || !this->serial_error.empty();
+    }
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
@@ -545,7 +551,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
         return it == bus.end() ? nullptr : &*it;
     };
     const auto known_unit = [](const Identity &s, const DiscoveryResult &live) {
-        return live.status.serial_error.empty() && s.same_unit(live.properties);
+        return !live.status.serial_unread() && s.same_unit(live.properties);
     };
     std::set<uint16_t> units;
     const auto order = by_position(saved);
@@ -571,7 +577,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
             live->properties.vendor_id != s.vendor_id ||
             live->properties.product_code != s.product_code)
             continue;
-        if (s.serial == 0 || !live->status.serial_error.empty()) found[i] = s.position;
+        if (s.serial == 0 || live->status.serial_unread()) found[i] = s.position;
     }
     return found;
 }

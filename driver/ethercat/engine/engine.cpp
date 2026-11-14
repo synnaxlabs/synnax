@@ -687,7 +687,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_lock
                 [](const slave::DiscoveryResult &d) { return d.properties.position; }
             );
             (owner->second->serial != 0 || identity.serial != 0) &&
-            live != this->slaves.end() && !live->status.serial_error.empty())
+            live != this->slaves.end() && live->status.serial_unread())
             return {
                 {},
                 x::errors::Error(
@@ -700,7 +700,8 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_lock
                             second,
                             *position,
                             this->network_name,
-                            live->status.serial_error
+                            live->status.starting ? "it is still starting up"
+                                                  : live->status.serial_error
                         )
                     )
                 )
