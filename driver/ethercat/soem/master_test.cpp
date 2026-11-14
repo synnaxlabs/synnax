@@ -2449,6 +2449,18 @@ TEST_F(SOEMMasterTest, CheckReportsALatchFrameThatGotNoReply) {
     );
 }
 
+/// @brief it should send the frame that latches the receive times only once, since a
+/// resend latches them again after the host time that the master read.
+TEST_F(SOEMMasterTest, CheckGivesTheLatchFrameOneTry) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->check_while_cycling();
+    ASSERT_EQ(this->mock->latch_count, 1);
+    // SOEM sends a frame again only when its timeout is longer than EC_TIMEOUTRET.
+    EXPECT_EQ(this->mock->latch_timeout, EC_TIMEOUTRET);
+}
+
 /// @brief it should request PRE-OP and never OP on each check of a slave whose clock
 /// restore failed while it stays in SAFE-OP, as when a PRE-OP request gets lost.
 TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
