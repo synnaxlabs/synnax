@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -235,6 +237,34 @@ func double() {val f32} f32 {
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
+}
+
+/// @brief it should stop a running call with INTERRUPTED, and run calls again after
+/// resume.
+TEST(FunctionCallTest, InterruptStopsRunningCall) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, R"(
+func spin() i32 {
+    val i32 := 0
+    for { val = val + 1 }
+    return val
+}
+func one() i32 { return 1 }
+)");
+    auto module = ASSERT_NIL_P(Module::open({.program = program}));
+    auto spin = ASSERT_NIL_P(module->func("spin"));
+    std::thread interrupter([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        module->interrupt();
+    });
+    std::vector<Module::Function::Result> results;
+    const auto err = spin.call({}, results);
+    interrupter.join();
+    ASSERT_OCCURRED_AS(err, errors::INTERRUPTED);
+    module->resume();
+    auto one = ASSERT_NIL_P(module->func("one"));
+    ASSERT_NIL(one.call({}, results));
+    EXPECT_EQ(std::get<int32_t>(results[0].value), 1);
 }
 
 /// @brief it should decode a float input value stored as text.
