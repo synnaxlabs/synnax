@@ -14,9 +14,8 @@
 
 """Writes this machine's CPU, memory, and disk usage to Synnax every 5 seconds.
 
-Runs on each runner instance, started at boot by the runner-agent systemd unit (Ubuntu)
-or the RunnerAgent scheduled task (Windows). Four float32 channels on one index, all
-created by controller.py:
+Runs on each runner instance, started by agent_boot.py. Four float32 channels on one
+index, all created by controller.py:
 
     <runner>_cpu           percent CPU used over the last interval
     <runner>_mem           percent of RAM in use
@@ -36,7 +35,7 @@ CPU and IO priority and exits if another copy is already running.
 The GitHub runner is started and stopped by <runner>_gh_cmd. A stop waits for the
 running job to finish. One minute without Synnax at boot starts the runner anyway.
 
-Logs in with the API key in the Parameter Store parameter /runners/agent-api-key, read
+Logs in with the API key in the Parameter Store parameter /runner-agents/api-key, read
 with the role of the instance.
 
     uv run agent.py --host <address> --secure
@@ -74,7 +73,7 @@ NAME_CACHE = Path(__file__).with_name("runner_name.txt")
 # Verifies the Core's certificate when the deploy puts the file beside this script.
 CA_CERT = Path(__file__).with_name("ca.crt")
 # The SecureString parameter that holds the API key the agents log in with.
-API_KEY_PARAMETER = "/runners/agent-api-key"
+API_KEY_PARAMETER = "/runner-agents/api-key"
 ROOT = "C:\\" if sys.platform == "win32" else "/"
 SCRIPT = Path(__file__).name
 ABBREVIATIONS = {"windows": "win", "build_bot": "build", "tester": "test"}

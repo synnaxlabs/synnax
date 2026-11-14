@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs the step $Step of a deploy of the runner controller on Sandbox-Windows.
+# Runs the step $Step of a deploy of the runner scripts on Sandbox-Windows.
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -35,6 +35,10 @@ $Tasks = [ordered]@{
     }
 }
 
+# The scripts that must start before a deploy stops anything.
+$Checked = 'controller.py', 'dispatch.py', 'agent_deploy.py', 'agent.py'
+$AgentDeploy = Join-Path $Staging 'agent_deploy.py'
+
 function Get-Launcher($Name) {
     Join-Path $Dir ('run_' + ($Name -split ' ')[1])
 }
@@ -51,12 +55,15 @@ switch ($Step) {
             Invoke-WebRequest $url -OutFile (Join-Path $Staging $f) -UseBasicParsing
         }
         # Resolves each script's dependencies and imports, so a bad commit fails here.
-        foreach ($name in $Tasks.Keys) {
-            $script = ($Tasks[$name].Args -split ' ')[0]
+        foreach ($script in $Checked) {
             & $Uv run (Join-Path $Staging $script) --help | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "$script --help failed" }
         }
         "Downloaded $($names.Count) scripts at $Sha"
+    }
+    'stop-agents' {
+        & $Uv run $AgentDeploy stop
+        if ($LASTEXITCODE -ne 0) { throw 'The agents did not all stop' }
     }
     'stop' {
         foreach ($name in $Tasks.Keys) {
@@ -132,6 +139,10 @@ switch ($Step) {
             if ($count -ne 1 -or -not $up) { $failed += $name }
         }
         if ($failed) { throw "Exited after start: $($failed -join ', ')" }
+    }
+    'deploy-agents' {
+        & $Uv run $AgentDeploy install --commit $Sha --ca-cert $Cert
+        if ($LASTEXITCODE -ne 0) { throw 'The agent install failed on a runner' }
     }
     default { throw "Unknown step '$Step'" }
 }
