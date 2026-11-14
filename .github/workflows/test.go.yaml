@@ -272,8 +272,9 @@ jobs:
       # This workflow file salts the key: cache archives store absolute paths, so one
       # saved before a cache-path move would restore to the old spot. The trim keeps
       # only what a run used, and a Ginkgo run uses no test results, so a Ginkgo run
-      # never saves under the go test key. It restores that key first: go test compiles
-      # the same packages, and only a module that main warms has such a cache.
+      # never saves under the go test key. It restores a go test key before the Ginkgo
+      # key of the same kind: go test compiles the same packages, and only a module that
+      # main warms has such a cache.
       - name: Key the Go caches
         id: key
         shell: bash
@@ -289,7 +290,8 @@ jobs:
             echo "modules=$(go env GOMODCACHE)"
             echo "module=go-$KIND-$RUNNER_OS-$DIRECTORY-"
             echo "sum=go-$KIND-$RUNNER_OS-$DIRECTORY-$SUM-"
-            echo "test=go-test-$RUNNER_OS-$DIRECTORY-$SUM-"
+            echo "test_module=go-test-$RUNNER_OS-$DIRECTORY-"
+            echo "test_sum=go-test-$RUNNER_OS-$DIRECTORY-$SUM-"
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
@@ -304,8 +306,9 @@ jobs:
             ${{ steps.key.outputs.modules }}
           key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
           restore-keys: |
-            ${{ steps.key.outputs.test }}
+            ${{ steps.key.outputs.test_sum }}
             ${{ steps.key.outputs.sum }}
+            ${{ steps.key.outputs.test_module }}
             ${{ steps.key.outputs.module }}
 
       - name: Mark the start of the build
@@ -404,13 +407,14 @@ jobs:
       # that mtime is less than an hour old, so an entry older than an hour before the
       # build did not serve this run. A size budget below the size of one build deletes
       # entries that the run used. A failed run used only a part of the cache, so only
-      # a run that passes trims and saves. A Ginkgo run that restored a go test cache
-      # saves nothing, because the warm run keeps that cache at the head of main.
+      # a run that passes trims and saves. A Ginkgo run that restored the go test cache
+      # of its go.sum saves nothing, because the warm run keeps that cache at the head
+      # of main.
       - name: Trim the Go build cache
         if: >-
           ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
           (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
-          'go-test-')) }}
+          steps.key.outputs.test_sum)) }}
         shell: bash
         env:
           BUILD: ${{ steps.key.outputs.build }}
@@ -428,7 +432,7 @@ jobs:
         if: >-
           ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
           (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
-          'go-test-')) }}
+          steps.key.outputs.test_sum)) }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
