@@ -20,6 +20,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -79,6 +80,39 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
     ASSERT_NIL(p.error());
+}
+
+/// @brief it should turn off read auto start, so a read that follows an abort fails at
+/// once instead of starting the task again.
+TEST(ReadTaskConfigTest, testApplyTurnsOffReadAutoStart) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = make_unique_channel_name("ni"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("virtual"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    auto p = x::json::Parser(j);
+    const ni::ReadTaskConfig cfg(client, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+    const auto mock = std::make_shared<daqmx::MockAPI>();
+    ASSERT_NIL(cfg.apply(std::make_shared<daqmx::SugaredAPI>(mock), nullptr));
+    const auto calls = mock->calls_to("SetReadAttributeBool");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["attribute"], DAQmx_Read_AutoStart);
+    EXPECT_EQ(calls[0]["args"]["value"], 0);
 }
 
 /// @brief it should return a validation error if the device does not exist.

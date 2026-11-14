@@ -188,6 +188,13 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
+        // A read after interrupt() aborts the task fails at once, not restarts it.
+        if (const auto err = dmx->SetReadAttributeBool(
+                handle,
+                DAQmx_Read_AutoStart,
+                static_cast<bool32>(false)
+            ))
+            return err;
         if (this->software_timed) return x::errors::NIL;
 
         std::set<std::string> device_locations;
