@@ -715,6 +715,19 @@ TEST_F(EtherCATScanStatusTest, StoresTheSettingsThatAScanReads) {
     EXPECT_EQ(rescanned.at(1).properties.at("settings"), settings);
 }
 
+namespace {
+/// @brief the settings of a card whose mode needs sync mode 0x0300.
+const x::json::json UNLISTED_MODE{
+    {"mode",
+     {{"index", 0x8020},
+      {"sub_index", 9},
+      {"value", 0},
+      {"shared", false},
+      {"switch", x::json::json::array()},
+      {"unlisted_assign_activate", 0x0300}}},
+};
+}
+
 /// @brief it should warn of a mode whose sync mode the module does not list, until the
 /// user chooses a sync mode.
 TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeThatTheModuleDoesNotList) {
@@ -727,15 +740,8 @@ TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeThatTheModuleDoesNotList) {
             .product_code = 0x2,
             .serial = 12345,
             .name = "6xSTG",
-            .settings = x::json::json{
-                {"mode",
-                 {{"index", 0x8020},
-                  {"sub_index", 9},
-                  {"value", 0},
-                  {"shared", false},
-                  {"switch", x::json::json::array()},
-                  {"unlisted_assign_activate", 0x0300}}},
-            },
+            .op_modes = {{.name = "SM", .assign_activate = 0}},
+            .settings = UNLISTED_MODE,
         }
     );
     auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
@@ -755,6 +761,31 @@ TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeThatTheModuleDoesNotList) {
         this->scanner->scan({.count = 1, .devices = &devices})
     );
     EXPECT_EQ(rescanned.at(0).status.value().variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should not ask for a sync mode when the module lists none.
+TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeWhenTheModuleListsNone) {
+    this->master->replace_slave(
+        1,
+        slave::Properties{
+            .network = "eth0",
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 12345,
+            .name = "6xSTG",
+            .settings = UNLISTED_MODE,
+        }
+    );
+    const auto
+        status = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0).status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        status.description,
+        "The mode of the module needs the sync mode with assign activate value 0x0300, "
+        "but the module lists no sync modes. The Driver uses SM sync, and the module "
+        "can refuse to start."
+    );
 }
 
 /// @brief it should keep the stored settings of a slave when a rescan fails to read
