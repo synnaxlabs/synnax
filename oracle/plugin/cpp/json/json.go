@@ -382,7 +382,19 @@ func objectMap(
 	}
 	key := ref.TypeArgs[0]
 	return ref, isStruct, isStruct || key.IsTypeParam() ||
-		resolution.PrimitiveBase(key, table) != "string"
+		mapKeyBase(key, table) != "string"
+}
+
+// mapKeyBase returns the primitive that a map key is written as. C++ holds a string
+// enum as a std::string, so a string enum key is a string.
+func mapKeyBase(key resolution.TypeRef, table *resolution.Table) string {
+	if target, _, ok := resolution.Dealias(key, table); ok {
+		form, isEnum := target.Form.(resolution.EnumForm)
+		if isEnum && !form.IsIntEnum {
+			return "string"
+		}
+	}
+	return resolution.PrimitiveBase(key, table)
 }
 
 // checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
@@ -397,7 +409,7 @@ func checkMapKey(
 	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
-	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
+	base := mapKeyBase(ref.TypeArgs[0], table)
 	if base == "string" || base == "uuid" || strings.HasPrefix(base, "int") ||
 		strings.HasPrefix(base, "uint") {
 		return nil
@@ -1043,7 +1055,7 @@ func (p *Plugin) toJSONExprForField(
 		// JSON object keys are strings, and obj[key] with an integer key indexes an
 		// array.
 		key := "key"
-		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
+		switch base := mapKeyBase(mapRef.TypeArgs[0], data.table); {
 		case mapRef.TypeArgs[0].IsTypeParam():
 			key = "x::json::map_key(key)"
 		case base == "string":

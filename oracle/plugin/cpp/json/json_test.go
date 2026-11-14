@@ -705,6 +705,35 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should write the keys of a map keyed by a string enum as they are",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Pair struct {
+						command uint32
+					}
+
+					Task struct {
+						channels map<Port, uint32>
+						pairs    map<Port, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`j["channels"] = this->channels;`,
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+							`parser.field<std::unordered_map<std::string, std::uint32_t>>("channels")`,
+						)
+				},
+			)
+			It(
 				"Should write the UUID keys of a map of scalars as strings",
 				func(ctx SpecContext) {
 					source := `
@@ -778,9 +807,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						MatchError(validate.ErrValidation),
 					))
 				},
-				Entry("string enum with struct values", "Units", "Pair"),
 				Entry("float with struct values", "float64", "Pair"),
-				Entry("string enum with scalar values", "Units", "uint32"),
 				Entry("float with scalar values", "float64", "uint32"),
 			)
 			It(

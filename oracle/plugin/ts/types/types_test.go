@@ -2427,6 +2427,83 @@ var _ = Describe("TS Types Plugin", func() {
 			)
 
 			It(
+				"Should use z.partialRecord for a map keyed by an enum",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+						ain1 = "AIN1"
+					}
+
+					Ports struct {
+						channels map<Port, uint32>
+						labels   map<Port, string>?
+						nested   map<string, map<Port, uint32>>
+					}
+				`
+					resp := MustGenerate(ctx, source, "ports", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`channels: z.partialRecord(portZ, z.uint32()).default(() => ({}))`,
+							`labels: zod.nullToUndefined(z.partialRecord(portZ, z.string()))`,
+							`nested: z.record(z.string(), z.partialRecord(portZ, z.uint32())).default(() => ({}))`,
+						).
+						ToNotContain(`z.record(portZ`)
+				},
+			)
+
+			It(
+				"Should type an enum-keyed map as partial in a recursive struct",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Node struct {
+						child    Node?
+						channels map<Port, uint32>
+						nested   map<string, map<Port, uint32>>
+					}
+				`
+					resp := MustGenerate(ctx, source, "node", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain(
+						`channels: Partial<Record<Port, number>>;`,
+						`nested: Record<string, Partial<Record<Port, number>>>;`,
+					)
+				},
+			)
+
+			It(
+				"Should use z.partialRecord in the getter of a self-referencing map",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "out"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Holder struct {
+						children map<Port, Holder>
+						nested   map<string, map<Port, Holder>>
+					}
+				`
+					resp := MustGenerate(ctx, source, "holder", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain(
+						`children: Partial<Record<Port, Holder>>;`,
+						`nested: Record<string, Partial<Record<Port, Holder>>>;`,
+						`return z.partialRecord(portZ, holderZ).default(() => ({}));`,
+						`return z.record(z.string(), z.partialRecord(portZ, holderZ)).default(() => ({}));`,
+					)
+				},
+			)
+
+			It(
 				"Should wrap optional map fields with zod.nullToUndefined around z.record",
 				func(ctx SpecContext) {
 					source := `
