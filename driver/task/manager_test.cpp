@@ -1680,12 +1680,14 @@ TEST_F(TaskManagerTest, Timeout) {
     f->release_all();
 }
 
+/// @brief it should write no timeout status for a stuck task moved to another rack.
 TEST_F(TaskManagerTest, TimeoutForTaskOnOtherRackStaysSilent) {
     auto factory = std::make_unique<TimeoutTaskFactory>();
     auto *f = factory.get();
+    const auto op_timeout = 3 * x::telem::SECOND;
     start_manager(
         std::move(factory),
-        {.op_timeout = x::telem::SECOND, .poll_interval = 100 * x::telem::MILLISECOND}
+        {.op_timeout = op_timeout, .poll_interval = 100 * x::telem::MILLISECOND}
     );
     auto task = synnax::task::Task{
         .rack = rack.key,
@@ -1696,12 +1698,18 @@ TEST_F(TaskManagerTest, TimeoutForTaskOnOtherRackStaysSilent) {
     send_start(client, task);
     ASSERT_EVENTUALLY_EQ(f->configures.load(), 1);
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    const auto moved_at = x::telem::TimeStamp::now();
     edit_task(
         client,
         task,
         {synnax::task::set({.path = {"rack"}, .value = other.key})}
     );
-    expect_no_driver_status(task, false, x::telem::TimeStamp(0), 2 * x::telem::SECOND);
+    expect_no_driver_status(
+        task,
+        false,
+        moved_at,
+        op_timeout + 500 * x::telem::MILLISECOND
+    );
     f->release_all();
 }
 
