@@ -9,26 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-view__toolbar:not(:empty) {
-    padding: 1.5rem;
-}
-
-.console-view__views {
-    padding: 1.5rem 1.25rem;
-    flex-shrink: 0;
-}
-
-/* Anchors the list's fetch-more observer at the end of the strip. A zero-width child
-   never intersects its root, so it holds a hairline. */
-.console-view__sentinel {
-    flex-shrink: 0;
-    width: 1px;
-    align-self: stretch;
-}
-
 /* The search, the views, and the filters sit in one island inset from the panel. The
    views bar holds the top, the filter bar the bottom, with a lighter line between. */
-.console-view__views--island {
+.console-view__views {
+    flex-shrink: 0;
     height: 7rem;
     margin: 1rem 1.5rem 0;
     padding: 0 1.25rem;
@@ -38,6 +22,14 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     background: var(--pluto-gray-l1);
+}
+
+/* Anchors the list's fetch-more observer at the end of the strip. A zero-width child
+   never intersects its root, so it holds a hairline. */
+.console-view__sentinel {
+    flex-shrink: 0;
+    width: 1px;
+    align-self: stretch;
 }
 
 /* The search leads the views, split from them by a hairline as tall as the bar. */
@@ -58,7 +50,7 @@
 
 /* Chips that wrap make the filter bar taller. The filter icon sits under the search
    icon. */
-.console-view__toolbar.console-view__toolbar--island {
+.console-view__toolbar {
     min-height: 7rem;
     margin: 0 1.5rem 1rem;
     padding: 0.5rem 1.5rem 0.5rem 1rem;

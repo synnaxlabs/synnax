@@ -18,9 +18,9 @@ from console.layout import LayoutClient
 class ViewsClient(ResourceClient):
     """Views client for the saved-search strip at the top of an explorer.
 
-    Views are saved searches scoped to one resource type. The strip holds a static
-    "All <resources>" view plus every saved view. Search, filters, and the create
-    button are hidden until edit mode is enabled.
+    Views are saved searches scoped to one resource type. The strip holds a static "All
+    <resources>" view plus every saved view, after the search and before the create
+    button. The filters sit in the bar under the strip.
     """
 
     search_placeholder: str
@@ -36,8 +36,8 @@ class ViewsClient(ResourceClient):
         """Initialize the views client.
 
         :param layout: The layout client for the console under test.
-        :param search_placeholder: Placeholder of the explorer search input, used to
-            detect edit mode (e.g. "Search ranges...").
+        :param search_placeholder: Placeholder of the explorer search input (e.g.
+            "Search ranges...").
         :param static_view_name: Name of the built-in view the explorer opens on
             (e.g. "All ranges").
         """
@@ -121,7 +121,6 @@ class ViewsClient(ResourceClient):
 
         :param name: Name to give the new view.
         """
-        self.enable_editing()
         self.page.get_by_role("button", name="Create view", exact=True).first.click()
         modal = self.layout.dialog
         modal.wait_for(state="visible", timeout=5000)
@@ -149,31 +148,6 @@ class ViewsClient(ResourceClient):
         self.layout.delete_with_confirmation(item)
         self.wait_for_removed(name)
 
-    # ── Edit Mode ─────────────────────────────────────────────────────────
-
-    def is_editable(self) -> bool:
-        """Check whether edit mode is on.
-
-        :returns: True if the search and filter controls are showing.
-        """
-        return self._search_input().is_visible()
-
-    def enable_editing(self) -> None:
-        """Turn on edit mode to show the search, filter, and create controls."""
-        if self.is_editable():
-            return
-        self.page.get_by_role("button", name="Enable editing", exact=True).first.click()
-        self._search_input().wait_for(state="visible", timeout=5000)
-
-    def disable_editing(self) -> None:
-        """Turn off edit mode, hiding the search, filter, and create controls."""
-        if not self.is_editable():
-            return
-        self.page.get_by_role(
-            "button", name="Disable editing", exact=True
-        ).first.click()
-        self._search_input().wait_for(state="hidden", timeout=5000)
-
     # ── Search ────────────────────────────────────────────────────────────
 
     def search(self, term: str) -> None:
@@ -181,7 +155,6 @@ class ViewsClient(ResourceClient):
 
         :param term: The search string to type.
         """
-        self.enable_editing()
         search_input = self._search_input()
         search_input.fill(term)
         search_input.dispatch_event(
@@ -200,7 +173,6 @@ class ViewsClient(ResourceClient):
 
         :returns: Locator for the visible filter dialog.
         """
-        self.enable_editing()
         self.page.get_by_role("button", name="Filter", exact=True).first.click()
         dialog = self.layout.dialog
         dialog.wait_for(state="visible", timeout=5000)
