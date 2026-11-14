@@ -53,14 +53,18 @@ class EtherCATFirstScanStatus(TestCase):
                     )
                 ):
                     created = at
-                if any(st.message == old.message for st in _owned(frame, owner)):
+                if scanned is None and any(
+                    st.message == old.message for st in _owned(frame, owner)
+                ):
                     scanned = at
+                # The Core can send the status of a create before its device.
+                if created is not None and scanned is not None:
                     break
         if created is None:
             self.fail(f"Expected the scan to create slave {RESCANNED} again")
         if scanned is None:
             self.fail(f"Expected the status {old.message!r} for slave {RESCANNED}")
-        gap = sy.TimeSpan(scanned - created)
+        gap = sy.TimeSpan(abs(int(scanned) - int(created)))
         if gap > PASS_GAP:
             self.fail(
                 f"Expected the status in the scan that created it, not {gap} later"
