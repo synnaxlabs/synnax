@@ -121,9 +121,9 @@ public:
     Warning take_warning() { return std::exchange(this->warning, {}); }
 
     /// @brief returns a warning about the hardware that holds until the hardware
-    /// changes, such as a lost device, or an empty warning. The task shows it while no
-    /// write reports a warning of its own. The task calls it while the sink runs, from
-    /// the write thread and from another thread after warning_changed().
+    /// changes, such as a lost device, or an empty warning. The task shows it after
+    /// warning_changed(), and after each write that reports no warning of its own. The
+    /// task calls it while the sink runs, from the write thread and another thread.
     [[nodiscard]] virtual Warning held_warning() { return {}; }
 
     virtual x::errors::Error stop() { return x::errors::NIL; }
@@ -190,25 +190,19 @@ class WriteTask final : public driver::task::Task {
         std::unique_ptr<common::Sink> internal;
 
     private:
-        /// @brief guards logged_warning.
+        /// @brief guards logged_warning, write_warned, and each status change of the
+        /// sink.
         std::mutex logged_mu;
         /// @brief the warning last written to the log. Empty if there is none.
         Warning logged_warning;
-
-    public:
-        WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
-            p(p), internal(std::move(sink)) {}
-
-        /// @brief forgets the logged warning, so that the next one is logged again.
-        void forget_warning() {
-            std::lock_guard lock(this->logged_mu);
-            this->logged_warning = {};
-        }
+        /// @brief true while the status shows the warning or temporary error of the
+        /// latest write.
+        bool write_warned = false;
 
         /// @brief shows warning as the task status, or clears the warning status when
-        /// warning is empty. Logs a warning that differs from the last one.
-        void show(const Warning &warning) {
-            std::lock_guard lock(this->logged_mu);
+        /// warning is empty. Logs a warning that differs from the last one. Requires
+        /// logged_mu.
+        void show_locked(const Warning &warning) {
             if (warning.empty()) {
                 this->logged_warning = {};
                 this->p.state.clear_warning();
@@ -219,6 +213,27 @@ class WriteTask final : public driver::task::Task {
                              << warning.description;
             this->logged_warning = warning;
             this->p.state.send_warning(warning.message, warning.description);
+        }
+
+    public:
+        WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
+            p(p), internal(std::move(sink)) {}
+
+        /// @brief forgets the logged warning, so that the next one is logged again.
+        void forget_warning() {
+            std::lock_guard lock(this->logged_mu);
+            this->logged_warning = {};
+            this->write_warned = false;
+        }
+
+        /// @brief shows the held warning of the internal sink. An empty held warning
+        /// keeps the warning of the latest write.
+        void show_held() {
+            std::lock_guard lock(this->logged_mu);
+            const auto held = this->internal->held_warning();
+            if (held.empty() && this->write_warned) return;
+            this->write_warned = false;
+            this->show_locked(held);
         }
 
         /// @brief implements pipeline::Sink.
@@ -241,21 +256,25 @@ class WriteTask final : public driver::task::Task {
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
             // The start answer hides a warning that the sink held before it.
-            this->show(this->internal->held_warning());
+            this->show_held();
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
-            auto warning = this->internal->take_warning();
+            const auto warning = this->internal->take_warning();
+            std::lock_guard lock(this->logged_mu);
             if (err) {
-                this->forget_warning();
-                if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
+                this->logged_warning = {};
+                this->write_warned = err.matches(errors::TEMPORARY_HARDWARE_ERROR);
+                if (this->write_warned)
                     this->p.state.send_warning("Failed to write commands", err.data);
                 return err;
             }
-            if (warning.empty()) warning = this->internal->held_warning();
-            this->show(warning);
+            this->write_warned = !warning.empty();
+            this->show_locked(
+                this->write_warned ? warning : this->internal->held_warning()
+            );
             return x::errors::NIL;
         }
     };
@@ -405,10 +424,10 @@ class WriteTask final : public driver::task::Task {
             this->notice_pending = false;
             lock.unlock();
             {
-                // The sink starts and stops under state_mu.
+                // The sink starts and stops under state_mu. opened() shows the held
+                // warning once the start is answered.
                 std::lock_guard state_lock(this->state_mu);
-                if (this->sink_started)
-                    this->sink->show(this->sink->internal->held_warning());
+                if (this->sink_started && !this->opening) this->sink->show_held();
             }
             lock.lock();
         }

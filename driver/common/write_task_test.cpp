@@ -928,6 +928,8 @@ public:
     std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     std::atomic<bool> running{false};
+    /// @brief the calls of held_warning().
+    std::atomic<size_t> reads{0};
     /// @brief the calls of held_warning() while the sink was stopped.
     std::atomic<size_t> stopped_reads{0};
 
@@ -955,6 +957,7 @@ public:
     }
 
     Warning held_warning() override {
+        ++this->reads;
         if (!this->running) ++this->stopped_reads;
         std::lock_guard lock(this->mu);
         return this->held;
@@ -1058,6 +1061,21 @@ TEST(TestCommonWriteTask, WriteShowsTheHeldWarningAfterItsOwn) {
     // Each change of the shown warning logs it: at the start, then after each write.
     ASSERT_EVENTUALLY_EQ(log.count("Lost device"), 2);
     EXPECT_EQ(log.count("Skipped invalid command"), 1);
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should keep the warning of the latest write when a held warning ends.
+TEST(TestCommonWriteTask, EndedHeldWarningKeepsTheWarningOfAWrite) {
+    WarningSink log;
+    HoldingWrite w({0});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ(log.count("Skipped invalid command"), 1);
+    const size_t reads = w.sink->reads;
+    w.sink->hold({});
+    ASSERT_EVENTUALLY_GE(w.sink->reads.load(), reads + 1);
+    // Waits out the status window, so that a clear would reach the context.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    EXPECT_EQ(w.message(), "Skipped invalid command");
     ASSERT_TRUE(w.task->stop("stop", true));
 }
 
