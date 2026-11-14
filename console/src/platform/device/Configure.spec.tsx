@@ -45,13 +45,16 @@ const HARDWARE: Device.Hardware = {
   checks: [],
   Configure: Device.createConfigure({
     icon: <Icon.Hardware />,
-    zeroProperties: { vendor: "acme" },
+    adapter: Device.createLegacyAdapter({
+      make: "acme",
+      zeroProperties: { vendor: "acme" },
+    }),
   }),
 };
 
 const Configure = Device.createConfigure({
   icon: <Icon.Hardware />,
-  zeroProperties: {},
+  adapter: Device.createLegacyAdapter({ make: "acme", zeroProperties: {} }),
 });
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
