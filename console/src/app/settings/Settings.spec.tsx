@@ -51,7 +51,8 @@ import {
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-// Can read users and nothing else, so it can neither open tabs nor read the license.
+// Can read users and nothing else, so it can neither open tabs, read the license, nor
+// manage users.
 // Every grant check reads the role's policies, which awaitGranted caches, so the checks
 // in each test answer on the first render.
 const createLimitedClient = async () => {
@@ -83,16 +84,15 @@ const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisibl
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
-    const sections = [
-      "Appearance",
-      "Storage",
-      "General",
+    const sections = ["Profile", "API keys", "Appearance", "Storage", "General"];
+    for (const name of [
+      ...sections,
+      "Users",
       "Labels",
       "Secrets",
       "Certificates",
       "License",
-    ];
-    for (const name of sections) {
+    ]) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
@@ -101,7 +101,7 @@ describe("Settings", () => {
   it("should hide the sections that a user cannot use", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
-    for (const name of ["License", "Labels", "Secrets", "Certificates"])
+    for (const name of ["License", "Users", "Labels", "Secrets", "Certificates"])
       expect(screen.queryByRole("menuitem", { name })).toBeNull();
   });
 
@@ -162,7 +162,7 @@ describe("Settings", () => {
       </Suspense>,
       { wrapper },
     );
-    expect(await screen.findByRole("heading", { name: "Appearance" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Settings.COMMANDS,
       client,
