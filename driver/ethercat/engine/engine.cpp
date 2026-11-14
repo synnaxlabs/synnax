@@ -913,10 +913,19 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 
+Engine::Start Engine::begin_start(x::breaker::Breaker &cancel) const {
+    return {
+        .deadline = this->config.host_clock.steady() +
+                    this->config.start_timeout.chrono(),
+        .cancel = cancel,
+    };
+}
+
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
     const size_t samples_per_read,
+    const Start &,
     const Settings &settings
 ) {
     this->opens.fetch_add(1, std::memory_order_acq_rel);
@@ -942,6 +951,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<Writer::Entry> &entries,
     const x::telem::Rate execution_rate,
+    const Start &,
     std::function<void()> changed
 ) {
     std::vector<pdo::Entry> pdo_entries;

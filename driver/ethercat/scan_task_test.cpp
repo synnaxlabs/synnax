@@ -627,6 +627,44 @@ TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWhoseSerialReadFails) {
     EXPECT_EQ(scanned.at(0).properties.at("serial"), 777);
 }
 
+/// @brief it should keep the stored properties of a slave below PRE-OP, show that it is
+/// starting up, and read it at the next rediscovery.
+TEST_F(EtherCATScanStatusTest, ShowsASlaveBelowPreOpAsStartingUp) {
+    this->master->set_starting(1, true);
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 12345));
+    for (size_t i = 0; i < 6; ++i) {
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = i, .devices = &devices})
+        );
+        ASSERT_EQ(scanned.size(), 1);
+        EXPECT_EQ(scanned.at(0).key, "saved");
+        EXPECT_EQ(scanned.at(0).properties, devices.at("saved").properties);
+        const auto status = scanned.at(0).status.value();
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+        EXPECT_EQ(status.message, "Starting up");
+        EXPECT_EQ(
+            status.description,
+            "The module was not ready when the Driver scanned the network. The Driver "
+            "reads it again on a later scan. If the module stays in this status, "
+            "restart its power."
+        );
+    }
+    this->master->set_starting(1, false);
+    const auto read = ASSERT_NIL_P(
+        this->scanner->scan({.count = 6, .devices = &devices})
+    );
+    ASSERT_EQ(read.size(), 1);
+    EXPECT_EQ(read.at(0).key, "saved");
+    EXPECT_EQ(read.at(0).status.value().message, "Discovered (1 inputs, 0 outputs)");
+}
+
+/// @brief it should save no new device for a slave below PRE-OP.
+TEST_F(EtherCATScanStatusTest, SkipsANewSlaveBelowPreOp) {
+    this->master->set_starting(1, true);
+    EXPECT_TRUE(ASSERT_NIL_P(this->scanner->scan({.count = 0})).empty());
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
@@ -1060,9 +1098,12 @@ TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
 /// @brief it should show a slave in OP on a running bus as operational.
 TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 1);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
@@ -1074,9 +1115,12 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
 /// description.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->fault_slave(1, slave::State::SAFE_OP, "Sync manager watchdog");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
@@ -1096,9 +1140,12 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
 /// the master reads no AL status code.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->fault_slave(1, slave::State::SAFE_OP, "");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
@@ -1115,9 +1162,12 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
 /// @brief it should show the startup parameter that a slave rejected as a sentence.
 TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASentence) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_state(1, slave::State::PRE_OP);
     this->master->fail_startup(
         1,
@@ -1141,9 +1191,12 @@ TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASenten
 /// as an error that tells why.
 TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_state(1, slave::State::PRE_OP);
     this->master->fail_dc_restore(1, "no slave latched its receive time");
     ASSERT_EVENTUALLY_TRUE(
@@ -1164,9 +1217,12 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
 /// @brief it should show a lost slave as not responding.
 TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].lost);
     const auto status = this->scan_status();
@@ -1190,9 +1246,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     );
     this->master->refuse(2, {.reason = "refused SAFE-OP: Inconsistent settings"});
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
     const auto devices = ASSERT_NIL_P(
         this->scanner->scan(common::ScannerContext{.count = 1})
@@ -1232,9 +1291,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
          .advice = slave::DC_SYNC_ADVICE}
     );
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
     const auto devices = ASSERT_NIL_P(
         this->scanner->scan(common::ScannerContext{.count = 1})
@@ -1259,9 +1321,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
 /// to OP.
 TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->set_slave_state(1, slave::State::PRE_OP);
     ASSERT_EVENTUALLY_TRUE(
@@ -1653,9 +1718,12 @@ TEST_F(EtherCATScanModeTest, ShowsTheLiveHealthOverTheSetupWarning) {
     this->start(true);
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && engine->health()[0].operational()
     );
@@ -1831,9 +1899,12 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     this->start(true);
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
@@ -1850,8 +1921,13 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskStartsTheBus) {
     this->master->hold_activate();
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    std::thread opener([&engine, &entry] {
-        auto [reader, err] = engine->open_reader({entry}, x::telem::Rate(100), 1);
+    std::thread opener([this, &engine, &entry] {
+        auto [reader, err] = engine->open_reader(
+            {entry},
+            x::telem::Rate(100),
+            1,
+            engine->begin_start(this->cancel)
+        );
     });
     this->master->wait_until_activating();
     const auto status = this->set_standalone();

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <map>
@@ -443,6 +444,18 @@ public:
     Engine(const Engine &) = delete;
     Engine &operator=(const Engine &) = delete;
 
+    /// @brief the time limit and the cancel of one task start.
+    struct Start {
+        /// @brief the time at which the start fails.
+        std::chrono::steady_clock::time_point deadline;
+        /// @brief ends the start when it stops.
+        x::breaker::Breaker &cancel;
+    };
+
+    /// @brief returns a start that fails Config::start_timeout from now, or when cancel
+    /// stops.
+    [[nodiscard]] Start begin_start(x::breaker::Breaker &cancel) const;
+
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running. Writes settings to the slaves before the first
@@ -462,6 +475,7 @@ public:
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
         size_t samples_per_read,
+        const Start &start,
         const Settings &settings = {}
     );
 
@@ -479,6 +493,7 @@ public:
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate,
+        const Start &start,
         std::function<void()> changed = nullptr
     );
 

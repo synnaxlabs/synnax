@@ -114,7 +114,7 @@ public:
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         if (auto err = this->cfg.slaves.validate(slaves)) return err;
@@ -126,6 +126,7 @@ public:
         auto [wtr, err] = this->engine->open_writer(
             entries,
             this->cfg.execution_rate,
+            this->engine->begin_start(cancel),
             [this] { this->warning_changed(); }
         );
         if (err) return err;
