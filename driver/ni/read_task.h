@@ -318,7 +318,7 @@ private:
         this->hw_reader = std::move(hw);
     }
 
-    x::errors::Error start() override {
+    x::errors::Error start_hw() {
         // DAQmx rejects a second task with a live task's name.
         this->set_hw(nullptr);
         auto [hw, err] = this->make_hw(this->cfg);
@@ -330,6 +330,10 @@ private:
             return start_err;
         }
         return x::errors::NIL;
+    }
+
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->start_hw();
     }
 
     x::errors::Error stop() override {
@@ -348,7 +352,7 @@ private:
 
     x::errors::Error restart() {
         if (const auto err = this->stop()) return err;
-        return this->start();
+        return this->start_hw();
     }
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
@@ -362,7 +366,7 @@ private:
         // reading. The pipeline retries temporary errors, giving recovery a
         // chance on every attempt.
         if (this->hw_reader == nullptr) {
-            res.error = translate_error(this->start());
+            res.error = translate_error(this->start_hw());
             this->curr_read_err = res.error;
             if (res.error) return res;
             // A stop that came while this read built its hardware aborted nothing.

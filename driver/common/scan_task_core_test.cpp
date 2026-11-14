@@ -54,6 +54,8 @@ class RecordingClusterAPI final : public ClusterAPI {
 
 public:
     std::vector<std::string> written;
+    /// @brief the error of the latest update_statuses call.
+    x::errors::Error status_err;
 
     explicit RecordingClusterAPI(const std::shared_ptr<synnax::Synnax> &client):
         api(client) {}
@@ -90,7 +92,8 @@ public:
 
     x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) override {
-        return this->api.update_statuses(std::move(statuses));
+        this->status_err = this->api.update_statuses(std::move(statuses));
+        return this->status_err;
     }
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
@@ -154,6 +157,47 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
         cluster_api_ptr->written,
         (std::vector<std::string>{chassis.key, child.key})
     );
+}
+
+/// @brief it should send the status of a device that the first scan creates, and the
+/// Core should take it.
+TEST(TestScanTask, testSendsTheStatusOfANewDevice) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("scan_task_status_rack"));
+    synnax::device::Device dev{
+        .key = "new_" + std::to_string(rack.key),
+        .rack = rack.key,
+        .location = "usb",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "new device",
+    };
+    synnax::device::Status status{
+        .name = dev.name,
+        .owner = synnax::device::resource_id(dev.key),
+    };
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Device found";
+    dev.status = status;
+    auto cluster_api = std::make_unique<RecordingClusterAPI>(client);
+    const auto *cluster_api_ptr = cluster_api.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = rack.key;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<FixedScanner>(std::vector{dev}),
+        std::make_shared<task::MockContext>(client),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 100,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+    EXPECT_NIL(cluster_api_ptr->status_err);
+    EXPECT_EQ(cluster_api_ptr->written, std::vector{dev.key});
 }
 
 /// @brief returns a scan task on rack that reports the devices once per scan.

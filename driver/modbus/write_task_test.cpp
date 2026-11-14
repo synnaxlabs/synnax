@@ -22,6 +22,8 @@
 namespace driver::modbus {
 class ModbusWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
@@ -157,7 +159,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -263,7 +265,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -421,7 +423,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -490,7 +492,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EQ(slave.get_coil(0), 0);
     ASSERT_EQ(slave.get_holding_register(1), 0);
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -566,7 +568,7 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -655,7 +657,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -688,7 +690,7 @@ TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
     cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
     WriteTaskSink sink(devs, std::move(*cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame on(1);
     on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
@@ -821,7 +823,7 @@ TEST_F(ModbusWriteTest, testRegisterBitWrite) {
     cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
     WriteTaskSink sink(devs, std::move(*cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     x::telem::Frame on(1);
     on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
     ASSERT_NIL(sink.write(on));
