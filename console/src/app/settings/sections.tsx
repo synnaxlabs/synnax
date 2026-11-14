@@ -52,11 +52,19 @@ const Secrets = (): ReactElement => {
 const useSecretsVisible = (): boolean =>
   Access.useRetrieveGranted(secret.TYPE_RESOURCE_ID);
 
-const Certificates = (): ReactElement => (
-  <Settings.Page title="Certificates">
-    <Secret.Certificates selected={Session.Nav.useSelectSettingsItem()} />
-  </Settings.Page>
-);
+const Certificates = (): ReactElement => {
+  const dispatch = Session.useDispatch();
+  return (
+    <Settings.Page title="Certificates">
+      <Secret.Certificates
+        selected={Session.Nav.useSelectSettingsItem()}
+        onShowSelected={() =>
+          dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
+        }
+      />
+    </Settings.Page>
+  );
+};
 
 const useCertificatesVisible = (): boolean =>
   Access.useRetrieveGranted(certificate.TYPE_RESOURCE_ID);

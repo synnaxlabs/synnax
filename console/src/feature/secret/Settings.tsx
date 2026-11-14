@@ -38,19 +38,28 @@ interface TableProps<K extends string, E extends { key: K }> {
   menu: Menu.ContextMenuProps["menu"];
   /** An item to select and scroll to once the list holds it. */
   selected?: K;
+  /** Called once the list shows the item in `selected`. */
+  onShowSelected?: () => void;
   children: List.ItemsProps<K>["children"];
 }
 
 interface ScrollToProps<K extends string> {
   data: K[];
   itemKey?: K;
+  onShow?: () => void;
 }
 
-const ScrollTo = <K extends string>({ data, itemKey }: ScrollToProps<K>): null => {
+const ScrollTo = <K extends string>({
+  data,
+  itemKey,
+  onShow,
+}: ScrollToProps<K>): null => {
   const { scrollToIndex } = List.useScroller<K>();
   const index = itemKey == null ? -1 : data.indexOf(itemKey);
   useEffect(() => {
-    if (index !== -1) scrollToIndex(index);
+    if (index === -1) return;
+    scrollToIndex(index);
+    onShow?.();
   }, [itemKey, index !== -1]);
   return null;
 };
@@ -62,6 +71,7 @@ const Table = <K extends string, E extends { key: K }>({
   action,
   menu,
   selected: initial,
+  onShowSelected,
   children,
 }: TableProps<K, E>): ReactElement => {
   const { data, getItem, subscribe, more, search, answered } = list;
@@ -70,7 +80,7 @@ const Table = <K extends string, E extends { key: K }>({
   const [prevInitial, setPrevInitial] = useState(initial);
   if (initial !== prevInitial) {
     setPrevInitial(initial);
-    setSelected(initial == null ? [] : [initial]);
+    if (initial != null) setSelected([initial]);
   }
   const menuProps = Menu.useContextMenu();
   const handleSearch = (next: string): void => {
@@ -88,7 +98,7 @@ const Table = <K extends string, E extends { key: K }>({
       onChange={setSelected}
     >
       <Menu.ContextMenu menu={menu} {...menuProps} />
-      <ScrollTo data={data} itemKey={initial} />
+      <ScrollTo data={data} itemKey={initial} onShow={onShowSelected} />
       <Flex.Box y gap="medium">
         <Flex.Box x align="center" justify="between" gap="medium">
           <Input.Text
@@ -264,13 +274,18 @@ const certificatesMenu = Component.renderProp(CertificatesMenu);
 export interface CertificatesProps {
   /** A certificate to select and scroll to. */
   selected?: certificate.Key;
+  /** Called once the page shows the certificate in `selected`. */
+  onShowSelected?: () => void;
 }
 
 /**
  * Every certificate the user can read, with when it is valid. The menu of the selected
  * certificates renames or deletes them.
  */
-export const Certificates = ({ selected }: CertificatesProps): ReactElement => {
+export const Certificates = ({
+  selected,
+  onShowSelected,
+}: CertificatesProps): ReactElement => {
   const list = Certificate.useList({ pageSize: 100 });
   const now = useNow(nextMinute);
   return (
@@ -280,6 +295,7 @@ export const Certificates = ({ selected }: CertificatesProps): ReactElement => {
       noun="certificates"
       menu={certificatesMenu}
       selected={selected}
+      onShowSelected={onShowSelected}
     >
       {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
     </Table>

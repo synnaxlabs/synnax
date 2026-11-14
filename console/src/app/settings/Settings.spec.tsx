@@ -38,6 +38,7 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
+import { Session } from "@/session";
 import {
   assertDefined,
   awaitGranted,
@@ -63,7 +64,7 @@ const createLimitedClient = async () => {
   return limited;
 };
 
-const renderSettings = async (as = client): Promise<void> => {
+const renderSettings = async (as = client) => {
   const { Content } = Settings.TABS.settings;
   const { wrapper } = await createConsoleWrapper({ client: as });
   render(
@@ -74,6 +75,7 @@ const renderSettings = async (as = client): Promise<void> => {
     </Tree.Provider>,
     { wrapper },
   );
+  return { wrapper };
 };
 
 const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisible?.();
@@ -122,7 +124,8 @@ describe("Settings", () => {
     assert(c.source === "stored" && c.privateKey != null);
     const privateKey = await client.secrets.retrieve(c.privateKey);
     try {
-      await renderSettings();
+      const { wrapper } = await renderSettings();
+      const pick = renderHook(Session.Nav.useSelectSettingsItem, { wrapper });
       fireEvent.click(await screen.findByRole("menuitem", { name: "Secrets" }));
       const item = await screen.findByRole("option", { name: privateKey.name });
       const count = await within(item).findByText("Used by 1");
@@ -134,6 +137,8 @@ describe("Settings", () => {
       expect(await screen.findByRole("heading", { name: "Certificates" })).toBeTruthy();
       const picked = await screen.findByRole("option", { name: c.name });
       await waitFor(() => expect(picked.getAttribute("aria-selected")).toBe("true"));
+      // The page consumes the pick, so a later visit selects nothing.
+      await waitFor(() => expect(pick.result.current).toBeUndefined());
     } finally {
       await client.certificates.delete(c.key);
       await client.secrets.delete(c.privateKey);
