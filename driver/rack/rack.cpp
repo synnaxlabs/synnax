@@ -66,8 +66,9 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (this->should_exit(err, on_shutdown) || !this->breaker.running()) return;
         // The factories hold the Core version and cluster from startup, so a new one
-        // needs a new Driver process.
-        if (this->should_exit(cfg.check_core(), on_shutdown)) return;
+        // needs a new Driver process. No run starts before a check passes.
+        while (const auto check_err = cfg.check_core())
+            if (this->should_exit(check_err, on_shutdown)) return;
     }
 }
 
