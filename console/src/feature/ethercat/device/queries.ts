@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status } from "@synnaxlabs/client";
+import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -97,6 +97,11 @@ export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
 
+export interface SetStandaloneResult extends SetStandaloneParams {
+  /** The answer of the Driver to the switch, which says what the user does next. */
+  answer: task.Status;
+}
+
 /**
  * How long a switch waits for the Driver. Writes to several slaves can be slow. It ends
  * before the default 60 s operation timeout of the Driver, whose error reply would read
@@ -106,11 +111,14 @@ const SWITCH_TIMEOUT = TimeSpan.seconds(50);
 
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
- * slave to Synnax only. The slave changes after its power restarts. When a stop fails
- * or the Driver refuses the switch, starts the tasks again. When the Driver gives no
- * answer, the switch may still run, so the tasks stay stopped.
+ * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
+ * tasks again. When the Driver gives no answer, the switch may still run, so the tasks
+ * stay stopped.
  */
-export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
+export const { useUpdate: useSetStandalone } = Flux.createUpdate<
+  SetStandaloneParams,
+  SetStandaloneResult
+>({
   name: "EtherCAT slave",
   verbs: SWITCH,
   update: async ({ client, data }) => {
@@ -170,6 +178,6 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
       await restart();
       throw status.toError(res);
     }
-    return data;
+    return { ...data, answer: res };
   },
 });
