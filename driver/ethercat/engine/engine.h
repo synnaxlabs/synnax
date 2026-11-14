@@ -109,7 +109,9 @@ private:
     /// @brief the vendor, product, and serial number of a slave, and its position when
     /// it has no serial number.
     using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
-    /// @brief the time of the last restart of each slave in slaves. Guarded by mu.
+    /// @brief guards restarts, which the supervisor writes without mu.
+    std::mutex restarts_mu;
+    /// @brief the time of the last restart of each slave in slaves.
     std::map<RestartKey, x::telem::TimeStamp> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
@@ -123,6 +125,9 @@ private:
     /// Written only while the bus is stopped, so the supervisor reads it without a
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
+    /// @brief the positions of the slaves that the running bus does not check: those it
+    /// started without, and those that their settings disable.
+    std::set<uint16_t> unchecked;
 
     struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
@@ -318,18 +323,21 @@ private:
     /// @brief scans the stopped bus again. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief scans the bus. When no slave answers, forgets the slaves, so that each
+    /// one gets a new restart time when a scan finds it again. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan_locked();
     /// @brief scans the stopped bus again, with restarted as the slaves that restarted
     /// since the last scan. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rescan_locked(const std::set<uint16_t> &restarted);
-    /// @brief returns the positions of the slaves that restarted since the last scan of
-    /// the master, or none when the master has no scan or cannot see a restart.
-    /// Requires mu.
-    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
+    /// @brief returns how the bus changed since the last scan of the master, or no
+    /// change when the master has no scan or cannot see a restart. Requires mu.
+    std::pair<master::Change, x::errors::Error> changed_locked();
     /// @brief records now as the restart time of each slave in slaves that restarted
     /// names or that the last scan did not find, and gives each slave in slaves its
     /// time. Forgets the slaves that slaves lacks. Requires mu.
     void track_restarts_locked(const std::set<uint16_t> &restarted);
+    [[nodiscard]] static RestartKey restart_key(const slave::Properties &props);
     /// @brief locks mu without waiting behind an open_reader or open_writer.
     /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
     std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
