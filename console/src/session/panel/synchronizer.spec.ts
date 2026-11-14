@@ -12,6 +12,8 @@ import {
   createEmptyRole,
   createPanelProject,
   createTestClient,
+  createTestClientWithRole,
+  TEST_CREDENTIALS,
 } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
@@ -358,6 +360,33 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() =>
       expect(stripOrder(store)).toEqual([alpha.key, mine.key, zulu.key]),
     );
+  });
+
+  it("swaps in the new user's drafts when a different user logs in", async () => {
+    const proj = await createProject();
+    const viewer = await createTestClientWithRole(client, "Viewer");
+    const viewerKey = (await viewer.users.current.retrieve()).key;
+    const me = (await client.users.current.retrieve()).key;
+    const shared = await createProjectPanel(proj.key, { name: "a shared" });
+    const theirs = await createProjectPanel(proj.key, {
+      name: "b viewer",
+      owner: viewerKey,
+    });
+    const mine = await createProjectPanel(proj.key, { name: "c admin", owner: me });
+    const store = await createStoreWithProject(proj.key);
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client: viewer, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, theirs.key]));
+    act(() => viewer.reauthenticate(TEST_CREDENTIALS));
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, mine.key]));
   });
 
   it("prunes a deleted panel from the strip order", async () => {
