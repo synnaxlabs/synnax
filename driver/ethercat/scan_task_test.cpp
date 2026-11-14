@@ -653,8 +653,10 @@ TEST_F(EtherCATScanStatusTest, KeepsTheStoredPDOsOfAnIncompleteRead) {
     EXPECT_EQ(status.message, "Discovered (2 inputs, 0 outputs)");
     EXPECT_EQ(
         status.description,
-        "The last scan did not read all the PDOs, so the device keeps the PDOs of an "
-        "earlier scan. The Driver tries again while no task uses the port."
+        "Failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII. PDO order may be unreliable. Verify data correctness after "
+        "configuration. The device keeps the PDOs of an earlier scan in place of the "
+        "PDOs of this scan."
     );
 }
 

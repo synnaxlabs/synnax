@@ -392,15 +392,14 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.message = "Discovered (" + objects(saved.input_pdos) + " inputs, " +
                          objects(saved.output_pdos) + " outputs)";
         status.variant = synnax::status::VARIANT_SUCCESS;
-        if (pdos_kept) {
-            status.description = "The last scan did not read all the PDOs, so the "
-                                 "device keeps the PDOs of an earlier scan. The Driver "
-                                 "tries again while no task uses the port.";
-            status.variant = synnax::status::VARIANT_WARNING;
-        } else if (!sts.pdo_discovery_error.empty()) {
+        if (!sts.pdo_discovery_error.empty()) {
             // A fallback, such as the SII after a failed CoE read, gives PDOs and an
             // error.
             status.description = pdo_error_description(sts.pdo_discovery_error);
+            if (pdos_kept)
+                status
+                    .description += " The device keeps the PDOs of an earlier scan in "
+                                    "place of the PDOs of this scan.";
             status.variant = synnax::status::VARIANT_WARNING;
         }
         add_settings_error(sts.settings_error, status);
