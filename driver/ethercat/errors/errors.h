@@ -98,13 +98,6 @@ struct SDOFailure {
     /// @brief the abort code of an ABORTED transfer.
     uint32_t abort_code = 0;
 
-    /// @brief returns the failure for the abort code of a master that reports only
-    /// abort codes, where 0 means no reply.
-    static SDOFailure from_abort_code(uint32_t code) {
-        if (code == 0) return {};
-        return {.kind = Kind::ABORTED, .abort_code = code};
-    }
-
     /// @brief returns why the transfer failed, such as "no response".
     [[nodiscard]] std::string reason() const;
 

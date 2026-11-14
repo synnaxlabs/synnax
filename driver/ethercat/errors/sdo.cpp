@@ -65,7 +65,8 @@ std::string abort_reason(const uint32_t code) {
 }
 
 std::string sdo_abort_reason(const uint32_t code) {
-    return SDOFailure::from_abort_code(code).reason();
+    if (code == 0) return "no response";
+    return abort_reason(code);
 }
 
 std::string SDOFailure::reason() const {

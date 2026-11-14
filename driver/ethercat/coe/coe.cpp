@@ -109,10 +109,19 @@ x::errors::Error read_error(
 
 x::errors::Error
 read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
+    if (abort_code == 0)
+        return x::errors::Error(
+            errors::SDO_READ_ERROR,
+            "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
+                errors::sdo_abort_reason(0)
+        );
     return read_error(
         index,
         sub_index,
-        errors::SDOFailure::from_abort_code(abort_code)
+        errors::SDOFailure{
+            .kind = errors::SDOFailure::Kind::ABORTED,
+            .abort_code = abort_code,
+        }
     );
 }
 

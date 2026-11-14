@@ -36,8 +36,9 @@ const x::errors::Error NO_REPLY = errors::SDO_READ_ERROR.sub("no_reply");
 x::errors::Error
 read_error(uint16_t index, uint8_t sub_index, const errors::SDOFailure &failure);
 
-/// @brief returns read_error() for a read that the slave aborted with abort_code, or
-/// that got no reply when abort_code is 0.
+/// @brief returns read_error() for a read that the slave aborted with abort_code. For
+/// an abort_code of 0, it returns errors::SDO_READ_ERROR, as a master that reports only
+/// abort codes cannot tell a read with no reply from one with a bad reply.
 x::errors::Error read_error(uint16_t index, uint8_t sub_index, uint32_t abort_code);
 
 /// @brief reads an unsigned value of at most four bytes from the object dictionary of
