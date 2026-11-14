@@ -332,8 +332,8 @@ TEST(stateTests, StartedBeforeConfigureReturns) {
     const auto started = statuses->latest(task.key);
     hb->stop(false);
     ASSERT_TRUE(started.has_value());
-    EXPECT_EQ(started->message, "Started");
-    EXPECT_TRUE(started->details.running);
+    EXPECT_EQ(started.value().message, "Started");
+    EXPECT_TRUE(started.value().details.running);
 }
 
 /// @brief it should send task statuses again on the first heartbeat that succeeds after
