@@ -239,8 +239,8 @@ func double() {val f32} f32 {
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
 }
 
-/// @brief it should stop a running call with INTERRUPTED, and run calls again after
-/// resume.
+/// @brief it should stop a running call with INTERRUPTED, fail later calls the same
+/// way, and run calls again after resume.
 TEST(FunctionCallTest, InterruptStopsRunningCall) {
     const auto client = new_test_client();
     const auto program = testutil::compile_text(client, R"(
@@ -261,8 +261,9 @@ func one() i32 { return 1 }
     const auto err = spin.call({}, results);
     interrupter.join();
     ASSERT_OCCURRED_AS(err, errors::INTERRUPTED);
-    module->resume();
     auto one = ASSERT_NIL_P(module->func("one"));
+    ASSERT_OCCURRED_AS(one.call({}, results), errors::INTERRUPTED);
+    module->resume();
     ASSERT_NIL(one.call({}, results));
     EXPECT_EQ(std::get<int32_t>(results[0].value), 1);
 }
