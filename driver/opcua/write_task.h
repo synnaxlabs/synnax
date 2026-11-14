@@ -171,7 +171,7 @@ public:
     /// @brief retrieves the device again, so a changed trusted server certificate takes
     /// effect on restart. A server that is off or refuses Sessions does not stop the
     /// start, since each command connects again.
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         auto [c, err] = this->connector.start();
         if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))

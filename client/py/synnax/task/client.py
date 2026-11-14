@@ -89,8 +89,8 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
-# The Driver fails an operation that takes longer than 60 s. A wait past this limit
-# lost its command, for example to a Driver restart.
+# Each loading status of a command restarts the wait for its next status. A wait past
+# this limit lost its command, for example to a Driver restart.
 _FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
 
 
@@ -224,8 +224,8 @@ class Task:
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
         :param timeout: How long to wait for the driver to acknowledge the command.
-        Once it does, the wait for the final status lasts two minutes or the timeout,
-        whichever is longer.
+        Once it does, each loading status restarts the wait for the next status, which
+        lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the command or send
         its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
@@ -266,10 +266,12 @@ class Task:
                     if status.details is not None and status.details.cmd == key:
                         if status.variant != VARIANT_LOADING:
                             return status
+                        # A loading status shows the driver still works on the
+                        # command, so the wait starts again.
                         if not acknowledged:
                             acknowledged = True
                             span = max(span, _FINAL_STATUS_TIMEOUT)
-                            timer = Timer()
+                        timer = Timer()
 
 
 def _config_devices(config: Mapping[str, Any]) -> list[str]:
@@ -341,8 +343,8 @@ class StarterStopperMixin:
         start.
 
         :param timeout: How long to wait for the driver to acknowledge the start. Once
-            it does, the wait for the final status lasts two minutes or the timeout,
-            whichever is longer.
+            it does, each loading status restarts the wait for the next status, which
+            lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the start or send its
             final status in time.
         :raises RuntimeError: If the driver fails to start the task, or if the driver
@@ -356,8 +358,8 @@ class StarterStopperMixin:
         stop.
 
         :param timeout: How long to wait for the driver to acknowledge the stop. Once
-            it does, the wait for the final status lasts two minutes or the timeout,
-            whichever is longer.
+            it does, each loading status restarts the wait for the next status, which
+            lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the stop or send its
             final status in time.
         :raises RuntimeError: If the driver of the task goes down during the wait. An

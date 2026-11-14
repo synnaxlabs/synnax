@@ -67,38 +67,48 @@ def duration(start: str | None, end: str | None) -> str:
     return str(span.trunc(sy.TimeSpan.SECOND)) if span >= sy.TimeSpan.SECOND else "<1s"
 
 
-def line(view: dict, *, tail: str) -> str:
-    """<workflow> <step> <ticket or branch> | <url>"""
+def title(view: dict) -> str:
+    """<workflow> / <job>"""
     # A run name can trail the workflow name, as in "Test - Integration 2886/merge".
     workflow = re.split(r"\s+(?=\S*[\d/])", view["workflow"])[0]
     workflow = re.sub(r"\s+", "", workflow)
-    branch = view["branch"]
+    return f"{workflow} / {view['name']}"
+
+
+def ref(branch: str) -> str:
+    """The pull request, the ticket, or the name of a branch."""
+    if queued := re.fullmatch(r"gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+", branch):
+        return f"#{queued.group(1)}"
     if key := re.match(r"[A-Za-z]+-\d+", branch):
-        branch = key.group()
-    return f"{workflow} {tail} {branch} | {view['url']}"
+        return key.group()
+    return branch
 
 
-def step_events(view: dict, *, before: list[dict], after: list[dict]) -> list[str]:
+def step_events(*, before: list[dict], after: list[dict]) -> list[str]:
+    """One line per step that changed since before."""
     seen = {s["number"]: (s["status"], s["conclusion"]) for s in before}
     lines = []
     for s in after:
         if (s["status"], s["conclusion"]) == seen.get(s["number"]):
             continue
         if s["status"] == "in_progress":
-            lines.append(line(view, tail=f"{s['name']} started"))
+            lines.append(f"{s['name']} started")
         elif s["status"] == "completed" and s["conclusion"] != "skipped":
             taken = duration(s["started_at"], s["completed_at"])
-            lines.append(line(view, tail=f"{s['name']} {s['conclusion']} {taken}"))
+            lines.append(f"{s['name']} {s['conclusion']} {taken}")
     return lines
 
 
 def started_line(view: dict) -> str:
-    return line(view, tail="started")
+    return f"{title(view)} started  {ref(view['branch'])}  {view['url']}"
 
 
 def completed_line(job: dict) -> str:
+    """The URL is left off a success."""
+    current = view(job)
     taken = duration(job.get("started_at"), job.get("completed_at"))
-    return line(view(job), tail=f"done {job['conclusion']} {taken}")
+    text = f"{title(current)} {job['conclusion']} {taken}  {ref(current['branch'])}"
+    return text if job["conclusion"] == "success" else f"{text}  {current['url']}"
 
 
 class Jobs:
@@ -150,16 +160,14 @@ class Jobs:
                 self.active[runner] = current
                 lines = events.setdefault(runner, [])
                 lines.append(started_line(current))
-                lines.extend(step_events(current, before=[], after=job["steps"]))
+                lines.extend(step_events(before=[], after=job["steps"]))
             elif action == "completed":
                 last = self.active.get(runner)
                 lines = events.setdefault(runner, [])
                 # A late completion of an earlier job leaves the current one active.
                 if last is not None and last["id"] == job["id"]:
                     del self.active[runner]
-                    lines.extend(
-                        step_events(current, before=last["steps"], after=job["steps"])
-                    )
+                    lines.extend(step_events(before=last["steps"], after=job["steps"]))
                 lines.append(completed_line(job))
         return {r: lines for r, lines in events.items() if lines}
 
@@ -190,7 +198,7 @@ class Jobs:
         if runner is None or last is None or last["id"] != job["id"]:
             return
         lines = events.setdefault(runner, [])
-        lines.extend(step_events(view(job), before=last["steps"], after=job["steps"]))
+        lines.extend(step_events(before=last["steps"], after=job["steps"]))
         if job["status"] == "completed":
             # The completed delivery never arrived, so finish the job from the poll.
             del self.active[runner]

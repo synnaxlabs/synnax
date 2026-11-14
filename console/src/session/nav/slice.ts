@@ -25,7 +25,9 @@ const bottomStateZ = baseStateZ
   .prefault({});
 export interface BottomState extends z.infer<typeof bottomStateZ> {}
 
-const settingsStateZ = z.object({ section: z.string().optional() }).prefault({});
+const settingsStateZ = z
+  .object({ section: z.string().optional(), item: z.string().optional() })
+  .prefault({});
 
 const windowStateZ = z
   .object({ left: leftStateZ, bottom: bottomStateZ, settings: settingsStateZ })
@@ -58,6 +60,8 @@ export interface ResizePayload extends Window.OptionalKeyParams {
 
 export interface SettingsSectionPayload extends Window.OptionalKeyParams {
   section: string;
+  /** The key of an item for the section to select and show. */
+  item?: string;
 }
 
 const withKey = Window.createWithKeyHandler(windowStateZ);
@@ -155,8 +159,9 @@ const { actions, reducer } = createSlice({
       bottom.hover = false;
     }),
     selectSettingsSection: withKey<SettingsSectionPayload, SliceState>(
-      ({ settings }, { payload: { section } }) => {
+      ({ settings }, { payload: { section, item } }) => {
         settings.section = section;
+        settings.item = item;
       },
     ),
   },

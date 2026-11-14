@@ -31,14 +31,14 @@ from common import parameter_store, secret
 from github import GitHub
 
 
-def run(runner: str, *, aws: AWS, github: GitHub) -> str:
+def run(runner: str, *, aws: AWS, github: GitHub) -> str | None:
     # The scaler decides on a status that trails GitHub by seconds, in which time an
     # idle runner can take a job.
     if github.busy(runner):
         return f"{runner}: busy, stop skipped"
     iid, info = aws.instance(runner)
     aws.ec2[info["region"]].stop_instances(InstanceIds=[iid])
-    return f"{runner} ({info['region']}): stop requested"
+    return None
 
 
 def main() -> None:
@@ -46,7 +46,8 @@ def main() -> None:
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
     store = parameter_store()
     github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
-    print(run(p.parse_args().runner, aws=AWS(), github=github))
+    if (skipped := run(p.parse_args().runner, aws=AWS(), github=github)) is not None:
+        print(skipped)
 
 
 if __name__ == "__main__":
