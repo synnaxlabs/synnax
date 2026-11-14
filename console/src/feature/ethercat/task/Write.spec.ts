@@ -626,3 +626,20 @@ describe("Write channel names", () => {
     expect(within(item).getByText(`${base}_state`)).toBeTruthy();
   });
 });
+
+describe("Write channel usage", () => {
+  it("should count the state index and the command and state channels", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(/^Start creates 3 channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+});

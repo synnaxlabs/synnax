@@ -23,6 +23,7 @@ import {
   ReadChannelDetails,
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
@@ -146,6 +147,7 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
+  const channels = PForm.useFieldValue(path.config.channels);
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
@@ -154,15 +156,18 @@ const Form: FC = () => {
     return { channel: readChannelOf(slave, ch, dataTypes) };
   };
   return (
-    <Task.Views.ListAndDetails<ReadChannel>
-      path={path.config.channels}
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createReadChannel}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<ReadChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createReadChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+      />
+      <ChannelUsage pdoType="inputs" channels={channels} slaves={slaves} />
+    </Flex.Box>
   );
 };
 

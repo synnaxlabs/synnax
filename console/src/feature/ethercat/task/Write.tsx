@@ -22,6 +22,7 @@ import {
   WriteChannelDetails,
   WriteDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
@@ -121,6 +122,7 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
+  const channels = PForm.useFieldValue(path.config.channels);
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
@@ -131,15 +133,18 @@ const Form: FC = () => {
     };
   };
   return (
-    <Task.Views.ListAndDetails<WriteChannel>
-      path={path.config.channels}
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createWriteChannel}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<WriteChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createWriteChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+      />
+      <ChannelUsage pdoType="outputs" channels={channels} slaves={slaves} />
+    </Flex.Box>
   );
 };
 
