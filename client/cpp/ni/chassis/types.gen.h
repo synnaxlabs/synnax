@@ -34,9 +34,12 @@ struct Configuration;
 struct Where;
 struct StatusDetails;
 struct Cursor;
+struct Order;
 struct RetrieveRequest;
 struct Chassis;
 struct RetrieveResponse;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 using Key = x::uuid::UUID;
 
@@ -131,6 +134,9 @@ struct StatusDetails {
 struct Cursor {
     /// @brief key is the key of the chassis at the position.
     Key key;
+    /// @brief name is the name of the chassis at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -159,12 +165,25 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
 
+/// @brief Order is a sort of chassis.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the chassis that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the chassis. An absent order sorts them by key.
+    std::optional<Order> order;
     /// @brief after starts the chassis strictly past this position in their order.
     std::optional<Cursor> after;
     /// @brief limit is the most chassis to return.
@@ -180,6 +199,8 @@ struct RetrieveRequest {
     std::optional<Where> where;
     /// @brief search_term keeps the chassis that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the chassis. An absent order sorts them by key.
+    std::optional<Order> order;
     /// @brief after starts the chassis strictly past this position in their order.
     std::optional<Cursor> after;
     /// @brief limit is the most chassis to return.
@@ -192,6 +213,7 @@ struct RetrieveRequest {
         return {
             .where = std::move(where),
             .search_term = options.search_term,
+            .order = options.order,
             .after = options.after,
             .limit = options.limit,
             .include_status = options.include_status,

@@ -31,6 +31,7 @@ Device struct {
     name           string                             {
         @doc value         "is a human-readable name for the device."
         @filter
+        @index sorted
         @search
         @validate required
     }
