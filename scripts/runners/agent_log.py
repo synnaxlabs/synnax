@@ -71,11 +71,14 @@ class Log:
                     raw = f.read(min(size - offset, budget))
             except OSError:
                 continue
-            cut = raw.rfind(b"\n")
-            if cut < 0:
+            cut = raw.rfind(b"\n") + 1
+            # A line longer than the budget goes out in pieces, or it stalls its file.
+            if cut == 0 and len(raw) >= LOG_BUDGET:
+                cut = len(raw)
+            if cut == 0:
                 continue
-            self.offsets[path] = offset + cut + 1
-            budget -= cut + 1
+            self.offsets[path] = offset + cut
+            budget -= cut
             lines.extend(raw[:cut].decode("utf-8", "replace").splitlines())
         return lines
 

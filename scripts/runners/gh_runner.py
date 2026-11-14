@@ -28,6 +28,8 @@ WORKER = "runner.worker"
 # A start that died is retried this long after the last attempt.
 RETRY = 60
 LOOKBACKS = (1 * sy.TimeSpan.DAY, 7 * sy.TimeSpan.DAY)
+# A command stream that failed is opened again after this many seconds.
+LISTEN_RETRY = 5
 
 
 class Sink(Protocol):
@@ -59,15 +61,22 @@ class Runner:
             self.apply(True, "none yet")
         # A streamer may label frames by channel name or key.
         labels = (name, client.channels.retrieve(name).key)
-        self.stopping.clear()
+        # Each thread has its own event, so a new session cannot revive an old thread.
+        self.stopping = threading.Event()
         self.thread = threading.Thread(
-            target=self._listen, args=(client, name, labels), daemon=True
+            target=self._listen, args=(client, name, labels, self.stopping), daemon=True
         )
         self.thread.start()
 
-    def _listen(self, client: sy.Synnax, name: str, labels: tuple[str, int]) -> None:
+    def _listen(
+        self,
+        client: sy.Synnax,
+        name: str,
+        labels: tuple[str, int],
+        stopping: threading.Event,
+    ) -> None:
         streamer = None
-        while not self.stopping.is_set():
+        while not stopping.is_set():
             try:
                 if streamer is None:
                     streamer = client.open_streamer([name])
@@ -87,7 +96,7 @@ class Runner:
                     except Exception:
                         pass
                 streamer = None
-                self.stopping.wait(5)
+                stopping.wait(LISTEN_RETRY)
         if streamer is not None:
             try:
                 streamer.close()

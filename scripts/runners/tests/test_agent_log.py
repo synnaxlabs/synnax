@@ -89,6 +89,18 @@ class TestLog:
         log.write()
         assert client.written(CHANNEL) == [["one", "two"], ["three"]]
 
+    def test_should_send_a_line_longer_than_the_budget_in_pieces(
+        self, client: Client, page: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(agent_log, "LOG_BUDGET", 8)
+        log = Log(core(client), CHANNEL)
+        append(page, "a line with no end")
+        log.write()
+        log.write()
+        append(page, "\nnext\n")
+        log.write()
+        assert client.written(CHANNEL) == [["a line w"], ["ith no e"], ["nd", "next"]]
+
     def test_should_skip_a_file_it_cannot_open(
         self, client: Client, page: Path
     ) -> None:

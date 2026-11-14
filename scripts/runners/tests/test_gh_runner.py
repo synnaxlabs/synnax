@@ -225,13 +225,19 @@ class TestTick:
 
 class Streamer(conftest.Streamer):
     """Fails the next reads counted in errors, then streams the frames, then signals
-    drained."""
+    drained. The first streamer of a client with a hold waits in each read for it."""
 
     def __init__(self, client: "Core") -> None:
         super().__init__(client)
         self.core = client
+        self.held = client.hold is not None and client.opened == 1
 
     def read(self, *, timeout: sy.TimeSpan) -> dict | None:
+        if self.held and self.core.hold is not None:
+            self.core.entered.set()
+            self.core.hold.wait(5)
+            time.sleep(0.001)
+            return None
         if self.core.errors:
             self.core.errors -= 1
             raise ConnectionError("Core unreachable")
@@ -258,6 +264,8 @@ class Core(conftest.Client):
         self.opened = 0
         self.closed = 0
         self.drained = threading.Event()
+        self.hold: threading.Event | None = None
+        self.entered = threading.Event()
         self.channels = SimpleNamespace(retrieve=lambda name: SimpleNamespace(key=KEY))
 
     def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
@@ -267,13 +275,6 @@ class Core(conftest.Client):
     def open_streamer(self, *args: object, **kwargs: object) -> Streamer:
         self.opened += 1
         return Streamer(self)
-
-
-class Impatient(threading.Event):
-    """An event whose wait returns at once, so a retry does not take its delay."""
-
-    def wait(self, timeout: float | None = None) -> bool:
-        return self.is_set()
 
 
 def listen(client: Core, runner: Runner, sink: Sink) -> None:
@@ -342,15 +343,41 @@ class TestListen:
         assert machine.commands == []
 
     def test_should_open_a_new_streamer_after_a_failure(
-        self, machine: Machine, runner: Runner, sink: Sink
+        self,
+        machine: Machine,
+        runner: Runner,
+        sink: Sink,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(gh_runner, "LISTEN_RETRY", 0)
         client = Core()
         client.stored = [True]
         client.streamed = [{CMD: [False]}]
         client.errors = 1
         machine.processes = {LISTENER}
-        runner.stopping = Impatient()
         listen(client, runner, sink)
         assert client.opened == 2
         assert "commands failed: ConnectionError: Core unreachable" in sink.lines
         assert machine.commands == [STOP]
+
+    def test_should_end_the_listener_of_the_session_before(
+        self, machine: Machine, runner: Runner, sink: Sink
+    ) -> None:
+        client = Core()
+        client.stored = [True]
+        client.hold = threading.Event()
+        machine.processes = {LISTENER}
+        runner.listen(core(client), CMD, STATE, sink)
+        old = runner.thread
+        assert old is not None
+        assert client.entered.wait(5)
+        runner.stop_listening()
+        runner.listen(core(client), CMD, STATE, sink)
+        client.hold.set()
+        old.join(5)
+        assert not old.is_alive()
+        listen_end = runner.thread
+        runner.stop_listening()
+        assert listen_end is not None
+        listen_end.join(5)
+        assert not listen_end.is_alive()
