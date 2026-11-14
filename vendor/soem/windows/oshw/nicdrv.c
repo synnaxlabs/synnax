@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 /*
- * Windows NIC driver for SOEM, copied from SOEM/oshw/win32/nicdrv.c.
+ * Windows NIC driver for SOEM, copied from SOEM/oshw/win32/nicdrv.c. It reads a frame
+ * once more after its receive timer expires, as a late thread can find the timer
+ * expired before it reads a frame that came in time. ecx_setupnic requests the 1 ms
+ * timer period that ecx_closenic ends, so each bus session sleeps at 1 ms.
  */
 
 /*
@@ -147,6 +150,10 @@ int ecx_setupnic(ecx_portt *port, const char *ifname, int secondary)
       printf("interface %s could not open with pcap\n", ifname);
       return 0;
    }
+   if (!secondary)
+   {
+      timeBeginPeriod(1);
+   }
 
    for (i = 0; i < EC_MAXBUF; i++)
    {
@@ -164,10 +171,9 @@ int ecx_setupnic(ecx_portt *port, const char *ifname, int secondary)
  */
 int ecx_closenic(ecx_portt *port)
 {
-   timeEndPeriod(1);
-
    if (port->sockhandle != NULL)
    {
+      timeEndPeriod(1);
       DeleteCriticalSection(&(port->getindex_mutex));
       DeleteCriticalSection(&(port->tx_mutex));
       DeleteCriticalSection(&(port->rx_mutex));
@@ -505,6 +511,10 @@ static int ecx_waitinframe_red(ecx_portt *port, uint8 idx, osal_timert *timer)
       }
       /* wait for both frames to arrive or timeout */
    } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+   if (wkc <= EC_NOFRAME)
+      wkc = ecx_inframe(port, idx, 0);
+   if ((port->redstate != ECT_RED_NONE) && (wkc2 <= EC_NOFRAME))
+      wkc2 = ecx_inframe(port, idx, 1);
    /* only do redundant functions when in redundant mode */
    if (port->redstate != ECT_RED_NONE)
    {
@@ -544,6 +554,8 @@ static int ecx_waitinframe_red(ecx_portt *port, uint8 idx, osal_timert *timer)
             /* retrieve frame */
             wkc2 = ecx_inframe(port, idx, 1);
          } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+         if (wkc2 <= EC_NOFRAME)
+            wkc2 = ecx_inframe(port, idx, 1);
          if (wkc2 > EC_NOFRAME)
          {
             /* copy secondary result to primary rx buffer */
