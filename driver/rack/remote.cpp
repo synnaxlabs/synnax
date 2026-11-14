@@ -201,7 +201,7 @@ x::errors::Error Config::check_core() const {
     if (err) return err;
     if (cluster_key != this->remote_info.cluster_key)
         return x::errors::Error(
-            x::errors::VALIDATION,
+            CORE_CHANGED,
             "the Core is now cluster " + cluster_key.to_string() + ", not " +
                 this->remote_info.cluster_key.to_string() +
                 ". The Driver stops so that it can start again on the new cluster"
@@ -212,7 +212,7 @@ x::errors::Error Config::check_core() const {
     );
     if (incompatible != this->incompatible_core_version.has_value())
         return x::errors::Error(
-            x::errors::VALIDATION,
+            CORE_CHANGED,
             "the Core now runs version " + core.node_version +
                 ". The Driver stops so that it can start again for this version"
         );

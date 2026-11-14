@@ -50,6 +50,9 @@ namespace driver::rack {
 /// @brief the persisted state file or its directory cannot be used safely, such as
 /// when either is a symbolic link.
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+/// @brief the Core is now another cluster, or became compatible or incompatible with
+/// this Driver. The Driver must start again to load it.
+const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_changed");
 
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
@@ -318,8 +321,8 @@ struct Config {
     [[nodiscard]] x::errors::Error load_remote();
 
     /// @brief checks the Core again, after the Driver lost it.
-    /// @returns an error when the Core is now another cluster, or became compatible or
-    /// incompatible with this Driver. The Driver must then start again to load it.
+    /// @returns CORE_CHANGED when the Core is now another cluster, or became compatible
+    /// or incompatible with this Driver, or the error of a check that failed.
     [[nodiscard]] x::errors::Error check_core() const;
 };
 

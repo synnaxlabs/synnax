@@ -115,7 +115,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
     const auto core_key = cfg.remote_info.cluster_key;
     cfg.remote_info.cluster_key = x::uuid::create();
     const auto err = cfg.check_core();
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data,
         "the Core is now cluster " + core_key.to_string() + ", not " +
@@ -131,7 +131,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
     cfg.incompatible_core_version = "99.1.0";
     const auto version = new_test_client().connectivity->check().node_version;
     const auto err = cfg.check_core();
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data,
         "the Core now runs version " + version +
