@@ -2947,6 +2947,17 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     );
 }
 
+/// @brief it should fail activation with a retryable error when a slave that is still
+/// starting aborts a startup parameter.
+TEST_F(SOEMMasterTest, ActivateRetriesWhenStartupParameterAbortIsTemporary) {
+    this->initialize_with_slave();
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0x08000022;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
+}
+
 /// @brief it should fail activation with a retryable error when one slave aborts a
 /// startup parameter and another gives no response.
 TEST_F(SOEMMasterTest, ActivateRetriesWhenOneStartupParameterGetsNoResponse) {

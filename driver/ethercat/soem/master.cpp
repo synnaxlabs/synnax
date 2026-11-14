@@ -228,8 +228,7 @@ x::errors::Error Master::write_parameters(
             continue;
         const auto code = pop_sdo_abort(*this->api, pos, param.index, param.sub_index);
         return x::errors::Error(
-            code == 0 ? errors::STARTUP_PARAMETER_ERROR
-                      : errors::STARTUP_PARAMETER_REJECTED,
+            errors::startup_parameter_error(code),
             "rejected startup parameter " + param.to_string() + ": " +
                 errors::sdo_abort_reason(code)
         );
