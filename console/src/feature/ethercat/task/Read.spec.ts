@@ -11,9 +11,12 @@ import {
   channel,
   device,
   type ethercat,
-  type rack,
+  group,
+  panel,
+  project,
+  rack,
   type Synnax,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -45,7 +48,11 @@ import {
   findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  findDialogTriggerByText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -1793,6 +1800,16 @@ describe("Read", () => {
       return { slave, ...rendered };
     };
 
+    it("should count none of the channels that Start reuses from it", async () => {
+      const identifier = createIdentifier();
+      const first = await deploySlave(identifier);
+      await deleteSlave(first.slave.key, first.task);
+      await renderSlave(identifier);
+      expect(
+        await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+      ).toBeTruthy();
+    });
+
     it("should reuse the index and data channels of the deleted slave", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier);
@@ -2078,5 +2095,111 @@ describe("Read channel names", () => {
   it("should not mark a disabled channel as new", async () => {
     const item = await renderStatus({ disabled: true });
     expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+});
+
+describe("Read channel usage", () => {
+  const COUNTER = { ...STATUS_ENTRY, name: "Counter", subIndex: 2 };
+
+  const createTwoEntrySlave = async () =>
+    await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, COUNTER], outputs: [] },
+    });
+
+  const createConfig = (slave: { key: string }, disabled = false) => ({
+    ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+    channels: [
+      EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+      { ...EtherCAT.Task.createEntryReadChannel(slave.key, COUNTER), disabled },
+    ],
+  });
+
+  it("should count the index and each channel that Start creates", async () => {
+    const slave = await createTwoEntrySlave();
+    await renderRead(createConfig(slave));
+    expect(
+      await screen.findByText(/^Start creates 3 channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
+  it("should leave a disabled channel out of the count", async () => {
+    const slave = await createTwoEntrySlave();
+    await renderRead(createConfig(slave, true));
+    expect(
+      await screen.findByText(/^Start creates 2 channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
+  it("should count no channels once Start creates them", async () => {
+    const slave = await createTwoEntrySlave();
+    const { container, draft } = await renderRead(createConfig(slave));
+    await screen.findByText(/^Start creates 3 channels/);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.READ_SCHEMAS);
+    expect(
+      await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
+  // The footer plans what Start creates apart from Start, so this ties the two.
+  it("should create as many channels at Start as it counts", async () => {
+    const slave = await createTwoEntrySlave();
+    const { container, draft } = await renderRead(createConfig(slave, true));
+    const footer = await screen.findByText(
+      /^Start creates \d+ channels?, \d+ in use\.$/,
+    );
+    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.READ_SCHEMAS);
+    const created = await client.channels.retrieve({
+      where: { name: { startsWith: slave.properties.identifier } },
+    });
+    expect(created).toHaveLength(counted);
+  });
+
+  it("should count a channel again once it is deleted", async () => {
+    const slave = await createTwoEntrySlave();
+    const deployed = await deployRead(createConfig(slave));
+    await client.tasks.delete(deployed.key);
+    await client.channels.delete(deployed.config.channels[1].channel);
+    await renderRead(createConfig(slave));
+    expect(
+      await screen.findByText(/^Start creates 1 channel, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
+  it("should leave out the channels in use for a user who cannot count them", async () => {
+    const slave = await createTwoEntrySlave();
+    const draft = await createDraft(client, createConfig(slave));
+    const as = await createTestClientWithGrants(client, {
+      retrieve: [
+        task.TYPE_RESOURCE_ID,
+        device.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+      ],
+    });
+    await renderTaskFormTab(EtherCAT.Task.Read, { client, as, taskKey: draft.key });
+    expect(await screen.findByText("Start creates 3 channels.")).toBeTruthy();
+  });
+
+  it("should show the count of the channels in use as it changes", async () => {
+    const slave = await createTwoEntrySlave();
+    await renderRead(createConfig(slave));
+    const expectInUse = async () => {
+      const count = await client.channels.countLimited();
+      expect(screen.getByText(/ in use\.$/).textContent).toMatch(
+        new RegExp(`, ${count} in use\\.$`),
+      );
+    };
+    await waitFor(expectInUse);
+    await client.channels.create({
+      name: uniqueName("ecat_counted"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    await waitFor(expectInUse);
   });
 });

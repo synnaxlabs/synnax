@@ -439,6 +439,24 @@ describe("Write", () => {
     );
   });
 
+  it("should count none of the channels that Start reuses from a deleted slave", async () => {
+    const identifier = createIdentifier();
+    const first = await deploySlave(identifier);
+    await deleteSlave(first.slave.key, first.task);
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
   it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
     const coupler = await client.devices.create({
       key: id.create(),
@@ -624,5 +642,44 @@ describe("Write channel names", () => {
     const base = channel.escapeInvalidName(`${identifier}_Control`);
     const item = await findChannelListItem(`${base}_cmd`);
     expect(within(item).getByText(`${base}_state`)).toBeTruthy();
+  });
+});
+
+describe("Write channel usage", () => {
+  it("should count the state index and each channel and command index", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(/^Start creates 4 channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
+  // The footer plans what Start creates apart from Start, so this ties the two.
+  it("should create as many channels at Start as it counts", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const footer = await screen.findByText(
+      /^Start creates \d+ channels?, \d+ in use\.$/,
+    );
+    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.WRITE_SCHEMAS);
+    const created = await client.channels.retrieve({
+      where: { name: { startsWith: slave.properties.identifier } },
+    });
+    expect(created).toHaveLength(counted);
   });
 });
