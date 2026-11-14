@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <future>
+#include <mutex>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
+#include <grpcpp/security/server_credentials.h>
+#include <grpcpp/server.h>
+#include <grpcpp/server_builder.h>
+#include <grpcpp/server_context.h>
 
 #include "freighter/cpp/freighter.h"
 #include "freighter/cpp/grpc/grpc.h"
@@ -341,5 +350,143 @@ TEST(testGRPC, testCloseSendIdempotent) {
     streamer->close_send();
     testutil::stop_servers();
     s.join();
+}
+
+/// @brief a unary service that records how long each call has left before its
+/// deadline. Each call waits for delay or until it is cancelled, and the first
+/// `failures` calls fail as unavailable.
+class DeadlineRecorder final : public test::UnaryMessageService::Service {
+public:
+    std::chrono::milliseconds delay{0};
+    std::size_t failures = 0;
+    std::mutex mu;
+    std::vector<std::chrono::system_clock::duration> remaining;
+
+    ::grpc::Status Exec(
+        ::grpc::ServerContext *context,
+        const test::Message *,
+        test::Message *
+    ) override {
+        std::size_t call = 0;
+        {
+            std::lock_guard lock(this->mu);
+            this->remaining.push_back(
+                context->deadline() - std::chrono::system_clock::now()
+            );
+            call = this->remaining.size();
+        }
+        const auto end = std::chrono::steady_clock::now() + this->delay;
+        while (!context->IsCancelled() && std::chrono::steady_clock::now() < end)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (call <= this->failures)
+            return {::grpc::StatusCode::UNAVAILABLE, "unavailable"};
+        return ::grpc::Status::OK;
+    }
+};
+
+/// @brief sends a request a second time when the first attempt fails.
+class RetryOnce final : public PassthroughMiddleware {
+public:
+    std::pair<Context, x::errors::Error>
+    operator()(const Context context, Next &next) override {
+        auto [res_ctx, err] = next(context);
+        if (!err) return {res_ctx, err};
+        return next(context);
+    }
+};
+
+/// @brief sets the deadline of each request to timeout from now.
+class FixedDeadline final : public PassthroughMiddleware {
+    std::chrono::milliseconds timeout;
+
+public:
+    explicit FixedDeadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
+
+    std::pair<Context, x::errors::Error>
+    operator()(Context context, Next &next) override {
+        context.deadline = std::chrono::system_clock::now() + this->timeout;
+        return next(context);
+    }
+};
+
+class DeadlineTest : public ::testing::Test {
+protected:
+    DeadlineRecorder service;
+    std::unique_ptr<::grpc::Server> server;
+    std::string target;
+
+    void SetUp() override {
+        int port = 0;
+        ::grpc::ServerBuilder builder;
+        builder.AddListeningPort(
+            "127.0.0.1:0",
+            ::grpc::InsecureServerCredentials(),
+            &port
+        );
+        builder.RegisterService(&this->service);
+        this->server = builder.BuildAndStart();
+        ASSERT_NE(this->server, nullptr);
+        this->target = "127.0.0.1:" + std::to_string(port);
+    }
+
+    void TearDown() override {
+        this->server->Shutdown(std::chrono::system_clock::now());
+    }
+};
+
+/// @brief it should fail a unary call with TIMEOUT when the server does not answer
+/// before the unary timeout of the pool.
+TEST_F(DeadlineTest, UnaryFailsAtPoolTimeout) {
+    this->service.delay = std::chrono::seconds(10);
+    const auto pool = std::make_shared<Pool>(
+        false,
+        Keepalive{},
+        std::chrono::milliseconds(300)
+    );
+    auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, this->target);
+    auto sent = std::async(std::launch::async, [&client] {
+        auto mes = test::Message();
+        return client.send("", mes);
+    });
+    const auto status = sent.wait_for(std::chrono::seconds(5));
+    // Cancels a call that the timeout did not end.
+    this->server->Shutdown(std::chrono::system_clock::now());
+    const auto err = sent.get().second;
+    EXPECT_EQ(status, std::future_status::ready);
+    ASSERT_OCCURRED_AS(err, TIMEOUT);
+}
+
+/// @brief it should give each attempt of a retried unary call the full unary timeout
+/// of the pool.
+TEST_F(DeadlineTest, RetryGetsFullPoolTimeout) {
+    this->service.delay = std::chrono::seconds(1);
+    this->service.failures = 1;
+    const auto pool = std::make_shared<Pool>(
+        false,
+        Keepalive{},
+        std::chrono::seconds(5)
+    );
+    auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, this->target);
+    client.use(std::make_shared<RetryOnce>());
+    auto mes = test::Message();
+    ASSERT_NIL_P(client.send("", mes));
+    ASSERT_EQ(this->service.remaining.size(), 2);
+    for (const auto &remaining: this->service.remaining) {
+        EXPECT_GT(remaining, std::chrono::milliseconds(4500));
+        EXPECT_LT(remaining, std::chrono::seconds(6));
+    }
+}
+
+/// @brief it should use the deadline a middleware sets instead of the unary timeout
+/// of the pool.
+TEST_F(DeadlineTest, ContextDeadlineReplacesPoolTimeout) {
+    const auto pool = std::make_shared<Pool>();
+    auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, this->target);
+    client.use(std::make_shared<FixedDeadline>(std::chrono::seconds(2)));
+    auto mes = test::Message();
+    ASSERT_NIL_P(client.send("", mes));
+    ASSERT_EQ(this->service.remaining.size(), 1);
+    EXPECT_LT(this->service.remaining[0], std::chrono::seconds(3));
+    EXPECT_GT(this->service.remaining[0], std::chrono::seconds(1));
 }
 }

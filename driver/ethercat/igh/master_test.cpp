@@ -909,15 +909,18 @@ TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
     EXPECT_EQ(this->master.shortfall(), 1);
 }
 
-/// @brief it should give each enabled slave a working counter share of 1 for each
-/// domain that holds one of its entries.
+/// @brief it should give each enabled slave a working counter share of 1 in each domain
+/// that holds one of its entries.
 TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     create_io(this->api->add_slave());
     this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_EQ(
         this->image.working_counter_shares,
-        (std::map<uint16_t, uint32_t>{{1, 2}, {2, 1}})
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 1, .inputs = 1}},
+            {2, {.inputs = 1}},
+        })
     );
 }
 
