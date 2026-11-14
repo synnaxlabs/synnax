@@ -153,10 +153,10 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
         }
         if (held.contains(props.position) && !connected(dev)) continue;
         const auto &kept = it->second.identity;
-        const bool agree = it->second.config == config;
-        if (agree && (held.contains(props.position) ||
-                      (kept.vendor_id == props.vendor_id &&
-                       kept.product_code == props.product_code))) {
+        const bool same_model = kept.vendor_id == props.vendor_id &&
+                                kept.product_code == props.product_code;
+        if (it->second.config == config &&
+            (held.contains(props.position) || same_model)) {
             // With no connected device to tell which unit they name, agreeing devices
             // give their settings to the slave of their model at the position.
             if (!held.contains(props.position)) it->second.identity.serial = 0;
@@ -174,11 +174,12 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
             {},
             x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
-                agree ? both + " as different models. Delete the device that is no "
-                               "longer on the bus."
-                      : both + " with different settings. Give them the same "
-                               "settings, or delete the device that is no longer on "
-                               "the bus."
+                !same_model
+                    ? both + " as different models. Delete the device that is no "
+                             "longer on the bus."
+                    : both + " with different settings. Give them the same "
+                             "settings, or delete the device that is no longer on "
+                             "the bus."
             )
         };
     }
