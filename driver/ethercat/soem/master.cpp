@@ -310,16 +310,20 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
-    std::vector<uint16_t> parameterized;
+    // A startup parameter can change the PDO assignment of a slave, and the scan read
+    // only the SII of a starting slave.
+    std::vector<uint16_t> rereads;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         const auto pos = static_cast<uint16_t>(i);
         auto config = this->config(pos);
         this->record(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
+        if (config.enabled && (!config.startup_parameters.empty() ||
+                               this->slave_list[pos - 1].status.starting))
+            rereads.push_back(pos);
         if (!config.enabled || config.startup_parameters.empty()) {
             this->api->set_PO2SOconfig(pos, nullptr);
             continue;
         }
-        parameterized.push_back(pos);
         this->api->set_PO2SOconfig(
             pos,
             [this, params = std::move(config.startup_parameters)](uint16_t p) {
@@ -362,8 +366,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     if (!failures.empty())
         return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
 
-    // A startup parameter can change the slave's PDO assignment.
-    for (const auto pos: parameterized) {
+    for (const auto pos: rereads) {
         auto result = this->discover_slave(pos);
         auto &scanned = this->slave_list[pos - 1];
         if (scanned.status.starting && !result.status.starting) {

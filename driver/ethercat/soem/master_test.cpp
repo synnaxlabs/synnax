@@ -3090,6 +3090,23 @@ TEST_F(SOEMMasterTest, ActivateReadsAParameterizedSlaveThatWasStarting) {
     EXPECT_EQ(activated.properties.serial, 0x5555);
 }
 
+/// @brief it should read again a slave with no startup parameters that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAStartingSlaveWithNoStartupParameters) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->mock->context.slavelist[1].state = EC_STATE_PRE_OP;
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
+}
+
 /// @brief it should keep the failed serial read of a parameterized slave after
 /// activation.
 TEST_F(SOEMMasterTest, ActivateKeepsTheFailedSerialReadOfAParameterizedSlave) {
