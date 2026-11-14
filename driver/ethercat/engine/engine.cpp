@@ -805,11 +805,11 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
     if (this->running()) return {this->slaves, x::errors::NIL};
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    const auto [count, count_err] = this->master->count_slaves();
-    if (count_err) return {{}, count_err};
-    if (count != slaves.size()) {
-        LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
-                  << " where " << slaves.size() << " were discovered, rediscovering";
+    const auto [changed, changed_err] = this->master->changed();
+    if (changed_err) return {{}, changed_err};
+    if (changed) {
+        LOG(INFO) << "[ethercat] the slaves on " << this->iface
+                  << " changed since the last discovery, rediscovering";
         return this->rediscover_locked();
     }
     this->slaves = slaves;

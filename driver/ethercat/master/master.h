@@ -111,9 +111,11 @@ public:
     [[nodiscard]]
     virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 
-    /// @brief counts the slaves that answer on the bus now, without changing their
-    /// state. Valid between scan() and deactivate().
-    [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
+    /// @brief returns true when the slaves on the bus differ from those of the last
+    /// scan(): another number answers, or a slave fell below its state at the scan, as
+    /// after a restart. The IgH master sees only another number of slaves or another
+    /// model at a position. Valid between scan() and deactivate().
+    [[nodiscard]] virtual std::pair<bool, x::errors::Error> changed() = 0;
 
     /// @brief maps the process data of every enabled slave, calls start_cycle with the
     /// image once send() and receive() work, starts the DC sync of each slave in a DC

@@ -340,12 +340,21 @@ TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
     );
 }
 
-/// @brief it should return the number of slaves on the bus.
-TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+/// @brief it should report a change once IgH finds another model at a position.
+TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
+    this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()));
+    this->api->slaves[0].info.product_code = 0x03F03052;
+    EXPECT_TRUE(ASSERT_NIL_P(this->master.changed()));
+}
+
+/// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
+TEST_F(IGHMasterTest, ChangedFailsWhenASlaveIsUnreadable) {
     this->api->add_slave();
     ASSERT_NIL_P(this->master.scan());
-    this->api->add_slave();
-    EXPECT_EQ(ASSERT_NIL_P(this->master.count_slaves()), 2);
+    this->api->slaves[0].unreadable = true;
+    ASSERT_OCCURRED_AS_P(this->master.changed(), errors::MASTER_INIT_ERROR);
 }
 
 /// @brief it should fail activation when the IgH master does not activate.

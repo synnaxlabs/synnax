@@ -56,7 +56,8 @@ class Master final : public master::Master {
     /// @brief the number of starts left that each slave refuses, keyed by position. A
     /// slave in refusing and not here refuses every start.
     std::map<uint16_t, size_t> refusals_left;
-    std::optional<size_t> bus_slaves;
+    /// @brief whether changed() reports a restart since the last scan.
+    bool restarted = false;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
@@ -424,24 +425,33 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
-        if (!this->initialized) this->scanned = this->slave_list;
+        if (!this->initialized) {
+            this->scanned = this->slave_list;
+            this->restarted = false;
+        }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
 
-    std::pair<size_t, x::errors::Error> count_slaves() override {
+    std::pair<bool, x::errors::Error> changed() override {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("count_slaves");
+        this->calls.emplace_back("changed");
         if (!this->initialized)
-            return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
-        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+            return {
+                false,
+                x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")
+            };
+        return {
+            this->restarted || this->slave_list.size() != this->scanned.size(),
+            x::errors::NIL
+        };
     }
 
-    /// @brief makes count_slaves() report count instead of the number of added slaves,
-    /// as when a slave is plugged in or removed after discovery.
-    void set_bus_slaves(const std::optional<size_t> count) {
+    /// @brief makes changed() report a change until the next scan, as when a slave
+    /// restarts.
+    void restart_slave() {
         std::lock_guard lock(this->mu);
-        this->bus_slaves = count;
+        this->restarted = true;
     }
 
     /// @brief returns the plan of the latest activate().

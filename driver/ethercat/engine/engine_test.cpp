@@ -2027,7 +2027,7 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 }
 
 /// @brief it should keep the discovered slaves and not reinitialize the master when the
-/// slave count is unchanged.
+/// bus has not changed.
 TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
     ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
@@ -2035,35 +2035,38 @@ TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
     EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
 }
 
-/// @brief it should reinitialize the master and discover again when the slave count
-/// changes.
-TEST_F(EngineTest, DiscoverRediscoversWhenASlaveIsPluggedIn) {
+/// @brief it should reinitialize the master and discover again once when a slave
+/// restarts.
+TEST_F(EngineTest, DiscoverRediscoversOnceWhenASlaveRestarts) {
     ASSERT_NIL_P(this->engine->discover());
-    this->master->set_bus_slaves(2);
+    this->master->restart_slave();
+    ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
     EXPECT_EQ(
         this->master->call_log(),
         (std::vector<std::string>{
             "scan",
-            "count_slaves",
+            "changed",
             "scan",
-            "count_slaves",
+            "changed",
             "deactivate",
             "scan",
+            "scan",
+            "changed",
         })
     );
 }
 
-/// @brief it should not count or discover slaves while the bus runs.
+/// @brief it should not check the bus or discover slaves while the bus runs.
 TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    this->master->set_bus_slaves(2);
+    this->master->restart_slave();
     this->master->clear_call_log();
     ASSERT_NIL_P(this->engine->discover());
     const auto calls = this->master->call_log();
-    EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
+    EXPECT_EQ(std::ranges::count(calls, "changed"), 0);
 }
 
 /// @brief it should return the slaves that the master discovers.

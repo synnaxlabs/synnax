@@ -409,7 +409,8 @@ public:
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
     /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
-    /// again when the number that answer has changed. Thread-safe.
+    /// again when they changed since the last discovery, as when a slave restarts or is
+    /// plugged in. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover();
 

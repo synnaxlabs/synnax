@@ -220,16 +220,43 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-std::pair<size_t, x::errors::Error> Master::count_slaves() {
+std::pair<bool, x::errors::Error> Master::changed() {
     if (!this->initialized)
-        return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {false, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
     ec_master_info_t info;
     if (this->api->master(this->ec_master, &info) < 0)
         return {
-            0,
+            false,
             x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
         };
-    return {info.slave_count, x::errors::NIL};
+    if (info.slave_count != this->cached_slaves.size()) return {true, x::errors::NIL};
+    // IgH scans the bus again by itself, so its slave info is current.
+    for (const auto &slave: this->cached_slaves) {
+        const auto &props = slave.properties;
+        ec_slave_info_t slave_info;
+        if (const int ret = this->api->master_get_slave(
+                this->ec_master,
+                static_cast<uint16_t>(props.position - 1),
+                &slave_info
+            );
+            ret != 0)
+            return {
+                false,
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
+                    std::format(
+                        "failed to read slave {}: {}",
+                        props.position,
+                        reason(ret)
+                    )
+                )
+            };
+        if (slave_info.vendor_id != props.vendor_id ||
+            slave_info.product_code != props.product_code ||
+            slave_info.revision_number != props.revision)
+            return {true, x::errors::NIL};
+    }
+    return {false, x::errors::NIL};
 }
 
 x::errors::Error

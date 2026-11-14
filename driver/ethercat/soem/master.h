@@ -158,7 +158,7 @@ public:
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<size_t, x::errors::Error> count_slaves() override;
+    std::pair<bool, x::errors::Error> changed() override;
 
     master::Activation activate(
         const master::Plan &plan,
