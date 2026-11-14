@@ -1604,8 +1604,8 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     );
 }
 
-/// @brief it should write the time of a switch, to the second, with the properties of
-/// each scan, also when the devices of the scan do not hold it.
+/// @brief it should write the time of a switch with the properties of each scan, also
+/// when the devices of the scan do not hold it.
 TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     this->start(true);
     const auto before = x::telem::TimeStamp::now();
@@ -1619,13 +1619,12 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     const auto at = x::telem::TimeStamp(
         scanned.at(0).properties.at("switched_at").get<int64_t>()
     );
-    EXPECT_EQ(at.nanoseconds() % x::telem::SECOND.nanoseconds(), 0);
-    EXPECT_GT(at, before - x::telem::SECOND);
+    EXPECT_GE(at, before);
     EXPECT_LE(at, x::telem::TimeStamp::now());
 }
 
-/// @brief it should write a switch time that the Core gives back unchanged, so that the
-/// next scan finds no change.
+/// @brief it should find no change in a switch time that the Core gives back as a
+/// double.
 TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
     this->start(true);
     ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);

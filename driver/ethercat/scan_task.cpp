@@ -750,13 +750,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         return;
     }
     {
-        // The Core stores the time as a double, which holds whole seconds exactly, so
-        // the next scan finds no change.
-        const auto now = x::telem::TimeStamp::now().nanoseconds();
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp(
-            now - now % x::telem::SECOND.nanoseconds()
-        );
+        this->switch_times[dev.key] = x::telem::TimeStamp::now();
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
