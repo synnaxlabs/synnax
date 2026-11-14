@@ -10,6 +10,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -61,12 +62,22 @@ private:
     bool data_saving_disabled;
     /// @brief the warning reported during the current write.
     Warning warning;
+    /// @brief called by warning_changed(). Set by the task before the sink starts.
+    std::function<void()> on_warning_changed;
+    friend class WriteTask;
 
 protected:
     /// @brief reports a problem with the frame in the current write that does not stop
     /// the task, such as a command the sink skipped. The task shows it as a warning
     /// without a retry wait. The next write without a warning clears it.
     void warn(Warning warning) { this->warning = std::move(warning); }
+
+    /// @brief tells the task that held_warning() changed, so that its status shows the
+    /// change at once instead of at the next write. Thread-safe. Never blocks on the
+    /// network, so a hardware thread can call it.
+    void warning_changed() const {
+        if (this->on_warning_changed) this->on_warning_changed();
+    }
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
@@ -108,6 +119,12 @@ public:
     /// @brief returns the warning reported during the last write, and clears it. Empty
     /// if the write reported none.
     Warning take_warning() { return std::exchange(this->warning, {}); }
+
+    /// @brief returns a warning about the hardware that holds until the hardware
+    /// changes, such as a lost device, or an empty warning. The task shows it while no
+    /// write reports a warning of its own. The task calls it while the sink runs, from
+    /// the write thread and from another thread after warning_changed().
+    [[nodiscard]] virtual Warning held_warning() { return {}; }
 
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
@@ -171,11 +188,38 @@ class WriteTask final : public driver::task::Task {
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
         std::unique_ptr<common::Sink> internal;
+
+    private:
+        /// @brief guards logged_warning.
+        std::mutex logged_mu;
         /// @brief the warning last written to the log. Empty if there is none.
         Warning logged_warning;
 
+    public:
         WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
             p(p), internal(std::move(sink)) {}
+
+        /// @brief forgets the logged warning, so that the next one is logged again.
+        void forget_warning() {
+            std::lock_guard lock(this->logged_mu);
+            this->logged_warning = {};
+        }
+
+        /// @brief shows warning as the task status, or clears the warning status when
+        /// warning is empty. Logs a warning that differs from the last one.
+        void show(const Warning &warning) {
+            std::lock_guard lock(this->logged_mu);
+            if (warning.empty()) {
+                this->logged_warning = {};
+                this->p.state.clear_warning();
+                return;
+            }
+            if (warning != this->logged_warning)
+                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                             << warning.description;
+            this->logged_warning = warning;
+            this->p.state.send_warning(warning.message, warning.description);
+        }
 
         /// @brief implements pipeline::Sink.
         void stopped_with_err(const x::errors::Error &err) override {
@@ -194,29 +238,24 @@ class WriteTask final : public driver::task::Task {
         // send commands at once.
         void opened() override {
             std::lock_guard lock(this->p.state_mu);
-            if (this->p.opening) this->p.answer_pending_starts();
+            if (!this->p.opening) return;
+            this->p.answer_pending_starts();
+            // The start answer hides a warning that the sink held before it.
+            this->show(this->internal->held_warning());
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
-            const auto warning = this->internal->take_warning();
+            auto warning = this->internal->take_warning();
             if (err) {
-                this->logged_warning = {};
+                this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
                     this->p.state.send_warning("Failed to write commands", err.data);
                 return err;
             }
-            if (warning.empty()) {
-                this->logged_warning = {};
-                this->p.state.clear_warning();
-                return x::errors::NIL;
-            }
-            if (warning != this->logged_warning)
-                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
-                             << warning.description;
-            this->logged_warning = warning;
-            this->p.state.send_warning(warning.message, warning.description);
+            if (warning.empty()) warning = this->internal->held_warning();
+            this->show(warning);
             return x::errors::NIL;
         }
     };
@@ -281,6 +320,17 @@ class WriteTask final : public driver::task::Task {
     bool sink_started = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+    /// @brief guards notice_pending, notice_closing, and notifier. They outlive sink,
+    /// so a sink can report a change while it is destroyed.
+    std::mutex notice_mu;
+    std::condition_variable notice_cv;
+    /// @brief true from a warning_changed() of the sink until the notifier shows it.
+    bool notice_pending = false;
+    /// @brief true once the task is destroyed.
+    bool notice_closing = false;
+    /// @brief shows the held warning of the sink after a change. The thread that
+    /// reports the change can be a hardware thread, so it never sends the status.
+    std::thread notifier;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
     /// @brief the source of output state for the state pipeline.
@@ -333,6 +383,35 @@ class WriteTask final : public driver::task::Task {
     bool is_failed() {
         std::lock_guard lock(this->state_mu);
         return this->failed;
+    }
+
+    /// @brief asks the notifier to show the held warning of the sink. Thread-safe.
+    void notice() {
+        std::lock_guard lock(this->notice_mu);
+        if (this->notice_closing) return;
+        this->notice_pending = true;
+        if (!this->notifier.joinable())
+            this->notifier = std::thread(&WriteTask::run_notifier, this);
+        this->notice_cv.notify_one();
+    }
+
+    void run_notifier() {
+        std::unique_lock lock(this->notice_mu);
+        while (true) {
+            this->notice_cv.wait(lock, [this] {
+                return this->notice_pending || this->notice_closing;
+            });
+            if (this->notice_closing) return;
+            this->notice_pending = false;
+            lock.unlock();
+            {
+                // The sink starts and stops under state_mu.
+                std::lock_guard state_lock(this->state_mu);
+                if (this->sink_started)
+                    this->sink->show(this->sink->internal->held_warning());
+            }
+            lock.lock();
+        }
     }
 
     /// @brief stops the task. Requires run_mu.
@@ -389,7 +468,9 @@ public:
             this->state_source,
             breaker_cfg,
             task.name + ":state"
-        ) {}
+        ) {
+        this->sink->internal->on_warning_changed = [this] { this->notice(); };
+    }
 
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
@@ -417,6 +498,14 @@ public:
         }
         this->stopper_cv.notify_all();
         if (t.joinable()) t.join();
+        std::thread n;
+        {
+            std::lock_guard lock(this->notice_mu);
+            this->notice_closing = true;
+            n = std::move(this->notifier);
+        }
+        this->notice_cv.notify_all();
+        if (n.joinable()) n.join();
     }
 
     /// @brief implements driver::task::Task to execute the provided command on the
@@ -474,7 +563,7 @@ public:
         {
             std::lock_guard lock(this->state_mu);
             this->state.reset();
-            this->sink->logged_warning = {};
+            this->sink->forget_warning();
             if (this->state
                     .error(this->sink->internal->start(), "Failed to start task")) {
                 this->state.send_start(cmd_key);
