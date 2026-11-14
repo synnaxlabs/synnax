@@ -207,11 +207,14 @@ const problemsOf = (
   ].filter((p): p is string => p != null);
   const problems: Problem[] =
     taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
+  const enabled = Map.groupBy(
+    channels.filter((ch) => !ch.disabled),
+    (ch) => ch.device,
+  );
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
     if (slave == null || ch.disabled) return;
-    const enabled = channels.filter((o) => !o.disabled && o.device === ch.device);
-    let message = entryProblem(slave, enabled, ch, pdoType);
+    let message = entryProblem(slave, enabled.get(ch.device) ?? [], ch, pdoType);
     if (message == null && pdoType === "inputs" && hasEntry(ch))
       message = settingProblem(slave, ch, startupParameters);
     if (message != null) problems.push({ path: ["channels", i], message });
@@ -220,10 +223,10 @@ const problemsOf = (
 };
 
 /**
- * Checks the channels of a task against their slaves as the user edits: one network
- * for every slave, no other device at the position or with the serial number of a
- * slave, and for each enabled channel its entry and, on inputs, the settings of the
- * input it reads. A channel whose slave has not loaded is not checked, so a deploy runs
+ * Checks the channels of a task against their slaves as the user edits: one network for
+ * every slave, no other device at the position or with the serial number of a slave,
+ * and for each enabled channel its entry and, on inputs, the settings of the input it
+ * reads. A channel whose slave has not loaded is not checked, so a deploy runs
  * {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.

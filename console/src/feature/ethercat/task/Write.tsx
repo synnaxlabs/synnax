@@ -75,7 +75,7 @@ const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
-  const ch = PForm.useFieldValue(entry);
+  const { value: ch, status } = PForm.useFieldState(entry);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
@@ -83,7 +83,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.outputs, ch) != null
       ? writeChannelNames(slave, ch)
       : undefined;
-  const { status } = PForm.useFieldState(entry);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
