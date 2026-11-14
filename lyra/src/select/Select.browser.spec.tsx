@@ -109,7 +109,7 @@ const CHECKABLE_COLUMNS: List.Column[] = [
 ];
 
 const renderCheckable = async (
-  pin?: ReactElement,
+  favorite?: ReactElement,
 ): Promise<(text: string) => Element> => {
   const { getByText } = await renderThemed(
     <Triggers.Provider>
@@ -129,7 +129,7 @@ const renderCheckable = async (
                     <List.Cell>type-{key}</List.Cell>
                     <List.Cell>channel-{key}</List.Cell>
                   </List.Cells>
-                  {pin}
+                  {favorite}
                 </Select.Item>
               )}
             </List.Items>
@@ -622,13 +622,13 @@ describe("Select", () => {
 
     it("should keep a checkbox in the content in its place", async () => {
       const find = await renderCheckable(
-        <Input.Checkbox value={false} onChange={() => {}} aria-label="Pin" />,
+        <Input.Checkbox value={false} onChange={() => {}} aria-label="Favorite" />,
       );
-      const pin = find("type-1")
+      const favorite = find("type-1")
         .closest(".lyra-list__item")!
-        .querySelector('.lyra-input__checkbox:has(> [aria-label="Pin"])')!;
-      expect(computed(pin, "margin-left")).toBe("0px");
-      expect(computed(pin, "margin-right")).toBe("0px");
+        .querySelector('.lyra-input__checkbox:has(> [aria-label="Favorite"])')!;
+      expect(computed(favorite, "margin-left")).toBe("0px");
+      expect(computed(favorite, "margin-right")).toBe("0px");
     });
 
     it("should keep each heading over its column", async () => {

@@ -10,4 +10,5 @@
 export * from "@/testutil/act";
 export * from "@/testutil/clipboard";
 export * from "@/testutil/dom";
+export * from "@/testutil/renders";
 export * from "@/testutil/time";

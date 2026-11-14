@@ -26,8 +26,9 @@ that you can filter by.
 
   <Fragment slot="console">
 
-1. On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add /> in
-   the **Metadata** section.
+1. On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add />
+   (**Add metadata**) in the metadata section. A range with no metadata shows a
+   **Metadata** line instead. Click it.
 2. Enter a key and a value.
 3. Press **Enter**, or click <Icon.Check />.
 
@@ -88,7 +89,7 @@ await myRange.kv.set({
   <Fragment slot="console">
 
 The metadata section of the [range overview](/reference/ranges/find#range-overview)
-lists every key and value. Click the copy button beside a value to copy it.
+lists every key and value. Hover over a pair and click **Copy value** to copy the value.
 
   </Fragment>
 
@@ -135,8 +136,9 @@ const allMetadata = await myRange.kv.list();
 
   <Fragment slot="console">
 
-On the [range overview](/reference/ranges/find#range-overview), click <Icon.Delete />
-beside the key in the **Metadata** section. The Console deletes it with no confirm step.
+On the [range overview](/reference/ranges/find#range-overview), hover over the pair in
+the metadata section and click <Icon.Close /> (**Remove**). The Console deletes it with
+no confirm step.
 
   </Fragment>
 

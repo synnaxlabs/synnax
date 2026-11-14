@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ranger, view } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,13 +18,8 @@ import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
-import { enableEditing, openFilterProperty } from "@/platform/view/testutil";
-import {
-  awaitGranted,
-  createConsoleWrapper,
-  renderSuspended,
-  uniqueName,
-} from "@/testutil";
+import { openFilterProperty } from "@/platform/view/testutil";
+import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,8 +60,6 @@ const renderFixture = async (
   where?: ranger.Where,
   properties: View.Filter.Properties<ranger.Where> = RANGES,
 ): Promise<void> => {
-  // Warm the policy caches so the edit toggle does not wait on the network mid-test.
-  await awaitGranted(client, view.resourceID(uuid.create()), "update");
   const { wrapper } = await createConsoleWrapper({ client });
   await renderSuspended(<Fixture where={where} properties={properties} />, {
     wrapper,
@@ -158,7 +151,6 @@ describe("Label.Filter.createProperty", () => {
     it("should require all labels once the match is all", async () => {
       const [first, second] = await createLabels(2);
       await renderFixture({ labels: [first.key, second.key] });
-      await enableEditing();
       await pickMatch("has any of", "has all of");
       await expectWhere({
         and: [{ and: [{ labels: [first.key] }, { labels: [second.key] }] }],
@@ -168,7 +160,6 @@ describe("Label.Filter.createProperty", () => {
     it("should exclude the labels once the match is none", async () => {
       const [first, second] = await createLabels(2);
       await renderFixture({ labels: [first.key, second.key] });
-      await enableEditing();
       await pickMatch("has any of", "has none of");
       await expectWhere({ and: [{ not: { labels: [first.key, second.key] } }] });
     });
@@ -176,7 +167,6 @@ describe("Label.Filter.createProperty", () => {
     it("should open the picker of the menu below the chip", async () => {
       const [first, second] = await createLabels(2);
       await renderFixture({ labels: [first.key] });
-      await enableEditing();
       fireEvent.click(await screen.findByRole("button", { name: first.name }));
       const picker = await screen.findByRole("dialog", { name: "Labels" });
       fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
@@ -191,7 +181,6 @@ describe("Label.Filter.createProperty", () => {
     it("should add a picked label to the filter", async () => {
       const [only] = await createLabels(1);
       await renderFixture();
-      await enableEditing();
       const picker = await openFilterProperty("Labels");
       fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
         target: { value: only.name },
@@ -203,7 +192,6 @@ describe("Label.Filter.createProperty", () => {
     it("should drop the condition once no label is picked", async () => {
       const [only] = await createLabels(1);
       await renderFixture({ labels: [only.key] });
-      await enableEditing();
       const picker = await openFilterProperty("Labels");
       fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
         target: { value: only.name },
@@ -214,7 +202,6 @@ describe("Label.Filter.createProperty", () => {
 
     it("should pick ranges with no labels", async () => {
       await renderFixture();
-      await enableEditing();
       const picker = await openFilterProperty("Labels");
       fireEvent.click(within(picker).getByText("No labels"));
       await expectWhere({ and: [{ labeled: false }] });
@@ -222,7 +209,6 @@ describe("Label.Filter.createProperty", () => {
 
     it("should not offer no labels where the filter cannot read it", async () => {
       await renderFixture(undefined, NO_UNLABELED);
-      await enableEditing();
       const picker = await openFilterProperty("Labels");
       await within(picker).findByPlaceholderText("Search labels...");
       expect(within(picker).queryByText("No labels")).toBeNull();

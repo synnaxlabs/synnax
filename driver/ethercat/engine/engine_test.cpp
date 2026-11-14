@@ -12,6 +12,7 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -59,6 +60,13 @@ const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"}
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
     .advice = slave::DC_SYNC_ADVICE,
+    .code = 0x0030,
+};
+/// @brief a refusal of a slave that kept the layout of its earlier mode.
+const slave::Refusal STALE_LAYOUT_REFUSAL{
+    .reason = "refused SAFE-OP: Invalid input configuration",
+    .advice = slave::MODE_RESTART_ADVICE,
+    .code = 0x001E,
 };
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
@@ -604,6 +612,81 @@ TEST_F(EngineLockTest, ReaderKeepsExactSampleTimesWhenTheBusRateRises) {
             x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
             x::telem::MILLISECOND * 100
         );
+}
+
+/// @brief it should keep sample times in order through cycles that a lost slave makes
+/// short, while the distributed clock runs ahead of the host clock.
+TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
+    constexpr size_t SAMPLES = 9;
+    this->master->add_slave(io_slave(1));
+    this->master->set_host_dc(1.005);
+    // After 1000 frames, the mapped DC time runs about 30 ms ahead of the host clock.
+    this->master->record_dc(1000);
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    ASSERT_EQ(this->master->recorded_dc().size(), 1000);
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t s = 0; s < SAMPLES; ++s) {
+        this->master->wait_until_stalled();
+        this->master->set_shortfall(
+            s >= 3 && s < 6 ? std::optional<uint32_t>(3) : std::nullopt
+        );
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+    EXPECT_EQ(reader->warning(), "");
+}
+
+/// @brief it should keep sample times in order when full cycles return after the
+/// reference clock was lost, which leaves its distributed clock time behind.
+TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
+    constexpr size_t SAMPLES = 9;
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_step(this->period);
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t s = 0; s < SAMPLES; ++s) {
+        this->master->wait_until_stalled();
+        const bool lost = s >= 3 && s < 6;
+        this->master->set_shortfall(lost ? std::optional<uint32_t>(3) : std::nullopt);
+        // SOEM repeats the last DC time of a frame that misses the reference clock.
+        this->master->set_dc_step(lost ? x::telem::TimeSpan(0) : this->period);
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
 }
 
 /// @brief it should decode each sample of reads that cross the end of the sample
@@ -1257,6 +1340,34 @@ TEST_F(EngineTest, SlaveConfigErrorSkipsRetries) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should return at once, without a retry, when a slave aborts a setting.
+TEST_F(EngineTest, RejectedSettingSkipsRetries) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_REJECTED, "rejected 0x8040:1C")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STARTUP_PARAMETER_REJECTED
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should retry a setting write that got no response, as from a slave whose
+/// mailbox is slow after a power restart.
+TEST_F(EngineTest, SettingWithNoResponseIsRetried) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "0x8040:1C: no response")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+}
+
 /// @brief it should return at once, without a retry, when a slave refuses a state
 /// change.
 TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
@@ -1305,10 +1416,104 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
-        "configuration. Fix the device, then stop every task on the network to try it "
-        "again. To fix \"Invalid DC SYNC configuration\", right-click the device, "
-        "select Configure, and pick another sync mode."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. To fix \"Invalid DC SYNC configuration\", right-click the "
+        "device, select Configure, and pick another sync mode."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to switch a slave to Synnax when it refused its DC
+/// sync configuration in the mode of another program.
+TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to switch a slave to Synnax when it refuses its sync
+/// configuration in a mode whose data only another program reads.
+TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"only_read_by", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should give the sync mode advice before the switch advice when the user
+/// picked the sync mode of a slave set up for another program.
+TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{
+                {1, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0300}}}
+            },
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. " +
+            slave::DC_SYNC_ADVICE +
+            " The device is set up for DewesoftX. In Configure, switch the device to "
+            "Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to restart the power of a slave that was switched to
+/// Synnax but still runs the layout of another program.
+TEST_F(EngineTest, ReaderOnASwitchedSlaveGetsPowerRestartAdvice) {
+    auto switched = io_slave(1);
+    switched.settings = x::json::json{
+        {"mode", {{"switch", x::json::json::array()}}},
+        {"channels",
+         {{{"entries",
+            {{{"index", 0x6000}, {"sub_index", 1}, {"only_read_by", "DewesoftX"}}}}}}},
+    };
+    this->master->add_slave(switched);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. Restart the power of the device."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -1321,9 +1526,8 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
-        "settings. Fix the device, then stop every task on the network to try it "
-        "again."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it again."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
@@ -1445,6 +1649,66 @@ TEST_F(EngineTest, TriesALeftOutSlaveAgainAtTheNextStart) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
     );
     EXPECT_EQ(this->read_times(*other, 1).size(), 1);
+}
+
+/// @brief it should start again with a slave that refused its layout once, as after a
+/// mode change, instead of leaving it out.
+TEST_F(EngineTest, StartsAgainWithASlaveThatRefusedAStaleLayout) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_TRUE(this->master->plan().slaves[1].enabled);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should start again with the only slave on the bus when it refuses its
+/// layout once.
+TEST_F(EngineTest, StartsAgainWithTheOnlySlaveWhenItRefusesAStaleLayout) {
+    this->master->refuse(0, STALE_LAYOUT_REFUSAL, 1);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
+/// @brief it should leave out a slave that refuses its layout again after the reset.
+TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_FALSE(this->master->plan().slaves[1].enabled);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
+        "input configuration. Fix the device, then stop every task on the network to "
+        "try it again. If the mode of the device changed, restart its power."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should leave out a slave with another refusal in the same pass that resets
+/// a slave with a stale layout.
+TEST_F(EngineTest, LeavesOutAnotherRefusalWhileItResetsAStaleLayout) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
+    this->master->refuse(2, REFUSAL);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    auto plan = this->master->plan();
+    EXPECT_TRUE(plan.slaves[1].enabled);
+    EXPECT_FALSE(plan.slaves[2].enabled);
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
 /// @brief it should cycle the bus while the slaves move to OP.
@@ -1623,6 +1887,138 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
     );
 }
 
+/// @brief it should drop the samples of only the readers of a lost slave while the
+/// slave explains the short working counter, name the slave, and read it again when it
+/// returns.
+TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto lost = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+    ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 0);
+    EXPECT_EQ(lost->warning(), "Lost contact with slave 1 (Slave1).");
+    this->master->set_shortfall(std::nullopt);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
+}
+
+/// @brief it should name a slave that responds out of OP by its state, not as lost.
+TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(2);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// further short than the slaves out of OP explain.
+TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(4);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+    const auto err = reader->read(this->brk, frame, times);
+    ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
+    EXPECT_EQ(
+        err.data,
+        "Every bus cycle failed: short by 4. Slave 1 (Slave1) is not in OP: not "
+        "responding."
+    );
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// short by less than the slaves out of OP miss.
+TEST_F(EngineTest, ShortCycleBelowTheLostSlavesFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(1);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when a slave in OP falls short
+/// beside a slave in SAFE-OP, which misses only its outputs, so that no reader takes
+/// the stale inputs of the slave in OP.
+TEST_F(EngineTest, ShortCycleBeyondASafeOpSlaveFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    auto inputs_only = io_slave(2);
+    inputs_only.output_pdos.clear();
+    this->master->add_slave(inputs_only);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 3 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(3);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
+/// short while every slave is in OP.
+TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_shortfall(1);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+    const auto err = reader->read(this->brk, frame, times);
+    ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
+    EXPECT_EQ(err.data, "Every bus cycle failed: short by 1.");
+}
+
 /// @brief it should name no slave in the warning of cycles that failed for another
 /// reason.
 TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
@@ -1642,6 +2038,25 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
+/// @brief it should give the latest reason of a run of failed cycles in the warning, as
+/// the reason can change before a cycle succeeds.
+TEST_F(EngineTest, FailedCycleWarningGivesTheLatestReason) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(x::errors::Error(errors::CYCLIC_ERROR, "first"));
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "second")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: second.");
 }
 
 /// @brief it should report the samples a reader dropped because it fell behind the bus

@@ -36,7 +36,8 @@ import { Triggers } from "@/triggers";
  *
  * - `connected`: butts against the trigger and matches its width, but never narrower
  *   than its CSS min-width.
- * - `floating`: sits near the trigger at its own width.
+ * - `floating`: sits near the trigger at its own width, up to
+ *   `--pluto-dialog-max-width`.
  * - `modal`: centers over the page behind a backdrop.
  */
 export type Variant = "connected" | "floating" | "modal";

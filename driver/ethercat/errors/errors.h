@@ -44,6 +44,12 @@ const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
+/// @brief error returned when a slave aborts a startup parameter write because of the
+/// object or its value. The same value gets the same abort, so retrying does not help.
+/// A write with no response or a temporary abort is a plain STARTUP_PARAMETER_ERROR.
+const x::errors::Error STARTUP_PARAMETER_REJECTED = STARTUP_PARAMETER_ERROR.sub(
+    "rejected"
+);
 /// @brief error returned when two open tasks set one object of a slave to different
 /// values.
 const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
@@ -72,6 +78,38 @@ const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 
 /// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
 std::string sdo_abort_reason(uint32_t code);
+
+/// @brief why a slave did not complete an SDO transfer.
+struct SDOFailure {
+    /// @brief how the transfer failed.
+    enum class Kind : uint8_t {
+        /// @brief no reply came back.
+        NO_REPLY,
+        /// @brief the slave aborted the transfer with abort_code.
+        ABORTED,
+        /// @brief the reply was not the SDO response to the request.
+        UNEXPECTED_REPLY,
+        /// @brief the reply held more data than the request had room for.
+        REPLY_TOO_LARGE,
+        /// @brief the slave refused the mailbox request with a mailbox error.
+        MAILBOX_ERROR,
+    };
+
+    /// @brief how the transfer failed.
+    Kind kind = Kind::NO_REPLY;
+    /// @brief the abort code of an ABORTED transfer.
+    uint32_t abort_code = 0;
+
+    /// @brief returns why the transfer failed, such as "no response".
+    [[nodiscard]] std::string reason() const;
+
+    bool operator==(const SDOFailure &) const = default;
+};
+
+/// @brief returns STARTUP_PARAMETER_REJECTED when the abort code depends on the object
+/// or its value, and STARTUP_PARAMETER_ERROR for no response (0) or an abort that can
+/// pass, such as a timeout or a device that is still starting.
+const x::errors::Error &startup_parameter_error(uint32_t code);
 
 /// @brief returns error text as a sentence: the first letter in upper case and a period
 /// at the end.

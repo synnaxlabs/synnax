@@ -51,6 +51,17 @@ struct Plan {
     std::map<uint16_t, slave::Config> slaves;
 };
 
+/// @brief what one slave adds to the working counter of a full cycle.
+struct WorkingCounterShare {
+    /// @brief what the slave adds when it takes its outputs.
+    uint32_t outputs = 0;
+    /// @brief what the slave adds when it gives its inputs, which it also does in
+    /// SAFE-OP.
+    uint32_t inputs = 0;
+
+    bool operator==(const WorkingCounterShare &) const = default;
+};
+
 /// @brief the process data of a bus that activate() starts. The spans stay valid until
 /// deactivate().
 struct Image {
@@ -67,6 +78,9 @@ struct Image {
     std::vector<dc::Registers> dc_sync;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
+    /// @brief what each enabled slave adds to the working counter of a full cycle,
+    /// keyed by position. A slave with no process data adds nothing.
+    std::map<uint16_t, WorkingCounterShare> working_counter_shares;
 
     /// @brief returns the offset of entry.
     /// @returns errors::PDO_MAPPING_ERROR when the master did not map the entry, or
@@ -89,7 +103,8 @@ struct Image {
 struct Activation {
     /// @brief NIL when every enabled slave reached OP.
     x::errors::Error err;
-    /// @brief why each slave refused a state, keyed by position.
+    /// @brief why each slave refused a state, or why the master refused to start it,
+    /// keyed by position.
     std::map<uint16_t, slave::Refusal> refusals;
 };
 
@@ -118,7 +133,9 @@ public:
     /// Valid after scan(). Only the SOEM master starts DC sync.
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP.
+    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
+    /// with a refusal for a used slave with no identity, after start_cycle only when
+    /// another slave has process data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle
@@ -132,6 +149,12 @@ public:
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
+
+    /// @brief returns how far the working counter of the latest receive() fell short of
+    /// a full cycle, or nullopt when the master cannot tell. Valid after a receive()
+    /// that returns errors::WORKING_COUNTER_ERROR. A lost frame can take more than the
+    /// shares of the slaves that missed the cycle.
+    [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
 
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no

@@ -9,31 +9,261 @@
 
 import "@/feature/range/explorer/Explorer.css";
 
-import { ranger, type view } from "@synnaxlabs/client";
+import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { useNow } from "@synnaxlabs/lyra/hooks";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
-import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
-import { location, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
-import { useState } from "react";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
+import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
-import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { Item, type ItemProps } from "@/feature/range/list/Item";
+import { PROPERTIES } from "@/feature/range/explorer/Filter";
+import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
+import { nextCrossing, pin, useNextRanges } from "@/feature/range/explorer/time";
+import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
-import { Label } from "@/platform/label";
+import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 
-const item = Component.renderProp((props: ItemProps) => (
-  <Item {...props} role="listitem" />
-));
-const contextMenu = Component.renderProp(ContextMenu);
+interface SortSelectProps {
+  value: view.RangeSort;
+  onChange: (value: view.RangeSort) => void;
+  preview: boolean;
+}
 
-const PROPERTIES: View.Filter.Properties<ranger.Where> = {
-  labels: Label.Filter.createProperty({ unlabeled: true }),
+const SORT_ICONS: Record<view.RangeSort, Icon.ReactElement> = {
+  newest: <Icon.Arrow.Down />,
+  oldest: <Icon.Arrow.Up />,
+  name: <Icon.Text />,
+};
+
+const SortSelect = ({ value, onChange, preview }: SortSelectProps): ReactElement => (
+  <Select.Simple<view.RangeSort>
+    resourceName="order"
+    searchHidden
+    value={value}
+    onChange={onChange}
+    preview={preview}
+    triggerProps={{ variant: "text", size: "medium", hideCaret: true, textColor: 9 }}
+  >
+    <Select.Item<view.RangeSort> itemKey="newest">
+      {SORT_ICONS.newest}
+      Newest first
+    </Select.Item>
+    <Select.Item<view.RangeSort> itemKey="oldest">
+      {SORT_ICONS.oldest}
+      Oldest first
+    </Select.Item>
+    <Select.Item<view.RangeSort> itemKey="name">
+      {SORT_ICONS.name}
+      Name
+    </Select.Item>
+  </Select.Simple>
+);
+
+const NoRanges = (): ReactElement => {
+  const openCreate = Range.useCreateModal();
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  return (
+    <Empty.Action
+      message="No ranges match"
+      action={canCreate ? "Create range" : undefined}
+      onClick={() => openCreate()}
+    />
+  );
+};
+
+const NO_RANGES = <NoRanges />;
+
+const LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
+
+const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+const NO_MORE = (): void => {};
+
+const NO_KEYS: ranger.Key[] = [];
+
+/** @returns whether a tree shows only the first matches, so that it holds still. */
+const isCapped = (
+  term: string,
+  where: ranger.Where | undefined,
+  flat: boolean,
+): boolean => (term !== "" || where != null) && !flat;
+
+/**
+ * The sort or the layout of the open view. A stored view reads it from the view and
+ * saves a change to it. A static view holds it here.
+ */
+const useViewField = <F extends "sort" | "layout">(
+  field: F,
+): [view.RangeView[F], (next: view.RangeView[F]) => void] => {
+  const { selected, staticViews, getInitialView } = View.useContext();
+  const stored = !staticViews.includes(selected);
+  const [local, setLocal] = useState(() => (getInitialView() as view.RangeView)[field]);
+  const live = PView.useResult(stored ? { key: selected } : null).data;
+  const { update } = PView.useSetFields();
+  if (!stored) return [local, setLocal];
+  const value = live?.type === "range" ? live[field] : local;
+  return [
+    value,
+    (next) =>
+      update({ key: selected, actions: view.set({ path: [field], value: next }) }),
+  ];
+};
+
+const Internal = (): ReactElement => {
+  const { getInitialView, searchTerm, editable } = View.useContext();
+  const [where, setWhere] = useState(() => getInitialView().where);
+  // The Core reads stages and recent spans at the time of a read, so the list reads at
+  // a held instant and reads again when a range it holds could cross the filter.
+  const [at, setAt] = useState(() => TimeStamp.now());
+  const pinned = where == null ? undefined : pin(where, at);
+  // The term that the list reads. The query follows it, so the list never reads a
+  // search page without the term, or the term without a search page.
+  const [term, setTerm] = useState("");
+  const [sort, setSort] = useViewField("sort");
+  const [layout, setLayout] = useViewField("layout");
+  const flat = layout === "list";
+  const searching = isCapped(term, where, flat);
+  const scoped: ranger.Where | undefined =
+    flat || searching
+      ? pinned
+      : pinned == null
+        ? { nested: false }
+        : { and: [pinned, { nested: false }] };
+  const root = Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: { where: scoped, order: Tree.ORDERS[sort] },
+    initialSize: searching ? MATCH_LIMIT + 1 : undefined,
+    eager: searching,
+    searchDebounce: 0,
+  });
+  const held = Store.useItems({
+    keys: root.data,
+    subscribe: root.subscribe,
+    getItem: root.getItem,
+  });
+  const upcoming = useNextRanges(where, at);
+  const crossing = nextCrossing(where, [...held, ...upcoming], at);
+  const now = useNow(() => crossing);
+  if (crossing != null && !now.before(crossing)) setAt(now);
+  const handleSearch = useDebouncedCallback(
+    (next: string) => {
+      setTerm(next);
+      root.search(next);
+    },
+    SEARCH_DEBOUNCE,
+    [root.search],
+  );
+  // The list shows its last answer until a new search lands, so the tree follows the
+  // term that the shown ranges answer.
+  const capped = isCapped(root.searchTerm, where, flat);
+  const search = useSearchTree({
+    matches: capped ? root.getItem(root.data.slice(0, MATCH_LIMIT)) : null,
+    scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
+    order: Tree.ORDERS[sort],
+    getItem: root.getItem,
+    subscribe: root.subscribe,
+  });
+  const [expanded, toggle] = Tree.useExpanded();
+  const tree = Tree.use(
+    capped
+      ? {
+          roots: search.roots,
+          expanded: search.expanded,
+          fixed: search.fixed,
+          order: Tree.ORDERS[sort],
+        }
+      : {
+          roots: root.data,
+          expanded: flat ? NO_KEYS : expanded,
+          order: Tree.ORDERS[sort],
+        },
+  );
+  const openCreate = Range.useCreateModal();
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const answered = capped ? search.answered : root.answered;
+  let emptyContent: ReactElement | null = answered ? NO_RANGES : null;
+  if (capped && search.error != null)
+    emptyContent = (
+      <Status.Summary
+        className={CSS.BE("range-explorer", "message")}
+        variant="error"
+        message="Failed to search ranges"
+        description={search.error}
+      />
+    );
+  const footer = capped && root.data.length > MATCH_LIMIT && (
+    <Text.Text level="small" color={9} className={CSS.BE("range-explorer", "more")}>
+      Showing the first {MATCH_LIMIT} matches.{" "}
+      {root.searchTerm === ""
+        ? "Add a filter to narrow them."
+        : "Type more to narrow the search."}
+    </Text.Text>
+  );
+  return (
+    <View.Form
+      data={tree.nodes.map((n) => n.key)}
+      getItem={root.getItem}
+      subscribe={root.subscribe}
+      answered={answered}
+      // A search in a tree reads its first page only.
+      more={searching ? NO_MORE : root.more}
+      search={handleSearch}
+      onWhereChange={(next) => {
+        setWhere(next);
+        setAt(TimeStamp.now());
+      }}
+      itemHeight={Tree.itemHeight(layout)}
+    >
+      <View.Toolbar>
+        <Flex.Box x align="center" gap="small" grow wrap>
+          <View.Filter.Menu properties={PROPERTIES} />
+          <View.Filter.Chips properties={PROPERTIES} />
+        </Flex.Box>
+        <Flex.Box x align="center" gap="small">
+          {searchTerm === "" && (
+            <SortSelect value={sort} onChange={setSort} preview={!editable} />
+          )}
+          <Tree.LayoutSelect
+            value={layout}
+            onChange={setLayout}
+            layouts={LAYOUTS}
+            size="medium"
+            preview={!editable}
+          />
+          {canCreate && (
+            <Button.Button
+              variant="outlined"
+              size="medium"
+              tooltip="Create range"
+              tooltipLocation={location.BOTTOM_LEFT}
+              onClick={() => openCreate()}
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
+        </Flex.Box>
+      </View.Toolbar>
+      <Tree.Layout
+        layout={layout}
+        nodes={tree.nodes}
+        expanded={capped ? search.expanded : expanded}
+        onExpand={capped ? search.onExpand : toggle}
+        more={tree.more}
+        emptyContent={emptyContent}
+        highlight={root.searchTerm === "" ? undefined : root.searchTerm}
+        footer={footer}
+      />
+    </View.Form>
+  );
 };
 
 export const Explorer: Panel.Content = () => (
@@ -41,150 +271,3 @@ export const Explorer: Panel.Content = () => (
     <Internal />
   </View.Frame>
 );
-
-const ORDERS: Record<Ranger.Stage, ranger.Order> = {
-  to_do: { field: "time_range_start", descending: false },
-  in_progress: { field: "time_range_start", descending: true },
-  completed: { field: "time_range_start", descending: true },
-};
-
-const PAGE_SIZE = 50;
-const INITIAL_SIZES = Ranger.STAGES.map(() => PAGE_SIZE);
-
-interface Listing {
-  /** The time the stages list their ranges at. */
-  at: TimeStamp;
-  /** How many ranges each stage reads at first. */
-  sizes: number[];
-}
-
-const useStage = (where: view.View["where"], stage: Ranger.Stage, listing: Listing) => {
-  const staged = Ranger.stageWhere(stage, listing.at);
-  const list = Flux.useList((client) => client.ranges, {
-    name: "ranges",
-    query: {
-      where: where == null ? staged : { and: [where as ranger.Where, staged] },
-      order: ORDERS[stage],
-    },
-    pageSize: PAGE_SIZE,
-    initialSize: listing.sizes[Ranger.STAGES.indexOf(stage)],
-  });
-  // The explorer reads the ranges in render, so it subscribes to them.
-  const ranges = Store.useItems({
-    keys: list.data,
-    subscribe: list.subscribe,
-    getItem: list.getItem,
-  });
-  return { ...list, ranges };
-};
-
-type Stage = ReturnType<typeof useStage>;
-
-// The instant a range leaves the stage it lists under.
-const leaves = (stage: Ranger.Stage, range: ranger.Range): TimeStamp | null => {
-  const { start, end } = new TimeRange(range.timeRange).makeValid();
-  if (stage === "to_do") return start;
-  if (stage === "in_progress") return end;
-  return null;
-};
-
-const nextCrossing = (stages: Stage[], now: TimeStamp): TimeStamp | null => {
-  let next: TimeStamp | null = null;
-  stages.forEach(({ ranges }, i) =>
-    ranges.forEach((range) => {
-      const instant = leaves(Ranger.STAGES[i], range);
-      if (instant?.after(now) === true && (next == null || instant.before(next)))
-        next = instant;
-    }),
-  );
-  return next;
-};
-
-const Internal = () => {
-  const [where, setWhere] = useState(View.useContext().getInitialView().where);
-  const [listing, setListing] = useState<Listing>(() => ({
-    at: TimeStamp.now(),
-    sizes: INITIAL_SIZES,
-  }));
-  // A new filter or search reads its first page at the usual size.
-  const resetSizes = () => setListing((prev) => ({ ...prev, sizes: INITIAL_SIZES }));
-  const toDo = useStage(where, "to_do", listing);
-  const inProgress = useStage(where, "in_progress", listing);
-  const completed = useStage(where, "completed", listing);
-  const stages = [toDo, inProgress, completed];
-  const now = useNow((at) => nextCrossing(stages, at));
-  // A range that left its stage, such as one created to start at once, lists again
-  // under the new time. Each stage reads as many ranges as it holds, so the list keeps
-  // its place.
-  const crossed = stages.some(({ ranges }, i) =>
-    ranges.some(
-      ({ timeRange }) =>
-        Ranger.getStage(timeRange, listing.at) === Ranger.STAGES[i] &&
-        Ranger.getStage(timeRange, now) !== Ranger.STAGES[i],
-    ),
-  );
-  if (crossed)
-    setListing({
-      at: now,
-      sizes: stages.map(({ data }) => Math.max(PAGE_SIZE, data.length)),
-    });
-  // A stage shows once every stage before it is complete, so pages arrive in order.
-  const incomplete = stages.findIndex((s) => !s.complete);
-  const shown = incomplete === -1 ? stages : stages.slice(0, incomplete + 1);
-  const handleMore = () => {
-    stages.forEach((s) => {
-      if (!s.answered) s.more();
-    });
-    const first = stages[incomplete];
-    if (first?.answered) first.more();
-  };
-  const handleSearch = (term: string) => {
-    resetSizes();
-    stages.forEach((s) => s.search(term));
-  };
-  const handleWhereChange = (next: view.View["where"]) => {
-    resetSizes();
-    setWhere(next);
-  };
-  const openCreate = Range.useCreateModal();
-  const handleCreate = () => openCreate();
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
-  return (
-    <View.Form
-      // A stage shows its last ranges until its new ones land, so a range that crossed
-      // can show in two stages for a moment.
-      data={unique.unique(shown.flatMap((s) => s.data))}
-      getItem={toDo.getItem}
-      subscribe={toDo.subscribe}
-      answered={stages.every((s) => s.answered)}
-      more={handleMore}
-      search={handleSearch}
-      onWhereChange={handleWhereChange}
-      itemHeight={40}
-    >
-      <View.Toolbar>
-        <View.Filter.Menu properties={PROPERTIES} />
-        <View.Search />
-        <View.Filter.Chips properties={PROPERTIES} />
-        {hasCreatePermission && (
-          <Button.Button
-            onClick={handleCreate}
-            tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create range"
-            variant="filled"
-          >
-            <Icon.Add />
-          </Button.Button>
-        )}
-      </View.Toolbar>
-      <View.Items
-        className={CSS.BE("range", "explorer-list")}
-        role="list"
-        aria-label="Ranges"
-        contextMenu={contextMenu}
-      >
-        {item}
-      </View.Items>
-    </View.Form>
-  );
-};

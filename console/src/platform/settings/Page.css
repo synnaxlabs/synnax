@@ -38,6 +38,10 @@
     }
 }
 
+.console-settings__body {
+    padding: 3rem 0;
+}
+
 .console-settings__entry-text {
     min-width: 0;
 }

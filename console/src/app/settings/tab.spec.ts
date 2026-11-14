@@ -55,6 +55,7 @@ describe("Settings.useOpen", () => {
     await act(async () => result.current());
     const [draft] = await drafts();
     expect(await drafts()).toHaveLength(1);
+    expect(draft).toMatchObject({ name: "Settings", icon: "gear" });
     expect(settingsTabs(draft.root)).toHaveLength(1);
     expect(Session.Panel.selectSelected(store.getState())).toBe(draft.key);
     expect(settingsTabs((await client.panels.retrieve(shared.key)).root)).toEqual([]);

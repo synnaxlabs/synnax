@@ -15,7 +15,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import {
+  useResultSlave,
+  useSlavesByKeys,
+  useSlavesOnRack,
+} from "@/feature/ethercat/device/queries";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
@@ -23,13 +27,14 @@ import {
   WriteDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
 import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
+import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
   createSlaveChannels,
   findChannelsToCreate,
-  retrieveAndValidateSlaves,
   retrieveByName,
+  retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
@@ -71,7 +76,7 @@ const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
-  const ch = PForm.useFieldValue(entry);
+  const { value: ch, status } = PForm.useFieldState(entry);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
@@ -83,7 +88,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.outputs ?? []} />}
-      status={ch.type === "unresolved" ? "error" : undefined}
+      status={status.variant === "error" ? "error" : undefined}
       path={entry}
       channel={ch.cmdChannel}
       defaultName={names?.cmd}
@@ -124,6 +129,8 @@ const contextMenuItems = Component.renderProp(ContextMenuItems);
 const Form: FC = () => {
   const channels = PForm.useFieldValue(path.config.channels);
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
@@ -183,8 +190,11 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels, "outputs");
+  const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<WriteChannel>(
+    client,
+    "outputs",
+    config,
+  );
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

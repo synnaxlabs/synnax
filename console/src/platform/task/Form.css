@@ -60,10 +60,6 @@
             margin-top: 1rem;
         }
 
-        .console-task-channel-form-container .lyra-header {
-            background: var(--pluto-gray-l2);
-        }
-
         .console-channel-list {
             overflow: hidden;
         }

@@ -9,7 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Each item lays out on its own, so a minimum width lines up the time ranges. */
-.console-range__explorer-list .console-range__time-range {
-    min-width: 24rem;
+.console-range-explorer__more {
+    padding: 1rem 2rem;
+}
+
+.console-range-explorer__message {
+    padding: 3rem 2rem;
 }

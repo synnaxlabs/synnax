@@ -7,31 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useContext } from "@/platform/view/context";
 
 export interface ToolbarProps extends Flex.BoxProps {}
 
-export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => {
-  const { editing, searchInViews } = useContext("View.Toolbar");
-  if (!editing) return <Divider.Divider x />;
-  return (
-    <Flex.Box
-      x
-      bordered={!searchInViews}
-      background={1}
-      justify="between"
-      align="center"
-      className={CSS.cls(
-        CSS.BE("view", "toolbar"),
-        searchInViews && CSS.BEM("view", "toolbar", "island"),
-        className,
-      )}
-      {...rest}
-    />
-  );
-};
+export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => (
+  <Flex.Box
+    x
+    background={1}
+    justify="between"
+    align="center"
+    className={CSS.cls(CSS.BE("view", "toolbar"), className)}
+    {...rest}
+  />
+);

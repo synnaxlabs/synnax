@@ -18,6 +18,7 @@
 #include "arc/cpp/ir/testutil/testutil.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/testutil/mock_loop.h"
+#include "arc/cpp/runtime/testutil/module.h"
 
 namespace arc::runtime {
 /// @brief builds a time module on a throwaway strings state. These runtimes bind
@@ -45,7 +46,7 @@ std::shared_ptr<Runtime> create_test_runtime(
 
     return std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         nullptr,
         nullptr,
         nullptr,
@@ -80,7 +81,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
 
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(loop),
@@ -348,7 +349,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
 
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(mock),
@@ -490,7 +491,7 @@ struct DeadlineRuntimeFixture {
 
         auto rt = std::make_shared<Runtime>(
             cfg,
-            nullptr,
+            testutil::empty_module(),
             state,
             std::move(scheduler),
             std::move(mock_loop),
@@ -554,7 +555,7 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     };
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(mock_loop),

@@ -116,7 +116,7 @@ class Surface(ResourceClient):
             ).click(timeout=5000)
 
         if labels is not None:
-            self.layout.select_labels(labels)
+            self.layout.select_labels(labels, scope=modal)
 
         if persisted:
             save_button = modal.get_by_role("button", name="Save to Core")

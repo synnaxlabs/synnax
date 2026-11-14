@@ -12,18 +12,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { getBySelector, getIconButton } from "@/testutil";
 
 /**
- * Waits for the mounted View.Frame's edit toggle (which only appears once the async
- * update-permission check resolves) and clicks it, flipping the view into its editable
- * state.
- */
-export const enableEditing = async (): Promise<void> => {
-  const toggle = await waitFor(() => getIconButton(document.body, "edit"));
-  fireEvent.click(toggle);
-};
-
-/**
- * Waits for the icon button with the given pluto icon name inside the mounted
- * View.Toolbar (which only renders once editing is enabled) and returns it.
+ * Waits for the icon button with the given icon name in the mounted View.Toolbar, and
+ * returns it.
  */
 export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonElement> =>
   await waitFor(() =>

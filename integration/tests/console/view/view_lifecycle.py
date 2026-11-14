@@ -21,7 +21,7 @@ class _Explorer:
     """One explorer under test, with the item operations the suite needs."""
 
     name: str
-    plural: str
+    empty: str
     views: ViewsClient
     open: Callable[[], None]
     exists: Callable[[str], bool]
@@ -135,7 +135,7 @@ class ViewLifecycle(ConsoleCase):
         self._run_suite(
             _Explorer(
                 name="Range",
-                plural="ranges",
+                empty="No ranges match",
                 views=ranges.views,
                 open=ranges.open,
                 exists=ranges.exists,
@@ -155,7 +155,7 @@ class ViewLifecycle(ConsoleCase):
         self._run_suite(
             _Explorer(
                 name="Status",
-                plural="statuses",
+                empty="No statuses found",
                 views=statuses.views,
                 open=statuses.open_explorer,
                 exists=statuses.exists_in_explorer,
@@ -285,7 +285,7 @@ class ViewLifecycle(ConsoleCase):
         views.select(view_b)
         explorer.delete_item(explorer.labeled_b)
         explorer.wait_for_removed(explorer.labeled_b)
-        empty = self.page.get_by_text(f"No {explorer.plural} found")
+        empty = self.page.get_by_text(explorer.empty)
         assert empty.is_visible(), f"'{view_b}' should show the empty state"
         views.select(view_a)
         assert explorer.exists(explorer.labeled_a), (

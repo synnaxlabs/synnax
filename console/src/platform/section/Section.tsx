@@ -10,6 +10,7 @@
 import "@/platform/section/Section.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header as Base } from "@synnaxlabs/lyra/header";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -33,4 +34,12 @@ export const Section = ({ className, ...rest }: SectionProps): ReactElement => (
     className={CSS.cls(CSS.B("section"), className)}
     {...rest}
   />
+);
+
+/** Props for {@link Header}. */
+export interface HeaderProps extends Omit<Base.HeaderProps, "background"> {}
+
+/** The bar at the top of a {@link Section}, or of a pane in one, on the l2 surface. */
+export const Header = (props: HeaderProps): ReactElement => (
+  <Base.Header background={2} {...props} />
 );
