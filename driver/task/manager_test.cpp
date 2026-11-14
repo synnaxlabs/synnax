@@ -146,7 +146,7 @@ class StuckTaskFactory final : public Factory {
 
         [[nodiscard]] std::string name() const override { return "stuck"; }
 
-        void exec(synnax::task::Command &cmd) override {
+        void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
             synnax::task::Status status{
                 .variant = synnax::status::VARIANT_SUCCESS,
                 .message = "started",
@@ -169,7 +169,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &
+        const std::string &,
+        x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         if (++this->configures == 1) {
