@@ -319,6 +319,15 @@ public:
         std::shared_ptr<Input> input;
         /// @brief the decoded values of one entry in a read.
         std::vector<uint8_t> values;
+        /// @brief why samples were dropped, and when warning() last saw such a drop.
+        struct Drop {
+            std::string reason;
+            std::chrono::steady_clock::time_point at;
+        };
+        Drop failed;
+        Drop overflowed;
+        /// @brief the drop of each slave in input->slaves, by index.
+        std::vector<Drop> slave_drops;
 
     public:
         Reader(Engine &engine, std::shared_ptr<Input> input);
@@ -342,8 +351,10 @@ public:
             x::telem::Series &times
         );
 
-        /// @brief explains, in full sentences, why samples were dropped since the last
-        /// call, or returns an empty string when none were.
+        /// @brief explains, in full sentences, why samples were dropped, or returns an
+        /// empty string when none were. Each reason stays in the warning for 10 seconds
+        /// after the last call that saw it, so a task that keeps dropping keeps one
+        /// warning.
         [[nodiscard]] std::string warning();
     };
 
