@@ -583,12 +583,15 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
         if (serial != 0) slave.properties.serial = serial;
         return;
     }
-    // A slave that aborts the read has no CoE serial number.
-    const auto code = pop_sdo_abort(*this->api, pos, IDENTITY_INDEX, SERIAL_SUB_INDEX);
-    if (code == 0)
-        slave.status
-            .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, code)
-                                .data;
+    // A slave that answers the read with an error, such as an SDO abort or a mailbox
+    // error, has no CoE serial number. Only a read with no reply leaves no error.
+    bool answered = false;
+    ec_errort err{};
+    while (this->api->poperror(err))
+        answered |= err.Slave == pos;
+    if (!answered)
+        slave.status.serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, 0)
+                                        .data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {

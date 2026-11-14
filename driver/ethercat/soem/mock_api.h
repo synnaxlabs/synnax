@@ -70,6 +70,9 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
     /// sub-index. A code of 0 makes the read get no answer.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -521,6 +524,13 @@ public:
             *psize = std::min(*psize, static_cast<int>(it->second.size()));
             std::memcpy(p, it->second.data(), *psize);
             return 1;
+        }
+        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) {
+            ec_errort err{};
+            err.Etype = EC_ERR_TYPE_MBX_ERROR;
+            err.Slave = slave;
+            this->errors.push_back(err);
+            return 0;
         }
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {

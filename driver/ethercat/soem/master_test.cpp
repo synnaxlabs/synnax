@@ -1103,6 +1103,18 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
+/// @brief it should keep the SII serial number of a slave that answers the read of its
+/// CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_mailbox_errors.insert({0x1018, 4});
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
 /// @brief it should not read the CoE serial number of a slave without CoE.
 TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
     auto slave = create_coe_slave(0x5555);
