@@ -76,7 +76,8 @@ class Events:
                 stamp = max(now, stamp + sy.TimeSpan.NANOSECOND)
                 stamps.append(stamp)
             last[runner] = stamp
-            frame[channel_name(SOURCE, runner=runner)] = texts
+            # The newline puts a blank line after each entry in a Console log.
+            frame[channel_name(SOURCE, runner=runner)] = [t + "\n" for t in texts]
             frame[channel_name(f"{SOURCE}_time", runner=runner)] = stamps
         if frame and self.publisher.write(frame):
             self.last.update(last)
