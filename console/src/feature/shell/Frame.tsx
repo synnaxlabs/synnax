@@ -21,6 +21,8 @@ export interface FrameProps {
   className?: string;
   /** Target Core shown in the connection island; omit to hide it. */
   connection?: Shell.ConnectionCore | null;
+  /** Grows the card to fit a two-column surface such as Settings. */
+  wide?: boolean;
   children: ReactNode;
 }
 
@@ -31,6 +33,7 @@ export interface FrameProps {
 export const Frame = ({
   className,
   connection,
+  wide = false,
   children,
 }: FrameProps): ReactElement => (
   <Flex.Box y full empty className={CSS.cls(CSS.B("shell"), className)}>
@@ -50,7 +53,11 @@ export const Frame = ({
         <Flex.Box
           y
           empty
-          className={CSS.cls(CSS.BE("shell", "card"), CSS.BE("shell", "frost"))}
+          className={CSS.cls(
+            CSS.BE("shell", "card"),
+            CSS.BE("shell", "frost"),
+            wide && CSS.M("wide"),
+          )}
           grow={false}
         >
           {children}

@@ -66,6 +66,11 @@
         height 0.25s ease;
 }
 
+.console-shell__card.console--wide {
+    width: min(960px, 100vw - 24rem);
+    height: min(640px, 100vh - 24rem);
+}
+
 /* Keeps sub-250ms transients faint by fading them in. */
 .console-shell__card > * {
     animation: console-shell-reveal 0.25s ease;
