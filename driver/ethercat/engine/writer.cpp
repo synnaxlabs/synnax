@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <format>
+#include <string>
+
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -46,6 +49,27 @@ x::errors::Error Engine::Writer::Transaction::write(
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
+    for (auto &slave: this->output->slaves)
+        slave.returned.store(false, std::memory_order_relaxed);
     return Transaction(*this);
+}
+
+std::string Engine::Writer::warning() const {
+    std::string msg;
+    for (const auto &slave: this->output->slaves) {
+        std::string sentence;
+        if (slave.out.load(std::memory_order_relaxed))
+            sentence = lost_contact(slave.position, slave.name);
+        else if (slave.returned.load(std::memory_order_relaxed))
+            sentence = std::format(
+                "Slave {} ({}) returned and took the last commanded values.",
+                slave.position,
+                slave.name
+            );
+        else
+            continue;
+        msg += (msg.empty() ? "" : " ") + sentence;
+    }
+    return msg;
 }
 }

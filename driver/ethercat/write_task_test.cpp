@@ -424,6 +424,38 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
 }
 
+/// @brief it should hold a warning while its slave is lost, tell when the slave
+/// returns, and end the warning at the next command.
+TEST_F(EtherCATWriteTest, SinkHoldsAWarningWhileItsSlaveIsLost) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+    EXPECT_TRUE(sink.held_warning().empty());
+
+    this->mock_master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] { return sink.held_warning().description; },
+        std::string("Lost contact with slave 1 (Test Slave).")
+    );
+    EXPECT_EQ(sink.held_warning().message, "Interrupted outputs");
+    this->mock_master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] { return sink.held_warning().description; },
+        std::string("Slave 1 (Test Slave) returned and took the last commanded values.")
+    );
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(1)));
+    ASSERT_NIL(sink.write(frame));
+    EXPECT_TRUE(sink.held_warning().empty());
+    ASSERT_NIL(sink.stop());
+}
+
 /// @brief it should wake the next state read for a command written before the state
 /// loop waits.
 TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {

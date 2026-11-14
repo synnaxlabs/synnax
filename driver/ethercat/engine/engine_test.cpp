@@ -1691,6 +1691,64 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
 }
 
+/// @brief it should tell a writer once when its slave leaves OP and once when it
+/// returns, and end the return warning at the next transaction.
+TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        [&changes] { ++changes; }
+    ));
+    EXPECT_EQ(writer->warning(), "");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 1);
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 2);
+    EXPECT_EQ(
+        writer->warning(),
+        "Slave 1 (Slave1) returned and took the last commanded values."
+    );
+    { const auto tx = writer->open_tx(); }
+    EXPECT_EQ(writer->warning(), "");
+    EXPECT_EQ(changes.load(), 2);
+}
+
+/// @brief it should not tell a writer that another slave left OP.
+TEST_F(EngineTest, WriterIgnoresAnotherSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), [&changes] {
+            ++changes;
+        })
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    EXPECT_EQ(writer->warning(), "");
+    EXPECT_EQ(changes.load(), 0);
+}
+
+/// @brief it should warn a writer that opens while its slave is out of OP.
+TEST_F(EngineTest, WriterOpenedWhileItsSlaveIsOutOfOPWarns) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
+    );
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+}
+
 /// @brief it should drop the samples of every reader when the working counter falls
 /// further short than the slaves out of OP explain.
 TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -175,22 +176,10 @@ Engine::Input::Input(
     const size_t samples_per_read
 ):
     rate(rate), samples_per_read(samples_per_read) {
-    std::vector<uint16_t> positions;
-    positions.reserve(entries.size());
-    for (const auto &entry: entries)
-        positions.push_back(entry.slave_position);
-    std::ranges::sort(positions);
-    const auto [last, end] = std::ranges::unique(positions);
-    positions.erase(last, end);
-    this->slaves = std::vector<Slave>(positions.size());
-    for (size_t i = 0; i < positions.size(); ++i) {
-        auto &slave = this->slaves[i];
-        slave.position = positions[i];
-        const auto it = std::ranges::find(bus, slave.position, [](const auto &s) {
-            return s.properties.position;
-        });
-        if (it != bus.end()) slave.name = it->properties.name;
-    }
+    const auto slaves = slaves_of(entries, bus);
+    this->slaves = std::vector<Slave>(slaves.size());
+    for (size_t i = 0; i < slaves.size(); ++i)
+        std::tie(this->slaves[i].position, this->slaves[i].name) = slaves[i];
     this->entries.reserve(entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto &entry = entries[i];
@@ -235,6 +224,41 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
         std::lock_guard lock(this->mu);
         this->cv.notify_one();
     }
+}
+
+void Engine::Output::update(const std::vector<uint16_t> &out) {
+    bool any = false;
+    for (auto &slave: this->slaves) {
+        const bool now = std::ranges::binary_search(out, slave.position);
+        if (slave.out.exchange(now, std::memory_order_relaxed) == now) continue;
+        if (!now) slave.returned.store(true, std::memory_order_relaxed);
+        any = true;
+    }
+    if (any && this->changed) this->changed();
+}
+
+std::vector<std::pair<uint16_t, std::string>> Engine::slaves_of(
+    const std::vector<pdo::Entry> &entries,
+    const std::vector<slave::DiscoveryResult> &bus
+) {
+    std::vector<std::pair<uint16_t, std::string>> slaves;
+    slaves.reserve(entries.size());
+    for (const auto &entry: entries)
+        slaves.emplace_back(entry.slave_position, "");
+    std::ranges::sort(slaves);
+    const auto [last, end] = std::ranges::unique(slaves);
+    slaves.erase(last, end);
+    for (auto &[position, name]: slaves) {
+        const auto it = std::ranges::find(bus, position, [](const auto &s) {
+            return s.properties.position;
+        });
+        if (it != bus.end()) name = it->properties.name;
+    }
+    return slaves;
+}
+
+std::string Engine::lost_contact(const uint16_t position, const std::string &name) {
+    return std::format("Lost contact with slave {} ({}).", position, name);
 }
 
 bool Engine::Input::lose(const std::vector<uint16_t> &out) {
@@ -439,9 +463,14 @@ void Engine::supervise() {
         }
         std::ranges::sort(next.positions);
         if (next != published) {
-            std::lock_guard lock(this->outage_mu);
-            this->outage = next;
-            this->outage_version.fetch_add(1, std::memory_order_release);
+            std::lock_guard outputs_lock(this->outputs_mu);
+            {
+                std::lock_guard lock(this->outage_mu);
+                this->outage = next;
+                this->outage_version.fetch_add(1, std::memory_order_release);
+            }
+            for (const auto &output: this->outputs)
+                output->update(next.positions);
             published = std::move(next);
         }
         {
@@ -683,7 +712,10 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     std::lock_guard lock(this->mu);
     {
         std::lock_guard write_lock(this->write_mu);
-        std::erase(this->outputs, output);
+        {
+            std::lock_guard outputs_lock(this->outputs_mu);
+            std::erase(this->outputs, output);
+        }
         for (size_t i = 0; i < output->entries.size(); ++i) {
             const auto &entry = output->entries[i];
             const auto &offset = output->offsets[i];
@@ -819,7 +851,8 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<Writer::Entry> &entries,
-    const x::telem::Rate execution_rate
+    const x::telem::Rate execution_rate,
+    std::function<void()> changed
 ) {
     std::vector<pdo::Entry> pdo_entries;
     std::vector<x::telem::SampleValue> stop_values;
@@ -836,13 +869,27 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true, {});
     if (err) return {nullptr, err};
+    const auto slaves = slaves_of(pdo_entries, this->image.slaves);
     auto output = std::make_shared<Output>(Output{
         .entries = std::move(pdo_entries),
         .rate = execution_rate,
         .offsets = std::move(joined.offsets),
         .stop_values = std::move(stop_values),
+        .slaves = std::vector<Output::Slave>(slaves.size()),
+        .changed = std::move(changed),
     });
-    this->outputs.push_back(output);
+    {
+        std::scoped_lock lock(this->outputs_mu, this->outage_mu);
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            auto &slave = output->slaves[i];
+            std::tie(slave.position, slave.name) = slaves[i];
+            slave.out = std::ranges::binary_search(
+                this->outage.positions,
+                slave.position
+            );
+        }
+        this->outputs.push_back(output);
+    }
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Writer>(*this, std::move(output)), x::errors::NIL};
 }
