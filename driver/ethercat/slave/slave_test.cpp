@@ -819,4 +819,15 @@ TEST(Bind, RejectsTwoSlavesWithOneSavedPosition) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(err.data, "Other and Slave 1 are both saved as slave 1.");
 }
+
+/// @brief it should leave out each saved slave that it does not find on the bus.
+TEST(Locate, LeavesOutTheSlavesThatItDoesNotFind) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1), saved(2, 0x2), saved(3, 0x3, 777), saved(4, 0x4, 888)},
+            {on_bus(1, 0x1), on_bus(2, 0x9), on_bus(5, 0x3, 777)}
+        ),
+        (Positions{{1, 1}, {3, 5}})
+    );
+}
 }
