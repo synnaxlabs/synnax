@@ -212,6 +212,7 @@ class SlowStartTask final : public Task {
     std::atomic<bool> &release;
     std::atomic<int> &starts;
     const x::telem::TimeSpan step_limit;
+    const bool silent;
 
 public:
     SlowStartTask(
@@ -219,13 +220,15 @@ public:
         synnax::task::Task task,
         std::atomic<bool> &release,
         std::atomic<int> &starts,
-        const x::telem::TimeSpan step_limit
+        const x::telem::TimeSpan step_limit,
+        const bool silent
     ):
         ctx(std::move(ctx)),
         sy_task(std::move(task)),
         release(release),
         starts(starts),
-        step_limit(step_limit) {}
+        step_limit(step_limit),
+        silent(silent) {}
 
     [[nodiscard]] std::string name() const override { return "slow start"; }
 
@@ -247,6 +250,7 @@ public:
             this->ctx->step(status, this->step_limit);
         while (!this->release && cancel.running())
             cancel.wait_for(10 * x::telem::MILLISECOND);
+        if (this->silent) return;
         if (!cancel.running()) {
             status.variant = synnax::status::VARIANT_ERROR;
             status.message = "start cancelled";
@@ -268,6 +272,8 @@ public:
     std::atomic<int> starts{0};
     /// @brief the limit of the task's own step. Zero sends no step of its own.
     x::telem::TimeSpan step_limit = x::telem::TimeSpan(0);
+    /// @brief true when a start sends no final status.
+    bool silent = false;
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -277,7 +283,8 @@ public:
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         return {
-            std::make_unique<SlowStartTask>(ctx, task, release, starts, step_limit),
+            std::make_unique<
+                SlowStartTask>(ctx, task, release, starts, step_limit, silent),
             true
         };
     }
@@ -1605,6 +1612,64 @@ TEST_F(TaskManagerTest, RepeatedStartJoinsTheRunningStart) {
     EXPECT_TRUE(answered.contains("start-cmd"));
     EXPECT_TRUE(answered.contains("start-2"));
     EXPECT_EQ(f->starts.load(), 1);
+}
+
+/// @brief it should run a joined start as its own command when the start that it
+/// joined ends with no final status.
+TEST_F(TaskManagerTest, JoinedStartRunsAloneWhenItsStartGivesNoAnswer) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    factory->silent = true;
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_start(client, task, "start-2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-2";
+    });
+    EXPECT_EQ(f->starts.load(), 1);
+    f->release_all();
+    ASSERT_EVENTUALLY_EQ(f->starts.load(), 2);
+}
+
+/// @brief it should cancel a running start when the task manager stops, so that its
+/// worker does not wait out the shutdown timeout.
+TEST_F(TaskManagerTest, ManagerStopCancelsARunningStart) {
+    start_manager(
+        std::make_unique<SlowStartTaskFactory>(),
+        {.shutdown_timeout = 10 * x::telem::SECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    const auto stopping = x::telem::TimeStamp::now();
+    manager->stop();
+    thread.join();
+    EXPECT_LT(x::telem::TimeStamp::now() - stopping, 5 * x::telem::SECOND);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.message, "start cancelled");
 }
 
 TEST_F(TaskManagerTest, CommandFIFO) {
