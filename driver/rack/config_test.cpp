@@ -94,6 +94,51 @@ TEST_F(RackConfigTest, WritesDriverVersionToRack) {
     EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
 }
 
+/// @brief returns a config of a Driver that started against the test Core.
+Config started_config() {
+    Config cfg;
+    cfg.connection = test_client_config();
+    cfg.remote_info.cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(new_test_client().connectivity->check().cluster_key)
+    );
+    return cfg;
+}
+
+/// @brief it should find no change when the Driver reaches the Core it started with.
+TEST_F(RackConfigTest, CheckCoreFindsTheSameCore) {
+    ASSERT_NIL(started_config().check_core());
+}
+
+/// @brief it should stop the Driver when the Core is now another cluster.
+TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
+    auto cfg = started_config();
+    const auto core_key = cfg.remote_info.cluster_key;
+    cfg.remote_info.cluster_key = x::uuid::create();
+    const auto err = cfg.check_core();
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
+    EXPECT_EQ(
+        err.data,
+        "the Core is now cluster " + core_key.to_string() + ", not " +
+            cfg.remote_info.cluster_key.to_string() +
+            ". The Driver stops so that it can start again on the new cluster"
+    );
+}
+
+/// @brief it should stop the Driver when the Core became compatible after the Driver
+/// started against an incompatible one.
+TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
+    auto cfg = started_config();
+    cfg.incompatible_core_version = "99.1.0";
+    const auto version = new_test_client().connectivity->check().node_version;
+    const auto err = cfg.check_core();
+    ASSERT_OCCURRED_AS(err, CORE_CHANGED);
+    EXPECT_EQ(
+        err.data,
+        "the Core now runs version " + version +
+            ". The Driver stops so that it can start again for this version"
+    );
+}
+
 /// @brief it should start only the rack status when the Core runs another minor, and
 /// report the mismatch in its heartbeat.
 TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {

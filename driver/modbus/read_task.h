@@ -498,6 +498,10 @@ public:
         return x::errors::NIL;
     }
 
+    void interrupt() override {
+        if (this->dev != nullptr) this->dev->interrupt();
+    }
+
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
@@ -517,7 +521,11 @@ public:
             size_t offset = 0;
             const auto start = this->sample_clock.wait(breaker);
             for (const auto &op: this->config.readers)
-                if (res.error = op->read(this->dev, fr, offset); res.error) return res;
+                if (res.error = op->read(this->dev, fr, offset); res.error) {
+                    if (!breaker.running())
+                        res.error = driver::errors::NOMINAL_SHUTDOWN_ERROR;
+                    return res;
+                }
             const auto end = this->sample_clock.end();
             for (size_t j = offset; j < this->config.indexes.size() + offset; ++j)
                 fr.series->at(j).write(x::telem::TimeStamp(end - (end - start) / 2));
