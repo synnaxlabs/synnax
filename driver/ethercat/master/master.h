@@ -67,6 +67,9 @@ struct Image {
     std::vector<dc::Registers> dc_sync;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
+    /// @brief the least that each enabled slave adds to the working counter of a cycle,
+    /// keyed by position. A slave with no process data adds nothing.
+    std::map<uint16_t, uint32_t> working_counter_shares;
 
     /// @brief returns the offset of entry.
     /// @returns errors::PDO_MAPPING_ERROR when the master did not map the entry, or
@@ -132,6 +135,12 @@ public:
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
+
+    /// @brief returns how far the working counter of the latest receive() fell short of
+    /// a full cycle, or nullopt when the master cannot tell. Valid after a receive()
+    /// that returns errors::WORKING_COUNTER_ERROR. A lost frame can take more than the
+    /// shares of the slaves that missed the cycle.
+    [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
 
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no

@@ -385,6 +385,8 @@ struct Refusal {
     /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
     /// for none. Each message about the refusal ends with it.
     std::string_view advice;
+    /// @brief the AL status code of the refusal, or 0 when the master cannot read it.
+    uint16_t code = 0;
 
     bool operator==(const Refusal &) const = default;
 };

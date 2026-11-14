@@ -16,6 +16,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <set>
 #include <span>
@@ -52,6 +53,9 @@ class Master final : public master::Master {
     master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
+    /// @brief the number of starts left that each slave refuses, keyed by position. A
+    /// slave in refusing and not here refuses every start.
+    std::map<uint16_t, size_t> refusals_left;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -63,6 +67,12 @@ class Master final : public master::Master {
     x::telem::TimeStamp last_sent;
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
+    /// @brief the working counter share of each slave in the latest activation.
+    std::map<uint16_t, uint32_t> shares;
+    /// @brief the shortfall of each cycle that set_shortfall() sets.
+    std::optional<uint32_t> cycle_shortfall;
+    /// @brief what shortfall() returns.
+    std::optional<uint32_t> latest_shortfall;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -244,10 +254,19 @@ public:
     }
 
     /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
-    /// at position is on the bus, as when the slave refuses a state.
-    void refuse(const uint16_t position, slave::Refusal refusal) {
+    /// at position is on the bus, as when the slave refuses a state. The slave refuses
+    /// only the next starts when starts is set.
+    void refuse(
+        const uint16_t position,
+        slave::Refusal refusal,
+        const std::optional<size_t> starts = std::nullopt
+    ) {
         std::lock_guard lock(this->mu);
         this->refusing[position] = std::move(refusal);
+        if (starts)
+            this->refusals_left[position] = *starts;
+        else
+            this->refusals_left.erase(position);
     }
 
     /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
@@ -256,6 +275,14 @@ public:
         std::lock_guard lock(this->mu);
         this->start_frames = frames;
         this->short_until_op = true;
+    }
+
+    /// @brief makes each receive() take the inputs and return
+    /// errors::WORKING_COUNTER_ERROR with shortfall, as when slaves miss the cycle, or
+    /// ends that when shortfall is nullopt.
+    void set_shortfall(const std::optional<uint32_t> shortfall) {
+        std::lock_guard lock(this->mu);
+        this->cycle_shortfall = shortfall;
     }
 
     /// @brief injects an error to be returned by receive().
@@ -302,6 +329,7 @@ public:
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
         this->refusing.clear();
+        this->refusals_left.clear();
         this->inject_scan_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
@@ -482,6 +510,7 @@ public:
                 .offsets = this->pdo_offset_cache,
                 .dc_sync = this->syncs,
                 .slaves = this->slave_list,
+                .working_counter_shares = this->shares,
             };
         }
         start_cycle(image);
@@ -499,8 +528,14 @@ public:
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
-            if (const auto it = this->refusing.find(pos); it != this->refusing.end())
-                refused.insert(*it);
+            const auto it = this->refusing.find(pos);
+            if (it == this->refusing.end()) continue;
+            refused.insert(*it);
+            if (const auto left = this->refusals_left.find(pos);
+                left != this->refusals_left.end() && --left->second == 0) {
+                this->refusals_left.erase(left);
+                this->refusing.erase(it);
+            }
         }
         if (!refused.empty()) {
             return {
@@ -554,6 +589,7 @@ public:
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
+        this->latest_shortfall.reset();
         if (!this->activated)
             return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
@@ -577,7 +613,17 @@ public:
             this->pending_inputs.data(),
             std::min(this->pending_inputs.size(), this->input_iomap.size())
         );
-        return x::errors::NIL;
+        if (!this->cycle_shortfall) return x::errors::NIL;
+        this->latest_shortfall = this->cycle_shortfall;
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "short by " + std::to_string(*this->cycle_shortfall)
+        );
+    }
+
+    std::optional<uint32_t> shortfall() const override {
+        std::lock_guard lock(this->mu);
+        return this->latest_shortfall;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -739,11 +785,16 @@ private:
 
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
+        this->shares.clear();
         this->input_sz = 0;
         this->output_sz = 0;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;
+            if (const uint32_t share = (props.output_pdos.empty() ? 0 : 2) +
+                                       (props.input_pdos.empty() ? 0 : 1);
+                share > 0)
+                this->shares[props.position] = share;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
                 props.position,
@@ -792,5 +843,4 @@ public:
         };
     }
 };
-
 }

@@ -1151,7 +1151,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
     this->add_pending_and_refusing_slaves();
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {2, {.reason = "refused SAFE-OP: Inconsistent settings"}},
+        {2, {.reason = "refused SAFE-OP: Inconsistent settings", .code = 0x0026}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1164,19 +1164,21 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {2,
          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-          .advice = slave::DC_SYNC_ADVICE}},
+          .advice = slave::DC_SYNC_ADVICE,
+          .code = 0x0030}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
 
-/// @brief it should give the mode restart advice with the refusal of a slave that
-/// reports an invalid input or output configuration.
+/// @brief it should give the mode restart advice and the AL status code with the
+/// refusal of a slave that reports an invalid input or output configuration.
 TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
     for (const uint16_t code: {0x001D, 0x001E}) {
         this->create_master(x::telem::SECOND);
         this->add_pending_and_refusing_slaves(code);
         ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
         EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
+        EXPECT_EQ(this->activation.refusals.at(2).code, code);
     }
 }
 
@@ -1206,7 +1208,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
     );
     EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_OPERATIONAL);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {2, {.reason = "refused OP: Inconsistent settings"}},
+        {2, {.reason = "refused OP: Inconsistent settings", .code = 0x0026}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1223,7 +1225,8 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {1,
          {.reason = "refused SAFE-OP: Invalid output configuration",
-          .advice = slave::MODE_RESTART_ADVICE}},
+          .advice = slave::MODE_RESTART_ADVICE,
+          .code = 0x001D}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1904,6 +1907,38 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
+    EXPECT_EQ(this->master->shortfall(), 2);
+}
+
+/// @brief it should report no shortfall for a working counter above the expected count.
+TEST_F(SOEMMasterTest, ReceiveReportsNoShortfallAboveTheExpectedCount) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = 4;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master->shortfall(), std::nullopt);
+}
+
+/// @brief it should give each enabled slave a working counter share of 2 for its
+/// outputs and 1 for its inputs, and none to a slave without process data.
+TEST_F(SOEMMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
+    this->add_default_slave();
+    const auto add = [this](const uint16_t ibits, const uint16_t obits) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.Ibits = ibits;
+        slave.Obits = obits;
+        this->add_slave(slave);
+    };
+    add(16, 0);
+    add(0, 8);
+    add(0, 0);
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, uint32_t>{{1, 3}, {2, 1}, {3, 2}})
+    );
 }
 
 /// @brief it should accept a receive whose working counter is the expected count.
