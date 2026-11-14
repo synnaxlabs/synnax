@@ -84,6 +84,10 @@
       "types": "./dist/badge/index.d.ts",
       "default": "./dist/badge/index.js"
     },
+    "./bounds": {
+      "types": "./dist/bounds/index.d.ts",
+      "default": "./dist/bounds/index.js"
+    },
     "./breadcrumb": {
       "types": "./dist/breadcrumb/index.d.ts",
       "default": "./dist/breadcrumb/index.js"
