@@ -1,0 +1,335 @@
+---
+layout: "@/layouts/Blog.astro"
+title: "Introducing Synnax Desktop"
+description: "The best of Synnax on a single bench, free for commercial use."
+published: "2026-11-02"
+author: "Emiliano Bonilla"
+authorImage: "https://synnax.nyc3.cdn.digitaloceanspaces.com/eb_headshot.png"
+authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Desktop } from "@/components/desktop";
+import { Diagram } from "@/components/diagram";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Rule } from "@/components/rule";
+
+export const components = mdxOverrides;
+
+<Hero.Hero
+  video="get-started/sample-project/run-test"
+  layout="framed"
+  tone="deep"
+  palette="blue-violet"
+/>
+
+A week ago we launched Synnax Desktop. It's our Core, Console, and device drivers
+bundled together, built for the bench, and free for commercial use.
+
+It's also a big change in how we sell Synnax. For years, the only way to get your hands
+on it was to talk to us first. Desktop flips that around. In this post, I'll walk you
+through what Desktop is, why we think it's awesome, and why we decided to lead with the
+product instead of a sales process.
+
+<Divider.Divider x />
+
+## Two ways to buy software
+
+Nowadays, my job is mostly communication and sales. But before that, I was a laser
+focused systems engineer, and I spent a lot of time procuring software: databases, ETL
+tools, CI/CD pipelines, managed Kubernetes services, you name it.
+
+It always went one of two ways.
+
+Story 1 goes straight to sales. You submit a contact form, get on the phone with a sales
+rep, do a demo ... or two ... or three ... and then spend weeks convincing your boss to
+pay for a product you've never actually used. And, often times, the really expensive
+tool you buy ends up not being what you expected.
+
+There's a common joke on industrial automation subreddits that goes like this:
+
+<figure className="article-portrait">
+  <img
+    src="https://i.redd.it/g6van9ug3xbc1.jpeg"
+    loading="lazy"
+    decoding="async"
+    alt="A man at a urinal next to a Keyence rep, who says he saw you downloaded a manual"
+  />
+  <figcaption>From [r/PLC](https://redd.it/194jgm9)</figcaption>
+</figure>
+
+Unlike the joke, the second pathway is different. Instead of submitting a form for a
+demo, you can download the product yourself. Sometimes the full-fledged version,
+sometimes with restricted use. You're able to try it, enjoy using it, find value, and
+use practical deployment to show your team that the paid edition is a worthwhile
+investment.
+
+If you're an engineer, story 2 is dramatically better than story 1. You directly
+interact with the tool, see where it works and where it doesn't, and decide if it's
+worth your time and investment.
+
+The companies and tools I respect the most operate this way: Linear, Vercel, and Figma.
+Most recently, I signed up for an enterprise subscription to
+[Paradev](https://paradev.com). The product was clearly so much better than anything
+else out there, that I knew I had to pay for it.
+
+Desktop is our story 2. We're putting the product first, and focusing deeply on the user
+experience and technical excellence. It's a risk, but it's one we're happy to take
+because it's the way we'd like to evaluate Synnax if we were engineers at our customers'
+companies.
+
+Here's what trying out Desktop looks like, uncut and in real time.
+
+<Diagram.Diagram>
+  **To record (V2):** download, install, open the sample project, and watch the live
+  plot. About 90 seconds, real time, clock in the corner.
+</Diagram.Diagram>
+
+That's the whole sales process.
+
+## So what is Synnax Desktop?
+
+Synnax Desktop is a free edition of Synnax designed specifically for benchtop testing.
+It combines our Core, Console, and device drivers into what we think is one of the best
+desktop data acquisition, control, and data review tools on the market.
+
+It's easy to set up. Download and run Desktop, and it'll immediately detect the data
+acquisition devices you have connected. The path from first seeing the tool to actually
+getting use out of it is as short as possible. Under the hood, we run the key components
+of the enterprise edition: device drivers, the Arc runtime, a Core, and the Console, all
+in one.
+
+<Diagram.Block
+  title="Inside Synnax Desktop: the Driver reads your hardware, the Core stores every sample, and the Console and your scripts read from the Core."
+  nodes={[
+    {
+      key: "devices",
+      label: "DAQ devices",
+      caption: "NI, LabJack, EtherCAT",
+      icon: Icon.Hardware,
+      column: 0,
+    },
+    {
+      key: "servers",
+      label: "PLCs and servers",
+      caption: "Modbus, OPC UA, HTTP",
+      icon: Icon.Connect,
+      column: 0,
+    },
+    {
+      key: "driver",
+      label: "Driver",
+      caption: "reads and writes",
+      icon: Icon.Rack,
+      column: 1,
+    },
+    {
+      key: "core",
+      label: "Core",
+      caption: "stores every sample",
+      icon: Icon.Core,
+      column: 2,
+    },
+    {
+      key: "console",
+      label: "Console",
+      caption: "plots and controls",
+      icon: Icon.Visualize,
+      column: 3,
+    },
+    {
+      key: "scripts",
+      label: "Your scripts",
+      caption: "Python, TypeScript",
+      icon: Icon.Python,
+      column: 3,
+    },
+  ]}
+  edges={[
+    { from: "devices", to: "driver" },
+    { from: "servers", to: "driver" },
+    { from: "driver", to: "core" },
+    { from: "core", to: "console" },
+    { from: "core", to: "scripts" },
+  ]}
+/>
+
+## What you can do with it
+
+Once it's open, you can:
+
+<Rule.List>
+<Rule.Item title="Connect your hardware">
+
+[NI devices](/reference/hardware/ni/configure-device) (on Windows),
+[LabJacks](/reference/hardware/labjack/configure-device),
+[Modbus](/reference/hardware/modbus/connect-server) and
+[OPC UA](/reference/hardware/opc-ua/connect-server) PLCs,
+[EtherCAT](/reference/hardware/ethercat/configure-device) I/O, and
+[HTTP](/reference/hardware/http/connect-server) APIs, all on the same bench at the same
+time.
+
+</Rule.Item>
+<Rule.Item title="Watch it live, and go back to any run">
+
+Every sample is saved, so you can scroll back to [last Tuesday's run](/reference/ranges)
+and [zoom](/reference/visualize/line-plots) from a week of data down to a single sample.
+
+</Rule.Item>
+<Rule.Item title="Operate it from a schematic">
+
+[Draw your system](/reference/visualize/schematics), drop in valves and gauges, and
+[click a valve to open it](/reference/control/manual).
+
+</Rule.Item>
+<Rule.Item title="Automate it with Arc">
+
+Write an [Arc](/blog/introducing-arc) sequence to fill the tank to 300 psi, hold for 10
+seconds, vent, and abort if anything looks wrong.
+
+</Rule.Item>
+<Rule.Item title="Script it from Python or TypeScript">
+
+Pull last week's tests into a [notebook](/reference/client/read-data), or
+[stream values](/reference/client/write-data) from your own script straight into a live
+plot.
+
+</Rule.Item>
+</Rule.List>
+
+<Diagram.Diagram>
+  **To record (V14):** a notebook beside Desktop. One cell reads the last test into
+  pandas and plots it. Another streams values, and the live plot draws them as they
+  arrive.
+</Diagram.Diagram>
+
+No hardware on hand? Open the [sample project](/reference/get-started/sample-project).
+It's a simulated tank test that takes about five minutes.
+
+<Divider.Divider x />
+
+## How does it compare?
+
+You've probably got one of these on your bench already. Here's the short version.
+
+|                        | You build                      | Control and sequences        | Price                                         |
+| ---------------------- | ------------------------------ | ---------------------------- | --------------------------------------------- |
+| **Synnax Desktop**     | Nothing. Install it and go.    | Schematics and Arc           | Free, including commercial use                |
+| **LabVIEW**            | The whole tool                 | Whatever you program         | A quote from NI. Community is non-commercial. |
+| **FlexLogger**         | A logging configuration        | Events in Pro, no sequencer  | Lite is free. Professional is paid.           |
+| **InfluxDB + Grafana** | The integration and dashboards | None. That's another script. | Free and open source                          |
+
+And here's the long one.
+
+### LabVIEW
+
+LabVIEW is the most common by far. If you're in a lab, there's a good chance you're
+either someone who uses a VI written by someone who left the company a while ago, or
+you're in charge of maintaining bespoke VIs for different test applications. LabVIEW has
+clearly earned its place: decades of reliability improvements, integration with the NI
+hardware ecosystem, and awesome tooling like FPGA programming.
+
+But good LabVIEW tools require good LabVIEW programmers. They are hard to come by, busy,
+and often times stretched thin in their work. If you want to do it yourself, you have to
+build the tool, and the free Community Edition is non-commercial. NI doesn't list prices
+for the rest: you request a quote. Story 1 again.
+
+Desktop is that tool, already built. If you need deterministic control on an FPGA, keep
+LabVIEW. For everything else on the bench, try Desktop.
+
+### FlexLogger
+
+FlexLogger is NI's no-code data logger, and it's the closest thing to Desktop out there.
+If your bench is all NI hardware, it's a great way to get a logging setup running
+without writing a single line of LabVIEW. There's a lot to like: it's built by the same
+people who make the hardware, it's easy to configure, and the Lite edition is free.
+
+But FlexLogger is really built for NI hardware and for logging. Plenty of benches aren't
+all NI, though. There's a LabJack someone bought for a quick test, or a PLC talking
+Modbus, and connecting those means a plug-in built in LabVIEW. You can set up events in
+the Professional edition, but there's no sequencer, so the moment you want to
+pressurize, hold, and vent, you're back to writing LabVIEW or Python.
+
+Desktop talks to all of that hardware at once, and runs your sequences in the same
+window you're plotting in.
+
+### InfluxDB and Grafana
+
+InfluxDB and Grafana are what software engineers reach for. If someone on your team came
+from the software world, they've probably pitched it to you as the free option. And I
+get why: both are open source, Grafana makes beautiful dashboards, and for monitoring
+servers it's hard to beat.
+
+But neither tool was built for hardware. Nothing in the stack talks to a DAQ card, so
+someone has to write and maintain a script to get data in. Grafana can't control
+anything, so opening a valve is another script. Dashboards also refresh every 5 seconds
+by default, which is fine for CPU usage but not for watching a pressure spike. By the
+time it all works, you've built a custom tool out of five different pieces, and someone
+has to own it.
+
+Desktop is the whole stack in one tool, with no bolting together a DAQ, a Python script,
+Telegraf, InfluxDB, and Grafana. And the database underneath was built for sensor data:
+we [benchmarked it against InfluxDB and Timescale](/blog/one-billion-rows).
+
+<Divider.Divider x />
+
+## So why didn't we do this sooner?
+
+Honestly? Because story 1 works.
+
+It lets you control the process. Instead of waiting for an engineer to fall in love with
+your tool, you can meticulously work through finding an engineering champion, running
+demos with the right stakeholders, and getting to procurement earlier.
+
+It also works better for products that take a lot of work to fit into a customer's
+infrastructure, and that was early Synnax. We often had to build significant new
+features before our tools worked with a customer's hardware. If we'd handed out a free
+version as is, most people wouldn't have found a fast enough path to value.
+
+That's no longer true. Synnax now works on a bench straight out of the box: plug in a
+LabJack, and you're plotting data in minutes.
+
+<Diagram.Diagram>
+  **To film (V3):** a LabJack on a desk with a thermocouple. A hand warms the sensor,
+  and the plot climbs. Phone on a stand, cut beside the screen recording.
+</Diagram.Diagram>
+
+And deep down, all of us at Synnax are engineers. We want Synnax to be built by
+engineers, for engineers. Instead of being fed a problem and solution pair by a sales
+team, you should be able to discern for yourself where our product seriously unlocks
+productivity for your team, and where it doesn't.
+
+Synnax Desktop is a renewed, focused commitment to that ethos. We build tools for
+hardcore engineers, and we're putting our product center stage as the evidence for how
+and why we build.
+
+## When should you talk to us?
+
+Remember the end of story 2? You show your team the paid edition is worth it, and then
+you start the sales process. Desktop is designed for every step before that one. And
+yes, it's also designed to eventually make you interested in having a conversation with
+us about our enterprise edition.
+
+Desktop is for one person on one computer, with up to 50 channels. Synnax Enterprise is
+for a team that shares one system. You run a Synnax Core on your own servers and get:
+
+- Access from other computers, including the Console in a web browser.
+- Users, roles, and permissions.
+- Drivers on other computers, including NI CompactRIOs.
+- Linux, Docker, and air-gapped deployments.
+- As many channels as your license allows.
+
+The day your bench turns into a test stand, or one engineer turns into five, is the day
+we'd love to talk.
+
+<Divider.Divider x />
+
+For years, we asked engineers to take our word for it. With Desktop, you don't have to.
+Download it, plug in your hardware, and see where it really works and where it doesn't.
+
+If something breaks, [open an issue](https://github.com/synnaxlabs/synnax/issues) and
+tell us.
+
+<Desktop.DownloadButton />

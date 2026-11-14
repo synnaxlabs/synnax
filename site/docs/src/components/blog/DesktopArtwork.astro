@@ -1,0 +1,126 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+const SIZE = 200;
+const X = 230;
+const Y = 60;
+const CX = X + SIZE / 2;
+const CY = Y + SIZE / 2;
+// The dimension labels draw the icon on a 212 unit grid with a 46 unit corner radius.
+const SCALE = SIZE / 212;
+const RADIUS = 46 * SCALE;
+const MARK =
+    "M52.61,168.82A14.81,14.81,0,0,1,39.78,146.6L94.22,52.33c5.7-9.88,20-9.88,25.9.42l51.77,89.67a6.88,6.88,0,0,0,2.48,2.49l15.42,8.9a6.78,6.78,0,0,0,9.26-9.27L119.87,7.41a14.8,14.8,0,0,0-25.65,0L2,167.12a14.81,14.81,0,0,0,12.83,22.22H170.39a6.79,6.79,0,0,0,3.39-12.66l-12.05-7a6.83,6.83,0,0,0-3.39-.91Z";
+const dots = Array.from({ length: 30 }, (_, i) =>
+    Array.from({ length: 16 }, (_, j) => [10 + i * 20, 10 + j * 20] as const),
+).flat();
+---
+
+<svg
+    class="desktop-art"
+    viewBox="0 0 600 320"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+>
+    <defs>
+        <radialGradient
+            id="desktop-art-fade"
+            cx={CX}
+            cy={CY}
+            r="230"
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop stop-color="white" />
+            <stop offset="1" stop-color="white" stop-opacity="0" />
+        </radialGradient>
+        <mask id="desktop-art-field">
+            <rect width="600" height="320" fill="url(#desktop-art-fade)" />
+        </mask>
+    </defs>
+    <g mask="url(#desktop-art-field)">
+        {dots.map(([x, y]) => (
+            <circle class="dot" cx={x} cy={y} r="0.8" />
+        ))}
+        <path
+            class="guide"
+            d={`M ${CX} 14 V 306 M ${X - 90} ${CY} H ${X + SIZE + 90} M ${X} ${Y} L ${X + SIZE} ${Y + SIZE} M ${X + SIZE} ${Y} L ${X} ${Y + SIZE}`}
+        />
+        <rect class="guide" x={X} y={Y} width={SIZE} height={SIZE} />
+        <circle class="guide" cx={CX} cy={CY} r={SIZE / 2} />
+        <circle class="guide" cx={CX} cy={CY} r={SIZE * 0.32} />
+    </g>
+    <rect class="icon" x={X} y={Y} width={SIZE} height={SIZE} rx={RADIUS} />
+    <path
+        class="mark"
+        d={MARK}
+        transform={`translate(${X + 36 * SCALE} ${Y + 40 * SCALE}) scale(${0.69 * SCALE})`}
+        vector-effect="non-scaling-stroke"
+    />
+    <path
+        class="dimension"
+        d={`M ${X} 38 H ${X + SIZE} M ${X} 33 V 43 M ${X + SIZE} 33 V 43`}
+    />
+    <text class="label" x={CX} y="29" text-anchor="middle">
+        212
+    </text>
+    <path
+        class="dimension"
+        d={`M ${X + RADIUS} ${Y} A ${RADIUS} ${RADIUS} 0 0 0 ${X} ${Y + RADIUS}`}
+    />
+    <path
+        class="dimension"
+        d={`M ${X + RADIUS * 0.29} ${Y + RADIUS * 0.29} L ${X - 22} ${Y - 14} H ${X - 40}`}
+    />
+    <text class="label" x={X - 44} y={Y - 10} text-anchor="end">
+        r46
+    </text>
+</svg>
+
+<style>
+    .desktop-art {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .dot {
+        fill: light-dark(#a9b9cc, #3d5574);
+    }
+
+    .guide {
+        stroke: light-dark(#a9b9cc90, #4f6a8880);
+        stroke-width: 0.65;
+    }
+
+    .icon {
+        stroke: light-dark(#4f6b8e, #a3bcd8);
+        stroke-width: 1.1;
+    }
+
+    .mark {
+        stroke: var(--pluto-primary-z);
+        stroke-width: 1.3;
+    }
+
+    .dimension {
+        stroke: light-dark(#7993b1, #7f9cbf);
+        stroke-width: 0.75;
+    }
+
+    .label {
+        fill: var(--pluto-gray-l8);
+        font: 400 11px / 1 var(--pluto-code-font-family);
+        letter-spacing: 0.04em;
+    }
+</style>
