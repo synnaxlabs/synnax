@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/status/filter/Chips";
-export * from "@/platform/status/filter/MenuItem";
+export * from "@/platform/status/filter/property";

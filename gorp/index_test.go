@@ -1221,6 +1221,131 @@ var _ = Describe("Index", func() {
 		})
 	})
 
+	Describe("Sorted range filter", func() {
+		var (
+			table    *gorp.Table[int32, indexedEntry]
+			scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			scoreIdx = gorp.NewSortedIndex(
+				"score", func(e *indexedEntry) int64 { return e.Score },
+			)
+			table = DeferClose(openIndexedTable(ctx, idxDB, scoreIdx))
+			entries := make([]indexedEntry, 10)
+			for i := range entries {
+				entries[i] = indexedEntry{ID: int32(i), Score: int64(i * 10)}
+			}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&entries).Exec(ctx, idxDB)).To(Succeed())
+		})
+		inRange := func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			lower, upper *gorp.Bound[int64],
+		) []int32 {
+			GinkgoHelper()
+			var res []indexedEntry
+			Expect(table.NewRetrieve().
+				Where(scoreIdx.FilterRange(lower, upper)).
+				Entries(&res).Exec(ctx, snap)).To(Succeed())
+			return idsOf(res)
+		}
+
+		DescribeTable(
+			"Should match the entries between the bounds",
+			func(ctx SpecContext, lower, upper *gorp.Bound[int64], ids []int32) {
+				Expect(inRange(ctx, idxDB, lower, upper)).To(ConsistOf(ids))
+			},
+			Entry("an inclusive range", &gorp.Bound[int64]{Value: 20},
+				&gorp.Bound[int64]{Value: 40}, []int32{2, 3, 4}),
+			Entry("an exclusive range", &gorp.Bound[int64]{Value: 20, Exclusive: true},
+				&gorp.Bound[int64]{Value: 40, Exclusive: true}, []int32{3}),
+			Entry(
+				"an open lower end",
+				nil,
+				&gorp.Bound[int64]{Value: 15},
+				[]int32{0, 1},
+			),
+			Entry("an open upper end", &gorp.Bound[int64]{Value: 85}, nil, []int32{9}),
+			Entry("bounds between values", &gorp.Bound[int64]{Value: 11},
+				&gorp.Bound[int64]{Value: 29}, []int32{2}),
+			Entry("an empty range", &gorp.Bound[int64]{Value: 40},
+				&gorp.Bound[int64]{Value: 20}, []int32{}),
+			Entry("no bounds", nil, nil, []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}),
+		)
+
+		It("Should see the writes staged in the same tx", func(ctx SpecContext) {
+			tx := DeferClose(idxDB.OpenTx())
+			moved := indexedEntry{ID: 1, Score: 35}
+			added := indexedEntry{ID: 20, Score: 30}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&[]indexedEntry{moved, added}).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int32, indexedEntry]().
+				Where(gorp.MatchKeys[int32, indexedEntry](3)).Exec(ctx, tx)).
+				To(Succeed())
+			bounds := []*gorp.Bound[int64]{{Value: 10}, {Value: 40}}
+			Expect(inRange(ctx, tx, bounds[0], bounds[1])).To(ConsistOf(
+				int32(1), int32(2), int32(4), int32(20),
+			))
+			Expect(inRange(ctx, idxDB, bounds[0], bounds[1])).To(ConsistOf(
+				int32(1), int32(2), int32(3), int32(4),
+			))
+		})
+
+		Describe("And of ranges", func() {
+			var atLeast10, atMost30 gorp.Filter[int32, indexedEntry]
+			BeforeEach(func() {
+				atLeast10 = scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 10}, nil)
+				atMost30 = scoreIdx.FilterRange(nil, &gorp.Bound[int64]{Value: 30})
+			})
+			andIDs := func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				filters ...gorp.Filter[int32, indexedEntry],
+			) []int32 {
+				GinkgoHelper()
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					Where(gorp.And(filters...)).
+					Entries(&res).Exec(ctx, snap)).To(Succeed())
+				return idsOf(res)
+			}
+
+			It("Should match the entries in every range", func(ctx SpecContext) {
+				Expect(andIDs(ctx, idxDB, atLeast10, atMost30)).
+					To(ConsistOf(int32(1), int32(2), int32(3)))
+				Expect(andIDs(ctx, idxDB, atMost30, atLeast10)).
+					To(ConsistOf(int32(1), int32(2), int32(3)))
+			})
+
+			It(
+				"Should check the wider range against the writes staged in the tx",
+				func(ctx SpecContext) {
+					tx := DeferClose(idxDB.OpenTx())
+					staged := []indexedEntry{
+						{ID: 2, Score: 95},
+						{ID: 8, Score: 25},
+						{ID: 20, Score: 5},
+					}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entries(&staged).Exec(ctx, tx)).To(Succeed())
+					Expect(andIDs(ctx, tx, atLeast10, atMost30)).
+						To(ConsistOf(int32(1), int32(3), int32(8)))
+				},
+			)
+		})
+
+		It("Should page an order through a wide range", func(ctx SpecContext) {
+			var res []indexedEntry
+			Expect(table.NewRetrieve().
+				Where(scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 10}, nil)).
+				OrderBy(scoreIdx.Ordered(gorp.DirectionDesc).After(70, 7)).
+				Limit(3).
+				Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+			Expect(idsOf(res)).To(Equal([]int32{6, 5, 4}))
+		})
+	})
+
 	Describe("Not with index-backed filters", func() {
 		It("Should negate an index-backed filter", func(ctx SpecContext) {
 			nameIdx := gorp.NewLookupIndex(
@@ -1682,9 +1807,10 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 
 var _ = Describe("Populate failure", func() {
 	var (
-		db      *gorp.DB
-		nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-		logs    *observer.ObservedLogs
+		db       *gorp.DB
+		nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
+		scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
+		logs     *observer.ObservedLogs
 	)
 	BeforeEach(func(ctx SpecContext) {
 		mem := DeferClose(memkv.New())
@@ -1693,21 +1819,24 @@ var _ = Describe("Populate failure", func() {
 			gorp.WithCodec(msgpack.Codec),
 		)
 		seed := []indexedEntry{
-			{ID: 1, Name: "alpha"},
-			{ID: 2, Name: "beta"},
-			{ID: 3, Name: "alpha"},
+			{ID: 1, Name: "alpha", Score: 10},
+			{ID: 2, Name: "beta", Score: 20},
+			{ID: 3, Name: "alpha", Score: 30},
 		}
 		Expect(gorp.NewCreate[int32, indexedEntry]().
 			Entries(&seed).Exec(ctx, db)).To(Succeed())
 		nameIdx = gorp.NewLookupIndex(
 			"name", func(e *indexedEntry) string { return e.Name },
 		)
+		scoreIdx = gorp.NewSortedIndex(
+			"score", func(e *indexedEntry) int64 { return e.Score },
+		)
 		var ins alamos.Instrumentation
 		ins, logs = ObservedInstrumentation(zapcore.ErrorLevel)
 		DeferClose(
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
 				DB:              db,
-				Indexes:         []gorp.Index[int32, indexedEntry]{nameIdx},
+				Indexes:         []gorp.Index[int32, indexedEntry]{nameIdx, scoreIdx},
 				Instrumentation: ins,
 			})),
 		)
@@ -1759,6 +1888,48 @@ var _ = Describe("Populate failure", func() {
 				Entries(&got).Exec(ctx, db)).To(Succeed())
 			Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
 		})
+
+	It(
+		"Should fall back to a sequential scan for a sorted range",
+		func(ctx SpecContext) {
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 15}, nil)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(2), int32(3)))
+		},
+	)
+
+	It(
+		"Should narrow an And of ranges by the range whose index populated",
+		func(ctx SpecContext) {
+			healthy := gorp.NewSortedIndex(
+				"score", func(e *indexedEntry) int64 { return e.Score },
+			)
+			DeferClose(
+				MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB:      db,
+					Name:    "healthy",
+					Indexes: []gorp.Index[int32, indexedEntry]{healthy},
+				})),
+			)
+			Expect(healthy.Get(ctx, nil, 20)).To(ConsistOf(int32(2)))
+			read := 0
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(gorp.And(
+					gorp.Match(func(gorp.Context, *indexedEntry) (bool, error) {
+						read++
+						return true, nil
+					}),
+					scoreIdx.FilterRange(&gorp.Bound[int64]{Value: 15}, nil),
+					healthy.FilterRange(nil, &gorp.Bound[int64]{Value: 25}),
+				)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(2)))
+			Expect(read).To(Equal(2))
+		},
+	)
 
 	It("Should fall back to a sequential scan for Not when populate fails",
 		func(ctx SpecContext) {

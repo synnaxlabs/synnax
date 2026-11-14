@@ -74,9 +74,9 @@ import {
   IoTerminal,
   IoTerminalOutline,
   IoTime,
-  IoTvOutline,
 } from "react-icons/io5";
 import {
+  LuChartNoAxesGantt,
   LuFileBadge,
   LuKeyRound,
   LuLock,
@@ -158,7 +158,6 @@ import {
   MdPause,
   MdPeople,
   MdPerson,
-  MdPictureInPicture,
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
@@ -250,6 +249,7 @@ import {
   TbRowInsertBottom,
   TbRowInsertTop,
   TbRowRemove,
+  TbStack2Filled,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -301,7 +301,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
-export const View = wrapSVGIcon(IoTvOutline, "view");
+export const View = wrapSVGIcon(TbStack2Filled, "view");
 export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
   Row: wrapSVGIcon(TbRowRemove, "delete-row"),
   Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
@@ -440,7 +440,6 @@ export const User = wrapSVGIcon(MdPerson, "user");
 export const Role = wrapSVGIcon(MdPeople, "role");
 export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
-export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
 export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
@@ -529,6 +528,7 @@ export const RotateAroundCenter = {
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
+export const Timeline = wrapSVGIcon(LuChartNoAxesGantt, "timeline");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
@@ -673,7 +673,6 @@ const icons = {
   Role,
   Policy,
   Rename,
-  Snapshot,
   Sync,
   Search,
   Auto,

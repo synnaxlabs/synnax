@@ -421,7 +421,7 @@ public:
 
     /// @brief implements driver::task::Task to execute the provided command on the
     /// task.
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

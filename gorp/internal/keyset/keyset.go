@@ -90,6 +90,15 @@ func (s Set[K]) Contains(k K) bool {
 	return s.hash.set.Contains(k)
 }
 
+// Probe returns a predicate that reports whether s contains a key in constant time.
+// Build it once and call it for each candidate.
+func (s Set[K]) Probe() func(K) bool {
+	if s.keys != nil && s.hash == nil {
+		s = Hashed(s.keys)
+	}
+	return s.Contains
+}
+
 // ranks returns the position of each key of a ranked Set.
 func (s Set[K]) ranks() map[K]int {
 	s.hash.once.Do(func() {

@@ -21,6 +21,7 @@ import {
   type Where,
 } from "@/panel/types.gen";
 import { project } from "@/project";
+import { user } from "@/user";
 
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
@@ -30,6 +31,8 @@ export interface Lines {
   groups: ((record: Panel, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Panel, value: NonNullable<Where["grouped"]>) => boolean) | null;
   projects: ((record: Panel, value: NonNullable<Where["projects"]>) => boolean) | null;
+  owners: ((record: Panel, value: NonNullable<Where["owners"]>) => boolean) | null;
+  owned: ((record: Panel, value: NonNullable<Where["owned"]>) => boolean) | null;
 }
 
 /**
@@ -56,6 +59,14 @@ export const matches = (lines: Lines, record: Panel, where?: Where): boolean => 
     if (lines.projects == null) throw new Error("only the Core can check projects");
     if (!lines.projects(record, where.projects)) return false;
   }
+  if (where.owners != null) {
+    if (lines.owners == null) throw new Error("only the Core can check owners");
+    if (!lines.owners(record, where.owners)) return false;
+  }
+  if (where.owned != null) {
+    if (lines.owned == null) throw new Error("only the Core can check owned");
+    if (!lines.owned(record, where.owned)) return false;
+  }
   return true;
 };
 
@@ -70,7 +81,9 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null) ||
-    (where.projects != null && lines.projects == null));
+    (where.projects != null && lines.projects == null) ||
+    (where.owners != null && lines.owners == null) ||
+    (where.owned != null && lines.owned == null));
 
 const inputs = {
   /** key selects by key. */
@@ -81,6 +94,10 @@ const inputs = {
   grouped: z.boolean().exactOptional(),
   /** projects matches the panels in any of the given projects. */
   projects: filter.listInputZ(project.keyZ).exactOptional(),
+  /** owners matches the drafts of any of the given users. */
+  owners: filter.listInputZ(user.keyZ).exactOptional(),
+  /** owned matches the drafts, or the shared panels when false. */
+  owned: z.boolean().exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -118,11 +135,27 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "groups", "grouped", "projects"]),
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "groups",
+        "grouped",
+        "projects",
+        "owners",
+        "owned",
+      ]),
     );
 
 /** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
-export const LIST_FIELDS: readonly string[] = ["key", "name", "group", "project"];
+export const LIST_FIELDS: readonly string[] = [
+  "key",
+  "name",
+  "group",
+  "project",
+  "owner",
+];
 
 /** @returns the position of record in order, or in key order when order is absent. */
 export const cursor = (record: Panel, order?: Order): Cursor => {

@@ -69,9 +69,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return View{}, err
 			}
-			if err = next.Validate(); err != nil {
-				return View{}, err
-			}
 			if err = w.validate(next); err != nil {
 				return View{}, err
 			}
@@ -114,9 +111,11 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	vld.NotEmptyString("name", v.Base().Name)
 	vld.NotEmptyString("type", v.Type())
 	if err := vld.Error(); err != nil {
+		return err
+	}
+	if err := v.Validate(); err != nil {
 		return err
 	}
 	var err error

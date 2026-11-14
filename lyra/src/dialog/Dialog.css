@@ -63,6 +63,14 @@
         );
         max-width: var(--pluto-dialog-available-width, none);
 
+        /* A floating dialog grows to its widest content unless a caller caps it. */
+        &.lyra--floating {
+            max-width: min(
+                var(--pluto-dialog-max-width, 100vw),
+                var(--pluto-dialog-available-width, 100vw)
+            );
+        }
+
         &.lyra--height-small {
             --pluto-dialog-max-height: 200px;
         }

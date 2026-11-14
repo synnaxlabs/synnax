@@ -177,8 +177,8 @@ var _ = Describe("Removed", func() {
 			"schemas/synnax/versions/alias/removed":   "",
 		})
 		Expect(versions.Removed(root)).Error().To(MatchError(
-			ContainSubstring("schemas/synnax/versions/alias must contain only its " +
-				"removed marker"),
+			filepath.Join(root, "schemas/synnax/versions/alias") +
+				" must contain only its removed marker",
 		))
 	})
 
