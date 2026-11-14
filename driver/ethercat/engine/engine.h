@@ -102,7 +102,8 @@ public:
         std::chrono::steady_clock::time_point deadline;
         /// @brief ends the start when it stops.
         x::breaker::Breaker &cancel;
-        /// @brief receives each step of the start, or nullptr.
+        /// @brief receives each step of the start, or nullptr. The engine calls it with
+        /// its lock held, so it must not block.
         std::function<void(const Step &)> report;
         /// @brief whether the start waited for another call on the network. The Engine
         /// sets it.
@@ -535,7 +536,7 @@ public:
 
     /// @brief returns a start that fails Config::start_timeout from now, or when cancel
     /// stops.
-    /// @param report receives each step of the start, or nullptr.
+    /// @param report receives each step of the start, or nullptr. It must not block.
     [[nodiscard]] Start begin_start(
         x::breaker::Breaker &cancel,
         std::function<void(const Step &)> report = nullptr

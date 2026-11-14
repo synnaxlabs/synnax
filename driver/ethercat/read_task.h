@@ -19,6 +19,7 @@
 
 #include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/read_task.h"
@@ -188,7 +189,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
-    StartSteps steps;
+    std::unique_ptr<StartSteps> steps;
     std::unique_ptr<engine::Engine::Reader> reader;
     /// @brief the calibration of each calibrated channel, from the gain and offset that
     /// its slave held at start().
@@ -233,7 +234,7 @@ public:
     explicit ReadTaskSource(
         std::shared_ptr<engine::Engine> eng,
         ReadTaskConfig cfg,
-        StartSteps steps = {}
+        std::unique_ptr<StartSteps> steps = std::make_unique<StartSteps>()
     ):
         cfg(std::move(cfg)),
         engine(std::move(eng)),
@@ -242,7 +243,12 @@ public:
 
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
-        const auto start = this->engine->begin_start(cancel, this->steps.of(cmd_key));
+        const auto start = this->engine->begin_start(
+            cancel,
+            this->steps->begin(cmd_key)
+        );
+        // The task answers the start once this returns, so no step may follow.
+        x::defer::defer flushed([this] { this->steps->flush(); });
         const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);

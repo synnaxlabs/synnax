@@ -15,6 +15,7 @@
 
 #include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
@@ -107,7 +108,7 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
-    StartSteps steps;
+    std::unique_ptr<StartSteps> steps;
     std::unique_ptr<engine::Engine::Writer> writer;
 
 public:
@@ -115,7 +116,7 @@ public:
     explicit WriteTaskSink(
         std::shared_ptr<engine::Engine> eng,
         WriteTaskConfig cfg,
-        StartSteps steps = {}
+        std::unique_ptr<StartSteps> steps = std::make_unique<StartSteps>()
     ):
         Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
@@ -124,7 +125,12 @@ public:
 
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
-        const auto start = this->engine->begin_start(cancel, this->steps.of(cmd_key));
+        const auto start = this->engine->begin_start(
+            cancel,
+            this->steps->begin(cmd_key)
+        );
+        // The task answers the start once this returns, so no step may follow.
+        x::defer::defer flushed([this] { this->steps->flush(); });
         const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);

@@ -181,7 +181,11 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
         task,
         ctx,
         common::unlimited_retry_config(task.name),
-        std::make_unique<ReadTaskSource>(eng, std::move(cfg), StartSteps{ctx, task})
+        std::make_unique<ReadTaskSource>(
+            eng,
+            std::move(cfg),
+            std::make_unique<StartSteps>(ctx, task)
+        )
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -200,7 +204,11 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(eng, std::move(cfg), StartSteps{ctx, task})
+        std::make_unique<WriteTaskSink>(
+            eng,
+            std::move(cfg),
+            std::make_unique<StartSteps>(ctx, task)
+        )
     );
     return {std::move(result), x::errors::NIL};
 }

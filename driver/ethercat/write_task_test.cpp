@@ -391,18 +391,28 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     ASSERT_NE(write_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start", .key = "start_cmd"};
     write_task->exec(start, this->cancel);
-    ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 3);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto sent = this->ctx->snapshot();
+            return sent.empty() ? std::string() : sent.back().message;
+        },
+        std::string("Started task")
+    );
     const auto statuses = this->ctx->snapshot();
     std::vector<std::string> messages;
     for (const auto &status: statuses) {
         messages.push_back(status.message);
         EXPECT_EQ(status.details.cmd, "start_cmd");
     }
-    EXPECT_EQ(
-        messages,
-        (std::vector<std::string>{"Scanning eth0", "Starting eth0", "Started task"})
-    );
-    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_LOADING);
+    // Only the latest step waits to be sent, so the sender can skip the scan.
+    const std::vector<std::string> every{
+        "Scanning eth0",
+        "Starting eth0",
+        "Started task"
+    };
+    const std::vector<std::string> latest{"Starting eth0", "Started task"};
+    ASSERT_TRUE(messages == every || messages == latest) << messages.size();
+    EXPECT_EQ(statuses[statuses.size() - 2].variant, synnax::status::VARIANT_LOADING);
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     write_task->exec(stop, this->cancel);

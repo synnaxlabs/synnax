@@ -958,7 +958,7 @@ TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout
 }
 
 /// @brief it should send only the steps that a fast start reached, each as a loading
-/// status of the start command, and then answer the start.
+/// status of the start command, and always its latest step before it answers the start.
 TEST_F(EtherCATReadTest, FactoryStartSendsTheStepsItReachedThenStarted) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
@@ -985,21 +985,98 @@ TEST_F(EtherCATReadTest, FactoryStartSendsTheStepsItReachedThenStarted) {
         all.begin() + static_cast<std::ptrdiff_t>(before),
         all.end()
     );
-    ASSERT_EQ(statuses.size(), 3);
-    EXPECT_EQ(statuses[0].message, "Scanning eth0");
-    EXPECT_EQ(statuses[1].message, "Starting eth0");
-    EXPECT_EQ(statuses[1].description, "Bringing 1 slave to OP.");
-    EXPECT_EQ(statuses[2].message, "Started task");
-    for (size_t i = 0; i < 2; i++) {
-        EXPECT_EQ(statuses[i].variant, synnax::status::VARIANT_LOADING);
-        EXPECT_EQ(statuses[i].name, "read");
-        EXPECT_EQ(statuses[i].owner, synnax::task::resource_id(task.key));
-        EXPECT_FALSE(statuses[i].details.running);
-    }
-    for (const auto &status: statuses)
+    std::vector<std::string> messages;
+    for (const auto &status: statuses) {
+        messages.push_back(status.message);
         EXPECT_EQ(status.details.cmd, "start_cmd");
+    }
+    // Only the latest step waits to be sent, so the sender can skip the scan.
+    const std::vector<std::string> every{
+        "Scanning eth0",
+        "Starting eth0",
+        "Started task"
+    };
+    const std::vector<std::string> latest{"Starting eth0", "Started task"};
+    ASSERT_TRUE(messages == every || messages == latest) << messages.size();
+    const auto &step = statuses[statuses.size() - 2];
+    EXPECT_EQ(step.description, "Bringing 1 slave to OP.");
+    EXPECT_EQ(step.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(step.name, "read");
+    EXPECT_EQ(step.owner, synnax::task::resource_id(task.key));
+    EXPECT_FALSE(step.details.running);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop, this->cancel);
+}
+
+/// @brief a context whose step() waits for release(), as a write to a Core that does
+/// not answer.
+class StuckContext final : public task::Context {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool released = false;
+    std::vector<synnax::task::Status> sent;
+
+public:
+    explicit StuckContext(const std::shared_ptr<synnax::Synnax> &client):
+        Context(client) {}
+
+    void set_status(synnax::task::Status &status) override {
+        std::lock_guard lock(this->mu);
+        this->sent.push_back(status);
+    }
+
+    void step(synnax::task::Status &status, x::telem::TimeSpan) override {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] { return this->released; });
+        this->sent.push_back(status);
+    }
+
+    x::errors::Error resend_statuses() override { return x::errors::NIL; }
+
+    bool statuses_stale() override { return false; }
+
+    void release() {
+        {
+            std::lock_guard lock(this->mu);
+            this->released = true;
+        }
+        this->cv.notify_all();
+    }
+
+    std::vector<synnax::task::Status> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->sent;
+    }
+};
+
+/// @brief it should start the bus while the Core does not answer a step, and send the
+/// latest step before the start returns.
+TEST_F(EtherCATReadTest, StartDoesNotWaitOnTheCoreForAStep) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    const auto ctx = std::make_shared<StuckContext>(this->client);
+    const synnax::task::Task task{.name = "read", .type = READ_TASK_TYPE};
+    auto source = ReadTaskSource(
+        this->engine,
+        std::move(task_cfg),
+        std::make_unique<StartSteps>(ctx, task)
+    );
+    x::errors::Error err;
+    std::thread starter([&] { err = source.start("start_cmd", this->cancel); });
+    ASSERT_EVENTUALLY_TRUE(this->engine->running());
+    ctx->release();
+    starter.join();
+    ASSERT_NIL(err);
+    const auto sent = ctx->snapshot();
+    ASSERT_FALSE(sent.empty());
+    EXPECT_EQ(sent.back().message, "Starting eth0");
+    ASSERT_NIL(source.stop());
 }
 
 /// @brief it should apply the settings saved for each slave on the task's network when
