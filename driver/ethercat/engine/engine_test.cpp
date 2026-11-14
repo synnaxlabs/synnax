@@ -2239,6 +2239,33 @@ TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
     EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
 }
 
+/// @brief it should fail a writer that still waits for the start of another task at the
+/// start timeout.
+TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
 /// @brief it should end the wait of an open for the start of another task when its
 /// cancel stops.
 TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {

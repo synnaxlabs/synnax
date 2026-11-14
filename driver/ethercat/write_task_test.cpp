@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -404,6 +407,40 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels");
     EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
+}
+
+/// @brief it should fail a start that discovers the slaves while another task starts
+/// the bus, once the start timeout passes.
+TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    engine::Config engine_cfg;
+    engine_cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto sink = [&] {
+        auto parser = x::json::Parser(cfg);
+        WriteTaskConfig task_cfg(this->client, parser);
+        EXPECT_NIL(parser.error());
+        return std::make_unique<WriteTaskSink>(this->engine, std::move(task_cfg));
+    };
+    const auto first = sink();
+    const auto second = sink();
+    this->mock_master->hold_activate();
+    std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
+    this->mock_master->wait_until_activating();
+    const auto err = second->start("second", this->cancel);
+    this->mock_master->release_activate();
+    starter.join();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    ASSERT_NIL(first->stop());
 }
 
 /// @brief it should write the stop value of each channel when the task stops.
