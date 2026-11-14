@@ -16,7 +16,9 @@ cc_library(
     srcs = ["device.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/errors",
         "//driver/labjack/ljm",
+        "//x/cpp/breaker",
         "//x/cpp/loop",
     ],
 )
@@ -67,6 +69,8 @@ cc_test(
     }),
     deps = [
         ":device",
+        "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/lib",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
