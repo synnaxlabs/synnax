@@ -700,6 +700,50 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
     rt->stop("stop_cmd", true);
 }
 
+/// @brief it should make no read with hardware that a read rebuilt after the task
+/// stopped, since the stop found no hardware to abort.
+TEST_F(AnalogReadTest, testStopDuringRebuildSkipsRead) {
+    parse_config();
+    mock_hw = std::make_shared<hardware::mock::Reader<double>>(
+        std::vector{x::errors::NIL},
+        std::vector{x::errors::NIL},
+        std::vector<hardware::mock::Reader<double>::ReadResponse>{
+            {.error = daqmx::RESOURCE_RESERVED},
+            {.data = {0.5}}
+        }
+    );
+    std::atomic<size_t> calls = 0;
+    std::atomic<bool> rebuilding = false;
+    const auto rt = create_task(
+        [&](
+            const ni::ReadTaskConfig &
+        ) -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            const auto call = ++calls;
+            if (call == 2) return {nullptr, daqmx::TEMPORARILY_UNREACHABLE};
+            if (call == 3) {
+                rebuilding = true;
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            }
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(mock_hw),
+                x::errors::NIL
+            };
+        }
+    );
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        rebuilding.load(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    rt->stop("stop_cmd", true);
+    EXPECT_EQ(mock_hw->read_call_count, 1);
+    const auto stop_state = ctx->statuses.back();
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
 /// @brief a reader that counts the instances currently alive.
 template<typename T>
 class CountingReader final : public hardware::Reader<T> {
