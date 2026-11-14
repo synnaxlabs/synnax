@@ -145,10 +145,7 @@ export const ChannelUsage = ({
   if (inUse == null) message += ".";
   else message += cap === 0 ? `, ${inUse} in use.` : `, ${inUse} of ${cap} in use.`;
   const over = cap === 0 || inUse == null ? 0 : inUse + creates - cap;
-  if (over > 0) {
-    message += ` Delete ${channelsText(over)} that you do not use`;
-    message += " before you start the task.";
-  }
+  if (over > 0) message += ` Delete ${channelsText(over)} before you start the task.`;
   return (
     <Text.Text
       level="small"
