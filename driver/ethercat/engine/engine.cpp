@@ -43,6 +43,8 @@ constexpr size_t MIN_BUFFER_SAMPLES = 16;
 /// @brief AL status codes of a slave that kept the layout of an earlier mode or master.
 /// The slave takes its new layout when the next start resets it.
 constexpr std::array<uint16_t, 2> STALE_LAYOUT_CODES{0x001D, 0x001E};
+/// @brief the AL status code of "Invalid DC SYNC configuration".
+constexpr uint16_t INVALID_DC_SYNC = 0x0030;
 
 uint64_t millihertz(const x::telem::Rate rate) {
     return static_cast<uint64_t>(std::llround(rate.hz() * 1000));
@@ -130,6 +132,30 @@ bool serves(
            });
 }
 
+/// @brief tells the user to switch a slave to Synnax, or to restart its power after a
+/// switch, when it refused its sync configuration while it held the mode or the layout
+/// of another program at the scan. op_mode is the sync mode that the user picked.
+void advise_switch(
+    const slave::Properties &props,
+    const std::optional<dc::Choice> &op_mode,
+    slave::Refusal &refusal
+) {
+    if (refusal.code != INVALID_DC_SYNC || !props.settings) return;
+    if (props.switched()) {
+        refusal.advice = "Restart the power of the device.";
+        return;
+    }
+    const auto mode = props.settings->value("mode", x::json::json::object());
+    auto program = mode.value("shared_with", "");
+    if (program.empty()) program = mode.value("only_read_by", "");
+    if (program.empty()) return;
+    refusal.advice = std::format(
+        "{}The device is set up for {}. In Configure, switch the device to Synnax.",
+        op_mode ? slave::DC_SYNC_ADVICE + " " : "",
+        program
+    );
+}
+
 /// @brief returns the error for an entry on a slave that the bus started without.
 x::errors::Error left_out_error(
     const uint16_t position,
@@ -137,8 +163,8 @@ x::errors::Error left_out_error(
     const slave::Refusal &refusal
 ) {
     auto msg = std::format(
-        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
-        "task on the network to try it again.",
+        "Slave {} ({}) is left out of the network: it {}. Fix the device, then stop "
+        "every task on the network to try it again.",
         position,
         name,
         refusal.reason
@@ -517,6 +543,16 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
+            for (const auto &s: this->slaves)
+                if (const auto it = refused.find(s.properties.position);
+                    it != refused.end()) {
+                    const auto cfg = plan.slaves.find(it->first);
+                    advise_switch(
+                        s.properties,
+                        cfg == plan.slaves.end() ? std::nullopt : cfg->second.op_mode,
+                        it->second
+                    );
+                }
             std::map<uint16_t, slave::Refusal> leaving;
             for (const auto &[pos, refusal]: refused) {
                 if (std::ranges::find(STALE_LAYOUT_CODES, refusal.code) !=

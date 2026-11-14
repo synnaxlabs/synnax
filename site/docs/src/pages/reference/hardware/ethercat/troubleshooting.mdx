@@ -204,7 +204,7 @@ then start the tasks again. If the error contains "Invalid DC SYNC configuration
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the network`
+### `Slave ... is left out of the network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -294,6 +294,10 @@ that is set to DC sync and also lists an SM sync mode does not start.
   a new mode after a power cycle. The
   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
   lists the modes of each model and how to set them.
+- **Switch the module to Synnax** -> if the error says that the device is set up for
+  another program, switch the device to Synnax in the Configure dialog.
+- **Restart the power of the module** -> if the error says to restart the power, the
+  module is switched to Synnax but still runs the layout of the other program.
 - **Disable the module** ->
   [disable](/reference/hardware/ethercat/configure-device#disable-a-device) it, so that
   the Driver stops trying to start it.

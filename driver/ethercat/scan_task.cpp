@@ -135,22 +135,6 @@ bool marks_entries(const slave::Properties &props) {
     return false;
 }
 
-/// @brief returns the program that alone reads an input entry of the slave, or an empty
-/// string when Synnax can read each of them.
-std::string only_reader(const slave::Properties &props) {
-    if (!props.settings || !props.settings->contains("channels")) return "";
-    for (const auto &channel: props.settings->at("channels"))
-        for (const auto &entry: channel.at("entries"))
-            if (entry.contains("only_read_by") &&
-                props.find_pdo(
-                    entry.at("index").get<uint16_t>(),
-                    entry.at("sub_index").get<uint8_t>(),
-                    true
-                ))
-                return entry.at("only_read_by").get<std::string>();
-    return "";
-}
-
 /// @brief sets status to a warning when other software sets up the slave in a way that
 /// keeps Synnax from using it, or when Synnax is on the wrong bus of the slave. Returns
 /// whether it set one.
@@ -160,11 +144,9 @@ bool set_setup_status(const slave::Properties &props, synnax::device::Status &st
                          ? props.settings->at("mode")
                          : none;
     const auto bus = mode.value("bus", 0);
-    auto reader = only_reader(props);
-    const bool switched = !reader.empty() && mode.contains("switch") &&
-                          mode.at("switch").empty();
+    auto reader = props.only_reader();
     if (reader.empty()) reader = mode.value("only_read_by", "");
-    if (switched) {
+    if (props.switched()) {
         status.message = "Restart the power of the device";
         if (bus == 2)
             status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
@@ -788,7 +770,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     const bool restart = err || discover_err || after == slaves.end() ||
                          !after->status.settings_error.empty() ||
                          !marks_entries(after->properties) ||
-                         !only_reader(after->properties).empty();
+                         !after->properties.only_reader().empty();
     task_status.description = restart
                                 ? std::format(
                                       "Restart the power of the device in slot {} to "
