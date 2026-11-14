@@ -119,6 +119,9 @@ public:
             "grpc.http2.ping_timeout_ms",
             static_cast<int>(this->keepalive.timeout.count())
         );
+        // A stream that only receives sends no data, so its keepalive pings must not
+        // wait for a budget of pings without data.
+        args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);
         auto channel = CreateCustomChannel(host_addr, this->credentials, args);
         this->channels[host_addr] = channel;
         return channel;
