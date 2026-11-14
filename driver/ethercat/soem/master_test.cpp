@@ -2649,6 +2649,8 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
 /// @brief it should stop reporting a restore failure once the clock of the slave is
 /// restored.
 TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
@@ -2659,8 +2661,7 @@ TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
         "no slave latched its receive time"
     );
     this->mock->latch_return = 1;
-    // Waits out the wait before the next restore.
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    clock.skip(x::telem::MILLISECOND * 100);
     this->check_while_cycling();
     const auto health = this->master->check(this->brk);
     EXPECT_FALSE(health[1].faulted);
