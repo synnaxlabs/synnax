@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -55,8 +56,9 @@ const std::size_t DEMOTE_AFTER = 3;
 const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
 /// @brief the default time that a probe waits for its turn on a busy connection.
 const x::telem::TimeSpan PROBE_WAIT = x::telem::SECOND * 10;
-/// @brief the time that any other request waits for its turn on a busy connection.
-const x::telem::TimeSpan TURN_WAIT = x::telem::SECOND * 10;
+/// @brief the time that each attempt of a request may hold the turn past its timeouts,
+/// for the gaps between the bytes of a reply.
+const x::telem::TimeSpan ATTEMPT_SLACK = x::telem::SECOND;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -498,6 +500,9 @@ private:
     std::size_t waiting_reads = 0;
     /// @brief whether the last turn went to a write while a read waited.
     bool write_went_ahead = false;
+    /// @brief when the request that holds the turn runs past the time that its timeout
+    /// and retries allow.
+    Clock::time_point turn_ends;
     std::unordered_map<std::uint8_t, Unit> units;
     /// @brief holds the serial port while connected. Touched only while holding the
     /// turn.
@@ -524,16 +529,20 @@ private:
         Connection &conn;
 
     public:
-        /// @brief UNREACHABLE if the wait ran out before the turn came, INTERRUPTED if
-        /// the device was interrupted, and NIL if the request holds the turn.
+        /// @brief UNREACHABLE if the wait ran out or the request that holds the turn
+        /// ran past its limit, INTERRUPTED if the device was interrupted, and NIL if
+        /// the request holds the turn.
         x::errors::Error err = x::errors::NIL;
 
-        /// @param wait how long to wait for the turn.
+        /// @param limit how long the request may hold the turn.
+        /// @param wait how long to wait for the turn. If empty, waits while each
+        /// request that holds the turn stays within its limit.
         /// @param interrupted ends the wait when set. Set it, then call wake().
         Turn(
             Connection &conn,
             const bool write,
-            const x::telem::TimeSpan wait,
+            const x::telem::TimeSpan limit,
+            const std::optional<x::telem::TimeSpan> &wait,
             const std::atomic<bool> &interrupted
         ):
             conn(conn) {
@@ -546,13 +555,35 @@ private:
                 if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
                 return conn.waiting_writes == 0 || conn.write_went_ahead;
             };
-            if (!conn.released.wait_for(lock, wait.chrono(), ready))
-                this->err = {
-                    UNREACHABLE,
-                    "other requests kept the connection busy for " + wait.to_string()
-                };
-            else if (interrupted)
-                this->err = INTERRUPTED;
+            const auto start = Clock::now();
+            while (!ready()) {
+                const auto now = Clock::now();
+                if (wait.has_value() && now - start >= wait->chrono()) {
+                    this->err = {
+                        UNREACHABLE,
+                        "other requests kept the connection busy for " +
+                            wait->to_string()
+                    };
+                    break;
+                }
+                if (conn.busy && now >= conn.turn_ends) {
+                    this->err = {
+                        UNREACHABLE,
+                        "a request held the connection longer than its timeout and "
+                        "retries allow"
+                    };
+                    break;
+                }
+                std::optional<Clock::time_point> until;
+                if (wait.has_value()) until = start + wait->chrono();
+                if (conn.busy && (!until.has_value() || conn.turn_ends < *until))
+                    until = conn.turn_ends;
+                if (until.has_value())
+                    conn.released.wait_until(lock, *until);
+                else
+                    conn.released.wait(lock);
+            }
+            if (!this->err && interrupted) this->err = INTERRUPTED;
             waiting--;
             if (this->err) {
                 // One less waiting request can let another take the turn.
@@ -562,6 +593,7 @@ private:
             }
             conn.write_went_ahead = write && conn.waiting_reads > 0;
             conn.busy = true;
+            conn.turn_ends = Clock::now() + limit.chrono();
         }
 
         ~Turn() {
@@ -707,6 +739,14 @@ private:
         return true;
     }
 
+    /// @returns the longest time that one request may hold the turn. Each attempt
+    /// waits for the gap, a connect, a late reply, and its own reply.
+    [[nodiscard]] x::telem::TimeSpan
+    turn_limit(const ConnectionConfig &cfg, const x::telem::TimeSpan delay) const {
+        const auto gap = std::max(delay, this->frame_gap);
+        return (gap + cfg.timeout * 3 + ATTEMPT_SLACK) * (cfg.retries + 1);
+    }
+
     /// @brief runs a request for a unit while holding the turn. Makes no retry once
     /// interrupted is set.
     template<typename Request>
@@ -716,6 +756,10 @@ private:
         const std::atomic<bool> &interrupted,
         const Request &request
     ) {
+        {
+            std::lock_guard lock(this->mu);
+            this->turn_ends = Clock::now() + this->turn_limit(cfg, delay).chrono();
+        }
         if (auto err = this->demoted(cfg.unit_id)) return err;
         const auto gap = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
@@ -775,19 +819,20 @@ public:
     /// connection waits at least its frame gap.
     /// @param write whether the request goes before waiting reads.
     /// @param request sends the request on the context and returns -1 on failure.
-    /// @param wait how long to wait for the turn.
+    /// @param wait how long to wait for the turn. If empty, waits while each request
+    /// that holds the turn stays within the time that its timeout and retries allow.
     /// @param interrupted fails the request at once when set, and stops its retries.
     /// Set it, then call wake().
-    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait,
-    /// INTERRUPTED if interrupted was set before the turn came, or the classified error
-    /// of the last attempt.
+    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait
+    /// or a request held the turn past its limit, INTERRUPTED if interrupted was set
+    /// before the turn came, or the classified error of the last attempt.
     template<typename Request>
     x::errors::Error exec(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
         const Request &request,
-        const x::telem::TimeSpan wait,
+        const std::optional<x::telem::TimeSpan> &wait,
         const std::atomic<bool> &interrupted
     ) {
         return this->sequence(
@@ -804,20 +849,19 @@ public:
     /// the connection comes between them. Each request runs as exec runs it.
     /// @param run calls its argument with each request, which returns the request's
     /// error, and returns NIL or the error to stop at.
-    /// @param wait how long to wait for the turn.
+    /// @param wait as in exec.
     /// @param interrupted as in exec.
-    /// @returns the error of run, UNREACHABLE if other requests kept the connection
-    /// busy for wait, or INTERRUPTED if interrupted was set before the turn came.
+    /// @returns the error of run, or the turn errors of exec.
     template<typename Run>
     x::errors::Error sequence(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
         const Run &run,
-        const x::telem::TimeSpan wait,
+        const std::optional<x::telem::TimeSpan> &wait,
         const std::atomic<bool> &interrupted
     ) {
-        Turn turn(*this, write, wait, interrupted);
+        Turn turn(*this, write, this->turn_limit(cfg, delay), wait, interrupted);
         if (turn.err) return turn.err;
         return run([&](const auto &request) {
             return this->send(cfg, delay, interrupted, request);
@@ -858,7 +902,7 @@ class Device {
             this->requests.delay,
             write,
             request,
-            TURN_WAIT,
+            std::nullopt,
             this->interrupted
         );
     }
@@ -870,7 +914,7 @@ class Device {
             this->requests.delay,
             write,
             run,
-            TURN_WAIT,
+            std::nullopt,
             this->interrupted
         );
     }

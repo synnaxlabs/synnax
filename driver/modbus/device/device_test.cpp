@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -1421,6 +1422,87 @@ TEST(DeviceTest, InterruptEndsWaitForBusyConnection) {
     );
     slow.join();
     ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+    slave.stop();
+}
+
+/// @brief it should make no more retries of a request that holds the turn after its
+/// device is interrupted.
+TEST(DeviceTest, InterruptStopsRetriesOfHeldTurn) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1686;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1686};
+    cfg.timeout = x::telem::MILLISECOND * 200;
+    cfg.retries = 3;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(500));
+    x::errors::Error err;
+    std::thread holding([&] {
+        err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    dev->interrupt();
+    holding.join();
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(dev->stats().retries, 0);
+    slave.stop();
+}
+
+/// @brief it should fail a request that waits for its turn only after the request
+/// that holds the turn runs past the time that its timeout and retries allow.
+TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1687;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Connection conn(modbus_new_tcp_pi("127.0.0.1", "1687"), "127.0.0.1:1687", DEMOTION);
+    ConnectionConfig cfg{"127.0.0.1", 1687};
+    cfg.timeout = x::telem::MILLISECOND * 100;
+    cfg.retries = 0;
+    const auto read = [](modbus_t *ctx) {
+        uint16_t reg = 0;
+        return modbus_read_registers(ctx, 0, 1, &reg);
+    };
+    const std::atomic<bool> interrupted = false;
+    // One attempt holds the turn for up to 3 timeouts plus ATTEMPT_SLACK: 1.3 s.
+    std::thread holding([&] {
+        ASSERT_NIL(conn.sequence(
+            cfg,
+            x::telem::TimeSpan(0),
+            false,
+            [&](const auto &send) {
+                const auto err = send(read);
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                return err;
+            },
+            std::nullopt,
+            interrupted
+        ));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    const auto start = std::chrono::steady_clock::now();
+    const auto err = conn.exec(
+        cfg,
+        x::telem::TimeSpan(0),
+        false,
+        read,
+        std::nullopt,
+        interrupted
+    );
+    const auto waited = std::chrono::steady_clock::now() - start;
+    holding.join();
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(
+        err.data,
+        "a request held the connection longer than its timeout and retries allow"
+    );
+    EXPECT_GT(waited, std::chrono::milliseconds(1000));
+    EXPECT_LT(waited, std::chrono::milliseconds(1800));
     slave.stop();
 }
 
