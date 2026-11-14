@@ -2547,8 +2547,8 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
         "eth0",
         Config{
             .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MILLISECOND * 100,
-            .init_timeout = x::telem::MILLISECOND * 300,
+            .state_change_timeout = x::telem::SECOND,
+            .init_timeout = x::telem::MILLISECOND * 1500,
         }
     );
     this->initialize_with_slave();
@@ -2556,7 +2556,10 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
     this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
     const auto start = std::chrono::steady_clock::now();
     this->master->deactivate();
-    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+    EXPECT_GE(
+        std::chrono::steady_clock::now() - start,
+        std::chrono::milliseconds(1500)
+    );
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in
@@ -3216,7 +3219,8 @@ class Bus {
           "eth0",
           {
               .pre_op_timeout = x::telem::MILLISECOND * 100,
-              .state_change_timeout = x::telem::MILLISECOND * 100,
+              // A loaded Windows host can take over 100 ms to cycle two frames.
+              .state_change_timeout = x::telem::SECOND,
               .init_timeout = x::telem::MILLISECOND * 100,
               .dc_settle_timeout = x::telem::MILLISECOND * 50,
           }) {}
