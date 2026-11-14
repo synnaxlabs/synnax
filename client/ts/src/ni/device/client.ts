@@ -1,0 +1,305 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type UnaryClient } from "@synnaxlabs/freighter";
+import { array, type destructor, filter } from "@synnaxlabs/x";
+import { z } from "zod";
+
+import {
+  type Device,
+  deviceZ,
+  type Key,
+  keyZ,
+  type New,
+  resourceID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  statusZ,
+  type Update,
+  updateZ,
+} from "@/ni/device/types.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/ni/device/where.gen";
+import { query } from "@/query";
+import { type status } from "@/status";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_ni_device_set";
+export const DELETE_CHANNEL_NAME = "sy_ni_device_delete";
+
+type Stored = Omit<Device, "status">;
+
+const createReqZ = z.object({ devices: deviceZ.array() });
+const createResZ = z.object({ devices: deviceZ.array() });
+const updateReqZ = z.object({ key: keyZ, update: updateZ });
+const deleteReqZ = z.object({ keys: keyZ.array() });
+const emptyResZ = z.object({});
+
+const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
+type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
+
+type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
+
+const singleRetrieveParamsZ = z
+  .strictObject({ key: keyZ, includeStatus: z.boolean().optional() })
+  .transform(({ key, includeStatus }): RetrieveRequest => ({
+    where: { key: { eq: key } },
+    includeStatus,
+  }));
+
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
+
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
+
+type RetrieveParams = RetrieveSingleParams | RetrieveRequest;
+
+type SingleQuery = { key: Key; includeStatus?: boolean };
+
+const includesStatusZ = z.object({ includeStatus: z.literal(true) });
+
+const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
+
+/** Drops includeStatus when unset so equivalent queries hash identically. */
+const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
+  includeStatus === true ? { key, includeStatus: true } : { key };
+
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
+  ])
+  .transform(normalizeSingle);
+
+const stripStatus = ({ status: _, ...device }: Device): Stored => device;
+
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  statuses: status.Client;
+}
+
+/** Client creates, retrieves, updates, and deletes NI devices. */
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Stored,
+  Device,
+  RetrieveSingleParams,
+  SingleQuery
+> {
+  private readonly cfg: ClientConfig;
+  private readonly store: query.Table<Key, Stored>;
+
+  constructor(cfg: ClientConfig) {
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "ni_device");
+    // The status table is the single home of statuses.
+    const store = cache.createTable<Key, Stored>({
+      name: "ni.devices",
+      fetch: async (keys) =>
+        (
+          await this.fetchThrough({ ...query.keysRequest(keys), includeStatus: true })
+        ).map(stripStatus),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, deviceZ, { value: stripStatus }),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    const composed = cache.derive<Key, Stored, Device>({
+      name: "ni.device.composed",
+      source: store,
+      compose: (record) => this.compose(record, true),
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedKeys(event))],
+    });
+    statuses.holdOwned(store, resourceID);
+    const single = cache.queries<SingleQuery, Device, Key, Device>({
+      name: "ni.device",
+      table: composed,
+      fetch: async (q) => [(await this.fetchSingle(q)).key],
+      compose: (records, q) =>
+        q.includeStatus === true ? records[0] : stripStatus(records[0]),
+      keyOf: (q) => q.key,
+      // The stream and status-free fetches cache devices with no status.
+      covers: (d, q) => q.includeStatus !== true || d.status != null,
+      single: true,
+    });
+    super(cache, {
+      name: "ni.device",
+      table: store,
+      request: {
+        list: { cursor, compare: compareCursors },
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
+        matches: (d, req) => matches(d, req.where),
+        serverComputed: (req) => serverComputed(req.where),
+        serverFields: SERVER_FIELDS,
+        triggers: [
+          query.trigger(
+            statusStore,
+            (event, q: RetrieveRequest) =>
+              q.includeStatus === true ? affectedKeys(event) : null,
+            { contentOnly: true },
+          ),
+        ],
+      },
+      compose: (record, q) =>
+        this.compose(record, includesStatusZ.safeParse(q).success),
+      single: { schema: singleQueryZ, space: single },
+    });
+    this.cfg = cfg;
+    this.store = store;
+  }
+
+  /**
+   * Creates the devices, or replaces the devices whose keys exist. The Core gives each
+   * new device an unknown status.
+   * @throws {ValidationError} if a device is invalid or its rack does not exist.
+   */
+  async create(device: New, opts?: query.WriteOptions): Promise<Device>;
+  async create(devices: New[], opts?: query.WriteOptions): Promise<Device[]>;
+  async create(
+    devices: New | New[],
+    opts: query.WriteOptions = {},
+  ): Promise<Device | Device[]> {
+    const isSingle = !Array.isArray(devices);
+    const normalized = array.toArray(devices).map((d) => deviceZ.parse(d));
+    const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const { store: statuses } = this.cfg.statuses;
+    // A status streamed during the request is newer than the reply.
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
+            "/ni/device/create",
+            { devices: normalized },
+            createReqZ,
+            createResZ,
+          ),
+      });
+      res.devices.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
+    });
+    this.store.set(res.devices.map(stripStatus));
+    return isSingle ? res.devices[0] : res.devices;
+  }
+
+  /**
+   * Writes one field group to the device and keeps the other as stored. The update
+   * replaces the whole group, so a field it leaves out is cleared, such as the chassis
+   * of an identity update.
+   * @throws {NotFoundError} if the device does not exist.
+   * @throws {ValidationError} if the update is invalid.
+   */
+  async update(key: Key, update: Update): Promise<void> {
+    await this.cfg.unary.send(
+      "/ni/device/update",
+      { key, update },
+      updateReqZ,
+      emptyResZ,
+    );
+    // The stored record replaces the cached one, even when an older stream set
+    // arrived during the request.
+    const { devices } = await this.cfg.unary.send(
+      "/ni/device/retrieve",
+      query.keysRequest([key]),
+      retrieveParamsZ,
+      retrieveResponseZ,
+    );
+    this.store.set(devices.map(stripStatus));
+  }
+
+  /** Deletes the devices with their statuses. */
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => [this.store.delete(keysArr)];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/ni/device/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
+  }
+
+  /** Subscribes to every device set delivered to the cache. Statuses excluded. */
+  onSet(handler: (device: Stored) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
+  }
+
+  /** Subscribes to every device delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
+  }
+
+  private compose(cached: Stored, includeStatus: boolean): Device {
+    if (!includeStatus) return cached;
+    const parsed = statusZ.safeParse(this.cfg.statuses.ownedBy(resourceID(cached.key)));
+    return parsed.success ? { ...cached, status: parsed.data } : cached;
+  }
+
+  private async fetchThrough(
+    req: RetrieveParams | OneParams | FilterParams,
+  ): Promise<Device[]> {
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const { devices } = await this.cfg.unary.send(
+            "/ni/device/retrieve",
+            req,
+            retrieveParamsZ,
+            retrieveResponseZ,
+          );
+          this.store.ingest(devices.map(stripStatus), { since });
+          devices.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return devices;
+        }),
+    );
+  }
+
+  private async fetchSingle(q: SingleQuery): Promise<Stored> {
+    // The refresh covers a cached device whose status has not synced.
+    const devices = await this.store.retrieve([q.key], {
+      refresh: q.includeStatus === true,
+    });
+    checkForMultipleOrNoResults(
+      "NI device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
+    return devices[0];
+  }
+}

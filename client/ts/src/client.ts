@@ -38,6 +38,7 @@ import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
+import { ni } from "@/ni";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -155,7 +156,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
   modbus_server: null,
   ni_chassis: null,
-  ni_device: null,
+  ni_device: changes(ni.device.SET_CHANNEL_NAME, ni.device.DELETE_CHANNEL_NAME),
   node: null,
   opcua_server: null,
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
@@ -202,6 +203,7 @@ export default class Synnax extends framer.Client {
   readonly tasks: task.Client;
   readonly racks: rack.Client;
   readonly devices: device.Client;
+  readonly ni: ni.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
@@ -374,6 +376,7 @@ export default class Synnax extends framer.Client {
       cache,
       statuses: this.statuses,
     });
+    this.ni = new ni.Client({ unary, cache, statuses: this.statuses });
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,
