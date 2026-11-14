@@ -24,7 +24,6 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks. A status that answers no
 /// command is sent at most once per window, and only when it changes.

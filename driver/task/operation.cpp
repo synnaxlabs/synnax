@@ -16,17 +16,25 @@
 namespace driver::task {
 Operation::Operation(
     Writer write,
+    synnax::task::Key task,
     std::string name,
     synnax::task::Command cmd,
     std::string config_hash,
     const x::telem::TimeSpan limit
 ):
     cmd(std::move(cmd)),
+    task(task),
     write(std::move(write)),
     name(std::move(name)),
     config_hash(std::move(config_hash)),
     step_started(x::telem::TimeStamp::now()),
-    limit(limit) {}
+    limit(limit) {
+    this->breaker.start();
+}
+
+Operation::~Operation() {
+    this->breaker.stop();
+}
 
 void Operation::set_task(const std::string &name, const std::string &config_hash) {
     std::lock_guard lock{this->mu};
@@ -39,6 +47,50 @@ std::pair<std::string, std::string> Operation::task_info() {
     return {this->name, this->config_hash};
 }
 
+bool Operation::cancel(const synnax::task::Command &stop) {
+    {
+        std::lock_guard lock{this->mu};
+        if (this->finished || this->closed) return false;
+        this->stopped = !stop.type.empty();
+        if (!stop.key.empty()) this->stopping = stop;
+        LOG(INFO) << "[task.operation] cancelling " << this->cmd << " on task "
+                  << this->name;
+    }
+    this->breaker.stop();
+    return true;
+}
+
+bool Operation::join(
+    const synnax::task::Command &start,
+    const std::string &config_hash
+) {
+    std::lock_guard lock{this->mu};
+    if (this->closed || this->finished || !this->breaker.running() ||
+        this->cmd.type != synnax::task::START_CMD_TYPE || this->cmd.pinned ||
+        this->config_hash.empty() || this->config_hash != config_hash)
+        return false;
+    this->joined.push_back(start);
+    this->unanswered.push_back(start.key);
+    return true;
+}
+
+std::vector<std::string> Operation::keys() const {
+    std::vector<std::string> keys{this->cmd.key};
+    for (const auto &start: this->joined)
+        keys.push_back(start.key);
+    return keys;
+}
+
+void Operation::send(
+    synnax::task::Status status,
+    const std::vector<std::string> &keys
+) {
+    for (const auto &key: keys) {
+        status.details.cmd = key;
+        this->write(status);
+    }
+}
+
 void Operation::begin_step(const synnax::task::Status &status) {
     this->current = status;
     this->step_started = x::telem::TimeStamp::now();
@@ -46,61 +98,112 @@ void Operation::begin_step(const synnax::task::Status &status) {
 }
 
 void Operation::step(synnax::task::Status status, const x::telem::TimeSpan limit) {
-    status.details.cmd = this->cmd.key;
     std::lock_guard write_lock{this->write_mu};
+    std::vector<std::string> keys;
     {
         std::lock_guard lock{this->mu};
         if (this->finished) {
             LOG(ERROR) << "[task.operation] dropped step '" << status.message
-                       << "' sent after the final status of command " << this->cmd;
+                       << "' sent after the final status of " << this->cmd;
             return;
         }
         this->begin_step(status);
         this->limit = limit;
+        this->unanswered.clear();
+        keys = this->keys();
     }
-    this->write(status);
+    this->send(std::move(status), keys);
 }
 
 void Operation::answer(synnax::task::Status status) {
-    status.details.cmd = this->cmd.key;
     std::lock_guard write_lock{this->write_mu};
+    std::vector<std::string> keys;
     {
         std::lock_guard lock{this->mu};
         if (this->finished)
-            status.details.cmd.clear();
-        else if (status.variant == synnax::status::VARIANT_LOADING)
-            this->begin_step(status);
-        else
-            this->finished = true;
+            keys = {""};
+        else {
+            if (status.variant == synnax::status::VARIANT_LOADING)
+                this->begin_step(status);
+            else
+                this->finished = true;
+            this->unanswered.clear();
+            keys = this->keys();
+        }
     }
-    this->write(status);
+    this->send(std::move(status), keys);
 }
 
 void Operation::check(const x::telem::TimeStamp now) {
     std::lock_guard write_lock{this->write_mu};
-    synnax::task::Status status;
+    std::vector<std::pair<synnax::task::Status, std::vector<std::string>>> out;
     {
         std::lock_guard lock{this->mu};
-        if (this->closed || this->finished || this->warned) return;
-        if (now - this->step_started <= this->limit) return;
-        this->warned = true;
-        if (!this->current.has_value()) {
-            LOG(WARNING) << "[task.operation] " << this->cmd << " on task "
-                         << this->name << " has run past its limit of " << this->limit;
-            return;
+        if (this->closed || this->finished) return;
+        if (this->current.has_value() && !this->unanswered.empty())
+            out.emplace_back(*this->current, std::exchange(this->unanswered, {}));
+        if (this->stopping.has_value()) {
+            synnax::task::Status status;
+            status.owner = synnax::task::resource_id(this->task);
+            status.name = this->name;
+            status.variant = synnax::status::VARIANT_LOADING;
+            status.message = "Stopping task";
+            status.description = "Cancelling the start.";
+            status.details.config_hash = this->config_hash;
+            out.emplace_back(std::move(status), std::vector{this->stopping->key});
+            this->stopping.reset();
         }
-        LOG(WARNING) << "[task.operation] step '" << this->current->message << "' of "
-                     << this->cmd << " on task " << this->name
-                     << " has run past its limit of " << this->limit;
-        status = *this->current;
+        if (!this->warned && now - this->step_started > this->limit) {
+            this->warned = true;
+            if (!this->current.has_value())
+                LOG(WARNING) << "[task.operation] " << this->cmd << " on task "
+                             << this->name << " has run past its limit of "
+                             << this->limit;
+            else {
+                LOG(WARNING) << "[task.operation] step '" << this->current->message
+                             << "' of " << this->cmd << " on task " << this->name
+                             << " has run past its limit of " << this->limit;
+                auto status = *this->current;
+                status.description = "Still working after " + this->limit.to_string() +
+                                     ".";
+                out.emplace_back(std::move(status), this->keys());
+            }
+        }
     }
-    status.time = now;
-    status.description = "Still working after " + this->limit.to_string() + ".";
-    this->write(status);
+    for (auto &[status, keys]: out) {
+        status.time = now;
+        this->send(std::move(status), keys);
+    }
 }
 
-void Operation::close() {
-    std::scoped_lock lock{this->write_mu, this->mu};
-    this->closed = true;
+std::vector<synnax::task::Command> Operation::close() {
+    std::lock_guard write_lock{this->write_mu};
+    synnax::task::Status status;
+    std::vector<std::string> keys;
+    {
+        std::lock_guard lock{this->mu};
+        this->closed = true;
+        if (this->finished) return {};
+        if (this->breaker.running()) return std::exchange(this->joined, {});
+        if (this->cmd.type != synnax::task::START_CMD_TYPE) return {};
+        this->finished = true;
+        keys = this->keys();
+        status.owner = synnax::task::resource_id(this->task);
+        status.name = this->name;
+        status.details.running = false;
+        status.details.config_hash = this->config_hash;
+        if (this->stopped) {
+            status.variant = synnax::status::VARIANT_SUCCESS;
+            status.message = "Stopped task";
+            status.description = "A stop ended the start before it finished.";
+        } else {
+            status.variant = synnax::status::VARIANT_ERROR;
+            status.message = "Failed to start task";
+            status.description = "The Driver stopped while the task was starting. "
+                                 "Start the task again.";
+        }
+    }
+    this->send(std::move(status), keys);
+    return {};
 }
 }

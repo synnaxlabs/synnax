@@ -86,16 +86,16 @@ start a task, it shows "Failed to configure task", with this text in the descrip
 
 The Driver did not answer the command in 10 seconds. The Driver is running, but the
 device takes too long to start or stop. After 60 seconds, the status also says "Still
-working after 1m.", and the Driver keeps working on the command. The Driver does not run
-a new command for the task until the old command ends, so starting the task again does
-not help.
+working after 1m.", and the Driver keeps working on the command. A second start joins
+the start that runs, so starting the task again does not help.
 
 </Problem.Cause>
 <Problem.Fix>
 
-1. Check the cable, power, and network of the device.
-2. [Restart the Driver](#restart-the-driver).
+1. Stop the task. The Driver cancels the start, and stops the task when the start ends.
+2. Check the cable, power, and network of the device.
 3. Start the task again.
+4. If the start still does not end, [restart the Driver](#restart-the-driver).
 
 If the status is "Driver not running" instead, see
 [the Driver is not running](#driver-not-running).

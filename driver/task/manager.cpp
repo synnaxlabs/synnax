@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <thread>
 #include <utility>
 
@@ -298,9 +299,14 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
-        if (!this->entries.contains(cmd.task)) continue;
+        const auto it = this->entries.find(cmd.task);
+        if (it == this->entries.end()) continue;
+        const auto &running = it->second->op;
+        const bool cancelled = cmd.type == STOP_CMD_TYPE && running != nullptr &&
+                               running->cmd.type == synnax::task::START_CMD_TYPE &&
+                               running->cancel(cmd);
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
         this->cv.notify_one();
     }
 }
@@ -322,6 +328,12 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             wanted = entry->row.config_hash;
             if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
                 wanted.clear();
+        }
+        if (ours && entry->op != nullptr && !wanted.empty() &&
+            entry->op->join(cmd, wanted)) {
+            VLOG(1) << "joined start " << cmd.key << " to the running start of task "
+                    << cmd.task;
+            return;
         }
         if (!ours) {
             // The start deploys the task on its new rack and doubles as the
@@ -353,6 +365,7 @@ void Manager::stop_all_tasks() {
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
+            if (entry->op != nullptr) entry->op->cancel();
             this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
@@ -471,6 +484,7 @@ void Manager::worker_loop(const uint64_t run) {
         {
             std::lock_guard entry_lock{entry->mu};
             entry->op = this->ctx->begin(
+                op.task_key,
                 entry->row.name,
                 op.cmd,
                 op.task.config_hash.empty() ? entry->deployed_hash
@@ -481,10 +495,14 @@ void Manager::worker_loop(const uint64_t run) {
         const auto operation = entry->op;
         lock.unlock();
         this->execute_op(op, entry, *operation);
-        this->ctx->end(operation);
+        const auto unanswered = this->ctx->end(operation);
         // The flag flips under mu so a waiter mid-predicate cannot miss the
         // notify and sleep past a claimable op.
         lock.lock();
+        // A start that answers after exec returns leaves its joined starts with no
+        // answer. They run next, before the commands that came after them.
+        for (const auto &start: std::views::reverse(unanswered))
+            this->op_queue.push_front(Op{Op::Type::COMMAND, op.task_key, {}, start});
         entry->op = nullptr;
         entry->processing = false;
         lock.unlock();
@@ -582,7 +600,7 @@ void Manager::execute_op(
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd, this->breaker);
+                    entry->instance->exec(cmd, operation.token());
                     break;
                 }
             } else {
@@ -598,7 +616,7 @@ void Manager::execute_op(
                 this->ctx,
                 tsk,
                 op.cmd.key,
-                this->breaker
+                operation.token()
             );
             {
                 std::lock_guard entry_lock{entry->mu};
@@ -610,7 +628,7 @@ void Manager::execute_op(
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd, this->breaker);
+                    entry->instance->exec(cmd, operation.token());
                 }
                 break;
             }
@@ -637,14 +655,17 @@ void Manager::execute_op(
         case Op::Type::COMMAND: {
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
-                if (!op.cmd.key.empty()) this->refuse_command(op.task_key, operation);
+                if (op.cancelled_start)
+                    this->answer_cancelled_start(op.task_key, operation);
+                else if (!op.cmd.key.empty())
+                    this->refuse_command(op.task_key, operation);
                 return;
             }
             this->announce_start(op.task_key, operation);
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
-            entry->instance->exec(cmd, this->breaker);
+            entry->instance->exec(cmd, operation.token());
             break;
         }
         case Op::Type::SHUTDOWN: {
@@ -760,6 +781,22 @@ void Manager::refuse_command(const synnax::task::Key &key, Operation &operation)
     }
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
+    operation.answer(status);
+}
+
+void Manager::answer_cancelled_start(
+    const synnax::task::Key &key,
+    Operation &operation
+) {
+    const auto [name, hash] = operation.task_info();
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(key);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Stopped task";
+    status.description = "The stop cancelled the start.";
+    status.details.running = false;
+    status.details.config_hash = hash;
     operation.answer(status);
 }
 

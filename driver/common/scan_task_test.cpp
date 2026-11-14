@@ -1643,7 +1643,7 @@ TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
 
     synnax::task::Command cmd{
         .task = task.key,
-        .type = STOP_CMD_TYPE,
+        .type = task::STOP_CMD_TYPE,
         .key = "stop_1",
     };
     cancel.start();

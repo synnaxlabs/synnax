@@ -605,7 +605,7 @@ public:
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
         // changes nothing never reaches it, so the current status answers instead.
-        if (cmd.type == STOP_CMD_TYPE) {
+        if (cmd.type == task::STOP_CMD_TYPE) {
             if (!this->stop()) this->send_status();
             return;
         }

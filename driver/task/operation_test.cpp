@@ -34,6 +34,7 @@ protected:
     std::vector<synnax::task::Status> written;
     Operation op{
         [this](const synnax::task::Status &s) { this->written.push_back(s); },
+        synnax::task::Key{},
         "task",
         synnax::task::Command{.type = "start", .key = "cmd"},
         "hash",
@@ -126,5 +127,98 @@ TEST_F(OperationTest, NoWarningAfterClose) {
     op.close();
     op.check(x::telem::TimeStamp::now() + x::telem::HOUR);
     EXPECT_EQ(written.size(), 1);
+}
+
+/// @brief it should send the current step to a joined start on the next check, and
+/// the final status to both starts.
+TEST_F(OperationTest, JoinedStartGetsTheStepAndTheFinal) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
+    ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    op.check(x::telem::TimeStamp::now());
+    ASSERT_EQ(written.size(), 2);
+    EXPECT_EQ(written[1].details.cmd, "cmd-2");
+    EXPECT_EQ(written[1].message, "Starting task");
+    op.answer(final_status("started"));
+    ASSERT_EQ(written.size(), 4);
+    EXPECT_EQ(written[2].details.cmd, "cmd");
+    EXPECT_EQ(written[3].details.cmd, "cmd-2");
+    EXPECT_TRUE(op.close().empty());
+}
+
+/// @brief it should refuse a start of another config, and any start after a cancel.
+TEST_F(OperationTest, JoinRefusesOtherConfigAndCancelledStart) {
+    EXPECT_FALSE(op.join({.type = "start", .key = "cmd-2"}, "other"));
+    ASSERT_TRUE(op.cancel());
+    EXPECT_FALSE(op.join({.type = "start", .key = "cmd-3"}, "hash"));
+}
+
+/// @brief it should return the joined starts that got no final status at close.
+TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
+    ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    const auto unanswered = op.close();
+    ASSERT_EQ(unanswered.size(), 1);
+    EXPECT_EQ(unanswered[0].key, "cmd-2");
+}
+
+/// @brief it should answer a start that a stop cancelled, and each start that joined
+/// it, at close, and refuse a later final.
+TEST_F(OperationTest, CloseAnswersAStoppedStartOnce) {
+    ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
+    EXPECT_TRUE(op.close().empty());
+    ASSERT_EQ(written.size(), 2);
+    EXPECT_EQ(written[0].details.cmd, "cmd");
+    EXPECT_EQ(written[1].details.cmd, "cmd-2");
+    for (const auto &s: written) {
+        EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(s.message, "Stopped task");
+        EXPECT_EQ(s.description, "A stop ended the start before it finished.");
+        EXPECT_FALSE(s.details.running);
+    }
+    op.answer(final_status("started late"));
+    ASSERT_EQ(written.size(), 3);
+    EXPECT_EQ(written[2].details.cmd, "");
+}
+
+/// @brief it should fail a start that the task manager cancelled as it stopped.
+TEST_F(OperationTest, CloseFailsAStartCancelledAtShutdown) {
+    ASSERT_TRUE(op.cancel());
+    EXPECT_TRUE(op.close().empty());
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].details.cmd, "cmd");
+    EXPECT_EQ(written[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(written[0].message, "Failed to start task");
+    EXPECT_EQ(
+        written[0].description,
+        "The Driver stopped while the task was starting. Start the task again."
+    );
+}
+
+/// @brief it should send nothing at close when the task answered the cancelled start.
+TEST_F(OperationTest, CloseKeepsTheAnswerOfACancelledStart) {
+    ASSERT_TRUE(op.cancel());
+    op.answer(final_status("start cancelled"));
+    EXPECT_TRUE(op.close().empty());
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].message, "start cancelled");
+}
+
+/// @brief it should stop the token on cancel and tell the stop that it arrived.
+TEST_F(OperationTest, CancelStopsTheTokenAndAnswersTheStop) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
+    ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
+    EXPECT_FALSE(op.token().running());
+    op.check(x::telem::TimeStamp::now());
+    ASSERT_EQ(written.size(), 2);
+    EXPECT_EQ(written[1].details.cmd, "stop");
+    EXPECT_EQ(written[1].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(written[1].message, "Stopping task");
+}
+
+/// @brief it should not cancel an operation that sent its final status.
+TEST_F(OperationTest, NoCancelAfterTheFinal) {
+    op.answer(final_status("started"));
+    EXPECT_FALSE(op.cancel());
+    EXPECT_TRUE(op.token().running());
 }
 }
