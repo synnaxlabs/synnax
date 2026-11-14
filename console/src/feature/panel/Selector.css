@@ -24,3 +24,17 @@
 
     box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z);
 }
+
+/* The Draft badge closes the pill as a close button would. A pill's fill matches the
+   badge's gray, so an outline marks it in place of the fill. */
+.console-panel-selector .lyra-tabs__tab {
+    > .lyra-text:has(+ .lyra-badge) {
+        margin-right: 1rem;
+    }
+
+    > .lyra-badge {
+        margin-left: auto;
+        background: transparent;
+        box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-gray-l5);
+    }
+}
