@@ -14,17 +14,15 @@
 
 #include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "wasmtime/wat.hh"
 
 namespace arc::runtime::testutil {
 /// @brief opens a WASM module that exports only its memory, for a runtime that runs no
 /// WASM function. Throws if the module fails to open.
 inline std::shared_ptr<wasm::Module> empty_module() {
     program::Program program;
-    // (module (memory (export "memory") 1))
-    program.wasm = {
-        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x05, 0x03, 0x01, 0x00, 0x01,
-        0x07, 0x0a, 0x01, 0x06, 'm',  'e',  'm',  'o',  'r',  'y',  0x02, 0x00,
-    };
+    program.wasm = wasmtime::wat2wasm(R"((module (memory (export "memory") 1)))")
+                       .unwrap();
     auto [mod, err] = wasm::Module::open({.program = std::move(program)});
     if (err) throw std::runtime_error(err.message());
     return mod;
