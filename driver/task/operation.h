@@ -61,9 +61,14 @@ public:
     void answer(synnax::task::Status status);
 
     /// @brief warns once when the current step has run past its limit. The warning is
-    /// a loading status, so it is not a final status. An operation with no step has no
-    /// limit.
+    /// a loading status, so it is not a final status. An operation with no step only
+    /// logs once it runs past the limit of the operation. Does nothing after close.
     void check(x::telem::TimeStamp now);
+
+    /// @brief stops the warnings of the operation, once its worker is done with it.
+    /// Waits for a warning in progress, so no warning follows a status that the task
+    /// sends after this call.
+    void close();
 
 private:
     const Writer write;
@@ -76,10 +81,12 @@ private:
     std::string config_hash;
     /// @brief the last step sent.
     std::optional<synnax::task::Status> current;
+    /// @brief when the current step started, or the operation when it has no step.
     x::telem::TimeStamp step_started;
     x::telem::TimeSpan limit;
     bool warned = false;
     bool finished = false;
+    bool closed = false;
 
     /// @brief records status as the current step. Requires mu.
     void begin_step(const synnax::task::Status &status);

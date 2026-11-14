@@ -230,13 +230,16 @@ public:
         return op;
     }
 
-    /// @brief stops sending the statuses of op through it. A later status for its
-    /// command is written as it is.
+    /// @brief stops sending the statuses of op through it and closes op. A later
+    /// status for its command is written as it is.
     void end(const std::shared_ptr<Operation> &op) {
-        std::lock_guard lock{this->operations_mu};
-        const auto it = this->operations.find(op->cmd.key);
-        if (it != this->operations.end() && it->second == op)
-            this->operations.erase(it);
+        {
+            std::lock_guard lock{this->operations_mu};
+            const auto it = this->operations.find(op->cmd.key);
+            if (it != this->operations.end() && it->second == op)
+                this->operations.erase(it);
+        }
+        op->close();
     }
 };
 

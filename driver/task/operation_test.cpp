@@ -107,8 +107,9 @@ TEST_F(OperationTest, LoadingStatusUsesTheOperationLimit) {
     );
 }
 
-/// @brief it should not warn without a step or after the final status.
-TEST_F(OperationTest, NoWarningWithoutAStep) {
+/// @brief it should send no warning status without a step, after the final status,
+/// or after close.
+TEST_F(OperationTest, NoWarningStatusWithoutAStep) {
     const auto later = x::telem::TimeStamp::now() + x::telem::HOUR;
     op.check(later);
     EXPECT_TRUE(written.empty());
@@ -116,5 +117,14 @@ TEST_F(OperationTest, NoWarningWithoutAStep) {
     op.answer(final_status("started"));
     op.check(later);
     EXPECT_EQ(written.size(), 2);
+}
+
+/// @brief it should send no warning after close, so a status that the task sends
+/// after its operation ends stays the latest one.
+TEST_F(OperationTest, NoWarningAfterClose) {
+    op.step(loading("Starting bus"), x::telem::SECOND);
+    op.close();
+    op.check(x::telem::TimeStamp::now() + x::telem::HOUR);
+    EXPECT_EQ(written.size(), 1);
 }
 }

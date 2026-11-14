@@ -25,6 +25,7 @@ Operation::Operation(
     write(std::move(write)),
     name(std::move(name)),
     config_hash(std::move(config_hash)),
+    step_started(x::telem::TimeStamp::now()),
     limit(limit) {}
 
 void Operation::set_task(const std::string &name, const std::string &config_hash) {
@@ -80,16 +81,26 @@ void Operation::check(const x::telem::TimeStamp now) {
     synnax::task::Status status;
     {
         std::lock_guard lock{this->mu};
-        if (this->finished || this->warned || !this->current.has_value()) return;
+        if (this->closed || this->finished || this->warned) return;
         if (now - this->step_started <= this->limit) return;
         this->warned = true;
-        LOG(WARNING) << "[task.operation] step '" << this->current->message
-                     << "' of command " << this->cmd << " on task " << this->name
+        if (!this->current.has_value()) {
+            LOG(WARNING) << "[task.operation] " << this->cmd << " on task "
+                         << this->name << " has run past its limit of " << this->limit;
+            return;
+        }
+        LOG(WARNING) << "[task.operation] step '" << this->current->message << "' of "
+                     << this->cmd << " on task " << this->name
                      << " has run past its limit of " << this->limit;
         status = *this->current;
     }
     status.time = now;
     status.description = "Still working after " + this->limit.to_string() + ".";
     this->write(status);
+}
+
+void Operation::close() {
+    std::scoped_lock lock{this->write_mu, this->mu};
+    this->closed = true;
 }
 }
