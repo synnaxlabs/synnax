@@ -128,6 +128,19 @@ const subscribeToCache = <Query extends query.Params, Data extends query.Data>(
   };
 };
 
+/** A live answer a hook keeps across renders, valid only for its query and client. */
+interface Held<Query, Data> {
+  query: Query;
+  client: Client;
+  value: Data;
+}
+
+const isHeld = <H extends Held<unknown, unknown>>(
+  held: H | null,
+  query: unknown,
+  client: Client,
+): held is H => held != null && held.query === query && held.client === client;
+
 interface UseCachedSnapshotParams<
   Query extends query.Params,
   Data extends query.Data,
@@ -144,7 +157,7 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
   client: Client | null,
   { onChange, getCached, equal = answersEqual }: UseCachedSnapshotParams<Query, Data>,
 ): query.Cached<Data> | undefined => {
-  const held = useRef<{ query: Query; value: Data } | null>(null);
+  const held = useRef<Held<Query, Data> | null>(null);
   return useSyncExternalStore(
     (notify) => {
       if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
@@ -155,9 +168,8 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
       const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     },
   );
@@ -623,8 +635,8 @@ const createSelector = <
   const useSelect = (q: ExtendedQuery): Selected => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
-    const held = useRef<{ query: Query; value: Data } | null>(null);
-    const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
+    const held = useRef<Held<Query, Data> | null>(null);
+    const computed = useRef<(Held<Query, Data> & { out: Selected }) | null>(null);
     const subscribe = (notify: () => void) => {
       if (onChange == null || client == null) return NOOP_SUBSCRIBE();
       return onChange({ client, query: memoQuery }, () => notify());
@@ -636,11 +648,10 @@ const createSelector = <
       // An invalidated entry repairs under its own subscription; serve the held
       // answer across the gap.
       if (next === undefined)
-        return prev != null && prev.query === memoQuery ? prev.value : undefined;
+        return isHeld(prev, memoQuery, client) ? prev.value : undefined;
       if (!isLive<Data>(next)) return next;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     };
     const selector = (raw: query.Cached<Data> | undefined): Selected => {
@@ -653,10 +664,9 @@ const createSelector = <
       if (Deleted.matches<Data>(raw))
         throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, raw.corpse);
       const cached = computed.current;
-      if (cached != null && cached.raw === raw && cached.query === memoQuery)
-        return cached.out;
+      if (isHeld(cached, memoQuery, client) && cached.value === raw) return cached.out;
       const out = select(raw, memoQuery, client);
-      computed.current = { raw, query: memoQuery, out };
+      computed.current = { query: memoQuery, client, value: raw, out };
       return out;
     };
     return useSyncExternalStoreWithSelector(
@@ -710,7 +720,7 @@ const createResultSelector = <
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
-    const held = useRef<{ query: Query; value: Data } | null>(null);
+    const held = useRef<Held<Query, Data> | null>(null);
     const subscribe = (notify: () => void) => {
       if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
       return subscribeToCache(locals, client, memoQuery, onChange, notify);
@@ -720,9 +730,8 @@ const createResultSelector = <
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
       const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
+      if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
+      held.current = { query: memoQuery, client, value: next };
       return next;
     };
     const selector = (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {

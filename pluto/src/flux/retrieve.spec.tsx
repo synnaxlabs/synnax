@@ -1591,6 +1591,25 @@ describe("createSelector", () => {
     expect(result.current).toEqual("cached");
   });
 
+  it("projects again for a new client on the same answer", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useOwner = harness.createSelector((_, __, c) =>
+      c === client ? "first" : "second",
+    );
+    let current = client;
+    const { result, rerender } = renderHook(() => useOwner({ key: "a" }), {
+      wrapper: ({ children }) => (
+        <Wrapper>
+          <Synnax.TestProvider client={current}>{children}</Synnax.TestProvider>
+        </Wrapper>
+      ),
+    });
+    expect(result.current).toEqual("first");
+    current = createTestClient();
+    rerender();
+    expect(result.current).toEqual("second");
+  });
+
   it("refuses to mint when the definition has no cache read", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
