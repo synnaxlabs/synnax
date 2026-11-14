@@ -10,11 +10,14 @@
 import "@/menu/Sub.css";
 
 import {
+  Children,
+  isValidElement,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useEffect,
   useRef,
 } from "react";
@@ -24,6 +27,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
+import { nodeText, useMatches } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
@@ -34,6 +38,16 @@ const MENU_ITEM = '[role="menuitem"]';
 const LOCATION: position.LocationPreference = {
   targetCorner: { y: "top" },
   dialogCorner: { y: "top" },
+};
+
+// A submenu matches the filter of its menu on the text of its trigger.
+const triggerText = (children: ReactNode): string => {
+  const trigger = Children.toArray(children).find(
+    (child): child is ReactElement<SubTriggerProps> =>
+      isValidElement(child) && child.type === SubTrigger,
+  );
+  if (trigger == null) return "";
+  return trigger.props.textValue ?? nodeText(trigger.props.children);
 };
 
 /** Props for {@link Sub}. */
@@ -56,8 +70,9 @@ export interface SubProps extends PropsWithChildren {
  *   </Menu.Sub>
  * </Menu.Menu>
  */
-export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
+export const Sub = ({ itemKey, children }: SubProps): ReactElement | null => {
   const { open, swap, register, enter, setOpen, frame } = useSubmenusContext();
+  const matches = useMatches(triggerText(children));
   const trigger = useRef<HTMLElement | null>(null);
   const content = useRef<HTMLElement | null>(null);
   const visible = open === itemKey;
@@ -94,6 +109,7 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
     setOpen(null);
   };
   const ctx = { itemKey, trigger, content, swap: swap && visible };
+  if (!matches) return null;
   return (
     <SubContext value={ctx}>
       <Dialog.Frame
@@ -115,7 +131,13 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
 export interface SubTriggerProps extends Omit<
   Button.ButtonProps,
   "variant" | "propagateClick"
-> {}
+> {
+  /**
+   * The submenu's name as plain text, for children that hold no text. The filter of a
+   * menu matches it. Defaults to the text in the children.
+   */
+  textValue?: string;
+}
 
 /**
  * The item of a {@link Sub}. A click, Enter, Space, or ArrowRight opens the submenu at
@@ -123,6 +145,7 @@ export interface SubTriggerProps extends Omit<
  */
 export const SubTrigger = ({
   ref,
+  textValue: _,
   className,
   children,
   onClick,

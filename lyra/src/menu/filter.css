@@ -1,0 +1,45 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The typed filter is a line of text over a hairline that spans the menu. */
+.lyra-menu-filter {
+    flex-shrink: 0;
+    align-items: center;
+    gap: 1rem;
+    width: calc(100% + 2rem);
+    height: var(--pluto-height-medium);
+    margin: -1rem -1rem 0.5rem;
+    padding: 0 3rem;
+    border-bottom: var(--pluto-border-l6);
+    color: var(--pluto-gray-l10);
+
+    & .lyra-icon {
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.lyra-menu-filter__empty {
+    display: flex;
+    align-items: center;
+    height: var(--pluto-height-medium);
+    padding: 0 1.5rem;
+}
+
+/* The line shows only when no item matches. */
+:has(> .lyra-menu-filter__empty):has([role="menuitem"]) > .lyra-menu-filter__empty {
+    display: none;
+}
+
+/* A divider shows only between items that match. */
+.lyra-menu-filter + .lyra-menu__divider,
+.lyra-menu__divider:has(+ .lyra-menu-filter__empty) {
+    display: none;
+}

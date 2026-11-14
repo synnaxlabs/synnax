@@ -9,15 +9,22 @@
 
 import "@/menu/Dialog.css";
 
-import { type ReactNode, use } from "react";
+import { type ReactNode, use, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Dialog as Base } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
+import { Filtered, useFilter } from "@/menu/filter";
 import { SubContext } from "@/menu/submenus";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Base.DialogProps {}
+export interface DialogProps extends Base.DialogProps {
+  /**
+   * Takes the focus when it opens, moves it over the items with the arrow keys, and
+   * filters the items as the user types, as a context menu does. A submenu ignores it.
+   */
+  filterable?: boolean;
+}
 
 /**
  * A menu that opens in a dialog, on the surface of a context menu. It holds menu items,
@@ -37,10 +44,19 @@ export const Dialog = ({
   ref,
   className,
   children,
+  filterable = false,
+  onKeyDown,
   ...rest
 }: DialogProps): ReactNode => {
   const sub = use(SubContext);
-  const combinedRef = useCombinedRefs(ref, sub?.content);
+  const { visible } = Base.useContext();
+  const keyed = filterable && sub == null;
+  const filter = useFilter(visible);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(ref, sub?.content, surfaceRef);
+  useEffect(() => {
+    if (keyed && visible) surfaceRef.current?.focus({ preventScroll: true });
+  }, [keyed, visible]);
   return (
     <Base.Dialog
       ref={combinedRef}
@@ -54,9 +70,15 @@ export const Dialog = ({
         sub?.swap === true && CSS.BM("menu-dialog", "swap"),
         className,
       )}
+      onKeyDown={(e) => {
+        onKeyDown?.(e);
+        if (keyed) filter.onKeyDown(e);
+      }}
       {...rest}
     >
-      <SubContext value={undefined}>{children}</SubContext>
+      <SubContext value={undefined}>
+        <Filtered term={keyed ? filter.term : ""}>{children}</Filtered>
+      </SubContext>
     </Base.Dialog>
   );
 };
