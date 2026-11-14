@@ -281,7 +281,9 @@ inline std::string config_err_description(const x::errors::Error &err) {
 /// does not auto-start logs its failures instead of reporting them. A successful
 /// configure writes no status: the start that follows it answers the command. Only a
 /// configure with no command auto-starts the task, because a start command that drives
-/// a deploy starts the task with its own key. cancel is passed to the auto-start.
+/// a deploy starts the task with its own key. An auto-start first writes a loading
+/// status, which the task replaces when it answers the start. cancel is passed to the
+/// auto-start.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -309,6 +311,15 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         return {std::move(res.first.task), true};
     }
     if (!commanded && res.first.auto_start) {
+        // A task may answer the start later, from its own thread. Until then, this
+        // status replaces the one stored by the last run.
+        synnax::task::Status starting;
+        starting.owner = synnax::task::resource_id(task.key);
+        starting.name = task.name;
+        starting.variant = synnax::status::VARIANT_LOADING;
+        starting.message = "Starting task";
+        starting.details.config_hash = task.config_hash;
+        ctx->set_status(starting);
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

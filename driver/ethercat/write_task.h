@@ -115,9 +115,13 @@ public:
         engine(std::move(eng)) {}
 
     x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
-        const auto [slaves, discover_err] = this->engine->discover();
+        const auto start = this->engine->begin_start(cancel);
+        const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
-        if (auto err = this->cfg.slaves.validate(slaves)) return err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.outputs)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
 
         std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
@@ -126,7 +130,7 @@ public:
         auto [wtr, err] = this->engine->open_writer(
             entries,
             this->cfg.execution_rate,
-            this->engine->begin_start(cancel),
+            start,
             [this] { this->warning_changed(); }
         );
         if (err) return err;

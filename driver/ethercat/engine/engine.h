@@ -12,12 +12,15 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -56,9 +59,10 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
-    /// @brief the longest a bus start can take. The engine tries a failed start again
-    /// only while one more try, as long as the longest failed try so far, ends inside
-    /// it. Set it to the task operation timeout, so that a failed start returns its own
+    /// @brief the longest a task start can take from begin_start(), with its waits for
+    /// another task that starts the bus. The engine tries a failed start again only
+    /// while one more try, as long as the longest failed try so far, ends inside it.
+    /// Set it to the task operation timeout, so that a failed start returns its own
     /// error.
     x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
@@ -81,6 +85,19 @@ struct Config {
 /// among tasks. The bus starts when the first reader or writer opens and stops when the
 /// last one closes. Opening or closing one never interrupts the others.
 class Engine {
+public:
+    /// @brief the time limit and the cancel of one task start.
+    struct Start {
+        /// @brief the time at which the start fails.
+        std::chrono::steady_clock::time_point deadline;
+        /// @brief ends the start when it stops.
+        x::breaker::Breaker &cancel;
+        /// @brief whether the start waited for another call on the network. The Engine
+        /// sets it.
+        mutable bool blocked = false;
+    };
+
+private:
     Config config;
     /// @brief the network interface of the bus.
     std::string iface;
@@ -89,6 +106,11 @@ class Engine {
     std::string network_name;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
+    /// @brief the vendor, product, and serial number of a slave, and its position when
+    /// it has no serial number.
+    using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
+    /// @brief the time of the last restart of each slave in slaves. Guarded by mu.
+    std::map<RestartKey, x::telem::TimeStamp> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
@@ -268,10 +290,13 @@ class Engine {
     /// @param mhz the bus rate in millihertz.
     /// @param settings the startup parameters of the opening task, keyed by position on
     /// the bus.
+    /// @param start fails the start at its deadline, and ends the waits between tries
+    /// when its cancel stops.
     [[nodiscard]] x::errors::Error start_locked(
         uint64_t mhz,
         const std::vector<SavedSlave> &saved,
-        const Settings &settings
+        const Settings &settings,
+        const Start &start
     );
     /// @brief returns the settings of each slave on the latest scan, keyed by position,
     /// with the startup parameters of settings. A slave in left_out is disabled.
@@ -290,16 +315,30 @@ class Engine {
         const std::map<uint16_t, slave::Refusal> &refused,
         const std::map<uint16_t, LeftOut> &left_out
     );
+    /// @brief scans the stopped bus again. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief scans the stopped bus again, with restarted as the slaves that restarted
+    /// since the last scan. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rescan_locked(const std::set<uint16_t> &restarted);
+    /// @brief returns the positions of the slaves that restarted since the last scan of
+    /// the master, or none when the master has no scan or cannot see a restart.
+    /// Requires mu.
+    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
+    /// @brief records now as the restart time of each slave in slaves that restarted
+    /// names or that the last scan did not find, and gives each slave in slaves its
+    /// time. Forgets the slaves that slaves lacks. Requires mu.
+    void track_restarts_locked(const std::set<uint16_t> &restarted);
     /// @brief locks mu without waiting behind an open_reader or open_writer.
     /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
     std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
-    /// runs, since the loader can block, and returns with lock held.
+    /// runs, since the loader can block, and locks it again as lock_for() does.
+    /// @returns the error of lock_for() with lock unlocked when it cannot lock again.
     [[nodiscard]] std::pair<std::vector<SavedSlave>, x::errors::Error>
-    read_slave_configs(std::unique_lock<std::mutex> &lock) const;
+    read_slave_configs(std::unique_lock<std::mutex> &lock, const Start &start) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
     /// @param mhz the bus rate in millihertz.
@@ -344,8 +383,15 @@ class Engine {
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate rate,
         bool output,
-        const Settings &settings
+        const Settings &settings,
+        const Start &start
     );
+    /// @brief locks lock, a lock of mu, and polls it so that the wait ends at the
+    /// deadline of start or when its cancel stops.
+    /// @returns errors::ACTIVATION_ERROR when the wait ends without the lock.
+    [[nodiscard]] x::errors::Error
+    lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const;
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> discover_locked();
     /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
     /// to another value, apart from a slave that another program sets up.
     [[nodiscard]] x::errors::Error
@@ -475,14 +521,6 @@ public:
     Engine(const Engine &) = delete;
     Engine &operator=(const Engine &) = delete;
 
-    /// @brief the time limit and the cancel of one task start.
-    struct Start {
-        /// @brief the time at which the start fails.
-        std::chrono::steady_clock::time_point deadline;
-        /// @brief ends the start when it stops.
-        x::breaker::Breaker &cancel;
-    };
-
     /// @brief returns a start that fails Config::start_timeout from now, or when cancel
     /// stops.
     [[nodiscard]] Start begin_start(x::breaker::Breaker &cancel) const;
@@ -502,6 +540,8 @@ public:
     /// another value, or when the IgH master runs the bus and a slave holds another
     /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
     /// setting on the running bus, or the error that kept the bus from starting.
+    /// errors::ACTIVATION_ERROR when the deadline of start passes or its cancel stops
+    /// before the bus starts.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
@@ -520,7 +560,8 @@ public:
     /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
     /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
-    /// error that kept the bus from starting.
+    /// error that kept the bus from starting. errors::ACTIVATION_ERROR as open_reader
+    /// gives it.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate,
@@ -539,9 +580,16 @@ public:
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
     /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
-    /// again when the number that answer has changed. Thread-safe.
+    /// again when they changed since the last discovery, as when a slave restarts or is
+    /// plugged in. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover();
+
+    /// @brief returns the slaves on the bus as discover() does, for a task start.
+    /// @returns errors::ACTIVATION_ERROR when the deadline of start passes or its
+    /// cancel stops while another task starts the bus.
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    discover(const Start &start);
 
     /// @brief returns the slaves on the bus, and discovers them again while the bus is
     /// stopped. Thread-safe.
