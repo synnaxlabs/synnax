@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <map>
@@ -48,7 +49,8 @@ struct Config {
         .scale = 1.5f,
         .max_interval = x::telem::SECOND * 5
     };
-    /// @brief the longest a bus start can take. The engine tries a failed start again
+    /// @brief the longest an open_reader or open_writer can take to start the bus, with
+    /// its wait for another task that starts it. The engine tries a failed start again
     /// only while one more try, as long as the longest failed try so far, ends inside
     /// it. Set it to the task operation timeout, so that a failed start returns its own
     /// error.
@@ -234,8 +236,14 @@ class Engine {
     void run();
     void supervise();
     /// @param mhz the bus rate in millihertz.
-    [[nodiscard]] x::errors::Error
-    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
+    /// @param deadline the time on the steady clock by which the start must end.
+    /// @param cancel ends the waits between tries when it stops.
+    [[nodiscard]] x::errors::Error start_locked(
+        uint64_t mhz,
+        std::map<uint16_t, slave::Config> configs,
+        std::chrono::steady_clock::time_point deadline,
+        x::breaker::Breaker &cancel
+    );
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,
     /// then a sentence for each slave in left_out. The error ends with each distinct
@@ -299,7 +307,16 @@ class Engine {
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate rate,
         bool output,
-        const Settings &settings
+        const Settings &settings,
+        std::chrono::steady_clock::time_point deadline,
+        x::breaker::Breaker &cancel
+    );
+    /// @brief locks mu for an open_reader or open_writer, polling it so that the wait
+    /// ends at deadline or when cancel stops.
+    /// @returns errors::ACTIVATION_ERROR when the wait ends without the lock.
+    std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_open(
+        std::chrono::steady_clock::time_point deadline,
+        x::breaker::Breaker &cancel
     );
     /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
     /// to another value, apart from a slave that another program sets up.
@@ -418,6 +435,10 @@ public:
     /// another value, or when the IgH master runs the bus and a slave holds another
     /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
     /// setting on the running bus, or the error that kept the bus from starting.
+    /// errors::ACTIVATION_ERROR when another task still starts the bus at
+    /// Config::start_timeout, or when cancel stops before the bus starts.
+    /// @param cancel ends the wait for another start, and the waits between start
+    /// tries, when it stops.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
@@ -433,7 +454,9 @@ public:
     /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
     /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
-    /// error that kept the bus from starting.
+    /// error that kept the bus from starting. errors::ACTIVATION_ERROR as open_reader
+    /// gives it.
+    /// @param cancel as open_reader takes it.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate,
