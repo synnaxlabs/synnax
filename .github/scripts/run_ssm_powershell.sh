@@ -9,13 +9,22 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs the PowerShell script on stdin on INSTANCE through SSM and prints its output.
+# Runs a PowerShell script on INSTANCE through SSM, with the given Name=value variables.
 
 set -euo pipefail
 
 : "${INSTANCE:?}" "${COMMENT:?}" "${TIMEOUT:?}"
 
-encoded=$(iconv -t UTF-16LE | base64 | tr -d '\n')
+script=$1
+shift
+quote="'"
+encoded=$({
+    for variable in "$@"; do
+        value=${variable#*=}
+        printf "\$%s = '%s'\n" "${variable%%=*}" "${value//$quote/$quote$quote}"
+    done
+    cat "$script"
+} | iconv -t UTF-16LE | base64 | tr -d '\n')
 command="powershell -NoProfile -EncodedCommand $encoded"
 # SSM reports the exit code of its own script, so that script exits with ours.
 id=$(aws ssm send-command --instance-ids "$INSTANCE" \

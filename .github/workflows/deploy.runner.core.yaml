@@ -37,6 +37,8 @@ concurrency: deploy-runners
 
 env:
   INSTANCE: i-0daf42c1631de819a
+  COMMENT: Deploy the Core at ${{ github.sha }}
+  TIMEOUT: 1800
   # The release that a run with no core input deploys.
   PINNED_CORE: 0.61.0
 
@@ -59,16 +61,28 @@ jobs:
           role-to-assume: arn:aws:iam::004704223095:role/github-runners-deploy
           aws-region: us-east-1
 
-      - name: Deploy
+      - name: Download
         env:
-          # Temporary, because a push has no inputs. Remove the second condition.
-          BACKUP: ${{ inputs.backup || github.event_name == 'push' }}
           CORE: ${{ inputs.core || env.PINNED_CORE }}
           GH_TOKEN: ${{ github.token }}
-          COMMENT: Deploy the Core at ${{ github.sha }}
-          TIMEOUT: 1800
         run: |
-          echo "\$Backup = \$$BACKUP" > "$RUNNER_TEMP/core.ps1"
-          .github/scripts/runner_core_source.sh "$CORE" >> "$RUNNER_TEMP/core.ps1"
-          cat scripts/runners/core.ps1 >> "$RUNNER_TEMP/core.ps1"
-          .github/scripts/run_ssm_powershell.sh < "$RUNNER_TEMP/core.ps1"
+          lines=$(.github/scripts/runner_core_source.sh "$CORE")
+          mapfile -t source <<< "$lines"
+          .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 \
+            Step=download "${source[@]}"
+
+      - name: Shut down
+        id: stop
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=stop
+
+      - name: Back up
+        # Temporary, because a push has no inputs. Remove the second condition.
+        if: inputs.backup || github.event_name == 'push'
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=backup
+
+      - name: Install
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=install
+
+      - name: Restart
+        if: always() && steps.stop.conclusion != 'skipped'
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=start

@@ -71,9 +71,9 @@ class TestRunnerCoreSource:
         result, calls = source(tmp_path, version)
         assert result.returncode == 0
         assert result.stdout.splitlines() == [
-            "$Url = 'https://github.com/synnaxlabs/synnax/releases/download/"
-            f"core/v{version}/synnax-v{version}-windows.exe'",
-            f"$Version = '{version}'",
+            "Url=https://github.com/synnaxlabs/synnax/releases/download/"
+            f"core/v{version}/synnax-v{version}-windows.exe",
+            f"Version={version}",
         ]
         assert calls == []
 
@@ -83,7 +83,7 @@ class TestRunnerCoreSource:
     ) -> None:
         result, calls = source(tmp_path, url, ids=(9,))
         assert result.returncode == 0
-        assert result.stdout.splitlines() == [f"$Url = '{LINK}'", "$Version = ''"]
+        assert result.stdout.splitlines() == [f"Url={LINK}", "Version="]
         assert calls == [
             "gh api --paginate repos/synnaxlabs/synnax/actions/runs/123/artifacts",
             "curl https://api.github.com/repos/synnaxlabs/synnax/actions/artifacts/9"

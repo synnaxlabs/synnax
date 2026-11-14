@@ -9,7 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Prints $Url and $Version for core.ps1 from a release version or a run or job URL.
+# Prints the Url and Version variables of core.ps1 for a release version or a run URL.
 
 set -euo pipefail
 
@@ -43,4 +43,4 @@ else
     exit 1
 fi
 
-printf "\$Url = '%s'\n\$Version = '%s'\n" "$url" "$version"
+printf 'Url=%s\nVersion=%s\n' "$url" "$version"

@@ -53,7 +53,10 @@ echo "sleep $1" >> "$LOG"
 
 
 def run(
-    tmp_path: Path, statuses: list[str], timeout: int = 900
+    tmp_path: Path,
+    statuses: list[str],
+    timeout: int = 900,
+    variables: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -64,9 +67,10 @@ def run(
     statuses_file = tmp_path / "statuses"
     statuses_file.write_text("".join(f"{status}\n" for status in statuses))
     log = tmp_path / "log"
+    powershell = tmp_path / "script.ps1"
+    powershell.write_text(POWERSHELL)
     result = subprocess.run(
-        [str(SCRIPT)],
-        input=POWERSHELL,
+        [str(SCRIPT), str(powershell), *variables],
         env={
             **os.environ,
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
@@ -89,9 +93,12 @@ def sleeps(calls: list[str]) -> int:
 class TestRunSSMPowerShell:
     """Tests for running a PowerShell script on a Windows instance through SSM."""
 
-    def test_should_send_the_script_as_an_encoded_command(self, tmp_path: Path) -> None:
-        _, calls = run(tmp_path, ["Success"])
-        encoded = base64.b64encode(POWERSHELL.encode("utf-16-le")).decode()
+    def test_should_send_the_variables_and_the_script_as_an_encoded_command(
+        self, tmp_path: Path
+    ) -> None:
+        _, calls = run(tmp_path, ["Success"], variables=("Step=stop", "Url=a'b=c"))
+        script = "$Step = 'stop'\n$Url = 'a''b=c'\n" + POWERSHELL
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode()
         assert calls[0] == (
             "aws ssm send-command --instance-ids i-123 "
             "--document-name AWS-RunPowerShellScript --comment Back up the Core "
