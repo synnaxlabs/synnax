@@ -70,9 +70,16 @@ const Move = (): ReactElement => (
   </Menu.Sub>
 );
 
-/** A menu at the left or the right edge of the window. */
+/**
+ * A menu at the left or the right edge of the window, low enough that a submenu has
+ * room to rise and level its first item.
+ */
 const Dropdown = ({ right = false }: { right?: boolean }): ReactElement => (
-  <Flex.Box x justify={right ? "end" : "start"} style={{ width: "100vw" }}>
+  <Flex.Box
+    x
+    justify={right ? "end" : "start"}
+    style={{ width: "100vw", paddingTop: 100 }}
+  >
     <Dialog.Frame initialVisible>
       <Dialog.Trigger>Filter</Dialog.Trigger>
       <Menu.Dialog aria-label="Filter">
@@ -137,18 +144,25 @@ describe("Menu.Sub", () => {
       );
     });
 
-    it("should meet the right edge of the menu", async () => {
+    it("should lap 4 px over the right edge of the menu", async () => {
       const sub = await open("Move");
-      expect(sub.getBoundingClientRect().left).toBe(
-        dialog("Filter").getBoundingClientRect().right,
-      );
+      expect(
+        dialog("Filter").getBoundingClientRect().right -
+          sub.getBoundingClientRect().left,
+      ).toBe(4);
     });
 
-    it("should meet the left edge of a menu with no room on its right", async () => {
+    it("should lap 4 px over the left edge of a menu with no room on its right", async () => {
       const sub = await open("Move", true);
-      expect(sub.getBoundingClientRect().right).toBe(
-        dialog("Filter").getBoundingClientRect().left,
-      );
+      expect(
+        sub.getBoundingClientRect().right -
+          dialog("Filter").getBoundingClientRect().left,
+      ).toBe(4);
+    });
+
+    it("should open with its first item level with its own item on the left", async () => {
+      await open("Move", true);
+      expect(top(item("Up"))).toBe(top(item("Move")));
     });
   });
 

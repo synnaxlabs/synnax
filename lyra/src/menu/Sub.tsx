@@ -29,11 +29,23 @@ import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
+const ITEM = `${MENU_ITEM}, [role="option"]`;
 
-// The content opens beside the item, on the side that has room.
+// The content opens beside the item, on the side that has room. The item sits inside
+// the padding of its menu, so the content laps over the edge of the menu.
 const LOCATION: position.LocationPreference = {
   targetCorner: { y: "top" },
   dialogCorner: { y: "top" },
+};
+
+// The first item of the content sits level with the item that opens it.
+const alignOffset = (dialog: HTMLElement): number => {
+  const item = dialog.querySelector<HTMLElement>(ITEM);
+  if (item == null) return 0;
+  let top = dialog.clientTop;
+  for (let el = item; el !== dialog; el = el.offsetParent as HTMLElement)
+    top += el.offsetTop;
+  return top;
 };
 
 /** Props for {@link Sub}. */
@@ -99,6 +111,7 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
       <Dialog.Frame
         variant="floating"
         location={LOCATION}
+        alignOffset={alignOffset}
         {...frame(itemKey)}
         className={CSS.B("menu-sub")}
         onPointerMove={handlePointerMove}

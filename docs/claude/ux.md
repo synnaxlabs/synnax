@@ -299,9 +299,9 @@ bound, a log precision, or the line plot X channel.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
   submenu, the items it crosses do not light or open.
-- A submenu opens with its first item level with its parent item, edge to edge with the
-  menu. It fades in when it opens first, and it replaces another submenu with no
-  animation.
+- A submenu opens with its first item level with its parent item, and laps 4 px over the
+  edge of the menu on either side. It fades in when it opens first, and it replaces
+  another submenu with no animation.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
 - The search in a submenu is a line of text over a hairline, with no box.
