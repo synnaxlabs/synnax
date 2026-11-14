@@ -150,7 +150,7 @@ export const Layout = ({
       <HighlightContext value={highlight}>
         <CaretlessContext value={caretless}>
           <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-            <Tag.FoldProvider>{content}</Tag.FoldProvider>
+            <Tag.StepProvider>{content}</Tag.StepProvider>
           </Menu.ContextMenu>
         </CaretlessContext>
       </HighlightContext>

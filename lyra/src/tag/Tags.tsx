@@ -10,8 +10,10 @@
 import "@/tag/Tags.css";
 
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
+  type RefObject,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -23,7 +25,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
-import { Batch, Context, type Count, Group, type Hidden, stackHost } from "@/tag/fold";
+import { Batch, type Count, describe, Group, type Hidden } from "@/tag/fold";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
@@ -77,19 +79,54 @@ const sameFold = (a: Fold, b: Fold): boolean =>
     (h, i) => h.name === b.hidden[i].name && h.color === b.hidden[i].color,
   );
 
-/**
- * Fits the groups of tags under it in one pass per frame. A group with no provider
- * above it fits on its own.
- */
-export const FoldProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const [batch] = useState(() => new Batch());
-  useEffect(() => () => batch.dispose(), [batch]);
-  return <Context value={batch}>{children}</Context>;
+// The tags a stepped group hides, read on open: its container sets the step.
+const SteppedHidden = ({
+  groupRef,
+}: {
+  groupRef: RefObject<HTMLElement | null>;
+}): ReactElement => {
+  const [hidden, setHidden] = useState<Hidden[]>([]);
+  useLayoutEffect(() => {
+    const el = groupRef.current;
+    if (el == null) return;
+    const shown = Number(getComputedStyle(el).getPropertyValue("--lyra-tags-shown"));
+    const tags = Array.from(el.children).filter((c) =>
+      c.classList.contains(CSS.B("tag")),
+    );
+    setHidden(tags.slice(shown).map((t) => describe(t as HTMLElement)));
+  }, [groupRef]);
+  return <HiddenList hidden={hidden} />;
 };
+
+/** The count of a stepped group. Its styles show the number its step hides. */
+const SteppedMore = ({
+  groupRef,
+}: {
+  groupRef: RefObject<HTMLElement | null>;
+}): ReactElement => (
+  <Tooltip.Dialog>
+    <SteppedHidden groupRef={groupRef} />
+    <Text.Text level="small" className={CSS.BE("tags", "more")} />
+  </Tooltip.Dialog>
+);
+
+const Stepped = createContext(false);
+Stepped.displayName = "Tag.Stepped";
+
+/**
+ * Makes the groups of tags under it take their step from their container instead of
+ * fitting themselves. The container sets `--lyra-tags-shown` to the number of tags to
+ * show, and `--lyra-tags-stacked` to `true` to overlap them. Every group under one
+ * container then shows the same step.
+ */
+export const StepProvider = ({ children }: PropsWithChildren): ReactElement => (
+  <Stepped value>{children}</Stepped>
+);
 
 /**
  * A row of tags that never overflows its container. Tags that do not fit stack, then
- * fold into a count that lists them on hover.
+ * fold into a count that lists them on hover. Under a {@link StepProvider}, the
+ * container sets the step instead.
  */
 export const Tags = ({
   ref,
@@ -100,10 +137,9 @@ export const Tags = ({
   className,
   ...rest
 }: TagsProps) => {
-  const shared = useContext(Context);
-  const [own] = useState(() => (shared == null ? new Batch() : null));
-  const batch = shared ?? own;
-  useEffect(() => () => own?.dispose(), [own]);
+  const stepped = useContext(Stepped);
+  const [batch] = useState(() => (stepped ? null : new Batch()));
+  useEffect(() => () => batch?.dispose(), [batch]);
   const [fold, setFold] = useState<Fold>({ hidden: [], count: "none" });
   const elRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<Group | null>(null);
@@ -122,35 +158,14 @@ export const Tags = ({
       groupRef.current = null;
     };
   }, [batch, size]);
-  // A refit while the item animates would read a width mid-way.
-  useEffect(() => {
-    const el = elRef.current;
-    const host = el == null ? null : stackHost(el);
-    if (host == null) return;
-    const isShrink = (e: TransitionEvent): boolean =>
-      e.target === host && e.propertyName === "flex-shrink";
-    const start = (e: TransitionEvent): void => {
-      if (isShrink(e) && groupRef.current != null) groupRef.current.animating = true;
-    };
-    const end = (e: TransitionEvent): void => {
-      const group = groupRef.current;
-      if (!isShrink(e) || group == null) return;
-      group.animating = false;
-      batch?.request(group);
-    };
-    host.addEventListener("transitionrun", start);
-    host.addEventListener("transitionend", end);
-    host.addEventListener("transitioncancel", end);
-    return () => {
-      host.removeEventListener("transitionrun", start);
-      host.removeEventListener("transitionend", end);
-      host.removeEventListener("transitioncancel", end);
-    };
-  }, [batch]);
   return (
     <Button.Button
       ref={combinedRef}
-      className={CSS.cls(CSS.B("tags"), className)}
+      className={CSS.cls(
+        CSS.B("tags"),
+        stepped && CSS.BM("tags", "stepped"),
+        className,
+      )}
       el="div"
       variant={variant}
       size={size}
@@ -162,7 +177,11 @@ export const Tags = ({
       {...rest}
     >
       {children}
-      {fold.count !== "none" && <More hidden={fold.hidden} count={fold.count} />}
+      {stepped ? (
+        <SteppedMore groupRef={elRef} />
+      ) : (
+        fold.count !== "none" && <More hidden={fold.hidden} count={fold.count} />
+      )}
     </Button.Button>
   );
 };

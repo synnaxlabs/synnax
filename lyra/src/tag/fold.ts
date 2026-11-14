@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext } from "react";
-
 import { CSS } from "@/css";
 
 /** A tag's full width, and the narrowest it gets in a stack before it folds. */
@@ -28,14 +26,23 @@ const MORE = CSS.BE("tags", "more");
 const STACKED = CSS.BM("tags", "stacked");
 const LAST = CSS.BE("tags", "last");
 const MEASURING = CSS.BM("tags", "measuring");
+const STACKED_VAR = "--lyra-tags-stacked";
 const STACK_GAP = "--lyra-tags-stack-gap";
-const EXPAND_MAX = "--lyra-tags-expand-max";
 // The room the count takes, in rem: with the word "labels" when tags show beside it,
 // without it when alone. Fixed, so the fold never chases the count's width.
 const MORE_WIDE = 18.5;
 const MORE_NARROW = 12;
 // The characters a stacked tag keeps before it folds.
 const FLOOR_CHARS = 2;
+
+/** A tag's name, and the color of its dot if it has one. Reads style only. */
+export const describe = (tag: HTMLElement): Hidden => {
+  const icon = tag.querySelector("svg");
+  return {
+    name: tag.textContent ?? "",
+    color: icon == null ? undefined : getComputedStyle(icon).color,
+  };
+};
 
 const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
@@ -116,17 +123,6 @@ const countShown = (
   return k;
 };
 
-/**
- * The nearest ancestor that animates its flex-shrink: the item part that widens the
- * stack on hover.
- */
-export const stackHost = (el: HTMLElement): HTMLElement | null => {
-  let node: HTMLElement | null = el;
-  for (let i = 0; i < 6 && node != null; i++, node = node.parentElement)
-    if (getComputedStyle(node).transitionProperty.includes("flex-shrink")) return node;
-  return null;
-};
-
 /** How the count shows: with the word "labels", without it, or not at all. */
 export type Count = "wide" | "narrow" | "none";
 
@@ -135,7 +131,6 @@ interface Plan {
   stacked: boolean;
   shown: number;
   count: Count;
-  expandMax: number | null;
 }
 
 /**
@@ -152,7 +147,6 @@ export class Group {
     null;
   private sized: Group["full"] = null;
   private saved: Partial<CSSStyleDeclaration> | null = null;
-  animating = false;
 
   constructor(
     el: HTMLElement,
@@ -213,6 +207,7 @@ export class Group {
       flexShrink: "0",
     });
     el.classList.remove(STACKED);
+    el.style.setProperty(STACKED_VAR, "false");
     el.classList.add(MEASURING);
     tags.forEach((tag) => (tag.style.display = ""));
     if (more != null) more.style.display = "none";
@@ -252,10 +247,8 @@ export class Group {
   read(rem: number): Plan | null {
     const { el, full } = this;
     // A group that does not render, such as one in a hidden panel, measures as zero.
-    if (this.animating || full == null || el.getClientRects().length === 0) return null;
+    if (full == null || el.getClientRects().length === 0) return null;
     if (full.tags !== this.signature()) return null;
-    const host = stackHost(el);
-    const hovered = host?.parentElement?.matches(":hover") === true;
     const measures = this.parts().tags.map(
       (t) => this.cache.get(this.keyOf(t)) as Measure,
     );
@@ -268,29 +261,9 @@ export class Group {
     const gaps = Math.max(0, fixed + tags.length - 1);
     const frame = full.width - sum(measures.map((m) => m.natural)) - full.gap * gaps;
     const room = available - frame - stackGap * fixed;
-    let shown = loose
+    const shown = loose
       ? tags.length
       : countShown(room, measures, stackGap, MORE_WIDE * rem);
-    // Hovering widens the stack. A fold made for that width would unfold on hover and
-    // fold back after, so a hovered group only folds further.
-    if (hovered) {
-      const current = tags.filter((tag) => tag.style.display !== "none").length;
-      if (shown > current) shown = current;
-    }
-    let expandMax: number | null = null;
-    if (host != null && !hovered) {
-      const siblings = Array.from(host.parentElement?.children ?? []).filter(
-        (c) => c !== host && px(getComputedStyle(c).flexShrink) > 0,
-      );
-      const slack = sum(siblings.map(cssWidth));
-      // The stack widens only as far as its shown tags have shrunk.
-      const shrunk = sum(
-        tags
-          .slice(0, shown)
-          .map((t, i) => Math.max(0, measures[i].natural - cssWidth(t))),
-      );
-      expandMax = cssWidth(host) + Math.min(slack / 2, shrunk);
-    }
     let count: Count = "none";
     if (shown < tags.length)
       if (shown > 0) count = "wide";
@@ -300,7 +273,6 @@ export class Group {
       stacked: !loose || shown < tags.length,
       shown,
       count,
-      expandMax,
     };
   }
 
@@ -327,24 +299,14 @@ export class Group {
     const { el } = this;
     const { tags, more } = this.parts();
     el.classList.toggle(STACKED, plan.stacked);
+    el.style.setProperty(STACKED_VAR, String(plan.stacked));
     // The count unmounts on the next render. Until then, it must not take room.
     if (more != null) more.style.display = plan.count === "none" ? "none" : "";
     tags.forEach((tag, i) => {
       tag.style.display = i < plan.shown ? "" : "none";
       tag.classList.toggle(LAST, plan.stacked && i === plan.shown - 1);
     });
-    if (plan.expandMax != null)
-      stackHost(el)?.style.setProperty(EXPAND_MAX, `${plan.expandMax}px`);
-    this.onHidden(
-      tags.slice(plan.shown).map((tag) => {
-        const icon = tag.querySelector("svg");
-        return {
-          name: tag.textContent ?? "",
-          color: icon == null ? undefined : getComputedStyle(icon).color,
-        };
-      }),
-      plan.count,
-    );
+    this.onHidden(tags.slice(plan.shown).map(describe), plan.count);
   }
 }
 
@@ -474,7 +436,3 @@ export class Batch {
     });
   }
 }
-
-/** The batch that groups of tags under it share. */
-export const Context = createContext<Batch | null>(null);
-Context.displayName = "Tag.FoldContext";

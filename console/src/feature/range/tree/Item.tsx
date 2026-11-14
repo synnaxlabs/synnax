@@ -243,7 +243,7 @@ export const Lead = ({
   );
 };
 
-// Scratch: "18:00" today, "Nov 4" this year, "Nov 4, 2025" before.
+// The start on a narrow list: "18:00" today, "Nov 4" this year, "Nov 4, 2025" before.
 const compactStart = (start: TimeStamp, now: TimeStamp): string => {
   if (Telem.Text.describeDay(start, now) === "Today")
     return Telem.Text.formatTime(start, TimeSpan.MINUTE);
@@ -312,7 +312,6 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
       <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
         {scheduled(range.timeRange) && (
           <>
-            {/* Scratch: the ladder shows the compact start on a narrow list. */}
             <span className={CSS.BE("range-item", "start-full")}>
               {`${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
             </span>

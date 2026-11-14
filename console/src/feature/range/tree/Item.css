@@ -59,14 +59,11 @@
     width: var(--pluto-height-tiny);
 }
 
-/* The labels fold before the name truncates below 30 characters, or below its own text
-   when shorter. On hover the floor drops to 8 characters, and the tags take the room. */
+/* The name takes the room the columns leave, so indentation never moves a column. */
 .console-range-item__name {
-    flex: 1 1 content;
-    width: 30ch;
-    transition:
-        flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1),
-        width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+    flex: 1 1 auto;
+    min-width: 0;
+    transition: flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
 
     & > :first-child {
         flex-shrink: 0;
@@ -79,32 +76,41 @@
     min-width: 0;
 }
 
+/* One labels column, as wide on every item. Its step sets how many tags show. */
 .console-range-item__labels {
-    display: flex;
-    flex: 1 1.5 auto;
-    justify-content: flex-end;
-    min-width: 0;
-    overflow: hidden;
-    transition: flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+    --console-range-labels-width: 125rem;
+    --lyra-tags-shown: 5;
+    --lyra-tags-stacked: false;
 
-    --lyra-tags-expand-max: none;
+    display: flex;
+    flex: 0 1 auto;
+    width: var(--console-range-labels-width);
+    min-width: var(--console-range-labels-width);
+    overflow: hidden;
+    transition: width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
 }
 
 .console-range-item__labels .console-range-item__tags {
     justify-content: flex-end;
 }
 
-/* Both factors stay at 1 or more. Under 1, flex leaves part of the overflow in place,
-   and the item overflows. */
+/* Hover widens the column into the name, as far as its tags can use: each shown tag up
+   to its cap. The step stays. */
 .console-range-item:hover {
+    /* The name gives way first, however far it has shrunk already. */
     & .console-range-item__name {
-        flex-shrink: 3.33;
-        width: 8ch;
+        flex-shrink: 10;
     }
 
     & .console-range-item__labels {
-        flex-shrink: 1;
-        max-width: var(--lyra-tags-expand-max);
+        width: max(
+            var(--console-range-labels-width),
+            min(
+                var(--console-range-labels-width) + 24rem,
+                var(--lyra-tags-shown) * (var(--lyra-tags-cap) + 0.5rem) +
+                    var(--lyra-tags-reserve)
+            )
+        );
     }
 }
 
@@ -155,9 +161,58 @@
     pointer-events: none;
 }
 
-/* As the list narrows, the labels fold to a count, then hide when the count does not
-   fit. Then the start goes compact. The list's width alone sets the later steps, so
-   the columns stay aligned. */
+/* As the list narrows, the labels column narrows in steps: all tags at full width,
+   then stacked, then fewer tags and a count, then the count alone. Then the labels
+   hide and the start goes compact. The list's width alone sets each step, so every
+   item shows the same one. */
+@container range-list (width < 240rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 103rem;
+        --lyra-tags-shown: 4;
+    }
+}
+
+@container range-list (width < 205rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 84rem;
+        --lyra-tags-stacked: true;
+    }
+}
+
+@container range-list (width < 170rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 60rem;
+        --lyra-tags-shown: 3;
+    }
+}
+
+@container range-list (width < 140rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 45rem;
+        --lyra-tags-shown: 2;
+    }
+}
+
+@container range-list (width < 115rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 32rem;
+        --lyra-tags-shown: 1;
+    }
+}
+
+@container range-list (width < 95rem) {
+    .console-range-item__labels {
+        --console-range-labels-width: 17rem;
+        --lyra-tags-shown: 0;
+    }
+}
+
+@container range-list (width < 80rem) {
+    .console-range-item__labels {
+        display: none;
+    }
+}
+
 @container range-list (width < 78rem) {
     .console-range-item__start {
         width: 10rem;
@@ -172,11 +227,10 @@
     }
 }
 
-/* Then the labels and the start column hide, the start shows on hover, the star shows
+/* Then the start column hides, the start shows on hover, the star shows
    only on hover or when set, and the indent halves. Only the name and the duration
    share the item, so the name gives way rather than push the item out. */
 @container range-list (width < 69rem) {
-    .console-range-item__labels,
     .console-range-item__start {
         display: none;
     }

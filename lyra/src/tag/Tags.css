@@ -15,13 +15,17 @@
     padding: 0 2rem 0 0.5rem;
 }
 
-/* A frame around the tags, such as a dropdown trigger's, gives way with them. */
+/* A frame around the tags, such as a dropdown trigger's, gives way with them. Around a
+   stepped group, it fills the container that sets the step. */
 .lyra-dialog__frame:has(> .lyra-tags) {
     min-width: 0;
 }
 
-/* Each tag but the last shrinks, and its face paints 15 px past its box, under the next
-   tag. The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
+.lyra-dialog__frame:has(> .lyra-tags--stepped) {
+    flex: 1 1 0;
+}
+
+/* A group that fits itself sets the stacked class and the variable. */
 .lyra-tags--stacked {
     flex-wrap: nowrap;
     gap: var(--lyra-tags-stack-gap);
@@ -31,57 +35,11 @@
     & > .lyra-tags__more {
         order: -1;
     }
-
-    & > .lyra-flex.lyra-btn.lyra-tag {
-        position: relative;
-        isolation: isolate;
-        flex-shrink: 1;
-        min-width: 0;
-        overflow: visible;
-        border-color: transparent;
-        background: none;
-        box-shadow: none;
-        color: var(--pluto-gray-l9);
-        clip-path: inset(-4px -15px -4px -4px);
-        transition: color 0.15s;
-
-        &::before {
-            position: absolute;
-            z-index: -1;
-            top: -1px;
-            bottom: -1px;
-            left: -1px;
-            width: calc(100% + 17px);
-            border: var(--pluto-border-l6);
-            border-radius: var(--pluto-border-radius-small);
-            background: var(--pluto-gray-l0);
-            box-shadow: var(--pluto-shadow-lift);
-            content: "";
-        }
-
-        &:hover {
-            color: var(--pluto-gray-l11);
-        }
-
-        /* The name fades where the tag cuts it, so its tooltip shows the full name. */
-        & > .lyra-text {
-            min-width: 0;
-        }
-    }
-
-    & > .lyra-flex.lyra-btn.lyra-tags__last {
-        flex-shrink: 1e-6;
-        clip-path: none;
-
-        &::before {
-            width: calc(100% + 2px);
-        }
-    }
 }
 
-/* A folded group keeps room it does not fill, so a frame around it would show empty
-   space. Its faces take the hover instead. */
-.lyra-btn.lyra-tags.lyra-tags--stacked {
+/* A folded or stepped group keeps room it does not fill, so a frame around it would
+   show empty space. Its faces take the hover instead. */
+.lyra-btn.lyra-tags:is(.lyra-tags--stacked, .lyra-tags--stepped) {
     &,
     &[aria-expanded="true"] {
         --pluto-bg: transparent;
@@ -131,13 +89,282 @@
     gap: 0.5rem;
 }
 
-/* A folded group keeps the room it would take unfolded. Its alignment, not a part that
+/* A folded or stepped group keeps room it does not fill. Its alignment, not a part that
    pushes itself to the end, places the space left over. */
-.lyra-tags.lyra-tags--stacked > :not(.lyra-tag, .lyra-tags__more) {
+.lyra-tags:is(.lyra-tags--stacked, .lyra-tags--stepped)
+    > :not(.lyra-tag, .lyra-tags__more) {
     margin-left: 0;
 }
 
 /* Tags at full width while a group measures them. */
 .lyra-tags.lyra-tags--measuring > .lyra-flex.lyra-btn.lyra-tag {
     flex-shrink: 0;
+}
+
+/* The widest a stepped tag gets, and the room its group keeps for the count and caret.
+   A container that sets the step can size itself from them. */
+:root {
+    --lyra-tags-cap: 20rem;
+    --lyra-tags-reserve: 17rem;
+}
+
+/* A stepped group shows the tags its container's step asks for. Each tag stops at the
+   cap, and its name fades past it. The rest stay laid out but hidden, so the count
+   can count them. */
+.lyra-tags--stepped {
+    position: relative;
+    isolation: isolate;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    counter-reset: lyra-tags-hidden;
+
+    & > .lyra-tag,
+    & > .lyra-tags__more {
+        order: -1;
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        flex: 0 0 auto;
+        min-width: 0;
+        max-width: var(--lyra-tags-cap);
+
+        & > .lyra-text {
+            min-width: 0;
+        }
+    }
+
+    & > .lyra-tags__more {
+        display: none;
+
+        &::after {
+            content: "+" counter(lyra-tags-hidden) " labels";
+        }
+    }
+}
+
+@container style(--lyra-tags-shown: 1) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag:nth-child(n + 2 of .lyra-tag) {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(2 of .lyra-tag)) > .lyra-tags__more {
+        display: flex;
+    }
+
+    .lyra-tags--stepped:has(
+            > .lyra-tag:nth-child(2 of .lyra-tag):nth-last-child(1 of .lyra-tag)
+        )
+        > .lyra-tags__more::after {
+        content: "+1 label";
+    }
+}
+
+@container style(--lyra-tags-shown: 2) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag:nth-child(n + 3 of .lyra-tag) {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(3 of .lyra-tag)) > .lyra-tags__more {
+        display: flex;
+    }
+
+    .lyra-tags--stepped:has(
+            > .lyra-tag:nth-child(3 of .lyra-tag):nth-last-child(1 of .lyra-tag)
+        )
+        > .lyra-tags__more::after {
+        content: "+1 label";
+    }
+}
+
+@container style(--lyra-tags-shown: 3) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag:nth-child(n + 4 of .lyra-tag) {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(4 of .lyra-tag)) > .lyra-tags__more {
+        display: flex;
+    }
+
+    .lyra-tags--stepped:has(
+            > .lyra-tag:nth-child(4 of .lyra-tag):nth-last-child(1 of .lyra-tag)
+        )
+        > .lyra-tags__more::after {
+        content: "+1 label";
+    }
+}
+
+@container style(--lyra-tags-shown: 4) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag:nth-child(n + 5 of .lyra-tag) {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(5 of .lyra-tag)) > .lyra-tags__more {
+        display: flex;
+    }
+
+    .lyra-tags--stepped:has(
+            > .lyra-tag:nth-child(5 of .lyra-tag):nth-last-child(1 of .lyra-tag)
+        )
+        > .lyra-tags__more::after {
+        content: "+1 label";
+    }
+}
+
+@container style(--lyra-tags-shown: 5) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag:nth-child(n + 6 of .lyra-tag) {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(6 of .lyra-tag)) > .lyra-tags__more {
+        display: flex;
+    }
+
+    .lyra-tags--stepped:has(
+            > .lyra-tag:nth-child(6 of .lyra-tag):nth-last-child(1 of .lyra-tag)
+        )
+        > .lyra-tags__more::after {
+        content: "+1 label";
+    }
+}
+
+/* With no tags shown, the first three show as dots in the count. */
+@container style(--lyra-tags-shown: 0) {
+    .lyra-tags.lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        position: absolute;
+        visibility: hidden;
+        counter-increment: lyra-tags-hidden;
+    }
+
+    .lyra-tags.lyra-tags--stepped
+        > .lyra-flex.lyra-btn.lyra-tag:nth-child(-n + 3 of .lyra-tag) {
+        position: static;
+        visibility: visible;
+        width: 1.25rem;
+        margin-right: -0.5rem;
+        padding: 0;
+        border: none;
+        background: none;
+        box-shadow: none;
+        pointer-events: none;
+
+        &::before {
+            display: none;
+        }
+
+        & > .lyra-text {
+            display: none;
+        }
+    }
+
+    /* The count's face reaches back under its dots. */
+    .lyra-tags--stepped:has(> .lyra-tag) > .lyra-tags__more {
+        --lyra-tags-dots: 2.5rem;
+
+        display: flex;
+        position: relative;
+        overflow: visible;
+        border-color: transparent;
+        background: none;
+
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            inset: -1px -1px -1px calc(-1 * var(--lyra-tags-dots));
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius-small);
+            background-color: var(--pluto-gray-l0);
+        }
+
+        &::after {
+            content: "+" counter(lyra-tags-hidden);
+        }
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(2 of .lyra-tag)) > .lyra-tags__more {
+        --lyra-tags-dots: 3.75rem;
+    }
+
+    .lyra-tags--stepped:has(> .lyra-tag:nth-child(3 of .lyra-tag)) > .lyra-tags__more {
+        --lyra-tags-dots: 5rem;
+    }
+}
+
+/* Each stacked tag shrinks, and its face paints 15 px past its box, under the next tag.
+   The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
+@container style(--lyra-tags-stacked: true) {
+    .lyra-tags.lyra-tags--stepped {
+        gap: var(--lyra-tags-stack-gap);
+    }
+
+    .lyra-tags > .lyra-flex.lyra-btn.lyra-tag {
+        position: relative;
+        isolation: isolate;
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: visible;
+        border-color: transparent;
+        background: none;
+        box-shadow: none;
+        color: var(--pluto-gray-l9);
+        clip-path: inset(-4px -15px -4px -4px);
+        transition: color 0.15s;
+
+        &::before {
+            position: absolute;
+            z-index: -1;
+            top: -1px;
+            bottom: -1px;
+            left: -1px;
+            width: calc(100% + 17px);
+            border: var(--pluto-border-l6);
+            border-radius: var(--pluto-border-radius-small);
+            background: var(--pluto-gray-l0);
+            box-shadow: var(--pluto-shadow-lift);
+            content: "";
+        }
+
+        &:hover {
+            color: var(--pluto-gray-l11);
+        }
+
+        /* The name fades where the tag cuts it, so its tooltip shows the full name. */
+        & > .lyra-text {
+            min-width: 0;
+        }
+    }
+
+    .lyra-tags > .lyra-flex.lyra-btn.lyra-tags__last {
+        flex-shrink: 1e-6;
+        clip-path: none;
+
+        &::before {
+            width: calc(100% + 2px);
+        }
+    }
+
+    /* Every tag of a stepped group gets the same share of the room. A shorter tag keeps
+       its own width. */
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        flex: 0 0 auto;
+        width: min(
+            var(--lyra-tags-cap),
+            (100% - var(--lyra-tags-reserve)) / var(--lyra-tags-shown) -
+                var(--lyra-tags-stack-gap)
+        );
+        max-width: max-content;
+    }
 }
