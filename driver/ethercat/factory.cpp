@@ -77,11 +77,12 @@ std::unique_ptr<master::Manager> default_manager() {
 
 /// @brief returns the settings saved for the slaves on the network, one per saved
 /// position. Its errors call the network name. At a position that holds a connected
-/// device, the devices that are not connected give way to it. Elsewhere, devices with
-/// the same settings at one position give them to the slave of their model there.
+/// device, the devices that are not connected give way to it. Elsewhere, devices of one
+/// model with the same settings at one position give them to the slave of their model
+/// there.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings and none of them is connected.
+/// position have different settings or models and none of them is connected.
 std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
@@ -151,26 +152,33 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
             continue;
         }
         if (held.contains(props.position) && !connected(dev)) continue;
-        if (it->second.config == config) {
+        const auto &kept = it->second.identity;
+        const bool agree = it->second.config == config;
+        if (agree && (held.contains(props.position) ||
+                      (kept.vendor_id == props.vendor_id &&
+                       kept.product_code == props.product_code))) {
             // With no connected device to tell which unit they name, agreeing devices
-            // give their settings to the slave at the position.
+            // give their settings to the slave of their model at the position.
             if (!held.contains(props.position)) it->second.identity.serial = 0;
             continue;
         }
         const auto [first, second] = std::minmax(labels[props.position], label);
+        const auto both = std::format(
+            "{} and {} are both saved at position {} on {}",
+            first,
+            second,
+            props.position,
+            name
+        );
         return {
             {},
             x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "{} and {} are both saved at position {} on {} with different "
-                    "settings. Give them the same settings, or delete the device that "
-                    "is no longer on the bus.",
-                    first,
-                    second,
-                    props.position,
-                    name
-                )
+                agree ? both + " as different models. Delete the device that is no "
+                               "longer on the bus."
+                      : both + " with different settings. Give them the same "
+                               "settings, or delete the device that is no longer on "
+                               "the bus."
             )
         };
     }
