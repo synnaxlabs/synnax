@@ -1237,6 +1237,37 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
     EXPECT_GT(this->master->call_count("scan"), 1);
 }
 
+/// @brief it should fail the start at once when two saved devices with no serial number
+/// and different settings find a slave with an unread serial, since a new scan cannot
+/// tell them apart.
+TEST_F(EngineTest, StartFailsAConflictOfDevicesWithNoSerialAtOnce) {
+    this->master->add_slave(io_slave(1));
+    this->master->fail_serial_read(1, "no answer");
+    auto cfg = quick_start_config();
+    auto other = io_slave(1);
+    other.name = "Other";
+    cfg.slave_configs = [other] {
+        return std::pair{
+            std::vector{saved(io_slave(1), {.enabled = false}), saved(other, {})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Other and Slave1 are both saved for slave 1 on eth0 with different settings. "
+        "Give them the same settings, or delete the device that is no longer on the "
+        "bus."
+    );
+    EXPECT_EQ(this->master->call_count("scan"), 1);
+}
+
 /// @brief it should start the bus when a saved slave is not on it, and give the slave
 /// at its saved position the defaults.
 TEST_F(EngineTest, SavedSlaveOffTheBusLeavesTheDefaults) {
