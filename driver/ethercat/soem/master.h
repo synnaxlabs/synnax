@@ -117,7 +117,7 @@ class Master final : public master::Master {
         std::vector<DCSetup> dc_setups;
         /// @brief why each slave rejected a startup parameter at its latest move to
         /// SAFE-OP, keyed by position.
-        std::map<uint16_t, std::string> startup_failures;
+        std::map<uint16_t, x::errors::Error> startup_failures;
         /// @brief why the master could not restore the distributed clock of a slave
         /// that came back, keyed by position.
         std::unordered_map<uint16_t, std::string> dc_restore_errors;

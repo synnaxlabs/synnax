@@ -772,6 +772,47 @@ TEST(TestScanTask, TestRetryFailedCreate) {
     EXPECT_TRUE(cluster_api_ptr->dispatched.empty());
 }
 
+/// @brief it should send no status for a device whose create failed, and send it once
+/// the create works.
+TEST(TestScanTask, TestNoStatusForAFailedCreate) {
+    synnax::device::Device dev;
+    dev.key = "device1";
+    dev.name = "Device 1";
+    dev.status = synnax::device::Status{
+        .name = dev.name,
+        .owner = synnax::device::resource_id(dev.key),
+    };
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    const auto *cluster_api_ptr = cluster_api.get();
+    const x::errors::Error unreachable("unreachable", "Core unreachable");
+    cluster_api->create_errors = {unreachable};
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{{dev}, {dev}},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_OCCURRED_AS(scan_task.scan(), unreachable);
+    EXPECT_TRUE(cluster_api_ptr->propagated_statuses.back().empty());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses.back().size(), 1);
+    EXPECT_EQ(cluster_api_ptr->propagated_statuses.back()[0].name, "Device 1");
+}
+
 /// @brief it should take over a scanned device that another rack holds, keep the fields
 /// that a user set, and create no device.
 TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {

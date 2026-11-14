@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <format>
+#include <iterator>
 #include <map>
 #include <set>
 #include <string>
@@ -330,12 +331,14 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto health = this->pool->health(key);
         const auto keys = slave_keys(slaves, key, scan_ctx, kept);
         bool rediscovery_needed = false;
+        std::set<uint16_t> unidentified;
         for (size_t i = 0; i < slaves.size(); ++i) {
             const auto &slave = slaves[i];
             if (!has_identity(slave)) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
+                unidentified.insert(slave.properties.position);
                 continue;
             }
             if (serial_unread(slave)) {
@@ -356,6 +359,28 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                                   (!slave.status.pdo_discovery_error.empty() ||
                                    !slave.status.settings_error.empty());
             devices.push_back(std::move(dev));
+        }
+        if (unidentified.empty())
+            this->unidentified.erase(key);
+        else if (rediscover) {
+            auto &[seen, reported] = this->unidentified[key];
+            reported.clear();
+            std::ranges::set_intersection(
+                unidentified,
+                seen,
+                std::inserter(reported, reported.begin())
+            );
+            seen = std::move(unidentified);
+        }
+        if (const auto it = this->unidentified.find(key);
+            it != this->unidentified.end() && !it->second.reported.empty()) {
+            const auto [engine, acquire_err] = this->pool->acquire(key);
+            if (acquire_err) return {{}, acquire_err};
+            for (const auto position: it->second.reported)
+                failures.insert(
+                    "Slave " + std::to_string(position) + " on " + engine->name() +
+                    " gives no identity. Restart its power."
+                );
         }
         if (!rediscovery_needed)
             this->next_rediscoveries.erase(key);

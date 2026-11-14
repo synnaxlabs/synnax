@@ -36,6 +36,10 @@
 
 namespace driver::ethercat {
 namespace {
+/// @brief the percent of a task operation's timeout that a bus start may use. The rest
+/// covers the scan and the reads before the start.
+constexpr int64_t START_SHARE_PERCENT = 75;
+
 #ifdef _WIN32
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
@@ -186,7 +190,7 @@ Factory::Factory(
                 return slave_configs(client, rack, network, name);
             },
             std::move(rt_manager),
-            op_timeout
+            op_timeout * START_SHARE_PERCENT / 100
         )
     ) {}
 
