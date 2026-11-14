@@ -172,6 +172,20 @@ bool holds_devices_on(const common::ScannerContext &ctx, const std::string &netw
     });
 }
 
+/// @brief whether the Core holds a device on network that the user configured, not
+/// only one that a scan found.
+bool holds_configured_devices_on(
+    const common::ScannerContext &ctx,
+    const std::string &network
+) {
+    if (ctx.devices == nullptr) return false;
+    return std::ranges::any_of(*ctx.devices, [&network](const auto &entry) {
+        const auto &dev = entry.second;
+        const auto it = dev.properties.find("network");
+        return dev.configured && it != dev.properties.end() && it->second == network;
+    });
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -222,9 +236,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
-        // A network that held modules can come back at any scan, as after a power
-        // restart.
-        if (err.matches(errors::NO_SLAVES_FOUND) && holds_devices_on(scan_ctx, key)) {
+        // The modules of a configured network can come back at any scan, as after a
+        // power restart.
+        if (err.matches(errors::NO_SLAVES_FOUND) &&
+            holds_configured_devices_on(scan_ctx, key)) {
             this->next_probes.erase(key);
             if (err.matches(errors::REPLIES_BLOCKED)) {
                 failures.insert(err.data);
