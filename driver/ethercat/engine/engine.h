@@ -188,6 +188,9 @@ class Engine {
     x::breaker::Breaker bus;
     /// @brief the number of times the bus stopped, guarded by mu.
     uint64_t stops = 0;
+    /// @brief the count of Configure startup parameters of each slave at the last bus
+    /// start, keyed by position and guarded by mu.
+    std::map<uint16_t, size_t> device_parameter_counts;
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};

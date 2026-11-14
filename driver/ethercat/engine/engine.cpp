@@ -877,15 +877,25 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     std::map<uint16_t, size_t> counts;
     if (started) {
         if (configs_err) return {{}, configs_err};
+        this->device_parameter_counts.clear();
+        for (const auto &[pos, cfg]: configs)
+            this->device_parameter_counts[pos] = cfg.startup_parameters.size();
         for (const auto &[pos, params]: settings)
             configs[pos].add_startup_parameters(params);
         for (const auto &[pos, cfg]: configs)
             counts[pos] = cfg.startup_parameters.size();
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {{}, err};
-    } else
+    } else {
+        const auto device = [this](const uint16_t pos) -> size_t {
+            const auto it = this->device_parameter_counts.find(pos);
+            return it == this->device_parameter_counts.end() ? 0 : it->second;
+        };
+        for (const auto &entry: entries)
+            counts[entry.slave_position] = device(entry.slave_position);
         for (const auto &[pos, params]: settings)
-            counts[pos] = params.size();
+            counts[pos] = device(pos) + params.size();
+    }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
         if (started)

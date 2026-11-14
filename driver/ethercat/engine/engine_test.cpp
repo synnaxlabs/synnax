@@ -1367,11 +1367,28 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
-/// running bus.
+/// running bus, and warn each reader of that slave of its skipped device settings.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
     this->master->add_slave(shared);
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{
+                {1,
+                 {.startup_parameters =
+                      {
+                          {.index = 0x8040,
+                           .sub_index = 2,
+                           .data_type = x::telem::UINT16_T,
+                           .value = 3},
+                      }}}
+            },
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(this->engine->open_reader(
         {IN_I16},
         x::telem::Rate(100),
@@ -1382,15 +1399,25 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
         {on_slave(IN_I16, 1)},
         x::telem::Rate(100),
         1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto third = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
         this->engine->begin_start(this->cancel),
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->written().empty());
-    EXPECT_EQ(first->unapplied(), "");
+    const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
+                            "not apply its 1 startup setting. Remove it, or switch the "
+                            "device to Synnax in Configure.";
+    EXPECT_EQ(first->unapplied(), one);
+    EXPECT_EQ(second->unapplied(), one);
     EXPECT_EQ(
-        second->unapplied(),
-        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 1 "
-        "startup setting. Remove it, or switch the device to Synnax in Configure."
+        third->unapplied(),
+        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "startup settings. Remove them, or switch the device to Synnax in Configure."
     );
 }
 
