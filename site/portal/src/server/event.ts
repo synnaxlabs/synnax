@@ -34,7 +34,15 @@ export const listForLicense = async (
 
 /** CATEGORIES group event kinds the way the staff activity log filters them. */
 const CATEGORIES = {
-  licenses: ["issue", "amend", "revoke", "restore", "download", "expiry_notice"],
+  licenses: [
+    "issue",
+    "amend",
+    "revoke",
+    "restore",
+    "download",
+    "expiry_notice",
+    "change_desktop_channels",
+  ],
   machines: [
     "activate",
     "activate_denied",

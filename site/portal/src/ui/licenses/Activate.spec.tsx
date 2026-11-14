@@ -33,6 +33,7 @@ const ACME: Organization = {
   name: "Acme",
   clerkOrgID: "org_acme",
   ownerUserID: null,
+  desktopChannels: null,
   createdAt: NOW,
 };
 

@@ -44,6 +44,7 @@ const organizationOf = (key: string, kind: Organization["kind"]): Organization =
   name: key,
   clerkOrgID: kind === "team" ? `org_${key}` : null,
   ownerUserID: kind === "personal" ? "user_a" : null,
+  desktopChannels: null,
   createdAt: new Date(0),
 });
 

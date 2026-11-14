@@ -165,6 +165,7 @@ describe("slack", () => {
         name: "Acme",
         clerkOrgID: "org_acme",
         ownerUserID: null,
+        desktopChannels: null,
         createdAt: NOW,
       };
       expect(
