@@ -179,7 +179,7 @@ bool set_setup_status(
     const bool reverted = switch_time != x::telem::TimeStamp(0) &&
                           mode.contains("switch") && !mode.at("switch").empty();
     if (props.switched() || unconfirmed) {
-        status.message = "Restart the power to finish the switch to Synnax";
+        status.message = "Restart the power of the device";
         if (unconfirmed)
             status.description = "Synnax cannot tell if the switch took effect until "
                                  "the device restarts.";

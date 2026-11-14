@@ -1643,7 +1643,7 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     this->start(false);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Restart the power to finish the switch to Synnax");
+    EXPECT_EQ(status.message, "Restart the power of the device");
     EXPECT_EQ(status.description, "");
 }
 
@@ -1664,7 +1664,7 @@ TEST_F(EtherCATScanModeTest, AsksForARestartOfAnUnmarkedSlaveUntilItRestarts) {
     ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
     const auto held = this->scan_status();
     EXPECT_EQ(held.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(held.message, "Restart the power to finish the switch to Synnax");
+    EXPECT_EQ(held.message, "Restart the power of the device");
     EXPECT_EQ(
         held.description,
         "Synnax cannot tell if the switch took effect until the device restarts."
@@ -1690,7 +1690,7 @@ TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
     this->start(false);
     this->set_mode({{"bus", 2}});
     const auto status = this->scan_status();
-    EXPECT_EQ(status.message, "Restart the power to finish the switch to Synnax");
+    EXPECT_EQ(status.message, "Restart the power of the device");
     EXPECT_EQ(status.description, "First, connect Synnax to EtherCAT bus 1 IN.");
 }
 
