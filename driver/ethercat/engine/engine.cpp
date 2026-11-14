@@ -45,6 +45,14 @@ x::errors::Error start_canceled_error(const std::string &network) {
         "The Driver stopped the start on " + network + "."
     );
 }
+
+/// @brief returns the error of a start whose deadline passed before its first try.
+x::errors::Error start_late_error(const std::string &network) {
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "The start on " + network + " ran out of time."
+    );
+}
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
@@ -489,8 +497,7 @@ void Engine::supervise() {
 x::errors::Error Engine::start_locked(
     const uint64_t mhz,
     std::map<uint16_t, slave::Config> configs,
-    const std::chrono::steady_clock::time_point deadline,
-    x::breaker::Breaker &cancel
+    const Start &start
 ) {
     const auto start_cycle = [this, mhz](const master::Image &image) {
         this->image = image;
@@ -514,8 +521,9 @@ x::errors::Error Engine::start_locked(
     const auto &retry = this->config.start_retry;
     int failures = 0;
     x::telem::TimeSpan longest_try(0);
+    if (clock.steady() >= start.deadline) return start_late_error(this->network_name);
     while (true) {
-        if (!cancel.running()) return start_canceled_error(this->network_name);
+        if (!start.cancel.running()) return start_canceled_error(this->network_name);
         const auto try_started = clock.steady();
         auto [slaves, err] = this->master->scan();
         std::map<uint16_t, slave::Refusal> refused;
@@ -581,11 +589,11 @@ x::errors::Error Engine::start_locked(
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
             (retry.max_retries != x::breaker::RETRY_INFINITELY &&
              failures > retry.max_retries) ||
-            now + (retry.max_interval + longest_try).chrono() > deadline)
+            now + (retry.max_interval + longest_try).chrono() > start.deadline)
             return start_error(err, refused, this->left_out);
         LOG(WARNING) << "[ethercat] failed to start " << this->iface
                      << ", trying again in " << wait << ": " << err.message();
-        cancel.wait_for(wait);
+        start.cancel.wait_for(wait);
     }
     this->slaves = this->image.slaves;
     this->starting.store(false, std::memory_order_release);
@@ -616,12 +624,15 @@ void Engine::stop_locked() {
 }
 
 std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
-Engine::read_slave_configs(std::unique_lock<std::mutex> &lock) const {
+Engine::read_slave_configs(
+    std::unique_lock<std::mutex> &lock,
+    const Start &start
+) const {
     while (!this->running()) {
         const auto stops = this->stops;
         lock.unlock();
         auto result = this->config.slave_configs();
-        lock.lock();
+        if (auto err = this->lock_for(lock, start)) return {{}, err};
         // A bus that ran during the read may have run with newer settings.
         if (this->stops == stops) return result;
     }
@@ -809,10 +820,10 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const x::telem::Rate rate,
     const bool output,
     const Settings &settings,
-    const std::chrono::steady_clock::time_point deadline,
-    x::breaker::Breaker &cancel
+    const Start &start
 ) {
-    auto [configs, configs_err] = this->read_slave_configs(lock);
+    auto [configs, configs_err] = this->read_slave_configs(lock, start);
+    if (!lock.owns_lock()) return {{}, configs_err};
     if (auto err = this->check_settings_locked(settings)) return {{}, err};
     auto reads = this->read_rates_locked();
     auto writes = this->write_rates_locked();
@@ -824,8 +835,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
         if (configs_err) return {{}, configs_err};
         for (const auto &[pos, params]: settings)
             configs[pos].add_startup_parameters(params);
-        if (auto err = this->start_locked(mhz, std::move(configs), deadline, cancel);
-            err)
+        if (auto err = this->start_locked(mhz, std::move(configs), start))
             return {{}, err};
     }
     auto [offsets, err] = this->offsets_locked(entries);
@@ -847,29 +857,34 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 
+Engine::Start Engine::begin_start(x::breaker::Breaker &cancel) const {
+    return {
+        .deadline = this->config.host_clock.steady() +
+                    this->config.start_timeout.chrono(),
+        .cancel = cancel,
+    };
+}
+
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
     const size_t samples_per_read,
-    x::breaker::Breaker &cancel,
+    const Start &start,
     const Settings &settings
 ) {
-    const auto deadline = this->config.host_clock.steady() +
-                          this->config.start_timeout.chrono();
     this->opens.fetch_add(1, std::memory_order_acq_rel);
     x::defer::defer done([this] {
         this->opens.fetch_sub(1, std::memory_order_acq_rel);
     });
-    auto [lock, lock_err] = this->lock_open(deadline, cancel);
-    if (lock_err) return {nullptr, lock_err};
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto lock_err = this->lock_for(lock, start)) return {nullptr, lock_err};
     auto [joined, err] = this->join_locked(
         lock,
         entries,
         sample_rate,
         false,
         settings,
-        deadline,
-        cancel
+        start
     );
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
@@ -888,10 +903,8 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<Writer::Entry> &entries,
     const x::telem::Rate execution_rate,
-    x::breaker::Breaker &cancel
+    const Start &start
 ) {
-    const auto deadline = this->config.host_clock.steady() +
-                          this->config.start_timeout.chrono();
     std::vector<pdo::Entry> pdo_entries;
     std::vector<x::telem::SampleValue> stop_values;
     pdo_entries.reserve(entries.size());
@@ -904,16 +917,15 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     x::defer::defer done([this] {
         this->opens.fetch_sub(1, std::memory_order_acq_rel);
     });
-    auto [lock, lock_err] = this->lock_open(deadline, cancel);
-    if (lock_err) return {nullptr, lock_err};
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto lock_err = this->lock_for(lock, start)) return {nullptr, lock_err};
     auto [joined, err] = this->join_locked(
         lock,
         pdo_entries,
         execution_rate,
         true,
         {},
-        deadline,
-        cancel
+        start
     );
     if (err) return {nullptr, err};
     auto output = std::make_shared<Output>(Output{
@@ -935,6 +947,18 @@ x::telem::Rate Engine::cycle_rate() const {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discover() {
     std::lock_guard lock(this->mu);
+    return this->discover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::discover(const Start &start) {
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto err = this->lock_for(lock, start)) return {{}, err};
+    return this->discover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::discover_locked() {
     if (this->running()) return {this->slaves, x::errors::NIL};
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
@@ -955,25 +979,18 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
     return this->rediscover_locked();
 }
 
-std::pair<std::unique_lock<std::mutex>, x::errors::Error> Engine::lock_open(
-    const std::chrono::steady_clock::time_point deadline,
-    x::breaker::Breaker &cancel
-) {
-    std::unique_lock lock(this->mu, std::defer_lock);
+x::errors::Error
+Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
     while (!lock.try_lock()) {
-        if (!cancel.running())
-            return {std::move(lock), start_canceled_error(this->network_name)};
-        if (this->config.host_clock.steady() >= deadline)
-            return {
-                std::move(lock),
-                x::errors::Error(
-                    errors::ACTIVATION_ERROR,
-                    "Another task is still starting on " + this->network_name + "."
-                )
-            };
-        cancel.wait_for(LOCK_POLL_INTERVAL);
+        if (!start.cancel.running()) return start_canceled_error(this->network_name);
+        if (this->config.host_clock.steady() >= start.deadline)
+            return x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "Another task is still starting on " + this->network_name + "."
+            );
+        start.cancel.wait_for(LOCK_POLL_INTERVAL);
     }
-    return {std::move(lock), x::errors::NIL};
+    return x::errors::NIL;
 }
 
 std::pair<std::unique_lock<std::mutex>, x::errors::Error> Engine::lock_stopped() {

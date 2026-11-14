@@ -233,7 +233,8 @@ public:
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
     x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
-        const auto [slaves, discover_err] = this->engine->discover();
+        const auto start = this->engine->begin_start(cancel);
+        const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
         if (auto err = this->cfg.slaves.validate(slaves)) return err;
 
@@ -246,7 +247,7 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
-            cancel,
+            start,
             this->cfg.settings
         );
         if (err) return err;
