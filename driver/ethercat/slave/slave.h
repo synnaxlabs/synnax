@@ -378,12 +378,12 @@ struct Status {
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
 /// message about one or more such slaves ends with it once.
-inline constexpr std::string_view DC_SYNC_ADVICE =
+inline const std::string DC_SYNC_ADVICE =
     "To fix \"Invalid DC SYNC configuration\", right-click the device, select "
     "Configure, and pick another sync mode.";
 
 /// @brief advice for a slave that reports an invalid input or output configuration.
-inline constexpr std::string_view
+inline const std::string
     MODE_RESTART_ADVICE = "If the mode of the device changed, restart its power.";
 
 /// @brief why the bus started without a slave that refused a state.
@@ -393,7 +393,7 @@ struct Refusal {
     std::string reason;
     /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
     /// for none. Each message about the refusal ends with it.
-    std::string_view advice;
+    std::string advice;
     /// @brief the AL status code of the refusal, or 0 when the master cannot read it.
     uint16_t code = 0;
 

@@ -60,6 +60,7 @@ const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"}
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
     .advice = slave::DC_SYNC_ADVICE,
+    .code = 0x0030,
 };
 /// @brief a refusal of a slave that kept the layout of its earlier mode.
 const slave::Refusal STALE_LAYOUT_REFUSAL{
@@ -1387,10 +1388,30 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
-        "configuration. Fix the device, then stop every task on the network to try it "
-        "again. To fix \"Invalid DC SYNC configuration\", right-click the device, "
-        "select Configure, and pick another sync mode."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. To fix \"Invalid DC SYNC configuration\", right-click the "
+        "device, select Configure, and pick another sync mode."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
+/// @brief it should tell the user to switch a slave to Synnax when it refused its DC
+/// sync configuration in the mode of another program.
+TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
@@ -1403,9 +1424,8 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Inconsistent "
-        "settings. Fix the device, then stop every task on the network to try it "
-        "again."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Inconsistent "
+        "settings. Fix the device, then stop every task on the network to try it again."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
@@ -1565,9 +1585,9 @@ TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
     auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid input "
-        "configuration. Fix the device, then stop every task on the network to try it "
-        "again. If the mode of the device changed, restart its power."
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
+        "input configuration. Fix the device, then stop every task on the network to "
+        "try it again. If the mode of the device changed, restart its power."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }

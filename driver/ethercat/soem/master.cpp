@@ -85,8 +85,8 @@ int micros(const x::telem::TimeSpan span) {
 }
 
 /// @brief returns what the user can do about a slave that refuses a state with the AL
-/// status code, or an empty view for no advice.
-std::string_view refusal_advice(const uint16_t code) {
+/// status code, or an empty string for no advice.
+std::string refusal_advice(const uint16_t code) {
     switch (code) {
         case 0x001D: // Invalid output configuration
         case 0x001E: // Invalid input configuration
