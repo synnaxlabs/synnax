@@ -12,7 +12,6 @@
 #include <charconv>
 #include <format>
 #include <optional>
-#include <set>
 #include <string_view>
 #include <system_error>
 
@@ -700,7 +699,7 @@ void Master::register_pdo_entries(
     master::Image &image
 ) {
     // A slave adds 1 to the datagram of each domain that holds one of its entries.
-    std::set<ec_domain_t *> domains;
+    master::WorkingCounterShare share;
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -733,16 +732,17 @@ void Master::register_pdo_entries(
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
-        domains.insert(domain);
+        if (domain == this->output_domain)
+            share.outputs = 1;
+        else
+            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
         add(pdo, this->output_domain);
     for (const auto &pdo: slave.input_pdos)
         add(pdo, this->input_domain);
-    if (!domains.empty())
-        image.working_counter_shares[slave.position] = static_cast<uint32_t>(
-            domains.size()
-        );
+    if (share != master::WorkingCounterShare{})
+        image.working_counter_shares[slave.position] = share;
 }
 
 x::errors::Error

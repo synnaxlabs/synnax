@@ -405,7 +405,8 @@ void Engine::run() {
             std::lock_guard lock(this->cycle_err_mu);
             this->cycle_err = err;
         }
-        // A short cycle that the slaves out of OP explain holds the other inputs.
+        // A cycle short by exactly what the slaves out of OP miss drops only their
+        // inputs.
         const Outage *out = nullptr;
         if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
             if (this->outage_version.load(std::memory_order_acquire) !=
@@ -414,8 +415,7 @@ void Engine::run() {
                 outage = this->outage;
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
-            if (const auto missing = this->master->shortfall();
-                missing && !outage.positions.empty() && *missing <= outage.share) {
+            if (this->master->shortfall() == outage.shortfall) {
                 out = &outage;
                 latched_at = sent_at + lead;
                 host_timed = true;
@@ -481,7 +481,10 @@ void Engine::supervise() {
             if (h.lost) next.silent.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
             if (const auto it = shares.find(h.position); it != shares.end())
-                next.share += it->second;
+                next.shortfall += it->second.outputs +
+                                  (!h.lost && h.state == slave::State::SAFE_OP
+                                       ? 0
+                                       : it->second.inputs);
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);

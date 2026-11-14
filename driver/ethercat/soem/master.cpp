@@ -631,9 +631,11 @@ master::Image Master::image() {
         const auto mapped_output_bits = this->record(props.position).Obits;
         // A frame adds 2 for each slave that takes its outputs and 1 for each slave
         // that gives its inputs.
-        if (const uint32_t share = (mapped_output_bits > 0 ? 2 : 0) +
-                                   (mapped_input_bits > 0 ? 1 : 0);
-            share > 0)
+        if (const master::WorkingCounterShare share{
+                .outputs = mapped_output_bits > 0 ? 2U : 0U,
+                .inputs = mapped_input_bits > 0 ? 1U : 0U,
+            };
+            share != master::WorkingCounterShare{})
             image.working_counter_shares[props.position] = share;
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
             const auto err = x::errors::Error(

@@ -151,8 +151,8 @@ class Engine {
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
 
-        /// @brief marks each slave of the reader at a position in out as lost.
-        /// @param out positions in ascending order.
+        /// @brief marks each slave of the reader in out as lost, and records whether it
+        /// responds.
         /// @returns true when the reader has a slave in out. Called only by the cycle
         /// thread.
         bool lose(const Outage &out);
@@ -240,8 +240,10 @@ class Engine {
         std::vector<uint16_t> positions;
         /// @brief the positions of the slaves that do not respond, in ascending order.
         std::vector<uint16_t> silent;
-        /// @brief the sum of their working counter shares.
-        uint32_t share = 0;
+        /// @brief how far the slaves keep the working counter from a full cycle: the
+        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
+        /// a slave in SAFE-OP.
+        uint32_t shortfall = 0;
 
         bool operator==(const Outage &) const = default;
     };

@@ -1903,7 +1903,11 @@ TEST_F(SOEMMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     this->activate_master();
     EXPECT_EQ(
         this->image.working_counter_shares,
-        (std::map<uint16_t, uint32_t>{{1, 3}, {2, 1}, {3, 2}})
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 2, .inputs = 1}},
+            {2, {.inputs = 1}},
+            {3, {.outputs = 2}},
+        })
     );
 }
 
