@@ -271,6 +271,32 @@ slave::Config Master::config(const uint16_t pos) const {
 master::Activation
 Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     auto &session = this->session.value();
+    // A slave whose EEPROM read failed has no identity and no SII layout to map.
+    std::map<uint16_t, slave::Refusal> unidentified;
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        const auto &rec = this->record(pos);
+        if (!this->config(pos).enabled || rec.eep_man != 0 || rec.eep_id != 0) continue;
+        unidentified[pos] = {
+            .reason = "gave no identity when the Driver read its EEPROM"
+        };
+        session.plan.slaves[pos].enabled = false;
+    }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}slave {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->slave_name(pos),
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
     auto [dc_setups, dc_err] = this->resolve_dc();
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
@@ -310,13 +336,15 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     );
     this->api->context.manualstatechange = 0;
 
-    if (iomap_size <= 0)
+    if (iomap_size <= 0) {
+        if (!unidentified.empty()) return refuse_unidentified();
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure PDO mapping"
             )
         };
+    }
 
     std::string failures;
     for (const auto &[pos, failure]: session.startup_failures)
@@ -344,6 +372,8 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // while it moves to SAFE-OP.
     session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
+    // The caller leaves out a refused slave only when the image maps another one.
+    if (!unidentified.empty()) return refuse_unidentified();
     if (auto err = this->start_dc()) return {.err = err};
 
     const int timeout = micros(this->cfg.state_change_timeout);

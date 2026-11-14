@@ -38,8 +38,10 @@ struct MockSlaveInfo {
     /// @brief the state of the slave on the bus. readstate and statecheck copy it into
     /// the SOEM slave table.
     uint16_t state = EC_STATE_INIT;
-    uint32_t eep_man = 0;
-    uint32_t eep_id = 0;
+    /// @brief the identity that config_init reads from the EEPROM, which is not in the
+    /// catalog. A vendor and product of 0 is a failed read.
+    uint32_t eep_man = 0xFFFF;
+    uint32_t eep_id = 0xFFFF;
     uint32_t eep_rev = 0;
     uint32_t eep_ser = 0;
     std::string name;
