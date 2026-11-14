@@ -409,6 +409,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         }
         scanned = std::move(result);
     }
+    slave::clear_duplicate_serials(this->slave_list);
 
     this->api->configdc();
     // configdc makes only the frames of the reference slave's group carry the DC time.

@@ -3133,6 +3133,25 @@ TEST_F(SOEMMasterTest, ActivateReadsAStartingSlaveWithNoStartupParameters) {
     EXPECT_EQ(activated.properties.serial, 0x5555);
 }
 
+/// @brief it should give serial number 0 to a slave that the activation reads with the
+/// serial number of a slave before it.
+TEST_F(SOEMMasterTest, ActivateGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (int i = 0; i < 2; i++) {
+        auto slave = create_coe_slave(0x5555);
+        slave.bus_state = EC_STATE_INIT;
+        this->add_slave(slave);
+    }
+    ASSERT_NIL_P(this->master->scan());
+    this->mock->statecheck_overrides.clear();
+    for (auto &info: this->mock->slave_infos)
+        info.bus_state.reset();
+    this->activate_master();
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+}
+
 /// @brief it should keep the failed serial read of a parameterized slave after
 /// activation.
 TEST_F(SOEMMasterTest, ActivateKeepsTheFailedSerialReadOfAParameterizedSlave) {
