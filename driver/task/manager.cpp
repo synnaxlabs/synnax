@@ -104,7 +104,7 @@ x::errors::Error Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     for (const auto &task: tasks)
-        this->fail_interrupted_start(task);
+        this->replace_interrupted_status(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -726,22 +726,30 @@ void Manager::announce_start(
     this->ctx->set_status(status);
 }
 
-void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
-    if (!tsk.status.has_value() ||
-        tsk.status->variant != synnax::status::VARIANT_LOADING)
-        return;
+void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+    if (!tsk.status.has_value()) return;
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
-    // disables Start and Stop while a start is loading.
+    // disables Start and Stop while a start is loading. One that stops a running task
+    // leaves it shown as running, with no data.
+    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    if (!starting && !tsk.status->details.running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
-    status.variant = synnax::status::VARIANT_ERROR;
-    status.message = "Failed to start task";
-    status.description = this->runs == 1
-                           ? "The Driver restarted while the task was starting. "
-                             "Start the task again."
-                           : "The Driver lost its connection to the Core while the "
-                             "task was starting. Start the task again.";
     status.details.running = false;
+    const std::string cause = this->runs == 1
+                                ? "The Driver restarted"
+                                : "The Driver lost its connection to the Core";
+    if (starting) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start task";
+        status.description = cause +
+                             " while the task was starting. Start the task again.";
+    } else {
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = "Task stopped";
+        status.description = cause +
+                             " while the task was running. Start the task again.";
+    }
     this->ctx->set_status(status);
 }
 

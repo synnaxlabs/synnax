@@ -759,29 +759,139 @@ TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
-/// @brief it should leave a stored status alone when no start was in progress.
-TEST_F(TaskManagerTest, BootLeavesAFinishedStatusAlone) {
+/// @brief stores a status of task as an earlier Driver run left it, with "stored" as
+/// its description.
+void store_status(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::task::Task &task,
+    const std::string &variant,
+    const std::string &message,
+    const bool running
+) {
+    synnax::task::Status status;
+    status.key = "stored-" + task.key.to_string();
+    status.owner = synnax::task::resource_id(task.key);
+    status.name = task.name;
+    status.variant = variant;
+    status.message = message;
+    status.description = "stored";
+    status.time = x::telem::TimeStamp::now();
+    status.details.running = running;
+    status.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(status));
+}
+
+/// @brief it should stop a task that a previous Driver run left running, so the
+/// Console does not show it as running with no data.
+TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
-    synnax::task::Status stopped;
-    stopped.key = "boot-stopped";
-    stopped.owner = synnax::task::resource_id(task.key);
-    stopped.name = task.name;
-    stopped.variant = synnax::status::VARIANT_SUCCESS;
-    stopped.message = "Task stopped";
-    stopped.time = x::telem::TimeStamp::now();
-    ASSERT_NIL(client->statuses.set(stopped));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
     start_manager(std::make_unique<EchoTaskFactory>());
-    std::vector<std::string> messages;
-    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
-        messages.push_back(s.message);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief a factory whose tasks start at boot, as an auto-start task does.
+class AutoStartTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &cmd_key,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        auto echo = std::make_unique<MockEchoTask>(ctx, task);
+        if (cmd_key == NO_COMMAND) {
+            synnax::task::Status status;
+            status.owner = synnax::task::resource_id(task.key);
+            status.name = task.name;
+            status.variant = synnax::status::VARIANT_SUCCESS;
+            status.message = "Started task";
+            status.details.running = true;
+            status.details.config_hash = task.config_hash;
+            ctx->set_status(status);
+        }
+        return {std::move(echo), true};
+    }
+};
+
+/// @brief it should replace a running status that a previous Driver run left before an
+/// auto-start task starts, so the task ends on its own "Started task".
+TEST_F(TaskManagerTest, BootLeavesAnAutoStartTaskOnItsOwnStatus) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    start_manager(std::make_unique<AutoStartTaskFactory>());
+    bool stopped = false;
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [&](const synnax::task::Status &s) {
+            if (s.message == "Task stopped") stopped = true;
+            return s.message == "Started task" && s.description != "stored";
+        }
+    );
+    EXPECT_TRUE(stopped);
+    EXPECT_TRUE(s.details.running);
+}
+
+/// @brief it should leave a stored stopped status alone.
+TEST_F(TaskManagerTest, BootLeavesAStoppedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Task stopped", false);
+    start_manager(std::make_unique<EchoTaskFactory>());
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
+        if (s.description != "stored") EXPECT_NE(s.message, "Failed to start task");
         return s.message == "configured";
     });
-    EXPECT_EQ(std::ranges::count(messages, "Failed to start task"), 0);
+}
+
+/// @brief it should leave a stored failed status alone.
+TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_ERROR,
+        "Failed to start task",
+        false
+    );
+    start_manager(std::make_unique<EchoTaskFactory>());
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
+        if (s.description != "stored") EXPECT_NE(s.message, "Failed to start task");
+        return s.message == "configured";
+    });
 }
 
 #ifndef _WIN32
@@ -854,6 +964,34 @@ TEST_F(TaskManagerTest, RunAfterACoreOutageFailsAStartLeftLoading) {
         "the task again."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
+/// @brief it should stop a task left running when the Core connection dropped, and say
+/// that the connection dropped, not that the Driver restarted.
+TEST_F(TaskManagerTest, RunAfterACoreOutageStopsATaskLeftRunning) {
+    start_piped_manager(std::make_unique<EchoTaskFactory>());
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    pipe->pause();
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    pipe->cut();
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(
+        s.description,
+        "The Driver lost its connection to the Core while the task was running. Start "
+        "the task again."
+    );
 }
 
 /// @brief it should wait for a worker stuck across runs before it deploys the task

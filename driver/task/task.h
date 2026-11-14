@@ -495,9 +495,10 @@ private:
         const std::string &config_hash,
         const synnax::task::Command &cmd
     );
-    /// @brief replaces a "Starting task" status that a previous Driver run or a run
-    /// before a Core outage left stored with a failed start.
-    void fail_interrupted_start(const synnax::task::Task &tsk);
+    /// @brief replaces a status that a previous Driver run or a run before a Core
+    /// outage left stored: "Starting task" with a failed start, and a running task with
+    /// a stopped one. Never starts the task.
+    void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(
         const synnax::task::Task &tsk,
