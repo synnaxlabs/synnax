@@ -347,6 +347,14 @@ describe("Nav Slice", () => {
       expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("labels");
       expect(s.windows()["window-2"]?.settings.section).toBe("license");
     });
+
+    it("should clear the item when a section opens without one", () => {
+      const s = run(
+        Nav.selectSettingsSection({ section: "certificates", item: "a" }),
+        Nav.selectSettingsSection({ section: "certificates" }),
+      );
+      expect(s.windows()[MAIN_WINDOW]?.settings.item).toBeUndefined();
+    });
   });
 
   describe("MIDDLEWARE", () => {

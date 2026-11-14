@@ -419,6 +419,9 @@ bound, a log precision, or the line plot X channel.
   explorer: a color swatch, then the name. Click the swatch to recolor. A right click
   opens the menu of the selected labels. You create a label from the page or from any
   label field.
+- Secrets and certificates are two record tables in Settings, not a toolbar. A secret
+  shows where its value comes from and a "Used by" count that opens what uses it. A
+  certificate shows when it is valid.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

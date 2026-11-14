@@ -20,6 +20,7 @@
       "independent": true,
       "tests": [
         { "case": "console/label/label_lifecycle" },
+        { "case": "console/secret/secret_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/device/devices_toolbar" },
         { "case": "console/device/connect_hardware" },

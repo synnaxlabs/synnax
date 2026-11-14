@@ -8,17 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  certificate,
+  type certificate,
   NotFoundError,
   pagerduty,
   secret,
   type Synnax as Client,
   task,
-  user,
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { Access } from "@synnaxlabs/pluto";
 import {
   act,
   cleanup,
@@ -28,7 +26,8 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, assert, describe, expect, it } from "vitest";
+import { type ReactElement } from "react";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import { Secret } from "@/feature/secret";
@@ -38,7 +37,6 @@ import { findButton } from "@/platform/modals/testutil";
 import { createSecret } from "@/platform/secret/testutil";
 import { Tree } from "@/platform/tree";
 import {
-  assertDefined,
   awaitGranted,
   awaitTextEditing,
   CaptureStatuses,
@@ -46,9 +44,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
-  getIconButton,
   openContextMenu,
-  renderHookWithConsole,
   resolveFocusedTab,
   selectTestProject,
   uniqueName,
@@ -56,7 +52,7 @@ import {
 
 const client = createTestClient();
 
-// The toolbar lists every secret and certificate on the Core, so each test removes
+// The pages list every secret and certificate on the Core, so each test removes
 // what it created.
 const createdSecrets: secret.Key[] = [];
 const createdCertificates: certificate.Key[] = [];
@@ -68,7 +64,7 @@ const ignoreNotFound = (err: unknown) => {
 };
 
 afterEach(async () => {
-  // Unmount first, or the toolbar would watch the deletions below.
+  // Unmount first, or the pages would watch the deletions below.
   cleanup();
   for (const key of createdTasks.splice(0)) await client.tasks.delete(key);
   for (const key of createdCertificates.splice(0))
@@ -90,7 +86,8 @@ const createCertificate = async () => {
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
 };
 
-const renderToolbar = async (
+const renderPage = async (
+  page: ReactElement,
   as: Client = client,
   items: Tree.Items = Secret.TREE_ITEMS,
 ) => {
@@ -98,7 +95,7 @@ const renderToolbar = async (
   let statuses: Status.NotificationSpec[] = [];
   render(
     <Tree.Provider items={items}>
-      {Secret.TOOLBAR.content}
+      {page}
       <Modals.Stack />
       <CaptureStatuses onStatuses={(s) => (statuses = s)} />
     </Tree.Provider>,
@@ -106,6 +103,15 @@ const renderToolbar = async (
   );
   return { statuses: () => statuses, store };
 };
+
+const renderSecrets = (
+  as?: Client,
+  items?: Tree.Items,
+  onSelectCertificate = vi.fn(),
+) =>
+  renderPage(<Secret.Secrets onSelectCertificate={onSelectCertificate} />, as, items);
+
+const renderCertificates = (as?: Client) => renderPage(<Secret.Certificates />, as);
 
 const retrieveByName = async (name: string): Promise<secret.Secret[]> =>
   (await client.secrets.retrieve({})).filter((s) => s.name === name);
@@ -117,19 +123,12 @@ const confirmDelete = async (name: string): Promise<void> => {
   fireEvent.click(findButton("Delete"));
 };
 
-const getOption = (name: string): HTMLElement => {
-  const option = screen
-    .getAllByRole("option")
-    .find((o) => within(o).queryByText(name) != null);
-  if (option == null) throw new Error(`no option for ${name}`);
-  return option;
-};
+const getOption = (name: string): HTMLElement => screen.getByRole("option", { name });
 
-describe("secret/Toolbar", () => {
-  it("creates a secret from the header action", async () => {
-    await renderToolbar();
-    const add = await waitFor(() => getIconButton(document.body, "add"));
-    fireEvent.click(add);
+describe("Secret.Secrets", () => {
+  it("creates a secret from the create button", async () => {
+    await renderSecrets();
+    fireEvent.click(await screen.findByText("Create secret"));
     const name = uniqueName("created");
     fireEvent.change(await screen.findByLabelText("Secret name"), {
       target: { value: name },
@@ -150,7 +149,7 @@ describe("secret/Toolbar", () => {
 
   it("renames a secret through the inline editor", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await openContextMenu(s.name);
     await clickAndSettle("Rename");
     const editor = await awaitTextEditing(`${s.key}-name`);
@@ -163,7 +162,7 @@ describe("secret/Toolbar", () => {
 
   it("replaces the value of a secret in place", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await openContextMenu(s.name);
     await clickAndSettle("Replace value");
     fireEvent.change(await screen.findByPlaceholderText("New value"), {
@@ -179,7 +178,7 @@ describe("secret/Toolbar", () => {
 
   it("keeps a rename that another user makes while the replacement is open", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await openContextMenu(s.name);
     await clickAndSettle("Replace value");
     const renamed = uniqueName("renamed");
@@ -203,7 +202,7 @@ describe("secret/Toolbar", () => {
       retrieve: [secret.TYPE_RESOURCE_ID],
       update: [secret.TYPE_RESOURCE_ID],
     });
-    await renderToolbar(editor);
+    await renderSecrets(editor);
     await openContextMenu(s.name);
     await screen.findByText("Replace value");
   });
@@ -215,7 +214,7 @@ describe("secret/Toolbar", () => {
       fileName: "token",
     });
     createdSecrets.push(s.key);
-    await renderToolbar();
+    await renderSecrets();
     await openContextMenu(s.name);
     await screen.findByText("Rename");
     expect(screen.queryByText("Replace value")).toBeNull();
@@ -223,7 +222,7 @@ describe("secret/Toolbar", () => {
 
   it("deletes a secret after confirmation", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await confirmDelete(s.name);
     await waitFor(async () => {
       await expect(client.secrets.retrieve(s.key)).rejects.toSatisfy((e) =>
@@ -234,7 +233,7 @@ describe("secret/Toolbar", () => {
 
   it("reports an error and keeps a secret that a certificate uses", async () => {
     const { certificate: c, privateKey } = await createCertificate();
-    const { statuses } = await renderToolbar();
+    const { statuses } = await renderSecrets();
     await confirmDelete(privateKey.name);
     const failed = await waitFor(() => {
       const status = statuses().find((s) => s.variant === "error");
@@ -249,9 +248,10 @@ describe("secret/Toolbar", () => {
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
   });
 
-  it("lists the users of a secret and selects a certificate from them", async () => {
+  it("lists the users of a secret and shows a certificate from them", async () => {
     const { certificate: c, privateKey } = await createCertificate();
-    await renderToolbar();
+    const onSelectCertificate = vi.fn();
+    await renderSecrets(client, Secret.TREE_ITEMS, onSelectCertificate);
     // Other specs can leave used secrets on the Core, so read the count of this key.
     const count = await waitFor(() =>
       within(getOption(privateKey.name)).getByText("Used by 1"),
@@ -261,14 +261,12 @@ describe("secret/Toolbar", () => {
     });
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByText(c.name));
-    await waitFor(() =>
-      expect(getOption(c.name).getAttribute("aria-selected")).toBe("true"),
-    );
+    expect(onSelectCertificate).toHaveBeenCalledWith(c.key);
   });
 
   it("counts the users of a secret that arrives after the list loads", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await screen.findByText(s.name);
     const { privateKey } = await createCertificate();
     await waitFor(() => within(getOption(privateKey.name)).getByText("Used by 1"));
@@ -276,16 +274,18 @@ describe("secret/Toolbar", () => {
 
   it("opens the users of a secret from the context menu", async () => {
     const s = await createSecret(client, createdSecrets);
-    await renderToolbar();
+    await renderSecrets();
     await openContextMenu(s.name);
-    await clickAndSettle("Used by");
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Used by" }));
+    });
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Nothing uses this secret.");
   });
 
   it("opens the users on hover and closes them after the pointer leaves", async () => {
     const { certificate: c, privateKey } = await createCertificate();
-    await renderToolbar();
+    await renderSecrets();
     const count = await waitFor(() =>
       within(getOption(privateKey.name)).getByText("Used by 1"),
     );
@@ -320,7 +320,7 @@ describe("secret/Toolbar", () => {
       PagerDuty.Task.ALERT_SCHEMAS,
     );
     createdTasks.push(t.key);
-    const { store } = await renderToolbar(client, {
+    const { store } = await renderSecrets(client, {
       ...Secret.TREE_ITEMS,
       ...Task.TREE_ITEMS,
     });
@@ -337,9 +337,60 @@ describe("secret/Toolbar", () => {
     expect(tab.resource).toEqual(task.resourceID(t.key));
   });
 
+  it("deletes every selected secret after confirmation", async () => {
+    const a = await createSecret(client, createdSecrets);
+    const b = await createSecret(client, createdSecrets);
+    await renderSecrets();
+    for (const { name } of [a, b]) {
+      const option = await waitFor(() => getOption(name));
+      fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+    }
+    await openContextMenu(b.name);
+    expect(screen.queryByText("Rename")).toBeNull();
+    await clickAndSettle("Delete");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => {
+      for (const { key } of [a, b])
+        await expect(client.secrets.retrieve(key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+    });
+  });
+
+  it("lists only the secrets that match the search", async () => {
+    const prefix = uniqueName("search");
+    const match = await client.secrets.set({
+      name: `${prefix}-match`,
+      source: "stored",
+      value: "v",
+    });
+    createdSecrets.push(match.key);
+    const other = await createSecret(client, createdSecrets);
+    await renderSecrets();
+    await screen.findByText(other.name);
+    fireEvent.change(screen.getByPlaceholderText("Search secrets"), {
+      target: { value: prefix },
+    });
+    await waitFor(() => expect(screen.queryByText(other.name)).toBeNull());
+    expect(screen.getByText(match.name)).toBeTruthy();
+  });
+
+  it("offers no create button to a user who cannot create secrets", async () => {
+    const s = await createSecret(client, createdSecrets);
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [secret.TYPE_RESOURCE_ID],
+    });
+    await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
+    await renderSecrets(reader);
+    await screen.findByText(s.name);
+    expect(screen.queryByText("Create secret")).toBeNull();
+  });
+});
+
+describe("Secret.Certificates", () => {
   it("renames a certificate through the inline editor", async () => {
     const { certificate: c } = await createCertificate();
-    await renderToolbar();
+    await renderCertificates();
     await openContextMenu(c.name);
     await clickAndSettle("Rename");
     const editor = await awaitTextEditing(`${c.key}-name`);
@@ -350,67 +401,54 @@ describe("secret/Toolbar", () => {
     );
   });
 
+  it("lists only the certificates that match the search", async () => {
+    const { certificate: a } = await createCertificate();
+    const { certificate: b } = await createCertificate();
+    await renderCertificates();
+    await screen.findByText(b.name);
+    fireEvent.change(screen.getByPlaceholderText("Search certificates"), {
+      target: { value: a.name },
+    });
+    await waitFor(() => expect(screen.queryByText(b.name)).toBeNull());
+    expect(screen.getByText(a.name)).toBeTruthy();
+  });
+
+  it("selects and shows the certificate it is given", async () => {
+    const { certificate: c } = await createCertificate();
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Secret.Certificates selected={c.key} />, { wrapper });
+    const option = await screen.findByRole("option", { name: c.name });
+    expect(option.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("deletes every selected certificate after confirmation", async () => {
+    const { certificate: a } = await createCertificate();
+    const { certificate: b } = await createCertificate();
+    await renderCertificates();
+    for (const { name } of [a, b]) {
+      const option = await waitFor(() => getOption(name));
+      fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+    }
+    await openContextMenu(b.name);
+    expect(screen.queryByText("Rename")).toBeNull();
+    await clickAndSettle("Delete");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => {
+      for (const { key } of [a, b])
+        await expect(client.certificates.retrieve(key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+    });
+  });
+
   it("deletes a certificate after confirmation", async () => {
     const { certificate: c } = await createCertificate();
-    await renderToolbar();
+    await renderCertificates();
     await confirmDelete(c.name);
     await waitFor(async () => {
       await expect(client.certificates.retrieve(c.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });
-  });
-
-  it("lists only certificates to a user who cannot read secrets", async () => {
-    const { certificate: c, privateKey } = await createCertificate();
-    const reader = await createTestClientWithGrants(client, {
-      retrieve: [certificate.TYPE_RESOURCE_ID],
-    });
-    await renderToolbar(reader);
-    await screen.findByText(c.name);
-    expect(screen.queryByText("Secrets")).toBeNull();
-    expect(screen.queryByText(privateKey.name)).toBeNull();
-  });
-
-  it("shows the toolbar to a user who can read only certificates", async () => {
-    assertDefined(Secret.TOOLBAR.useVisible);
-    const { result } = await renderHookWithConsole(Secret.TOOLBAR.useVisible, {
-      client: await createTestClientWithGrants(client, {
-        retrieve: [certificate.TYPE_RESOURCE_ID],
-      }),
-    });
-    await waitFor(() => expect(result.current).toBe(true));
-  });
-
-  it("hides the toolbar from a user who can read no credentials", async () => {
-    const { useVisible } = Secret.TOOLBAR;
-    assertDefined(useVisible);
-    const { result } = await renderHookWithConsole(
-      () => ({
-        visible: useVisible(),
-        resolved: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
-      }),
-      { client: await createTestClientWithGrants(client) },
-    );
-    await waitFor(() => expect(result.current.resolved).toBe(true));
-    expect(result.current.visible).toBe(false);
-  });
-
-  it("offers to create a secret when there are no credentials", async () => {
-    const creator = await createTestClientWithGrants(client, {
-      create: [secret.TYPE_RESOURCE_ID],
-    });
-    await renderToolbar(creator);
-    await screen.findByText("No credentials");
-    fireEvent.click(await screen.findByText("Create secret"));
-    await screen.findByLabelText("Secret name");
-  });
-
-  it("offers no create action to a user who cannot create secrets", async () => {
-    const outsider = await createTestClientWithGrants(client);
-    await awaitGranted(outsider, user.TYPE_RESOURCE_ID, "retrieve");
-    await renderToolbar(outsider);
-    await screen.findByText("No credentials");
-    expect(screen.queryByText("Create secret")).toBeNull();
   });
 });
