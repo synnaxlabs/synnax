@@ -86,7 +86,7 @@ export const Bar = ({
                 visible={drifted}
                 tooltip={redeployTooltip}
                 onClick={() => onDeploy?.()}
-                disabled={disabled || startStopVariant === "loading"}
+                disabled={disabled || loading}
               />
               <StartStopButton
                 running={stoppable}
