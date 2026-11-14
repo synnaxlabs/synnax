@@ -47,8 +47,6 @@
       "lyra-list__item",
       "lyra-list__virtualizer"
     ],
-    "console/src/feature/range/list/List.css": ["lyra-tags"],
-    "console/src/feature/range/overview/Overview.css": ["lyra--hidden", "lyra-header"],
     "console/src/feature/schematic/symbol/edit/Edit.css": [
       "lyra-modal",
       "lyra-modal__body"

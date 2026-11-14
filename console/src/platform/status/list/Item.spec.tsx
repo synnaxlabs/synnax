@@ -60,7 +60,7 @@ const Fixture = ({ status: stat }: { status: status.Status }): ReactElement => {
 Fixture.displayName = "Fixture";
 
 const favoriteCheckbox = (): HTMLInputElement =>
-  screen.getByRole("checkbox", { name: "Pin" });
+  screen.getByRole("checkbox", { name: "Favorite" });
 
 describe("Status.List.Item", () => {
   it("should render the status name and message", async () => {

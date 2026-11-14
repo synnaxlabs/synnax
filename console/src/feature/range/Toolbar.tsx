@@ -38,7 +38,7 @@ const NoRanges = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
-      message="No pinned ranges"
+      message="No favorited ranges"
       action={hasRetrievePermission ? "Open range explorer" : undefined}
       onClick={openExplorer}
     />

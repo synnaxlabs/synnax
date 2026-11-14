@@ -19,7 +19,8 @@ import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { useOpen, useStart, useStop } from "@/feature/range/next/Item";
+import { useStart, useStop } from "@/feature/range/tree/Item";
+import { Sift } from "@/feature/sift";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -41,7 +42,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
   const canPlot = Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID);
   const favoriteKeys = Session.Range.useSelectKeys();
   const dispatch = Session.useDispatch();
-  const open = useOpen();
+  const open = Range.useOpen();
   const plot = Range.useAddToNewPlot();
   const start = useStart();
   const stop = useStop();
@@ -115,7 +116,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           }
         >
           <Icon.StarFilled />
-          Pin
+          Favorite
         </Menu.Item>
       )}
       {ranges.some((r) => favoriteKeys.includes(r.key)) && (
@@ -126,9 +127,14 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           }
         >
           <Icon.StarOutlined />
-          Unpin
+          Unfavorite
         </Menu.Item>
       )}
+      <Menu.Divider />
+      {single != null && (
+        <Sift.Range.UploadMenuItem rangeKey={single.key} rangeName={single.name} />
+      )}
+      <Menu.Divider />
       {single != null && (
         <Link.CopyContextMenuItem
           onClick={() =>

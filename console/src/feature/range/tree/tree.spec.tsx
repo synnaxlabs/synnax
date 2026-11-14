@@ -11,50 +11,38 @@ import { type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { createRenderCounter } from "@synnaxlabs/lyra/testutil";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ComponentType, type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
-import { FlatItem, TreeItem } from "@/feature/range/next/Item";
-import { Timeline } from "@/feature/range/next/Timeline";
-import { NodeProvider, useExpanded, useTree } from "@/feature/range/next/tree";
+import { Tree } from "@/feature/range/tree";
+import { createItemCounter } from "@/feature/range/tree/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
 const noop = () => {};
 
-const { Counted, counts, reset } = createRenderCounter();
-
-const counted =
-  (Item: ComponentType<List.ItemProps<ranger.Key>>) =>
-  ({ key, ...props }: List.ItemProps<ranger.Key>): ReactElement => (
-    <Counted key={key} id={props.itemKey}>
-      <Item {...props} />
-    </Counted>
-  );
+const { Items, counts, reset } = createItemCounter();
 
 type Layout = "tree" | "list" | "timeline";
 
-const ITEMS = { tree: counted(TreeItem), list: counted(FlatItem) };
-
-interface TreeProps {
+interface HarnessProps {
   label: label.Key;
   layout: Layout;
 }
 
 /** The ranges with the label as roots, in name order, with their children. */
-const Tree = ({ label, layout }: TreeProps): ReactElement => {
+const Harness = ({ label, layout }: HarnessProps): ReactElement => {
   const list = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: { labels: [label] }, order: { field: "name", descending: false } },
   });
   useEffect(() => list.more(), []);
-  const [expanded, toggle] = useExpanded();
-  const tree = useTree({ roots: list.data, expanded });
+  const [expanded, toggle] = Tree.useExpanded();
+  const tree = Tree.use({ roots: list.data, expanded });
   return (
     <Select.Frame
       multiple
@@ -64,20 +52,23 @@ const Tree = ({ label, layout }: TreeProps): ReactElement => {
       value={[]}
       onChange={noop}
     >
-      <NodeProvider
-        nodes={tree.nodes}
-        expanded={expanded}
-        onExpand={toggle}
-        more={tree.more}
-      >
-        {layout === "timeline" ? (
-          <Timeline nodes={tree.nodes} />
-        ) : (
-          <List.Scroll>
-            <List.Items<ranger.Key>>{ITEMS[layout]}</List.Items>
-          </List.Scroll>
-        )}
-      </NodeProvider>
+      {layout === "timeline" ? (
+        <Tree.Layout
+          layout="timeline"
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        />
+      ) : (
+        <Items
+          layout={layout}
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        />
+      )}
     </Select.Frame>
   );
 };
@@ -106,7 +97,7 @@ const renderTree = async (
   layout: Layout = "tree",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  await renderSuspended(<Tree label={label} layout={layout} />, { wrapper });
+  await renderSuspended(<Harness label={label} layout={layout} />, { wrapper });
   await waitFor(() =>
     ranges.forEach((r) => expect(countEditableText(List.itemNameID(r.key))).toBe(1)),
   );
@@ -128,7 +119,7 @@ describe("range tree", () => {
     },
   );
 
-  it("should mount each child once on expand and render no other item", async () => {
+  it("should render no other item on expand", async () => {
     const { label, ranges } = await createRanges();
     // The ranges below an expanded range move, so the last range keeps all still.
     const c = ranges[2];
@@ -172,7 +163,7 @@ describe("range tree", () => {
     expect(changes).toEqual([]);
   });
 
-  it("should mount an added range once and render no other item", async () => {
+  it("should render no existing item when a range is added", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
     const end = TimeStamp.now().sub(TimeSpan.days(1));

@@ -188,7 +188,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           <Menu.Divider />
           <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
-            Unpin
+            Unfavorite
           </Menu.Item>
           {rng.variant === "persisted" && hasDeletePermission && (
             <Base.DeleteItem onClick={() => del(rng.key)} />

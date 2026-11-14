@@ -64,11 +64,11 @@ describe("status list context menu", () => {
   it("should favorite the selected statuses", async () => {
     const s = await createStatus();
     const store = await renderMenu([s.key]);
-    fireEvent.click(await screen.findByText("Pin"));
+    fireEvent.click(await screen.findByText("Favorite"));
     await waitFor(() =>
       expect(store.getState()[Session.Status.SLICE_NAME].favorites).toEqual([s.key]),
     );
-    expect(await screen.findByText("Unpin")).toBeTruthy();
+    expect(await screen.findByText("Unfavorite")).toBeTruthy();
   });
 
   it("should offer Reload Console", async () => {
@@ -80,7 +80,7 @@ describe("status list context menu", () => {
   it("should unfavorite an already-favorited status", async () => {
     const s = await createStatus();
     const store = await renderMenu([s.key], [s.key]);
-    fireEvent.click(await screen.findByText("Unpin"));
+    fireEvent.click(await screen.findByText("Unfavorite"));
     await waitFor(() =>
       expect(store.getState()[Session.Status.SLICE_NAME].favorites).toEqual([]),
     );

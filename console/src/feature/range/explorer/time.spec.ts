@@ -12,7 +12,7 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { nextCrossing, pin } from "@/feature/range/next/time";
+import { nextCrossing, pin } from "@/feature/range/explorer/time";
 
 const AT = TimeStamp.seconds(1000);
 const DAY = TimeSpan.days(1);

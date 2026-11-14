@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Range.css";
+import "@/feature/range/tree/Item.css";
 
 import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -31,27 +31,26 @@ import {
   type ReactNode,
 } from "react";
 
-import { useNode } from "@/feature/range/next/tree";
+import { useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
-import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 const [HighlightContext, useHighlight] = context.create<string | undefined>({
   defaultValue: undefined,
-  displayName: "Range.HighlightContext",
+  displayName: "Tree.HighlightContext",
 });
 
-export { HighlightContext };
+const [CaretlessContext, useCaretless] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Tree.CaretlessContext",
+});
+
+export { CaretlessContext, HighlightContext };
 
 /** Whether the time range has a start, and so a time to show. */
 export const scheduled = (timeRange: TimeRange): boolean =>
   !timeRange.makeValid().start.equals(TimeStamp.MAX);
-
-export const useOpen = (): ((key: ranger.Key) => void) => {
-  const openTab = Panel.useOpenTab();
-  return (key) => openTab({ variant: "resource", resource: ranger.resourceID(key) });
-};
 
 /** Starts a planned range now. It keeps an end that is still ahead. */
 export const useStart = (): ((range: ranger.Range) => void) => {
@@ -214,13 +213,14 @@ export const Lead = ({
 }: LeadProps): ReactElement => {
   const { update: rename } = Ranger.useRename();
   const highlight = useHighlight();
+  const caretless = useCaretless();
   return (
     <>
       <span
         className={CSS.BE("range-item", "indent")}
         style={{ "--console-range-depth": depth } as CSSProperties}
       />
-      {onExpand != null && (
+      {onExpand != null && !caretless && (
         <Caret range={range} expanded={expanded} onExpand={onExpand} />
       )}
       <Swatch range={range} preview={preview} />
@@ -301,22 +301,22 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
   );
 };
 
-interface ItemProps
+interface BaseProps
   extends List.ItemProps<ranger.Key>, Omit<LeadProps, "range" | "preview"> {}
 
 /** A range as a row: its lead, labels, time, and favorite button. */
-const Item = ({
+const Base = ({
   depth,
   expanded,
   onExpand,
   showPath,
   className,
   ...rest
-}: ItemProps): ReactElement | null => {
+}: BaseProps): ReactElement | null => {
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
-  const open = useOpen();
+  const open = Range.useOpen();
   if (range == null) return null;
   return (
     <Select.Item<ranger.Key>
@@ -348,12 +348,12 @@ const Item = ({
 };
 
 /** An item in a tree, at its depth, with a caret that opens its children. */
-export const TreeItem = (props: List.ItemProps<ranger.Key>): ReactElement => {
+export const Item = (props: List.ItemProps<ranger.Key>): ReactElement => {
   const { depth, expanded, onExpand } = useNode(props.itemKey);
-  return <Item {...props} depth={depth} expanded={expanded} onExpand={onExpand} />;
+  return <Base {...props} depth={depth} expanded={expanded} onExpand={onExpand} />;
 };
 
 /** An item out of its tree, with the name of its parent. */
 export const FlatItem = (props: List.ItemProps<ranger.Key>): ReactElement => (
-  <Item {...props} showPath />
+  <Base {...props} showPath />
 );

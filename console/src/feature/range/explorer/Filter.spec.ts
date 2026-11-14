@@ -11,11 +11,11 @@ import { type ranger } from "@synnaxlabs/client";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { PROPERTIES } from "@/feature/range/next/Filter";
+import { PROPERTIES } from "@/feature/range/explorer/Filter";
 
 const A = "4a1f0f4e-2b8f-4d3c-9b8e-3f6c2a1d0e01";
 
-describe("range/next/Filter", () => {
+describe("range/explorer/Filter", () => {
   it.each<[string, unknown]>([
     ["stage", ["in_progress", "completed"]],
     ["time", TimeSpan.days(7)],

@@ -11,18 +11,13 @@ import { type ranger, type view } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import {
-  itemHeight,
-  LayoutSelect,
-  ORDERS,
-  TreeLayout,
-} from "@/feature/range/next/Explorer";
-import { AddButton, Section } from "@/feature/range/next/overview/Section";
-import { childrenQuery, useExpanded, useTree } from "@/feature/range/next/tree";
+import { AddButton, Section } from "@/feature/range/overview/Section";
+import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 
 /**
@@ -40,7 +35,7 @@ const defaultLayout = (range: ranger.Range, now: TimeStamp): view.RangeLayout =>
 
 /** A tree shows the newest child first, and a timeline shows its lanes in order. */
 const childOrder = (layout: view.RangeLayout): ranger.Order =>
-  layout === "tree" ? ORDERS.newest : ORDERS.oldest;
+  layout === "tree" ? Tree.ORDERS.newest : Tree.ORDERS.oldest;
 
 const CHILD_LAYOUTS: view.RangeLayout[] = ["tree", "timeline"];
 
@@ -56,12 +51,18 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
   const order = childOrder(layout);
   const list = Flux.useList((client) => client.ranges, {
     name: "ranges",
-    query: childrenQuery(range.key, order),
+    query: Tree.childrenQuery(range.key, order),
     pageSize: 100,
   });
-  const [expanded, toggle] = useExpanded();
+  const children = Store.useItems({
+    keys: list.data,
+    subscribe: list.subscribe,
+    getItem: list.getItem,
+  });
+  const caretless = children.every((child) => !child.hasChildren);
+  const [expanded, toggle] = Tree.useExpanded();
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const tree = useTree({ roots: list.data, expanded, order });
+  const tree = Tree.use({ roots: list.data, expanded, order });
   return (
     <Section
       title="Child ranges"
@@ -69,7 +70,11 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
       className={CSS.BE("range-overview", "children")}
       actions={
         <>
-          <LayoutSelect value={layout} onChange={setLayout} layouts={CHILD_LAYOUTS} />
+          <Tree.LayoutSelect
+            value={layout}
+            onChange={setLayout}
+            layouts={CHILD_LAYOUTS}
+          />
           {onCreate != null && (
             <AddButton tooltip="Create child range" onClick={onCreate} />
           )}
@@ -85,15 +90,16 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
         onChange={setSelected}
         onFetchMore={list.more}
         virtual
-        itemHeight={itemHeight(layout)}
+        itemHeight={Tree.itemHeight(layout)}
       >
-        <TreeLayout
+        <Tree.Layout
           layout={layout}
           nodes={tree.nodes}
           expanded={expanded}
           onExpand={toggle}
           more={tree.more}
           bounds={range.timeRange}
+          caretless={caretless}
         />
       </Select.Frame>
     </Section>

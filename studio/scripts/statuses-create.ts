@@ -47,7 +47,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.endZoom();
   await session.waitForHidden(modal);
   await session.hold(800);
-  // A new status is not pinned, so the toolbar stays empty and the explorer lists it.
+  // A new status is no favorite, so the toolbar stays empty and the explorer lists it.
   await session.click(page.getByText("Open status explorer", { exact: true }).first(), {
     text: true,
     zoom: false,

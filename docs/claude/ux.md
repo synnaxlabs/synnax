@@ -370,6 +370,10 @@ bound, a log precision, or the line plot X channel.
   6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
   bars. The second bar's controls are 28 px with 13 px text.
 - Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- The bars have no edit toggle. The search shows on every view. On a static view, and on
+  a saved view that the user may update, the user changes the filters, the sort, and the
+  layout. Other saved views show the filter chips, the sort, and the layout read-only.
+  Create view shows when the user may create views.
 
 ### View tabs
 

@@ -20,8 +20,8 @@ const LABELS = [
 
 /**
  * Docs `client/ranges/create-child`: right-click a range in the range explorer, select
- * Create child range, name the child, and save it to the Core. The dialog fills in the
- * parent, and the child appears in the range explorer.
+ * Start child range, name the child, and save it to the Core. The dialog fills in the
+ * parent, and the child appears under it in the range explorer.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -46,7 +46,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.contextMenu(session, parent, "Start child range");
   const modal = page.locator(capture.MODAL).first();
-  const name = modal.getByPlaceholder("Name").first();
+  const name = modal.getByPlaceholder("Range name").first();
   await session.waitFor(name);
   await session.hold(400);
   await session.zoom(modal);
@@ -60,9 +60,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type(CHILD);
   await session.hold(300);
 
-  await session.click(modal.getByText("Labels", { exact: true }).first(), {
-    text: true,
-  });
+  const labels = modal.getByRole("button", { name: "Labels", exact: true }).first();
+  await session.click(labels, { text: true });
   const item = page
     .locator(".lyra-dialog__dialog")
     .filter({ has: page.getByPlaceholder("Search labels...") })

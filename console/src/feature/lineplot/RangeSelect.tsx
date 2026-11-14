@@ -258,7 +258,7 @@ const DurationSearch = ({
       }}
     >
       <Select.Search
-        placeholder="Search pinned ranges or type a duration"
+        placeholder="Search favorites or type a duration"
         onSearch={onSearch}
       />
     </Flex.Box>
@@ -272,7 +272,7 @@ const ABOVE: position.LocationPreference = {
 
 const emptyContent = (
   <Status.Summary center variant="disabled">
-    No pinned ranges found
+    No favorite ranges found
   </Status.Summary>
 );
 

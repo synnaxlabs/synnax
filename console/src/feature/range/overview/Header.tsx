@@ -18,7 +18,6 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useOpen } from "@/feature/range/next/Item";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
@@ -33,7 +32,7 @@ interface RangeKeyProps {
 
 const Crumbs = ({ rangeKey }: RangeKeyProps): ReactElement | null => {
   const range = Ranger.useResult({ key: rangeKey }).data;
-  const open = useOpen();
+  const open = Range.useOpen();
   if (range == null) return null;
   return (
     <>

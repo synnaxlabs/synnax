@@ -260,7 +260,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     }
 
     await capture.login(session, world.project);
-    await pin(
+    await favorite(
       session,
       ALARMS.map((a) => a.name),
     );
@@ -305,10 +305,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 };
 
 /**
- * pin opens the status explorer from the palette, pins each named status in it, and
- * closes the explorer's tab.
+ * favorite opens the status explorer from the palette, favorites each named status in
+ * it, and closes the explorer's tab.
  */
-const pin = async (
+const favorite = async (
   session: capture.CaptureSession,
   names: readonly string[],
 ): Promise<void> => {
@@ -320,7 +320,7 @@ const pin = async (
     await capture.contextMenu(
       session,
       item.getByText(name, { exact: true }).first(),
-      "Pin",
+      "Favorite",
     );
     session.endZoom();
     await session.settle(300);

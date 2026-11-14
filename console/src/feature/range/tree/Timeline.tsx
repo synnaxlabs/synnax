@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/range/tree/Timeline.css";
+
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -38,9 +40,10 @@ import {
   useState,
 } from "react";
 
-import { Lead, scheduled, useOpen } from "@/feature/range/next/Item";
-import { type Node, useNode } from "@/feature/range/next/tree";
+import { Lead, scheduled } from "@/feature/range/tree/Item";
+import { type Node, useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
+import { Range } from "@/platform/range";
 
 /** A window of time in milliseconds since the epoch. */
 interface Window {
@@ -206,8 +209,8 @@ interface ContextValue {
 }
 
 const [Context, useContext] = context.create<ContextValue>({
-  displayName: "Range.TimelineContext",
-  providerName: "Range.Timeline",
+  displayName: "Tree.TimelineContext",
+  providerName: "Tree.Timeline",
 });
 
 const percent = (ms: number, w: Window): number =>
@@ -232,7 +235,7 @@ interface BarProps {
 
 /** A bar places itself from the window on the timeline root, so a pan renders none. */
 const Bar = ({ range }: BarProps): ReactElement | null => {
-  const { origin, onZoom } = useContext("Range.Bar");
+  const { origin, onZoom } = useContext("Tree.Bar");
   if (!scheduled(range.timeRange)) return null;
   const open = range.timeRange.end.equals(TimeStamp.MAX);
   const { start, end } = range.timeRange.makeValid();
@@ -289,7 +292,7 @@ const Lane = ({
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const { depth, expanded, onExpand } = useNode(itemKey);
   const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
-  const open = useOpen();
+  const open = Range.useOpen();
   if (range == null) return null;
   return (
     <Select.Item<ranger.Key>
@@ -345,7 +348,7 @@ const Frame = ({
   const now = toMS(useNow(nextTick));
   const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null || subscribe == null)
-    throw new Error("Range.Timeline must be inside a list of ranges");
+    throw new Error("Tree.Timeline must be inside a list of ranges");
   const roots = Store.useItems({
     keys: nodes
       .filter((n) => n.depth === 0)

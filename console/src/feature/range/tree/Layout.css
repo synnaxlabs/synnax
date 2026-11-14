@@ -9,14 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-overview__parent-button {
-    padding: 1rem;
-}
-
-.console-range-overview__actions {
-    height: fit-content;
-}
-
-.console-range-overview__labels-select {
-    width: fit-content;
+.console-range-tree__list .console-range-item {
+    padding-right: 1.5rem;
 }

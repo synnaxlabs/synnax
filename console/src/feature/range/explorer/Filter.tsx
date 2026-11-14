@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Filter.css";
+import "@/feature/range/explorer/Filter.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
