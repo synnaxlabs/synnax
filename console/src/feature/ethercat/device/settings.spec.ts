@@ -118,6 +118,15 @@ describe("Settings", () => {
       ]);
     });
 
+    it("should name a typed voltage that float32 cannot hold in the note", () => {
+      const unipolar = Settings.set(excitation, [], EXCITATION, 13.3);
+      const bipolar = Settings.set(excitation, unipolar.values, POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(12);
+      expect(bipolar.notes).toEqual([
+        { ...EXCITATION, message: "Excitation voltage changed from 13.3 V to 12 V." },
+      ]);
+    });
+
     it("should keep a voltage inside the limit of the new field", () => {
       const unipolar = Settings.set(excitation, [], EXCITATION, 10);
       const bipolar = Settings.set(excitation, unipolar.values, POLARITY, 1);

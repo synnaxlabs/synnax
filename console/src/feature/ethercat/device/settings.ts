@@ -167,9 +167,12 @@ export const fill = (fields: Field[], values: Value[]): ethercat.StartupParamete
 
 /** @returns the shortest text that reads back as the value of the field. */
 export const valueText = ({ dataType }: Field, value: number): string => {
-  if (!DataType.FLOAT32.equals(dataType)) return value.toString();
+  if (!DataType.FLOAT32.equals(dataType) || !Number.isFinite(value))
+    return value.toString();
+  // A typed value or a catalog limit is a float64 that float32 can fail to hold.
+  const stored = Math.fround(value);
   let digits = 1;
-  while (Math.fround(Number(value.toPrecision(digits))) !== value) digits++;
+  while (Math.fround(Number(value.toPrecision(digits))) !== stored) digits++;
   return Number(value.toPrecision(digits)).toString();
 };
 
