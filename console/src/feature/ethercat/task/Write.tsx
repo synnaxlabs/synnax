@@ -48,6 +48,7 @@ import {
   writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
+import { useEntryProblem } from "@/feature/ethercat/task/useEntryProblem";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -78,11 +79,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.outputs, ch) != null
       ? writeChannelNames(slave, ch)
       : undefined;
+  const problem = useEntryProblem(ch, slave, "outputs");
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.outputs ?? []} />}
-      status={ch.type === "unresolved" ? "error" : undefined}
+      status={problem == null ? undefined : "error"}
       path={entry}
       channel={ch.cmdChannel}
       defaultName={names?.cmd}

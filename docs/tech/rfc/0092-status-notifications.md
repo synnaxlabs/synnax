@@ -196,8 +196,10 @@ to match, and the statuses page in the docs
   after a failure (`driver/rack/status/status.h:77`), or more than three heartbeat
   periods after the last good one, the Driver sends them again with `cmd` cleared. A
   sleep or a slow write can let the Core mark tasks as stopped with no failed write. The
-  manager drops the entry of a task that it removes. The Driver writes nothing new at
-  boot: RFC 0056 §4.5 keeps a never-started task silent.
+  manager drops the entry of a task that it removes. At boot the Driver writes only for
+  a task whose stored status is "Starting task": a start that a stopped Driver left
+  loading becomes "Failed to start task". RFC 0056 §4.5 keeps a never-started task
+  silent.
 - **The status filter delays, and never drops, a change**: Today the Driver drops a
   status that it sent in the last 5 s, even when a different status came between them
   (`driver/common/status.h:183`). A dropped "Task running" is never sent again, because
@@ -207,8 +209,10 @@ to match, and the statuses page in the docs
 
 ### 3.6 Core changes
 
-- **Copies go only onto running tasks**: `onSuspectRack` already reads each task's last
-  status. It copies the rack's problem only onto tasks with `running` true.
+- **Copies go only onto running and starting tasks**: `onSuspectRack` already reads each
+  task's last status. It copies the rack's problem onto tasks with `running` true, and
+  marks a task with a loading status as "Failed to start task", because a start never
+  ends once its Driver is gone.
 - **The copy describes the task**: Its message is "Task stopped responding". Its
   description says the Core lost contact with the Driver, so it stays true after the
   Driver comes back.
@@ -296,11 +300,12 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
    clear delay also run at the source.
 4. **One status per thing, not one per problem**: Statuses stay level state, as
    Kubernetes conditions do. A second key per problem would double every "in use" rule.
-5. **No Driver writes at boot**: Auto-start tasks already write "Started task", and RFC
-   0056 §4.5 keeps a never-started task silent.
-6. **Narrow the copies, not remove them**: A task status with `running` true must not
-   stay true when the Driver is gone. The trade is real: a running task still gets a
-   copy, which the rack cover hides from toasts.
+5. **No Driver writes at boot, except a start left loading**: Auto-start tasks already
+   write "Started task", and RFC 0056 §4.5 keeps a never-started task silent. A loading
+   status from a stopped Driver run is the one exception, since nothing else ends it.
+6. **Narrow the copies, not remove them**: A task status with `running` true, or a
+   loading status, must not stay when the Driver is gone. The trade is real: a running
+   task still gets a copy, which the rack cover hides from toasts.
 7. **No periodic re-toast and no periodic full re-sync**: ISA-18.2 calls an alarm that
    annunciates again without a new cause a nuisance alarm. The re-send after a reconnect
    repairs the statuses lost while the Driver could not reach the Core.

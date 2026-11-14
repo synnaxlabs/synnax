@@ -120,6 +120,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 		Instrumentation: db.Instrumentation,
 		FileSize:        db.fileSize,
 		GCThreshold:     db.gcCfg.Threshold,
+		Clock:           db.clock,
 		OnHistoryChange: func(ctx context.Context, tr telem.TimeRange) {
 			db.historyChanges.Notify(ctx, HistoryChange{Key: ch.Key, TimeRange: tr})
 		},
