@@ -105,10 +105,14 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
         client,
         std::make_shared<x::thread::rt::Manager>()
     );
+    x::breaker::Breaker cancel;
+    cancel.start();
     auto tasks = factory->configure_initial_tasks(
         std::make_shared<task::MockContext>(client),
-        rack
+        rack,
+        cancel
     );
+    cancel.stop();
     x::defer::defer stop([&tasks]() {
         for (const auto &[_, tsk]: tasks)
             tsk->stop(false);

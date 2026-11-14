@@ -601,7 +601,7 @@ public:
         );
     }
 
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
         // changes nothing never reaches it, so the current status answers instead.

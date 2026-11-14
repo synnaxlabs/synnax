@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <set>
 #include <tuple>
 #include <utility>
 
@@ -39,6 +41,9 @@ const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
+/// @brief AL status codes of a slave that kept the layout of an earlier mode or master.
+/// The slave takes its new layout when the next start resets it.
+constexpr std::array<uint16_t, 2> STALE_LAYOUT_CODES{0x001D, 0x001E};
 
 uint64_t millihertz(const x::telem::Rate rate) {
     return static_cast<uint64_t>(std::llround(rate.hz() * 1000));
@@ -527,6 +532,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         .slaves = std::move(configs),
     };
     this->left_out.clear();
+    std::set<uint16_t> reset;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     const auto &clock = this->config.host_clock;
@@ -546,12 +552,24 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
+            std::map<uint16_t, slave::Refusal> leaving;
+            for (const auto &[pos, refusal]: refused) {
+                if (std::ranges::find(STALE_LAYOUT_CODES, refusal.code) !=
+                        STALE_LAYOUT_CODES.end() &&
+                    reset.insert(pos).second) {
+                    LOG(WARNING)
+                        << "[ethercat] slave " << pos << " on " << this->iface << " "
+                        << refusal.reason << ", starting again with it reset";
+                    continue;
+                }
+                leaving.insert({pos, refusal});
+            }
             // A slave with no process data, such as a coupler, gives a task nothing to
             // run.
             const bool io_left = std::ranges::any_of(
                 this->image.offsets,
-                [&refused](const auto &offset) {
-                    return !refused.contains(offset.first.slave_position);
+                [&leaving](const auto &offset) {
+                    return !leaving.contains(offset.first.slave_position);
                 }
             );
             if (this->bus.running())
@@ -559,15 +577,15 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             else
                 this->master->deactivate();
             if (!refused.empty() && io_left) {
-                for (const auto &[pos, refusal]: refused) {
+                for (const auto &[pos, refusal]: leaving) {
                     LOG(WARNING)
                         << "[ethercat] starting " << this->iface << " without slave "
                         << pos << ": it " << refusal.reason;
                     plan.slaves[pos].enabled = false;
                 }
                 for (const auto &s: this->slaves)
-                    if (const auto it = refused.find(s.properties.position);
-                        it != refused.end())
+                    if (const auto it = leaving.find(s.properties.position);
+                        it != leaving.end())
                         this->left_out[it->first] = {
                             .name = s.properties.name,
                             .refusal = it->second,

@@ -103,7 +103,8 @@ struct Image {
 struct Activation {
     /// @brief NIL when every enabled slave reached OP.
     x::errors::Error err;
-    /// @brief why each slave refused a state, keyed by position.
+    /// @brief why each slave refused a state, or why the master refused to start it,
+    /// keyed by position.
     std::map<uint16_t, slave::Refusal> refusals;
 };
 
@@ -132,7 +133,9 @@ public:
     /// Valid after scan(). Only the SOEM master starts DC sync.
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP.
+    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
+    /// with a refusal for a used slave with no identity, after start_cycle only when
+    /// another slave has process data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle

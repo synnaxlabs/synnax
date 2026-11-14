@@ -35,6 +35,9 @@ export const useOpen = (section?: string): (() => void) => {
   const dispatch = Session.useDispatch();
   return () => {
     if (section != null) dispatch(Session.Nav.selectSettingsSection({ section }));
-    openTab({ variant: "view", type: TAB_TYPE }, { singleton: true, draft: true });
+    openTab(
+      { variant: "view", type: TAB_TYPE },
+      { singleton: true, draft: { name: "Settings", icon: "gear" } },
+    );
   };
 };
