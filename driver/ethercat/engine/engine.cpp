@@ -427,7 +427,6 @@ void Engine::run() {
 void Engine::supervise() {
     std::vector<slave::Health> last;
     Outage published;
-    const bool restarts_visible = this->master->restarts_visible();
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
         for (const auto &[pos, left]: this->left_out)
@@ -442,7 +441,7 @@ void Engine::supervise() {
             );
             // A power restart brings a lost slave back in INIT or BOOT, and a cable
             // pull that trips its watchdog brings it back in SAFE-OP.
-            if (restarts_visible && prev != last.end() && prev->lost && !h.lost &&
+            if (prev != last.end() && prev->lost && !h.lost &&
                 (h.state == slave::State::INIT || h.state == slave::State::BOOT))
                 restarted.push_back(h.position);
             const bool was_operational = prev == last.end() || prev->operational();
@@ -610,6 +609,13 @@ void Engine::stop_locked() {
     this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
+    // The supervisor never checks a slave outside the running bus, such as a left-out
+    // slave.
+    if (const auto [restarted, err] = this->restarted_locked(); err)
+        LOG(WARNING) << "[ethercat] failed to check " << this->iface
+                     << " for restarted slaves: " << err.message();
+    else
+        this->track_restarts_locked(restarted);
     this->master->deactivate();
     this->image = {};
     this->cycle_mhz.store(0, std::memory_order_release);

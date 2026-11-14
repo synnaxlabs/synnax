@@ -2362,23 +2362,54 @@ TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
 }
 
-/// @brief it should count a lost slave that comes back in INIT while the bus runs as
-/// restarted, as a slave does after a power restart.
-TEST_F(EngineTest, RunningBusCountsASlaveBackInInitAsRestarted) {
+/// @brief it should count a lost slave that comes back in INIT or BOOT while the bus
+/// runs as restarted, as a slave does after a power restart.
+TEST_F(EngineTest, RunningBusCountsASlaveBackInInitOrBootAsRestarted) {
     this->master->add_slave(io_slave(1));
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
-    this->master->set_slave_lost(1, true);
+    const auto restart = [this](const slave::State state) {
+        this->master->set_slave_lost(1, true);
+        ASSERT_EVENTUALLY_TRUE(
+            this->engine->health().size() == 2 && this->engine->health()[1].lost
+        );
+        this->master->set_slave_state(1, state);
+        this->master->set_slave_lost(1, false);
+        ASSERT_EVENTUALLY_TRUE(
+            this->engine->health().size() == 2 &&
+            this->engine->health()[1].operational()
+        );
+    };
+    const auto back = x::telem::TimeStamp::now();
+    ASSERT_NO_FATAL_FAILURE(restart(slave::State::INIT));
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    const auto first = slaves[1].restarted_at.value();
+    EXPECT_GE(first, back);
+    ASSERT_NO_FATAL_FAILURE(restart(slave::State::BOOT));
+    slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GT(slaves[1].restarted_at.value(), first);
+}
+
+/// @brief it should count a left-out slave that restarts while the bus runs as
+/// restarted once the bus stops.
+TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    this->master->refuse(1, REFUSAL);
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
     ASSERT_EVENTUALLY_TRUE(
-        this->engine->health().size() == 2 && this->engine->health()[1].lost
+        this->engine->health().size() == 2 && this->engine->health()[1].refusal
     );
     const auto back = x::telem::TimeStamp::now();
-    this->master->set_slave_state(1, slave::State::INIT);
-    this->master->set_slave_lost(1, false);
-    ASSERT_EVENTUALLY_TRUE(
-        this->engine->health().size() == 2 && this->engine->health()[1].operational()
-    );
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
     const auto slaves = ASSERT_NIL_P(this->engine->discover());
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_LT(slaves[0].restarted_at.value(), back);
