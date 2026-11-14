@@ -109,6 +109,23 @@ std::string pdo_error_description(const std::string &error) {
     return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
+/// @brief the device property that holds the time of the last switch to Synnax only.
+const std::string SWITCHED_AT = "switched_at";
+
+/// @brief returns the time of the last switch to Synnax only in props, or 0 when they
+/// hold none.
+x::telem::TimeStamp switched_at(const nlohmann::json &props) {
+    const auto at = props.find(SWITCHED_AT);
+    if (at == props.end() || !at->is_number_integer()) return x::telem::TimeStamp(0);
+    return x::telem::TimeStamp(at->get<int64_t>());
+}
+
+/// @brief returns time to the minute in UTC, such as "2026-11-13 21:40 UTC".
+std::string utc_minute(const x::telem::TimeStamp time) {
+    const auto iso = time.iso8601();
+    return iso.substr(0, 10) + " " + iso.substr(11, 5) + " UTC";
+}
+
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
 /// string when Synnax can read each of them.
 std::string only_reader(const slave::Properties &props) {
@@ -126,9 +143,14 @@ std::string only_reader(const slave::Properties &props) {
 }
 
 /// @brief sets status to a warning when other software sets up the slave in a way that
-/// keeps Synnax from using it, or when Synnax is on the wrong bus of the slave. Returns
-/// whether it set one.
-bool set_setup_status(const slave::Properties &props, synnax::device::Status &status) {
+/// keeps Synnax from using it, when the slave left Synnax mode after the switch at
+/// switch_time, or when Synnax is on the wrong bus of the slave. Returns whether it set
+/// one.
+bool set_setup_status(
+    const slave::Properties &props,
+    const x::telem::TimeStamp switch_time,
+    synnax::device::Status &status
+) {
     const auto none = x::json::json::object();
     const auto &mode = props.settings && props.settings->contains("mode")
                          ? props.settings->at("mode")
@@ -138,10 +160,23 @@ bool set_setup_status(const slave::Properties &props, synnax::device::Status &st
     const bool switched = !reader.empty() && mode.contains("switch") &&
                           mode.at("switch").empty();
     if (reader.empty()) reader = mode.value("only_read_by", "");
+    const bool reverted = switch_time != x::telem::TimeStamp(0) &&
+                          mode.contains("switch") && !mode.at("switch").empty();
     if (switched) {
         status.message = "Restart the power of the device";
         if (bus == 2)
             status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
+    } else if (reverted) {
+        if (reader.empty()) reader = mode.value("shared_with", "other software");
+        status.message = "Set up for " + reader + " again";
+        status.description = std::format(
+            "The device was switched to Synnax at {}. A power restart or {} set it "
+            "back to {} mode, because the switch is not saved on the device. Switch it "
+            "to Synnax again in Configure.",
+            utc_minute(switch_time),
+            reader,
+            reader
+        );
     } else if (!reader.empty()) {
         status.message = "Set up for " + reader;
         status.description = "Synnax cannot read its data.";
@@ -372,7 +407,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(props, status)) {
+    else if (set_setup_status(props, switched_at(json_props), status)) {
         add_settings_error(sts.settings_error, status);
         add_unlisted_op_mode(saved, status);
     } else if (
@@ -657,6 +692,15 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
             fail(std::format("the device holds mode {} after the switch", held));
         return;
     }
+    if (const auto record_err = this->ctx->client->devices.dispatch(
+            dev.key,
+            {synnax::device::set({
+                .path = {"properties", SWITCHED_AT},
+                .value = x::telem::TimeStamp::now().nanoseconds(),
+            })}
+        ))
+        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to record the switch of " << dev.name
+                     << ": " << record_err;
     if (err) {
         task_status.variant = synnax::status::VARIANT_WARNING;
         task_status.message = "Switched " + dev.name +
