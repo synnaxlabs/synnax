@@ -521,6 +521,18 @@ TEST_F(EtherCATScanStatusTest, KeepsTheDeviceThatAnotherSlaveHolds) {
     EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
 }
 
+/// @brief it should save no device for a slave whose serial number read fails, and
+/// discover the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsASlaveWhoseSerialReadFails) {
+    this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
+    const auto devices = stored("ethercat_eth0_1_2_1", identity(1, 0x2, 0));
+    for (size_t i = 0; i < 13; ++i)
+        EXPECT_TRUE(
+            ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices})).empty()
+        );
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {

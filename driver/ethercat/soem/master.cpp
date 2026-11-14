@@ -64,6 +64,9 @@ const int RECOVERY_TIMEOUT = static_cast<int>(
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
 constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
+/// The CoE identity object and the sub-index that holds the serial number.
+constexpr uint16_t IDENTITY_INDEX = 0x1018;
+constexpr uint8_t SERIAL_SUB_INDEX = 4;
 /// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
 /// entries of four bytes.
 constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
@@ -326,7 +329,10 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // A startup parameter can change the slave's PDO assignment.
     for (const auto pos: parameterized) {
         auto result = this->discover_slave(pos);
-        this->slave_list[pos - 1] = std::move(result);
+        auto &scanned = this->slave_list[pos - 1];
+        result.properties.serial = scanned.properties.serial;
+        result.status.serial_error = std::move(scanned.status.serial_error);
+        scanned = std::move(result);
     }
 
     this->api->configdc();
@@ -553,9 +559,22 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
+        this->read_serial(slave);
         this->read_settings(slave);
         this->slave_list.push_back(std::move(slave));
     }
+    slave::clear_duplicate_serials(this->slave_list);
+}
+
+void Master::read_serial(slave::DiscoveryResult &slave) {
+    const auto pos = slave.properties.position;
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    const auto [serial, err] = this->read_sdo(pos, IDENTITY_INDEX, SERIAL_SUB_INDEX);
+    if (err.matches(coe::OBJECT_MISSING) || err.matches(coe::SUBINDEX_MISSING)) return;
+    if (err)
+        slave.status.serial_error = err.data;
+    else if (serial != 0)
+        slave.properties.serial = serial;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {

@@ -1049,6 +1049,64 @@ TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
     EXPECT_FALSE(slaves[0].properties.settings.has_value());
 }
 
+/// @brief returns a slave in PRE-OP with CoE whose SII serial number is 0 and whose
+/// CoE identity object holds serial.
+MockSlaveInfo create_coe_slave(const uint32_t serial) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = 0x1234;
+    slave.eep_id = 0x5678;
+    slave.name = "CoESlave";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x1018, 4}, serial}};
+    return slave;
+}
+
+/// @brief it should read the serial number of a slave from its CoE identity object.
+TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
+    this->add_slave(create_coe_slave(0x5555));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave whose CoE identity object has
+/// no serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should report why the serial number of a slave could not be read.
+TEST_F(SOEMMasterTest, ScanReportsAFailedSerialRead) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0x05040000;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_EQ(
+        slaves[0].status.serial_error,
+        "failed to read 0x1018:04: SDO protocol timed out"
+    );
+}
+
+/// @brief it should give serial number 0 to a slave with the identity of a slave
+/// before it, so that each serial number names one slave.
+TEST_F(SOEMMasterTest, ScanGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
 ////////////////////// Activation //////////////////////
 
 /// @brief it should activate a scanned bus.
@@ -2764,6 +2822,16 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
             {1, 0x8000, 0x19, {0x02}},
         })
     );
+}
+
+/// @brief it should keep the CoE serial number of a slave that it discovers again
+/// after its startup parameters.
+TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
 }
 
 /// @brief it should fail activation and stop writing when a slave aborts a startup

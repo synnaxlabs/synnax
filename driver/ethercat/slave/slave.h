@@ -365,6 +365,9 @@ struct Status {
     std::string pdo_discovery_error;
     /// @brief why the read of the settings failed, or empty when it succeeded.
     std::string settings_error;
+    /// @brief why the read of the serial number failed, or empty when it succeeded. A
+    /// slave with one has no known identity.
+    std::string serial_error;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
@@ -439,5 +442,21 @@ struct DiscoveryResult {
     Properties properties;
     Status status;
 };
+
+/// @brief gives serial number 0 to each slave that has the vendor, product, and serial
+/// number of a slave before it, so that a serial number names one slave. A slave with
+/// serial number 0 has its position as its identity.
+inline void clear_duplicate_serials(std::vector<DiscoveryResult> &slaves) {
+    for (auto it = slaves.begin(); it != slaves.end(); ++it) {
+        auto &props = it->properties;
+        if (props.serial == 0) continue;
+        if (std::any_of(slaves.begin(), it, [&props](const DiscoveryResult &s) {
+                const auto &p = s.properties;
+                return p.vendor_id == props.vendor_id &&
+                       p.product_code == props.product_code && p.serial == props.serial;
+            }))
+            props.serial = 0;
+    }
+}
 
 }

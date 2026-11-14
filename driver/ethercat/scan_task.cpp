@@ -246,6 +246,14 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 rediscovery_needed = true;
                 continue;
             }
+            // Without its serial number, the slave can match the wrong device.
+            if (!slave.status.serial_error.empty()) {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                             << " on " << key << " gave no serial number ("
+                             << slave.status.serial_error << "), rediscovering";
+                rediscovery_needed = true;
+                continue;
+            }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
                 keys[i],

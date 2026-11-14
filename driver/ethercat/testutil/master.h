@@ -184,6 +184,14 @@ public:
                 slave.status.settings_error = error;
     }
 
+    /// @brief makes the serial number read of the slave at position fail with error.
+    void fail_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.serial_error = error;
+    }
+
     /// @brief injects an error to be returned by scan().
     void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
