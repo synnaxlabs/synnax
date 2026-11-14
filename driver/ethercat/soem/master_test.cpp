@@ -3082,7 +3082,6 @@ TEST_F(SOEMMasterTest, ActivateReadsAParameterizedSlaveThatWasStarting) {
     ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
     this->mock->statecheck_overrides.clear();
     this->mock->slave_infos[0].bus_state.reset();
-    this->mock->context.slavelist[1].state = EC_STATE_PRE_OP;
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
     this->activate_master();
     const auto activated = ASSERT_NIL_P(this->master->scan())[0];
@@ -3100,7 +3099,6 @@ TEST_F(SOEMMasterTest, ActivateReadsAStartingSlaveWithNoStartupParameters) {
     ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
     this->mock->statecheck_overrides.clear();
     this->mock->slave_infos[0].bus_state.reset();
-    this->mock->context.slavelist[1].state = EC_STATE_PRE_OP;
     this->activate_master();
     const auto activated = ASSERT_NIL_P(this->master->scan())[0];
     EXPECT_FALSE(activated.status.starting);
