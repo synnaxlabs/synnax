@@ -331,6 +331,7 @@ public:
 class SlowStartTaskFactory final : public Factory {
 public:
     std::atomic<bool> release{false};
+    std::atomic<int> configures{0};
     std::condition_variable cv;
     std::mutex mu;
     /// @brief the limit of the task's own step. Zero sends no step of its own.
@@ -343,6 +344,7 @@ public:
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        ++configures;
         return {
             std::make_unique<SlowStartTask>(ctx, task, release, cv, mu, step_limit),
             true
@@ -654,11 +656,13 @@ protected:
     /// @brief asserts that no status for task is reported by a driver on this rack.
     /// The Core writes placeholder statuses on create with no rack stamped, so the
     /// rack key is what separates them from driver reports. Pass any_rack = true for
-    /// a task never created, where every status is a defect.
+    /// a task never created, where every status is a defect. Watches for wait, and
+    /// counts only statuses stamped at or after since.
     void expect_no_driver_status(
         const synnax::task::Task &task,
         const bool any_rack = false,
-        const x::telem::TimeStamp since = x::telem::TimeStamp(0)
+        const x::telem::TimeStamp since = x::telem::TimeStamp(0),
+        const x::telem::TimeSpan wait = 300 * x::telem::MILLISECOND
     ) {
         std::atomic<bool> received = false;
         std::thread reader([&] {
@@ -674,7 +678,7 @@ protected:
                 }
             }
         });
-        std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+        std::this_thread::sleep_for(wait.chrono());
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
@@ -1785,6 +1789,39 @@ TEST_F(TaskManagerTest, TaskOwnsTheLimitOfItsStep) {
     EXPECT_EQ(
         warning.description,
         "Still working after " + (300 * x::telem::MILLISECOND).to_string() + "."
+    );
+    f->release_all();
+}
+
+/// @brief it should warn nothing about a slow start of a task moved to another rack.
+TEST_F(TaskManagerTest, SlowStartMovedToAnotherRackWarnsNothing) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    auto *f = factory.get();
+    const auto op_timeout = 3 * x::telem::SECOND;
+    start_manager(
+        std::move(factory),
+        {.op_timeout = op_timeout, .poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(f->configures.load(), 1);
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    const auto moved_at = x::telem::TimeStamp::now();
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
+    expect_no_driver_status(
+        task,
+        false,
+        moved_at,
+        op_timeout + 500 * x::telem::MILLISECOND
     );
     f->release_all();
 }

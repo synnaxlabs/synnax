@@ -501,8 +501,13 @@ void Manager::monitor_loop() {
         std::vector<std::shared_ptr<Operation>> running;
         {
             std::lock_guard<std::mutex> lock(this->mu);
-            for (const auto &[_, entry]: this->entries)
-                if (entry->op != nullptr) running.push_back(entry->op);
+            for (const auto &[_, entry]: this->entries) {
+                if (entry->op == nullptr) continue;
+                std::lock_guard entry_lock{entry->mu};
+                // The status of a task on another rack belongs to the Driver of that
+                // rack, which may be running it.
+                if (entry->row.rack == this->rack.key) running.push_back(entry->op);
+            }
         }
         const auto now = x::telem::TimeStamp::now();
         for (const auto &operation: running)
@@ -525,10 +530,16 @@ void Manager::execute_op(
                 auto [fetched, err] = this->rack.tasks.retrieve(op.task_key);
                 if (err) {
                     LOG(WARNING) << "failed to retrieve task for start: " << err;
-                    // A not-found task was deleted: a status written now would
-                    // recreate the one the delete removed. Other errors answer
-                    // the start so the sender does not wait forever.
-                    if (!err.matches(x::errors::NOT_FOUND)) {
+                    // A not-found task was deleted: a status written now would recreate
+                    // the one the delete removed. Other errors answer the start so the
+                    // sender does not wait forever, but only on the rack of the task:
+                    // every Driver fetches a task it does not know.
+                    bool ours = false;
+                    {
+                        std::lock_guard entry_lock{entry->mu};
+                        ours = entry->row.rack == this->rack.key;
+                    }
+                    if (ours && !err.matches(x::errors::NOT_FOUND)) {
                         const auto [name, hash] = operation.task_info();
                         synnax::task::Status status;
                         status.owner = synnax::task::resource_id(op.task_key);
