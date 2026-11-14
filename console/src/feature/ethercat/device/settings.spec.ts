@@ -142,6 +142,15 @@ describe("Settings", () => {
     });
   });
 
+  describe("valueText", () => {
+    it("should throw for a value that is not finite", () => {
+      const voltage = createExcitationDescription().channels[0].settings[1];
+      expect(() => Settings.valueText(voltage, NaN)).toThrow(
+        new RangeError("NaN is not a finite value"),
+      );
+    });
+  });
+
   describe("visibleFields", () => {
     it("should show the fields whose conditions hold", () => {
       const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;

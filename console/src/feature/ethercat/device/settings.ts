@@ -165,10 +165,13 @@ export const fill = (fields: Field[], values: Value[]): ethercat.StartupParamete
   return parameters;
 };
 
-/** @returns the shortest text that reads back as the value of the field. */
+/**
+ * @returns the shortest text that reads back as the value of the field.
+ * @throws {RangeError} when the value is not finite.
+ */
 export const valueText = ({ dataType }: Field, value: number): string => {
-  if (!DataType.FLOAT32.equals(dataType) || !Number.isFinite(value))
-    return value.toString();
+  if (!Number.isFinite(value)) throw new RangeError(`${value} is not a finite value`);
+  if (!DataType.FLOAT32.equals(dataType)) return value.toString();
   // A typed value or a catalog limit is a float64 that float32 can fail to hold.
   const stored = Math.fround(value);
   let digits = 1;
@@ -204,11 +207,13 @@ export const set = (
     { ...address, value },
     ...values.filter((v) => !sameAddress(v, address)),
   ]);
+  const revealed = visibleFields(fields, filled).filter(
+    (f) => !shown.includes(f) && !sameAddress(f, address),
+  );
   const notes: Note[] = [];
-  for (const field of visibleFields(fields, filled)) {
-    if (sameAddress(field, address) || shown.includes(field)) continue;
-    const parameter = filled.find((p) => sameAddress(p, field));
-    if (parameter == null) continue;
+  for (const parameter of filled) {
+    const field = revealed.find((f) => sameAddress(f, parameter));
+    if (field == null) continue;
     const { min = -Infinity, max = Infinity, unit } = field;
     const moved = Math.min(Math.max(parameter.value, min), max);
     if (moved === parameter.value) continue;
