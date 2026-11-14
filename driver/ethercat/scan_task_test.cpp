@@ -1416,11 +1416,41 @@ protected:
         return devices.at(0).status.value();
     }
 
+    /// @brief the key of the device of the slave.
+    [[nodiscard]] std::string device_key() const {
+        return "ethercat_1_2_" + std::to_string(this->props.serial);
+    }
+
+    /// @brief stores the device of the slave in the Core with a switch at time, and
+    /// scans once with the device that the Core gives back. Returns the status of the
+    /// only slave device.
+    [[nodiscard]] synnax::device::Status scan_switched_at(const int64_t time) const {
+        synnax::device::Device dev{
+            .key = this->device_key(),
+            .rack = this->rack.key,
+            .location = "eth0.Slot 1",
+            .make = INTEGRATION_NAME,
+            .model = SLAVE_DEVICE_MODEL,
+            .name = "Test Slave",
+            .properties = this->props.to_json(),
+        };
+        dev.properties["switched_at"] = time;
+        EXPECT_NIL(this->client->devices.create(dev));
+        Devices devices{
+            {dev.key, ASSERT_NIL_P(this->client->devices.retrieve(dev.key))},
+        };
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = 1, .devices = &devices})
+        );
+        EXPECT_EQ(scanned.size(), 1);
+        return scanned.at(0).status.value();
+    }
+
     /// @brief creates the device of the slave and sends the set_standalone command for
     /// it. Returns the status that the command sets.
     synnax::task::Status set_standalone() {
         synnax::device::Device dev{
-            .key = "ethercat_1_2_" + std::to_string(this->props.serial),
+            .key = this->device_key(),
             .rack = this->rack.key,
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
@@ -1581,6 +1611,88 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
             {1, this->standalone},
         })
     );
+}
+
+/// @brief it should write the time of a switch, to the second, with the properties of
+/// each scan, also when the devices of the scan do not hold it.
+TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
+    this->start(true);
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    Devices devices;
+    store(devices, this->device_key(), this->props);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    const auto at = x::telem::TimeStamp(
+        scanned.at(0).properties.at("switched_at").get<int64_t>()
+    );
+    EXPECT_EQ(at.nanoseconds() % x::telem::SECOND.nanoseconds(), 0);
+    EXPECT_GT(at, before - x::telem::SECOND);
+    EXPECT_LE(at, x::telem::TimeStamp::now());
+}
+
+/// @brief it should write a switch time that the Core gives back unchanged, so that the
+/// next scan finds no change.
+TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
+    this->start(true);
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto first = ASSERT_NIL_P(this->scanner->scan({.count = 1}));
+    ASSERT_EQ(first.size(), 1);
+    const auto key = first.at(0).key;
+    ASSERT_NIL(this->client->devices.dispatch(
+        key,
+        {synnax::device::set({
+            .path = {"properties"},
+            .value = x::json::json(first.at(0).properties),
+        })}
+    ));
+    Devices devices{{key, ASSERT_NIL_P(this->client->devices.retrieve(key))}};
+    const auto second = ASSERT_NIL_P(
+        this->scanner->scan({.count = 2, .devices = &devices})
+    );
+    ASSERT_EQ(second.size(), 1);
+    EXPECT_EQ(
+        x::json::json(second.at(0).properties),
+        x::json::json(devices.at(key).properties)
+    );
+}
+
+/// @brief it should warn about a slave that left Synnax mode after a switch, and give
+/// the time of the switch.
+TEST_F(EtherCATScanModeTest, WarnsAboutASlaveThatLeftSynnaxModeAfterASwitch) {
+    this->start(true);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX again");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went "
+        "back to DewesoftX mode. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should warn about a switched slave that holds a mode that its catalog
+/// does not list.
+TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
+    this->start(false, 0x6041);
+    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Left Synnax mode");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
+        "a mode that its catalog does not list. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should not warn about a switched slave that is still in Synnax mode.
+TEST_F(EtherCATScanModeTest, DoesNotWarnAboutASwitchedSlaveInSynnaxMode) {
+    this->start(false, 0x6041);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should write nothing to a slave that already runs Synnax only.

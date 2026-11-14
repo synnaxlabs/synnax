@@ -73,6 +73,7 @@ interface SetupArgs {
   vendorId?: number;
   productCode?: number;
   revision?: number;
+  switchedAt?: number;
 }
 
 const VENDOR_ID = 0xdebe50f7;
@@ -88,6 +89,7 @@ const setup = async ({
   vendorId = VENDOR_ID,
   productCode = 0,
   revision = 0,
+  switchedAt,
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -114,6 +116,7 @@ const setup = async ({
       vendorId,
       productCode,
       revision,
+      switchedAt,
     },
     configured,
   );
@@ -176,6 +179,18 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(updated.properties.opMode).toEqual(OP_MODE);
     });
     await waitFor(() => expect(screen.queryByText("General")).toBeNull());
+  });
+
+  it("should keep the time of the last switch to Synnax", async () => {
+    const switchedAt = 1_763_070_000_000_000_000;
+    const slave = await setup({ switchedAt });
+    fireEvent.change(identifierInput(), { target: { value: "slave_2" } });
+    await save();
+    await waitFor(async () => {
+      const updated = await retrieve(slave.key);
+      expect(updated.properties.identifier).toEqual("slave_2");
+      expect(updated.properties.switchedAt).toEqual(switchedAt);
+    });
   });
 
   it("should mark a new slave configured", async () => {
