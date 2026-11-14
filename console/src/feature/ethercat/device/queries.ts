@@ -30,12 +30,15 @@ export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
-/** The query of the slaves that the keys name. It does not run for no keys. */
-export const useSlavesByKeys = (keys: device.Key[]): Flux.Result<SlaveDevice[]> =>
-  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } });
+/** The slaves the keys name, or undefined until they resolve or on failure. */
+export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
+  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
-/** The query of the slaves on the rack with their statuses. It needs a rack to run. */
-export const useSlavesOnRack = (rack: number | undefined): Flux.Result<SlaveDevice[]> =>
+/**
+ * The slaves on the rack with their statuses, or undefined until they resolve, on
+ * failure, or without a rack.
+ */
+export const useSlavesOnRack = (rack: number | undefined): SlaveDevice[] | undefined =>
   useResultSlaves(
     rack == null
       ? null
@@ -43,7 +46,7 @@ export const useSlavesOnRack = (rack: number | undefined): Flux.Result<SlaveDevi
           where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL }, rack: { eq: rack } },
           includeStatus: true,
         },
-  );
+  ).data;
 
 export interface EnabledState {
   allEnabled: boolean;
