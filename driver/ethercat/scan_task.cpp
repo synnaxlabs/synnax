@@ -257,11 +257,6 @@ bool has_identity(const slave::DiscoveryResult &slave) {
     return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
 }
 
-/// @brief whether the master did not read the serial number of the slave.
-bool serial_unread(const slave::DiscoveryResult &slave) {
-    return slave.status.starting || !slave.status.serial_error.empty();
-}
-
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -338,7 +333,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 unidentified.insert(slave.properties.position);
                 continue;
             }
-            if (serial_unread(slave)) {
+            if (slave.status.serial_unread()) {
                 if (slave.status.starting)
                     LOG(INFO) << SCAN_LOG_PREFIX << "slave "
                               << slave.properties.position << " on " << key
@@ -580,7 +575,7 @@ std::vector<std::string> Scanner::slave_keys(
                 return false;
             const bool same_slot = p.network == master_key &&
                                    p.position == live.position;
-            if (serial_unread(slave)) return !by_serial && same_slot;
+            if (slave.status.serial_unread()) return !by_serial && same_slot;
             if (by_serial && live.serial != 0) return p.serial == live.serial;
             return p.serial == 0 && same_slot;
         });
@@ -604,7 +599,8 @@ std::vector<std::string> Scanner::slave_keys(
             if (!keys[i].empty()) kept.insert(keys[i]);
         }
     for (size_t i = 0; i < slaves.size(); ++i) {
-        if (!keys[i].empty() || !has_identity(slaves[i]) || serial_unread(slaves[i]))
+        if (!keys[i].empty() || !has_identity(slaves[i]) ||
+            slaves[i].status.serial_unread())
             continue;
         const auto base = generate_slave_key(slaves[i].properties, master_key);
         auto key = base;
