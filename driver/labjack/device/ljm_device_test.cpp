@@ -143,7 +143,6 @@ TEST(LJMDeviceTest, testStreamReadStopsWithBreaker) {
     ASSERT_NIL(start_stream(dev));
     x::breaker::Breaker breaker;
     breaker.start();
-    x::defer::defer stop_breaker([&] { breaker.stop(); });
     std::thread stopper([&] {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         breaker.stop();
