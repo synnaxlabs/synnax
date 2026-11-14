@@ -82,5 +82,6 @@ cc_library(
     deps = [
         "//arc/cpp/program",
         "//arc/cpp/runtime/wasm",
+        "//vendor/wasmtime",
     ],
 )
