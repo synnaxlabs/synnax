@@ -98,7 +98,9 @@ public:
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<size_t, x::errors::Error> count_slaves() override;
+    std::pair<master::Change, x::errors::Error> changed() override;
+
+    [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, but ignores the period and runs
     /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns

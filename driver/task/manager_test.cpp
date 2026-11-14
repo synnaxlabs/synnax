@@ -45,8 +45,15 @@ class MockEchoTask final : public Task {
     const synnax::task::Task sy_task;
 
 public:
-    MockEchoTask(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task):
+    /// @param quiet true for a task that writes no status when built, as a real task
+    /// that does not start on its own.
+    MockEchoTask(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const bool quiet = false
+    ):
         ctx(ctx), sy_task(task) {
+        if (quiet) return;
         synnax::task::Status status{
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
@@ -92,6 +99,20 @@ public:
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         return {std::make_unique<MockEchoTask>(ctx, task), true};
+    }
+};
+
+/// @brief builds echo tasks that write no status when built, as a real task does.
+class QuietEchoTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        return {std::make_unique<MockEchoTask>(ctx, task, true), true};
     }
 };
 
@@ -279,34 +300,63 @@ public:
     }
 };
 
-class TimeoutTask final : public Task {
-public:
+/// @brief a task whose start blocks until released, then answers.
+class SlowStartTask final : public Task {
+    const std::shared_ptr<Context> ctx;
+    const synnax::task::Task sy_task;
     std::atomic<bool> &release;
     std::condition_variable &cv;
     std::mutex &mu;
+    const x::telem::TimeSpan step_limit;
 
-    TimeoutTask(
-        const std::shared_ptr<Context> &,
-        const synnax::task::Task &,
+public:
+    SlowStartTask(
+        std::shared_ptr<Context> ctx,
+        synnax::task::Task task,
         std::atomic<bool> &release,
         std::condition_variable &cv,
-        std::mutex &mu
+        std::mutex &mu,
+        const x::telem::TimeSpan step_limit
     ):
-        release(release), cv(cv), mu(mu) {
-        std::unique_lock lock(mu);
-        cv.wait(lock, [&] { return this->release.load(); });
+        ctx(std::move(ctx)),
+        sy_task(std::move(task)),
+        release(release),
+        cv(cv),
+        mu(mu),
+        step_limit(step_limit) {}
+
+    [[nodiscard]] std::string name() const override { return "slow start"; }
+
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        synnax::task::Status status{
+            .variant = synnax::status::VARIANT_LOADING,
+            .message = "Starting bus",
+            .details = {.cmd = cmd.key, .config_hash = sy_task.config_hash},
+            .owner = synnax::task::resource_id(sy_task.key),
+        };
+        if (this->step_limit != x::telem::TimeSpan(0))
+            this->ctx->step(status, this->step_limit);
+        {
+            std::unique_lock lock(this->mu);
+            this->cv.wait(lock, [&] { return this->release.load(); });
+        }
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "started";
+        status.details.running = true;
+        this->ctx->set_status(status);
     }
 
-    [[nodiscard]] std::string name() const override { return "timeout"; }
-    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
     void stop(bool) override {}
 };
 
-class TimeoutTaskFactory final : public Factory {
+class SlowStartTaskFactory final : public Factory {
 public:
     std::atomic<bool> release{false};
+    std::atomic<int> configures{0};
     std::condition_variable cv;
     std::mutex mu;
+    /// @brief the limit of the task's own step. Zero sends no step of its own.
+    x::telem::TimeSpan step_limit = x::telem::TimeSpan(0);
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -314,14 +364,58 @@ public:
         const std::string &cmd_key,
         x::breaker::Breaker &
     ) override {
-        if (task.type == SYNTHETIC_TASK_TYPE)
-            return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
-        return {nullptr, false};
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        ++configures;
+        return {
+            std::make_unique<SlowStartTask>(ctx, task, release, cv, mu, step_limit),
+            true
+        };
     }
 
     void release_all() {
         release = true;
         cv.notify_all();
+    }
+};
+
+/// @brief a task that answers each command twice.
+class DoubleAnswerTask final : public Task {
+    const std::shared_ptr<Context> ctx;
+    const synnax::task::Task sy_task;
+
+public:
+    DoubleAnswerTask(std::shared_ptr<Context> ctx, synnax::task::Task task):
+        ctx(std::move(ctx)), sy_task(std::move(task)) {}
+
+    [[nodiscard]] std::string name() const override { return "double answer"; }
+
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        synnax::task::Status status{
+            .variant = synnax::status::VARIANT_SUCCESS,
+            .message = "started",
+            .details = {.running = true, .cmd = cmd.key},
+            .owner = synnax::task::resource_id(sy_task.key),
+        };
+        this->ctx->set_status(status);
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "failed after start";
+        status.details.running = false;
+        this->ctx->set_status(status);
+    }
+
+    void stop(bool) override {}
+};
+
+class DoubleAnswerTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        return {std::make_unique<DoubleAnswerTask>(ctx, task), true};
     }
 };
 
@@ -583,11 +677,13 @@ protected:
     /// @brief asserts that no status for task is reported by a driver on this rack.
     /// The Core writes placeholder statuses on create with no rack stamped, so the
     /// rack key is what separates them from driver reports. Pass any_rack = true for
-    /// a task never created, where every status is a defect.
+    /// a task never created, where every status is a defect. Watches for wait, and
+    /// counts only statuses stamped at or after since.
     void expect_no_driver_status(
         const synnax::task::Task &task,
         const bool any_rack = false,
-        const x::telem::TimeStamp since = x::telem::TimeStamp(0)
+        const x::telem::TimeStamp since = x::telem::TimeStamp(0),
+        const x::telem::TimeSpan wait = 300 * x::telem::MILLISECOND
     ) {
         std::atomic<bool> received = false;
         std::thread reader([&] {
@@ -603,7 +699,7 @@ protected:
                 }
             }
         });
-        std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+        std::this_thread::sleep_for(wait.chrono());
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
@@ -647,6 +743,19 @@ protected:
         reader.join();
         if (!read_all.get()) ADD_FAILURE() << "Timed out waiting for task statuses";
         return statuses;
+    }
+
+    /// @brief returns the statuses of task up to the answer of a command sent now. The
+    /// Manager runs the command after every earlier op of the task.
+    std::vector<synnax::task::Status>
+    statuses_until_command(const synnax::task::Task &task) {
+        send_cmd(client, {.task = task.key, .type = "test", .key = "marker"});
+        std::vector<synnax::task::Status> got;
+        WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+            got.push_back(s);
+            return s.details.cmd == "marker";
+        });
+        return got;
     }
 
     void TearDown() override {
@@ -746,7 +855,7 @@ TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
     loading.details.rack = rack.key;
     loading.details.config_hash = task.config_hash;
     ASSERT_NIL(client->statuses.set(loading));
-    start_manager(std::make_unique<EchoTaskFactory>());
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "Failed to start task";
     });
@@ -759,29 +868,156 @@ TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
-/// @brief it should leave a stored status alone when no start was in progress.
-TEST_F(TaskManagerTest, BootLeavesAFinishedStatusAlone) {
+/// @brief stores a status of task as an earlier Driver run left it, with "stored" as
+/// its description.
+void store_status(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::task::Task &task,
+    const std::string &variant,
+    const std::string &message,
+    const bool running
+) {
+    synnax::task::Status status;
+    status.key = "stored-" + task.key.to_string();
+    status.owner = synnax::task::resource_id(task.key);
+    status.name = task.name;
+    status.variant = variant;
+    status.message = message;
+    status.description = "stored";
+    status.time = x::telem::TimeStamp::now();
+    status.details.running = running;
+    status.details.rack = task.rack;
+    status.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(status));
+}
+
+/// @brief it should stop a task that a previous Driver run left running, so the
+/// Console does not show it as running with no data.
+TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
-    synnax::task::Status stopped;
-    stopped.key = "boot-stopped";
-    stopped.owner = synnax::task::resource_id(task.key);
-    stopped.name = task.name;
-    stopped.variant = synnax::status::VARIANT_SUCCESS;
-    stopped.message = "Task stopped";
-    stopped.time = x::telem::TimeStamp::now();
-    ASSERT_NIL(client->statuses.set(stopped));
-    start_manager(std::make_unique<EchoTaskFactory>());
-    std::vector<std::string> messages;
-    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
-        messages.push_back(s.message);
-        return s.message == "configured";
-    });
-    EXPECT_EQ(std::ranges::count(messages, "Failed to start task"), 0);
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief a factory whose tasks start at boot, as an auto-start task does.
+class AutoStartTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &cmd_key,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        auto echo = std::make_unique<MockEchoTask>(ctx, task);
+        if (cmd_key == NO_COMMAND) {
+            synnax::task::Status status;
+            status.owner = synnax::task::resource_id(task.key);
+            status.name = task.name;
+            status.variant = synnax::status::VARIANT_SUCCESS;
+            status.message = "Started task";
+            status.details.running = true;
+            status.details.config_hash = task.config_hash;
+            ctx->set_status(status);
+        }
+        return {std::move(echo), true};
+    }
+};
+
+/// @brief it should leave an auto-start task on its own "Started task", and never show
+/// it as stopped.
+TEST_F(TaskManagerTest, BootLeavesAnAutoStartTaskOnItsOwnStatus) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    start_manager(std::make_unique<AutoStartTaskFactory>());
+    const auto got = statuses_until_command(task);
+    EXPECT_TRUE(std::ranges::any_of(got, [](const synnax::task::Status &s) {
+        return s.message == "Started task" && s.description != "stored";
+    }));
+    for (const auto &s: got)
+        EXPECT_NE(s.message, "Task stopped");
+}
+
+/// @brief it should leave a stored stopped status alone.
+TEST_F(TaskManagerTest, BootLeavesAStoppedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Task stopped", false);
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    for (const auto &s: statuses_until_command(task))
+        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
+}
+
+/// @brief it should leave a stored failed status alone.
+TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_ERROR,
+        "Failed to start task",
+        false
+    );
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    for (const auto &s: statuses_until_command(task)) {
+        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
+        if (s.description != "stored") { EXPECT_NE(s.message, "Failed to start task"); }
+    }
+}
+
+/// @brief it should leave a running status that another rack wrote alone, since a task
+/// moved here runs on its old Driver until a start arrives.
+TEST_F(TaskManagerTest, BootLeavesARunningStatusOfAnotherRackAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status moved;
+    moved.key = "moved-" + task.key.to_string();
+    moved.owner = synnax::task::resource_id(task.key);
+    moved.name = task.name;
+    moved.variant = synnax::status::VARIANT_SUCCESS;
+    moved.message = "Started task";
+    moved.time = x::telem::TimeStamp::now();
+    moved.details.running = true;
+    moved.details.rack = rack.key + 1;
+    moved.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(moved));
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    for (const auto &s: statuses_until_command(task))
+        EXPECT_NE(s.message, "Task stopped");
 }
 
 #ifndef _WIN32
@@ -818,7 +1054,7 @@ TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
 /// @brief it should fail a start left loading when the Core connection dropped, and say
 /// that the connection dropped, not that the Driver restarted.
 TEST_F(TaskManagerTest, RunAfterACoreOutageFailsAStartLeftLoading) {
-    start_piped_manager(std::make_unique<EchoTaskFactory>());
+    start_piped_manager(std::make_unique<QuietEchoTaskFactory>());
     ASSERT_TRUE(wait_for_run(1));
     auto task = synnax::task::Task{
         .rack = rack.key,
@@ -854,6 +1090,34 @@ TEST_F(TaskManagerTest, RunAfterACoreOutageFailsAStartLeftLoading) {
         "the task again."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
+/// @brief it should stop a task left running when the Core connection dropped, and say
+/// that the connection dropped, not that the Driver restarted.
+TEST_F(TaskManagerTest, RunAfterACoreOutageStopsATaskLeftRunning) {
+    start_piped_manager(std::make_unique<QuietEchoTaskFactory>());
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    pipe->pause();
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    pipe->cut();
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(
+        s.description,
+        "The Driver lost its connection to the Core while the task was running. Start "
+        "the task again."
+    );
 }
 
 /// @brief it should wait for a worker stuck across runs before it deploys the task
@@ -1632,16 +1896,16 @@ TEST_F(TaskManagerTest, PinnedStartOnCurrentDeployRunsLiveInstance) {
     ASSERT_EQ(f->task_states.size(), 1);
 }
 
-TEST_F(TaskManagerTest, Timeout) {
-    auto factory = std::make_unique<TimeoutTaskFactory>();
+/// @brief it should warn, with a status that is not final, when the start step runs
+/// past its limit, then send the real final status.
+TEST_F(TaskManagerTest, StartPastItsLimitWarnsWithoutAFinal) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
     auto *f = factory.get();
-    // 500ms timeout, 100ms poll for fast test
     start_manager(
         std::move(factory),
         {.op_timeout = 500 * x::telem::MILLISECOND,
          .poll_interval = 100 * x::telem::MILLISECOND}
     );
-
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
@@ -1649,32 +1913,132 @@ TEST_F(TaskManagerTest, Timeout) {
     };
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
+    std::vector<synnax::task::Status> answers;
+    const auto warning = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [&](const synnax::task::Status &s) {
+            if (s.details.cmd == "start-cmd") answers.push_back(s);
+            return !s.description.empty() && s.details.cmd == "start-cmd";
+        }
+    );
+    EXPECT_EQ(warning.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(warning.message, "Starting task");
+    EXPECT_EQ(
+        warning.description,
+        "Still working after " + (500 * x::telem::MILLISECOND).to_string() + "."
+    );
+    EXPECT_EQ(warning.name, task.name);
+    EXPECT_EQ(warning.details.config_hash, task.config_hash);
+    EXPECT_FALSE(warning.details.running);
+    f->release_all();
+    const auto final = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [&](const synnax::task::Status &s) {
+            if (s.details.cmd == "start-cmd") answers.push_back(s);
+            return s.details.cmd == "start-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(final.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(final.message, "started");
+    const auto finals = std::ranges::count_if(answers, [](const auto &s) {
+        return s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(finals, 1);
+}
 
-    auto s = WAIT_FOR_TASK_STATUS(
+/// @brief it should hold a step that the task reports to the limit the task gives.
+TEST_F(TaskManagerTest, TaskOwnsTheLimitOfItsStep) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    factory->step_limit = 300 * x::telem::MILLISECOND;
+    auto *f = factory.get();
+    start_manager(
+        std::move(factory),
+        {.op_timeout = 60 * x::telem::SECOND,
+         .poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    const auto warning = WAIT_FOR_TASK_STATUS(
         streamer,
         task,
         [](const synnax::task::Status &s) {
-            return s.variant == synnax::status::VARIANT_ERROR &&
-                   s.message == "Failed to complete task operation";
-        },
-        5 * x::telem::SECOND
+            return !s.description.empty() && s.details.cmd == "start-cmd";
+        }
     );
-    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
-    ASSERT_EQ(
-        s.description,
-        "The operation did not finish within " +
-            (500 * x::telem::MILLISECOND).to_string() + "."
+    EXPECT_EQ(warning.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(warning.message, "Starting bus");
+    EXPECT_EQ(
+        warning.description,
+        "Still working after " + (300 * x::telem::MILLISECOND).to_string() + "."
     );
-    // The timeout report is the only signal a stuck task gives, so it carries
-    // everything needed to identify what hung: the command waiting on it, the task,
-    // and the config the stuck operation is deploying.
-    ASSERT_EQ(s.details.cmd, "start-cmd");
-    ASSERT_EQ(s.name, task.name);
-    ASSERT_FALSE(task.config_hash.empty());
-    ASSERT_EQ(s.details.config_hash, task.config_hash);
-    ASSERT_FALSE(s.details.running);
-
     f->release_all();
+}
+
+/// @brief it should warn nothing about a slow start of a task moved to another rack.
+TEST_F(TaskManagerTest, SlowStartMovedToAnotherRackWarnsNothing) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    auto *f = factory.get();
+    const auto op_timeout = 3 * x::telem::SECOND;
+    start_manager(
+        std::move(factory),
+        {.op_timeout = op_timeout, .poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(f->configures.load(), 1);
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    const auto moved_at = x::telem::TimeStamp::now();
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
+    expect_no_driver_status(
+        task,
+        false,
+        moved_at,
+        op_timeout + 500 * x::telem::MILLISECOND
+    );
+    f->release_all();
+}
+
+/// @brief it should send a second answer to one command with no command key, so the
+/// command gets exactly one final status.
+TEST_F(TaskManagerTest, SecondAnswerAnswersNoCommand) {
+    start_manager(std::make_unique<DoubleAnswerTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    const auto first = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "started"; }
+    );
+    EXPECT_EQ(first.details.cmd, "start-cmd");
+    const auto second = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "failed after start"; }
+    );
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(second.details.cmd, "");
 }
 
 TEST_F(TaskManagerTest, CommandFIFO) {

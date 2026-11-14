@@ -232,10 +232,18 @@ public:
         engine(std::move(eng)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
-        const auto [slaves, discover_err] = this->engine->discover();
+    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
+        const auto start = this->engine->begin_start(cancel);
+        const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
-        if (auto err = this->cfg.slaves.validate(slaves)) return err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.channels)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
+        engine::Settings settings;
+        for (auto &[pos, params]: this->cfg.settings)
+            settings[moves.at(pos)] = std::move(params);
+        this->cfg.settings = std::move(settings);
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
@@ -246,6 +254,7 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
+            start,
             this->cfg.settings
         );
         if (err) return err;
