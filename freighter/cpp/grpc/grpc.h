@@ -54,8 +54,9 @@ struct Keepalive {
     /// @brief how long the channel gets no bytes from the server before it pings. A
     /// Core closes a connection that pings more often than every five minutes.
     std::chrono::milliseconds time = std::chrono::minutes(6);
-    /// @brief how long the channel waits for a ping answer before it closes the
-    /// connection, which fails its calls with UNREACHABLE.
+    /// @brief how long the channel waits for the answer to any ping, a keepalive ping
+    /// or a flow control ping, before it closes the connection, which fails its calls
+    /// with UNREACHABLE. A Core waits the same time for the answers to its own pings.
     std::chrono::milliseconds timeout = std::chrono::seconds(20);
 };
 

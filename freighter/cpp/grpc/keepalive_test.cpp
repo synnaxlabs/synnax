@@ -139,4 +139,38 @@ TEST(testGRPC, testKeepaliveFailsStreamOnLostConnection) {
     testutil::stop_servers();
     s.join();
 }
+
+/// @brief it should fail a stream that sent nothing since it opened with UNREACHABLE
+/// when its server stops answering pings.
+TEST(testGRPC, testKeepaliveFailsReceiveOnlyStream) {
+    std::thread s(testutil::server, "localhost:8088");
+    testutil::wait_for_servers();
+    auto hole = std::make_unique<Blackhole>(8088);
+    auto pool = std::make_shared<Pool>(
+        false,
+        Keepalive{
+            .time = std::chrono::milliseconds(200),
+            .timeout = std::chrono::milliseconds(500),
+        }
+    );
+    auto
+        client = StreamClient<test::Message, test::Message, test::StreamMessageService>(
+            pool,
+            "127.0.0.1:" + std::to_string(hole->port)
+        );
+    auto stream = ASSERT_NIL_P(client.stream(""));
+    // Lets several keepalive pings go out and come back before the drop.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    hole->drop();
+    auto received = std::async(std::launch::async, [&stream] {
+        return stream->receive();
+    });
+    const auto status = received.wait_for(std::chrono::seconds(10));
+    hole.reset();
+    const auto err = received.get().second;
+    EXPECT_EQ(status, std::future_status::ready);
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    testutil::stop_servers();
+    s.join();
+}
 }
