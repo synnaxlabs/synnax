@@ -185,10 +185,8 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
     switch (ch.type) {
       case "add":
         return [
-          schematic.addEdge({ edge: ch.edge }),
-          schematic.setConfig({
-            key: ch.edge.key,
-            config: Edge.REGISTRY.pipe.defaultConfig(),
+          schematic.addEdge({
+            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
           }),
         ];
       case "remove":

@@ -44,8 +44,13 @@ const renderSchematic = async (): Promise<{
   const { key } = await client.schematics.create({
     project: project.key,
     name: "schematic",
-    nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
-    configs: { n1: { variant: "tank", label: { label: "Pump" } } },
+    nodes: [
+      {
+        key: "n1",
+        position: { x: 0, y: 0 },
+        config: { variant: "tank", label: { label: "Pump" } },
+      },
+    ],
   });
   const wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -112,15 +117,18 @@ describe("Schematic", () => {
         actions: [
           {
             type: "set",
-            set: { path: ["configs", "n1", "label", "label"], value: "Valve" },
+            set: {
+              path: ["nodes", "n1", "config", "label", "label"],
+              value: "Valve",
+            },
           },
         ],
       }),
     );
     await waitFor(async () =>
-      expect((await client.schematics.retrieve({ key })).configs.n1).toMatchObject({
-        label: { label: "Valve" },
-      }),
+      expect((await client.schematics.retrieve({ key })).nodes[0].config).toMatchObject(
+        { label: { label: "Valve" } },
+      ),
     );
   });
 });

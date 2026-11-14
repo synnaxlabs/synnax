@@ -48,8 +48,6 @@ const renderProperties = async ({
   onStatuses = () => {},
   createConfig = createValveConfig,
 }: RenderPropertiesParams) => {
-  const configs: Record<string, unknown> = {};
-  nodeKeys.forEach((key) => (configs[key] = createConfig(key)));
   const Harness = (): ReactElement => (
     <>
       <Toolbar />
@@ -58,8 +56,11 @@ const renderProperties = async ({
   );
   return await renderSchematic(Harness, {
     schematic: {
-      nodes: nodeKeys.map((key) => ({ key, position: { x: 0, y: 0 } })),
-      configs: configs as schematic.New["configs"],
+      nodes: nodeKeys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: schematic.nodeConfigZ.parse(createConfig(key)),
+      })),
     },
     sessionState: {
       editable: true,
@@ -118,7 +119,7 @@ const retrieveConfig = async (
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
   const retrieved = await client.schematics.retrieve(key);
-  return retrieved.configs[nodeKey];
+  return schematic.configsOf(retrieved)[nodeKey];
 };
 
 const pollBothOrientations = async (key: string, rotated: string): Promise<void> => {
@@ -156,7 +157,10 @@ describe("Schematic toolbar Properties", () => {
       await act(async () => {
         await remote.schematics.dispatch(
           key,
-          schematic.set({ path: ["configs", "n1", "label", "label"], value: "Remote" }),
+          schematic.set({
+            path: ["nodes", "n1", "config", "label", "label"],
+            value: "Remote",
+          }),
         );
       });
       await waitFor(() =>
@@ -337,7 +341,7 @@ describe("Schematic toolbar Properties", () => {
         ).toMatchObject({
           actions: ["n1", "n2"].map((key) => ({
             type: "set",
-            set: { path: ["configs", key, "stroke_color"] },
+            set: { path: ["nodes", key, "config", "stroke_color"] },
           })),
         }),
       );

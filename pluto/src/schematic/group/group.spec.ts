@@ -26,11 +26,14 @@ import {
 } from "@/schematic/group/group";
 import { Node } from "@/schematic/node";
 
-const node = (key: string, x = 0, y = 0): schematic.Node => ({
-  key,
-  position: { x, y },
-  zIndex: 0,
-});
+const vent = schematic.nodeConfigZ.parse({ variant: "vent" });
+
+const node = (
+  key: string,
+  x = 0,
+  y = 0,
+  config: schematic.NodeConfig = vent,
+): schematic.Node => ({ key, position: { x, y }, zIndex: 0, config });
 
 const groupConfig = (members: string[]): Node.GroupBox.Config => ({
   variant: Node.GroupBox.VARIANT,
@@ -40,8 +43,12 @@ const groupConfig = (members: string[]): Node.GroupBox.Config => ({
 
 const doc = (
   nodes: schematic.Node[],
-  configs: Record<string, schematic.ElementConfig>,
-): schematic.Schematic => ({ nodes, configs }) as schematic.Schematic;
+  configs: Record<string, schematic.NodeConfig>,
+): schematic.Schematic =>
+  schematic.schematicZ.parse({
+    name: "doc",
+    nodes: nodes.map((n) => ({ ...n, config: configs[n.key] ?? n.config })),
+  });
 
 // outer holds mid1 (which holds inner1) and mid2, side stands alone, and l1, l2,
 // and l3 are loose symbols.
@@ -159,10 +166,10 @@ describe("group", () => {
       expect(inserted).toMatchObject({
         type: "set_node",
         setNode: {
-          node: { position: { x: -60, y: -65 }, zIndex: -1 },
-          config: {
-            variant: "group_box",
-            members: ["c", "a", "e", "b", "d"],
+          node: {
+            position: { x: -60, y: -65 },
+            zIndex: -1,
+            config: { variant: "group_box", members: ["c", "a", "e", "b", "d"] },
           },
         },
       });
@@ -185,8 +192,10 @@ describe("group", () => {
       });
       expect(result?.actions[0]).toMatchObject({
         setNode: {
-          node: { position: { x: -20, y: -40 } },
-          config: { members: ["outer", "l1", "side"] },
+          node: {
+            position: { x: -20, y: -40 },
+            config: { members: ["outer", "l1", "side"] },
+          },
         },
       });
       expect(result?.selection.slice(1)).toEqual([
@@ -247,7 +256,6 @@ describe("group", () => {
     it("should pass non-group configs through", () => {
       const config = Node.createConfig({ variant: "value" });
       expect(remapMembers(config, { a: "a2" })).toBe(config);
-      expect(remapMembers(undefined, { a: "a2" })).toBeUndefined();
     });
   });
 
@@ -528,9 +536,11 @@ describe("group", () => {
       const result = ungroupActions(["s6"], forest);
       expect(result?.actions).toEqual([
         schematic.set({
-          path: ["configs", "mid1", "members"],
+          path: ["nodes", "mid1", "config", "members"],
           value: ["s6", "s7", "s2", "s3"],
-          guards: [{ path: ["configs", "mid1", "variant"], value: "group_box" }],
+          guards: [
+            { path: ["nodes", "mid1", "config", "variant"], value: "group_box" },
+          ],
         }),
         schematic.removeNode({ key: "inner1" }),
       ]);
@@ -558,9 +568,11 @@ describe("group", () => {
       const result = ungroupActions(withMembers(["mid1"], forest), forest);
       expect(result?.actions).toEqual([
         schematic.set({
-          path: ["configs", "outer", "members"],
+          path: ["nodes", "outer", "config", "members"],
           value: ["inner1", "s2", "s3", "mid2", "s1"],
-          guards: [{ path: ["configs", "outer", "variant"], value: "group_box" }],
+          guards: [
+            { path: ["nodes", "outer", "config", "variant"], value: "group_box" },
+          ],
         }),
         schematic.removeNode({ key: "mid1" }),
       ]);
@@ -612,8 +624,8 @@ describe("group", () => {
       const action = regrouped?.actions[0];
       expect(action?.type).toEqual("set_node");
       if (action?.type !== "set_node") return;
-      const { node: groupNode, config } = action.setNode;
-      if (config != null) remaining[groupNode.key] = config;
+      const { node: groupNode } = action.setNode;
+      remaining[groupNode.key] = groupNode.config;
       expect(buildParentOf(remaining).get("a")).toEqual(groupNode.key);
     });
 

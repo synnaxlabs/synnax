@@ -49,6 +49,8 @@ const MIME = "web application/synnax-schematic+json";
 
 const client = createTestClient();
 
+const tank = (label: string) => ({ variant: "tank" as const, label: { label } });
+
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   const proj = await client.projects.create({
     name: `project_${uuid.create()}`,
@@ -57,23 +59,18 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
     project: proj.key,
     name: `schem_${uuid.create()}`,
     nodes: [
-      { key: "n1", position: { x: 0, y: 0 } },
-      { key: "n2", position: { x: 100, y: 100 } },
-      { key: "n3", position: { x: 200, y: 200 } },
+      { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump") },
+      { key: "n2", position: { x: 100, y: 100 }, config: tank("Valve") },
+      { key: "n3", position: { x: 200, y: 200 }, config: tank("Tank") },
     ],
     edges: [
       {
         key: "e1",
         source: { node: "n1", param: "out" },
         target: { node: "n2", param: "in" },
+        config: { variant: "pipe" },
       },
     ],
-    configs: {
-      n1: { variant: "tank", label: { label: "Pump" } },
-      n2: { variant: "tank", label: { label: "Valve" } },
-      n3: { variant: "tank", label: { label: "Tank" } },
-      e1: { variant: "pipe" },
-    },
   });
 };
 
@@ -113,7 +110,7 @@ const scoped = (Wrapper: FC<PropsWithChildren>, key: string): FC<PropsWithChildr
 
 describe("schematic clipboard", () => {
   describe("useClipboard", () => {
-    it("writes selected nodes, edges, and configs to clipboardData on copy", async () => {
+    it("writes the selected nodes and edges with their configs on copy", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
       await loadSchematic(Wrapper, schem.key);
@@ -135,11 +132,9 @@ describe("schematic clipboard", () => {
         "n2",
       ]);
       expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
-      expect(payload.configs.n1).toMatchObject({
-        variant: "tank",
-        label: { label: "Pump" },
-      });
-      expect(payload.configs.e1).toEqual({ variant: "pipe", segments: [] });
+      const n1 = payload.nodes.find((n: schematic.Node) => n.key === "n1");
+      expect(n1.config).toMatchObject(tank("Pump"));
+      expect(payload.edges[0].config).toEqual({ variant: "pipe", segments: [] });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();
@@ -222,23 +217,24 @@ describe("schematic clipboard", () => {
         project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 100, y: 100 } },
-          { key: "n3", position: { x: 200, y: 200 } },
+          { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump") },
+          { key: "n2", position: { x: 100, y: 100 }, config: tank("Valve") },
+          { key: "n3", position: { x: 200, y: 200 }, config: tank("Tank") },
         ],
         edges: [
           {
             key: "e1",
             source: { node: "n1", param: "out" },
             target: { node: "n2", param: "in" },
+            config: { variant: "pipe" },
           },
           {
             key: "e2",
             source: { node: "n2", param: "out" },
             target: { node: "n3", param: "in" },
+            config: { variant: "pipe" },
           },
         ],
-        configs: {},
       });
     };
 
@@ -383,16 +379,16 @@ describe("schematic clipboard", () => {
         project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
-          { key: "g1", position: { x: -30, y: -30 }, zIndex: -1 },
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 100, y: 100 } },
+          {
+            key: "g1",
+            position: { x: -30, y: -30 },
+            zIndex: -1,
+            config: { variant: "group_box", members: ["n1", "n2"] },
+          },
+          { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump") },
+          { key: "n2", position: { x: 100, y: 100 }, config: tank("Valve") },
         ],
         edges: [],
-        configs: {
-          g1: { variant: "group_box", members: ["n1", "n2"] },
-          n1: { variant: "tank", label: { label: "Pump" } },
-          n2: { variant: "tank", label: { label: "Valve" } },
-        },
       });
       await loadSchematic(Wrapper, schem.key);
 

@@ -104,9 +104,10 @@ export const createActions = ({
     key,
     position: { x: minX - PADDING, y: minY - TOP_PADDING },
     zIndex: -1,
+    config,
   };
   return {
-    actions: [schematic.setNode({ node, config })],
+    actions: [schematic.setNode({ node })],
     selection: [key, ...withMembers(members, configs)],
   };
 };
@@ -129,10 +130,10 @@ const collectMembers = (
  * remapMembers rewrites a pasted group config's members onto the pasted keys,
  * dropping members that were not pasted. Non-group configs pass through.
  */
-export const remapMembers = (
-  config: schematic.ElementConfig | undefined,
+export const remapMembers = <C extends schematic.ElementConfig>(
+  config: C,
   remap: Record<string, string>,
-): schematic.ElementConfig | undefined => {
+): C => {
   if (!isConfig(config)) return config;
   const members = config.members.map((m) => remap[m]).filter((m) => m != null);
   return { ...config, members };
@@ -159,7 +160,8 @@ export const fanOutMoves = (
   current: schematic.Schematic,
   actions: schematic.Action[],
 ): schematic.Action[] => {
-  const { nodes, configs } = current;
+  const { nodes } = current;
+  const configs = schematic.configsOf(current);
   const moved = new Set<string>();
   for (const a of actions)
     if (a.type === "set_node_position") moved.add(a.setNodePosition.key);

@@ -11,7 +11,6 @@ package schematic
 
 import (
 	"context"
-	"maps"
 	"reflect"
 	"slices"
 	"uuid"
@@ -64,11 +63,11 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	var prev Schematic
+	var stored []Node
 	if source != nil {
-		prev = *source
+		stored = source.Nodes
 	}
-	if err := validateScales(prev, *s); err != nil {
+	if err := validateConfigs(stored, *s); err != nil {
 		return err
 	}
 	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
@@ -188,8 +187,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 					}
 				}
 			}
-			// Reduce edits the configs map in place, so keep the stored ones.
-			stored := maps.Clone(prev.Configs)
+			// Reduce can edit nodes in place, so keep the stored ones.
+			stored := slices.Clone(prev.Nodes)
 			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
@@ -210,7 +209,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Schematic{}, err
 			}
-			if err = validateScales(Schematic{Configs: stored}, next); err != nil {
+			if err = validateConfigs(stored, next); err != nil {
 				return Schematic{}, err
 			}
 			return next, project.ValidateOwner(next.Project, next.Range)
@@ -221,34 +220,56 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	return added, nil
 }
 
-// validateScales returns an error wrapping validate.ErrValidation when a config of next
-// carries a scale that is not positive and differs from the scale prev stores for it. A
-// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
-// a stored zero does not block an edit to another field.
-func validateScales(prev, next Schematic) error {
-	for key, cfg := range next.Configs {
-		scale, ok := scaleOf(cfg)
+// validateConfigs returns an error wrapping validate.ErrValidation when the config of
+// a node or edge of next names no variant, or when a node config carries a scale that
+// is not positive and differs from the scale of the stored node. A zero scale sizes a
+// symbol to nothing. A stored scale that the write keeps passes, so a stored zero does
+// not block an edit to another field.
+func validateConfigs(stored []Node, next Schematic) error {
+	for i, e := range next.Edges {
+		if e.Config.Variant == nil {
+			return noVariantError("edges", i)
+		}
+	}
+	for i, n := range next.Nodes {
+		if n.Config.Variant == nil {
+			return noVariantError("nodes", i)
+		}
+		scale, ok := scaleOf(n.Config.Variant)
 		if !ok || scale > 0 {
 			continue
 		}
-		if old, stored := prev.Configs[key]; stored {
-			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
+		if j := slices.IndexFunc(
+			stored,
+			func(s Node) bool { return s.Key == n.Key },
+		); j >= 0 {
+			if old, had := scaleOf(stored[j].Config.Variant); had && old == scale {
 				continue
 			}
 		}
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"configs.%s.scale: must be positive, got %v",
-			key,
+			"nodes.%d.config.scale: must be positive, got %v",
+			i,
 			scale,
 		)
 	}
 	return nil
 }
 
-// scaleOf returns the scale that cfg carries, and false when its variant has none.
-func scaleOf(cfg ElementConfig) (float64, bool) {
-	v := reflect.ValueOf(cfg.Variant)
+func noVariantError(field string, i int) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s.%d.config: names no variant",
+		field,
+		i,
+	)
+}
+
+// scaleOf returns the scale that a node config variant carries, and false when it has
+// none.
+func scaleOf(variant NodeConfigVariant) (float64, bool) {
+	v := reflect.ValueOf(variant)
 	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}

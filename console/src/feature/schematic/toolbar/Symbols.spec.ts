@@ -82,8 +82,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ variant: "gauge" });
+      expect(retrieved.nodes[0].config).toMatchObject({ variant: "gauge" });
     });
   });
 
@@ -117,8 +116,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ specKey: symbols[0].key });
+      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
     });
   });
 
