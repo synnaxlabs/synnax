@@ -81,11 +81,15 @@ struct Slaves {
                 .serial = s.serial,
                 .name = s.name,
             });
-        auto [positions, err] = slave::bind(std::move(saved), bus);
+        const auto [positions, err] = slave::bind(saved, bus);
         if (err) return {{}, err};
-        for (auto &[_, s]: this->by_key)
-            s.position = positions.at(s.position);
-        return {positions, x::errors::NIL};
+        std::map<uint16_t, uint16_t> moves;
+        size_t i = 0;
+        for (auto &[_, s]: this->by_key) {
+            moves[s.position] = positions[i];
+            s.position = positions[i++];
+        }
+        return {moves, x::errors::NIL};
     }
 };
 }
