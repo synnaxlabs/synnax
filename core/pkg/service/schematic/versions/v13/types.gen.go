@@ -34,14 +34,55 @@ import (
 type Key = v12.Key
 
 // Node is a diagram node representing a symbol in the schematic.
-type Node = v12.Node
+type Node struct {
+	// Key is the unique node identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Position is the top-left position of the node.
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// ZIndex is the stacking order of the node within the schematic. Higher values
+	// render above lower values. Set by the user via send-to-back / bring-to-front
+	// actions.
+	ZIndex int16 `json:"z_index" msgpack:"z_index"`
+	// Config is the symbol the node draws and its settings.
+	Config NodeConfig `json:"config" msgpack:"config"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (n *Node) ApplyDefaults() {
+	n.Config.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n Node) Validate() error {
+	v := validate.New("Node")
+	v.Exec(func() error { return validate.PathedError(n.Config.Validate(), "config") })
+	return v.Error()
+}
 
 // Handle is a reference to a specific connection point on a specific node. For
 // schematics, param is the symbol handle key (e.g. inlet, outlet).
 type Handle = v12.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge = v12.Edge
+type Edge struct {
+	// Key is the unique edge identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Source is the source endpoint of the edge.
+	Source Handle `json:"source" msgpack:"source"`
+	// Target is the target endpoint of the edge.
+	Target Handle `json:"target" msgpack:"target"`
+	// Config is the style of the connection and the path it traces.
+	Config EdgeConfig `json:"config" msgpack:"config"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e Edge) Validate() error {
+	v := validate.New("Edge")
+	v.Exec(func() error { return validate.PathedError(e.Config.Validate(), "config") })
+	return v.Error()
+}
 
 // Segment is a single orthogonal run in an edge's connector path.
 type Segment = v12.Segment
@@ -11851,9 +11892,6 @@ type Schematic struct {
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
 	Edges []Edge `json:"edges" msgpack:"edges"`
-	// Configs contains per-element configuration keyed by node or edge key. The variant
-	// of each value selects the symbol or edge style it configures.
-	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 	// Group is the group the schematic sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the schematic.
@@ -11862,9 +11900,8 @@ type Schematic struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *Schematic) ApplyDefaults() {
-	for key, value := range s.Configs {
-		value.ApplyDefaults()
-		s.Configs[key] = value
+	for i := range s.Nodes {
+		s.Nodes[i].ApplyDefaults()
 	}
 }
 
@@ -11872,8 +11909,12 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	for key, value := range s.Configs {
-		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
+	v.NotEmptyString("name", s.Name)
+	for i := range s.Nodes {
+		v.Exec(func() error { return validate.PathedError(s.Nodes[i].Validate(), "nodes", strconv.Itoa(i)) })
+	}
+	for i := range s.Edges {
+		v.Exec(func() error { return validate.PathedError(s.Edges[i].Validate(), "edges", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }

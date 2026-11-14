@@ -1165,3 +1165,11 @@ ScaledConfig struct {
     @doc value  "is the base configuration for any symbol drawn at a scale multiplier."
     @go marshal
 }
+
+ElementConfig union on variant extends NodeConfig, EdgeConfig {
+    @doc value  """
+        is the per-element configuration stored in the schematic configs map: a node
+        config or an edge config, discriminated by variant.
+    """
+    @go marshal
+}

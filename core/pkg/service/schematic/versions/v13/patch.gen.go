@@ -14,6 +14,77 @@ package v13
 import "github.com/synnaxlabs/x/patch"
 
 // Patch applies the path action at c, which is not done, to the value.
+func (e *Edge) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&e.Key, c.Next())
+	case "source":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&e.Source, c)
+		}
+		return e.Source.Patch(c)
+	case "target":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&e.Target, c)
+		}
+		return e.Target.Patch(c)
+	case "config":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&e.Config, c)
+		}
+		return e.Config.Patch(c)
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (e *Edge) PatchKey() string { return e.Key }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (n *Node) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&n.Key, c.Next())
+	case "position":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&n.Position, c)
+		}
+		return n.Position.Patch(c)
+	case "z_index":
+		return patch.Value(&n.ZIndex, c.Next())
+	case "config":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&n.Config, c)
+		}
+		return n.Config.Patch(c)
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (n *Node) PatchKey() string { return n.Key }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (s *Schematic) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "name":
+		return patch.Value(&s.Name, c.Next())
+	case "nodes":
+		return patch.List(&s.Nodes, c.Next())
+	case "edges":
+		return patch.List(&s.Edges, c.Next())
+	case "group":
+		return patch.OptionalValue(&s.Group, c.Next())
+	case "project":
+		return patch.OptionalValue(&s.Project, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (sm *StateMapping) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":

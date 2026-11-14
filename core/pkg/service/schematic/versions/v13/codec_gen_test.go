@@ -241,6 +241,33 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Edge", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.Edge) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.Edge
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v13.Edge{
+				Key:    "test_1",
+				Source: v13.Handle{Node: "test_3", Param: "test_4"},
+				Target: v13.Handle{Node: "test_6", Param: "test_7"},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+			}),
+			Entry("zero values", v13.Edge{
+				Key:    "",
+				Source: v13.Handle{Node: "", Param: ""},
+				Target: v13.Handle{Node: "", Param: ""},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+					SegmentedEdgeConfig: v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}},
+				}},
+			}),
+		)
+	})
 	Describe("EdgeConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v13.EdgeConfig) {
@@ -957,6 +984,45 @@ var _ = Describe("Codec", func() {
 			Entry("data variant", v13.ElementConfig{Variant: v13.DataElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 		)
 	})
+	Describe("Node", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.Node) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.Node
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v13.Node{
+				Key:      "test_1",
+				Position: spatial.XY{X: 3.5, Y: 4.5},
+				ZIndex:   6,
+				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+			}),
+			Entry("zero values", v13.Node{
+				Key:      "",
+				Position: spatial.XY{X: 0, Y: 0},
+				ZIndex:   0,
+				Config: v13.NodeConfig{Variant: v13.CapNodeConfig{
+					StaticSymbolConfig: v13.StaticSymbolConfig{
+						Label: v13.LabelConfig{
+							Label:         "",
+							Level:         text.Level(""),
+							Orientation:   spatial.Location(""),
+							Direction:     spatial.Direction(""),
+							MaxInlineSize: 0,
+							Align:         v13.FlexAlignment(""),
+						},
+						Orientation: spatial.OuterLocation(""),
+						Scale:       0,
+						StrokeColor: nil,
+					},
+				}},
+			}),
+		)
+	})
 	Describe("NodeConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v13.NodeConfig) {
@@ -1662,25 +1728,25 @@ var _ = Describe("Codec", func() {
 						Key:      "test_4",
 						Position: spatial.XY{X: 6.5, Y: 7.5},
 						ZIndex:   9,
+						Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
 					},
 				},
 				Edges: []v13.Edge{
 					{
-						Key:    "test_10",
-						Source: v13.Handle{Node: "test_12", Param: "test_13"},
-						Target: v13.Handle{Node: "test_15", Param: "test_16"},
+						Key:    "test_11",
+						Source: v13.Handle{Node: "test_13", Param: "test_14"},
+						Target: v13.Handle{Node: "test_16", Param: "test_17"},
+						Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 					},
 				},
-				Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 			}),
 			Entry("zero values", v13.Schematic{
 				Key:     uuid.Nil(),
 				Name:    "",
 				Nodes:   []v13.Node{},
 				Edges:   []v13.Edge{},
-				Configs: map[string]v13.ElementConfig{},
 				Group:   nil,
 				Project: nil,
 			}),
@@ -1689,9 +1755,8 @@ var _ = Describe("Codec", func() {
 				Name:    "test_2",
 				Nodes:   []v13.Node{},
 				Edges:   []v13.Edge{},
-				Configs: map[string]v13.ElementConfig{},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			}),
 		)
 	})
@@ -1875,6 +1940,28 @@ func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeEdge(b *testing.B) {
+	seed := v13.Edge{
+		Key:    "test_1",
+		Source: v13.Handle{Node: "test_3", Param: "test_4"},
+		Target: v13.Handle{Node: "test_6", Param: "test_7"},
+		Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 	seed := v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
 	w := orc.NewWriter(0)
@@ -1902,6 +1989,28 @@ func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v13.ElementConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeNode(b *testing.B) {
+	seed := v13.Node{
+		Key:      "test_1",
+		Position: spatial.XY{X: 3.5, Y: 4.5},
+		ZIndex:   6,
+		Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.Node
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1952,18 +2061,19 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Key:      "test_4",
 				Position: spatial.XY{X: 6.5, Y: 7.5},
 				ZIndex:   9,
+				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
 			},
 		},
 		Edges: []v13.Edge{
 			{
-				Key:    "test_10",
-				Source: v13.Handle{Node: "test_12", Param: "test_13"},
-				Target: v13.Handle{Node: "test_15", Param: "test_16"},
+				Key:    "test_11",
+				Source: v13.Handle{Node: "test_13", Param: "test_14"},
+				Target: v13.Handle{Node: "test_16", Param: "test_17"},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 			},
 		},
-		Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2135,6 +2245,57 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v13.DummyToggleSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeEdge(f *testing.F) {
+	{
+		seed := v13.Edge{
+			Key:    "test_1",
+			Source: v13.Handle{Node: "test_3", Param: "test_4"},
+			Target: v13.Handle{Node: "test_6", Param: "test_7"},
+			Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.Edge{
+			Key:    "",
+			Source: v13.Handle{Node: "", Param: ""},
+			Target: v13.Handle{Node: "", Param: ""},
+			Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+				SegmentedEdgeConfig: v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}},
+			}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.Edge
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.Edge
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -3707,6 +3868,69 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeNode(f *testing.F) {
+	{
+		seed := v13.Node{
+			Key:      "test_1",
+			Position: spatial.XY{X: 3.5, Y: 4.5},
+			ZIndex:   6,
+			Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.Node{
+			Key:      "",
+			Position: spatial.XY{X: 0, Y: 0},
+			ZIndex:   0,
+			Config: v13.NodeConfig{Variant: v13.CapNodeConfig{
+				StaticSymbolConfig: v13.StaticSymbolConfig{
+					Label: v13.LabelConfig{
+						Label:         "",
+						Level:         text.Level(""),
+						Orientation:   spatial.Location(""),
+						Direction:     spatial.Direction(""),
+						MaxInlineSize: 0,
+						Align:         v13.FlexAlignment(""),
+					},
+					Orientation: spatial.OuterLocation(""),
+					Scale:       0,
+					StrokeColor: nil,
+				},
+			}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.Node
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.Node
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
@@ -5165,18 +5389,19 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Key:      "test_4",
 					Position: spatial.XY{X: 6.5, Y: 7.5},
 					ZIndex:   9,
+					Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
 				},
 			},
 			Edges: []v13.Edge{
 				{
-					Key:    "test_10",
-					Source: v13.Handle{Node: "test_12", Param: "test_13"},
-					Target: v13.Handle{Node: "test_15", Param: "test_16"},
+					Key:    "test_11",
+					Source: v13.Handle{Node: "test_13", Param: "test_14"},
+					Target: v13.Handle{Node: "test_16", Param: "test_17"},
+					Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 				},
 			},
-			Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5190,7 +5415,6 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Name:    "",
 			Nodes:   []v13.Node{},
 			Edges:   []v13.Edge{},
-			Configs: map[string]v13.ElementConfig{},
 			Group:   nil,
 			Project: nil,
 		}
@@ -5206,9 +5430,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Name:    "test_2",
 			Nodes:   []v13.Node{},
 			Edges:   []v13.Edge{},
-			Configs: map[string]v13.ElementConfig{},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

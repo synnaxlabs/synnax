@@ -40,7 +40,6 @@ var _ = Describe("Migrations", func() {
 			"v62_schematic_delete_snapshots",
 			"v62_byte_precision",
 			"v61_color_alpha_byte",
-			"v62_configs_on_nodes",
 		}))
 	})
 })

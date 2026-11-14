@@ -84,6 +84,39 @@ func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (e Edge) EncodeOrc(w *orc.Writer) error {
+	w.String(e.Key)
+	if err := e.Source.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Target.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Config.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (e *Edge) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if e.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = e.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Target.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Config.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (ec EdgeConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := ec.Variant.(type) {
 	case PipeEdgeConfig:
@@ -3251,6 +3284,37 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		ec.Variant = v
 	default:
 		return errors.Newf("ElementConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	w.String(nv.Key)
+	if err := nv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int16(int16(nv.ZIndex))
+	if err := nv.Config.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if nv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = nv.Position.DecodeOrc(r); err != nil {
+		return err
+	}
+	if nv.ZIndex, err = r.Int16(); err != nil {
+		return err
+	}
+	if err = nv.Config.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }
@@ -6489,16 +6553,6 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(s.Configs != nil)
-	if s.Configs != nil {
-		w.Uint32(uint32(len(s.Configs)))
-		for key, val := range s.Configs {
-			w.String(key)
-			if err := val.EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	if s.Group != nil {
 		w.Bool(true)
 		w.Write((*s.Group)[:])
@@ -6556,30 +6610,6 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 				if err = s.Edges[i].DecodeOrc(r); err != nil {
 					return err
 				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Configs = make(map[string]ElementConfig, n)
-			for range n {
-				var key string
-				var val ElementConfig
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				if err = val.DecodeOrc(r); err != nil {
-					return err
-				}
-				s.Configs[key] = val
 			}
 		}
 	}

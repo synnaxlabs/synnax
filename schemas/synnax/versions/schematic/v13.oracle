@@ -19,11 +19,19 @@ import "schemas/x/versions/text/v0"
 
 Key = v0.Key
 
-Node = v8.Node
+Node struct extends v8.Node {
+    config NodeConfig {
+        @doc value "is the symbol the node draws and its settings."
+    }
+}
 
 Handle = v7.Handle
 
-Edge = v7.Edge
+Edge struct extends v7.Edge {
+    config EdgeConfig {
+        @doc value "is the style of the connection and the path it traces."
+    }
+}
 
 Segment = v9.Segment
 
@@ -69,4 +77,6 @@ NodeConfig union on variant extends v10.NodeConfig {}
 
 ElementConfig union on variant extends v10.ElementConfig {}
 
-Schematic struct extends v12.Schematic {}
+Schematic struct extends v12.Schematic {
+    -configs
+}
