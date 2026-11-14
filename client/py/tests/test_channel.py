@@ -412,6 +412,21 @@ class TestChannel:
         )
         assert [ch.key for ch in res] == [a.key]
 
+    def test_count_limited(self, client: sy.Synnax) -> None:
+        """Should count a stored channel toward the channel limit and leave out a
+        virtual one.
+        """
+        before = client.channels.count_limited()
+        index = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        assert client.channels.count_limited() == before + 1
+        client.channels.delete(index.key)
+        assert client.channels.count_limited() == before
+
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""
         channels = client.channels.create(

@@ -322,6 +322,28 @@ func translateChannelsBackward(
 	return translated, nil
 }
 
+// CountLimitedRequest is a request for the count of the channels that count against the
+// license channel limit.
+type CountLimitedRequest struct{}
+
+var _ bind.Named = CountLimitedRequest{}
+
+// Named implements bind.Named. The count covers every channel, so it names the channel
+// type.
+func (CountLimitedRequest) Named() []resource.ID {
+	return []resource.ID{{Type: resource.TypeChannel}}
+}
+
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited(
+	context.Context,
+	bind.Snapshot,
+	CountLimitedRequest,
+) (CountLimitedResponse, error) {
+	return CountLimitedResponse{Count: s.internal.CountLimited()}, nil
+}
+
 type DeleteRequest struct {
 	Keys  channel.Keys `json:"keys"  msgpack:"keys"`
 	Names []string     `json:"names" msgpack:"names"`

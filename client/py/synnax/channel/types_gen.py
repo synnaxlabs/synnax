@@ -65,6 +65,17 @@ class Operation(BaseModel):
     )
 
 
+class CountLimitedResponse(BaseModel):
+    """Holds the count of the channels that count against the license channel limit (not
+    internal, not virtual).
+
+    Attributes:
+        count: Is how many channels count against the license channel limit.
+    """
+
+    count: int = Field(ge=0, le=4294967295)
+
+
 class Where(BaseModel):
     """Is a filter that selects channels.
 
