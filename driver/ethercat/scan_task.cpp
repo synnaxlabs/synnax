@@ -327,10 +327,12 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
-    // An incomplete read keeps the stored PDOs and settings, unless the slave now holds
-    // another mode.
+    // An incomplete PDO read keeps the stored PDOs, unless the slave now holds another
+    // mode. A failed settings read gives no settings, so the stored ones stay.
     const auto mode = mode_value(slave_props);
-    const bool same_mode = mode.is_null() || mode == mode_value(json_props);
+    const auto stored_mode = mode_value(json_props);
+    const bool same_mode = mode.is_null() || stored_mode.is_null() ||
+                           mode == stored_mode;
     const bool pdos_kept = same_mode && !sts.pdo_discovery_error.empty() &&
                            holds_pdos(json_props);
     if (pdos_kept) {
@@ -339,8 +341,6 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
                      << " keeps its stored PDOs: " << sts.pdo_discovery_error;
         slave_props.erase("pdos");
     }
-    if (same_mode && !sts.settings_error.empty() && json_props.contains("settings"))
-        slave_props.erase("settings");
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
