@@ -471,7 +471,7 @@ struct Identity {
 /// @brief returns the indices of saved in order of saved position, then name.
 inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
     std::vector<size_t> order(saved.size());
-    std::iota(order.begin(), order.end(), 0);
+    std::ranges::iota(order, size_t{0});
     std::ranges::sort(order, {}, [&saved](const size_t i) {
         return std::tie(saved[i].position, saved[i].name);
     });
@@ -549,8 +549,12 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
                 )
             );
     const auto found = locate(saved, bus);
+    std::vector<uint16_t> positions(saved.size());
     for (const auto i: order) {
-        if (found[i]) continue;
+        if (const auto &position = found[i]) {
+            positions[i] = *position;
+            continue;
+        }
         const auto &s = saved[i];
         if (s.serial != 0)
             return mismatch(
@@ -592,10 +596,6 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             )
         );
     }
-    std::vector<uint16_t> positions;
-    positions.reserve(found.size());
-    for (const auto &position: found)
-        positions.push_back(*position);
     return {positions, x::errors::NIL};
 }
 }
