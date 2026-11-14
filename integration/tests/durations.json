@@ -78,7 +78,6 @@
   "console/task/opcua_write_task": 10.9,
   "console/task/task_lifecycle": 29.9,
   "console/user/assign_role": 9.7,
-  "console/user/drag_to_role": 7.7,
   "console/user/login_logout": 7.9,
   "console/user/logout_badge": 7.2,
   "console/user/register": 31.3,

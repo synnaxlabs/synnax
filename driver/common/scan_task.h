@@ -642,7 +642,7 @@ public:
         x::errors::Error scan_err;
         std::vector<synnax::device::Device> to_create;
         std::vector<Update> to_update;
-        std::vector<synnax::device::Status> statuses;
+        std::vector<std::pair<std::string, synnax::device::Status>> statuses;
         {
             std::lock_guard lock(this->mu);
 
@@ -729,16 +729,23 @@ public:
             }
 
             statuses.reserve(this->dev_states.size());
-            for (auto &info: this->dev_states | std::views::values)
-                if (info.status.has_value()) statuses.push_back(*info.status);
+            for (auto &[key, info]: this->dev_states)
+                if (info.status.has_value()) statuses.emplace_back(key, *info.status);
         }
 
-        if (const auto state_err = this->client->update_statuses(statuses))
-            LOG(ERROR) << this->log_prefix
-                       << "failed to propagate statuses: " << state_err;
-
+        // The Core rejects the status of a device that it does not hold, so statuses go
+        // after the creates, and not for the devices that create() and update() drop.
         const auto create_err = this->create(to_create);
         const auto update_err = this->update(to_update);
+        std::vector<synnax::device::Status> held;
+        {
+            std::lock_guard lock(this->mu);
+            for (auto &[key, status]: statuses)
+                if (this->dev_states.contains(key)) held.push_back(std::move(status));
+        }
+        if (const auto state_err = this->client->update_statuses(held))
+            LOG(ERROR) << this->log_prefix
+                       << "failed to propagate statuses: " << state_err;
         if (create_err) return create_err;
         if (update_err) return update_err;
         return scan_err;

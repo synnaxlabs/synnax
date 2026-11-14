@@ -9,11 +9,14 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 #include <utility>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/lib/lib.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -105,8 +108,11 @@ TEST(LJMDeviceTest, testStreamReadWaitsForScans) {
     double value = 0;
     int dev_backlog = 0;
     int ljm_backlog = 0;
+    x::breaker::Breaker breaker;
+    breaker.start();
+    x::defer::defer stop_breaker([&] { breaker.stop(); });
     const auto start = x::telem::TimeStamp::now();
-    ASSERT_NIL(dev.e_stream_read(&value, &dev_backlog, &ljm_backlog));
+    ASSERT_NIL(dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker));
     EXPECT_GE(
         x::telem::TimeStamp::now() - start,
         STREAM_POLL_INTERVAL * LATE_SCANS_EMPTY_READS
@@ -121,10 +127,42 @@ TEST(LJMDeviceTest, testStreamReadReportsLostStream) {
     double value = 0;
     int dev_backlog = 0;
     int ljm_backlog = 0;
+    x::breaker::Breaker breaker;
+    breaker.start();
+    x::defer::defer stop_breaker([&] { breaker.stop(); });
     ASSERT_OCCURRED_AS(
-        dev.e_stream_read(&value, &dev_backlog, &ljm_backlog),
+        dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker),
         ljm::UNREACHABLE
     );
+}
+
+/// @brief it should stop waiting for scans when the breaker stops.
+TEST(LJMDeviceTest, testStreamReadStopsWithBreaker) {
+    const LJMDevice dev(open_fake_api(), STALLED_STREAM_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    x::lib::Shared lib("./driver/labjack/device/libfake_ljm.so");
+    ASSERT_TRUE(lib.load());
+    const auto wait_for_stalled_read = reinterpret_cast<bool (*)()>(
+        const_cast<void *>(lib.get_func_ptr(WAIT_FOR_STALLED_READ))
+    );
+    ASSERT_NE(wait_for_stalled_read, nullptr);
+    x::breaker::Breaker breaker;
+    breaker.start();
+    bool stalled = false;
+    std::thread stopper([&] {
+        stalled = wait_for_stalled_read();
+        breaker.stop();
+    });
+    double value = 0;
+    int dev_backlog = 0;
+    int ljm_backlog = 0;
+    const auto start = x::telem::TimeStamp::now();
+    const auto err = dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker);
+    const auto elapsed = x::telem::TimeStamp::now() - start;
+    stopper.join();
+    EXPECT_TRUE(stalled);
+    ASSERT_OCCURRED_AS(err, driver::errors::NOMINAL_SHUTDOWN_ERROR);
+    EXPECT_LT(elapsed, x::telem::SECOND);
 }
 
 /// @brief it should keep the value of a read that warns of a default calibration, and
