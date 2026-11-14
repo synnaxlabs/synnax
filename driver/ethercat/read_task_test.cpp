@@ -1000,6 +1000,51 @@ TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout
     read_task->stop(false);
 }
 
+/// @brief it should send no status for a start that a stop ends while it waits for the
+/// start of another task, so the stop answers it.
+TEST_F(EtherCATReadTest, StopDuringAStartSendsNoStatusForTheStart) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const auto configure = [&](const std::string &name) {
+        const synnax::task::Task task{
+            .rack = this->rack.key,
+            .name = name,
+            .type = READ_TASK_TYPE,
+            .config = cfg,
+        };
+        auto [tsk, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+        EXPECT_TRUE(ok);
+        return std::pair{task, std::move(tsk)};
+    };
+    auto [first, first_task] = configure("first");
+    auto [second, second_task] = configure("second");
+    this->mock_master->hold_activate();
+    std::thread starter([&] {
+        synnax::task::Command start{.task = first.key, .type = "start", .key = "a"};
+        first_task->exec(start, this->cancel);
+    });
+    this->mock_master->wait_until_activating();
+    x::breaker::Breaker canceled;
+    synnax::task::Command start{.task = second.key, .type = "start", .key = "b"};
+    second_task->exec(start, canceled);
+    this->mock_master->release_activate();
+    starter.join();
+    for (const auto &status: this->ctx->snapshot()) {
+        if (status.details.cmd == "b") {
+            EXPECT_EQ(status.variant, synnax::status::VARIANT_LOADING)
+                << status.message;
+        }
+    }
+    synnax::task::Command stop{.task = first.key, .type = "stop"};
+    first_task->exec(stop, this->cancel);
+}
+
 /// @brief it should apply the settings saved for each slave on the task's network when
 /// the bus starts, including a setting saved after configure and a slave the task does
 /// not read, and ignore an invalid slave on another network.

@@ -406,7 +406,8 @@ private:
     );
     /// @brief locks lock, a lock of mu, and polls it so that the wait ends at the
     /// deadline of start or when its cancel stops.
-    /// @returns errors::ACTIVATION_ERROR when the wait ends without the lock.
+    /// @returns x::errors::CANCELLED when the cancel stops, or errors::ACTIVATION_ERROR
+    /// when the deadline passes first.
     [[nodiscard]] x::errors::Error
     lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const;
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> discover_locked();
@@ -569,8 +570,8 @@ public:
     /// another value, or when the IgH master runs the bus and a slave holds another
     /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
     /// setting on the running bus, or the error that kept the bus from starting.
-    /// errors::ACTIVATION_ERROR when the deadline of start passes or its cancel stops
-    /// before the bus starts.
+    /// errors::ACTIVATION_ERROR when the deadline of start passes before the bus
+    /// starts, and x::errors::CANCELLED when its cancel stops first.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
@@ -589,8 +590,8 @@ public:
     /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
     /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
-    /// error that kept the bus from starting. errors::ACTIVATION_ERROR as open_reader
-    /// gives it.
+    /// error that kept the bus from starting. errors::ACTIVATION_ERROR and
+    /// x::errors::CANCELLED as open_reader gives them.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate,
@@ -615,8 +616,9 @@ public:
     discover();
 
     /// @brief returns the slaves on the bus as discover() does, for a task start.
-    /// @returns errors::ACTIVATION_ERROR when the deadline of start passes or its
-    /// cancel stops while another task starts the bus.
+    /// @returns errors::ACTIVATION_ERROR when the deadline of start passes while
+    /// another task starts the bus, and x::errors::CANCELLED when its cancel stops
+    /// first.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover(const Start &start);
 

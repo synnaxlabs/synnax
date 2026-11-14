@@ -39,10 +39,11 @@ const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 
-/// @brief returns the error of an open whose cancel stopped before the bus started.
+/// @brief returns the error of an open whose cancel stopped before the bus started. The
+/// task answers a start that ends with it as stopped.
 x::errors::Error start_canceled_error(const std::string &network) {
     return x::errors::Error(
-        errors::ACTIVATION_ERROR,
+        x::errors::CANCELLED,
         "The Driver stopped the start on " + network + "."
     );
 }

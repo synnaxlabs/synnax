@@ -2609,7 +2609,7 @@ TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
     );
     this->master->release_activate();
     opener.join();
-    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
     EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
 }
 
@@ -2755,7 +2755,7 @@ TEST_F(EngineTest, StartRetryWaitEndsWhenCanceled) {
     cancel.stop();
     opener.join();
     EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(5));
-    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
     EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }

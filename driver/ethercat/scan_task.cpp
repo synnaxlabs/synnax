@@ -264,6 +264,20 @@ bool holds_devices_on(const common::ScannerContext &ctx, const std::string &netw
     });
 }
 
+/// @brief whether the Core holds a device on network that the user configured, not
+/// only one that a scan found.
+bool holds_configured_devices_on(
+    const common::ScannerContext &ctx,
+    const std::string &network
+) {
+    if (ctx.devices == nullptr) return false;
+    return std::ranges::any_of(*ctx.devices, [&network](const auto &entry) {
+        const auto &dev = entry.second;
+        const auto it = dev.properties.find("network");
+        return dev.configured && it != dev.properties.end() && it->second == network;
+    });
+}
+
 /// @brief whether the master read the identity of the slave. A slave whose EEPROM read
 /// failed, as while it restarts, has none.
 bool has_identity(const slave::DiscoveryResult &slave) {
@@ -321,6 +335,23 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
+        // The modules of a configured network can come back at any scan, as after a
+        // power restart.
+        if (err.matches(errors::NO_SLAVES_FOUND) &&
+            holds_configured_devices_on(scan_ctx, key)) {
+            this->next_probes.erase(key);
+            if (err.matches(errors::REPLIES_BLOCKED)) {
+                failures.insert(err.data);
+                continue;
+            }
+            const auto [engine, acquire_err] = this->pool->acquire(key);
+            failures.insert(
+                acquire_err ? acquire_err.data
+                            : "No module answered on " + engine->name() +
+                                  ". Check the cable and the power of the first module."
+            );
+            continue;
+        }
         if (err.matches(errors::NO_SLAVES_FOUND)) {
             auto &probe = this->next_probes[key];
             probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
