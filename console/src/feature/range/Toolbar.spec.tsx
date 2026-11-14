@@ -125,7 +125,7 @@ const renderToolbar = async ({
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
-    expect(await screen.findByText("No pinned ranges")).toBeTruthy();
+    expect(await screen.findByText("No favorited ranges")).toBeTruthy();
     fireEvent.click(await screen.findByText("Open range explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view")
@@ -166,7 +166,7 @@ describe("range/Toolbar", () => {
     const rng = await createTestRange(client);
     const { store } = await renderToolbar({ extra: <DragSource range={rng} /> });
     fireEvent.dragStart(await screen.findByText(DRAG_HANDLE));
-    fireEvent.drop(await screen.findByText("No pinned ranges"));
+    fireEvent.drop(await screen.findByText("No favorited ranges"));
     // A dragged range lives on the Core, so the session gains only the stub.
     await waitFor(() =>
       expect(selectRange(store.getState(), rng.key)).toEqual({
@@ -221,7 +221,7 @@ describe("range/Toolbar", () => {
       const rng = created;
       const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
-      fireEvent.click(await screen.findByText("Unpin"));
+      fireEvent.click(await screen.findByText("Unfavorite"));
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );

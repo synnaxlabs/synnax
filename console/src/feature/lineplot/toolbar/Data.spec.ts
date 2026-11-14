@@ -58,7 +58,7 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
-const SEARCH_PLACEHOLDER = "Search pinned ranges or type a duration";
+const SEARCH_PLACEHOLDER = "Search favorites or type a duration";
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
@@ -174,13 +174,13 @@ describe("lineplot/toolbar/Data", () => {
       const options = screen.getAllByRole("option");
       expect(options).toHaveLength(1);
       expect(within(options[0]).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
-      expect(screen.queryByText("No pinned ranges found")).toBeNull();
+      expect(screen.queryByText("No favorite ranges found")).toBeNull();
     });
 
-    it("says no pinned ranges match a search that finds none", async () => {
+    it("says no favorite ranges match a search that finds none", async () => {
       await renderData([]);
       search("no such range");
-      await screen.findByText("No pinned ranges found");
+      await screen.findByText("No favorite ranges found");
     });
 
     it("replaces the window with the live option picked", async () => {

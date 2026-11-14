@@ -27,8 +27,8 @@ export const Favorite = ({
     checkedIcon={<Icon.StarFilled />}
     uncheckedIcon={<Icon.StarOutlined />}
     textColor={isFavorite ? "goldenrod" : undefined}
-    tooltip={isFavorite ? "Unpin" : "Pin"}
-    aria-label="Pin"
+    tooltip={isFavorite ? "Unfavorite" : "Favorite"}
+    aria-label="Favorite"
     reveal={isFavorite ? false : reveal}
     {...rest}
   />

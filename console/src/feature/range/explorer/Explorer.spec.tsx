@@ -617,17 +617,17 @@ describe("range/explorer/Explorer", () => {
       expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
     });
 
-    it("should pin the range, then offer Unpin", async () => {
-      const rng = await createRange(uniqueRangeName("pin"));
+    it("should favorite the range, then offer Unfavorite", async () => {
+      const rng = await createRange(uniqueRangeName("favorite"));
       const store = await renderExplorer();
       await openMenuOf(rng);
-      expect(screen.queryByRole("menuitem", { name: "Unpin" })).toBeNull();
-      fireEvent.click(await menuItem("Pin"));
+      expect(screen.queryByRole("menuitem", { name: "Unfavorite" })).toBeNull();
+      fireEvent.click(await menuItem("Favorite"));
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)?.variant).toBe("persisted"),
       );
       await openContextMenu(() => itemOf(rng.name));
-      fireEvent.click(await menuItem("Unpin"));
+      fireEvent.click(await menuItem("Unfavorite"));
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );

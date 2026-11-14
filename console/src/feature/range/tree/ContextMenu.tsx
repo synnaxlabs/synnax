@@ -116,7 +116,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           }
         >
           <Icon.StarFilled />
-          Pin
+          Favorite
         </Menu.Item>
       )}
       {ranges.some((r) => favoriteKeys.includes(r.key)) && (
@@ -127,7 +127,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           }
         >
           <Icon.StarOutlined />
-          Unpin
+          Unfavorite
         </Menu.Item>
       )}
       <Menu.Divider />

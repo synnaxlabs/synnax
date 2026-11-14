@@ -73,7 +73,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const run = page.getByText("Coldflow 11", { exact: true }).first();
     await session.waitFor(run);
     await run.click({ button: "right" });
-    await page.locator(".lyra-menu-context").getByText("Pin", { exact: true }).click();
+    await page
+      .locator(".lyra-menu-context")
+      .getByText("Favorite", { exact: true })
+      .click();
     await session.settle(500);
     const leaf = (tab: string): Locator =>
       page.locator(".pluto-mosaic__leaf:visible").filter({ hasText: tab }).first();
