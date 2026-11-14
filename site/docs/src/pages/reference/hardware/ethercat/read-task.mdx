@@ -491,9 +491,17 @@ IOLITE 6xSTG module, missed 3 of 90,109 samples in 3 minutes at 500 Hz, and 753 
 </Problem.Cause>
 <Problem.Fix>
 
-Connect the modules to a PCIe or onboard Ethernet port. To keep the USB adapter, lower
-the sample rates and execution rates of the tasks on the port until the warning stops.
-The network cycles at the highest of these rates. See
+Connect the modules to a PCIe or onboard Ethernet port. To keep the USB adapter, make
+the network cycle slower:
+
+1. Stop every task on the port.
+2. Lower the sample rates of the read tasks and the execution rates of the write tasks.
+   Keep each read rate a divisor of the fastest one, such as 500 Hz and 250 Hz. The
+   network cycles at a common multiple of the read rates, so a rate such as 300 Hz next
+   to 500 Hz makes it cycle faster.
+3. Start the tasks again.
+
+See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
 </Problem.Fix>
