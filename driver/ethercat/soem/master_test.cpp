@@ -1151,7 +1151,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
     this->add_pending_and_refusing_slaves();
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {2, {.reason = "refused SAFE-OP: Inconsistent settings"}},
+        {2, {.reason = "refused SAFE-OP: Inconsistent settings", .code = 0x0026}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1164,19 +1164,21 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {2,
          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-          .advice = slave::DC_SYNC_ADVICE}},
+          .advice = slave::DC_SYNC_ADVICE,
+          .code = 0x0030}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
 
-/// @brief it should give the mode restart advice with the refusal of a slave that
-/// reports an invalid input or output configuration.
+/// @brief it should give the mode restart advice and the AL status code with the
+/// refusal of a slave that reports an invalid input or output configuration.
 TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
     for (const uint16_t code: {0x001D, 0x001E}) {
         this->create_master(x::telem::SECOND);
         this->add_pending_and_refusing_slaves(code);
         ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
         EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
+        EXPECT_EQ(this->activation.refusals.at(2).code, code);
     }
 }
 
@@ -1206,7 +1208,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
     );
     EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_OPERATIONAL);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {2, {.reason = "refused OP: Inconsistent settings"}},
+        {2, {.reason = "refused OP: Inconsistent settings", .code = 0x0026}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1223,7 +1225,8 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {1,
          {.reason = "refused SAFE-OP: Invalid output configuration",
-          .advice = slave::MODE_RESTART_ADVICE}},
+          .advice = slave::MODE_RESTART_ADVICE,
+          .code = 0x001D}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
