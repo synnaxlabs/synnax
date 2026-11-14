@@ -323,14 +323,16 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             deployed = entry->deployed_hash;
             // The sender's hash can force a deploy but never confirm a match: a sender
             // that disagrees with our copy may have seen a revision whose set event has
-            // not landed here yet. A pinned start always fetches, because only the
-            // fetch can refuse it.
+            // not landed here yet. A pinned start fetches, because only the fetch can
+            // refuse it.
             wanted = entry->row.config_hash;
             if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
                 wanted.clear();
         }
-        if (ours && entry->op != nullptr && !wanted.empty() &&
-            entry->op->join(cmd, wanted)) {
+        // A pinned start joins a running start only of the config its sender saw.
+        const auto &join_hash = cmd.pinned ? cmd.config_hash : wanted;
+        if (ours && entry->op != nullptr && !join_hash.empty() &&
+            entry->op->join(cmd, join_hash)) {
             VLOG(1) << "joined start " << cmd.key << " to the running start of task "
                     << cmd.task;
             return;

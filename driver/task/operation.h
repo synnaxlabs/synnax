@@ -73,8 +73,9 @@ public:
     bool cancel(const synnax::task::Command &stop = {});
 
     /// @brief adds start to this operation if this operation is an open start of
-    /// config_hash. The joined start gets the current step on the next check, and the
-    /// later statuses of the operation.
+    /// config_hash that has sent a step. Before its first step, a start may still
+    /// fetch another config or refuse a pinned start. The joined start gets the current
+    /// step on the next check, and the later statuses of the operation.
     /// @returns true if start joined.
     bool join(const synnax::task::Command &start, const std::string &config_hash);
 

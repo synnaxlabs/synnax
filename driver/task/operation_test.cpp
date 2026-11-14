@@ -152,8 +152,26 @@ TEST_F(OperationTest, JoinRefusesOtherConfigAndCancelledStart) {
     EXPECT_FALSE(op.join({.type = "start", .key = "cmd-3"}, "hash"));
 }
 
+/// @brief it should take no join before the first step, and take a join of the same
+/// config after it, even for a pinned start.
+TEST(OperationJoinTest, JoinWaitsForTheFirstStep) {
+    std::vector<synnax::task::Status> written;
+    Operation op{
+        [&](const synnax::task::Status &s) { written.push_back(s); },
+        synnax::task::Key{},
+        "task",
+        synnax::task::Command{.type = "start", .key = "cmd", .pinned = true},
+        "hash",
+        x::telem::MINUTE
+    };
+    EXPECT_FALSE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    op.step(loading("Starting task"), x::telem::MINUTE);
+    EXPECT_TRUE(op.join({.type = "start", .key = "cmd-3", .pinned = true}, "hash"));
+}
+
 /// @brief it should return the joined starts that got no final status at close.
 TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
     ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
     const auto unanswered = op.close();
     ASSERT_EQ(unanswered.size(), 1);
@@ -163,21 +181,32 @@ TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
 /// @brief it should answer a start that a stop cancelled, and each start that joined
 /// it, at close, and refuse a later final.
 TEST_F(OperationTest, CloseAnswersAStoppedStartOnce) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
     ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
     ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
     EXPECT_TRUE(op.close().empty());
-    ASSERT_EQ(written.size(), 2);
-    EXPECT_EQ(written[0].details.cmd, "cmd");
-    EXPECT_EQ(written[1].details.cmd, "cmd-2");
-    for (const auto &s: written) {
-        EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
-        EXPECT_EQ(s.message, "Stopped task");
-        EXPECT_EQ(s.description, "A stop ended the start before it finished.");
-        EXPECT_FALSE(s.details.running);
+    ASSERT_EQ(written.size(), 3);
+    EXPECT_EQ(written[1].details.cmd, "cmd");
+    EXPECT_EQ(written[2].details.cmd, "cmd-2");
+    for (size_t i = 1; i < written.size(); i++) {
+        EXPECT_EQ(written[i].variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(written[i].message, "Stopped task");
+        EXPECT_EQ(written[i].description, "A stop ended the start before it finished.");
+        EXPECT_FALSE(written[i].details.running);
     }
     op.answer(final_status("started late"));
-    ASSERT_EQ(written.size(), 3);
-    EXPECT_EQ(written[2].details.cmd, "");
+    ASSERT_EQ(written.size(), 4);
+    EXPECT_EQ(written[3].details.cmd, "");
+}
+
+/// @brief it should answer a stopped start as stopped even when the task manager
+/// cancels it again as it stops.
+TEST_F(OperationTest, CloseAnswersAStartStoppedBeforeAShutdown) {
+    ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
+    op.cancel();
+    EXPECT_TRUE(op.close().empty());
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].message, "Stopped task");
 }
 
 /// @brief it should fail a start that the task manager cancelled as it stopped.

@@ -51,7 +51,7 @@ bool Operation::cancel(const synnax::task::Command &stop) {
     {
         std::lock_guard lock{this->mu};
         if (this->finished || this->closed) return false;
-        this->stopped = !stop.type.empty();
+        if (!stop.type.empty()) this->stopped = true;
         if (!stop.key.empty()) this->stopping = stop;
         LOG(INFO) << "[task.operation] cancelling " << this->cmd << " on task "
                   << this->name;
@@ -66,7 +66,7 @@ bool Operation::join(
 ) {
     std::lock_guard lock{this->mu};
     if (this->closed || this->finished || !this->breaker.running() ||
-        this->cmd.type != synnax::task::START_CMD_TYPE || this->cmd.pinned ||
+        this->cmd.type != synnax::task::START_CMD_TYPE || !this->current.has_value() ||
         this->config_hash.empty() || this->config_hash != config_hash)
         return false;
     this->joined.push_back(start);

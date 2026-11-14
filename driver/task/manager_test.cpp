@@ -1968,6 +1968,48 @@ TEST_F(TaskManagerTest, RepeatedStartJoinsTheRunningStart) {
     EXPECT_EQ(f->starts.load(), 1);
 }
 
+/// @brief it should join a repeated pinned start of the same config, as the Console
+/// sends, to the running start.
+TEST_F(TaskManagerTest, RepeatedPinnedStartJoinsTheRunningStart) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    const auto send_pinned = [&](const std::string &key) {
+        send_cmd(
+            client,
+            {.task = task.key,
+             .type = synnax::task::START_CMD_TYPE,
+             .key = key,
+             .config_hash = task.config_hash,
+             .pinned = true}
+        );
+    };
+    send_pinned("start-cmd");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_pinned("start-2");
+    const auto ack = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.details.cmd == "start-2"; }
+    );
+    EXPECT_EQ(ack.message, "Starting task");
+    f->release_all();
+    std::set<std::string> answered;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        if (s.message == "started") answered.insert(s.details.cmd);
+        return answered.size() == 2;
+    });
+    EXPECT_EQ(f->starts.load(), 1);
+}
+
 /// @brief it should run a joined start as its own command when the start that it
 /// joined ends with no final status.
 TEST_F(TaskManagerTest, JoinedStartRunsAloneWhenItsStartGivesNoAnswer) {
