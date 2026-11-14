@@ -18,8 +18,23 @@ import psutil
 
 import synnax as sy
 from framework.test_case import TestCase
-from tests.driver.task import StatusWatch, delete_channels, expect_status, is_running
-from tests.hitl.ethercat import START_TIMEOUT, STGS, create_read_task, prepare_bus
+from tests.driver.task import (
+    StatusWatch,
+    command_of,
+    delete_channels,
+    expect_status,
+    is_running,
+)
+from tests.hitl.ethercat import (
+    START_TIMEOUT,
+    STG_DC,
+    STGS,
+    create_read_task,
+    expect_retry,
+    free_run,
+    prepare_bus,
+    set_op_mode,
+)
 
 _DRIVER = re.compile(r"driver-[0-9a-f]{16}(\.exe)?")
 """The name of the embedded Driver process, which the Core writes from its own copy."""
@@ -34,7 +49,6 @@ _SCAN_TYPES = frozenset(
     }
 )
 _EXIT_TIMEOUT = 10 * sy.TimeSpan.SECOND
-_ACK_TIMEOUT = 10 * sy.TimeSpan.SECOND
 _RESTART_TIMEOUT = sy.TimeSpan.MINUTE
 """The Core starts the Driver 2 s after it exits, and the Driver then deploys each
 task."""
@@ -42,20 +56,21 @@ _QUIET = 5 * sy.TimeSpan.SECOND
 """How long a test watches for a status that must not come."""
 _BOOT = 10 * sy.TimeSpan.SECOND
 """How long the Driver takes to deploy its tasks after its first status."""
-_LOST_START_LIMIT = 12 * sy.TimeSpan.SECOND
-"""A start sent while the Driver restarts must end in about 10 s, either way."""
+_LOST_START_LIMIT = 10 * sy.TimeSpan.SECOND
+"""A start sent while the Driver restarts must end in this time, either way."""
 
 
 class EtherCATDriverRestarts(TestCase):
     """Kills the Driver while a task runs, while it starts, with an auto-start task,
-    and before a start, and checks the statuses that the Driver writes when it is
-    back."""
+    and before a start, and checks the statuses that report each crash."""
 
+    rack: sy.Rack
     slaves: dict[int, sy.Device]
     tasks: list[sy.ethercat.ReadTask]
 
     def setup(self) -> None:
         self.tasks = []
+        self.rack = self.client.racks.retrieve_embedded_rack()
         self.slaves = prepare_bus(self.client)
 
     def run(self) -> None:
@@ -67,6 +82,8 @@ class EtherCATDriverRestarts(TestCase):
         self.test_boot_with_auto_start()
 
     def teardown(self) -> None:
+        with self._try_to("put back the DC mode of the 6xSTG"):
+            set_op_mode(self.client, self.slaves[STGS[0]], STG_DC)
         for tsk in self.tasks:
             with self._try_to(f"delete task {tsk.name}"):
                 self.client.tasks.delete(tsk.key)
@@ -85,44 +102,32 @@ class EtherCATDriverRestarts(TestCase):
         tsk.start(timeout=START_TIMEOUT)
         with StatusWatch(self.client, [tsk.key]) as watch:
             self._wait_for_driver(self._kill_driver())
-            stopped = watch.wait(
-                lambda s: not is_running(s),
-                timeout=_RESTART_TIMEOUT,
-                expected="a status that the task does not run",
-            )
-            expect_status(
-                stopped,
-                variant="warning",
-                message="Task stopped",
-                description="The Driver restarted while the task was running. Start "
-                "the task again.",
-                running=False,
-            )
-            if started := [s for s in watch.collect(_QUIET) if is_running(s)]:
-                raise AssertionError(
-                    f"Expected the Driver to leave the task stopped, but it wrote "
-                    f"{[s.message for s in started]}"
-                )
+            self._expect_crash_reports(watch, starting=False)
         tsk.start(timeout=START_TIMEOUT)
         tsk.stop(timeout=START_TIMEOUT)
 
     def test_crash_while_starting(self) -> None:
-        """Checks that a start that the crash cut off fails, and that the failure
+        """Checks that a start that the crash cut off fails. The Driver's failure
         answers the start command, so the client stops waiting."""
         self.log("Testing: Crash while a task starts")
+        stg = self.slaves[STGS[0]]
+        set_op_mode(self.client, stg, free_run(stg))
         tsk = self._create_task("Starting")
         with StatusWatch(self.client, [tsk.key]) as watch:
             key = tsk._internal.execute_command("start")
-            watch.step(key, timeout=_ACK_TIMEOUT)
+            expect_retry(watch, [key])
             self._wait_for_driver(self._kill_driver())
-            expect_status(
-                watch.answer(key, timeout=_RESTART_TIMEOUT),
-                variant="error",
-                message="Failed to start task",
-                description="The Driver restarted while the task was starting. Start "
-                "the task again.",
-                running=False,
+            self._expect_crash_reports(watch, starting=True)
+        if unanswered := [
+            s
+            for s in watch.seen
+            if s.description.startswith("The Driver") and command_of(s) != key
+        ]:
+            raise AssertionError(
+                f"Expected the failure to answer start command {key}, but it "
+                f"answers {[command_of(s) for s in unanswered]}"
             )
+        set_op_mode(self.client, stg, STG_DC)
 
     def test_boot_with_auto_start(self) -> None:
         """Checks that an auto-start task ends on its own start after a crash, and is
@@ -133,9 +138,9 @@ class EtherCATDriverRestarts(TestCase):
         with StatusWatch(self.client, [tsk.key]) as watch:
             self._wait_for_driver(self._kill_driver())
             started = watch.wait(
-                lambda s: s.variant != "loading",
+                lambda s: s.message == "Started task",
                 timeout=_RESTART_TIMEOUT,
-                expected="a final status of the start",
+                expected='"Started task"',
             )
             expect_status(
                 started,
@@ -155,14 +160,13 @@ class EtherCATDriverRestarts(TestCase):
     def test_boot_scan_tasks(self) -> None:
         """Checks that no scan task shows as stopped after a crash."""
         self.log("Testing: Crash with the scan tasks")
-        rack = self.client.racks.retrieve_embedded_rack()
-        scans = [
-            t for t in self.client.tasks.list(rack=rack.key) if t.type in _SCAN_TYPES
-        ]
+        scans = self.client.tasks.retrieve(
+            rack=self.rack.key, internal=True, types=sorted(_SCAN_TYPES)
+        )
         ethercat = next((t for t in scans if t.type == "ethercat_scan"), None)
         if ethercat is None:
             raise AssertionError(
-                f"Expected an EtherCAT scan task on rack {rack.name}, but found "
+                f"Expected an EtherCAT scan task on rack {self.rack.name}, but found "
                 f"{[t.type for t in scans]}"
             )
         with StatusWatch(self.client, [t.key for t in scans]) as watch:
@@ -181,15 +185,15 @@ class EtherCATDriverRestarts(TestCase):
                 )
 
     def test_start_during_restart(self) -> None:
-        """Checks that a start sent while the Driver restarts ends in about 10 s, with
-        an answer or an error, and does not wait for the full timeout."""
+        """Checks that a start sent while the Driver restarts ends in 10 s with an
+        answer, the rack's down status, or the timeout of the acknowledgment."""
         self.log("Testing: Start while the Driver restarts")
         tsk = self._create_task("Lost Start")
         old = self._kill_driver()
         timer = sy.Timer()
         outcome = "started"
         try:
-            tsk.start(timeout=START_TIMEOUT)
+            tsk.start()
         except (RuntimeError, TimeoutError) as e:
             outcome = f"{type(e).__name__}: {e}"
         elapsed = timer.elapsed()
@@ -202,6 +206,54 @@ class EtherCATDriverRestarts(TestCase):
             )
         if outcome == "started":
             tsk.stop(timeout=START_TIMEOUT)
+
+    def _expect_crash_reports(self, watch: StatusWatch, *, starting: bool) -> None:
+        """Checks that each final status of the task after a crash reports the crash,
+        and that the task does not run again. The restarted Driver reports it. When the
+        rack stays silent through a 5 s health check, the Core reports it first, and
+        the Driver writes nothing.
+        """
+        state = "starting" if starting else "running"
+        if starting:
+            variant, by_driver, by_core = (
+                "error",
+                "Failed to start task",
+                "Failed to start task",
+            )
+        else:
+            variant, by_driver, by_core = (
+                "warning",
+                "Task stopped",
+                "Task stopped responding",
+            )
+        allowed = [
+            (
+                variant,
+                by_driver,
+                f"The Driver restarted while the task was {state}. Start the task "
+                "again.",
+            ),
+            (
+                variant,
+                by_core,
+                f"The Core lost contact with the Driver on {self.rack.name} while "
+                f"the task was {state}.",
+            ),
+        ]
+        watch.wait(
+            lambda s: s.variant != "loading",
+            timeout=_RESTART_TIMEOUT,
+            expected="a status that reports the crash",
+        )
+        watch.collect(_QUIET)
+        finals = [s for s in watch.seen if s.variant != "loading"]
+        for s in finals:
+            if (s.variant, s.message, s.description) not in allowed or is_running(s):
+                raise AssertionError(
+                    f"Expected each status to be one of {allowed}, but saw "
+                    f"{watch.texts()}"
+                )
+        self.log(f"The crash was reported as {[s.description for s in finals]}")
 
     def _create_task(
         self, label: str, *, auto_start: bool = False
