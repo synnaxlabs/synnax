@@ -147,6 +147,7 @@ TEST_F(OperationTest, JoinedStartGetsTheStepAndTheFinal) {
 
 /// @brief it should refuse a start of another config, and any start after a cancel.
 TEST_F(OperationTest, JoinRefusesOtherConfigAndCancelledStart) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
     EXPECT_FALSE(op.join({.type = "start", .key = "cmd-2"}, "other"));
     ASSERT_TRUE(op.cancel("The Driver stopped"));
     EXPECT_FALSE(op.join({.type = "start", .key = "cmd-3"}, "hash"));
