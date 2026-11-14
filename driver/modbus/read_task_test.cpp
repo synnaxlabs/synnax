@@ -42,6 +42,9 @@ void expect_rate(const double measured, const int rate_hz) {
 /// @brief Test fixture for Modbus read task tests.
 class ModbusReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::shared_ptr<task::MockContext> ctx;
@@ -51,6 +54,7 @@ protected:
     synnax::rack::Rack rack;
 
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
@@ -113,6 +117,8 @@ protected:
         }
         return cfg;
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should return validation error for non-existent device.
@@ -998,7 +1004,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task, "");
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "", this->cancel);
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -1016,7 +1022,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
-    configured_task->exec(stop_cmd);
+    configured_task->exec(stop_cmd, this->cancel);
 }
 
 /// Test that auto_start=false does NOT start the task automatically
@@ -1065,7 +1071,8 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task, "cmd1");
+    auto [configured_task, ok] = factory
+                                     .configure_task(ctx, task, "cmd1", this->cancel);
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -1076,7 +1083,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Manually start the task
     synnax::task::Command start_cmd{.task = task.key, .type = "start"};
-    configured_task->exec(start_cmd);
+    configured_task->exec(start_cmd, this->cancel);
 
     // Now task should be running
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
@@ -1091,7 +1098,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
-    configured_task->exec(stop_cmd);
+    configured_task->exec(stop_cmd, this->cancel);
 }
 
 /// @brief it should hold each configured sample rate over time.
