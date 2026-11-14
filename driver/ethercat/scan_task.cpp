@@ -222,6 +222,22 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
+        // A network that held modules can come back at any scan, as after a power
+        // restart.
+        if (err.matches(errors::NO_SLAVES_FOUND) && holds_devices_on(scan_ctx, key)) {
+            this->next_probes.erase(key);
+            if (err.matches(errors::REPLIES_BLOCKED)) {
+                failures.insert(err.data);
+                continue;
+            }
+            const auto [engine, acquire_err] = this->pool->acquire(key);
+            failures.insert(
+                acquire_err ? acquire_err.data
+                            : "No module answered on " + engine->name() +
+                                  ". Check the cable and the power of the first module."
+            );
+            continue;
+        }
         if (err.matches(errors::NO_SLAVES_FOUND)) {
             auto &probe = this->next_probes[key];
             probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
