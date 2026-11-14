@@ -75,9 +75,9 @@ std::string SDOFailure::reason() const {
             return "no response";
         case Kind::ABORTED:
             return abort_reason(this->abort_code);
-        case Kind::UNEXPECTED_FRAME:
+        case Kind::UNEXPECTED_REPLY:
             return "the slave sent an unexpected reply";
-        case Kind::ANSWER_TOO_LARGE:
+        case Kind::REPLY_TOO_LARGE:
             return "the reply is larger than the read allows";
     }
     std::unreachable();

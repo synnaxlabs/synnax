@@ -88,9 +88,9 @@ struct SDOFailure {
         /// @brief the slave aborted the transfer with abort_code.
         ABORTED,
         /// @brief the reply was not the SDO response to the request.
-        UNEXPECTED_FRAME,
+        UNEXPECTED_REPLY,
         /// @brief the reply held more data than the request had room for.
-        ANSWER_TOO_LARGE,
+        REPLY_TOO_LARGE,
     };
 
     /// @brief how the transfer failed.

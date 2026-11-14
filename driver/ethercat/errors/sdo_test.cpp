@@ -39,11 +39,11 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
         "Subindex does not exist"
     );
     EXPECT_EQ(
-        SDOFailure{.kind = Kind::UNEXPECTED_FRAME}.reason(),
+        SDOFailure{.kind = Kind::UNEXPECTED_REPLY}.reason(),
         "the slave sent an unexpected reply"
     );
     EXPECT_EQ(
-        SDOFailure{.kind = Kind::ANSWER_TOO_LARGE}.reason(),
+        SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.reason(),
         "the reply is larger than the read allows"
     );
 }

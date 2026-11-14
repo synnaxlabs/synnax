@@ -132,12 +132,12 @@ errors::SDOFailure pop_sdo_failure(
         else if (
             err.Etype == EC_ERR_TYPE_PACKET_ERROR && err.ErrorCode == UNEXPECTED_FRAME
         )
-            failure = {.kind = Kind::UNEXPECTED_FRAME};
+            failure = {.kind = Kind::UNEXPECTED_REPLY};
         else if (
             err.Etype == EC_ERR_TYPE_PACKET_ERROR &&
             err.ErrorCode == CONTAINER_TOO_SMALL
         )
-            failure = {.kind = Kind::ANSWER_TOO_LARGE};
+            failure = {.kind = Kind::REPLY_TOO_LARGE};
     }
     return failure;
 }

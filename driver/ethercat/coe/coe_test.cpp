@@ -467,7 +467,7 @@ TEST(ReadErrorTest, ReportsAnUnexpectedReplyAsAReadError) {
     const auto err = read_error(
         0x8040,
         28,
-        errors::SDOFailure{.kind = errors::SDOFailure::Kind::UNEXPECTED_FRAME}
+        errors::SDOFailure{.kind = errors::SDOFailure::Kind::UNEXPECTED_REPLY}
     );
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(NO_REPLY));
