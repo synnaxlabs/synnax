@@ -29,6 +29,7 @@
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
+#include "driver/task/operation.h"
 #include "driver/task/status_cache.h"
 
 namespace driver::task {
@@ -96,6 +97,13 @@ public:
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 
+    /// @brief reports a step of a command, such as a slow bus start.
+    /// @param status a loading status with the key of the command.
+    /// @param limit how long the step may run before the task manager warns.
+    virtual void step(synnax::task::Status &status, x::telem::TimeSpan limit) {
+        this->set_status(status);
+    }
+
     /// @brief sends the latest status of each task again, to repair statuses lost while
     /// the Driver could not reach the Core.
     /// @returns the first error of the writes. Call it again on error.
@@ -133,11 +141,32 @@ public:
     }
 };
 
+/// @brief the context of the task manager. A status that answers the command of an
+/// open operation goes through that operation.
 class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bypass_bus;
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
+    /// @brief guards operations.
+    std::mutex operations_mu;
+    /// @brief the open operations, by the key of their command.
+    std::unordered_map<std::string, std::shared_ptr<Operation>> operations;
+
+    /// @returns the open operation of the command that status answers, or null.
+    std::shared_ptr<Operation> operation(const synnax::task::Status &status) {
+        if (status.details.cmd.empty()) return nullptr;
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->operations.find(status.details.cmd);
+        return it == this->operations.end() ? nullptr : it->second;
+    }
+
+    void write(synnax::task::Status &status) {
+        if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        status.details.rack = this->rack;
+        if (const auto err = this->statuses->set(status); err)
+            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+    }
 
 public:
     SynnaxContext(
@@ -160,15 +189,55 @@ public:
     synnax::rack::Key rack_key() override { return this->rack; }
 
     void set_status(synnax::task::Status &status) override {
-        if (status.time == 0) status.time = x::telem::TimeStamp::now();
-        status.details.rack = this->rack;
-        if (const auto err = this->statuses->set(status); err)
-            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+        if (const auto op = this->operation(status); op != nullptr)
+            op->answer(status);
+        else
+            this->write(status);
+    }
+
+    void step(synnax::task::Status &status, const x::telem::TimeSpan limit) override {
+        if (const auto op = this->operation(status); op != nullptr)
+            op->step(status, limit);
+        else
+            this->write(status);
     }
 
     x::errors::Error resend_statuses() override { return this->statuses->resend(); }
 
     bool statuses_stale() override { return this->statuses->stale(); }
+
+    /// @brief opens an operation that runs cmd on the task called name. The statuses
+    /// that answer cmd go through it until end. The operation must not outlive this
+    /// context.
+    /// @param limit how long a step with no limit of its own may run.
+    std::shared_ptr<Operation> begin(
+        const std::string &name,
+        const synnax::task::Command &cmd,
+        const std::string &config_hash,
+        const x::telem::TimeSpan limit
+    ) {
+        auto op = std::make_shared<Operation>(
+            [this](synnax::task::Status &status) { this->write(status); },
+            name,
+            cmd,
+            config_hash,
+            limit
+        );
+        if (!cmd.key.empty()) {
+            std::lock_guard lock{this->operations_mu};
+            this->operations[cmd.key] = op;
+        }
+        return op;
+    }
+
+    /// @brief stops sending the statuses of op through it. A later status for its
+    /// command is written as it is.
+    void end(const std::shared_ptr<Operation> &op) {
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->operations.find(op->cmd.key);
+        if (it != this->operations.end() && it->second == op)
+            this->operations.erase(it);
+    }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
@@ -242,9 +311,10 @@ public:
 
 /// @brief configuration for the task manager.
 struct ManagerConfig {
-    /// @brief duration before reporting stuck operations.
+    /// @brief how long a step of a command may run before the task manager warns, for
+    /// a step with no limit of its own.
     x::telem::TimeSpan op_timeout = 60 * x::telem::SECOND;
-    /// @brief interval between timeout checks.
+    /// @brief interval between checks of the step limits.
     x::telem::TimeSpan poll_interval = 1 * x::telem::SECOND;
     /// @brief max time to wait for workers during shutdown before detaching.
     x::telem::TimeSpan shutdown_timeout = 30 * x::telem::SECOND;
@@ -333,12 +403,13 @@ private:
     /// @brief the latest status of each task on this Driver.
     std::shared_ptr<StatusCache> statuses;
     /// @brief shared context passed to all tasks.
-    std::shared_ptr<Context> ctx;
+    std::shared_ptr<SynnaxContext> ctx;
     /// @brief creates device-specific tasks.
     std::unique_ptr<Factory> factory;
-    /// @brief duration before reporting stuck operations.
+    /// @brief how long a step of a command may run before the task manager warns, for
+    /// a step with no limit of its own.
     x::telem::TimeSpan op_timeout;
-    /// @brief interval between timeout checks.
+    /// @brief interval between checks of the step limits.
     x::telem::TimeSpan poll_interval;
     /// @brief max time to wait for workers during shutdown before detaching.
     x::telem::TimeSpan shutdown_timeout;
@@ -375,17 +446,9 @@ private:
         std::unique_ptr<Task> instance;
         /// @brief true while a worker is processing an operation for this task.
         std::atomic<bool> processing{false};
-        /// @brief when the current operation started (0 if idle).
-        std::atomic<x::telem::TimeStamp> op_started{x::telem::TimeStamp(0)};
-        /// @brief the command key driving the current operation, NO_COMMAND when
-        /// none. Guarded by mu.
-        std::string op_cmd;
-        /// @brief the config hash the current operation deploys, or the deployed
-        /// hash for operations that carry no config. Guarded by mu.
-        std::string op_config_hash;
-        /// @brief true once the current operation has been reported as timed out,
-        /// so it is reported once instead of every poll.
-        std::atomic<bool> timed_out{false};
+        /// @brief the operation the claiming worker runs, null when idle. Guarded by
+        /// Manager::mu.
+        std::shared_ptr<Operation> op;
 
         [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
             std::lock_guard lock{this->mu};
@@ -406,7 +469,7 @@ private:
     };
     /// @brief worker threads that execute operations.
     std::vector<Worker> workers;
-    /// @brief thread that checks for stuck operations.
+    /// @brief thread that checks the step limits of running operations.
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
@@ -461,31 +524,24 @@ private:
     void stop_workers();
     /// @brief main loop for worker threads - pops and executes operations.
     void worker_loop();
-    /// @brief checks for operations that have exceeded op_timeout.
+    /// @brief warns about steps that run past their limits.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
-    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
+    void
+    execute_op(const Op &op, const std::shared_ptr<Entry> &entry, Operation &operation);
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
     /// @brief tells the sender of a start command that the start began, so it waits
     /// for the result instead of taking the Driver as down. Does nothing for any other
     /// command.
-    void announce_start(
-        const synnax::task::Key &key,
-        const std::string &name,
-        const std::string &config_hash,
-        const synnax::task::Command &cmd
-    );
+    void announce_start(const synnax::task::Key &key, Operation &operation);
     /// @brief replaces a "Starting task" status that a previous Driver run left
     /// stored with a failed start.
     void fail_interrupted_start(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
-    void refuse_pinned_start(
-        const synnax::task::Task &tsk,
-        const synnax::task::Command &cmd
-    );
+    void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
     /// @brief answers a command for a task with no live instance with an error, so its
     /// sender does not wait out a timeout.
-    void refuse_command(const Op &op);
+    void refuse_command(const synnax::task::Key &key, Operation &operation);
 };
 }

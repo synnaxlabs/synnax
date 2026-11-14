@@ -14,9 +14,11 @@ cc_library(
     name = "task",
     srcs = [
         "manager.cpp",
+        "operation.cpp",
         "status_cache.cpp",
     ],
     hdrs = [
+        "operation.h",
         "status_cache.h",
         "task.h",
     ],
@@ -44,6 +46,15 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/task",
         "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "operation_test",
+    srcs = ["operation_test.cpp"],
+    deps = [
+        "//driver/task",
         "@googletest//:gtest_main",
     ],
 )
