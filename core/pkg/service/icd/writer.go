@@ -111,8 +111,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // Check finds do not stop it. It returns an error wrapping validate.ErrValidation when
 // an action is a create or the ICD cannot hold its value, a path-scoped validation
 // error when the result breaks a rule of the ICD's schema or has a message or field
-// with no key, and an error wrapping
-// query.ErrNotFound when no ICD has the key.
+// with no key, and an error wrapping query.ErrNotFound when no ICD has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.
 		NewUpdate().
