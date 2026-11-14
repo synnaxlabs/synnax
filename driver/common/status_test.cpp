@@ -672,8 +672,8 @@ TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
     EXPECT_TRUE(ctx->statuses.empty());
 }
 
-/// @brief auto-start should not start a task that a start command deploys, so the
-/// start command starts it with its own key.
+/// @brief it should not auto-start a task that a start command deploys, so the start
+/// command starts it with its own key.
 TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
