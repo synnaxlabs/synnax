@@ -12,37 +12,30 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
 /**
  * The search field of a frame, which holds the term. It saves nothing, so every reader
  * gets it.
  */
-export const SearchInput = (): ReactElement => {
-  const { resourceType, searchInViews, searchTerm, setSearchTerm } =
-    useContext("View.Search");
+export const Search = (): ReactElement => {
+  const { resourceType, searchTerm, setSearchTerm } = useContext("View.Search");
   return (
-    <Input.Text
-      size="small"
-      level="h5"
-      color={9}
-      startContent={startContent}
-      variant="text"
-      grow={searchInViews}
-      value={searchTerm}
-      onChange={setSearchTerm}
-      placeholder={`Search ${plural(resourceType)}...`}
-    />
+    <div className={CSS.BE("view", "search")}>
+      <Input.Text
+        size="small"
+        level="h5"
+        color={9}
+        startContent={startContent}
+        variant="text"
+        grow
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={`Search ${plural(resourceType)}...`}
+      />
+    </div>
   );
 };
 
 const startContent = <Icon.Search color={9} />;
-
-/**
- * Searches the resources of the view, in place. It renders nothing when the frame leads
- * the views bar with the search.
- */
-export const Search = (): ReactElement | null => {
-  const { searchInViews } = useContext("View.Search");
-  return searchInViews ? null : <SearchInput />;
-};

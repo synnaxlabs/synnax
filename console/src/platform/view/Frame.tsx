@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, location, uuid } from "@synnaxlabs/x";
+import { caseconv, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
@@ -36,17 +36,12 @@ import {
   type View,
 } from "@/platform/view/context";
 import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
-import { SearchInput } from "@/platform/view/Search";
+import { Search } from "@/platform/view/Search";
 import { useCreateModal } from "@/platform/view/useCreateModal";
-import { Vis } from "@/platform/vis";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
   icon: string;
-  /** Keeps the search and the filters open, with no toggle to enable editing. */
-  alwaysEditable?: boolean;
-  /** Leads the views bar with the search, over a bar that holds the filters. */
-  searchInViews?: boolean;
 }
 
 const ZERO_VARIANTS: {
@@ -56,13 +51,7 @@ const ZERO_VARIANTS: {
   status: { type: "status" },
 };
 
-export const Frame = ({
-  resourceType,
-  icon,
-  alwaysEditable = false,
-  searchInViews = false,
-  children,
-}: FrameProps): ReactElement => {
+export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
   const [searchTerm, setSearchTerm] = useState("");
   const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
@@ -92,8 +81,7 @@ export const Frame = ({
   };
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
-  const updatable = staticViewKeys.includes(selected) || updateGranted;
-  const [editable, setEditable] = useState(false);
+  const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
@@ -104,16 +92,13 @@ export const Frame = ({
     select(staticViews[0].key);
   };
   PView.useDeleteSynchronizer(deleteSynchronizer);
-  const editing = alwaysEditable || editable;
   const contextValue: ContextValue = {
     resourceType,
     selected,
-    editing,
-    editable: editing && updatable,
+    editable,
     staticViews: staticViewKeys,
     select,
     getInitialView,
-    searchInViews,
     searchTerm,
     setSearchTerm,
   };
@@ -123,9 +108,6 @@ export const Frame = ({
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={!alwaysEditable}
-          editable={editing}
-          onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
           onFetchMore={remoteProps.more}
           onSelect={select}
@@ -139,9 +121,6 @@ export const Frame = ({
 };
 
 interface SelectorProps {
-  showEditButton: boolean;
-  editable: boolean;
-  onEditableClick: () => void;
   resourceType: view.Type;
   onSelect: (key: view.Key) => void;
   selected: view.Key;
@@ -151,9 +130,6 @@ interface SelectorProps {
 }
 
 const Selector = ({
-  showEditButton,
-  editable,
-  onEditableClick,
   resourceType,
   onFetchMore,
   onSelect,
@@ -170,8 +146,6 @@ const Selector = ({
     if (result != null) onSelect(result.key);
   };
   const [anchors, setAnchor] = Appearance.useAnchors();
-  const { searchInViews } = useContext("View.Selector");
-  const creatable = hasCreatePermission && editable;
   return (
     <Select.Frame
       {...listProps}
@@ -179,50 +153,15 @@ const Selector = ({
       onChange={onSelect}
       onFetchMore={onFetchMore}
     >
-      <Vis.Controls x>
-        {creatable && !searchInViews && (
-          <Button.Button
-            onClick={() => void handleCreate()}
-            tooltip="Create view"
-            size="small"
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Add />
-          </Button.Button>
-        )}
-        {showEditButton && (
-          <Button.Toggle
-            size="small"
-            value={editable}
-            onChange={onEditableClick}
-            tooltip={`${editable ? "Disable" : "Enable"} editing`}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            {editable ? <Icon.EditOff /> : <Icon.Edit />}
-          </Button.Toggle>
-        )}
-      </Vis.Controls>
       <Menu.ContextMenu {...contextMenuProps} menu={contextMenu}>
-        <Tabs.Frame
-          x={searchInViews}
-          align={searchInViews ? "center" : undefined}
-          className={CSS.cls(
-            CSS.BE("view", "views"),
-            searchInViews && CSS.BEM("view", "views", "island"),
-          )}
-        >
-          {searchInViews && (
-            <div className={CSS.BE("view", "search")}>
-              <SearchInput />
-            </div>
-          )}
+        <Tabs.Frame x align="center" className={CSS.BE("view", "views")}>
+          <Search />
           <Strip
             onContextMenu={contextMenuProps.open}
             icon={icon}
-            pills={searchInViews}
             onAnchorChange={setAnchor}
           />
-          {creatable && searchInViews && (
+          {hasCreatePermission && (
             <Button.Button
               onClick={() => void handleCreate()}
               variant="text"
@@ -297,8 +236,6 @@ interface StripProps {
   onContextMenu: Menu.ContextMenuOpen;
   /** The icon of the views that show every resource. */
   icon: string;
-  /** Draws the views as pills as tall as the controls beside them. */
-  pills: boolean;
   onAnchorChange: Appearance.SetAnchor;
 }
 
@@ -306,19 +243,14 @@ interface StripProps {
  * Strip lays the frame's views out as a tab strip. It stands in for List.Items, whose
  * scroll container the strip owns instead.
  */
-const Strip = ({
-  onContextMenu,
-  icon,
-  pills,
-  onAnchorChange,
-}: StripProps): ReactElement => {
+const Strip = ({ onContextMenu, icon, onAnchorChange }: StripProps): ReactElement => {
   const { data, ref, sentinelRef } = List.useData<view.Key, View>();
   return (
     <Tabs.Selector
       ref={ref}
       aria-label="Views"
-      variant={pills ? "text" : "default"}
-      size={pills ? "medium" : "small"}
+      variant="text"
+      size="medium"
       sizing="content"
       onContextMenu={onContextMenu}
     >

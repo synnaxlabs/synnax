@@ -24,15 +24,20 @@ export const installPortalRoot = (): void => {
 };
 
 /**
- * Right-clicks the element with the given text and waits for the context menu to
- * open. Retries with a fresh query: async flux resolutions (permissions, labels) can
- * replace the target node between lookup and dispatch, detaching the first match.
+ * Right-clicks the element with the given text, or the element that find returns, and
+ * waits for the context menu to open. Retries with a fresh query: async flux
+ * resolutions (permissions, labels) can replace the target node between lookup and
+ * dispatch, detaching the first match.
  */
-export const openContextMenu = async (text: string): Promise<void> => {
+export const openContextMenu = async (
+  target: string | (() => HTMLElement),
+): Promise<void> => {
   await waitFor(() => {
-    fireEvent.contextMenu(screen.getByText(text));
+    fireEvent.contextMenu(
+      typeof target === "string" ? screen.getByText(target) : target(),
+    );
     if (document.querySelector(".lyra-menu-context") == null)
-      throw new Error(`context menu did not open for ${text}`);
+      throw new Error("context menu did not open");
   });
 };
 
