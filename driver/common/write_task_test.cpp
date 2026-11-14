@@ -28,6 +28,10 @@ public:
     size_t start_count = 0;
     /// @brief number of times stop() was called.
     size_t stop_count = 0;
+    /// @brief the command key that the last start() got.
+    std::string start_key;
+    /// @brief the cancel token that the last start() got.
+    const x::breaker::Breaker *start_cancel = nullptr;
 
     MockSink(
         const x::telem::Rate state_rate,
@@ -39,8 +43,11 @@ public:
         common::Sink(state_rate, outputs, data_saving_disabled),
         driver::pipeline::testutil::Sink(writes, errors) {}
 
-    x::errors::Error start() override {
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
         this->start_count++;
+        this->start_key = cmd_key;
+        this->start_cancel = &cancel;
         return x::errors::NIL;
     }
 
@@ -84,6 +91,7 @@ public:
 
 /// @brief set_state should use the last sample from a multi-sample series.
 TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
+    x::breaker::Breaker cancel;
     synnax::channel::Channel cmd_channel;
     cmd_channel.key = 1;
     cmd_channel.data_type = x::telem::UINT8_T;
@@ -136,7 +144,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     );
 
     std::string cmd_key = "cmd";
-    ASSERT_TRUE(write_task.start(cmd_key));
+    ASSERT_TRUE(write_task.start(cmd_key, cancel));
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
 
     auto check_state = [&]() -> uint8_t {
@@ -251,6 +259,7 @@ TEST(TestCommonWriteTask, OutputWithoutStateChannelReportsNoState) {
 
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
@@ -302,7 +311,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto start_ts = x::telem::TimeStamp::now();
 
     std::string cmd_key = "cmd";
-    ASSERT_TRUE(write_task.start(cmd_key));
+    ASSERT_TRUE(write_task.start(cmd_key, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
@@ -364,6 +373,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 /// @brief a start on a running task should ack the command without reopening
 /// the sink.
 TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
@@ -394,13 +404,13 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
         mock_writer_factory,
         mock_streamer_factory
     );
-    ASSERT_TRUE(write_task.start("cmd"));
+    ASSERT_TRUE(write_task.start("cmd", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
     );
-    ASSERT_FALSE(write_task.start("cmd_2"));
+    ASSERT_FALSE(write_task.start("cmd_2", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto ack_state = ctx->statuses[1];
     EXPECT_EQ(ack_state.owner, synnax::task::resource_id(task.key));
@@ -444,6 +454,7 @@ std::unique_ptr<WriteTask> create_write_task(
 /// @brief it should answer a start only after the command streamer opens, so a
 /// command written after the answer reaches the sink.
 TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
+    x::breaker::Breaker cancel;
     auto streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         std::make_shared<std::vector<x::telem::Frame>>()
@@ -454,8 +465,8 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
-    ASSERT_FALSE(write_task->start("start_cmd_2"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
+    ASSERT_FALSE(write_task->start("start_cmd_2", cancel));
     EXPECT_TRUE(ctx->snapshot().empty());
     open.set_value();
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
@@ -473,6 +484,7 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
 /// @brief it should report a failed start and release the sink when the command
 /// streamer fails to open.
 TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
+    x::breaker::Breaker cancel;
     auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
         std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
@@ -481,7 +493,7 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
-    write_task->start("start_cmd");
+    write_task->start("start_cmd", cancel);
     // The failed start sends its reply, then a stop status.
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
     const auto status = ctx->snapshot()[0];
@@ -497,6 +509,7 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
 /// @brief it should restart a task whose command pipeline failed, whether or not the
 /// failed run has stopped yet.
 TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
+    x::breaker::Breaker cancel;
     auto streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         std::make_shared<std::vector<x::telem::Frame>>()
@@ -506,10 +519,10 @@ TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
-    ASSERT_TRUE(write_task->start("start_cmd_2"));
+    ASSERT_TRUE(write_task->start("start_cmd_2", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().details.cmd, "start_cmd_2");
     const auto status = ctx->snapshot().back();
     EXPECT_EQ(status.message, "Started task");
@@ -523,6 +536,7 @@ TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
 /// @brief it should stop the sink before it restarts a task whose command pipeline
 /// exited without an error.
 TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
+    x::breaker::Breaker cancel;
     auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
         std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
@@ -539,9 +553,9 @@ TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     // A start while the command pipeline still runs is answered without a restart.
-    ASSERT_EVENTUALLY_TRUE(write_task->start("start_cmd_2"));
+    ASSERT_EVENTUALLY_TRUE(write_task->start("start_cmd_2", cancel));
     EXPECT_EQ(sink->stop_count, 1);
     EXPECT_EQ(sink->start_count, 2);
     ASSERT_TRUE(write_task->stop("stop_cmd", true));
@@ -588,6 +602,7 @@ std::unique_ptr<WriteTask> create_state_write_task(
 /// @brief it should report a failed start when the state writer fails to open after
 /// the command streamer opens.
 TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
+    x::breaker::Breaker cancel;
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     std::promise<void> open;
     const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
@@ -603,7 +618,7 @@ TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
         std::make_shared<std::vector<x::errors::Error>>()
     );
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
     EXPECT_EQ(ctx->snapshot()[0].message, "Started task");
     open.set_value();
@@ -617,6 +632,7 @@ TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
 
 /// @brief it should report a failed command while the state writer is still opening.
 TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
+    x::breaker::Breaker cancel;
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     std::promise<void> open;
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -634,7 +650,7 @@ TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
         )
     );
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(writes->size(), 1);
     // The failed command stops the task, which waits for the state writer to open.
     open.set_value();
@@ -649,6 +665,7 @@ TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
 /// @brief it should report a failed write when the state writer fails to reopen
 /// after it opened.
 TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
+    x::breaker::Breaker cancel;
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     // The second state write fails, the writer closes as unreachable, and the reopen
     // fails.
@@ -666,7 +683,7 @@ TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
         std::make_shared<std::vector<x::errors::Error>>()
     );
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     const auto status = ctx->snapshot()[1];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -678,6 +695,7 @@ TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
 /// @brief it should stop when both pipelines run out of retries while the Core is
 /// unreachable.
 TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
+    x::breaker::Breaker cancel;
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     const std::vector unreachable(10, freighter::UNREACHABLE);
     synnax::channel::Channel state;
@@ -711,7 +729,7 @@ TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
         )
     );
 
-    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
     // The failed start sends its reply, then a stop status.
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
@@ -725,6 +743,7 @@ TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
 TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
@@ -751,7 +770,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
         mock_streamer_factory
     );
 
-    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_TRUE(write_task.start("start_cmd", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(raw_sink->start_count, 1);
     EXPECT_EQ(raw_sink->stop_count, 0);
@@ -762,7 +781,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     ASSERT_FALSE(write_task.stop("stop_cmd_2", true));
     EXPECT_EQ(raw_sink->stop_count, 1);
 
-    ASSERT_TRUE(write_task.start("start_cmd_2"));
+    ASSERT_TRUE(write_task.start("start_cmd_2", cancel));
     EXPECT_EQ(raw_sink->start_count, 2);
     ASSERT_TRUE(write_task.stop("stop_cmd_3", true));
     EXPECT_EQ(raw_sink->stop_count, 2);
@@ -771,6 +790,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
 /// @brief it should run a sink with no outputs from start to stop with no streamer or
 /// writer, and release its hardware exactly once.
 TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
+    x::breaker::Breaker cancel;
     auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     auto streamer_factory = pipeline::testutil::simple_streamer_factory(
         {},
@@ -796,13 +816,13 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
         streamer_factory
     );
 
-    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_TRUE(write_task.start("start_cmd", cancel));
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].message, "Started task");
     EXPECT_TRUE(ctx->statuses[0].details.running);
     EXPECT_EQ(raw_sink->start_count, 1);
 
-    ASSERT_FALSE(write_task.start("start_cmd_2"));
+    ASSERT_FALSE(write_task.start("start_cmd_2", cancel));
     EXPECT_EQ(raw_sink->start_count, 1);
 
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
@@ -815,9 +835,39 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
     EXPECT_EQ(writer_factory->writer_opens.load(), 0);
 }
 
+/// @brief it should give the sink the key and cancel token of the start command.
+TEST(TestCommonWriteTask, ExecGivesTheSinkTheStartCommand) {
+    x::breaker::Breaker cancel;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    const auto *raw_sink = sink.get();
+    WriteTask write_task(
+        synnax::task::Task{.key = x::uuid::create()},
+        std::make_shared<driver::task::MockContext>(nullptr),
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory(
+            {},
+            std::make_shared<std::vector<x::telem::Frame>>()
+        )
+    );
+    synnax::task::Command cmd{.type = "start", .key = "start_cmd"};
+    write_task.exec(cmd, cancel);
+    EXPECT_EQ(raw_sink->start_key, "start_cmd");
+    EXPECT_EQ(raw_sink->start_cancel, &cancel);
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+}
+
 /// @brief it should warn once without a retry wait for a skipped command, and clear the
 /// warning on the next command.
 TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
+    x::breaker::Breaker cancel;
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     for (const uint8_t v: {0, 0, 1})
         reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
@@ -834,7 +884,7 @@ TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
         std::make_shared<pipeline::testutil::WriterFactory>(),
         pipeline::testutil::simple_streamer_factory({1}, reads)
     );
-    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_TRUE(write_task.start("start", cancel));
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
         writes->size(),
         1,
@@ -891,8 +941,9 @@ struct SkippingWrite {
 
 /// @brief it should report a temporary error instead of a warning from the same write.
 TEST(TestCommonWriteTask, TemporaryErrorTakesPrecedenceOverWarning) {
+    x::breaker::Breaker cancel;
     SkippingWrite w({2});
-    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_TRUE(w.task->start("start", cancel));
     ASSERT_EVENTUALLY_EQ_F(
         [&] {
             const auto statuses = w.ctx->snapshot();
@@ -908,9 +959,10 @@ TEST(TestCommonWriteTask, TemporaryErrorTakesPrecedenceOverWarning) {
 
 /// @brief it should log a repeated warning once, and log it again after a clean write.
 TEST(TestCommonWriteTask, RepeatedWarningLogsOnce) {
+    x::breaker::Breaker cancel;
     WarningSink log;
     SkippingWrite w({0, 0, 1, 0});
-    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_TRUE(w.task->start("start", cancel));
     ASSERT_EVENTUALLY_EQ(log.count("0 is not valid"), 2);
     EXPECT_EQ(w.writes->size(), 1);
     ASSERT_TRUE(w.task->stop("stop", true));

@@ -103,7 +103,16 @@ public:
         }
     }
 
-    virtual x::errors::Error start() { return x::errors::NIL; }
+    /// @brief an optional function called to start the sink.
+    /// @param cmd_key the key of the start command, or driver::task::NO_COMMAND for an
+    /// auto-start.
+    /// @param cancel stops running when the Driver cancels the start.
+    /// @returns an error if the sink fails to start, at which point the task will not
+    /// proceed with the rest of startup.
+    virtual x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
+        return x::errors::NIL;
+    }
 
     /// @brief returns the warning reported during the last write, and clears it. Empty
     /// if the write reported none.
@@ -421,9 +430,9 @@ public:
 
     /// @brief implements driver::task::Task to execute the provided command on the
     /// task.
-    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) override {
         if (cmd.type == "start")
-            this->start(cmd.key);
+            this->start(cmd.key, cancel);
         else if (cmd.type == "stop")
             this->stop(cmd.key, true);
     }
@@ -451,7 +460,7 @@ public:
     /// status. The start is answered once the command streamer opens, so commands
     /// written after the answer reach the sink. A sink with no command channels is
     /// answered at once and runs without pipelines.
-    bool start(const std::string &cmd_key) {
+    bool start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
         std::lock_guard run_lock(this->run_mu);
         bool restart = false;
         {
@@ -475,8 +484,10 @@ public:
             std::lock_guard lock(this->state_mu);
             this->state.reset();
             this->sink->logged_warning = {};
-            if (this->state
-                    .error(this->sink->internal->start(), "Failed to start task")) {
+            if (this->state.error(
+                    this->sink->internal->start(cmd_key, cancel),
+                    "Failed to start task"
+                )) {
                 this->state.send_start(cmd_key);
                 return false;
             }
