@@ -204,9 +204,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   }
 
   /**
-   * Resolves once the Core has applied every dispatch to the panel that this client
-   * sent. A request outside the dispatch queue, such as a delete, waits on this to
-   * reach the Core after them.
+   * Resolves once no dispatch to the panel that this client sent is in flight. Each
+   * one either reached the Core or failed and rolled back the cached panel, so read
+   * the panel again after this resolves.
    */
   async settled(key: Key): Promise<void> {
     await this.dispatcher.settled(key);

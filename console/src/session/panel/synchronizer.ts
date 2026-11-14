@@ -81,10 +81,15 @@ const deleteEmptied = (params: Params, state: Emptied, key: panel.Key): void => 
   const { client } = params;
   if (state.deleting.has(key)) return;
   state.deleting.add(key);
-  // The delete is outside the panel's dispatch queue, so it waits for the close.
+  // The delete is outside the panel's dispatch queue, so it waits for the close. A
+  // close that failed put the tab back, so the draft is checked again.
   client.panels
     .settled(key)
-    .then(async () => await client.panels.delete(key))
+    .then(async () => {
+      const cached = client.panels.watch(key).getCached();
+      if (!query.isLive(cached) || hasTabs(cached.root)) return;
+      await client.panels.delete(key);
+    })
     .catch((e: unknown) => {
       state.failed.add(key);
       state.handleError(e, DELETE_FAILED);

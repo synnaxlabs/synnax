@@ -449,6 +449,29 @@ describe("reconcile panel order and selection", () => {
     );
   });
 
+  it("keeps a draft whose close fails and puts its tab back", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    const close = client.panels.beginTransaction(draft.key);
+    close.add(panel.removeTab({ key: tab }));
+    await waitFor(() => expect(stripOrder(store)).toEqual([]));
+    close.abort();
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    await act(async () => {});
+    const stored = await client.panels.retrieve({ key: draft.key });
+    expect(panel.findTab(stored.root, tab)).toBeDefined();
+  });
+
   it("keeps an emptied draft and deletes it once when the Core rejects it", async () => {
     const proj = await createProject();
     const editor = await createTestClientWithPolicy(client, {
