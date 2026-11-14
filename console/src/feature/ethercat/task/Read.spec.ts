@@ -11,9 +11,12 @@ import {
   channel,
   device,
   type ethercat,
-  type rack,
+  group,
+  panel,
+  project,
+  rack,
   type Synnax,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -45,7 +48,11 @@ import {
   findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  findDialogTriggerByText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -2144,6 +2151,23 @@ describe("Read channel usage", () => {
     expect(
       await screen.findByText(/^Start creates 1 channel, \d+ in use\.$/),
     ).toBeTruthy();
+  });
+
+  it("should leave out the channels in use for a user who cannot count them", async () => {
+    const slave = await createTwoEntrySlave();
+    const draft = await createDraft(client, createConfig(slave));
+    const as = await createTestClientWithGrants(client, {
+      retrieve: [
+        task.TYPE_RESOURCE_ID,
+        device.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+      ],
+    });
+    await renderTaskFormTab(EtherCAT.Task.Read, { client, as, taskKey: draft.key });
+    expect(await screen.findByText("Start creates 3 channels.")).toBeTruthy();
   });
 
   it("should show the count of the channels in use as it changes", async () => {

@@ -439,6 +439,24 @@ describe("Write", () => {
     );
   });
 
+  it("should count none of the channels that Start reuses from a deleted slave", async () => {
+    const identifier = createIdentifier();
+    const first = await deploySlave(identifier);
+    await deleteSlave(first.slave.key, first.task);
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+    ).toBeTruthy();
+  });
+
   it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
     const coupler = await client.devices.create({
       key: id.create(),
