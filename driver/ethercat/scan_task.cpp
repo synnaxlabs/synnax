@@ -235,8 +235,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
+        const auto keys = slave_keys(slaves, key, scan_ctx);
         bool rediscovery_needed = false;
-        for (const auto &slave: slaves) {
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            const auto &slave = slaves[i];
             // A slave whose EEPROM read failed, as while it restarts, has no identity.
             if (slave.properties.vendor_id == 0 && slave.properties.product_code == 0) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
@@ -246,6 +248,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
+                keys[i],
                 health,
                 key,
                 scan_ctx
@@ -291,6 +294,7 @@ bool Scanner::exec(
 
 std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
+    const std::string &key,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
@@ -298,7 +302,6 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const auto &props = slave.properties;
     const auto &sts = slave.status;
     const auto rack_key = this->task.rack;
-    const std::string key = this->generate_slave_key(props, master_key);
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
@@ -386,6 +389,51 @@ std::string Scanner::generate_slave_key(
     std::ranges::replace(safe_key, ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
+}
+
+std::vector<std::string> Scanner::slave_keys(
+    const std::vector<slave::DiscoveryResult> &slaves,
+    const std::string &master_key,
+    const common::ScannerContext &scan_ctx
+) {
+    std::vector<std::pair<std::string, slave::Properties>> stored;
+    if (scan_ctx.devices != nullptr)
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            auto [props, err] = parse_properties(dev.properties);
+            if (!err) stored.emplace_back(key, std::move(props));
+        }
+    std::ranges::sort(stored, {}, &std::pair<std::string, slave::Properties>::first);
+    const auto same_model = [](const slave::Properties &a, const slave::Properties &b) {
+        return a.vendor_id == b.vendor_id && a.product_code == b.product_code;
+    };
+    std::vector<std::string> keys(slaves.size());
+    std::set<std::string> kept;
+    for (size_t i = 0; i < slaves.size(); ++i) {
+        const auto &live = slaves[i].properties;
+        if (live.serial == 0) {
+            keys[i] = generate_slave_key(live, master_key);
+            kept.insert(keys[i]);
+            continue;
+        }
+        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
+            return same_model(s.second, live) && s.second.serial == live.serial;
+        });
+        if (it == stored.end()) continue;
+        keys[i] = it->first;
+        kept.insert(keys[i]);
+    }
+    for (size_t i = 0; i < slaves.size(); ++i) {
+        if (!keys[i].empty()) continue;
+        const auto &live = slaves[i].properties;
+        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
+            return !kept.contains(s.first) && s.second.network == master_key &&
+                   s.second.position == live.position && same_model(s.second, live);
+        });
+        keys[i] = it != stored.end() ? it->first : generate_slave_key(live, master_key);
+        kept.insert(keys[i]);
+    }
+    return keys;
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {
