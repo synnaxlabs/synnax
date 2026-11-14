@@ -31,6 +31,34 @@ protected:
     const uint32_t SLAVE_SERIAL = 12345;
     const std::string NETWORK_INTERFACE = "eth0";
 
+    /// @brief returns the properties of a slave of the saved model on the bus.
+    [[nodiscard]] static slave::Properties
+    slave_properties(const uint16_t position, const uint32_t serial) {
+        return {
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "Test Slave",
+            .output_pdos = {
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = false,
+                 .name = "control_word",
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = false,
+                 .name = "setpoint",
+                 .data_type = x::telem::INT32_T},
+            },
+        };
+    }
+
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -61,31 +89,7 @@ protected:
         );
 
         mock_master = std::make_shared<testutil::Master>();
-        mock_master->add_slave(
-            slave::Properties{
-                .position = 1,
-                .vendor_id = 0x1,
-                .product_code = 0x2,
-                .serial = SLAVE_SERIAL,
-                .name = "Test Slave",
-                .output_pdos = {
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = false,
-                     .name = "control_word",
-                     .data_type = x::telem::INT16_T},
-                    {.pdo_index = 0x1600,
-                     .index = 0x7000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = false,
-                     .name = "setpoint",
-                     .data_type = x::telem::INT32_T},
-                },
-            }
-        );
+        mock_master->add_slave(slave_properties(1, SLAVE_SERIAL));
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
@@ -422,6 +426,31 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     ASSERT_NIL(sink.stop());
     EXPECT_FALSE(this->engine->running());
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
+}
+
+/// @brief it should write to a slave with its serial number at the position where it is
+/// on the bus, not at its saved position.
+TEST_F(EtherCATWriteTest, SinkWritesASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(6),
+        static_cast<int16_t>(0x5678)
+    );
+    EXPECT_EQ(this->mock_master->get_output<int16_t>(0), 0);
+    ASSERT_NIL(sink.stop());
 }
 
 /// @brief it should wake the next state read for a command written before the state

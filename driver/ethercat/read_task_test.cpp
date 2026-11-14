@@ -1265,6 +1265,35 @@ TEST_F(EtherCATReadTest, SourceReadsASlaveThatMoved) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should write the startup parameters of a slave with its serial number at
+/// the position where it is on the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParametersOfASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", 6}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_TRUE(this->mock_master->config(1).startup_parameters.empty());
+    const auto params = this->mock_master->config(2).startup_parameters;
+    ASSERT_EQ(params.size(), 1);
+    EXPECT_EQ(params[0].value, 6);
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should refuse to start when a slave on the bus is not the device that
 /// the task names.
 TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
