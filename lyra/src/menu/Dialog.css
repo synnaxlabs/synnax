@@ -15,6 +15,7 @@
     --pluto-btn-transition: none;
 
     padding: 1rem;
+    background-color: var(--pluto-gray-l1-l2);
 
     &:not(.lyra--modal) {
         min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));

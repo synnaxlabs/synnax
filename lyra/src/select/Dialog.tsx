@@ -69,6 +69,7 @@ export const Dialog = ({
       {...rest}
       className={CSS.cls(CSS.BE("select", "dialog"), className)}
       bordered={false}
+      background={false}
     >
       {content}
     </BaseDialog.Dialog>

@@ -295,7 +295,9 @@ bound, a log precision, or the line plot X channel.
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
   its values.
 - The filter menu, its submenus, and the pickers of a filter chip use the context menu
-  surface: l2, an l6 border, the large radius, 6 px padding, and the overlay shadow.
+  surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
+- Menus and select dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
+  bordered search and its framed list.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
   submenu, the items it crosses do not light or open.

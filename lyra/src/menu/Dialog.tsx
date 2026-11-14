@@ -44,7 +44,7 @@ export const Dialog = ({
   return (
     <Base.Dialog
       ref={combinedRef}
-      background={2}
+      background={false}
       borderColor={6}
       rounded="large"
       pack={false}
