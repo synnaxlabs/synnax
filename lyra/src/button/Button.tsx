@@ -27,7 +27,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
-import { FOCUSABLE } from "@/util";
+import { ownsEvent } from "@/util";
 
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
@@ -35,9 +35,10 @@ export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 /**
  * The rest-state emphasis of the button chassis. A glyph button never fills, so its
  * icon alone shows hover and press. Use it for an action inside another control, such
- * as a tab's close button.
+ * as a tab's close button. A shadow button draws no box at rest, for a field that reads
+ * as its value, and draws the outlined box on hover, on press, and while it is open.
  */
-export type Variant = "filled" | "outlined" | "text" | "glyph" | "card";
+export type Variant = "filled" | "outlined" | "text" | "glyph" | "card" | "shadow";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -189,13 +190,7 @@ export const Button = <E extends ElementType = "button">(
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
     // cancelled default also moves focus, so skip it when a focusable descendant owns
     // the press: the chassis is not the element the browser would focus.
-    if (
-      tabIndex == -1 &&
-      draggable !== true &&
-      e.target instanceof Element &&
-      e.target.closest(FOCUSABLE) === e.currentTarget
-    )
-      e.preventDefault();
+    if (tabIndex == -1 && draggable !== true && ownsEvent(e)) e.preventDefault();
     hold.onMouseDown(e);
   };
 
@@ -209,7 +204,8 @@ export const Button = <E extends ElementType = "button">(
 
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
-    res.success && (variant === "filled" || variant === "outlined");
+    res.success &&
+    (variant === "filled" || variant === "outlined" || variant === "shadow");
   const theme = Theming.use();
 
   let pStyle = style;
@@ -264,7 +260,7 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant === "filled" || variant === "outlined" || variant === "card"}
+      bordered={variant !== "text" && variant !== "glyph"}
       level={level}
       variant={textVariant}
       square={square}

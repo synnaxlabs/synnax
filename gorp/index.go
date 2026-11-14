@@ -12,6 +12,7 @@ package gorp
 import (
 	"cmp"
 	"context"
+	"math"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
@@ -228,14 +229,18 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
+// Bound is one end of a range of values that SortedIndex.FilterRange matches. A nil
+// *Bound leaves its end of the range open.
+type Bound[V cmp.Ordered] = index.Bound[V]
+
 // SortedIndex is an ordered in-memory index on a value of type V extracted from entries
 // of type E. Entries order by value, then by key, so every walk has one total order.
 // SortedIndex supports exact-match lookups via Filter (same semantics as LookupIndex)
 // and ordered cursor-based pagination via Retrieve.OrderBy.
 //
-// Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor iteration via
-// Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that staged
-// inserts or deletes will not see those changes during ordered iteration.
+// Read-your-own-writes is scoped to Filter and FilterRange. Ordered cursor iteration
+// via Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that
+// staged inserts or deletes will not see those changes during ordered iteration.
 type SortedIndex[K Key, E Entry[K], V cmp.Ordered] struct {
 	// name is the human-readable index name, used in diagnostics.
 	name string
@@ -306,4 +311,50 @@ func (s *SortedIndex[K, E, V]) Get(
 // populate-failure contract.
 func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](s.store, holdsValue(s.extract), values)
+}
+
+// FilterRange returns a Filter matching entries whose indexed value lies between lower
+// and upper. A nil bound leaves its end of the range open. Read-your-own-writes and the
+// populate-failure fallback match Filter.
+func (s *SortedIndex[K, E, V]) FilterRange(lower, upper *Bound[V]) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{}, nil
+			} else if err != nil {
+				return resolved[K, E]{}, err
+			}
+			// eval drops the keys of a commit in flight that fails.
+			committing := s.store.CommittingRange(lower, upper)
+			keys, err := s.store.Range(scopeOf(snap), lower, upper)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			if len(committing) > 0 {
+				keys = lo.Uniq(append(keys, committing...))
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return index.InRange(s.extract(e), lower, upper), nil
+		},
+		span: &span[K]{
+			count: func(ctx context.Context) (int, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return math.MaxInt, nil
+				} else if err != nil {
+					return 0, err
+				}
+				return s.store.Count(lower, upper), nil
+			},
+			keep: func(ctx context.Context, snap Snapshot, keys []K) ([]K, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return keys, nil
+				} else if err != nil {
+					return nil, err
+				}
+				return s.store.Keep(scopeOf(snap), keys, lower, upper), nil
+			},
+		},
+	}
 }

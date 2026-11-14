@@ -28,6 +28,7 @@ import { type z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+import { Section } from "@/platform/section";
 import { Controls } from "@/platform/task/controls";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
@@ -191,17 +192,16 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
                 <Properties />
               </Flex.Box>
             )}
-            <Flex.Box
+            <Section.Section
               x
               className={CSS.B("task-channel-form-container")}
-              bordered
               grow
               empty
             >
               <Errors.SuspenseBoundary>
                 <Form />
               </Errors.SuspenseBoundary>
-            </Flex.Box>
+            </Section.Section>
             {showControls && (
               <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
             )}

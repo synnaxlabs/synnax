@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type project, query } from "@synnaxlabs/client";
-import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type project, query, type user } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  createTestClientWithRole,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -174,15 +180,21 @@ const createProject = async (): Promise<project.Project> =>
 interface ProjectPanelOverrides {
   key?: panel.Key;
   name?: string;
+  owner?: user.Key;
 }
 
 const createProjectPanel = async (
   projectKey: project.Key,
-  { key = uuid.create(), name = uniqueName("panel") }: ProjectPanelOverrides = {},
+  {
+    key = uuid.create(),
+    name = uniqueName("panel"),
+    owner,
+  }: ProjectPanelOverrides = {},
 ): Promise<panel.Panel> =>
   await client.panels.create({
     key,
     name,
+    owner,
     project: projectKey,
     root: leaf(uuid.create()),
   });
@@ -328,6 +340,53 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key]));
     const alpha = await createProjectPanel(proj.key, { name: "alpha" });
     await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key, alpha.key]));
+  });
+
+  it("keeps the drafts of other users out of the strip order", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const role = await createEmptyRole(client);
+    const other = await client.users.create({
+      username: uuid.create(),
+      password: "test",
+      name: "other",
+      role: role.key,
+    });
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const mine = await createProjectPanel(proj.key, { name: "mine", owner: me });
+    await createProjectPanel(proj.key, { name: "also", owner: other.key });
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() =>
+      expect(stripOrder(store)).toEqual([alpha.key, mine.key, zulu.key]),
+    );
+  });
+
+  it("swaps in the new user's drafts when a different user logs in", async () => {
+    const proj = await createProject();
+    const viewer = await createTestClientWithRole(client, "Viewer");
+    const viewerKey = (await viewer.users.current.retrieve()).key;
+    const me = (await client.users.current.retrieve()).key;
+    const shared = await createProjectPanel(proj.key, { name: "a shared" });
+    const theirs = await createProjectPanel(proj.key, {
+      name: "b viewer",
+      owner: viewerKey,
+    });
+    const mine = await createProjectPanel(proj.key, { name: "c admin", owner: me });
+    const store = await createStoreWithProject(proj.key);
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client: viewer, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, theirs.key]));
+    act(() => viewer.reauthenticate(TEST_CREDENTIALS));
+    await waitFor(() => expect(stripOrder(store)).toEqual([shared.key, mine.key]));
   });
 
   it("prunes a deleted panel from the strip order", async () => {

@@ -32,6 +32,10 @@ const item = Component.renderProp((props: ItemProps) => (
 ));
 const contextMenu = Component.renderProp(ContextMenu);
 
+const PROPERTIES: View.Filter.Properties<ranger.Where> = {
+  labels: Label.Filter.createProperty({ unlabeled: true }),
+};
+
 export const Explorer: Panel.Content = () => (
   <View.Frame resourceType="range" icon="Range">
     <Internal />
@@ -156,13 +160,12 @@ const Internal = () => {
       more={handleMore}
       search={handleSearch}
       onWhereChange={handleWhereChange}
+      itemHeight={40}
     >
       <View.Toolbar>
-        <View.FilterMenu>
-          <Label.Filter.MenuItem />
-        </View.FilterMenu>
+        <View.Filter.Menu properties={PROPERTIES} />
         <View.Search />
-        <Label.Filter.Chips />
+        <View.Filter.Chips properties={PROPERTIES} />
         {hasCreatePermission && (
           <Button.Button
             onClick={handleCreate}

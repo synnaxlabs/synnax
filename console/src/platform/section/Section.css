@@ -9,7 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-view__filter-chip {
-    padding: 0 1rem;
-    box-shadow: var(--pluto-shadow-lift);
+.console-section {
+    overflow: hidden;
 }

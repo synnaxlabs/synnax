@@ -135,7 +135,7 @@ describe("Input.Table", () => {
   it("should render every cell as a shadow input", () => {
     renderTable();
     const chassis = cell("Raw", "1").closest(".lyra-input");
-    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
+    expect(chassis?.classList.contains("lyra-btn--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {

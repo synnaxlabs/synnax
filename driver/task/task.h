@@ -44,7 +44,9 @@ public:
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
-    virtual void exec(synnax::task::Command &cmd) {}
+    /// @param cancel stops when the task manager stops its workers, after it stops its
+    /// tasks. A task should end a long wait when it stops.
+    virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -250,12 +252,15 @@ inline constexpr auto NO_COMMAND = "";
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns each created task with its live instance, or with null when its
     /// configure failed.
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) {
         return {};
     }
@@ -264,11 +269,14 @@ public:
 
     /// @brief builds a live instance of the task if this factory handles its type.
     /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) = 0;
 
     virtual ~Factory() = default;
@@ -284,13 +292,14 @@ public:
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
             const std::string factory_name = factory->name();
             VLOG(1) << "[" << factory_name << "] configuring initial tasks";
-            auto new_tasks = factory->configure_initial_tasks(ctx, rack);
+            auto new_tasks = factory->configure_initial_tasks(ctx, rack, cancel);
             VLOG(1) << "[" << factory_name << "] configured " << new_tasks.size()
                     << " initial tasks";
             for (auto &task: new_tasks)
@@ -302,10 +311,11 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configure_task(ctx, task, cmd_key);
+            auto [t, ok] = factory->configure_task(ctx, task, cmd_key, cancel);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};

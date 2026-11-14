@@ -71,8 +71,15 @@ interface Pending {
 
 /** A swatch that opens the picker of its frame, which gives it the focus back. */
 const Trigger = ({ ref, ...rest }: BaseSwatchProps): ReactElement => {
-  const { triggerRef } = Dialog.useContext();
-  return <BaseSwatch ref={useCombinedRefs(ref, triggerRef)} {...rest} />;
+  const { triggerRef, visible } = Dialog.useContext();
+  return (
+    <BaseSwatch
+      ref={useCombinedRefs(ref, triggerRef)}
+      aria-haspopup="dialog"
+      aria-expanded={visible}
+      {...rest}
+    />
+  );
 };
 
 /** A color swatch that opens a picker when clicked. Takes a dropped color too. */

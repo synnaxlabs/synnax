@@ -1122,6 +1122,9 @@ func (b *ButtonNodeConfig) ApplyDefaults() {
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	if b.Level != nil {
+		v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", *b.Level)
+	}
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -6616,6 +6619,9 @@ func (b *ButtonElementConfig) ApplyDefaults() {
 func (b ButtonElementConfig) Validate() error {
 	v := validate.New("ButtonElementConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	if b.Level != nil {
+		v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", *b.Level)
+	}
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {

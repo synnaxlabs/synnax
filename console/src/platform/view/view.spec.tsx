@@ -9,15 +9,18 @@
 
 import { ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Flux } from "@synnaxlabs/pluto";
+import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Label } from "@/platform/label";
+import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
@@ -40,27 +43,42 @@ const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
 );
 const item = Component.renderProp(RenderItem);
 
+const PROPERTIES: View.Filter.Properties<ranger.Where> = {
+  labels: Label.Filter.createProperty(),
+};
+
 const Inner = (): ReactElement => {
   const [where, setWhere] = useState(View.useContext().getInitialView().where);
   const listProps = Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: { where },
   });
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps} onWhereChange={setWhere}>
+    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
-        <View.FilterMenu>
-          <Menu.Item itemKey="only">Filter Option</Menu.Item>
-        </View.FilterMenu>
+        <View.Filter.Menu properties={PROPERTIES} />
         <View.Search />
+        {hasCreatePermission && (
+          <Button.Button tooltip="Create range">
+            <Icon.Add />
+          </Button.Button>
+        )}
       </View.Toolbar>
       <View.Items<ranger.Key>>{item}</View.Items>
     </View.Form>
   );
 };
 
-const Harness = (): ReactElement => (
-  <View.Frame resourceType="range" icon="Range">
+interface HarnessProps extends Pick<View.FrameProps, "searchInViews"> {}
+
+const Harness = ({ searchInViews }: HarnessProps): ReactElement => (
+  <View.Frame
+    resourceType="range"
+    icon="Range"
+    alwaysEditable={searchInViews}
+    searchInViews={searchInViews}
+  >
     <Inner />
   </View.Frame>
 );
@@ -79,9 +97,46 @@ const createView = async () =>
     type: "range",
   });
 
-const renderHarness = async (as: Client = client): Promise<void> => {
+const renderHarness = async (
+  as: Client = client,
+  props: HarnessProps = {},
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(<Harness />, { wrapper });
+  render(
+    <>
+      <Harness {...props} />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
+};
+
+/** Opens the create view modal. @returns its name input. */
+const openCreateModal = async (): Promise<HTMLInputElement> => {
+  await enableEditing();
+  const add = await waitFor(() =>
+    getIconButton(getBySelector(document.body, ".console-controls"), "add"),
+  );
+  fireEvent.click(add);
+  return await screen.findByPlaceholderText<HTMLInputElement>("View name");
+};
+
+/** @returns the Create button of the create view modal. */
+const getCreateButton = (): HTMLElement => {
+  // The create view button names itself with a tooltip, and holds no text.
+  const create = screen
+    .getAllByRole("button", { name: /^Create/ })
+    .find((b) => b.textContent?.startsWith("Create"));
+  if (create == null) throw new Error("no Create button");
+  return create;
+};
+
+/** @returns the icon the tab of the named view draws. */
+const tabIcon = (name: string): SVGElement => {
+  const tab = screen.getAllByRole("tab").find((t) => t.textContent === name);
+  const svg = tab?.querySelector("svg");
+  if (svg == null) throw new Error(`tab for ${name} draws no icon`);
+  return svg;
 };
 
 describe("View", () => {
@@ -182,12 +237,91 @@ describe("View", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
+  it("creates a view with the name and icon picked in the create modal", async () => {
+    await renderHarness();
+    const input = await openCreateModal();
+    expect(input.value).toBe("");
+    fireEvent.click(screen.getByLabelText("Change icon"));
+    const valve = await screen.findByLabelText("Valve");
+    await act(async () => fireEvent.click(valve));
+    const name = uniqueName("created");
+    fireEvent.change(input, { target: { value: name } });
+    fireEvent.click(getCreateButton());
+    await waitFor(() => expect(selectedViewName()).toBe(name));
+    expect(tabIcon(name).classList).toContain("lyra-icon--valve");
+    const stored = await client.views.retrieve({ where: { name: { eq: name } } });
+    expect(stored.map(({ icon }) => icon)).toEqual(["valve"]);
+  });
+
+  it("shows an empty name error at the field and keeps create enabled", async () => {
+    await renderHarness();
+    await openCreateModal();
+    const create = getCreateButton();
+    expect(create.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(create);
+    expect(await screen.findByText("Name is required")).toBeTruthy();
+    expect(screen.getByPlaceholderText("View name")).toBeTruthy();
+  });
+
+  it("draws the explorer icon on a static tab and a view icon on a saved one", async () => {
+    const saved = await createView();
+    await renderHarness();
+    await screen.findByText(saved.name);
+    expect(tabIcon("All ranges").classList).toContain("lyra-icon--range");
+    expect(tabIcon(saved.name).classList).toContain("lyra-icon--view");
+  });
+
+  it("sets a saved view's icon from the change icon item", async () => {
+    const saved = await createView();
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    fireEvent.click(await screen.findByText("Change icon"));
+    await screen.findByRole("dialog", { name: "View icon" });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Valve"));
+    });
+    await waitFor(() =>
+      expect(tabIcon(saved.name).classList).toContain("lyra-icon--valve"),
+    );
+    expect((await client.views.retrieve(saved.key)).icon).toBe("valve");
+  });
+
+  it("withholds change icon from a static view's context menu", async () => {
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText("All ranges"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Change icon")).toBeNull();
+  });
+
+  it("leads the views with the search when the search sits in the views", async () => {
+    await renderHarness(client, { searchInViews: true });
+    const input = await screen.findByPlaceholderText("Search ranges...");
+    expect(input.closest(".console-view__search")).not.toBeNull();
+    expect(screen.queryByLabelText("Enable editing")).toBeNull();
+    const views = getBySelector(document.body, ".console-view__views");
+    await waitFor(() => expect(queryIconButton(views, "add")).toBeTruthy());
+  });
+
+  it("clears the search term of the views bar when another view opens", async () => {
+    const saved = await createView();
+    await renderHarness(client, { searchInViews: true });
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    expect(input.value).toBe("alpha");
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    expect(
+      screen.getByPlaceholderText<HTMLInputElement>("Search ranges...").value,
+    ).toBe("");
+  });
+
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
     await renderHarness();
     await enableEditing();
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
-    await waitFor(() => expect(screen.getByText("Filter Option")).toBeTruthy());
+    await screen.findByRole("menuitem", { name: "Labels" });
   });
 });
 
@@ -198,14 +332,67 @@ describe("View permissions", () => {
       retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
     });
 
-  it("should leave the view read-only for a subject who cannot update views", async () => {
-    await renderHarness(await createSubject({}));
-    await enableEditing();
-    await screen.findByText("All ranges");
-    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+  it("should let a subject who cannot update views search and filter a static view", async () => {
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    await screen.findByPlaceholderText("Search ranges...");
+    expect(queryIconButton(document.body, "filter")).toBeTruthy();
     expect(
-      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      queryIconButton(getBySelector(document.body, ".console-view__views"), "add"),
     ).toBeNull();
+  });
+
+  it("should let a subject who cannot update views search a saved view but not filter it", async () => {
+    const start = TimeStamp.now();
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+    const alpha = await client.ranges.create({
+      name: uniqueRangeName("alpha"),
+      timeRange,
+    });
+    const bravo = await client.ranges.create({
+      name: uniqueRangeName("bravo"),
+      timeRange,
+    });
+    const saved = await createView();
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: alpha.name } });
+    await waitFor(() => {
+      expect(screen.getByText(String(alpha.key))).toBeTruthy();
+      expect(screen.queryByText(String(bravo.key))).toBeNull();
+    });
+    expect(queryIconButton(document.body, "filter")).toBeNull();
+  });
+
+  it("should keep the toolbar of a saved view a subject cannot update, without its filters", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({ create: [ranger.TYPE_RESOURCE_ID] }), {
+      searchInViews: true,
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
+      ).toBeTruthy(),
+    );
+    expect(queryIconButton(document.body, "filter")).toBeNull();
+  });
+
+  it("should let a subject who cannot update a saved view turn editing on and off", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({}));
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    await enableEditing();
+    await screen.findByPlaceholderText("Search ranges...");
+    expect(queryIconButton(document.body, "filter")).toBeNull();
+    fireEvent.click(getIconButton(document.body, "edit-off"));
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull(),
+    );
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {

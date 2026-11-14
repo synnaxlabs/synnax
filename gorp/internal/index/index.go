@@ -291,6 +291,19 @@ func (h holders[K]) len() int {
 	return len(h.few)
 }
 
+// some reports whether f accepts any key of h.
+func (h holders[K]) some(f func(K) bool) bool {
+	if h.many == nil {
+		return slices.ContainsFunc(h.few, f)
+	}
+	for k := range h.many {
+		if f(k) {
+			return true
+		}
+	}
+	return false
+}
+
 func (h holders[K]) addTo(out set.Set[K]) {
 	if h.many != nil {
 		for k := range h.many {

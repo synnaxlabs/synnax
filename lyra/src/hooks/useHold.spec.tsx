@@ -15,7 +15,8 @@ import {
   renderHook,
   type RenderResult,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
+import { createPortal } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useHold, type UseHoldProps } from "@/hooks/useHold";
@@ -32,6 +33,15 @@ const Host = (props: UseHoldProps<HTMLButtonElement>): ReactElement => {
     >
       <span>{hold.delay.milliseconds}</span>
     </button>
+  );
+};
+
+const Frame = ({ children }: PropsWithChildren): ReactElement => {
+  const hold = useHold<HTMLDivElement>({});
+  return (
+    <div role="group" aria-pressed={hold.pressed} onMouseDown={hold.onMouseDown}>
+      {children}
+    </div>
   );
 };
 
@@ -280,6 +290,36 @@ describe("useHold", () => {
       const { button } = renderHold({ disabled: true });
       fireEvent.keyDown(button, { key: " " });
       expect(pressed(button)).toBe(false);
+    });
+  });
+
+  describe("ownership", () => {
+    it("should track a press on a plain child", () => {
+      const c = render(
+        <Frame>
+          <span>label</span>
+        </Frame>,
+      );
+      fireEvent.mouseDown(c.getByText("label"));
+      expect(pressed(c.getByRole("group"))).toBe(true);
+    });
+
+    it("should ignore a press on a nested control", () => {
+      const c = render(
+        <Frame>
+          <button>nested</button>
+        </Frame>,
+      );
+      fireEvent.mouseDown(c.getByText("nested"));
+      expect(pressed(c.getByRole("group"))).toBe(false);
+    });
+
+    it("should ignore a press that bubbles up from a portal", () => {
+      const c = render(
+        <Frame>{createPortal(<span>portaled</span>, document.body)}</Frame>,
+      );
+      fireEvent.mouseDown(c.getByText("portaled"));
+      expect(pressed(c.getByRole("group"))).toBe(false);
     });
   });
 });

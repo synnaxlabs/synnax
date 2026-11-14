@@ -159,6 +159,29 @@ class TestClient:
         assert {p.key for p in panels} == {p1.key, p2.key}
         assert all(p.project == project for p in panels)
 
+    def test_retrieve_drafts(self, client: sy.Synnax, project: sy.project.Key) -> None:
+        """Should keep a draft's owner and filter by owners and owned."""
+        role = client.access.roles.create(sy.Role(name="panel drafts"))
+        user = client.users.create(
+            username=str(uuid4()), password="test", role=role.key
+        )
+        shared = client.panels.create(name="Shared", project=project)
+        draft = client.panels.create(
+            sy.Panel(name="Draft", project=project, owner=user.key)
+        )
+        assert client.panels.retrieve(key=draft.key).owner == user.key
+        drafts = client.panels.retrieve(projects=project, owners=user.key)
+        assert [p.key for p in drafts] == [draft.key]
+        owned = client.panels.retrieve(projects=project, owned=True)
+        assert [p.key for p in owned] == [draft.key]
+        unowned = client.panels.retrieve(projects=project, owned=False)
+        assert [p.key for p in unowned] == [shared.key]
+        visible = client.panels.retrieve(
+            projects=project,
+            or_=[{"owned": False}, {"owners": user.key}],
+        )
+        assert {p.key for p in visible} == {shared.key, draft.key}
+
     def test_retrieve_by_project_without_panels(
         self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
