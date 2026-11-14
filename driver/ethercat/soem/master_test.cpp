@@ -1533,7 +1533,8 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->mock->ibytes = 4;
     this->mock->context.slavelist[1].hasdc = 1;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
-    ASSERT_NIL(this->activate());
+    // The cycle thread can start after SAFE-OP on a loaded host.
+    ASSERT_NIL(this->activate([this] { ASSERT_NIL(this->master->send()); }));
     EXPECT_GT(this->mock->sync_dc_count, 0);
     ASSERT_FALSE(this->mock->send_states.empty());
     for (const auto state: this->mock->send_states)
