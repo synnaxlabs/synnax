@@ -107,6 +107,20 @@ const settingProblem = (
   return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
+/** @returns the step that tells the user which of the two devices to delete. */
+const deleteStep = (
+  slave: SlaveDevice,
+  other: SlaveDevice,
+  onRack: SlaveDevice[],
+): string => {
+  const connected = (d: SlaveDevice): boolean =>
+    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const stale = connected(slave) ? other : connected(other) ? slave : null;
+  return stale == null
+    ? "Delete the one that is not on the network."
+    : `Delete ${stale.name}, which is not connected.`;
+};
+
 /**
  * @returns why the slave cannot start because another device on the rack is at its
  * network and position, or null. The problem names the device that is not connected,
@@ -121,16 +135,32 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
       o.properties.position === position,
   );
   if (other == null) return null;
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  const step =
-    stale == null
-      ? "Delete the one that is not on the network."
-      : `Delete ${stale.name}, which is not connected.`;
   return (
     `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
-    `${network}. ${step}`
+    `${network}. ${deleteStep(slave, other, onRack)}`
+  );
+};
+
+/**
+ * @returns why the slave cannot start because another device on the rack is the same
+ * module: the same vendor, product, and serial number. The problem names the device
+ * that is not connected, which the user deletes. A slave with no serial number has no
+ * problem, as the Driver cannot tell its module apart.
+ */
+const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
+  const { vendorId, productCode, serial } = slave.properties;
+  if (serial === 0) return null;
+  const other = onRack.find(
+    ({ key, properties: p }) =>
+      key !== slave.key &&
+      p.vendorId === vendorId &&
+      p.productCode === productCode &&
+      p.serial === serial,
+  );
+  if (other == null) return null;
+  return (
+    `Slaves ${slave.name} and ${other.name} have the same serial number ${serial}. ` +
+    `${deleteStep(slave, other, onRack)}`
   );
 };
 
@@ -173,7 +203,9 @@ const problemsOf = (
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
   const taskWide = [
     networkProblem(used),
-    ...used.map((slave) => positionProblem(slave, onRack)),
+    ...used.map(
+      (slave) => positionProblem(slave, onRack) ?? serialProblem(slave, onRack),
+    ),
   ].filter((p): p is string => p != null);
   const problems: Problem[] =
     taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
@@ -194,9 +226,10 @@ const problemsOf = (
 
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
- * every slave, no other device at the position of a slave, and for each enabled channel
- * its entry and, on inputs, the settings of the input it reads. A channel whose slave
- * has not loaded is not checked, so a deploy runs {@link checkSlaves} too.
+ * every slave, no other device at the position or with the serial number of a slave,
+ * and for each enabled channel its entry and, on inputs, the settings of the input it
+ * reads. A channel whose slave has not loaded is not checked, so a deploy runs
+ * {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */

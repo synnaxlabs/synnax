@@ -722,6 +722,68 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
+  describe("a slave with the serial number of another device", () => {
+    const createPair = async (overrides: { position?: number } = {}) => {
+      const identity = {
+        ...overrides,
+        vendorId: 0xde,
+        productCode: 0x5,
+        serial: Math.floor(Math.random() * 2 ** 31) + 1,
+      };
+      const stale = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const connected = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      await client.statuses.set({
+        owner: device.resourceID(connected.key),
+        name: connected.name,
+        variant: "success",
+        message: "Device connected",
+        time: TimeStamp.now(),
+        details: { rack: testRack.key, connected: true },
+      });
+      return { stale, connected, serial: identity.serial };
+    };
+
+    it("should name the device that is not connected", async () => {
+      const { stale, connected, serial } = await createPair();
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+      });
+      expect(
+        await screen.findByText(
+          `Slaves ${stale.name} and ${connected.name} have the same serial number ` +
+            `${serial}. Delete ${stale.name}, which is not connected.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should report only the position of a pair at one position", async () => {
+      const position = Math.floor(Math.random() * 2 ** 31);
+      const { stale, connected } = await createPair({ position });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+      });
+      // The whole text matches only when the error carries no serial problem.
+      expect(
+        await screen.findByText(
+          `Slaves ${stale.name} and ${connected.name} are both at position ` +
+            `${position} on eth0. Delete ${stale.name}, which is not connected.`,
+        ),
+      ).toBeTruthy();
+    });
+  });
+
   it("should name the slave that is not connected at the position of another device", async () => {
     const position = Math.floor(Math.random() * 2 ** 31);
     const props = {
