@@ -136,8 +136,11 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
-        /// @brief what receive() returns when no frame comes back.
-        x::errors::Error no_frame_err;
+        /// @brief what receive() returns on a USB adapter when no frame comes back, but
+        /// one did less than a second before. NIL on other adapters.
+        x::errors::Error late_frame_err;
+        /// @brief the sent_at of the latest frame that came back.
+        std::optional<std::chrono::steady_clock::time_point> frame_sent_at;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
