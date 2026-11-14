@@ -30,7 +30,7 @@ namespace {
 /// @brief a loader for a network with no saved slave settings.
 const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
                                                  const std::string &) {
-    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    return std::pair{std::vector<engine::SavedSlave>{}, x::errors::NIL};
 };
 }
 

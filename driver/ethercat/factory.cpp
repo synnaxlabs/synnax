@@ -12,6 +12,8 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -73,13 +75,14 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-/// @brief returns the settings saved for each slave on the network, keyed by position.
-/// Its errors call the network name. At a position that holds a connected device, the
-/// devices that are not connected give way to it.
+/// @brief returns the settings saved for the slaves on the network, one per saved
+/// position. Its errors call the network name. At a position that holds a connected
+/// device, the devices that are not connected give way to it. Elsewhere, devices with
+/// the same settings at one position give them to the slave of their model there.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
 /// position have different settings and none of them is connected.
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
+std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
     const std::string &network,
@@ -106,7 +109,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
         return dev.status.has_value() && dev.status->details.connected;
     };
     std::ranges::stable_partition(devices, connected);
-    std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, engine::SavedSlave> configs;
     std::map<uint16_t, std::string> labels;
     std::set<uint16_t> held;
     for (const auto &dev: devices) {
@@ -128,14 +131,32 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                              ? dev.name
                              : std::format("{} (serial {})", dev.name, props.serial);
         const auto &config = props.config;
-        const auto [it, added] = configs.emplace(props.position, config);
+        const auto [it, added] = configs.emplace(
+            props.position,
+            engine::SavedSlave{
+                .identity =
+                    {
+                        .position = props.position,
+                        .vendor_id = props.vendor_id,
+                        .product_code = props.product_code,
+                        .serial = props.serial,
+                        .name = dev.name,
+                    },
+                .config = config,
+            }
+        );
         if (added) {
             labels[props.position] = label;
             if (connected(dev)) held.insert(props.position);
             continue;
         }
-        if (it->second == config || (held.contains(props.position) && !connected(dev)))
+        if (held.contains(props.position) && !connected(dev)) continue;
+        if (it->second.config == config) {
+            // With no connected device to tell which unit they name, agreeing devices
+            // give their settings to the slave at the position.
+            if (!held.contains(props.position)) it->second.identity.serial = 0;
             continue;
+        }
         const auto [first, second] = std::minmax(labels[props.position], label);
         return {
             {},
@@ -153,7 +174,11 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             )
         };
     }
-    return {configs, x::errors::NIL};
+    std::vector<engine::SavedSlave> saved;
+    saved.reserve(configs.size());
+    for (auto &[_, s]: configs)
+        saved.push_back(std::move(s));
+    return {std::move(saved), x::errors::NIL};
 }
 }
 
