@@ -229,12 +229,11 @@ x::errors::Error Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
+        const auto code = pop_sdo_abort(*this->api, pos, param.index, param.sub_index);
         return x::errors::Error(
-            errors::STARTUP_PARAMETER_ERROR,
+            errors::startup_parameter_error(code),
             "rejected startup parameter " + param.to_string() + ": " +
-                errors::sdo_abort_reason(
-                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-                )
+                errors::sdo_abort_reason(code)
         );
     }
     return x::errors::NIL;
@@ -246,7 +245,7 @@ bool Master::write_startup_parameters(
 ) {
     const auto err = this->write_parameters(pos, parameters);
     if (err)
-        this->session.value().startup_failures[pos] = err.data;
+        this->session.value().startup_failures[pos] = err;
     else
         this->session.value().startup_failures.erase(pos);
     return !err;
@@ -356,11 +355,16 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     }
 
     std::string failures;
-    for (const auto &[pos, failure]: session.startup_failures)
+    // One failure with no abort code is enough for a retry to help.
+    auto type = errors::STARTUP_PARAMETER_REJECTED;
+    for (const auto &[pos, failure]: session.startup_failures) {
         failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
-                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " + failure;
-    if (!failures.empty())
-        return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
+                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                    failure.data;
+        if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
+            type = errors::STARTUP_PARAMETER_ERROR;
+    }
+    if (!failures.empty()) return {.err = x::errors::Error(type, failures)};
 
     // A startup parameter can change the slave's PDO assignment.
     for (const auto pos: parameterized) {
@@ -528,7 +532,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (const auto it = session.startup_failures.find(i);
             it != session.startup_failures.end()) {
             h.faulted = true;
-            h.startup_error = it->second;
+            h.startup_error = it->second.data;
         }
         if (breaker.running()) this->recover(i, breaker);
     }
@@ -542,7 +546,7 @@ x::errors::Error Master::write(
     std::lock_guard lock(this->mailbox_mu);
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
-            errors::STARTUP_PARAMETER_ERROR,
+            err,
             "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
