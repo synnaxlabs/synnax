@@ -131,7 +131,7 @@ extern "C" {
 #define EC_MAXSLAVE 200
 
 /** max. number of groups */
-#define EC_MAXGROUP 2
+#define EC_MAXGROUP 3
 
 /** max. number of IO segments per group */
 #define EC_MAXIOSEGMENTS 64
@@ -175,7 +175,7 @@ extern "C" {
 #define EC_TIMEOUTRET 2000
 
 /** timeout value in us for safe data transfer, max. triple retry */
-#define EC_TIMEOUTRET3 2000
+#define EC_TIMEOUTRET3 (EC_TIMEOUTRET * 3)
 
 /** timeout value in us for return "safe" variant (f.e. wireless) */
 #define EC_TIMEOUTSAFE 20000
