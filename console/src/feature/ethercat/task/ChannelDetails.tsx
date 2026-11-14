@@ -22,7 +22,6 @@ import {
   SelectSlave,
   type SelectSlaveProps,
 } from "@/feature/ethercat/device/SelectSlave";
-import { of } from "@/feature/ethercat/device/setup";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
 import { ChannelSettings } from "@/feature/ethercat/task/ChannelSettings";
@@ -71,16 +70,11 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
 }) => {
   const ch = PForm.useFieldValue(path);
   const calibrated = hasEntry(ch) && "calibrated" in ch && ch.calibrated;
-  const { data: slave } = useResultSlave(
-    primitive.isZero(ch.device) ? null : { key: ch.device },
-  );
-  // Synnax reads the data of a slave that other software sets up, so it needs no note.
-  const noted = slave != null && of(slave.properties).kind !== "shared";
   return (
     <PForm.Sections>
       <PForm.Section title="Entry">
         <SelectSlave path={path.device} onChange={onDeviceChange} />
-        {noted && <SetupNote deviceKey={ch.device} aligned />}
+        {primitive.isNonZero(ch.device) && <SetupNote deviceKey={ch.device} aligned />}
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && !calibrated && (
           <PForm.Field

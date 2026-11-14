@@ -12,7 +12,13 @@ import { DataType, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  canSwitch,
+  isShared,
+  of,
+  onlyReaderOf,
+  setUpBy,
+} from "@/feature/ethercat/device/setup";
 import {
   type SlaveDevice,
   type SlaveProperties,
@@ -134,6 +140,17 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
   );
 };
 
+/** @returns what the user must do when other software sets up the slave, or null. */
+const setupStep = (slave: SlaveDevice): string | null => {
+  const reader = setUpBy(slave.properties);
+  if (reader == null) return null;
+  const step = canSwitch(slave.properties)
+    ? "Switch it to Synnax"
+    : `Set it up for Synnax in ${reader}`;
+  const state = `Slave ${slave.name} is set up for ${reader}.`;
+  return `${state} ${step} before you start the task.`;
+};
+
 /** @returns why the slaves of the task cannot run on one network, or null. */
 const networkProblem = (slaves: SlaveDevice[]): string | null => {
   const networks = unique.unique(slaves.map((s) => s.properties.network)).sort();
@@ -157,6 +174,8 @@ export interface CheckedConfig {
 interface Problem {
   path: PropertyKey[];
   message: string;
+  /** A warning never blocks a deploy. */
+  variant?: "warning";
 }
 
 /**
@@ -175,12 +194,20 @@ const problemsOf = (
     networkProblem(used),
     ...used.map((slave) => positionProblem(slave, onRack)),
   ].filter((p): p is string => p != null);
-  const problems: Problem[] =
-    taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
   const enabled = Map.groupBy(
     channels.filter((ch) => !ch.disabled),
     (ch) => ch.device,
   );
+  const steps = used
+    .filter((s) => enabled.has(s.key))
+    .map(setupStep)
+    .filter((p): p is string => p != null);
+  const problems: Problem[] = [];
+  // An error at a path hides a warning at it, so the error carries the steps.
+  if (taskWide.length > 0)
+    problems.push({ path: ["channels"], message: [...taskWide, ...steps].join(" ") });
+  else if (steps.length > 0)
+    problems.push({ path: ["channels"], message: steps.join(" "), variant: "warning" });
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
     if (slave == null || ch.disabled) return;
@@ -195,8 +222,9 @@ const problemsOf = (
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
  * every slave, no other device at the position of a slave, and for each enabled channel
- * its entry and, on inputs, the settings of the input it reads. A channel whose slave
- * has not loaded is not checked, so a deploy runs {@link checkSlaves} too.
+ * its entry and, on inputs, the settings of the input it reads. It warns of a slave
+ * with an enabled channel that other software sets up. A channel whose slave has not
+ * loaded is not checked, so a deploy runs {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */
@@ -206,14 +234,14 @@ export const slavesZ = (
   onRack: SlaveDevice[],
 ): z.ZodType =>
   Task.check<CheckedConfig>((config, report) =>
-    problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message }) =>
-      report(path, message),
+    problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message, variant }) =>
+      report(path, message, variant),
     ),
   );
 
 /**
  * Runs the checks of {@link slavesZ} on the slaves.
- * @throws {Error} with the first problem.
+ * @throws {Error} with the first problem that is not a warning.
  */
 export const checkSlaves = (
   pdoType: PDOType,
@@ -221,6 +249,8 @@ export const checkSlaves = (
   slaves: SlaveDevice[],
   onRack: SlaveDevice[],
 ): void => {
-  const [problem] = problemsOf(pdoType, config, slaves, onRack);
+  const problem = problemsOf(pdoType, config, slaves, onRack).find(
+    ({ variant }) => variant == null,
+  );
   if (problem != null) throw new Error(problem.message);
 };
