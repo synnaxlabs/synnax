@@ -30,6 +30,10 @@ x::errors::Error Base::stop() {
     return this->dmx->StopTask(this->task_handle);
 }
 
+x::errors::Error Base::abort() {
+    return this->dmx->TaskControl(this->task_handle, DAQmx_Val_Task_Abort);
+}
+
 DigitalWriter::DigitalWriter(
     const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle

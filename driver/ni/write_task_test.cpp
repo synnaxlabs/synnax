@@ -201,6 +201,7 @@ public:
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
     x::errors::Error write(const std::vector<T> &) override { return x::errors::NIL; }
 };
 
