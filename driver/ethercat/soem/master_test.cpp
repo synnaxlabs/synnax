@@ -1083,7 +1083,6 @@ TEST_F(SOEMMasterTest, ScanMarksASlaveBelowPreOpAsStarting) {
         );
         EXPECT_TRUE(slave.status.serial_error.empty());
         EXPECT_TRUE(slave.status.settings_error.empty());
-        EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
     }
     EXPECT_FALSE(slaves[2].status.starting);
     EXPECT_EQ(slaves[2].properties.serial, 0x6666);
@@ -2956,6 +2955,24 @@ TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
     this->activate_master();
     EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
+}
+
+/// @brief it should read the CoE serial number of a parameterized slave that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAParameterizedSlaveThatWasStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->mock->context.slavelist[1].state = EC_STATE_PRE_OP;
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
 }
 
 /// @brief it should keep the failed serial read of a parameterized slave after

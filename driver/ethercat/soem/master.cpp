@@ -332,8 +332,13 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     for (const auto pos: parameterized) {
         auto result = this->discover_slave(pos);
         auto &scanned = this->slave_list[pos - 1];
-        result.properties.serial = scanned.properties.serial;
-        result.status.serial_error = std::move(scanned.status.serial_error);
+        if (scanned.status.starting && !result.status.starting) {
+            this->read_serial(result);
+            this->read_settings(result);
+        } else {
+            result.properties.serial = scanned.properties.serial;
+            result.status.serial_error = std::move(scanned.status.serial_error);
+        }
         scanned = std::move(result);
     }
 
@@ -636,12 +641,14 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
-    const auto al_state = this->record(pos).state & 0x0F;
-    result.status.starting = al_state < EC_STATE_PRE_OP || al_state == EC_STATE_BOOT;
+    const auto state = result.status.state;
+    result.status.starting = state == slave::State::INIT ||
+                             state == slave::State::BOOT ||
+                             state == slave::State::UNKNOWN;
     Description unshared;
-    const auto model = this->read_model(pos);
+    const auto model = result.status.starting ? std::nullopt : this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;
-    if (!result.status.starting) this->discover_slave_pdos(result, description);
+    this->discover_slave_pdos(result, description);
     result.properties.op_modes = this->read_op_modes(pos, description);
     return result;
 }
@@ -784,7 +791,8 @@ void Master::discover_slave_pdos(
     auto &props = slave.properties;
     const auto pos = props.position;
     x::errors::Error layout_err;
-    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0 &&
+        !slave.status.starting) {
         coe::Read read = [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);
         };

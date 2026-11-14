@@ -369,7 +369,7 @@ struct Status {
     /// answered. The serial number of a slave with one is not known.
     std::string serial_error;
     /// @brief whether the slave was below PRE-OP when the master read it. The master
-    /// then reads only its identity and sync modes from the SII.
+    /// then reads only its SII, such as its identity, PDOs, and sync modes.
     bool starting = false;
 };
 
