@@ -76,14 +76,18 @@ protected:
     std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
-        // A loaded Windows host can take tens of milliseconds to cycle two frames.
+        // A loaded Windows host can take over 100 ms to cycle two frames.
         this->create_master(x::telem::SECOND);
         this->brk.start();
     }
 
     /// @brief replaces the master with one on a new mock that gives the DC clocks
-    /// dc_settle_timeout to settle.
-    void create_master(const x::telem::TimeSpan dc_settle_timeout) {
+    /// dc_settle_timeout to settle and the slaves state_change_timeout to change state,
+    /// which includes the wait for two frames in SAFE-OP.
+    void create_master(
+        const x::telem::TimeSpan dc_settle_timeout,
+        const x::telem::TimeSpan state_change_timeout = x::telem::SECOND
+    ) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(
@@ -91,7 +95,7 @@ protected:
             "eth0",
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
-                .state_change_timeout = x::telem::MILLISECOND * 100,
+                .state_change_timeout = state_change_timeout,
                 .init_timeout = x::telem::MILLISECOND * 100,
                 .dc_settle_timeout = dc_settle_timeout,
             }
@@ -1119,6 +1123,7 @@ TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
 /// without the error flag, even if an old AL status code remains.
 TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1391,7 +1396,9 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
-    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(err.data, "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP");
 }
 
 /// @brief it should start the bus cycle once send() works and before it requests SAFE-
@@ -1446,6 +1453,7 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
 /// @brief it should fail a send before SAFE-OP and the receive after it when the
 /// reference clock frame does not come back, so no caller reads a stale DC time.
 TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1475,6 +1483,7 @@ TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
 /// @brief it should fail activation without a request for OP when no frame passes the
 /// slaves in SAFE-OP, since a slave with outputs refuses OP until one does.
 TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -2584,8 +2593,8 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
         "eth0",
         Config{
             .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MILLISECOND * 100,
-            .init_timeout = x::telem::MILLISECOND * 300,
+            .state_change_timeout = x::telem::SECOND,
+            .init_timeout = x::telem::MILLISECOND * 1500,
         }
     );
     this->initialize_with_slave();
@@ -2593,7 +2602,10 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
     this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
     const auto start = std::chrono::steady_clock::now();
     this->master->deactivate();
-    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+    EXPECT_GE(
+        std::chrono::steady_clock::now() - start,
+        std::chrono::milliseconds(1500)
+    );
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in
@@ -3253,7 +3265,8 @@ class Bus {
           "eth0",
           {
               .pre_op_timeout = x::telem::MILLISECOND * 100,
-              .state_change_timeout = x::telem::MILLISECOND * 100,
+              // A loaded Windows host can take over 100 ms to cycle two frames.
+              .state_change_timeout = x::telem::SECOND,
               .init_timeout = x::telem::MILLISECOND * 100,
               .dc_settle_timeout = x::telem::MILLISECOND * 50,
           }) {}
