@@ -476,6 +476,9 @@ private:
         const std::string &config_hash,
         const synnax::task::Command &cmd
     );
+    /// @brief replaces a "Starting task" status that a previous Driver run left
+    /// stored with a failed start.
+    void fail_interrupted_start(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(
         const synnax::task::Task &tsk,

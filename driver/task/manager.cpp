@@ -96,9 +96,14 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(
+        synnax::task::Where{},
+        synnax::task::RetrieveOptions{.include_status = true}
+    );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
+    for (const auto &task: tasks)
+        this->fail_interrupted_start(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -702,6 +707,22 @@ void Manager::announce_start(
     status.details.running = false;
     status.details.cmd = cmd.key;
     status.details.config_hash = config_hash;
+    this->ctx->set_status(status);
+}
+
+void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
+    if (!tsk.status.has_value() ||
+        tsk.status->variant != synnax::status::VARIANT_LOADING)
+        return;
+    // A Driver that stops mid-start leaves "Starting task" stored, and the Console
+    // disables Start and Stop while a start is loading.
+    auto status = *tsk.status;
+    status.time = x::telem::TimeStamp::now();
+    status.variant = synnax::status::VARIANT_ERROR;
+    status.message = "Failed to start task";
+    status.description = "The Driver restarted while the task was starting. Start the "
+                         "task again.";
+    status.details.running = false;
     this->ctx->set_status(status);
 }
 

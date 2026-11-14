@@ -509,6 +509,64 @@ TEST_F(TaskManagerTest, StartOfALiveTaskAnswersWithALoadingStatus) {
     EXPECT_EQ(s.message, "Starting task");
 }
 
+/// @brief it should fail a start that a previous Driver run left loading, so the
+/// Console does not keep Start and Stop disabled.
+TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status loading;
+    loading.key = "boot-loading";
+    loading.owner = synnax::task::resource_id(task.key);
+    loading.name = task.name;
+    loading.variant = synnax::status::VARIANT_LOADING;
+    loading.message = "Starting task";
+    loading.time = x::telem::TimeStamp::now();
+    loading.details.cmd = "start-cmd";
+    loading.details.rack = rack.key;
+    loading.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(loading));
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to start task";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was starting. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
+/// @brief it should leave a stored status alone when no start was in progress.
+TEST_F(TaskManagerTest, BootLeavesAFinishedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status stopped;
+    stopped.key = "boot-stopped";
+    stopped.owner = synnax::task::resource_id(task.key);
+    stopped.name = task.name;
+    stopped.variant = synnax::status::VARIANT_SUCCESS;
+    stopped.message = "Task stopped";
+    stopped.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client->statuses.set(stopped));
+    start_manager(std::make_unique<EchoTaskFactory>());
+    std::vector<std::string> messages;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        messages.push_back(s.message);
+        return s.message == "configured";
+    });
+    EXPECT_EQ(std::ranges::count(messages, "Failed to start task"), 0);
+}
+
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
