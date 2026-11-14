@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import { device, type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -926,12 +926,44 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
       fireEvent.click(findButton("Switch to Synnax"));
       expect(await driver.answered).toMatchObject({ args: { device: slave.key } });
+      return slave;
     };
 
-    it("should ask for a power restart once the card switches", async () => {
-      await clickSwitch();
+    /** Saves the settings that a scan reads from the card after the switch. */
+    const scanSwitched = async (
+      slave: EtherCAT.Device.SlaveDevice,
+      settings = createDewesoftXSettings(false),
+    ) =>
+      await client.devices.dispatch(
+        slave.key,
+        device.set({ path: ["properties", "settings"], value: settings }),
+      );
+
+    /** Builds the settings of a card whose catalog marks no entry for DewesoftX. */
+    const createUnmarkedSettings = (shared: boolean) => ({
+      ...createDewesoftXSettings(shared),
+      channels: createSettingsDescription().channels,
+    });
+
+    it("should keep the note of the last scan until a scan reads the switch", async () => {
+      const slave = await clickSwitch();
+      expect(screen.getByText("Only DewesoftX can use this device")).toBeTruthy();
+      expect(screen.queryByText("Restart the power of the device")).toBeNull();
+      await scanSwitched(slave);
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
       expect(screen.queryByText("Switch to Synnax")).toBeNull();
+    });
+
+    it("should ask for no power restart once a scan finds the card in Synnax mode", async () => {
+      const slave = await clickSwitch(
+        {},
+        { settings: createUnmarkedSettings(true), inputs: [STRAIN_ENTRY] },
+      );
+      await scanSwitched(slave, createUnmarkedSettings(false));
+      await waitFor(() =>
+        expect(screen.queryByText("DewesoftX sets up this device")).toBeNull(),
+      );
+      expect(screen.queryByText("Restart the power of the device")).toBeNull();
     });
 
     it("should show why the card did not switch", async () => {
@@ -961,10 +993,14 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     });
 
     it("should ask for bus 1 and a power restart once a card on bus 2 switches", async () => {
-      await clickSwitch(
+      const slave = await clickSwitch(
         {},
-        { settings: createDewesoftXSettings(true, 2), inputs: [STRAIN_ENTRY] },
+        {
+          settings: createDewesoftXSettings(true, 2),
+          inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+        },
       );
+      await scanSwitched(slave, createDewesoftXSettings(false, 2));
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
       expect(
         screen.getByText("First, connect Synnax to EtherCAT bus 1 IN."),
