@@ -3469,6 +3469,65 @@ TEST_F(EngineTest, StopGivesASlaveOffTheBusANewRestartTimeWhenItReturns) {
     EXPECT_GE(slaves[1].restarted_at.value(), back);
 }
 
+/// @brief it should give each slave a new restart time when a scan finds it after the
+/// whole bus was off at a stop.
+TEST_F(EngineTest, StopWithTheWholeBusOffGivesEachSlaveANewRestartTime) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->remove_slave(1);
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+    );
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto back = x::telem::TimeStamp::now();
+    this->master->clear_injected_errors();
+    this->master->add_slave(io_slave(1));
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GE(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should give each slave a new restart time when a scan finds it after a
+/// scan found no slave on the bus.
+TEST_F(EngineTest, DiscoverAfterAnEmptyBusGivesEachSlaveANewRestartTime) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+    );
+    ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::NO_SLAVES_FOUND);
+    const auto back = x::telem::TimeStamp::now();
+    this->master->clear_injected_errors();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GE(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should keep the restart times when a filter on the adapter blocks the
+/// replies of the slaves, as they still run.
+TEST_F(EngineTest, BlockedRepliesKeepTheRestartTimes) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    const auto seen = x::telem::TimeStamp::now();
+    this->master->inject_scan_error(
+        x::errors::Error(errors::REPLIES_BLOCKED, "No EtherCAT slaves found on eth0.")
+    );
+    ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::REPLIES_BLOCKED);
+    this->master->clear_injected_errors();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), seen);
+    EXPECT_LT(slaves[1].restarted_at.value(), seen);
+}
+
 /// @brief it should not scan the bus at a stop when the same slaves still answer.
 TEST_F(EngineTest, StopScansOnlyWhenTheSlaveCountChanged) {
     this->master->add_slave(io_slave(1));

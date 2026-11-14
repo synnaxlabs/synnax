@@ -565,7 +565,7 @@ x::errors::Error Engine::start_locked(
     x::telem::TimeSpan longest_try(0);
     while (true) {
         const auto try_started = clock.steady();
-        auto [slaves, err] = this->master->scan();
+        auto [slaves, err] = this->scan_locked();
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
@@ -1078,7 +1078,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
         this->track_restarts_locked({});
         return {this->slaves, x::errors::NIL};
     }
-    auto [slaves, err] = this->master->scan();
+    auto [slaves, err] = this->scan_locked();
     if (err) return {{}, err};
     const auto [change, change_err] = this->master->changed();
     if (change_err) return {{}, change_err};
@@ -1166,10 +1166,21 @@ Engine::rediscover_locked() {
     return this->rescan_locked(change.restarted);
 }
 
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::scan_locked() {
+    auto result = this->master->scan();
+    // A filter that blocks the replies leaves the slaves running.
+    if (const auto &err = result.second;
+        err.matches(errors::NO_SLAVES_FOUND) && !err.matches(errors::REPLIES_BLOCKED)) {
+        this->slaves.clear();
+        this->track_restarts_locked({});
+    }
+    return result;
+}
+
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rescan_locked(const std::set<uint16_t> &restarted) {
     this->master->deactivate();
-    auto [slaves, err] = this->master->scan();
+    auto [slaves, err] = this->scan_locked();
     if (err) return {{}, err};
     this->slaves = std::move(slaves);
     this->track_restarts_locked(restarted);
