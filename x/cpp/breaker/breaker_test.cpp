@@ -129,6 +129,33 @@ TEST(BreakerTest, testNextRetry) {
     EXPECT_TRUE(b.stop());
 }
 
+/// @brief it should wait the base interval after the first failure, scale the wait
+/// after each next one, and stop at the maximum interval.
+TEST(BreakerTest, IntervalScalesUpToTheMaximum) {
+    const Config cfg{
+        .base_interval = 100 * telem::MILLISECOND,
+        .scale = 2,
+        .max_interval = telem::SECOND,
+    };
+    EXPECT_EQ(cfg.interval(1), 100 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(2), 200 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(4), 800 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(5), telem::SECOND);
+    EXPECT_EQ(cfg.interval(10'000), telem::SECOND);
+}
+
+/// @brief it should wait the base interval first even when it is longer than the
+/// maximum interval.
+TEST(BreakerTest, IntervalStartsAtABaseAboveTheMaximum) {
+    const Config cfg{
+        .base_interval = 2 * telem::SECOND,
+        .scale = 2,
+        .max_interval = telem::SECOND,
+    };
+    EXPECT_EQ(cfg.interval(1), 2 * telem::SECOND);
+    EXPECT_EQ(cfg.interval(2), telem::SECOND);
+}
+
 /// @brief it should show an unbounded retry count when the breaker retries infinitely.
 TEST(BreakerTest, testNextRetryInfinite) {
     auto b = Breaker(Config{"my-breaker", telem::SECOND, RETRY_INFINITELY, 1});

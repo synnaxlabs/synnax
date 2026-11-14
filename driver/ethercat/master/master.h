@@ -52,6 +52,17 @@ struct Plan {
     std::map<uint16_t, slave::Config> slaves;
 };
 
+/// @brief what one slave adds to the working counter of a full cycle.
+struct WorkingCounterShare {
+    /// @brief what the slave adds when it takes its outputs.
+    uint32_t outputs = 0;
+    /// @brief what the slave adds when it gives its inputs, which it also does in
+    /// SAFE-OP.
+    uint32_t inputs = 0;
+
+    bool operator==(const WorkingCounterShare &) const = default;
+};
+
 /// @brief the process data of a bus that activate() starts. The spans stay valid until
 /// deactivate().
 struct Image {
@@ -68,9 +79,9 @@ struct Image {
     std::vector<dc::Registers> dc_sync;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
-    /// @brief the least that each enabled slave adds to the working counter of a cycle,
+    /// @brief what each enabled slave adds to the working counter of a full cycle,
     /// keyed by position. A slave with no process data adds nothing.
-    std::map<uint16_t, uint32_t> working_counter_shares;
+    std::map<uint16_t, WorkingCounterShare> working_counter_shares;
 
     /// @brief returns the offset of entry.
     /// @returns errors::PDO_MAPPING_ERROR when the master did not map the entry, or

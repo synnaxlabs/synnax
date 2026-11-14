@@ -117,7 +117,7 @@ class Master final : public master::Master {
         std::vector<DCSetup> dc_setups;
         /// @brief why each slave rejected a startup parameter at its latest move to
         /// SAFE-OP, keyed by position.
-        std::map<uint16_t, std::string> startup_failures;
+        std::map<uint16_t, x::errors::Error> startup_failures;
         /// @brief why the master could not restore the distributed clock of a slave
         /// that came back, keyed by position.
         std::unordered_map<uint16_t, std::string> dc_restore_errors;
@@ -224,6 +224,11 @@ private:
     /// @brief reads the settings that the ESI catalog describes for the slave from it,
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
+
+    /// @brief reads the CoE serial number of the slave into its properties, or the
+    /// reason the read got no answer into its status. Keeps the SII serial number when
+    /// the slave answers the read with an error or gives serial number 0.
+    void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);

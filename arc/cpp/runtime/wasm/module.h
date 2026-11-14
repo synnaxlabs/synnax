@@ -228,8 +228,11 @@ public:
         engine_cfg.memory_reservation(MEMORY_RESERVATION);
         engine_cfg.memory_reservation_for_growth(MEMORY_RESERVATION);
         engine_cfg.memory_guard_size(MEMORY_GUARD_SIZE);
+        engine_cfg.epoch_interruption(true);
         wasmtime::Engine engine(std::move(engine_cfg));
         wasmtime::Store store(engine);
+        // The default deadline is the current epoch, which traps every call at once.
+        store.context().set_epoch_deadline(1);
 
         auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.program.wasm);
         auto mod_result = wasmtime::Module::compile(
@@ -384,6 +387,12 @@ public:
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
                 auto trap = result.err();
+                if (const auto *t = std::get_if<wasmtime::Trap>(&trap.data);
+                    t != nullptr && t->code() == WASMTIME_TRAP_CODE_INTERRUPT)
+                    return x::errors::Error(
+                        errors::INTERRUPTED,
+                        "The runtime stopped the call."
+                    );
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
                 return x::errors::Error(errors::WASM_TRAP, trap_msg);
@@ -434,6 +443,13 @@ public:
     [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
         return this->cfg.strings;
     }
+
+    /// @brief makes a running call, and every later call until resume(), return
+    /// errors::INTERRUPTED. Safe to call from any thread.
+    void interrupt() const { this->engine.increment_epoch(); }
+
+    /// @brief lets calls run again after interrupt(). Call only while no call runs.
+    void resume() { this->store.context().set_epoch_deadline(1); }
 
     [[nodiscard]] bool has_func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
