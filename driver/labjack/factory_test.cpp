@@ -153,18 +153,20 @@ TEST_F(FactoryTest, ScannerWarnsUntilLJMLoads) {
     ASSERT_NE(scan_task, nullptr);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         this->ctx->snapshot().size(),
-        3,
+        4,
         std::chrono::seconds(5),
         std::chrono::milliseconds(10)
     );
     scan_task->stop(false);
     const auto statuses = this->ctx->snapshot();
-    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(statuses[0].message, "Started scan task");
-    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(statuses[1].message, "Failed to scan for devices");
-    EXPECT_EQ(statuses[1].description, LJM_MISSING);
-    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(statuses[2].message, "Scan task running");
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(statuses[0].message, "Starting scan task");
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[1].message, "Started scan task");
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[2].message, "Failed to scan for devices");
+    EXPECT_EQ(statuses[2].description, LJM_MISSING);
+    EXPECT_EQ(statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[3].message, "Scan task running");
 }
 }

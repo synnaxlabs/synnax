@@ -103,8 +103,6 @@ x::errors::Error Manager::configure_initial_tasks() {
     );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
-    for (const auto &task: tasks)
-        this->replace_interrupted_status(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -706,6 +704,9 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+    // Only a boot deploy carries the stored task, and with it the stored status.
+    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil())
+        this->replace_interrupted_status(op.task);
 }
 
 void Manager::announce_start(
@@ -727,7 +728,8 @@ void Manager::announce_start(
 }
 
 void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
-    if (!tsk.status.has_value()) return;
+    // A task that answered its own deploy, such as with an auto-start, owns its status.
+    if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.

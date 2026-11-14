@@ -84,6 +84,7 @@ cc_test(
     srcs = ["scan_task_core_test.cpp"],
     tags = ["requires-core"],
     deps = [
+        "//client/cpp/status",
         "//client/cpp/testutil",
         "//driver/common",
         "//driver/task",

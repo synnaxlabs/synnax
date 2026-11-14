@@ -1619,11 +1619,11 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     cancel.start();
     scan_task->exec(cmd, cancel);
     cancel.stop();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, "Failed to start scan task");
-    EXPECT_EQ(ctx->statuses[0].description, "scanner unavailable");
-    EXPECT_FALSE(ctx->statuses[0].details.running);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[1].message, "Failed to start scan task");
+    EXPECT_EQ(ctx->statuses[1].description, "scanner unavailable");
+    EXPECT_FALSE(ctx->statuses[1].details.running);
     // The thread is over once run() returns, so the pipeline must report stopped.
     ASSERT_EVENTUALLY_FALSE(scan_task->running());
 
@@ -1635,11 +1635,36 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     cancel.start();
     scan_task->exec(retry, cancel);
     cancel.stop();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 4);
+    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[3].message, "Started scan task");
+    EXPECT_TRUE(ctx->statuses[3].details.running);
+    EXPECT_EQ(ctx->statuses[3].details.cmd, "start_2");
+    scan_task->stop(false);
+}
+
+/// @brief it should show a start as loading until the run thread answers it, and keep
+/// the command key for that answer.
+TEST(TestScanTask, testStartLoadsUntilTheRunThreadAnswers) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    const auto scan_task = new_test_task(ctx, task);
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_cmd",
+    };
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(ctx->statuses[0].message, "Starting scan task");
+    EXPECT_FALSE(ctx->statuses[0].details.running);
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
     EXPECT_EQ(ctx->statuses[1].message, "Started scan task");
-    EXPECT_TRUE(ctx->statuses[1].details.running);
-    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_2");
+    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_cmd");
     scan_task->stop(false);
 }
 
@@ -1740,9 +1765,9 @@ TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
     scan_task->exec(cmd, cancel);
     cancel.stop();
 
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
-    const auto warning = ctx->statuses[1];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_cmd");
+    const auto warning = ctx->statuses[2];
     EXPECT_EQ(warning.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(warning.details.cmd, driver::task::NO_COMMAND);
     EXPECT_TRUE(warning.details.running);
