@@ -26,12 +26,10 @@
 }
 
 /* The Draft badge closes the pill as a close button would. */
-.console-panel-selector .lyra-tabs__tab {
-    > .lyra-text:has(+ .lyra-badge) {
-        margin-right: 1rem;
-    }
+.console-panel-selector__name:has(+ .console-panel-selector__draft) {
+    margin-right: 1rem;
+}
 
-    > .lyra-badge {
-        margin-left: auto;
-    }
+.console-panel-selector__draft {
+    margin-left: auto;
 }

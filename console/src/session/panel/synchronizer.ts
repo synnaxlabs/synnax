@@ -9,6 +9,7 @@
 
 import { panel, type project, query, type user } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { Status } from "@synnaxlabs/lyra/status";
 import { destructor } from "@synnaxlabs/x";
 import { useState } from "react";
 
@@ -66,17 +67,48 @@ const hasTabs = (node: panel.Node): boolean =>
     ? node.tabs.length > 0
     : hasTabs(node.first) || hasTabs(node.last);
 
+const DELETE_FAILED = { name: "Draft", message: "Failed to delete draft" };
+
+// Drafts of the user that lost their last tab. A rejected delete puts the draft back,
+// so a failed key is not deleted again until the draft holds a tab once more.
+interface Emptied {
+  deleting: Set<panel.Key>;
+  failed: Set<panel.Key>;
+  handleError: Status.ErrorHandler;
+}
+
+const deleteEmptied = (params: Params, state: Emptied, key: panel.Key): void => {
+  const { client } = params;
+  if (state.deleting.has(key)) return;
+  state.deleting.add(key);
+  // The delete is outside the panel's dispatch queue, so it waits for the close.
+  client.panels
+    .settled(key)
+    .then(async () => await client.panels.delete(key))
+    .catch((e: unknown) => {
+      state.failed.add(key);
+      state.handleError(e, DELETE_FAILED);
+      // The rollback ran before the key was marked failed, so it left the draft out.
+      return repairMembership(params, state);
+    })
+    .finally(() => state.deleting.delete(key))
+    .catch(console.error);
+};
+
 const applyMembership = (
-  { client, store }: Params,
+  params: Params,
+  state: Emptied,
   candidates: panel.Panel[],
 ): void => {
+  const { client, store } = params;
   // A draft holds work only while it holds a tab, so closing its last one deletes it.
   const user = cachedUser(client);
-  const emptied = new Set(
-    candidates
-      .filter(({ owner, root }) => owner != null && owner === user && !hasTabs(root))
-      .map(({ key }) => key),
-  );
+  const emptied = new Set<panel.Key>();
+  candidates.forEach(({ key, owner, root }) => {
+    if (owner == null || owner !== user) return;
+    if (hasTabs(root)) state.failed.delete(key);
+    else if (!state.failed.has(key)) emptied.add(key);
+  });
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const live = candidates.filter(
@@ -91,7 +123,7 @@ const applyMembership = (
     const previous = win.state.mounted.find((key) => keys.includes(key));
     if (previous != null) store.dispatch(select({ key: previous, windowKey: win.key }));
   }
-  if (emptied.size > 0) client.panels.delete([...emptied]).catch(console.error);
+  emptied.forEach((key) => deleteEmptied(params, state, key));
   store.dispatch(
     reconcileOrder({ panels: live.map(({ key, name }) => ({ key, name })) }),
   );
@@ -108,7 +140,7 @@ const applyMembership = (
   store.dispatch(select({ key: first ?? keys[0], windowKey: win.key }));
 };
 
-const repairMembership = async (params: Params): Promise<void> => {
+const repairMembership = async (params: Params, state: Emptied): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
@@ -118,19 +150,21 @@ const repairMembership = async (params: Params): Promise<void> => {
     .watch({ where: panel.visibleTo(projectKey, user) })
     .retrieve();
   if (store.getState().project.selected !== projectKey) return;
-  applyMembership(params, records);
+  applyMembership(params, state, records);
 };
 
 // The session's strip order and selection both follow the project's live membership:
 // the order converges first, then the selection, so a repaired selection always lands
 // on the strip's leftmost pill. The selection outlives the project it was made in, so a
 // panel outside the active project must never stay selected.
-const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
-  reconcile: repairMembership,
+const createMembership = (
+  state: Emptied,
+): Synchronizer.Callbacks<RequiredStoreState, RequiredAction> => ({
+  reconcile: async (params) => await repairMembership(params, state),
   listen: (params) => {
     const { client, store } = params;
     const repair = (): void => {
-      repairMembership(params).catch(console.error);
+      repairMembership(params, state).catch(console.error);
     };
     // The client maintains the by-project answer itself, tracking optimistic creates
     // and project changes a manual retrieve would race.
@@ -144,7 +178,7 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
         .watch({ where: panel.visibleTo(projectKey, user) })
         .onChange((window) => {
           if (window == null) return repair();
-          applyMembership(params, window.records);
+          applyMembership(params, state, window.records);
         });
     };
     subscribeProject(store.getState().project.selected);
@@ -166,6 +200,17 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
     return () =>
       destructor.unwind(removeQuery, unwatchUser, unwatchProject, unwatchSelected);
   },
+});
+
+const useMembership = (): Synchronizer.Callbacks<
+  RequiredStoreState,
+  RequiredAction
+> => {
+  const handleError = Status.useErrorHandler();
+  const [callbacks] = useState(() =>
+    createMembership({ deleting: new Set(), failed: new Set(), handleError }),
+  );
+  return callbacks;
 };
 
 // The OS window list identifies a window by a stable identity plus what it
@@ -272,7 +317,7 @@ export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
-  { name: "reconcile panel order and selection", use: () => membership },
+  { name: "reconcile panel order and selection", use: useMembership },
   { name: "sync window title", use: () => windowTitle },
   { name: "reconcile tab selections", use: useTabSelections },
 ];

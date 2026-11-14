@@ -7,24 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  NotFoundError,
-  panel,
-  type project,
-  query,
-  type user,
-} from "@synnaxlabs/client";
+import { NotFoundError, panel, project, query, user } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createPanelProject,
   createTestClient,
+  createTestClientWithPolicy,
   createTestClientWithRole,
   TEST_CREDENTIALS,
 } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
@@ -425,6 +420,73 @@ describe("reconcile panel order and selection", () => {
     await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
       NotFoundError,
     );
+  });
+
+  it("deletes an emptied draft only after the Core applies the close", async () => {
+    const proj = await createProject();
+    const me = (await client.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: me,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    // An open transaction holds the close in the cache and keeps it from the Core.
+    const close = client.panels.beginTransaction(draft.key);
+    close.add(panel.removeTab({ key: tab }));
+    await waitFor(() => expect(stripOrder(store)).toEqual([]));
+    await act(async () => {});
+    await expect(close.commit()).resolves.toBe(true);
+    await waitFor(
+      async () =>
+        await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+          NotFoundError,
+        ),
+    );
+  });
+
+  it("keeps an emptied draft and deletes it once when the Core rejects it", async () => {
+    const proj = await createProject();
+    const editor = await createTestClientWithPolicy(client, {
+      name: "edit panels without delete",
+      objects: [
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        user.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve", "update"],
+    });
+    const editorKey = (await editor.users.current.retrieve()).key;
+    const tab = uuid.create();
+    const draft = await client.panels.create({
+      name: uniqueName("draft"),
+      owner: editorKey,
+      project: proj.key,
+      root: leaf(tab),
+    });
+    const store = await createStoreWithProject(proj.key, draft.key);
+    const remove = vi.spyOn(editor.panels, "delete");
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client: editor, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    await editor.panels.dispatch(draft.key, panel.removeTab({ key: tab }));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+    await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
+    // A round trip gives a retry loop time to send its next delete.
+    await editor.panels.retrieve({ key: draft.key });
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it("prunes a deleted panel from the strip order", async () => {

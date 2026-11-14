@@ -203,6 +203,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     return await this.dispatcher.redo(key);
   }
 
+  /**
+   * Resolves once the Core has applied every dispatch to the panel that this client
+   * sent. A request outside the dispatch queue, such as a delete, waits on this to
+   * reach the Core after them.
+   */
+  async settled(key: Key): Promise<void> {
+    await this.dispatcher.settled(key);
+  }
+
   /** Whether the panel has a live undo entry. */
   hasUndo(key: Key): boolean {
     return this.dispatcher.hasUndo(key);
