@@ -12,6 +12,8 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -23,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var (
@@ -107,6 +110,86 @@ var _ = Describe("CheckUnits", func() {
 		Expect(converts).To(BeTrue())
 		Expect(*diag).To(BeEmpty())
 	})
+})
+
+var _ = Describe("Unit fixes", func() {
+	// expectFixes expects the one diagnostic of code in source to have fixes whose
+	// edits have the new text of expected.
+	expectFixes := func(
+		bCtx SpecContext,
+		source string,
+		code diagnostics.ErrorCode,
+		expected [][]string,
+	) {
+		GinkgoHelper()
+		ast := MustSucceed(parser.Parse(source))
+		ctx := acontext.NewRoot(bCtx, ast, buildExpressionRoot(nil))
+		analyzer.AnalyzeProgram(ctx)
+		found := lo.Filter(
+			*ctx.Diagnostics,
+			func(d diagnostics.Diagnostic, _ int) bool { return d.Code == code },
+		)
+		Expect(found).To(HaveLen(1), ctx.Diagnostics.String())
+		Expect(found[0].Fixes).To(HaveLen(len(expected)))
+		for i, f := range found[0].Fixes {
+			Expect(lo.Map(f.Edits, func(e protocol.TextEdit, _ int) string {
+				return e.NewText
+			})).To(Equal(expected[i]))
+		}
+	}
+	fix := func(edits ...string) []string { return edits }
+
+	DescribeTable("a write that truncates an integer",
+		func(bCtx SpecContext, source string, expected ...[]string) {
+			expectFixes(bCtx, source, codes.UnitTruncation.Code, expected)
+		},
+		Entry("a declaration", "func f() {\nd i64 min := 90s\n}",
+			fix("d f64 min := 90s"), fix("d i64 s := 90s")),
+		Entry("a stateful declaration", "func f() {\nd i64 min $= 90s\n}",
+			fix("d f64 min $= 90s"), fix("d i64 s $= 90s")),
+		Entry("an assignment of a literal",
+			"func f() {\nd i64 min := 0min\nd = 90s\n}",
+			fix("d f64 min := 0min"), fix("d i64 s := 0s")),
+		Entry("an assignment of a variable",
+			"func f(x i64 s) {\nd i64 min := 0min\nd = x\n}",
+			fix("d f64 min := 0min", "f64 s(x)"), fix("d i64 s := 0s")),
+		Entry("a variable with no declared type",
+			"func f(x i64 s) {\nd := 5min\nd = x\n}",
+			fix("d f64 min := 5min", "f64 s(x)"), fix("d := 300s")),
+		Entry("a variable declared from a number with no unit",
+			"func f(x i64 s) {\nd i64 min := 5\nd = x\n}",
+			fix("d f64 min := 5", "f64 s(x)"), fix("d i64 s := 300")),
+		Entry("a variable that is not whole in the other unit",
+			"func f(x i64 Pa) {\nd i64 psi := 5psi\nd = x\n}",
+			fix("d f64 psi := 5psi", "f64 Pa(x)")),
+		Entry("a declaration from a variable", "func f(x i64 s) {\nd i64 min := x\n}"),
+	)
+
+	DescribeTable("a cast that removes a unit",
+		func(bCtx SpecContext, source string, expected ...[]string) {
+			expectFixes(bCtx, source, codes.UnitDropped.Code, expected)
+		},
+		Entry("a literal", "func f() {\nd i64 ms := i64(5s)\n}",
+			fix("5s"), fix("5ms")),
+		Entry("a float literal into an integer",
+			"func f() {\nd i64 ms := i64(1.5s)\n}", fix("i64 ms(1.5s)")),
+		Entry("a float literal into a float",
+			"func f() {\nd f64 ms := f64(1.5s)\n}", fix("1.5s"), fix("1.5ms")),
+		Entry("a variable", "func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}",
+			fix("i64 ms(x)")),
+	)
+
+	DescribeTable("a value with a unit for a name with no unit",
+		func(bCtx SpecContext, source string, expected ...[]string) {
+			expectFixes(bCtx, source, codes.UnitMissing.Code, expected)
+		},
+		Entry("a compound assignment", "func f() {\ntotal i64 := 0\ntotal += 5ms\n}",
+			fix("total i64 ms := 0"), fix("i64(5ms)")),
+		Entry("a result", "func f() {d i64 ns} i64 {\nreturn d\n}",
+			fix("i64 ns"), fix("i64(d)")),
+		Entry("a variable declared from a variable",
+			"func f(x i64 s, y i64) {\nd i64 := y\nd = x\n}", fix("i64(x)")),
+	)
 })
 
 var _ = Describe("CheckOperandUnits", func() {

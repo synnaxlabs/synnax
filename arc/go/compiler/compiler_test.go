@@ -4543,6 +4543,78 @@ var _ = Describe("Compiler", func() {
 		)
 	})
 
+	Describe("Unit Conversion Synthetic Functions", func() {
+		BeforeEach(func(ctx SpecContext) { bindDefaultModules(ctx, r) })
+
+		// analyzeScale returns a program in which a flow writes other to d, and the
+		// index of its unit conversion function.
+		analyzeScale := func(ctx SpecContext, declarations string) (ir.IR, int) {
+			GinkgoHelper()
+			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
+				declarations + "\nstage s1 {\nother -> d\n}\n}"}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, compiler.ScaleSyntheticPrefix) {
+					return inter, i
+				}
+			}
+			Fail("expected a unit conversion function")
+			return inter, 0
+		}
+
+		DescribeTable("Should convert its input to the unit of its output",
+			func(ctx SpecContext, declarations string, input, expected any) {
+				inter, i := analyzeScale(ctx, declarations)
+				output := MustSucceed(compiler.Compile(ctx, inter))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				fn := mod.ExportedFunction(inter.Functions[i].Key)
+				Expect(fn).ToNot(BeNil())
+				arg := uint64(0)
+				switch v := input.(type) {
+				case int64:
+					arg = uint64(v)
+				case float64:
+					arg = math.Float64bits(v)
+				}
+				results := MustSucceed(fn.Call(ctx, arg))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("to a larger unit",
+				"d := 1min\nother := 120s", int64(120), int64(2)),
+			Entry("to a larger unit with a remainder",
+				"d := 1min\nother := 120s", int64(90), int64(1)),
+			Entry("to a smaller unit",
+				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
+			Entry("a float",
+				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+		)
+
+		It("Should reject a conversion with more than one input", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			fn := &inter.Functions[i]
+			fn.Inputs = append(fn.Inputs, fn.Inputs[0])
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("takes one input and one output"),
+			))
+		})
+
+		It("Should reject a conversion between two dimensions", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			inter.Functions[i].Outputs[0].Type.Unit = &types.Unit{
+				Dimensions: types.DimPressure, Scale: 1, Name: "Pa",
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("cannot convert i64 s to i64 Pa"),
+			))
+		})
+	})
+
 	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
