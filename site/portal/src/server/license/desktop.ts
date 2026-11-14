@@ -22,7 +22,7 @@ import {
 } from "@/server/db/schema";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
-import { changes } from "@/server/license/issue";
+import { changes, requireChannels } from "@/server/license/issue";
 import { desktopCap } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 import { ensurePersonal } from "@/server/organization";
@@ -334,9 +334,6 @@ export const unlink = async (
   });
 };
 
-/** MAX_CHANNELS is the largest cap that a Postgres integer column holds. */
-const MAX_CHANNELS = 2 ** 31 - 1;
-
 export interface SetChannelsArgs {
   /** userID is the Clerk user ID of the user whose personal organization changes. */
   userID: string;
@@ -348,20 +345,16 @@ export interface SetChannelsArgs {
 
 /**
  * setChannels sets the channel cap of a user's Desktop licenses and changes each
- * license that is not revoked, so its machine gets the cap at its next renewal. Staff
+ * license that is not revoked. Each machine gets the cap at its next renewal. Staff
  * only.
- * @throws {HTTPError} 400 when the cap is not a whole number of at least 0, and 404
- * when the user has no personal organization.
+ * @throws {HTTPError} 400 when the cap is not a whole number from 0 to 2,147,483,647,
+ * and 404 when the user has no personal organization.
  */
 export const setChannels = async (
   store: Store,
   { userID, channels, actor, now }: SetChannelsArgs,
 ): Promise<void> => {
-  if (
-    channels != null &&
-    (!Number.isInteger(channels) || channels < 0 || channels > MAX_CHANNELS)
-  )
-    throw badRequest("Channels must be a whole number, 0 for unlimited");
+  if (channels != null) requireChannels(channels);
   await store.transact(async (tx) => {
     // Locks the personal organization first, as link and renew do.
     const [org] = await tx

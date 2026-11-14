@@ -85,9 +85,7 @@ export const User = ({
             <Icon.OpenExternal />
             Open in PostHog
           </Button.Button>
-          {personal != null && (
-            <ChannelsDialog userID={account.userID} personal={personal} />
-          )}
+          {personal != null && <ChannelsDialog account={account} personal={personal} />}
           <DeleteDialog account={account} />
         </>
       }

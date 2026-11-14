@@ -16,7 +16,8 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { type Organization } from "@/server/db/schema";
-import { DESKTOP_CHANNELS } from "@/server/license/limits";
+import { type Account } from "@/server/directory";
+import { DESKTOP_CHANNELS, desktopCap } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { Modal } from "@/ui/modal";
 
@@ -49,14 +50,14 @@ const bodyOf = ({ cap, channels }: z.infer<typeof schema>): { channels: string }
 };
 
 export interface ChannelsDialogProps {
-  userID: string;
+  account: Account;
   personal: Organization;
 }
 
 /** ChannelsDialog sets the channel cap of a user's Desktop licenses. Staff only. */
 export const ChannelsDialog = (props: ChannelsDialogProps): ReactElement => (
   <Modal.Frame
-    name="Desktop channels"
+    name={`${props.account.name}.Desktop channels`}
     icon={<Icon.Channel />}
     trigger={
       <Dialog.Trigger variant="outlined" hideCaret>
@@ -69,11 +70,11 @@ export const ChannelsDialog = (props: ChannelsDialogProps): ReactElement => (
   </Modal.Frame>
 );
 
-const Content = ({ userID, personal }: ChannelsDialogProps): ReactElement => {
+const Content = ({ account, personal }: ChannelsDialogProps): ReactElement => {
   const methods = Form.use({
     values: {
       cap: capOf(personal.desktopChannels),
-      channels: personal.desktopChannels ?? DESKTOP_CHANNELS,
+      channels: desktopCap(personal),
     },
     schema,
   });
@@ -83,7 +84,7 @@ const Content = ({ userID, personal }: ChannelsDialogProps): ReactElement => {
       methods={methods}
       submit="Save"
       onSubmit={async (value) => {
-        await post(`/api/users/${userID}/channels`, bodyOf(value));
+        await post(`/api/users/${account.userID}/channels`, bodyOf(value));
         reload();
       }}
     >
