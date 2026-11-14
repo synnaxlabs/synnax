@@ -1134,6 +1134,33 @@ TEST_F(EngineTest, MovedSlaveTakesItsSavedSettings) {
     EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
 }
 
+/// @brief it should give a slave whose serial number read got no answer the settings
+/// saved at its position.
+TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
+    this->master->add_slave(io_slave(1));
+    this->master->fail_serial_read(1, "no answer");
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [unit, params] {
+        return std::pair{
+            std::vector{saved(unit, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
 /// @brief it should start the bus when a saved slave is not on it, and give the slave
 /// at its saved position the defaults.
 TEST_F(EngineTest, SavedSlaveOffTheBusLeavesTheDefaults) {
