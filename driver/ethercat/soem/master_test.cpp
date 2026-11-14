@@ -1156,6 +1156,53 @@ TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
     EXPECT_EQ(this->activation.refusals, expected);
 }
 
+/// @brief it should refuse a used slave with no identity once the image shows the
+/// other slaves, without mapping the slave or checking its chosen mode.
+TEST_F(SOEMMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    unidentified.name = "? M:00000000 I:00000000";
+    unidentified.Ibits = 16;
+    this->add_slave(unidentified);
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {
+        {1, {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}}
+    };
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
+        "EEPROM"
+    );
+    const std::map<uint16_t, slave::Refusal> expected = {
+        {1, {.reason = "gave no identity when the Driver read its EEPROM"}},
+    };
+    EXPECT_EQ(this->activation.refusals, expected);
+    EXPECT_EQ(this->image.slaves.size(), 2);
+    EXPECT_EQ(this->mock->context.slavelist[1].Ibits, 0);
+    EXPECT_EQ(this->mock->context.slavelist[2].Ibits, 32);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should start a bus with a slave that has no identity when no task uses
+/// the slave.
+TEST_F(SOEMMasterTest, ActivateStartsPastAnUnusedSlaveWithNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    this->add_slave(unidentified);
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.enabled = false}}};
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->activation.refusals.empty());
+}
+
 /// @brief it should mark the refusal of a slave that reports "Invalid DC SYNC
 /// configuration", so that each message about it gives the DC sync advice.
 TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
