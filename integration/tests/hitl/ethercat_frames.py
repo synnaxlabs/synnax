@@ -84,7 +84,7 @@ class _Read(TestCase):
         index = self.client.channels.retrieve(_INDEX)
         times = index.read(sy.TimeRange(start, end)).to_numpy()
         if len(times) < 2:
-            raise AssertionError(f"Expected task {self.tsk.name} to read data")
+            self.fail(f"Expected task {self.tsk.name} to read data")
         period = int(self.SAMPLE_RATE.period)
         expected = round(int(times[-1] - times[0]) / period) + 1
         self.log(f"Read {len(times)} of {expected} samples")

@@ -17,18 +17,10 @@ Position | Slave
 4 to 7   | IOLITEr 32xDO BUS1
 """
 
-from collections.abc import Callable
-
-from pydantic import BaseModel, JsonValue
+from pydantic import JsonValue
 
 import synnax as sy
-from tests.driver.task import (
-    ReadTaskCase,
-    WriteTaskCase,
-    create_channel,
-    create_index,
-    delete_channels,
-)
+from tests.driver.task import ReadTaskCase, WriteTaskCase, create_channel, create_index
 
 SLAVES = [
     "IOLITE GATE LATCH v2.00 BUS1",
@@ -50,17 +42,6 @@ DO = 4
 RESCANNED = 6
 """The position of the 32xDO that the first scan test deletes from the Core."""
 
-SWITCHED = 7
-"""The position of the 32xDO that the switch tests move between modes. Unlike a 6xSTG,
-its catalog entry has no save object, so a switch to Synnax never writes its flash."""
-
-MODE_INDEX = 0x8020
-MODE_SUB_INDEX = 9
-"""ECAT0 App of a 32xDO, which holds its mode."""
-
-SYNNAX_MODE = 0
-DEWESOFTX_MODE = 1
-
 STG_DC: dict[str, JsonValue] = {
     "index": 1,
     "assign_activate": 0x0300,
@@ -74,25 +55,12 @@ START_TIMEOUT = sy.TimeSpan.MINUTE
 """The Driver retries a bus start for up to a minute."""
 
 
-class _Mode(BaseModel):
-    value: float
+def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
+    """Returns the slaves of the bus by position, once the Driver reports each slave in
+    SLAVES present at its position. Sets each 6xSTG to DC, as every task brings each
+    slave of the bus to OP.
 
-
-class _Settings(BaseModel):
-    mode: _Mode | None = None
-
-
-class _Properties(BaseModel):
-    settings: _Settings | None = None
-
-
-def _await_slaves(
-    client: sy.Synnax, ready: Callable[[sy.Device], bool], label: str
-) -> dict[int, sy.Device]:
-    """Returns the slaves of the bus by position, once each slave in SLAVES is ready at
-    its position.
-
-    :raises TimeoutError: If the slaves are not ready within 30 seconds.
+    :raises TimeoutError: If the Driver does not report the slaves within 30 seconds.
     """
     found: dict[int, sy.Device] = {}
 
@@ -105,7 +73,7 @@ def _await_slaves(
         for d in devices:
             position = d.properties["position"]
             assert isinstance(position, int)
-            if ready(d):
+            if d.status is not None and d.status.variant == "success":
                 found[position] = d
         names = [
             found[p].name if p in found else None for p in range(1, len(SLAVES) + 1)
@@ -115,19 +83,7 @@ def _await_slaves(
     slaves = sy.poll(complete, timeout=_SCAN_TIMEOUT, interval=0.5)
     if slaves is None:
         names = {p: d.name for p, d in sorted(found.items())}
-        raise TimeoutError(f"Expected the slaves {SLAVES} {label}, but found {names}")
-    return slaves
-
-
-def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
-    """Returns the slaves of the bus by position, once the Driver reports each slave in
-    SLAVES present at its position. Sets each 6xSTG to DC, as every task brings each
-    slave of the bus to OP. Puts the 32xDO at SWITCHED back in Synnax mode when a
-    failed switch test left it in another mode.
-
-    :raises TimeoutError: If the Driver does not report the slaves within 30 seconds.
-    """
-    slaves = _await_slaves(client, lambda _: True, "on the bus")
+        raise TimeoutError(f"Expected the slaves {SLAVES} present, but found {names}")
     for pos in STGS:
         client.devices.dispatch(
             slaves[pos].key,
@@ -135,84 +91,8 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
                 sy.device.SetPayload(path=["properties", "op_mode"], value=STG_DC)
             ),
         )
-    mode = scanned_mode(client, slaves[SWITCHED])
-    if mode is not None and mode != SYNNAX_MODE:
-        write_mode(client, slaves[STGS[0]], slaves[SWITCHED], SYNNAX_MODE)
-    return _await_slaves(
-        client,
-        lambda d: d.status is not None and d.status.variant == "success",
-        "present",
-    )
-
-
-def scanned_mode(client: sy.Synnax, slave: sy.Device) -> float | None:
-    """Returns the mode that the last scan read from the slave, or None when the scan
-    read no mode."""
-    props = _Properties.model_validate(
-        client.devices.retrieve(key=slave.key).properties
-    )
-    if props.settings is None or props.settings.mode is None:
-        return None
-    return props.settings.mode.value
-
-
-def write_mode(client: sy.Synnax, stg: sy.Device, slave: sy.Device, mode: int) -> None:
-    """Writes mode to ECAT0 App of a 32xDO from a task that reads a 6xSTG, then waits
-    for the scan to read it. The write saves nothing, but a 32xDO can keep its mode
-    after a power restart.
-
-    :raises AssertionError: If the scan does not read the mode within 30 seconds.
-    """
-    name = "hitl_ethercat_mode_u1"
-    index = create_index(client, f"{name}_time")
-    entry = sy.ethercat.find_entry(stg, "u1")
-    data_type = sy.DataType(entry.data_type)
-    channel = create_channel(client, name=name, data_type=data_type, index=index.key)
-    tsk = sy.ethercat.ReadTask(
-        name="HITL EtherCAT Mode",
-        sample_rate=100 * sy.Rate.HZ,
-        stream_rate=25 * sy.Rate.HZ,
-        channels=[
-            sy.ethercat.EntryReadChannel(
-                device=stg.key,
-                index=entry.index,
-                sub_index=entry.sub_index,
-                data_type=data_type,
-                channel=channel,
-            )
-        ],
-        startup_parameters=[
-            sy.ethercat.SlaveStartupParameters(
-                device=slave.key,
-                parameters=[
-                    sy.ethercat.StartupParameter(
-                        index=MODE_INDEX,
-                        sub_index=MODE_SUB_INDEX,
-                        data_type=sy.DataType.UINT16,
-                        value=mode,
-                    )
-                ],
-            )
-        ],
-    )
-    client.tasks.configure(tsk)
-    try:
-        with tsk.run(timeout=START_TIMEOUT):
-            pass
-    finally:
-        client.tasks.delete(tsk.key)
-        delete_channels(client, [channel])
-    read = sy.poll(
-        lambda: True if scanned_mode(client, slave) == mode else None,
-        timeout=_SCAN_TIMEOUT,
-        interval=0.5,
-    )
-    if read is None:
-        raise AssertionError(
-            f"Expected the scan to read mode {mode} from slave "
-            f"{slave.properties['position']}, but it read "
-            f"{scanned_mode(client, slave)}"
-        )
+        slaves[pos].properties["op_mode"] = STG_DC
+    return slaves
 
 
 def create_read_task(

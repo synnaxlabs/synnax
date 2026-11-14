@@ -9,6 +9,10 @@
 
 """The first scan of an EtherCAT slave that the Core does not hold."""
 
+from collections.abc import Iterator
+
+from pydantic import ValidationError
+
 import synnax as sy
 from framework.test_case import TestCase
 from tests.hitl.ethercat import RESCANNED, prepare_bus
@@ -17,6 +21,8 @@ _SCAN_TIMEOUT = 30 * sy.TimeSpan.SECOND
 PASS_GAP = 2 * sy.TimeSpan.SECOND
 """The Driver scans every 5 seconds, so a status this long after its device came from a
 later scan."""
+_DEVICES = "sy_device_set"
+_STATUSES = "sy_status_set"
 
 
 class EtherCATFirstScanStatus(TestCase):
@@ -27,33 +33,64 @@ class EtherCATFirstScanStatus(TestCase):
         self.key = prepare_bus(self.client)[RESCANNED].key
 
     def run(self) -> None:
-        old = self.client.devices.retrieve(key=self.key, include_status=True).status
-        if old is None:
-            self.fail(f"Expected a status for slave {RESCANNED}")
-        self.client.devices.delete([self.key])
+        owner = sy.device.resource_id(self.key)
         created: sy.TimeStamp | None = None
-
-        def scanned() -> sy.Device | None:
-            nonlocal created
-            found = self.client.devices.retrieve(keys=[self.key], include_status=True)
-            if not found:
-                return None
-            if created is None:
-                created = sy.TimeStamp.now()
-            status = found[0].status
-            return found[0] if status is not None and status.time > old.time else None
-
-        dev = sy.poll(scanned, timeout=_SCAN_TIMEOUT, interval=0.1)
-        if dev is None or dev.status is None or created is None:
-            self.fail(f"Expected the scan to create slave {RESCANNED} with a status")
-        gap = sy.TimeSpan(sy.TimeStamp.now() - created)
+        scanned: sy.TimeStamp | None = None
+        with self.client.open_streamer([_DEVICES, _STATUSES]) as streamer:
+            # Each pass sends the status of every device. No device set comes before
+            # the delete, so this is not the status that the Driver sends after one.
+            old = next((st for _, st in _statuses(streamer, owner)), None)
+            if old is None:
+                self.fail(f"Expected the scan to send a status for slave {RESCANNED}")
+            self.client.devices.delete([self.key])
+            for at, frame in _frames(streamer):
+                if (
+                    created is None
+                    and _DEVICES in frame
+                    and any(
+                        isinstance(raw, dict) and raw.get("key") == self.key
+                        for raw in frame[_DEVICES]
+                    )
+                ):
+                    created = at
+                if any(st.message == old.message for st in _owned(frame, owner)):
+                    scanned = at
+                    break
+        if created is None:
+            self.fail(f"Expected the scan to create slave {RESCANNED} again")
+        if scanned is None:
+            self.fail(f"Expected the status {old.message!r} for slave {RESCANNED}")
+        gap = sy.TimeSpan(scanned - created)
         if gap > PASS_GAP:
             self.fail(
                 f"Expected the status in the scan that created it, not {gap} later"
             )
-        status = dev.status
-        if (status.variant, status.message) != (old.variant, old.message):
-            self.fail(
-                f"Expected {old.variant}: {old.message}, but got "
-                f"{status.variant}: {status.message}"
-            )
+
+
+def _frames(streamer: sy.Streamer) -> Iterator[tuple[sy.TimeStamp, sy.Frame]]:
+    """Yields each frame with its arrival time, until _SCAN_TIMEOUT."""
+    timer = sy.Timer()
+    while timer.elapsed() < _SCAN_TIMEOUT:
+        frame = streamer.read(timeout=1)
+        if frame is not None:
+            yield sy.TimeStamp.now(), frame
+
+
+def _owned(frame: sy.Frame, owner: sy.resource.ID) -> Iterator[sy.device.Status]:
+    if _STATUSES not in frame:
+        return
+    for raw in frame[_STATUSES]:
+        try:
+            status = sy.device.Status.model_validate(raw)
+        except ValidationError:
+            continue
+        if status.owner == owner:
+            yield status
+
+
+def _statuses(
+    streamer: sy.Streamer, owner: sy.resource.ID
+) -> Iterator[tuple[sy.TimeStamp, sy.device.Status]]:
+    for at, frame in _frames(streamer):
+        for status in _owned(frame, owner):
+            yield at, status

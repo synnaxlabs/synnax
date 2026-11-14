@@ -12,18 +12,15 @@
 import synnax as sy
 from framework.test_case import TestCase
 from tests.driver.task import assert_start_rejected, delete_channels
-from tests.hitl.ethercat import (
-    SLAVES,
-    START_TIMEOUT,
-    STGS,
-    create_read_task,
-    prepare_bus,
-)
+from tests.hitl.ethercat import SLAVES, STGS, create_read_task, prepare_bus
 
 MISSING = sy.ethercat.StartupParameter(
     index=0x8040, sub_index=0xFF, data_type=sy.DataType.UINT8, value=0
 )
 """A sub-index that the settings of input 1 of a 6xSTG do not hold."""
+
+REJECT_TIMEOUT = 15 * sy.TimeSpan.SECOND
+"""Well under the minute of start retries, which a retried abort would use up."""
 
 
 class EtherCATRefusedStartupParameter(TestCase):
@@ -49,7 +46,7 @@ class EtherCATRefusedStartupParameter(TestCase):
             )
         ]
         text = assert_start_rejected(
-            self.client, self.tsk, "a missing address", timeout=START_TIMEOUT
+            self.client, self.tsk, "a missing address", timeout=REJECT_TIMEOUT
         )
         expected = (
             f"Failed to start task: Slave {STGS[0]} ({SLAVES[STGS[0] - 1]}) rejected "
