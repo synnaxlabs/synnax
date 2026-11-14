@@ -166,7 +166,9 @@ std::pair<x::json::json, x::errors::Error> read_mode(
                 aa,
                 &dc::OpMode::assign_activate
             );
-            if (sii != op_modes.end())
+            if (sii == op_modes.end())
+                result["unlisted_assign_activate"] = aa;
+            else
                 result["op_mode"] =
                     dc::Choice{
                         .index = static_cast<uint16_t>(sii - op_modes.begin()),

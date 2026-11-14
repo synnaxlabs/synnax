@@ -27,10 +27,9 @@ class Overview(Surface):
     """A range's overview page: times, stage, labels, metadata, and child
     ranges."""
 
-    METADATA_SECTION_SELECTOR = ".console-range__metadata"
-    METADATA_ITEM_SELECTOR = ".console-metadata__list-item"
-    METADATA_CREATE_SELECTOR = ".console-metadata__list-item.console--create"
-    METADATA_DELETE_SELECTOR = ".console-metadata__delete"
+    SECTION_SELECTOR = ".console-section"
+    FIELD_SELECTOR = ".console-range-overview__field"
+    ADD_LINE_SELECTOR = ".console-range-overview__add"
 
     def __init__(self, *, layout: LayoutClient, toolbar: Toolbar, explorer: Explorer):
         super().__init__(layout)
@@ -302,22 +301,42 @@ class Overview(Surface):
         with open(save_path, encoding="utf-8") as f:
             return f.read()
 
+    # ── Sections ─────────────────────────────────────────────────────────
+
+    def _section(self, title: str) -> Locator:
+        """Get the section with the title. A section with nothing in it does not render:
+        an add line stands in for it."""
+        return (
+            self.layout.page.locator(self.SECTION_SELECTOR)
+            .filter(has=self.layout.page.get_by_text(title, exact=True))
+            .visible.first
+        )
+
+    def _add(self, title: str, add_line: str) -> None:
+        """Click the add button of a section, or its add line when it is empty."""
+        section = self._section(title)
+        add_btn = section.locator("button:has(svg.lyra-icon--add)").visible.first
+        line = self.layout.page.locator(self.ADD_LINE_SELECTOR).filter(
+            has_text=re.compile(rf"^{re.escape(add_line)}$")
+        )
+        add_btn.or_(line).visible.first.click(timeout=5000)
+
     # ── Metadata ─────────────────────────────────────────────────────────
 
     def _get_metadata_section(self) -> Locator:
         """Get the Metadata section in the range overview."""
-        return self.layout.page.locator(self.METADATA_SECTION_SELECTOR)
+        return self._section("Metadata")
 
     def get_metadata_item(self, key: str) -> Locator:
-        """Get a metadata list item by key name.
+        """Get a metadata field by key name.
 
         :param key: The metadata key to find.
-        :returns: The Locator for the metadata item row.
+        :returns: The Locator for the metadata field.
         """
-        section = self._get_metadata_section()
         return (
-            section.locator(f"{self.METADATA_ITEM_SELECTOR}:not(.console--create)")
-            .filter(has_text=key)
+            self._get_metadata_section()
+            .locator(self.FIELD_SELECTOR)
+            .filter(has=self.layout.page.get_by_text(key, exact=True))
             .first
         )
 
@@ -342,20 +361,15 @@ class Overview(Surface):
         :param key: The metadata key.
         :param value: The metadata value.
         """
-        section = self._get_metadata_section()
-        add_btn = section.locator("button:has(svg.lyra-icon--add)")
-        add_btn.click(timeout=5000)
-
-        create_form = section.locator(
-            f"{self.METADATA_CREATE_SELECTOR}:not(.lyra--hidden)"
+        self._add("Metadata", "Metadata")
+        draft = (
+            self._get_metadata_section()
+            .locator(self.FIELD_SELECTOR)
+            .filter(has=self.layout.page.locator("input[placeholder='Key']"))
         )
-        create_form.wait_for(state="visible", timeout=5000)
-
-        key_input = create_form.locator("input[placeholder='Key']")
-        key_input.fill(key)
-
-        value_input = create_form.locator("input[placeholder='Value']")
-        value_input.fill(value)
+        draft.wait_for(state="visible", timeout=5000)
+        draft.locator("input[placeholder='Key']").fill(key)
+        draft.locator("input[placeholder='Value']").fill(value)
 
         self.layout.press_key("Enter")
         self.get_metadata_item(key).wait_for(state="visible", timeout=5000)
@@ -374,9 +388,7 @@ class Overview(Surface):
     def update_metadata_value(self, key: str, new_value: str) -> None:
         """Update the value of an existing metadata entry.
 
-        The value input uses onlyChangeOnBlur, so we must blur it to trigger
-        the form onChange and auto-save. For existing items the key is rendered
-        as plain Text (not an input), so we click the section header to blur.
+        The value input changes only on blur, so Tab moves focus out of it to save.
 
         :param key: The metadata key to update.
         :param new_value: The new value to set.
@@ -401,15 +413,14 @@ class Overview(Surface):
         copy_btn.click(timeout=5000)
 
     def delete_metadata(self, key: str) -> None:
-        """Delete a metadata entry by hovering and clicking the delete button.
+        """Delete a metadata entry by hovering and clicking its remove button.
 
         :param key: The metadata key to delete.
         """
         item = self.get_metadata_item(key)
         item.wait_for(state="visible", timeout=5000)
         item.hover()
-        delete_btn = item.locator(self.METADATA_DELETE_SELECTOR)
-        delete_btn.click(timeout=5000)
+        item.locator("button:has(svg.lyra-icon--close)").click(timeout=5000)
         item.wait_for(state="hidden", timeout=5000)
 
     def open_metadata_link(self, key: str) -> None:
@@ -427,21 +438,18 @@ class Overview(Surface):
     # ── Child ranges ─────────────────────────────────────────────────────
 
     def _get_child_ranges_section(self) -> Locator:
-        """Get the Child Ranges section in the overview."""
-        return (
-            self.layout.page.get_by_text("Child ranges", exact=True)
-            .locator("..")
-            .locator("..")
-        )
+        """Get the Child ranges section in the overview."""
+        return self._section("Child ranges")
 
     def get_child_range(self, name: str) -> Locator:
-        """Get a child range item from the Child Ranges section by name.
+        """Get a child range from the Child ranges section by name, as a tree item or a
+        timeline lane.
 
         :param name: The name of the child range.
         :returns: The Locator for the child range item.
         """
         section = self._get_child_ranges_section()
-        return section.locator(".console-range__list-item").filter(has_text=name).first
+        return section.get_by_role("listitem", name=name, exact=True).first
 
     def wait_for_child_ranges(self, names: list[str], *, parent_name: str) -> None:
         """Wait for child ranges to appear, reopening the overview as a
@@ -464,13 +472,14 @@ class Overview(Surface):
                 self.get_child_range(name).wait_for(state="visible", timeout=10000)
 
     def click_child_range(self, name: str) -> None:
-        """Click on a child range to navigate to its overview.
+        """Click the name of a child range to navigate to its overview. A click on its
+        timeline bar zooms to it instead.
 
         :param name: The name of the child range to click.
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click()
+        item.get_by_text(name, exact=True).click()
 
     def create_child_range(self, name: str) -> None:
         """Create a child range from the Child Ranges section of the overview.
@@ -478,37 +487,20 @@ class Overview(Surface):
         :param name: The name for the new child range.
         """
         self.notifications.close_all()
-        section = self._get_child_ranges_section()
-        add_btn = section.locator("button:has(svg.lyra-icon--add)")
-        add_btn.click(timeout=5000)
+        self._add("Child ranges", "Child range")
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
         self.fill_create_modal(name)
 
-    def set_child_range_stage(self, name: str, stage: str) -> None:
-        """Change the stage of a child range in the Child Ranges section.
+    def stop_child_range(self, name: str) -> None:
+        """Stop a running child range through its context menu in the Child ranges
+        section, which ends it now.
 
         :param name: The name of the child range.
-        :param stage: The stage to set ("To do", "In progress", "Completed").
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        stage_button = (
-            item.locator("button")
-            .filter(has=self.layout.page.locator("svg.lyra-icon--to-do"))
-            .or_(
-                item.locator("button").filter(
-                    has=self.layout.page.locator("svg.lyra-icon--in-progress")
-                )
-            )
-            .or_(
-                item.locator("button").filter(
-                    has=self.layout.page.locator("svg.lyra-icon--completed")
-                )
-            )
-            .first
-        )
-        self._pick_stage_from_dropdown(stage_button, stage)
+        self.ctx_menu.action(item, "Stop")
 
     def favorite_child_range(self, name: str) -> None:
         """Favorite a child range from the Child Ranges section via context
@@ -574,7 +566,7 @@ class Overview(Surface):
         """Deselect all child ranges by dispatching click on their checkbox
         labels."""
         self.layout.deselect_all_items(
-            self._get_child_ranges_section(), item_selector=".console-range__list-item"
+            self._get_child_ranges_section(), item_selector="[role='listitem']"
         )
 
     def _select_child_ranges(self, names: list[str]) -> Locator:

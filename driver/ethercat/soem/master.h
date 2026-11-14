@@ -134,6 +134,8 @@ class Master final : public master::Master {
         /// @brief what receive returns after a send that held process data back, or NIL
         /// after a send that did not. Only the cycle uses it.
         x::errors::Error held_err;
+        /// @brief what shortfall() returns. Only the cycle uses it.
+        std::optional<uint32_t> shortfall;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
@@ -182,6 +184,8 @@ public:
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
+    [[nodiscard]] std::optional<uint32_t> shortfall() const override;
+
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
@@ -218,6 +222,11 @@ private:
     /// @brief reads the settings that the ESI catalog describes for the slave from it,
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
+
+    /// @brief reads the CoE serial number of the slave into its properties, or the
+    /// reason the read got no answer into its status. Keeps the SII serial number when
+    /// the slave answers the read with an error or gives serial number 0.
+    void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);

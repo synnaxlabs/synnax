@@ -60,10 +60,12 @@ with task.run():
         frame = streamer.read()
 ```
 
-`start()` waits up to 5 seconds for the Driver to answer, then up to two minutes for the
-task to start. It raises `TimeoutError` when a wait runs out, and `RuntimeError` when
-the Driver fails to start the task or when the Driver of the task goes down. `run()`
-starts the task and stops it when the block ends, even after an exception.
+`start()` waits up to 5 seconds for the Driver to answer, then for the task to start.
+Each progress update from the Driver restarts a two-minute wait, so a slow start that
+reports progress does not time out. It raises `TimeoutError` when a wait runs out, and
+`RuntimeError` when the Driver fails to start the task or when the Driver of the task
+goes down. `run()` starts the task and stops it when the block ends, even after an
+exception.
 
 `client.tasks.configure()` puts a task on the Driver of the device that its config
 names. A config that names no device, such as an NI analog read config, puts the task on

@@ -886,6 +886,41 @@ TEST_F(IGHMasterTest, ReceiveFailsOnAnIncompleteWorkingCounter) {
     EXPECT_EQ(err.data, "incomplete working counter: output 1, input 2");
 }
 
+/// @brief it should report no shortfall before a complete cycle gives the full working
+/// counter.
+TEST_F(IGHMasterTest, ReceiveReportsNoShortfallBeforeACompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), std::nullopt);
+}
+
+/// @brief it should report how far the working counter fell below the latest complete
+/// cycle.
+TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    ASSERT_NIL(this->master.receive());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), 1);
+}
+
+/// @brief it should give each enabled slave a working counter share of 1 for each
+/// domain that holds one of its entries.
+TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
+    create_io(this->api->add_slave());
+    this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, uint32_t>{{1, 2}, {2, 1}})
+    );
+}
+
 /// @brief it should not count the zero working counter of an empty domain, which
 /// exchanges no data.
 TEST_F(IGHMasterTest, ReceiveIgnoresAnEmptyDomain) {

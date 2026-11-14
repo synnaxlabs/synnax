@@ -870,14 +870,14 @@ TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     this->mock_master->inject_activate_error(
         x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
     synnax::task::Command start{.task = task.key, .type = "start", .key = "s1"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->mock_master->call_count("activate"), 1);
     read_task->stop(false);
 }

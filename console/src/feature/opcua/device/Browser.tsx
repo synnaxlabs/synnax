@@ -40,6 +40,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
+import { Section } from "@/platform/section";
 
 /** A node in the browser, with the error of its last browse. */
 interface BrowserNode extends ScannedNode {
@@ -317,7 +318,7 @@ export const Browser = ({ device }: BrowserProps) => {
     );
   return (
     <Flex.Box empty className={CSS.B("opc-browser")}>
-      <Header.Header>
+      <Section.Header>
         <Header.Title weight={500} color={10}>
           Browser
         </Header.Title>
@@ -332,7 +333,7 @@ export const Browser = ({ device }: BrowserProps) => {
             <Icon.Refresh />
           </Button.Button>
         </Header.Actions>
-      </Header.Header>
+      </Section.Header>
       <Input.Text
         size="small"
         variant="text"

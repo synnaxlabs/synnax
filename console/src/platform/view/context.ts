@@ -27,14 +27,9 @@ export interface ContextValue {
   resourceType: view.Type;
   selected: view.Key;
   select: (key: view.Key) => void;
-  /** True while the toolbar is open: the view is always editable, or editing is on. */
-  editing: boolean;
-  /** True while editing a view the user may update. Only then can parts write it. */
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
-  /** True when the search leads the views bar, over a filter bar. */
-  searchInViews: boolean;
   /** The term the lists of every view are searched by. */
   searchTerm: string;
   setSearchTerm: (term: string) => void;

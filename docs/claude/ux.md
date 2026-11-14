@@ -321,6 +321,9 @@ bound, a log precision, or the line plot X channel.
   description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
+- A role select shows each role's icon (`Access.Role.icon`) beside its name, in the
+  dropdown and on the closed select. Its floating dropdown stops at 60rem
+  (`--pluto-dialog-max-width`), so long descriptions wrap.
 - A select that shows only its icon is a square button, never a wide box.
 - A device select shows the selected device's status as a badge at the end of the
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
@@ -370,6 +373,10 @@ bound, a log precision, or the line plot X channel.
   6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
   bars. The second bar's controls are 28 px with 13 px text.
 - Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- The bars have no edit toggle. The search shows on every view. On a static view, and on
+  a saved view that the user may update, the user changes the filters, the sort, and the
+  layout. Other saved views show the filter chips, the sort, and the layout read-only.
+  Create view shows when the user may create views.
 
 ### View tabs
 
@@ -405,6 +412,9 @@ bound, a log precision, or the line plot X channel.
 
 - A task's channel list is a record table: one item per channel, built from
   `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- The Users page of Settings is a record table with checkable items, like the range
+  explorer: the name, then a role select in place. A right click opens the menu of the
+  selected users. A "You" badge follows the current user's name.
 - The Labels page of Settings is a record table with checkable items, like the range
   explorer: a color swatch, then the name. Click the swatch to recolor. A right click
   opens the menu of the selected labels. You create a label from the page or from any
