@@ -32,13 +32,13 @@ class TestEvents:
         e.write({RUNNER: ["started"]})
         client.failing = False
         e.write({RUNNER: ["done"]})
-        assert client.written(CHANNEL) == [["started\n", "done\n"]]
+        assert client.written(CHANNEL) == [["started", "done"]]
 
     def test_should_write_each_line_once(self, client: Client) -> None:
         e = events(client)
         e.write({RUNNER: ["started"]})
         e.write({RUNNER: ["done"]})
-        assert client.written(CHANNEL) == [["started\n"], ["done\n"]]
+        assert client.written(CHANNEL) == [["started"], ["done"]]
 
     def test_should_keep_only_the_newest_pending_lines(self, client: Client) -> None:
         e = events(client)
