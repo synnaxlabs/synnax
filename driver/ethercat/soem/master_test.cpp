@@ -2136,7 +2136,7 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
-    EXPECT_EQ(this->master->shortfall(), 2);
+    EXPECT_EQ(this->master->shortfall(), 2U);
 }
 
 /// @brief it should report no shortfall for a working counter above the expected count.
