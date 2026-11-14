@@ -50,11 +50,11 @@ LINUX_PLATFORM_HDRS = [
     "SOEM/oshw/linux/oshw.h",
 ]
 
-# Windows OSAL + OSHW
-WIN32_OSAL_SRCS = ["SOEM/osal/win32/osal.c"]
+# Windows OSAL + OSHW (copies of the SOEM files, so the Driver can fix them)
+WIN32_OSAL_SRCS = ["windows/osal/osal.c"]
 
 WIN32_OSHW_SRCS = [
-    "SOEM/oshw/win32/nicdrv.c",
+    "windows/oshw/nicdrv.c",
     "SOEM/oshw/win32/oshw.c",
 ]
 
