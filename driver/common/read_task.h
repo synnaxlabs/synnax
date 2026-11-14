@@ -169,7 +169,7 @@ class ReadTask final : public driver::task::Task {
                     LOG(WARNING)
                         << this->p.name() << ": [" << err.type << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
-                } else
+                } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;
             }

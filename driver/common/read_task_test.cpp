@@ -851,6 +851,13 @@ TEST(TestCommonReadTask, testWarningLogsAfterTemporaryError) {
     EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
 }
 
+/// @brief it should not log a read that ends because the task stopped as an error.
+TEST(TestCommonReadTask, testNominalShutdownLogsNoError) {
+    ErrorSink sink;
+    ScriptedRead({{.error = errors::NOMINAL_SHUTDOWN_ERROR}}).run(1);
+    EXPECT_EQ(sink.count(errors::NOMINAL_SHUTDOWN_ERROR.type), 0);
+}
+
 /// @brief it should log a warning once in each run.
 TEST(TestCommonReadTask, testWarningLogsOnceEachRun) {
     WarningSink sink;
