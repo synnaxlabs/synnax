@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <format>
 #include <map>
+#include <set>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -69,12 +70,13 @@ struct Slaves {
         return &this->by_key.emplace(key, std::move(props)).first->second;
     }
 
-    /// @brief finds, in position order, each slave on bus by its identity: its
-    /// vendor, product, and serial number, or with serial number 0, its saved position.
-    /// Then saves the position where it found each slave.
+    /// @brief finds each slave on bus by its identity: its vendor, product, and serial
+    /// number, or with serial number 0, its saved position. A slave at its saved
+    /// position keeps it before a moved slave takes a position. Then saves the position
+    /// where it found each slave.
     /// @returns the position on bus of each slave, keyed by its saved position, or
     /// errors::TOPOLOGY_MISMATCH when a slave is not on bus, or when two slaves have
-    /// one saved position or are at one position on bus.
+    /// one saved position.
     [[nodiscard]] std::pair<std::map<uint16_t, uint16_t>, x::errors::Error>
     bind(const std::vector<slave::DiscoveryResult> &bus) {
         std::vector<slave::Properties *> by_position;
@@ -84,11 +86,8 @@ struct Slaves {
         std::ranges::sort(by_position, {}, [](const slave::Properties *s) {
             return std::tie(s->position, s->name);
         });
-        std::map<uint16_t, uint16_t> moves;
-        std::map<uint16_t, const slave::Properties *> bound;
-        for (size_t i = 0; i < by_position.size(); ++i) {
-            const auto &saved = *by_position[i];
-            if (i > 0 && by_position[i - 1]->position == saved.position)
+        for (size_t i = 1; i < by_position.size(); ++i)
+            if (by_position[i - 1]->position == by_position[i]->position)
                 return {
                     {},
                     x::errors::Error(
@@ -96,28 +95,46 @@ struct Slaves {
                         std::format(
                             "{} and {} are both saved as slave {}.",
                             by_position[i - 1]->name,
-                            saved.name,
-                            saved.position
+                            by_position[i]->name,
+                            by_position[i]->position
                         )
                     )
                 };
-            const auto [found, err] = find(bus, saved);
-            if (err) return {{}, err};
-            const auto pos = found->properties.position;
-            if (const auto [it, added] = bound.emplace(pos, &saved); !added)
+        std::map<uint16_t, uint16_t> moves;
+        std::set<uint16_t> bound;
+        for (const auto *saved: by_position) {
+            const auto at = std::ranges::find(
+                bus,
+                saved->position,
+                [](const slave::DiscoveryResult &s) { return s.properties.position; }
+            );
+            if (saved->serial == 0) {
+                if (auto err = check_model(bus, at, *saved)) return {{}, err};
+            } else if (at == bus.end() || !same_unit(at->properties, *saved))
+                continue;
+            moves[saved->position] = saved->position;
+            bound.insert(saved->position);
+        }
+        for (const auto *saved: by_position) {
+            if (moves.contains(saved->position)) continue;
+            const auto found = std::ranges::find_if(bus, [&](const auto &s) {
+                return !bound.contains(s.properties.position) &&
+                       same_unit(s.properties, *saved);
+            });
+            if (found == bus.end())
                 return {
                     {},
                     x::errors::Error(
                         errors::TOPOLOGY_MISMATCH,
                         std::format(
-                            "{} and {} are both slave {} on the bus.",
-                            it->second->name,
-                            saved.name,
-                            pos
+                            "{} (serial {}) is not on the bus.",
+                            saved->name,
+                            saved->serial
                         )
                     )
                 };
-            moves[saved.position] = pos;
+            moves[saved->position] = found->properties.position;
+            bound.insert(found->properties.position);
         }
         for (auto *saved: by_position)
             saved->position = moves.at(saved->position);
@@ -125,56 +142,32 @@ struct Slaves {
     }
 
 private:
-    /// @brief returns the slave on bus with the identity of saved.
-    /// @returns errors::TOPOLOGY_MISMATCH when bus does not hold it.
-    static std::
-        pair<std::vector<slave::DiscoveryResult>::const_iterator, x::errors::Error>
-        find(
-            const std::vector<slave::DiscoveryResult> &bus,
-            const slave::Properties &saved
-        ) {
-        if (saved.serial != 0) {
-            const auto same = [&saved](const slave::DiscoveryResult &s) {
-                const auto &p = s.properties;
-                return p.vendor_id == saved.vendor_id &&
-                       p.product_code == saved.product_code && p.serial == saved.serial;
-            };
-            // Two units can share an SII serial number.
-            auto found = std::ranges::find_if(bus, [&](const auto &s) {
-                return same(s) && s.properties.position == saved.position;
-            });
-            if (found == bus.end()) found = std::ranges::find_if(bus, same);
-            if (found != bus.end()) return {found, x::errors::NIL};
-            return {
-                found,
-                x::errors::Error(
-                    errors::TOPOLOGY_MISMATCH,
-                    std::format(
-                        "{} (serial {}) is not on the bus.",
-                        saved.name,
-                        saved.serial
-                    )
+    /// @brief whether live and saved have one vendor, product, and serial number.
+    static bool
+    same_unit(const slave::Properties &live, const slave::Properties &saved) {
+        return live.vendor_id == saved.vendor_id &&
+               live.product_code == saved.product_code && live.serial == saved.serial;
+    }
+
+    /// @brief checks that at, the slave on bus at the saved position of saved, is of
+    /// its model.
+    /// @returns errors::TOPOLOGY_MISMATCH when at is the end of bus or of another
+    /// model.
+    static x::errors::Error check_model(
+        const std::vector<slave::DiscoveryResult> &bus,
+        const std::vector<slave::DiscoveryResult>::const_iterator at,
+        const slave::Properties &saved
+    ) {
+        if (at == bus.end())
+            return x::errors::Error(
+                errors::TOPOLOGY_MISMATCH,
+                std::format(
+                    "Slave {} ({}) is not on the bus.",
+                    saved.position,
+                    saved.name
                 )
-            };
-        }
-        const auto found = std::ranges::find(
-            bus,
-            saved.position,
-            [](const slave::DiscoveryResult &s) { return s.properties.position; }
-        );
-        if (found == bus.end())
-            return {
-                found,
-                x::errors::Error(
-                    errors::TOPOLOGY_MISMATCH,
-                    std::format(
-                        "Slave {} ({}) is not on the bus.",
-                        saved.position,
-                        saved.name
-                    )
-                )
-            };
-        const auto &actual = found->properties;
+            );
+        const auto &actual = at->properties;
         const auto mismatch = [&](const char *field, uint32_t want, uint32_t got) {
             return x::errors::Error(
                 errors::TOPOLOGY_MISMATCH,
@@ -189,13 +182,10 @@ private:
             );
         };
         if (actual.vendor_id != saved.vendor_id)
-            return {found, mismatch("vendor_id", saved.vendor_id, actual.vendor_id)};
+            return mismatch("vendor_id", saved.vendor_id, actual.vendor_id);
         if (actual.product_code != saved.product_code)
-            return {
-                found,
-                mismatch("product_code", saved.product_code, actual.product_code)
-            };
-        return {found, x::errors::NIL};
+            return mismatch("product_code", saved.product_code, actual.product_code);
+        return x::errors::NIL;
     }
 };
 }

@@ -123,12 +123,23 @@ TEST(SlavesBindTest, RejectsASlaveWhoseSerialNumberIsNotOnTheBus) {
     EXPECT_EQ(err.data, "Slave 1 (serial 777) is not on the bus.");
 }
 
-/// @brief it should reject two slaves that it finds at one position.
-TEST(SlavesBindTest, RejectsTwoSlavesAtOnePosition) {
+/// @brief it should reject a slave whose serial number is only at a position that a
+/// slave with serial number 0 holds.
+TEST(SlavesBindTest, RejectsASlaveWhoseUnitIsAtAHeldPosition) {
     auto slaves = saved({on_bus(1, 2, 0x12345678), on_bus(3, 2, 0x12345678, 777)});
     const auto err = slaves.bind({on_bus(1, 2, 0x12345678, 777)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Slave 1 and Slave 3 are both slave 1 on the bus.");
+    EXPECT_EQ(err.data, "Slave 3 (serial 777) is not on the bus.");
+}
+
+/// @brief it should keep a slave at its saved position before it gives a moved slave
+/// with one serial number a position.
+TEST(SlavesBindTest, KeepsASlaveAtItsPositionBeforeItMovesAnother) {
+    auto slaves = saved({on_bus(1, 2, 0x12345678, 777), on_bus(3, 2, 0x12345678, 777)});
+    const auto moves = ASSERT_NIL_P(
+        slaves.bind({on_bus(3, 2, 0x12345678, 777), on_bus(5, 2, 0x12345678, 777)})
+    );
+    EXPECT_EQ(moves, (std::map<uint16_t, uint16_t>{{1, 5}, {3, 3}}));
 }
 
 /// @brief it should reject two slaves with one saved position.
