@@ -1324,10 +1324,12 @@ TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
 }
 
 /// @brief a 6xSTG that holds the mode in which DewesoftX sets it up.
-const x::json::json SHARED_SETTINGS{{"mode", {{"shared", true}}}};
+const x::json::json SHARED_SETTINGS{
+    {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+};
 
 /// @brief it should write no settings to a slave that another program sets up when the
-/// bus starts.
+/// bus starts, and say so with the count of its device and reader settings.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
@@ -1336,7 +1338,14 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     cfg.slave_configs = [] {
         return std::pair{
             std::map<uint16_t, slave::Config>{
-                {1, {.startup_parameters = measurement(1, 3).at(1)}}
+                {1,
+                 {.startup_parameters =
+                      {
+                          {.index = 0x8040,
+                           .sub_index = 2,
+                           .data_type = x::telem::UINT16_T,
+                           .value = 3},
+                      }}}
             },
             x::errors::NIL
         };
@@ -1350,6 +1359,11 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+    EXPECT_EQ(
+        reader->unapplied(),
+        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "startup settings. Remove them, or switch the device to Synnax in Configure."
+    );
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
@@ -1372,6 +1386,12 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->written().empty());
+    EXPECT_EQ(first->unapplied(), "");
+    EXPECT_EQ(
+        second->unapplied(),
+        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 1 "
+        "startup setting. Remove it, or switch the device to Synnax in Configure."
+    );
 }
 
 /// @brief it should not check the settings of a slave that another program sets up

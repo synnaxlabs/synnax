@@ -145,9 +145,7 @@ void advise_switch(
         refusal.advice = "Restart the power of the device.";
         return;
     }
-    const auto mode = props.settings->value("mode", x::json::json::object());
-    auto program = mode.value("shared_with", "");
-    if (program.empty()) program = mode.value("only_read_by", "");
+    const auto program = props.shared_with();
     if (program.empty()) return;
     refusal.advice = std::format(
         "{}The device is set up for {}. In Configure, switch the device to Synnax.",
@@ -171,6 +169,33 @@ x::errors::Error left_out_error(
     );
     if (!refusal.advice.empty()) msg.append(" ").append(refusal.advice);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
+}
+
+/// @brief returns a sentence for each slave of bus that another program sets up and
+/// that has startup parameters in counts, keyed by position.
+std::string unapplied(
+    const std::vector<slave::DiscoveryResult> &bus,
+    const std::map<uint16_t, size_t> &counts
+) {
+    std::string text;
+    for (const auto &s: bus) {
+        const auto &props = s.properties;
+        const auto it = counts.find(props.position);
+        if (it == counts.end() || it->second == 0 || !props.shared()) continue;
+        const bool one = it->second == 1;
+        if (!text.empty()) text += " ";
+        text += std::format(
+            "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
+            "setting{}. Remove {}, or switch the device to Synnax in Configure.",
+            props.position,
+            props.name,
+            props.shared_with(),
+            it->second,
+            one ? "" : "s",
+            one ? "it" : "them"
+        );
+    }
+    return text;
 }
 }
 
@@ -849,13 +874,18 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
+    std::map<uint16_t, size_t> counts;
     if (started) {
         if (configs_err) return {{}, configs_err};
         for (const auto &[pos, params]: settings)
             configs[pos].add_startup_parameters(params);
+        for (const auto &[pos, cfg]: configs)
+            counts[pos] = cfg.startup_parameters.size();
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {{}, err};
-    }
+    } else
+        for (const auto &[pos, params]: settings)
+            counts[pos] = params.size();
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
         if (started)
@@ -872,7 +902,14 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
         }
-    return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
+    return {
+        {
+            .mhz = mhz,
+            .offsets = std::move(offsets),
+            .unapplied = unapplied(this->slaves, counts),
+        },
+        x::errors::NIL
+    };
 }
 
 Engine::Start Engine::begin_start(x::breaker::Breaker &cancel) const {
@@ -905,6 +942,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         samples_per_read
     );
     input->settings = settings;
+    input->unapplied = std::move(joined.unapplied);
     this->inputs.push_back(input);
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
@@ -935,6 +973,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .rate = execution_rate,
         .offsets = std::move(joined.offsets),
         .stop_values = std::move(stop_values),
+        .unapplied = std::move(joined.unapplied),
     });
     this->outputs.push_back(output);
     this->publish_schedule_locked(joined.mhz);

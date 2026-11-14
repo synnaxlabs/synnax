@@ -119,6 +119,8 @@ class Engine {
         std::vector<Slave> slaves;
         /// @brief what the reader writes to the slaves.
         Settings settings;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
         x::telem::Rate rate;
         size_t samples_per_read;
         size_t sample_size = 0;
@@ -165,6 +167,8 @@ class Engine {
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
         std::vector<x::telem::SampleValue> stop_values;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -289,6 +293,9 @@ class Engine {
         uint64_t mhz = 0;
         /// @brief the offset of each entry in the process image.
         std::vector<pdo::Offset> offsets;
+        /// @brief why the bus did not apply the startup parameters of a slave that
+        /// another program sets up, or an empty string.
+        std::string unapplied;
     };
     /// @brief returns the bus rate and the offset of each entry once the bus runs at a
     /// rate that also serves rate as a read rate, or as a write rate when output is
@@ -345,6 +352,13 @@ public:
         /// @brief explains, in full sentences, why samples were dropped since the last
         /// call, or returns an empty string when none were.
         [[nodiscard]] std::string warning();
+
+        /// @brief explains, in full sentences, which startup parameters the bus did not
+        /// apply when the reader opened, because another program sets up their slave.
+        /// Returns an empty string when it applied them all.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->input->unapplied;
+        }
     };
 
     /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
@@ -389,6 +403,13 @@ public:
 
         /// @brief creates a transaction for writing multiple PDO entries under a lock.
         [[nodiscard]] Transaction open_tx() const;
+
+        /// @brief explains, in full sentences, which startup parameters the bus did not
+        /// apply when the writer opened, because another program sets up their slave.
+        /// Returns an empty string when it applied them all.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->output->unapplied;
+        }
     };
 
     /// @brief constructs an Engine that runs the bus of master on the network interface

@@ -602,6 +602,49 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should warn for the whole run when the bus did not apply the startup
+/// parameters of a slave that another program sets up.
+TEST_F(EtherCATReadTest, SourceWarnsOfSkippedStartupSettings) {
+    this->mock_master->set_settings(
+        1,
+        {{"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}}
+    );
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", 6}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    const common::Warning expected{
+        .message = "Skipped startup settings",
+        .description = "Slave 1 (Test Slave) is set up for DewesoftX, so Synnax did "
+                       "not apply its 1 startup setting. Remove it, or switch the "
+                       "device to Synnax in Configure.",
+    };
+    for (int i = 0; i < 2; ++i) {
+        const auto result = source.read(brk, frame);
+        ASSERT_NIL(result.error);
+        EXPECT_EQ(result.warning, expected);
+    }
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should return an empty frame and a warning that names the slave while the
 /// bus lost the only slave of the task.
 TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {

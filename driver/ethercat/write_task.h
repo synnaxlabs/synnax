@@ -138,6 +138,10 @@ public:
         return x::errors::NIL;
     }
 
+    [[nodiscard]] common::Warning held_warning() override {
+        return unapplied_warning(this->writer->unapplied());
+    }
+
     x::errors::Error write(x::telem::Frame &frame) override {
         const auto tx = this->writer->open_tx();
         for (size_t i = 0; i < this->cfg.outputs.size(); ++i) {

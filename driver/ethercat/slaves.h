@@ -19,6 +19,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slave/slave.h"
@@ -121,4 +122,11 @@ struct Slaves {
         return x::errors::NIL;
     }
 };
+
+/// @brief returns the warning that a task holds while it runs without the startup
+/// parameters that unapplied describes, or an empty warning.
+inline common::Warning unapplied_warning(const std::string &unapplied) {
+    if (unapplied.empty()) return {};
+    return {.message = "Skipped startup settings", .description = unapplied};
+}
 }

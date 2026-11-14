@@ -293,6 +293,15 @@ struct Properties {
         return this->settings->at("mode").value("shared", false);
     }
 
+    /// @brief returns the program that sets the slave up, or alone reads an input of
+    /// it, in the mode the card held at the scan, or an empty string.
+    [[nodiscard]] std::string shared_with() const {
+        if (!this->settings || !this->settings->contains("mode")) return "";
+        const auto &mode = this->settings->at("mode");
+        const auto program = mode.value("shared_with", "");
+        return program.empty() ? mode.value("only_read_by", "") : program;
+    }
+
     /// @brief returns the program that alone reads an input entry of the slave, or an
     /// empty string when Synnax can read each of them.
     [[nodiscard]] std::string only_reader() const {
