@@ -2073,6 +2073,45 @@ TEST_F(EngineTest, FailedCycleWarningHoldsForTenSeconds) {
     this->master->resume();
 }
 
+/// @brief it should keep the sentence of a lost slave in the warning for 10 seconds
+/// after the last warning that saw it, so that a slave that keeps dropping out keeps
+/// one warning.
+TEST_F(EngineTest, LostSlaveWarningHoldsForTenSeconds) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EQ(this->read_times(*reader, 1).size(), 1);
+    this->master->stall();
+    this->master->wait_until_stalled();
+    // The fake clock ran the bus ahead of the reader before the stall.
+    (void) reader->warning();
+    clock.sleep(x::telem::SECOND * 10);
+    ASSERT_EQ(reader->warning(), "");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->step();
+    this->master->wait_until_stalled();
+    const std::string lost = "Lost contact with slave 1 (Slave1).";
+    EXPECT_EQ(reader->warning(), lost);
+    clock.sleep(x::telem::SECOND * 10 - x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), lost);
+    clock.sleep(x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), "");
+    this->master->set_shortfall(std::nullopt);
+    this->master->set_slave_lost(1, false);
+    this->master->resume();
+}
+
 /// @brief it should give the latest reason of a run of failed cycles in the warning, as
 /// the reason can change before a cycle succeeds.
 TEST_F(EngineTest, FailedCycleWarningGivesTheLatestReason) {

@@ -31,6 +31,7 @@ Engine::Reader::Reader(Engine &engine, std::shared_ptr<Input> input):
     for (const auto &entry: this->input->entries)
         width = std::max(width, entry.decoder.type().density());
     this->values.resize(this->input->samples_per_read * width);
+    this->slave_drops.resize(this->input->slaves.size());
 }
 
 Engine::Reader::~Reader() {
@@ -116,30 +117,40 @@ std::string Engine::Reader::warning() {
     const auto add = [&msg](const std::string &sentence) {
         msg += (msg.empty() ? "" : " ") + sentence;
     };
-    const auto hold = [&](Drop &drop, std::atomic<uint64_t> &samples, auto reason) {
-        if (samples.exchange(0, std::memory_order_relaxed) > 0) drop = {reason(), now};
+    const auto hold = [&](Drop &drop, const bool dropped, auto reason) {
+        if (dropped) drop = {reason(), now};
         if (!drop.reason.empty() && now - drop.at < DROP_HOLD.chrono())
             add(drop.reason);
     };
-    hold(this->failed, this->input->failed_samples, [this] {
+    const auto samples_dropped = [](std::atomic<uint64_t> &samples) {
+        return samples.exchange(0, std::memory_order_relaxed) > 0;
+    };
+    hold(this->failed, samples_dropped(this->input->failed_samples), [this] {
         return errors::sentence(
             "Bus cycles failed: " + this->engine.cycle_error().data
         );
     });
-    for (auto &slave: this->input->slaves)
-        if (slave.lost.exchange(false, std::memory_order_acquire))
-            add(slave.silent.load(std::memory_order_relaxed)
-                    ? std::format(
-                          "Lost contact with slave {} ({}).",
-                          slave.position,
-                          slave.name
-                      )
-                    : std::format(
-                          "Slave {} ({}) is not in OP.",
-                          slave.position,
-                          slave.name
-                      ));
-    hold(this->overflowed, this->input->overflowed_samples, [] {
+    for (size_t i = 0; i < this->input->slaves.size(); ++i) {
+        auto &slave = this->input->slaves[i];
+        hold(
+            this->slave_drops[i],
+            slave.lost.exchange(false, std::memory_order_acquire),
+            [&slave] {
+                return slave.silent.load(std::memory_order_relaxed)
+                         ? std::format(
+                               "Lost contact with slave {} ({}).",
+                               slave.position,
+                               slave.name
+                           )
+                         : std::format(
+                               "Slave {} ({}) is not in OP.",
+                               slave.position,
+                               slave.name
+                           );
+            }
+        );
+    }
+    hold(this->overflowed, samples_dropped(this->input->overflowed_samples), [] {
         return std::string(
             "The task cannot keep up with the bus. Lower the stream rate for the task."
         );
