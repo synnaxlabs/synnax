@@ -19,6 +19,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -110,6 +111,8 @@ type Panel struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the panel.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
+	// Owner is the user whose draft the panel is. Nil for a shared panel.
+	Owner *user.Key `json:"owner,omitzero" msgpack:"owner,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

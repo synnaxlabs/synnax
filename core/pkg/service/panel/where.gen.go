@@ -63,6 +63,12 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Projects; l != nil {
 		fs = append(fs, MatchProjects(l...))
 	}
+	if l := w.Owners; l != nil {
+		fs = append(fs, MatchOwners(l...))
+	}
+	if l := w.Owned; l != nil {
+		fs = append(fs, MatchOwned(*l))
+	}
 	return And(fs...), nil
 }
 
