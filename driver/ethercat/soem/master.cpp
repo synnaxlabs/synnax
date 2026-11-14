@@ -64,6 +64,9 @@ const int RECOVERY_TIMEOUT = static_cast<int>(
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
 constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
+/// The CoE identity object and the sub-index that holds the serial number.
+constexpr uint16_t IDENTITY_INDEX = 0x1018;
+constexpr uint8_t SERIAL_SUB_INDEX = 4;
 /// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
 /// entries of four bytes.
 constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
@@ -362,7 +365,10 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // A startup parameter can change the slave's PDO assignment.
     for (const auto pos: parameterized) {
         auto result = this->discover_slave(pos);
-        this->slave_list[pos - 1] = std::move(result);
+        auto &scanned = this->slave_list[pos - 1];
+        result.properties.serial = scanned.properties.serial;
+        result.status.serial_error = std::move(scanned.status.serial_error);
+        scanned = std::move(result);
     }
 
     this->api->configdc();
@@ -600,9 +606,41 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
+        this->read_serial(slave);
         this->read_settings(slave);
         this->slave_list.push_back(std::move(slave));
     }
+    slave::clear_duplicate_serials(this->slave_list);
+}
+
+void Master::read_serial(slave::DiscoveryResult &slave) {
+    const auto pos = slave.properties.position;
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    ec_errort err{};
+    // Only the errors of this read can show that the slave answered it.
+    while (this->api->poperror(err)) {}
+    uint32_t serial = 0;
+    int size = sizeof(serial);
+    if (this->api->SDOread(
+            pos,
+            IDENTITY_INDEX,
+            SERIAL_SUB_INDEX,
+            FALSE,
+            &size,
+            &serial,
+            SDO_TIMEOUT
+        ) > 0) {
+        if (serial != 0) slave.properties.serial = serial;
+        return;
+    }
+    // A slave that answers the read with an error, such as an SDO abort or a mailbox
+    // error, has no CoE serial number. An emergency is no answer.
+    bool answered = false;
+    while (this->api->poperror(err))
+        answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
+    if (!answered)
+        slave.status.serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, 0)
+                                        .data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {
