@@ -68,7 +68,7 @@ export const Menu = <W extends { and?: W[] }>({
         <Icon.Filter />
         Filter
       </Dialog.Trigger>
-      <Base.Dialog aria-label="Filter">
+      <Base.Dialog aria-label="Filter" filterable>
         <Base.Menu gap="small">
           {Object.entries(properties).map(([key, property]) => {
             // The menu edits the first condition on the property and leaves the rest.

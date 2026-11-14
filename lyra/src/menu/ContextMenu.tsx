@@ -10,14 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  type RefCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, type RefCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -25,6 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { Filtered, useFilter } from "@/menu/filter";
 import {
   CONTEXT_MENU_CLASS,
   CONTEXT_OPEN_ATTRIBUTE,
@@ -33,7 +27,6 @@ import {
 } from "@/menu/types";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
-import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
 
 interface ContextMenuState {
   visible: boolean;
@@ -72,8 +65,6 @@ const INITIAL_STATE: ContextMenuState = {
 };
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
-
-const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
 const OPEN_DIALOG = `.${CSS.BE("dialog", "frame")}.${CSS.visible(true)}`;
 
@@ -262,26 +253,8 @@ const Internal = ({
   onKeyDown,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
+  const filter = useFilter(visible);
   const menuStyle = { ...xy.css(position), ...style };
-  // The move keys walk the focus through the items, which are buttons that Enter and
-  // Space click. The menu keeps these keys from a list behind it that answers window
-  // keys.
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    onKeyDown?.(e);
-    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const target = e.target as HTMLElement;
-    // Keys typed into a field inside the menu keep their own meaning.
-    if (target !== e.currentTarget && !target.matches(MENU_ITEMS)) return;
-    if (ACTIVATION_KEYS.includes(e.key)) return e.stopPropagation();
-    const key = Triggers.eventKey(e);
-    if (!isMoveKey(key)) return;
-    e.stopPropagation();
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(MENU_ITEMS));
-    if (items.length === 0) return;
-    e.preventDefault();
-    const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
-    if (index != null) items[index].focus();
-  };
   if (!visible) return null;
   return createPortal(
     <Flex.Box
@@ -295,7 +268,10 @@ const Internal = ({
         onClick?.(e);
       }}
       gap="tiny"
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => {
+        onKeyDown?.(e);
+        filter.onKeyDown(e);
+      }}
       {...rest}
       // React bubbles events out of the portal to the owner's ancestors, where an outer
       // context menu would open on top of this one.
@@ -304,7 +280,9 @@ const Internal = ({
         e.stopPropagation();
       }}
     >
-      {menu?.({ keys, visible, position, cursor })}
+      <Filtered term={filter.term}>
+        {menu?.({ keys, visible, position, cursor })}
+      </Filtered>
     </Flex.Box>,
     document.body,
   );

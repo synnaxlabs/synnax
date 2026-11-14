@@ -9,16 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The narrowest a menu gets, also while it filters: just under a menu with one short
+   item. A select sets its own floor. */
+:where(.lyra-menu-context, .lyra-menu-dialog:not(.lyra--modal)) {
+    min-width: min(24rem, var(--pluto-dialog-available-width, 100vw));
+}
+
 /* The surface of a context menu. Props set the fill, the border, and the corners. A
    highlight follows the pointer with no fade. */
 .lyra-dialog__dialog.lyra-menu-dialog {
     --pluto-btn-transition: none;
 
     padding: 1rem;
-
-    &:not(.lyra--modal) {
-        min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));
-    }
 
     /* The search is a line of text over a hairline that spans the panel. */
     & > .lyra-input {
