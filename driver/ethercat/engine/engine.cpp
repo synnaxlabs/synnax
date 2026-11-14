@@ -40,8 +40,8 @@ const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
-/// @brief AL status codes of a slave that kept the layout of an earlier mode or
-/// master. The slave takes its new layout when the next start resets it.
+/// @brief AL status codes of a slave that kept the layout of an earlier mode or master.
+/// The slave takes its new layout when the next start resets it.
 constexpr std::array<uint16_t, 2> STALE_LAYOUT_CODES{0x001D, 0x001E};
 
 uint64_t millihertz(const x::telem::Rate rate) {
