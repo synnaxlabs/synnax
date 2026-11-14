@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
@@ -85,64 +86,75 @@ describe("Tags", () => {
   });
 });
 
-const renderStepped = async (step: number): Promise<HTMLElement> => {
+const renderGroup = (labels: string[]): ReactElement => (
+  <div data-testid="group" style={{ display: "flex", width: "100%" }}>
+    <Tag.Tags>
+      {labels.map((label) => (
+        <Tag.Tag key={label} color="#3774d0">
+          {label}
+        </Tag.Tag>
+      ))}
+    </Tag.Tags>
+  </div>
+);
+
+// Two groups of one list: one with every label, one with the first three.
+const renderStepped = async (width: number): Promise<HTMLElement[]> => {
   const { container } = await renderThemed(
-    <Tag.StepProvider>
-      <div
-        data-testid="frame"
-        style={{ display: "flex", width: "600px", "--lyra-tags-shown": step } as object}
-      >
-        <Tag.Tags>
-          {LABELS.map((label) => (
-            <Tag.Tag key={label} color="#3774d0">
-              {label}
-            </Tag.Tag>
-          ))}
-        </Tag.Tags>
-      </div>
-    </Tag.StepProvider>,
+    <div data-testid="list" style={{ width: `${width}px` }}>
+      <Tag.StepProvider>
+        {renderGroup(LABELS)}
+        {renderGroup(LABELS.slice(0, 3))}
+      </Tag.StepProvider>
+    </div>,
   );
-  return container.querySelector<HTMLElement>("[data-testid=frame]")!;
+  return Array.from(container.querySelectorAll<HTMLElement>("[data-testid=group]"));
 };
 
-// The count draws its text from a counter of the hidden tags.
 const count = (frame: HTMLElement): string | null => {
-  const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`);
-  if (chip == null || getComputedStyle(chip).display === "none") return null;
-  return getComputedStyle(chip, "::after").content;
+  const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+  return getComputedStyle(chip).display === "none"
+    ? null
+    : (chip.dataset.count ?? null);
 };
 
-const COUNTED = '"+" counter(lyra-tags-hidden)';
+const stacked = (frame: HTMLElement): string =>
+  frame
+    .querySelector<HTMLElement>(`.${CSS.B("tags")}`)!
+    .style.getPropertyValue("--lyra-tags-stacked");
 
 describe("Stepped tags", () => {
-  it("should show the number of tags its container sets, and count the rest", async () => {
-    const frame = await renderStepped(2);
-    await expect.poll(() => shown(frame)).toEqual(LABELS.slice(0, 2));
-    expect(count(frame)).toBe(`${COUNTED} " labels"`);
+  it("should show every tag at full width when the list has room", async () => {
+    const [all, three] = await renderStepped(1000);
+    await expect.poll(() => stacked(all)).toBe("false");
+    expect(shown(all)).toEqual(LABELS);
+    expect(shown(three)).toEqual(LABELS.slice(0, 3));
+    expect(count(all)).toBeNull();
   });
 
-  it("should show the first tags as dots in the count when it sets no tags", async () => {
-    const frame = await renderStepped(0);
-    await expect.poll(() => shown(frame)).toEqual(LABELS.slice(0, 3));
-    const dots = Array.from(
-      frame.querySelectorAll(`.${CSS.B("tag")} .${CSS.B("text")}`),
-    )
+  it("should show the same number of tags in every group, and count the rest", async () => {
+    const [all, three] = await renderStepped(260);
+    await expect.poll(() => count(all)).not.toBeNull();
+    const step = shown(all).length;
+    expect(step).toBeGreaterThan(0);
+    expect(count(all)).toBe(String(LABELS.length - step));
+    expect(shown(three)).toEqual(LABELS.slice(0, Math.min(3, step)));
+  });
+
+  it("should stack only the groups that do not fit at full width", async () => {
+    const [all, three] = await renderStepped(330);
+    await expect.poll(() => stacked(all)).toBe("true");
+    expect(shown(three)).toEqual(LABELS.slice(0, 3));
+    expect(stacked(three)).toBe("false");
+  });
+
+  it("should show the first tags as dots in the count when no tag fits", async () => {
+    const [all] = await renderStepped(90);
+    await expect.poll(() => count(all)).toBe(String(LABELS.length));
+    expect(shown(all)).toEqual(LABELS.slice(0, 3));
+    const dots = Array.from(all.querySelectorAll(`.${CSS.B("tag")} .${CSS.B("text")}`))
       .slice(0, 3)
       .map((t) => getComputedStyle(t).display);
     expect(dots).toEqual(["none", "none", "none"]);
-    expect(count(frame)).toBe(COUNTED);
-  });
-
-  it("should name one hidden label in the singular", async () => {
-    const frame = await renderStepped(5);
-    await expect.poll(() => shown(frame)).toEqual(LABELS.slice(0, 5));
-    expect(count(frame)).toBe(`"+1 label"`);
-  });
-
-  it("should show no count when every tag fits the step", async () => {
-    const frame = await renderStepped(5);
-    frame.style.setProperty("--lyra-tags-shown", "6");
-    await expect.poll(() => shown(frame)).toEqual(LABELS);
-    expect(count(frame)).toBeNull();
   });
 });

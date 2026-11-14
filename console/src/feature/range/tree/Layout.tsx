@@ -17,7 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { ContextMenu } from "@/feature/range/tree/ContextMenu";
 import {
@@ -26,6 +26,7 @@ import {
   HighlightContext,
   Item,
 } from "@/feature/range/tree/Item";
+import { useLabelsRoom } from "@/feature/range/tree/room";
 import { Timeline } from "@/feature/range/tree/Timeline";
 import { type Node, NodeProvider } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
@@ -122,6 +123,8 @@ export const Layout = ({
   caretless = false,
 }: LayoutProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useLabelsRoom(listRef);
   const content =
     layout === "timeline" ? (
       <Timeline
@@ -133,6 +136,7 @@ export const Layout = ({
       />
     ) : (
       <List.Scroll
+        ref={listRef}
         grow
         className={CSS.BE("range-tree", "list")}
         onContextMenu={menuProps.open}

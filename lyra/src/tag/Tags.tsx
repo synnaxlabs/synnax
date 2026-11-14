@@ -26,6 +26,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
 import { Batch, type Count, describe, Group, type Hidden } from "@/tag/fold";
+import { Steps } from "@/tag/step";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
@@ -79,7 +80,7 @@ const sameFold = (a: Fold, b: Fold): boolean =>
     (h, i) => h.name === b.hidden[i].name && h.color === b.hidden[i].color,
   );
 
-// The tags a stepped group hides, read on open: its container sets the step.
+// The tags a stepped group hides, read when the list opens.
 const SteppedHidden = ({
   groupRef,
 }: {
@@ -89,11 +90,10 @@ const SteppedHidden = ({
   useLayoutEffect(() => {
     const el = groupRef.current;
     if (el == null) return;
-    const shown = Number(getComputedStyle(el).getPropertyValue("--lyra-tags-shown"));
-    const tags = Array.from(el.children).filter((c) =>
-      c.classList.contains(CSS.B("tag")),
+    const tags = Array.from(el.children).filter(
+      (c) => c.classList.contains(CSS.B("tag")) && c.hasAttribute("data-hidden"),
     );
-    setHidden(tags.slice(shown).map((t) => describe(t as HTMLElement)));
+    setHidden(tags.map((t) => describe(t as HTMLElement)));
   }, [groupRef]);
   return <HiddenList hidden={hidden} />;
 };
@@ -110,23 +110,33 @@ const SteppedMore = ({
   </Tooltip.Dialog>
 );
 
-const Stepped = createContext(false);
-Stepped.displayName = "Tag.Stepped";
+const StepContext = createContext<Steps | null>(null);
+StepContext.displayName = "Tag.StepContext";
 
 /**
- * Makes the groups of tags under it take their step from their container instead of
- * fitting themselves. The container sets `--lyra-tags-shown` to the number of tags to
- * show, and `--lyra-tags-stacked` to `true` to overlap them. Every group under one
- * container then shows the same step.
+ * Fits the groups of tags under it together, so they all show the same step: the same
+ * number of tags, then a count. It sets `--lyra-tags-need` to the full width of the
+ * widest group, for a container that sizes itself to hold them.
  */
-export const StepProvider = ({ children }: PropsWithChildren): ReactElement => (
-  <Stepped value>{children}</Stepped>
-);
+export const StepProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const [steps] = useState(() => new Steps());
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (ref.current == null) return;
+    steps.attach(ref.current);
+    return () => steps.detach();
+  }, [steps]);
+  return (
+    <div ref={ref} className={CSS.BE("tags", "steps")}>
+      <StepContext value={steps}>{children}</StepContext>
+    </div>
+  );
+};
 
 /**
  * A row of tags that never overflows its container. Tags that do not fit stack, then
- * fold into a count that lists them on hover. Under a {@link StepProvider}, the
- * container sets the step instead.
+ * fold into a count that lists them on hover. Under a {@link StepProvider}, it shows
+ * the step the provider sets.
  */
 export const Tags = ({
   ref,
@@ -137,7 +147,8 @@ export const Tags = ({
   className,
   ...rest
 }: TagsProps) => {
-  const stepped = useContext(Stepped);
+  const steps = useContext(StepContext);
+  const stepped = steps != null;
   const [batch] = useState(() => (stepped ? null : new Batch()));
   useEffect(() => () => batch?.dispose(), [batch]);
   const [fold, setFold] = useState<Fold>({ hidden: [], count: "none" });
@@ -158,6 +169,12 @@ export const Tags = ({
       groupRef.current = null;
     };
   }, [batch, size]);
+  useLayoutEffect(() => {
+    const el = elRef.current;
+    if (el == null || steps == null) return;
+    steps.add(el);
+    return () => steps.remove(el);
+  }, [steps]);
   return (
     <Button.Button
       ref={combinedRef}

@@ -76,40 +76,37 @@
     min-width: 0;
 }
 
-/* One labels column, as wide on every item. Its step sets how many tags show. */
+/* One labels column, as wide on every item. It takes the room the names leave, up to
+   what the range with the most labels needs. */
 .console-range-item__labels {
-    --console-range-labels-width: 125rem;
-    --lyra-tags-shown: 5;
-    --lyra-tags-stacked: false;
+    --console-range-labels-width: clamp(
+        17rem,
+        var(--console-range-labels-room, 17rem),
+        var(--lyra-tags-need, 17rem)
+    );
 
     display: flex;
-    flex: 0 1 auto;
-    width: var(--console-range-labels-width);
-    min-width: var(--console-range-labels-width);
+    flex-shrink: 0;
     overflow: hidden;
-    transition: width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+
+    & .console-range-item__tags {
+        justify-content: flex-end;
+        width: var(--console-range-labels-width);
+        transition: width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+    }
 }
 
-.console-range-item__labels .console-range-item__tags {
-    justify-content: flex-end;
-}
-
-/* Hover widens the column into the name, as far as its tags can use: each shown tag up
-   to its cap. The step stays. */
+/* Hover widens a stacked item's labels into its name, so they spread. The step stays. */
 .console-range-item:hover {
     /* The name gives way first, however far it has shrunk already. */
     & .console-range-item__name {
         flex-shrink: 10;
     }
 
-    & .console-range-item__labels {
+    & .console-range-item__labels .console-range-item__tags {
         width: max(
             var(--console-range-labels-width),
-            min(
-                var(--console-range-labels-width) + 24rem,
-                var(--lyra-tags-shown) * (var(--lyra-tags-cap) + 0.5rem) +
-                    var(--lyra-tags-reserve)
-            )
+            min(var(--lyra-tags-fit, 0px), var(--console-range-labels-width) + 24rem)
         );
     }
 }
@@ -161,52 +158,7 @@
     pointer-events: none;
 }
 
-/* As the list narrows, the labels column narrows in steps: all tags at full width,
-   then stacked, then fewer tags and a count, then the count alone. Then the labels
-   hide and the start goes compact. The list's width alone sets each step, so every
-   item shows the same one. */
-@container range-list (width < 240rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 103rem;
-        --lyra-tags-shown: 4;
-    }
-}
-
-@container range-list (width < 205rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 84rem;
-        --lyra-tags-stacked: true;
-    }
-}
-
-@container range-list (width < 170rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 60rem;
-        --lyra-tags-shown: 3;
-    }
-}
-
-@container range-list (width < 140rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 45rem;
-        --lyra-tags-shown: 2;
-    }
-}
-
-@container range-list (width < 115rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 32rem;
-        --lyra-tags-shown: 1;
-    }
-}
-
-@container range-list (width < 95rem) {
-    .console-range-item__labels {
-        --console-range-labels-width: 17rem;
-        --lyra-tags-shown: 0;
-    }
-}
-
+/* A narrow list hides the labels. */
 @container range-list (width < 80rem) {
     .console-range-item__labels {
         display: none;

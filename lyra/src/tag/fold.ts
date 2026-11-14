@@ -10,7 +10,7 @@
 import { CSS } from "@/css";
 
 /** A tag's full width, and the narrowest it gets in a stack before it folds. */
-interface Measure {
+export interface Measure {
   natural: number;
   floor: number;
 }
@@ -44,13 +44,13 @@ export const describe = (tag: HTMLElement): Hidden => {
   };
 };
 
-const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
+export const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
-const px = (value: string): number => parseFloat(value) || 0;
+export const px = (value: string): number => parseFloat(value) || 0;
 
 // An element's border-box width in its own CSS pixels. Unlike a bounding box, it does
 // not change with the page's zoom.
-const cssWidth = (el: Element): number => {
+export const cssWidth = (el: Element): number => {
   const cs = getComputedStyle(el);
   const w = px(cs.width);
   if (cs.boxSizing === "border-box") return w;
@@ -85,7 +85,7 @@ const textBox = (
 };
 
 // Reads a tag at full width, in CSS pixels: the group must carry the measuring class.
-const measure = (tag: HTMLElement): Measure => {
+export const measure = (tag: HTMLElement): Measure => {
   const natural = cssWidth(tag);
   const text = textBox(tag);
   const scale = tag.getBoundingClientRect().width / natural;
