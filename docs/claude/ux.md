@@ -56,8 +56,9 @@ lighter step or the base step in dark mode.
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
   rem to a whole pixel with `round(..., 1px)`.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
-  and text buttons, inputs, and keycaps use tiny. Filled buttons, tabs, tags, and
-  tooltips use small. Modals and context menus use large. Do not add a step.
+  and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
+  tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
+  bars, and page sections use large. Do not add a step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 
@@ -66,7 +67,7 @@ lighter step or the base step in dark mode.
 - Levels: h1 33, h2 27, h3 21, h4 16, h5 14, p 13, small 12, and tiny 11 px. Headings
   are weight 500, h5 is 450, and p, small, and tiny are 400.
 - Small text is 12 px: field labels, help and error text, table headings, toast
-  descriptions, small buttons, and context menus.
+  descriptions, and small buttons.
 - Tiny text is 11 px, only for small extras: times, keycaps, tags, counts, and task
   subtitles.
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
@@ -291,7 +292,23 @@ bound, a log precision, or the line plot X channel.
 
 ### Menus and selects
 
-- Context menus use 12 px text in 24 px items.
+- Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
+  its values.
+- The filter menu, its submenus, and the pickers of a filter chip use the context menu
+  surface: l2, an l6 border, the large radius, 6 px padding, and the overlay shadow.
+- A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
+  ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
+  submenu, the items it crosses do not light or open.
+- A submenu opens with its first item level with its parent item, edge to edge with the
+  menu. It fades in when it opens first, and it replaces another submenu with no
+  animation.
+- The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
+  highlight follows the pointer with no fade.
+- The search in a submenu is a line of text over a hairline, with no box.
+- Every explorer filters through `View.Filter`: one menu item for each property, which
+  opens its picker as a submenu. A chip opens the same picker below the chip.
+- Values have 4 px corners. A picked value tints, with no checkbox, and picked values
+  next to each other join into one highlight.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
@@ -343,6 +360,53 @@ bound, a log precision, or the line plot X channel.
   the content (`margin-inline` in `lyra/src/select/Item.css`). The checkbox in a
   headings band sits the same way. Gaps of 9 and 12 px to the content were rejected.
 - Hover tints the item faintly, and a press does not deepen the tint.
+- A timeline lane is checkable too, and spaces its checkbox as a tree item does. Its
+  label gives up the checkbox width, so the bars stay on the time axis.
+
+### Explorer bars
+
+- An explorer has two bars. The first holds the search, then the views. The second holds
+  Filter and its chips on the left, and the sort, layouts, and Create on the right.
+- The search is 270 px wide. A hairline that runs the full height of the bar separates
+  it from the views. Its icon is above the Filter icon.
+- Both bars sit in one island: an l1 card with an l5 border and the large radius, inset
+  6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
+  bars. The second bar's controls are 28 px with 13 px text.
+- Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- The bars have no edit toggle. The search shows on every view. On a static view, and on
+  a saved view that the user may update, the user changes the filters, the sort, and the
+  layout. Other saved views show the filter chips, the sort, and the layout read-only.
+  Create view shows when the user may create views.
+
+### View tabs
+
+- A view is a 28 px pill with the medium radius: an icon, then the name, with a 6 px
+  gap. Names are l9. The open view takes the text color, a fill, and an l6 border.
+- The add view button sits right after the last view, not at the end of the bar.
+- A view has an icon and a color, picked from "Change icon" in its context menu with the
+  same picker as panels. The fixed view shows the explorer's icon.
+- Create view opens a modal like the project modal: an icon button, then the name. The
+  name has no default value.
+
+### Filter chips
+
+- A chip is a row of parts: name, operator, value, and remove. It has an l2 fill, an l5
+  border, the medium radius, and l6 lines between its parts.
+- A chip is 26 px tall, and each part has 10.5 px of padding on each side. The text is
+  13 px.
+- The name icon and the operator are muted (l9). The remove part is 28 px wide. Its icon
+  is 12 px and l8, and it takes the text color on hover.
+- A part that opens something gets l3 on hover and l4 on press.
+- The dots of a labels value overlap a little, as one group.
+
+### Page sections
+
+- A section of a record page, such as Child ranges or Metadata, is an outlined box like
+  the channel box of a task form: an l6 outline, the large radius, an l1 body, and an l2
+  header bar 37 px tall with a line under it.
+- The header holds one text button with the section's icon, title, and caret. It
+  collapses the box to its bar. An action in the header opens the box again.
+- An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
 ### Record tables
 
@@ -351,6 +415,10 @@ bound, a log precision, or the line plot X channel.
 - The Users page of Settings is a record table with checkable items, like the range
   explorer: the name, then a role select in place. A right click opens the menu of the
   selected users. A "You" badge follows the current user's name.
+- The Labels page of Settings is a record table with checkable items, like the range
+  explorer: a color swatch, then the name. Click the swatch to recolor. A right click
+  opens the menu of the selected labels. You create a label from the page or from any
+  label field.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

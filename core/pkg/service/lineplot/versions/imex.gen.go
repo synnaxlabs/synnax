@@ -15,15 +15,17 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 )
 
 // Latest is the portable schema version stamped on exported LinePlot envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v8.Version
+const Latest = v10.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's LinePlot
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -47,7 +49,15 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		if err != nil {
 			return LinePlot{}, err
 		}
-		return t8, nil
+		t9, err := v9.MigrateLinePlot(ctx, t8)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t10, err := v10.MigrateLinePlot(ctx, t9)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t10, nil
 	case v6.Version:
 		t6, err := env.Decode[v6.LinePlot](ctx)
 		if err != nil {
@@ -61,7 +71,15 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		if err != nil {
 			return LinePlot{}, err
 		}
-		return t8, nil
+		t9, err := v9.MigrateLinePlot(ctx, t8)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t10, err := v10.MigrateLinePlot(ctx, t9)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t10, nil
 	case v7.Version:
 		t7, err := env.Decode[v7.LinePlot](ctx)
 		if err != nil {
@@ -71,8 +89,40 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		if err != nil {
 			return LinePlot{}, err
 		}
-		return t8, nil
+		t9, err := v9.MigrateLinePlot(ctx, t8)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t10, err := v10.MigrateLinePlot(ctx, t9)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t10, nil
 	case v8.Version:
+		t8, err := env.Decode[v8.LinePlot](ctx)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t9, err := v9.MigrateLinePlot(ctx, t8)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t10, err := v10.MigrateLinePlot(ctx, t9)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t10, nil
+	case v9.Version:
+		t9, err := env.Decode[v9.LinePlot](ctx)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t10, err := v10.MigrateLinePlot(ctx, t9)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t10, nil
+	case v10.Version:
 		return env.Decode[LinePlot](ctx)
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -93,5 +143,13 @@ func liftFirst(ctx context.Context, t5 v5.LinePlot) (LinePlot, error) {
 	if err != nil {
 		return LinePlot{}, err
 	}
-	return t8, nil
+	t9, err := v9.MigrateLinePlot(ctx, t8)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	t10, err := v10.MigrateLinePlot(ctx, t9)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	return t10, nil
 }

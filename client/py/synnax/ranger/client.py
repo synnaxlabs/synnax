@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
+from typing import Any, Literal, cast, overload, override
 
 import numpy as np
 from pydantic import BaseModel, JsonValue, PrivateAttr
@@ -21,7 +21,7 @@ from freighter import UnaryClient
 from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import actions_gen, alias as alias_, kv
+from synnax.ranger import actions_gen, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Cursor,
@@ -29,6 +29,7 @@ from synnax.ranger.types_gen import (
     Order,
     Payload,
     RetrieveRequest,
+    Stage,
     Where,
     WhereInput,
     resource_id,
@@ -44,6 +45,7 @@ from synnax.telem import (
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeSpan,
     TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
@@ -52,10 +54,6 @@ from x.interop import ArrayOperators
 from x.lists import normalize
 from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
-
-# synnax.task imports this module through its range field.
-if TYPE_CHECKING:
-    from synnax.task import Client as TaskClient, Task
 
 _RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -82,11 +80,8 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    _aliaser: alias_.Client | None = PrivateAttr(None)
-    """An aliaser for setting the channel's alias."""
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
-    _tasks: TaskClient | None = PrivateAttr(None)
 
     # ArrayOperators clears __hash__, but writes can key data by channel payload.
     __hash__ = channel.Payload.__hash__
@@ -95,15 +90,11 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self,
         rng: Range,
         frame_client: framer.Client,
-        tasks: TaskClient,
         payload: channel.Payload,
-        _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
         self._cached_range = rng
         self._cached_frame_client = frame_client
-        self._aliaser = _aliaser
-        self._tasks = tasks
 
     @property
     def _range(self) -> Range:
@@ -142,9 +133,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         if self._cache is None:
             self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
-
-    def set_alias(self, alias: str) -> None:
-        self._range.set_alias(self.key, alias)
 
     @override
     def __str__(self) -> str:
@@ -235,10 +223,6 @@ class ScopedChannel(ArrayOperators):
         self._guard()
         return self._internal[0].leaseholder
 
-    def set_alias(self, alias: str) -> None:
-        self._guard()
-        self._internal[0].set_alias(alias)
-
     def __iter__(self) -> Iterator[_InternalScopedChannel]:
         return iter(self._internal)
 
@@ -265,14 +249,11 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
-    """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr({})
     """A writer for creating child ranges"""
     _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr({})
     """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
-    _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
     @deprecate_positional("name", "time_range", "key", "color", "parent")
@@ -285,12 +266,11 @@ class Range(Payload):
         color: color_.Crude | None = None,
         labels: Sequence[label.Key] = (),
         parent: Key | Payload | None = None,
+        has_children: bool = False,
         _frame_client: framer.Client | None = None,
         _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
-        _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
-        _tasks: TaskClient | None = None,
         _label_client: label.Client | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
@@ -308,6 +288,8 @@ class Range(Payload):
         :param color: An optional display color. None means the range has no color.
         :param labels: The keys of the labels to attach to the range.
         :param parent: The parent range, or its key. None means the range has no parent.
+        :param has_children: Whether other ranges are nested in the range. The Core
+            sets it on each retrieve, and it is never stored.
         :param _frame_client: The backing client for reading and writing data to
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
@@ -322,13 +304,12 @@ class Range(Payload):
             color=None if color is None else color_.Color(color),
             labels=list(labels),
             parent=parent.key if isinstance(parent, Payload) else parent,
+            has_children=has_children,
         )
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self._cached_aliaser = _aliaser
         self._cached_client = _client
-        self._cached_tasks = _tasks
         self._cached_label_client = _label_client
 
     def _get_scoped_channel(
@@ -348,8 +329,6 @@ class Range(Payload):
         if scoped is not None:
             return scoped
         channels = self._channel_retriever.retrieve(query)
-        aliases = self._aliaser.resolve([query])
-        channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         scoped = self._get_scoped_channel(channels, query)
         self._scoped[query] = scoped
         return scoped
@@ -375,7 +354,6 @@ class Range(Payload):
                     rng=self,
                     frame_client=self._frame_client,
                     payload=pld,
-                    tasks=self._tasks,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
@@ -392,12 +370,6 @@ class Range(Payload):
         return self._kv
 
     @property
-    def _aliaser(self) -> alias_.Client:
-        if self._cached_aliaser is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_aliaser
-
-    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
@@ -408,12 +380,6 @@ class Range(Payload):
         if self._cached_client is None:
             raise _RANGE_NOT_CREATED
         return self._cached_client
-
-    @property
-    def _tasks(self) -> TaskClient:
-        if self._cached_tasks is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_tasks
 
     @property
     def _label_client(self) -> label.Client:
@@ -427,30 +393,6 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._channels
 
-    @overload
-    def set_alias(self, channel: channel.Key | str, alias: str) -> None: ...
-
-    @overload
-    def set_alias(self, channel: dict[channel.Key | str, str]) -> None: ...
-
-    def set_alias(
-        self,
-        channel: channel.Key | str | dict[channel.Key | str, str],
-        alias: str | None = None,
-    ) -> None:
-        if not isinstance(channel, dict):
-            if alias is None:
-                raise ValueError("Alias must be provided if channel is not a dict")
-            channel = {channel: alias}
-        corrected = {}
-        for ch, alias in channel.items():
-            if isinstance(ch, str):
-                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
-            else:
-                corrected[ch] = alias
-        self._aliaser.set(corrected)
-        self._scoped.clear()
-
     def to_payload(self) -> Payload:
         return Payload(
             name=self.name,
@@ -459,6 +401,7 @@ class Range(Payload):
             color=self.color,
             labels=self.labels,
             parent=self.parent,
+            has_children=self.has_children,
         )
 
     @overload
@@ -523,10 +466,6 @@ class Range(Payload):
         """
         self._label_client.remove(self.resource_id, list(labels))
 
-    def snapshots(self) -> list[Task]:
-        """Returns the task snapshots in this range."""
-        return self._tasks.retrieve(ranges=[self.key])
-
 
 class Client:
     _frame_client: framer.Client
@@ -535,7 +474,6 @@ class Client:
     _writer: Writer
     _unary_client: UnaryClient
     _signals: Registry
-    _tasks: TaskClient
     _labels: label.Client
 
     def __init__(
@@ -547,7 +485,6 @@ class Client:
         retriever: Retriever,
         channel_retriever: channel.Retriever,
         signals: Registry,
-        tasks: TaskClient,
         labels: label.Client,
     ) -> None:
         self._unary_client = unary_client
@@ -556,7 +493,6 @@ class Client:
         self._retriever = retriever
         self._channels = channel_retriever
         self._signals = signals
-        self._tasks = tasks
         self._labels = labels
 
     @overload
@@ -683,6 +619,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -700,6 +640,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -717,6 +661,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -738,6 +686,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -780,6 +732,13 @@ class Client:
         :param labels: Keeps ranges that have this label, or any label in the list.
         :param parents: Keeps the ranges nested in this range, or in any range in the
             list.
+        :param nested: Keeps the ranges nested in a range, or top-level ranges when
+            false.
+        :param labeled: Keeps ranges that have a label, or ranges with none when false.
+        :param stages: Keeps ranges in this stage, or in any stage in the list, at the
+            Core's clock.
+        :param recent: Keeps ranges that overlap the span ending now, or starting now if
+            negative.
         :param and_: Keeps ranges that match every filter in the list.
         :param or_: Keeps ranges that match any filter in the list.
         :param not_: Keeps ranges that do not match the filter.
@@ -911,9 +870,7 @@ class Client:
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=kv.Client(rng=r.key, client=self._unary_client),
-                _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
-                _tasks=self._tasks,
                 _label_client=self._labels,
             )
             result.append(rng)

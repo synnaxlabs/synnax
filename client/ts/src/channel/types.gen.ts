@@ -168,8 +168,6 @@ export const payloadZ = z.object({
    * with a timestamp.
    */
   index: keyZ.default(0),
-  /** alias is an optional alternate name for the channel within a specific context. */
-  alias: z.string().optional(),
   /**
    * virtual is true if this channel does not store data in the database but can still
    * be used for streaming purposes.

@@ -575,17 +575,13 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 		moved   = make(map[K]E)
 		gorpCtx = newContext(ctx, snap)
 		batch   int
-		bounded []K
 	)
-	if r.HasFilterKeys() {
-		bounded = r.filter.keys.Keys()
-	}
 	if r.limit > 0 {
 		batch = max(r.limit, minWalkBatch)
 	}
 	// A walk with no limit keeps every match and sorts them into place at the end.
 	snapshot := batch == 0
-	for k, holds := range r.orderBy.walk(bounded, batch) {
+	for k, holds := range r.orderBy.walk(r.filter.keys, batch) {
 		// A commit between two batches can move a counted key ahead of the walk.
 		if counted.Contains(k) {
 			continue

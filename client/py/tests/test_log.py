@@ -112,7 +112,7 @@ class TestClient:
         virtual_channel: sy.Channel,
     ) -> None:
         """Should store the default timestamp config of a channel entry."""
-        entry = sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
+        entry = sy.log.ChannelEntry(channel=virtual_channel.key)
         log = client.logs.create(
             sy.Log(name="Default", channels=[entry], project=project.key)
         )
@@ -146,17 +146,6 @@ class TestClient:
         client.logs.create(name="Other", project=other.key)
         retrieved = client.logs.retrieve(projects=[project.key])
         assert {r.key for r in retrieved} == {a.key, b.key}
-
-    def test_retrieve_by_range_without_logs(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should return no logs when the range owns none."""
-        client.logs.create(name="Project Owned", project=project.key)
-        rng = client.ranges.create(
-            name="Empty Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        assert client.logs.retrieve(ranges=[rng.key]) == []
 
     def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should filter the logs by group."""

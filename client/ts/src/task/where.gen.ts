@@ -12,7 +12,6 @@ import { compare, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { rack } from "@/rack";
-import { ranger } from "@/ranger";
 import {
   type Cursor,
   keyZ,
@@ -27,7 +26,6 @@ import {
  * that only the Core can check.
  */
 export interface Lines {
-  ranges: ((record: Payload, value: NonNullable<Where["ranges"]>) => boolean) | null;
   arcs: ((record: Payload, value: NonNullable<Where["arcs"]>) => boolean) | null;
 }
 
@@ -50,12 +48,6 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
   if (where.rack != null && !filter.matchesSet(where.rack, record.rack)) return false;
   if (where.internal != null && !filter.matchesSet(where.internal, record.internal))
     return false;
-  if (where.snapshot != null && !filter.matchesSet(where.snapshot, record.snapshot))
-    return false;
-  if (where.ranges != null) {
-    if (lines.ranges == null) throw new Error("only the Core can check ranges");
-    if (!lines.ranges(record, where.ranges)) return false;
-  }
   if (where.arcs != null) {
     if (lines.arcs == null) throw new Error("only the Core can check arcs");
     if (!lines.arcs(record, where.arcs)) return false;
@@ -74,7 +66,6 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
     where.type?.regex != null ||
-    (where.ranges != null && lines.ranges == null) ||
     (where.arcs != null && lines.arcs == null));
 
 const inputs = {
@@ -88,10 +79,6 @@ const inputs = {
   rack: filter.setInputZ(rack.keyZ).exactOptional(),
   /** internal selects by internal. */
   internal: filter.boolInputZ.exactOptional(),
-  /** snapshot selects by snapshot. */
-  snapshot: filter.boolInputZ.exactOptional(),
-  /** ranges matches the tasks that are snapshots in any of the given ranges. */
-  ranges: filter.listInputZ(ranger.keyZ).exactOptional(),
   /** arcs matches the tasks that run any of the Arcs with the given keys. */
   arcs: filter.listInputZ(z.uuid()).exactOptional(),
 };
@@ -140,8 +127,6 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "type",
         "rack",
         "internal",
-        "snapshot",
-        "ranges",
         "arcs",
       ]),
     );
@@ -153,8 +138,6 @@ export const LIST_FIELDS: readonly string[] = [
   "name",
   "type",
   "internal",
-  "snapshot",
-  "range",
 ];
 
 /** @returns the position of record in order, or in key order when order is absent. */

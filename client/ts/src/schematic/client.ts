@@ -15,7 +15,6 @@ import { actions } from "@/actions";
 import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
 import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
@@ -50,15 +49,9 @@ export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const copyReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-  snapshot: z.boolean(),
-  /** Makes the copy belong to the range instead of the original's project. */
-  range: ranger.keyZ.optional(),
-});
+const copyReqZ = z.object({ key: keyZ, name: z.string() });
 
-const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.MEMBER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),

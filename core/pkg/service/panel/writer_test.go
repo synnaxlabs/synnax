@@ -99,7 +99,7 @@ var _ = Describe("Writer", func() {
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
-			}, "split size must be in [0, 1]"),
+			}, "size: must be less than or equal to 1"),
 			Entry("nil child node", func() panel.Node {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(uuid.New())), panel.Node{})
@@ -107,14 +107,14 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should reject a panel with neither a project nor a range",
+			"Should reject a panel with no project",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "draft"}
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &p),
 				).To(MatchError(ContainSubstring(
-					"project: must belong to exactly one of a project and a range",
+					"project: must belong to a project",
 				)))
 			},
 		)
@@ -226,6 +226,26 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+
+	DescribeTable("Should reject an Apply that resizes a split outside [0, 1]",
+		func(ctx SpecContext, size float64, expected string) {
+			tx := DeferClose(db.OpenTx())
+			p := panel.Panel{Name: "resized", Project: &proj.Key, Root: splitNode(
+				spatial.DirectionX,
+				0.5,
+				leafNode(tab(uuid.New())),
+				leafNode(tab(uuid.New())),
+			)}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			resize := panel.NewResizeSplitAction(
+				panel.ResizeSplitPayload{Split: 1, Size: size},
+			)
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, resize)).
+				Error().To(MatchError(ContainSubstring(expected)))
+		},
+		Entry("above 1", 1.5, "size: must be less than or equal to 1"),
+		Entry("below 0", -0.1, "size: must be greater than or equal to 0"),
+	)
 
 	Describe("Apply of a project move", func() {
 		It("Should move the panel into the project", func(ctx SpecContext) {

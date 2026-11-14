@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <numeric>
+#include <set>
 #include <utility>
 
 #include "absl/log/log.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/engine/clock.h"
@@ -32,9 +35,14 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief how often a call that needs the stopped bus tries mu again.
+const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
+/// @brief AL status codes of a slave that kept the layout of an earlier mode or master.
+/// The slave takes its new layout when the next start resets it.
+constexpr std::array<uint16_t, 2> STALE_LAYOUT_CODES{0x001D, 0x001E};
 
 uint64_t millihertz(const x::telem::Rate rate) {
     return static_cast<uint64_t>(std::llround(rate.hz() * 1000));
@@ -404,6 +412,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         .slaves = std::move(configs),
     };
     this->left_out.clear();
+    std::set<uint16_t> reset;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     const auto &clock = this->config.host_clock;
@@ -423,12 +432,24 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
+            std::map<uint16_t, slave::Refusal> leaving;
+            for (const auto &[pos, refusal]: refused) {
+                if (std::ranges::find(STALE_LAYOUT_CODES, refusal.code) !=
+                        STALE_LAYOUT_CODES.end() &&
+                    reset.insert(pos).second) {
+                    LOG(WARNING)
+                        << "[ethercat] slave " << pos << " on " << this->iface << " "
+                        << refusal.reason << ", starting again with it reset";
+                    continue;
+                }
+                leaving.insert({pos, refusal});
+            }
             // A slave with no process data, such as a coupler, gives a task nothing to
             // run.
             const bool io_left = std::ranges::any_of(
                 this->image.offsets,
-                [&refused](const auto &offset) {
-                    return !refused.contains(offset.first.slave_position);
+                [&leaving](const auto &offset) {
+                    return !leaving.contains(offset.first.slave_position);
                 }
             );
             if (this->bus.running())
@@ -436,15 +457,15 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             else
                 this->master->deactivate();
             if (!refused.empty() && io_left) {
-                for (const auto &[pos, refusal]: refused) {
+                for (const auto &[pos, refusal]: leaving) {
                     LOG(WARNING)
                         << "[ethercat] starting " << this->iface << " without slave "
                         << pos << ": it " << refusal.reason;
                     plan.slaves[pos].enabled = false;
                 }
                 for (const auto &s: this->slaves)
-                    if (const auto it = refused.find(s.properties.position);
-                        it != refused.end())
+                    if (const auto it = leaving.find(s.properties.position);
+                        it != leaving.end())
                         this->left_out[it->first] = {
                             .name = s.properties.name,
                             .refusal = it->second,
@@ -724,6 +745,10 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const size_t samples_per_read,
     const Settings &settings
 ) {
+    this->opens.fetch_add(1, std::memory_order_acq_rel);
+    x::defer::defer done([this] {
+        this->opens.fetch_sub(1, std::memory_order_acq_rel);
+    });
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, entries, sample_rate, false, settings);
     if (err) return {nullptr, err};
@@ -751,6 +776,10 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         pdo_entries.push_back(entry);
         stop_values.push_back(stop_value);
     }
+    this->opens.fetch_add(1, std::memory_order_acq_rel);
+    x::defer::defer done([this] {
+        this->opens.fetch_sub(1, std::memory_order_acq_rel);
+    });
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true, {});
     if (err) return {nullptr, err};
@@ -793,17 +822,37 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
     return this->rediscover_locked();
 }
 
-x::errors::Error Engine::configure(
-    const slave::Properties &slave,
-    const std::vector<slave::StartupParameter> &parameters
-) {
-    std::lock_guard lock(this->mu);
+std::pair<std::unique_lock<std::mutex>, x::errors::Error> Engine::lock_stopped() {
+    std::unique_lock lock(this->mu, std::defer_lock);
+    // An open counts itself before it waits on mu, so this never waits behind a start.
+    while (this->opens.load(std::memory_order_acquire) == 0 && !lock.try_lock())
+        std::this_thread::sleep_for(LOCK_POLL_INTERVAL.chrono());
+    if (!lock.owns_lock())
+        return {
+            std::move(lock),
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                "A task is starting on " + this->network_name +
+                    ". Try again when the start ends, or stop the task."
+            )
+        };
     if (this->running())
-        return x::errors::Error(
-            errors::SLAVE_CONFIG_ERROR,
-            "A task uses " + this->network_name + ". Stop the tasks that use it first."
-        );
-    const auto [slaves, err] = this->master->scan();
+        return {
+            std::move(lock),
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                "A task uses " + this->network_name +
+                    ". Stop the tasks that use it first."
+            )
+        };
+    return {std::move(lock), x::errors::NIL};
+}
+
+x::errors::Error
+Engine::configure(const slave::Properties &slave, const Parameters &parameters) {
+    const auto [lock, lock_err] = this->lock_stopped();
+    if (lock_err) return lock_err;
+    const auto [slaves, err] = this->rediscover_locked();
     if (err) return err;
     const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
         const auto &p = s.properties;
@@ -817,7 +866,10 @@ x::errors::Error Engine::configure(
             slave.name + " is not on " + this->network_name +
                 ". Check its power and cabling."
         );
-    if (auto write_err = this->master->write(found->properties.position, parameters))
+    const auto [params, params_err] = parameters(*found);
+    if (params_err) return params_err;
+    if (params.empty()) return x::errors::NIL;
+    if (auto write_err = this->master->write(found->properties.position, params))
         return write_err;
     return this->rediscover_locked().second;
 }

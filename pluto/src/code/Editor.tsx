@@ -571,7 +571,7 @@ const EditorInternal = ({
         selection.startColumn !== selection.endColumn);
 
     return (
-      <Menu.Menu level="small" gap="small">
+      <Menu.Menu gap="small">
         <Menu.Item
           itemKey="cut"
           trigger={Triggers.CUT}

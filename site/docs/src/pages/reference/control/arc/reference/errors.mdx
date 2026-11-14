@@ -356,25 +356,22 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item
   message={[
-    'color must be a hex value (e.g. "#3bc454"), rgb(r,g,b), or hsl(h,s%,l%): "<v>": validation error',
+    'invalid color: "<v>": validation error',
     'invalid hex color: "<v>": validation error',
-    'invalid hex color length: "<v>": validation error',
-    'rgb() takes 3 channels; use rgba() for alpha: "<v>": validation error',
-    'rgba() requires a 4th alpha channel: "<v>": validation error',
-    'rgb channels must be 0-255: "<v>": validation error',
-    'invalid rgb alpha: "<v>": validation error',
-    'rgba alpha must be 0-1: "<v>": validation error',
-    'hsl() takes 3 channels; use hsla() for alpha: "<v>": validation error',
-    'hsla() requires a 4th alpha channel: "<v>": validation error',
-    'invalid hsl hue: "<v>": validation error',
-    'hsl saturation must be 0-100%: "<v>": validation error',
-    'hsl lightness must be 0-100%: "<v>": validation error',
-    'invalid hsl alpha: "<v>": validation error',
-    'hsla alpha must be 0-1: "<v>": validation error',
+    'rgb() takes 3 or 4 comma-separated values, or 3 space-separated values and an optional / alpha: "<v>": validation error',
+    'rgb() channels must be 0-255: "<v>": validation error',
+    'rgb() alpha must be 0-1: "<v>": validation error',
+    'hsl() takes 3 or 4 comma-separated values, or 3 space-separated values and an optional / alpha: "<v>": validation error',
+    'invalid hsl() hue: "<v>": validation error',
+    'hsl() saturation must be 0-100: "<v>": validation error',
+    'hsl() lightness must be 0-100: "<v>": validation error',
+    'hsl() alpha must be 0-1: "<v>": validation error',
   ]}
 >
   <Problem.Cause>`ranges.create` has a `color` that is not a color.</Problem.Cause>
-  <Problem.Fix>Use a hex, `rgb()`, `rgba()`, `hsl()`, or `hsla()` color.</Problem.Fix>
+  <Problem.Fix>
+    Use a CSS color name, or a hex, `rgb()`, `rgba()`, `hsl()`, or `hsla()` color.
+  </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"stable.for input must be a numeric or bool type, got <T>"}>
   <Problem.Cause>`stable.for` gets a `str` value.</Problem.Cause>

@@ -57,7 +57,7 @@ THREAD_NODES = (
 COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
 MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
-DISMISSED = "A member dismissed every finding of the review."
+DISMISSED = "A member dismissed every finding of the review that blocks merge."
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
@@ -87,12 +87,14 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that a member dismissed. A review with
-    none left scores 5, and so does the head when the rest are dismissed while the
-    review posts. Findings on lines of the diff become one review of inline
-    threads, skipping any finding an unresolved thread of the bot already holds. The
-    rest go in one comment the bot edits on each review. The summary in the pull
-    request body is replaced, and the check run completes.
+    """Posts a review, without the findings that a member dismissed. A review with no
+    blocking finding left scores 5, and so does the head when the rest are dismissed
+    while the review posts. Findings on lines of the diff become one review of inline
+    threads, skipping any finding an unresolved thread of the bot already holds. Such a
+    thread gets the finding's new heading when its severity or follow-up mark changed,
+    and keeps the rest of its comment. The findings outside the diff go in one comment
+    the bot edits on each review. The summary in the pull request body is replaced, and
+    the check run completes.
     """
     t = target
     found = threads(t, gh)
@@ -100,8 +102,14 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
-    posted = {(th.path, th.title) for th in found if not th.resolved}
+    posted = {(th.path, th.title): th for th in found if not th.resolved}
     fresh = [f for f in inline if (f.path, f.title) not in posted]
+    for f in inline:
+        th = posted.get((f.path, f.title))
+        if th is not None and th.heading != render.heading(f):
+            body = render.heading(f) + th.body[len(th.heading) :]
+            comment = f"repos/{t.repo}/pulls/comments/{th.comment}"
+            write(gh, "PATCH", comment, {"body": body})
     if fresh:
         comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
         payload = {
@@ -131,7 +139,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
-    if review.findings:
+    if any(f.blocks for f in review.findings):
         recheck(t, gh)
 
 
@@ -139,9 +147,9 @@ def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
     kept = [f for f in review.findings if (f.path, f.title) not in gone]
     if len(kept) == len(review.findings):
         return review
-    if kept:
+    if any(f.blocks for f in kept) or not any(f.blocks for f in review.findings):
         return replace(review, findings=kept)
-    return replace(review, score=5, verdict=DISMISSED, findings=[])
+    return replace(review, score=5, verdict=DISMISSED, findings=kept)
 
 
 def _commentable(patch: str) -> set[int]:
@@ -179,9 +187,18 @@ class Thread:
     id: str
     path: str
     title: str
+    body: str
+    """The finding's comment."""
+    comment: int
+    """The database ID of the finding's comment."""
     resolved: bool
     replies: list[dict[str, Any]]
     """The comments after the finding, oldest first, as GraphQL serves them."""
+
+    @property
+    def heading(self) -> str:
+        """The first line of the finding's comment."""
+        return self.body.split("\n", 1)[0]
 
 
 def threads(t: Target, gh: GH) -> list[Thread]:
@@ -216,6 +233,8 @@ def threads(t: Target, gh: GH) -> list[Thread]:
                     id=node["id"],
                     path=node["path"],
                     title=title,
+                    body=first["body"],
+                    comment=first["databaseId"],
                     resolved=node["resolved"],
                     replies=replies,
                 )
@@ -308,7 +327,14 @@ def _anchor(f: Finding) -> dict[str, Any]:
     return anchor
 
 
-def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
+def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding that the bot's comment of findings
+    outside the diff lists."""
+    c = _outside(t, gh)
+    return set() if c is None else render.outside_listed(c["body"])
+
+
+def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
     out = gh(
         "api",
         "--paginate",
@@ -316,12 +342,18 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
         "--jq",
         ".[] | {id, login: .user.login, body} | tojson",
     )
-    for c in (json.loads(line) for line in out.splitlines() if line):
+    comments: list[dict[str, Any]] = [json.loads(s) for s in out.splitlines() if s]
+    for c in comments:
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
-            path = f"repos/{t.repo}/issues/comments/{c['id']}"
-            write(gh, "PATCH", path, {"body": body})
-            return
-    if created:
+            return c
+    return None
+
+
+def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
+    c = _outside(t, gh)
+    if c is not None:
+        write(gh, "PATCH", f"repos/{t.repo}/issues/comments/{c['id']}", {"body": body})
+    elif created:
         write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
 
 
@@ -340,8 +372,8 @@ def recheck(t: Target, gh: GH) -> None:
 
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review in the threads. Returns whether it did.
+    """Scores the head 5/5 in a new check run when a member dismissed every blocking
+    finding of its newest review in the threads. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """

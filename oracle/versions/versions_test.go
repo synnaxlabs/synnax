@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -144,6 +145,52 @@ var _ = Describe("Discover", func() {
 		)).To(Succeed())
 		Expect(versions.Discover(root)).Error().
 			To(MatchError(ContainSubstring("declares no versions")))
+	})
+
+	It("Should skip a chain directory marked removed", func() {
+		root := writeRepo(map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
+			"schemas/synnax/versions/alias/removed":     "",
+		})
+		Expect(MustSucceed(versions.Discover(root))).
+			To(SatisfyAll(HaveLen(1), HaveKey("schemas/synnax/channel")))
+	})
+})
+
+var _ = Describe("Removed", func() {
+	It("Should return the chains marked removed", func() {
+		root := writeRepo(map[string]string{
+			"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
+			"schemas/synnax/versions/alias/removed":     "",
+		})
+		Expect(MustSucceed(versions.Removed(root))).
+			To(Equal(set.New("schemas/synnax/alias")))
+	})
+
+	It("Should return no chains when no schemas directory exists", func() {
+		Expect(MustSucceed(versions.Removed(GinkgoT().TempDir()))).To(BeEmpty())
+	})
+
+	It("Should reject a removed marker next to version files", func() {
+		root := writeRepo(map[string]string{
+			"schemas/synnax/versions/alias/v0.oracle": "Key = uuid\n",
+			"schemas/synnax/versions/alias/removed":   "",
+		})
+		Expect(versions.Removed(root)).Error().To(MatchError(
+			ContainSubstring("schemas/synnax/versions/alias must contain only its " +
+				"removed marker"),
+		))
+	})
+
+	It("Should reject a removed chain whose live file exists", func() {
+		root := writeRepo(map[string]string{
+			"schemas/synnax/alias.oracle":           "Key = uuid\n",
+			"schemas/synnax/versions/alias/removed": "",
+		})
+		Expect(versions.Removed(root)).Error().To(MatchError(
+			"schemas/synnax/alias is marked removed, but schemas/synnax/alias.oracle " +
+				"exists",
+		))
 	})
 })
 

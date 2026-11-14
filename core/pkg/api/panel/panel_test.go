@@ -117,6 +117,32 @@ var _ = Describe("Service", func() {
 			Expect(got.Project).To(HaveValue(Equal(proj.Key)))
 		})
 
+		It("Should create and delete a draft without update on its owner", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			grantCreate(ctx, u.ResourceID())
+			grant(ctx, u.ResourceID(), access.ActionRetrieve, u.ResourceID())
+			p := panel.Panel{
+				Key:     uuid.New(),
+				Name:    "draft",
+				Project: &proj.Key,
+				Owner:   &u.Key,
+			}
+			MustSucceed(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
+				Panels: []panel.Panel{p},
+			}))
+			Expect(retrievePanel(ctx, p.Key).Owner).To(HaveValue(Equal(u.Key)))
+			grant(ctx, u.ResourceID(), access.ActionDelete, p.ResourceID())
+			MustSucceed(del(AuthedCtx(ctx, u), apipanel.DeleteRequest{
+				Keys: []panel.Key{p.Key},
+			}))
+			Expect(panelSvc.NewRetrieve().
+				Where(panel.MatchKeys(p.Key)).
+				Entry(&panel.Panel{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		})
+
 		It("Should stamp the dispatch key onto the create broadcast", func(
 			ctx SpecContext,
 		) {
@@ -149,7 +175,7 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
-			"Should reject a panel with neither a project nor a range",
+			"Should reject a panel with no project",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				p := panel.Panel{Key: uuid.New(), Name: "no-owner"}
@@ -158,7 +184,7 @@ var _ = Describe("Service", func() {
 				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(ContainSubstring(
-					"must belong to exactly one of a project and a range",
+					"must belong to a project",
 				)))
 			},
 		)

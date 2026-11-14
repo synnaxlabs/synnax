@@ -62,6 +62,31 @@ class TestView:
         assert renamed.name == "After Rename"
         assert renamed.where == where
 
+    def test_style(self, client: sy.Synnax) -> None:
+        """Should store the icon, color, sort, and layout of a view."""
+        v = client.views.create(
+            RangeView(
+                name="Styled",
+                icon="star",
+                color=sy.Color("#ff0000"),
+                sort="oldest",
+                layout="timeline",
+            )
+        )
+        retrieved = client.views.retrieve(key=v.key)
+        assert isinstance(retrieved, RangeView)
+        assert retrieved.icon == "star"
+        assert retrieved.color == sy.Color("#ff0000")
+        assert retrieved.sort == "oldest"
+        assert retrieved.layout == "timeline"
+        client.views.dispatch(
+            v.key, view.set(view.SetPayload(path=["sort"], value="name"))
+        )
+        updated = client.views.retrieve(key=v.key)
+        assert isinstance(updated, RangeView)
+        assert updated.sort == "name"
+        assert updated.icon == "star"
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""
         views = client.views.create(

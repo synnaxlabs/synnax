@@ -11,6 +11,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -35,7 +36,11 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
 
 class EtherCATScanTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     void SetUp() override {
+        this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->rack = ASSERT_NIL_P(this->client->racks.create("test_rack"));
         this->ctx = std::make_shared<task::MockContext>(this->client);
@@ -53,6 +58,8 @@ protected:
             .internal = true
         };
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 class EtherCATScanStatusTest : public EtherCATScanTest {
@@ -409,7 +416,8 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     const auto [configured, handled] = factory.configure_task(
         this->ctx,
         task,
-        driver::task::NO_COMMAND
+        driver::task::NO_COMMAND,
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(configured, nullptr);
@@ -440,6 +448,137 @@ TEST_F(EtherCATScanStatusTest, KeysASlaveBySerialNumber) {
     );
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+}
+
+namespace {
+using Devices = std::unordered_map<std::string, synnax::device::Device>;
+
+/// @brief adds a stored slave device with key for the slave that props describes.
+void store(Devices &devices, const std::string &key, const slave::Properties &props) {
+    devices[key] = synnax::device::Device{
+        .key = key,
+        .model = SLAVE_DEVICE_MODEL,
+        .name = props.name,
+        .properties = props.to_json().get<x::json::json::object_t>(),
+    };
+}
+
+/// @brief the properties of a slave on network with the given identity.
+slave::Properties identity(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial,
+    const std::string &network = "eth0"
+) {
+    return {
+        .network = network,
+        .position = position,
+        .vendor_id = 0x1,
+        .product_code = product_code,
+        .serial = serial,
+        .name = "Slave",
+    };
+}
+}
+
+/// @brief it should keep the device of a slave with its serial number after the slave
+/// moves to another position.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveThatMoved) {
+    Devices devices;
+    store(devices, "saved", identity(4, 0x2, 12345));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(0).properties.at("position"), 1);
+}
+
+/// @brief it should keep the device of a slave with no serial number at its position.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWithNoSerialAtItsPosition) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+}
+
+/// @brief it should give the serial number to a device saved without one at the
+/// position of a slave of the same model.
+TEST_F(EtherCATScanStatusTest, GivesTheSerialToADeviceSavedWithoutOne) {
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+    EXPECT_EQ(scanned.at(0).properties.at("serial"), 12345);
+}
+
+/// @brief it should give a new device to a slave at the position of a saved device of
+/// another model.
+TEST_F(EtherCATScanStatusTest, KeepsADeviceOfAnotherModelAtThePosition) {
+    Devices devices;
+    store(devices, "ethercat_eth0_1_3_1", identity(1, 0x3, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_1_2_12345");
+}
+
+/// @brief it should give a new device to a slave at the position of a saved device of
+/// another unit of its model.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfAnotherUnitAtThePosition) {
+    Devices devices;
+    store(devices, "replaced", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_1_2_12345");
+}
+
+/// @brief it should give a slave with no serial number a new key when a device that
+/// moved with another slave holds the key of its position.
+TEST_F(EtherCATScanStatusTest, GivesANewKeyWhenAMovedDeviceHoldsTheKey) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    this->master->add_slave(identity(2, 0x2, 777));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1_2");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
+    EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
+}
+
+/// @brief it should give the device of a serial number to one slave when slaves on two
+/// networks have the serial number.
+TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
+    auto manager = std::make_unique<testutil::Manager>();
+    for (const auto *network: {"eth0", "eth1"}) {
+        auto master = std::make_shared<testutil::Master>();
+        master->add_slave(identity(1, 0x2, 777, network));
+        manager->configure(network, master);
+    }
+    const auto pool = std::make_shared<engine::Pool>(
+        std::move(manager),
+        NO_SLAVE_CONFIGS
+    );
+    Scanner scanner(this->ctx, this->scan_task(), ScanTaskConfig{}, pool);
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(scanner.scan({.count = 1, .devices = &devices}));
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_1_2_777");
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
@@ -480,6 +619,18 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     this->master->fail_pdo_discovery(1, "no PDO objects found in object dictionary");
     for (size_t i = 0; i < 13; ++i)
         ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
+/// @brief it should save no device for a slave with no vendor and product, and discover
+/// the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
+    for (size_t i = 0; i < 13; ++i) {
+        const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = i}));
+        ASSERT_EQ(devices.size(), 1);
+        EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+    }
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
@@ -881,7 +1032,14 @@ protected:
     void SetUp() override {
         EtherCATScanTest::SetUp();
         auto master = std::make_shared<testutil::Master>();
-        master->add_slave(slave::Properties{.position = 1, .name = "EL3102"});
+        master->add_slave(
+            slave::Properties{
+                .position = 1,
+                .vendor_id = 0x2,
+                .product_code = 0xC1E3052,
+                .name = "EL3102",
+            }
+        );
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", master);
         this->scanner = std::make_unique<Scanner>(
@@ -968,7 +1126,7 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsInvalidProperties) {
 /// scan.
 TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
     const synnax::device::Device dev{
-        .key = "ethercat_eth0_0_0_1",
+        .key = "ethercat_eth0_2_203305042_1",
         .model = SLAVE_DEVICE_MODEL,
         .name = "EL3102",
         .properties = {
@@ -1282,6 +1440,28 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     EXPECT_TRUE(this->master->written().empty());
 }
 
+/// @brief it should refuse at once to switch a slave while a task starts its bus.
+TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskStartsTheBus) {
+    this->start(true);
+    this->master->hold_activate();
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
+    std::thread opener([&engine, &entry] {
+        auto [reader, err] = engine->open_reader({entry}, x::telem::Rate(100), 1);
+    });
+    this->master->wait_until_activating();
+    const auto status = this->set_standalone();
+    this->master->release_activate();
+    opener.join();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "A task is starting on eth0. Try again when the start ends, or stop the task."
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
 /// @brief it should report a set_standalone command that names no device.
 TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     this->start(true);
@@ -1309,7 +1489,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
         status.description,
-        "The device is not on Ethernet 2. Check its power and cabling."
+        "Test Slave is not on Ethernet 2. Check its power and cabling."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

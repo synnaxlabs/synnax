@@ -61,12 +61,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -193,8 +193,6 @@ type Layer struct {
 	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
-	// Alias is for working with channel aliases on ranges.
-	Alias *alias.Service
 	// KV is for working with key-value pairs on ranges.
 	KV *kv.Service
 	// Project is for working with Projects.
@@ -243,6 +241,8 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
+	// Sift owns the stored configuration records of the Sift task types.
+	Sift *sift.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
@@ -755,6 +755,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
+		References: []gorp.Reference[device.Key, device.Device]{
+			sift.APIKeyReference(),
+		},
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
@@ -842,10 +845,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
+	if l.Sift, err = sift.OpenService(ctx, sift.ServiceConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Sift) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -891,15 +900,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-		Channel:         l.Channel,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
-		return nil, err
-	}
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
@@ -938,7 +938,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeProject:         l.Project.Resources(),
 			resource.TypeRack:            l.Rack.Resources(),
 			resource.TypeRange:           l.Ranger.Resources(),
-			resource.TypeRangeAlias:      l.Alias.Resources(),
 			resource.TypeRole:            l.RBAC.Role.Resources(),
 			resource.TypeSchematic:       l.Schematic.Resources(),
 			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
@@ -988,11 +987,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Panel.CompositionMigrations(),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
+			rangeAliasDropMigration,
 		),
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if err = deleteOntologyChannels(
+	if err = deleteRetiredChannels(
 		ctx,
 		cfg.Distribution.DB,
 		l.Channel,
@@ -1048,6 +1048,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Ranger:          l.Ranger,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Label:           l.Label,
+		Task:            l.Task,
+	})
+	if !ok(err, siftFactory) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -1061,6 +1076,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			pdFactory,
 			kafkaFactory,
 			mqttFactory,
+			siftFactory,
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {

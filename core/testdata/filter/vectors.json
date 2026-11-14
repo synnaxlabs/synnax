@@ -373,6 +373,50 @@
           }
         },
         "expected": ["a", "c"]
+      },
+      {
+        "name": "nested matches the ranges in a range",
+        "where": { "nested": true },
+        "expected": []
+      },
+      {
+        "name": "a false nested matches the top-level ranges",
+        "where": { "nested": false },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "labeled matches the ranges with a label",
+        "where": { "labeled": true },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "a false labeled matches the ranges with no label",
+        "where": { "labeled": false },
+        "expected": ["c"]
+      },
+      {
+        "name": "stages matches the ranges in any of the stages",
+        "where": { "stages": ["to_do", "completed"] },
+        "expected": ["a", "b", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "stages leaves the ranges in other stages",
+        "where": { "stages": ["in_progress"] },
+        "expected": [],
+        "server_computed": true
+      },
+      {
+        "name": "recent matches the ranges in the span that ends now",
+        "where": { "recent": 3153600000000000000 },
+        "expected": ["a", "b", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "recent leaves the ranges before the span",
+        "where": { "recent": 3600000000000 },
+        "expected": [],
+        "server_computed": true
       }
     ]
   },
@@ -1119,8 +1163,7 @@
         "type": "labjack_write",
         "rack": 65538,
         "config": {},
-        "internal": false,
-        "snapshot": false
+        "internal": false
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
@@ -1128,8 +1171,7 @@
         "type": "labjack_scan",
         "rack": 65538,
         "config": {},
-        "internal": true,
-        "snapshot": false
+        "internal": true
       },
       "c": {
         "key": "00000000-0000-4000-8000-00000000000c",
@@ -1137,8 +1179,7 @@
         "type": "labjack_write",
         "rack": 131073,
         "config": {},
-        "internal": false,
-        "snapshot": true
+        "internal": false
       }
     },
     "cases": [
@@ -1296,15 +1337,6 @@
         "expected": ["a", "c"]
       },
       {
-        "name": "snapshot eq",
-        "where": {
-          "snapshot": {
-            "eq": true
-          }
-        },
-        "expected": ["c"]
-      },
-      {
         "name": "the slots on one node are ANDed",
         "where": {
           "type": {
@@ -1341,8 +1373,8 @@
             },
             {
               "not": {
-                "snapshot": {
-                  "eq": true
+                "rack": {
+                  "eq": 131073
                 }
               }
             }
@@ -1360,8 +1392,8 @@
               }
             },
             {
-              "snapshot": {
-                "eq": true
+              "rack": {
+                "eq": 131073
               }
             }
           ]

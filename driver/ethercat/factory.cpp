@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <format>
 #include <map>
+#include <set>
 #include <string>
 
 #include "absl/log/log.h"
@@ -73,10 +74,11 @@ std::unique_ptr<master::Manager> default_manager() {
 }
 
 /// @brief returns the settings saved for each slave on the network, keyed by position.
-/// Its errors call the network name.
+/// Its errors call the network name. At a position that holds a connected device, the
+/// devices that are not connected give way to it.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings.
+/// position have different settings and none of them is connected.
 std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
@@ -88,7 +90,8 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             .make = DEVICE_MAKE,
             .model = SLAVE_DEVICE_MODEL,
             .rack = rack,
-        }
+        },
+        {.include_status = true}
     );
     if (dev_err)
         return {
@@ -99,8 +102,13 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                     " from the Core: " + dev_err.data
             )
         };
+    const auto connected = [](const synnax::device::Device &dev) {
+        return dev.status.has_value() && dev.status->details.connected;
+    };
+    std::ranges::stable_partition(devices, connected);
     std::map<uint16_t, slave::Config> configs;
     std::map<uint16_t, std::string> labels;
+    std::set<uint16_t> held;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -123,9 +131,11 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
         const auto [it, added] = configs.emplace(props.position, config);
         if (added) {
             labels[props.position] = label;
+            if (connected(dev)) held.insert(props.position);
             continue;
         }
-        if (it->second == config) continue;
+        if (it->second == config || (held.contains(props.position) && !connected(dev)))
+            continue;
         const auto [first, second] = std::minmax(labels[props.position], label);
         return {
             {},
@@ -243,7 +253,8 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -255,13 +266,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = this->configure_scan(ctx, task);
     else
         return {nullptr, false};
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -269,7 +281,8 @@ Factory::configure_initial_tasks(
         rack,
         "EtherCAT Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 

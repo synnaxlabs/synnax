@@ -16,9 +16,9 @@ import { capture, fixtures } from "@/index";
 const START = new TimeStamp(new Date(2025, 2, 14, 10, 0, 0));
 
 /**
- * Docs `client/ranges/set-metadata`: on a range's overview page, click the
- * "+" in the Metadata section, type a key and a value, and commit; the pair
- * appears as a saved row.
+ * Docs `client/ranges/set-metadata`: on a range's overview page, click the Metadata
+ * line, type a key and a value, and commit. The second pair starts from the "+" in the
+ * Metadata section. Each pair appears as a saved row.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   // The shot adds metadata to a fresh range, so an earlier run's copy goes first.
@@ -33,22 +33,21 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
-  const section = page.locator(".lyra-header").filter({ hasText: "Metadata" });
-  await session.waitFor(section.first());
-
-  // Script-local override: drop the Snapshots section so the shot stays on the
-  // Metadata block.
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll(".lyra-header"))
-      if (el.textContent?.trim() === "Snapshots")
-        el.parentElement?.style.setProperty("display", "none");
-  });
+  // A range with no metadata shows one line in place of the section.
+  const line = page
+    .locator(".console-range-overview__add")
+    .filter({ hasText: /^Metadata$/ })
+    .first();
+  await session.waitFor(line);
+  const section = page
+    .locator(".console-section")
+    .filter({ has: page.locator(".lyra-header", { hasText: "Metadata" }) })
+    .first();
 
   await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
   await session.hold(1500);
-  await session.zoom(section.first().locator("xpath=.."));
 
   const pairs: [string, string][] = [
     ["test_configuration", "Test 1"],
@@ -56,9 +55,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   ];
 
   for (const [i, [k, v]] of pairs.entries()) {
-    await session.click(section.locator("button").first());
+    await session.click(
+      i === 0 ? line : section.getByRole("button", { name: "Add metadata" }),
+    );
     const key = page.getByPlaceholder("Key").first();
     await session.waitFor(key);
+    if (i === 0) await session.zoom(section);
     await session.hold(400);
 
     await session.click(key);

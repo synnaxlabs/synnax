@@ -47,8 +47,6 @@ type Channel struct {
 	// Index is the channel used to index this channel's values, associating each value
 	// with a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
-	// Alias is an optional alternate name for the channel within a specific context.
-	Alias *string `json:"alias,omitzero" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
@@ -73,6 +71,7 @@ type Channel struct {
 // schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
+	v.NotEmptyString("name", c.Name)
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}

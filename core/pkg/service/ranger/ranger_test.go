@@ -20,96 +20,106 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Ranger", func() {
 	BeforeEach(openTx)
-	Describe("RetrieveParent", func() {
-		It("Should get the parent of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
+	Describe("Derive", func() {
+		var parent, child, leaf ranger.Range
+		BeforeEach(func(ctx SpecContext) {
+			tr := telem.SecondTS.SpanRange(telem.Second)
+			parent = ranger.Range{Name: "Parent", TimeRange: tr}
 			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent.Key,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
+			child = ranger.Range{Name: "Child", TimeRange: tr, Parent: &parent.Key}
+			Expect(w.Create(ctx, &child)).To(Succeed())
+			leaf = ranger.Range{Name: "Leaf", TimeRange: tr}
+			Expect(w.Create(ctx, &leaf)).To(Succeed())
 		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+		all := func(ranger.Key) bool { return true }
+		// withChildren returns the names of the ranges that Derive marks.
+		withChildren := func(
+			ctx SpecContext,
+			snap gorp.Snapshot,
+			visible func(ranger.Key) bool,
+		) set.Set[string] {
+			GinkgoHelper()
+			ranges := []ranger.Range{parent, child, leaf}
+			Expect(svc.Derive(ctx, snap, ranges, visible)).To(Succeed())
+			names := make(set.Set[string])
+			for _, r := range ranges {
+				if r.HasChildren {
+					names.Add(r.Name)
+				}
 			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
+			return names
+		}
 
-	Describe("RetrieveParentKey", func() {
-		It("Should get the parent of the range through a snapshot", func(
+		It("Should mark the ranges that have nested ranges", func(ctx SpecContext) {
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Parent")))
+		})
+
+		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
+			Expect(w.Apply(ctx, child.Key, ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"parent"},
+				Value: leaf.Key,
+			}))).To(Succeed())
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Leaf")))
+		})
+
+		It("Should count only the nested ranges that visible accepts", func(
 			ctx SpecContext,
 		) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
+			hidden := func(k ranger.Key) bool { return k != child.Key }
+			Expect(withChildren(ctx, tx, hidden)).To(BeEmpty())
+			sibling := ranger.Range{
+				Name:      "Sibling",
 				TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				Parent:    &parent.Key,
 			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Delete(ctx, parent.Key)
-				})).To(Succeed())
-			})
-			var pKey uuid.UUID
-			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-				pKey, err = svc.RetrieveParentKey(ctx, r.Key, snap)
-				return err
-			})).To(Succeed())
-			Expect(pKey).To(Equal(parent.Key))
+			Expect(w.Create(ctx, &sibling)).To(Succeed())
+			Expect(withChildren(ctx, tx, hidden)).To(Equal(set.New("Parent")))
 		})
-		It("Should get the parent key of the range", func(ctx SpecContext) {
-			parent := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+
+		It("Should neither store nor echo the derived field", func(ctx SpecContext) {
+			stored := ranger.Range{
+				Name:        "Stored",
+				TimeRange:   telem.SecondTS.SpanRange(telem.Second),
+				HasChildren: true,
 			}
-			Expect(w.Create(ctx, &parent)).To(Succeed())
-			r := ranger.Range{
-				Name:      "Range",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				Parent:    &parent.Key,
-			}
-			Expect(w.Create(ctx, &r)).To(Succeed())
-			pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
-			Expect(pKey).To(Equal(parent.Key))
+			Expect(w.Create(ctx, &stored)).To(Succeed())
+			Expect(stored.HasChildren).To(BeFalse())
+			var res ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.HasChildren).To(BeFalse())
 		})
-		It("Should return an error if the range has no parent", func(ctx SpecContext) {
-			p := ranger.Range{
-				Name:      "Parent",
-				TimeRange: telem.SecondTS.SpanRange(telem.Second),
-			}
-			Expect(w.Create(ctx, &p)).To(Succeed())
-			Expect(
-				svc.RetrieveParentKey(ctx, p.Key, tx),
-			).Error().
-				To(MatchError(query.ErrNotFound))
-		})
+
+		It(
+			"Should mark a range that its batch nests a range in",
+			func(ctx SpecContext) {
+				tr := telem.SecondTS.SpanRange(telem.Second)
+				parentKey := uuid.New()
+				batch := []ranger.Range{
+					{Key: parentKey, Name: "Parent", TimeRange: tr, HasChildren: true},
+					{
+						Name:        "Child",
+						TimeRange:   tr,
+						Parent:      &parentKey,
+						HasChildren: true,
+					},
+					{Name: "Other", TimeRange: tr, HasChildren: true},
+				}
+				Expect(w.CreateMany(ctx, &batch)).To(Succeed())
+				Expect(lo.Map(batch, func(r ranger.Range, _ int) bool {
+					return r.HasChildren
+				})).To(Equal([]bool{true, false, false}))
+			},
+		)
 	})
 
 	Describe("Retrieve", func() {

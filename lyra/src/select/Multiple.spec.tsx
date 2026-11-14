@@ -166,6 +166,17 @@ describe("Select.Multiple", () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
+  it("should toggle the selection dialog when the user clicks a tag", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.queryByText("Second Item Option")).toBeNull();
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
+  });
+
   it("should allow the caller to search for an item", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);

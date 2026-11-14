@@ -20,20 +20,24 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, location, uuid } from "@synnaxlabs/x";
+import { caseconv, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
+import { Appearance } from "@/platform/appearance";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import {
   Context,
+  type ContextValue,
   type StaticView,
   useContext,
   type View,
 } from "@/platform/view/context";
-import { Vis } from "@/platform/vis";
+import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
+import { Search } from "@/platform/view/Search";
+import { useCreateModal } from "@/platform/view/useCreateModal";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
@@ -43,12 +47,13 @@ export interface FrameProps extends PropsWithChildren {
 const ZERO_VARIANTS: {
   [K in view.Type]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
 } = {
-  range: { type: "range" },
+  range: { type: "range", sort: "newest", layout: "tree" },
   status: { type: "status" },
 };
 
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
-  const staticViewKey = uuid.create();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
     {
       key: staticViewKey,
@@ -70,8 +75,13 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
   const [selected, setSelected] = useState(staticViews[0].key);
-  const hasUpdatePermission = Access.useUpdateGranted(view.resourceID(selected));
-  const [editable, setEditable] = useState(false);
+  const select = (key: view.Key) => {
+    setSelected(key);
+    setSearchTerm("");
+  };
+  const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
+  // A static view saves nothing, so everyone may change it.
+  const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
@@ -79,16 +89,18 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   };
   const deleteSynchronizer = (key: view.Key) => {
     if (key !== selected) return;
-    setSelected(staticViews[0].key);
+    select(staticViews[0].key);
   };
   PView.useDeleteSynchronizer(deleteSynchronizer);
-  const contextValue = {
+  const contextValue: ContextValue = {
     resourceType,
     selected,
-    editable: editable && hasUpdatePermission,
+    editable,
     staticViews: staticViewKeys,
-    select: setSelected,
+    select,
     getInitialView,
+    searchTerm,
+    setSearchTerm,
   };
 
   return (
@@ -96,15 +108,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={
-            staticViewKeys.includes(selected) ? true : hasUpdatePermission
-          }
-          editable={editable}
-          onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
           onFetchMore={remoteProps.more}
-          staticViews={staticViews}
-          onSelect={setSelected}
+          onSelect={select}
           listProps={combinedProps}
           selected={selected}
         />
@@ -115,11 +121,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
 };
 
 interface SelectorProps {
-  showEditButton: boolean;
-  editable: boolean;
-  onEditableClick: () => void;
   resourceType: view.Type;
-  staticViews: StaticView[];
   onSelect: (key: view.Key) => void;
   selected: view.Key;
   listProps: List.FrameProps<view.Key, View>;
@@ -128,9 +130,6 @@ interface SelectorProps {
 }
 
 const Selector = ({
-  showEditButton,
-  editable,
-  onEditableClick,
   resourceType,
   onFetchMore,
   onSelect,
@@ -140,26 +139,13 @@ const Selector = ({
 }: SelectorProps): ReactElement => {
   const contextMenuProps = Menu.useContextMenu();
   const hasCreatePermission = Access.useCreateGranted(view.TYPE_RESOURCE_ID);
-  const renameModal = Modals.useRename();
-  const { update: create } = PView.useCreate({
-    beforeUpdate: async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
-      const name = await renameModal({
-        initialValue: `View for ${plural(resourceType)}`,
-        title: "View.Create",
-        icon: Icon.resolve(icon),
-      });
-      if (name == null) return false;
-      const newKey = uuid.create();
-      const previousSelected = selected;
-      rollbacks.push(() => onSelect(previousSelected));
-      return { ...data, name, key: newKey };
-    },
-    afterSuccess: ({ data }: Flux.AfterSuccessParams<view.New>) => {
-      onSelect(data?.key ?? "");
-    },
-  });
-  const handleCreate = () =>
-    create({ name: `View for ${resourceType}`, type: resourceType });
+  const createModal = useCreateModal();
+  const handleCreate = async () => {
+    const initialValues = { ...ZERO_VARIANTS[resourceType], name: "" };
+    const result = await createModal({ initialValues });
+    if (result != null) onSelect(result.key);
+  };
+  const [anchors, setAnchor] = Appearance.useAnchors();
   return (
     <Select.Frame
       {...listProps}
@@ -167,34 +153,32 @@ const Selector = ({
       onChange={onSelect}
       onFetchMore={onFetchMore}
     >
-      <Vis.Controls x>
-        {hasCreatePermission && editable && (
-          <Button.Button
-            onClick={handleCreate}
-            tooltip="Create view"
-            size="small"
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Add />
-          </Button.Button>
-        )}
-        {showEditButton && (
-          <Button.Toggle
-            size="small"
-            value={editable}
-            onChange={onEditableClick}
-            tooltip={`${editable ? "Disable" : "Enable"} editing`}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            {editable ? <Icon.EditOff /> : <Icon.Edit />}
-          </Button.Toggle>
-        )}
-      </Vis.Controls>
       <Menu.ContextMenu {...contextMenuProps} menu={contextMenu}>
-        <Tabs.Frame className={CSS.BE("view", "views")}>
-          <Strip onContextMenu={contextMenuProps.open} />
+        <Tabs.Frame x align="center" className={CSS.BE("view", "views")}>
+          <Search />
+          <Strip
+            onContextMenu={contextMenuProps.open}
+            icon={icon}
+            onAnchorChange={setAnchor}
+          />
+          {hasCreatePermission && (
+            <Button.Button
+              onClick={() => void handleCreate()}
+              variant="text"
+              size="small"
+              textColor={9}
+              tooltip="Create view"
+              tooltipLocation="bottom"
+              className={CSS.BE("view", "create")}
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
         </Tabs.Frame>
       </Menu.ContextMenu>
+      {Object.entries(anchors).map(([key, anchor]) => (
+        <IconPicker key={key} viewKey={key} anchor={anchor} />
+      ))}
     </Select.Frame>
   );
 };
@@ -228,6 +212,15 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
           onClick={() => Text.edit(List.itemNameID(editableKeys[0]))}
         />
       )}
+      {canRename && (
+        <Menu.Item
+          itemKey="change-icon"
+          onClick={() => openIconPicker(editableKeys[0])}
+        >
+          <Icon.FillColor />
+          Change icon
+        </Menu.Item>
+      )}
       {canDelete && (
         <PlatformContextMenu.DeleteItem onClick={() => del(editableKeys)} />
       )}
@@ -241,24 +234,28 @@ const contextMenu = Component.renderProp(ContextMenu);
 
 interface StripProps {
   onContextMenu: Menu.ContextMenuOpen;
+  /** The icon of the views that show every resource. */
+  icon: string;
+  onAnchorChange: Appearance.SetAnchor;
 }
 
 /**
  * Strip lays the frame's views out as a tab strip. It stands in for List.Items, whose
  * scroll container the strip owns instead.
  */
-const Strip = ({ onContextMenu }: StripProps): ReactElement => {
+const Strip = ({ onContextMenu, icon, onAnchorChange }: StripProps): ReactElement => {
   const { data, ref, sentinelRef } = List.useData<view.Key, View>();
   return (
     <Tabs.Selector
       ref={ref}
       aria-label="Views"
-      size="small"
+      variant="text"
+      size="medium"
       sizing="content"
       onContextMenu={onContextMenu}
     >
       {data.map((key) => (
-        <Item key={key} itemKey={key} />
+        <Item key={key} itemKey={key} icon={icon} onAnchorChange={onAnchorChange} />
       ))}
       {sentinelRef != null && (
         <div ref={sentinelRef} className={CSS.BE("view", "sentinel")} aria-hidden />
@@ -267,19 +264,27 @@ const Strip = ({ onContextMenu }: StripProps): ReactElement => {
   );
 };
 
-interface ItemProps {
+interface ItemProps extends Pick<StripProps, "icon" | "onAnchorChange"> {
   itemKey: view.Key;
 }
 
-const Item = ({ itemKey }: ItemProps): ReactElement | null => {
+const Item = ({ itemKey, icon, onAnchorChange }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
   const canRename = Access.useUpdateGranted(view.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
+  const handleRef = (tab: HTMLDivElement | null) => onAnchorChange(itemKey, tab);
   if (item == null) return null;
   const { name } = item;
   return (
-    <Tabs.Tab itemKey={itemKey}>
+    <Tabs.Tab ref={handleRef} itemKey={itemKey}>
+      {item.static === true
+        ? Icon.resolve(icon)
+        : Appearance.renderIcon({
+            icon: item.icon,
+            color: item.color,
+            fallback: Icon.View,
+          })}
       <Text.MaybeEditable
         id={List.itemNameID(itemKey)}
         value={name}

@@ -11,7 +11,6 @@ import { type view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
-  search: (term: string) => void;
   answered: boolean;
 }
 
@@ -31,6 +30,9 @@ export interface ContextValue {
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
+  /** The term the lists of every view are searched by. */
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({

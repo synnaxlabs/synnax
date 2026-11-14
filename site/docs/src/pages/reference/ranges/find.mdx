@@ -25,11 +25,26 @@ the ranges toolbar, or run the "Open range explorer" command from the
 
 In the range explorer, you can:
 
-- Search for a range by name, and filter the list by label.
+- Search for a range by name.
+- Click **Filter** to filter the ranges by labels, stage, time, or parent range.
+- Sort the ranges newest first, oldest first, or by name.
+- Show the ranges as a tree, a list, or a timeline. A tree or a timeline shows only the
+  first 100 ranges that match a search or a filter.
 - Click a range to open its [range overview](#range-overview).
-- Click the stage icon of a range to start, complete, or reopen it.
 - Hold **Shift** or **Ctrl** (**Cmd** on macOS) and click to select more than one range.
-- Right-click a range to rename, favorite, or delete it, or to create a child range.
+- Right-click a range to start, stop, rename, favorite, or delete it, or to start a
+  child range. **Start** and **Stop** set the start or the end of the range to now. See
+  [stages](/reference/ranges/reference#stages).
+
+### Views
+
+A view keeps a set of filters, a sort, and a layout. The Core stores each view, so other
+users can open it. The **All ranges** view shows every range and saves no changes.
+
+To make a view, click <Icon.Add /> (**Create view**) beside the views, enter a name, and
+click **Create**. The Console saves each change to the filters, the sort, or the layout
+of the view. Right-click a view to rename it, change its icon, or delete it. A user who
+cannot change a view can search it, but cannot change its filters, sort, or layout.
 
 <Divider.Divider x />
 
@@ -49,12 +64,7 @@ because the toolbar is the only place it lives.
 
 ## Active range
 
-The Console uses the active range in these places:
-
-- A new line plot shows the active range instead of the last 30 seconds.
-- **Set alias** and **Remove alias** in the channels toolbar apply to the active range.
-  Channel searches show its [aliases](/reference/ranges/aliases).
-- **Snapshot to** attaches [snapshots](/reference/ranges/snapshots) to it.
+A new line plot shows the active range instead of the last 30 seconds.
 
 To make a range active, click it in the ranges toolbar, or right-click it and select
 **Set as active range**. Opening a link to a range also makes it active. To clear it,
@@ -75,19 +85,25 @@ these steps:
 
 The range overview has these parts:
 
+- **Parent ranges** -> a child range shows the names of its parent ranges at the top.
+  Click a name to open that range.
 - **Name** -> click the name to change it.
-- **Child range of** -> a child range shows a link to its parent range.
 - **Timeline** -> click the stage to start, complete, or reopen the range. Click the
   start or end time to change it. See [stages](/reference/ranges/reference#stages).
+- **Color** -> click the swatch to change the color of the range.
 - **Labels** -> add or remove [labels](/reference/ranges/metadata#labels).
-- **Child ranges** -> lists the child ranges. Click <Icon.Add /> to add one.
+- **Child ranges** -> lists the child ranges as a tree or a timeline. Click <Icon.Add />
+  to add one.
 - **Metadata** -> lists the [metadata](/reference/ranges/metadata) of the range.
-- **Snapshots** -> lists the [snapshots](/reference/ranges/snapshots) of the range.
 
-The Console saves each change at once. Buttons in the header download the data as CSV
-(see [export data](/reference/ranges/export)), copy Python or TypeScript code that
-retrieves the range, and copy a link to it. Synnax Desktop does not show the copy link
-button.
+An empty part shows as one line, such as **Metadata**. Click the line to add the first
+item. The **Child range** line shows only to a user who can create ranges, and the
+**Metadata** line shows only to a user who can change the range. The Console saves each
+change at once.
+
+Buttons in the header plot the range, copy Python or TypeScript code that retrieves the
+range, download the data as CSV (see [export data](/reference/ranges/export)), copy a
+link to the range, and favorite it. Synnax Desktop does not show the copy link button.
 
 <Divider.Divider x />
 

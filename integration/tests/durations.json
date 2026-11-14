@@ -14,7 +14,6 @@
   "client/pagerduty_alert": 7.5,
   "console/arc/editor_scrollbar": 6.8,
   "console/arc/graph_toolbar": 5.3,
-  "console/channel/alias_synchronization": 39.4,
   "console/channel/calc_channel_stress (calc_channel_stress_10)": 10.2,
   "console/channel/calc_channel_stress (calc_channel_stress_100)": 10.6,
   "console/channel/calc_channel_stress (calc_channel_stress_1000)": 11.6,

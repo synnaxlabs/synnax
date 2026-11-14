@@ -8,11 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type panel } from "@/panel";
+import { panel } from "@/panel";
 import { type project } from "@/project";
-import { createPanelProject, createTestClient, expectLive } from "@/testutil";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  expectLive,
+} from "@/testutil";
+import { type user } from "@/user";
 
 const client = createTestClient();
 
@@ -53,6 +59,39 @@ describe("Panel Client", () => {
         key: [kept.key, outsider.key],
       });
       expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+  });
+
+  describe("drafts", () => {
+    const createOwner = async (): Promise<user.Key> => {
+      const role = await createEmptyRole(client);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        name: "owner",
+        role: role.key,
+      });
+      return u.key;
+    };
+
+    it("should match the panels visible to one user", async () => {
+      const scope = await createPanelProject(client);
+      const [mine, theirs] = await Promise.all([createOwner(), createOwner()]);
+      const where = panel.visibleTo(scope, mine);
+      const list = client.panels.watch({ where });
+      const off = list.onChange(vi.fn());
+      expect((await list.retrieve()).records).toEqual([]);
+      const created = await client.panels.create([
+        { name: `panel-${id.create()}`, project: scope },
+        { name: `panel-${id.create()}`, project: scope, owner: mine },
+        { name: `panel-${id.create()}`, project: scope, owner: theirs },
+      ]);
+      const expected = [created[0].key, created[1].key].sort();
+      const cached = expectLive(list.getCached()).records.map((p) => p.key);
+      expect(cached.sort()).toEqual(expected);
+      const retrieved = await client.panels.retrieve({ where });
+      expect(retrieved.map((p) => p.key).sort()).toEqual(expected);
+      off();
     });
   });
 

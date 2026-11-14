@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -129,8 +129,8 @@ describe("Task", async () => {
         config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot - these have different input/output types
-      const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
+      // Exclude status and internal - these have different input/output types
+      const { status: _, internal: __, ...taskFields } = m;
       const create = client.tasks.create({ ...taskFields, name: "updated" });
       await expect(create).rejects.toThrow(ValidationError);
       await expect(create).rejects.toThrow(`task ${m.key} already exists`);
@@ -559,46 +559,6 @@ describe("Task", async () => {
           })
           .toBe(true);
       });
-
-      it("should filter tasks by snapshot parameter", async () => {
-        const regularTask = await testRack.createTask({
-          name: "regular_test_task",
-          type: "pagerduty_alert",
-          config: {},
-        });
-
-        const snapshotTask = await client.tasks.copy(
-          regularTask.key,
-          "snapshot_test_task",
-          true,
-        );
-
-        const snapshotOnlyResult = await client.tasks.retrieve({ snapshot: true });
-        expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
-        expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
-
-        const regularOnlyResult = await client.tasks.retrieve({ snapshot: false });
-        expect(regularOnlyResult.some((t) => t.key === regularTask.key)).toBe(true);
-        expect(regularOnlyResult.every((t) => t.snapshot === false)).toBe(true);
-      });
-
-      it("should combine snapshot filter with other filters", async () => {
-        const task1 = await testRack.createTask({
-          name: "combined_filter_task",
-          type: "pagerduty_alert",
-          config: {},
-        });
-
-        const result = await client.tasks.retrieve({
-          rack: testRack.key,
-          type: ["pagerduty_alert"],
-          snapshot: false,
-        });
-
-        expect(result.some((t) => t.key === task1.key)).toBe(true);
-        expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
-        expect(result.every((t) => t.snapshot === false)).toBe(true);
-      });
     });
   });
 
@@ -609,26 +569,9 @@ describe("Task", async () => {
         config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
-      const copy = await client.tasks.copy(m.key, "New Name", false);
+      const copy = await client.tasks.copy(m.key, "New Name");
       expect(copy.name).toBe("New Name");
       expect(copy.config).toMatchObject({ routingKey: ROUTING_KEY });
-    });
-
-    it("should place a snapshot in a range", async () => {
-      const m = await testRack.createTask({
-        name: "test",
-        config: { routingKey: ROUTING_KEY },
-        type: "pagerduty_alert",
-      });
-      const rng = await client.ranges.create({
-        name: `snapshot-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-      const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
-      expect(snap.range).toEqual(rng.key);
-      expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
-      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
-      expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
     });
   });
 
@@ -1434,6 +1377,45 @@ describe("Task", async () => {
       await expect(wait).rejects.toThrow(
         new Error(`Command to ${t.name} timed out after 2min`),
       );
+    });
+
+    it("should restart the wait for the final status on each loading reply", async () => {
+      const t = await testRack.createTask({
+        name: `long-start-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({
+        type: "start",
+        timeout: TimeSpan.minutes(1),
+      });
+      const cmd = await readCommand(streamer, t.key);
+      const realSetTimeout = globalThis.setTimeout;
+      // Lets the wait read a reply that the store already holds.
+      const settle = async (): Promise<void> =>
+        await new Promise((resolve) => realSetTimeout(resolve, 200));
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldClearNativeTimers: true,
+      });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      const loading = async (message: string): Promise<void> => {
+        await setReply(t, cmd, "loading", message);
+        await expect
+          .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
+          .toBe(message);
+        await settle();
+      };
+      await loading("Starting task");
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+      await loading("Still starting task");
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+      await setReply(t, cmd, "success", "Started task");
+      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
   });
 
@@ -2353,7 +2335,6 @@ describe("drifted", () => {
       config: { rate: 50, port: 8080, host: "localhost" },
       configHash: taskHash,
       internal: false,
-      snapshot: false,
       status: hasStatus
         ? task.statusZ().parse({
             message: "running",

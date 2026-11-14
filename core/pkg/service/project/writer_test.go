@@ -243,17 +243,17 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should reject a group under a project", func(ctx SpecContext) {
-			owner := project.Project{Name: "owner"}
-			Expect(svc.NewWriter(tx).Create(ctx, &owner)).To(Succeed())
+			holder := project.Project{Name: "holder"}
+			Expect(svc.NewWriter(tx).Create(ctx, &holder)).To(Succeed())
 			g := createGroup(ctx, group.Group{
 				Name:   "Under project",
-				Parent: new(owner.ResourceID()),
+				Parent: new(holder.ResourceID()),
 			})
 			proj := project.Project{Name: "nested"}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetGroup(ctx, &g.Key, proj.Key)).To(MatchError(
 				"group: a project cannot sit in a group under project " +
-					owner.Key.String() + ": validation error",
+					holder.Key.String() + ": validation error",
 			))
 			Expect(retrieveGroup(ctx, proj.Key)).To(BeNil())
 		})
@@ -340,7 +340,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should not put a project in a group that moves under a project at once",
 		func(ctx SpecContext) {
-			owner := createProject(ctx, "owner")
+			holder := createProject(ctx, "holder")
 			for range 30 {
 				g := createGroup(ctx, group.Group{
 					Name:  "Moving",
@@ -359,7 +359,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					moveErr = db.WithTx(ctx, func(tx gorp.Tx) error {
 						return groupSvc.NewWriter(tx).
-							SetParent(ctx, new(owner.ResourceID()), g.Key)
+							SetParent(ctx, new(holder.ResourceID()), g.Key)
 					})
 				})
 				wg.Wait()

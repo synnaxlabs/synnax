@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Modals } from "@/platform/modals";
-import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
+import { findToolbarIconButton } from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -48,10 +48,28 @@ describe("status explorer", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
     expect(await screen.findByText(s.name)).toBeTruthy();
+  });
+
+  it("should show a chip for each field of a view saved by 0.61", async () => {
+    const saved = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#F00000",
+    });
+    const stored = await client.views.create({
+      name: uniqueName("view"),
+      type: "status",
+      where: { labels: [saved.key], variant: { in: ["error"] } },
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Explorer />, { wrapper });
+    fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+    expect(await screen.findByText(saved.name)).toBeTruthy();
+    expect(screen.getByText("Labels")).toBeTruthy();
+    expect(screen.getByText("Variants")).toBeTruthy();
+    expect(screen.getByText("Error")).toBeTruthy();
   });
 
   it("should rename a status in place from the context menu", async () => {
@@ -66,7 +84,6 @@ describe("status explorer", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
     fireEvent.contextMenu(await screen.findByText(s.name));
@@ -102,14 +119,13 @@ describe("status explorer permissions", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
   };
 
   it("should withhold the create button from a subject who cannot create statuses", async () => {
     await renderExplorer(await createEditor());
     await waitFor(() =>
       expect(
-        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+        queryIconButton(getBySelector(document.body, ".console-view__views"), "add"),
       ).toBeTruthy(),
     );
     expect(

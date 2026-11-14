@@ -150,6 +150,13 @@ export const open = (id: string): void => {
 /** The gap in pixels a dialog keeps from the window edges. */
 const WINDOW_MARGIN = 6;
 
+const contextMenus = (): HTMLElement[] =>
+  Array.from(document.getElementsByClassName(CONTEXT_MENU_CLASS)) as HTMLElement[];
+
+// The content of a submenu portals out of its context menu but still belongs to it.
+const inContextMenu = (target: Element): boolean =>
+  contextMenus().some((menu) => contains(menu, target));
+
 /** Compares width too, since a wider dialog clamps further from the window edge. */
 const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
   if (prev == null) return false;
@@ -395,6 +402,8 @@ export const Frame = ({
     const dialogEl = dialogRef.current;
     // A dialog with an open child dialog leaves Escape to the child.
     if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null) return;
+    // A context menu over the dialog closes first, unless the dialog opened in it.
+    if (contextMenus().some((menu) => !contains(menu, targetRef.current))) return;
     if (variant !== "modal") {
       close();
       stopPropagation();
@@ -422,8 +431,8 @@ export const Frame = ({
         !(target instanceof Element) ||
         contains(frame, target) ||
         anchor?.contains(target) === true ||
-        // A context menu opened over the dialog acts on it.
-        target.closest(`.${CONTEXT_MENU_CLASS}`) != null
+        // A context menu opened over the dialog acts on it, and so do its submenus.
+        inContextMenu(target)
       )
         return;
       close();

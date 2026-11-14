@@ -19,7 +19,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
@@ -35,7 +35,11 @@ const KEY = "schematic-1";
 const customState: Schematic.State = {
   control: { authority: 250, status: "acquired" },
   selected: ["a", "b"],
-  legend: { ...Schematic.ZERO_STATE.legend, visible: false, colors: { a: color.ZERO } },
+  legend: {
+    ...Schematic.ZERO_STATE.legend,
+    visible: false,
+    colors: { a: color.TRANSPARENT },
+  },
   toolbar: {
     ...Schematic.ZERO_STATE.toolbar,
     selectedTab: "properties",
@@ -70,7 +74,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = (): ReturnType<typeof storeWith> =>
-  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
+  storeWith({ version: 1, windows: inWindow({ [KEY]: customState }) });
 
 describe("schematic getters", () => {
   it("should read a schematic's state on demand across dispatches", () => {
@@ -106,7 +110,7 @@ describe("schematic getters", () => {
 
 describe("schematic selector hooks", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
+    storeWith({ version: 1, windows: inWindow({ [KEY]: customState }) });
 
   it("should resolve the key from the surrounding scope", () => {
     const { result } = renderHook(() => Schematic.useSelectSelected(), {
@@ -212,7 +216,7 @@ describe("schematic selector hooks", () => {
 
 describe("schematic selector stability under dispatch", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
+    storeWith({ version: 1, windows: inWindow({ [KEY]: customState }) });
 
   it("should keep a stable reference when an unrelated field changes", () => {
     const s = store();
@@ -254,7 +258,7 @@ describe("schematic selector stability under dispatch", () => {
 
   it("should re-point the selector when its key dependency changes", () => {
     const s = storeWith({
-      version: 0,
+      version: 1,
       windows: inWindow({
         [KEY]: customState,
         "schematic-2": {
@@ -305,28 +309,21 @@ const loadSchematic = async (
 
 interface SetupParams {
   editable: boolean;
-  snapshot?: boolean;
   userClient?: Synnax;
   scoped?: boolean;
 }
 
-const setup = async ({
-  editable,
-  snapshot = false,
-  userClient = client,
-  scoped = true,
-}: SetupParams) => {
+const setup = async ({ editable, userClient = client, scoped = true }: SetupParams) => {
   const created = await client.schematics.create({
     project: projectKey,
     key: uuid.create(),
     name: id.create(),
-    snapshot,
   });
   const { wrapper: Wrapper } = await createConsoleWrapper({
     client: userClient,
     preloadedState: {
       [Schematic.SLICE_NAME]: {
-        version: 0,
+        version: 1,
         windows: inWindow({ [created.key]: { ...Schematic.ZERO_STATE, editable } }),
       },
     },
@@ -342,7 +339,6 @@ const setup = async ({
   const { result } = renderHook(
     () => ({
       editable: Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
-      granted: Access.useUpdateGranted(schematic.resourceID(created.key)),
     }),
     { wrapper: scoped ? ScopedWrapper : Wrapper },
   );
@@ -370,13 +366,6 @@ describe("useSelectEditable", () => {
     expect(result.current.editable.isCurrentlyEditable).toBe(false);
   });
 
-  it("blocks editing of a snapshot even with permission and edit mode on", async () => {
-    const result = await setup({ editable: true, snapshot: true });
-    await waitFor(() => expect(result.current.granted).toBe(true));
-    expect(result.current.editable.canEdit).toBe(false);
-    expect(result.current.editable.isCurrentlyEditable).toBe(false);
-  });
-
   it("blocks editing when the user lacks update permission", async () => {
     const userClient = await createTestClientWithPolicy(client, {
       name: id.create(),
@@ -390,10 +379,11 @@ describe("useSelectEditable", () => {
     });
   });
 
-  it("honors an explicit key override for the snapshot check without a scope", async () => {
-    const result = await setup({ editable: true, snapshot: true, scoped: false });
-    await waitFor(() => expect(result.current.granted).toBe(true));
-    expect(result.current.editable.canEdit).toBe(false);
-    expect(result.current.editable.isCurrentlyEditable).toBe(false);
+  it("honors an explicit key override without a scope", async () => {
+    const result = await setup({ editable: true, scoped: false });
+    await waitFor(() => {
+      expect(result.current.editable.canEdit).toBe(true);
+      expect(result.current.editable.isCurrentlyEditable).toBe(true);
+    });
   });
 });

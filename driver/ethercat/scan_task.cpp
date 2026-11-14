@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <string>
 #include <tuple>
@@ -172,6 +173,12 @@ bool holds_devices_on(const common::ScannerContext &ctx, const std::string &netw
     });
 }
 
+/// @brief whether the master read the identity of the slave. A slave whose EEPROM read
+/// failed, as while it restarts, has none.
+bool has_identity(const slave::DiscoveryResult &slave) {
+    return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -203,6 +210,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     std::set<std::string> failures;
     std::vector<std::pair<std::string, std::string>> blocked;
+    std::set<std::string> kept;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -235,10 +243,19 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
+        const auto keys = slave_keys(slaves, key, scan_ctx, kept);
         bool rediscovery_needed = false;
-        for (const auto &slave: slaves) {
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            const auto &slave = slaves[i];
+            if (!has_identity(slave)) {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                             << " on " << key << " has no identity, rediscovering";
+                rediscovery_needed = true;
+                continue;
+            }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
+                keys[i],
                 health,
                 key,
                 scan_ctx
@@ -284,6 +301,7 @@ bool Scanner::exec(
 
 std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const slave::DiscoveryResult &slave,
+    const std::string &key,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
@@ -291,7 +309,6 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const auto &props = slave.properties;
     const auto &sts = slave.status;
     const auto rack_key = this->task.rack;
-    const std::string key = this->generate_slave_key(props, master_key);
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
@@ -379,6 +396,54 @@ std::string Scanner::generate_slave_key(
     std::ranges::replace(safe_key, ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
+}
+
+std::vector<std::string> Scanner::slave_keys(
+    const std::vector<slave::DiscoveryResult> &slaves,
+    const std::string &master_key,
+    const common::ScannerContext &scan_ctx,
+    std::set<std::string> &kept
+) {
+    std::map<std::string, slave::Properties> stored;
+    if (scan_ctx.devices != nullptr)
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            auto [props, err] = parse_properties(dev.properties);
+            if (!err) stored.emplace(key, std::move(props));
+        }
+    const auto find = [&](const slave::Properties &live, const bool by_serial) {
+        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
+            const auto &p = s.second;
+            if (kept.contains(s.first) || p.vendor_id != live.vendor_id ||
+                p.product_code != live.product_code)
+                return false;
+            if (by_serial && live.serial != 0) return p.serial == live.serial;
+            return p.serial == 0 && p.network == master_key &&
+                   p.position == live.position;
+        });
+        return it == stored.end() ? std::string() : it->first;
+    };
+    std::vector<std::string> keys(slaves.size());
+    // A device saved with no serial number goes to a slave with one at its position
+    // only after each slave has taken its own device.
+    for (const bool by_serial: {true, false})
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+            keys[i] = find(slaves[i].properties, by_serial);
+            if (!keys[i].empty()) kept.insert(keys[i]);
+        }
+    for (size_t i = 0; i < slaves.size(); ++i) {
+        if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+        const auto base = generate_slave_key(slaves[i].properties, master_key);
+        auto key = base;
+        // Another slave's device can hold the key, as after it took a device by
+        // position.
+        for (int n = 2; kept.contains(key) || stored.contains(key); ++n)
+            key = base + "_" + std::to_string(n);
+        keys[i] = key;
+        kept.insert(key);
+    }
+    return keys;
 }
 
 void Scanner::on_device_set(const synnax::device::Device &dev) {
@@ -482,56 +547,56 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         fail(dev_err.message());
         return;
     }
-    const auto [saved, saved_err] = parse_properties(dev.properties);
+    auto [saved, saved_err] = parse_properties(dev.properties);
     if (saved_err) {
         fail(common::config_err_description(saved_err));
         return;
     }
-    const std::string network = saved.network;
-    const std::string key = dev.key;
-    const auto [engine, engine_err] = this->pool->acquire(network);
+    const auto [engine, engine_err] = this->pool->acquire(saved.network);
     if (engine_err) {
         fail(engine_err.data);
         return;
     }
-    const auto [slaves, err] = engine->rediscover();
+    saved.name = dev.name;
+    bool wrote = false;
+    const auto err = engine->configure(
+        saved,
+        [&wrote](const slave::DiscoveryResult &found)
+            -> std::pair<std::vector<slave::StartupParameter>, x::errors::Error> {
+            const auto &props = found.properties;
+            if (!props.settings || !props.settings->contains("mode"))
+                return {
+                    {},
+                    x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        "Synnax does not know how to switch this device."
+                    )
+                };
+            std::vector<slave::StartupParameter> parameters;
+            x::json::Parser mode(props.settings->at("mode"));
+            mode.iter("switch", [&parameters](x::json::Parser &param) {
+                parameters.push_back(slave::StartupParameter::parse(param));
+            });
+            if (!mode.ok())
+                return {
+                    {},
+                    x::errors::Error(
+                        errors::SLAVE_CONFIG_ERROR,
+                        common::config_err_description(mode.error())
+                    )
+                };
+            wrote = !parameters.empty();
+            return {std::move(parameters), x::errors::NIL};
+        }
+    );
     if (err) {
         fail(err.data);
         return;
     }
-    const auto slave = std::ranges::find_if(slaves, [&network, &key](const auto &s) {
-        return generate_slave_key(s.properties, network) == key;
-    });
-    if (slave == slaves.end()) {
-        fail(
-            "The device is not on " + engine->name() + ". Check its power and cabling."
-        );
-        return;
-    }
-    const auto &props = slave->properties;
-    if (!props.settings || !props.settings->contains("mode")) {
-        fail("Synnax does not know how to switch this device.");
-        return;
-    }
-    std::vector<slave::StartupParameter> parameters;
-    x::json::Parser switch_parser(props.settings->at("mode"));
-    switch_parser.iter("switch", [&parameters](x::json::Parser &param) {
-        parameters.push_back(slave::StartupParameter::parse(param));
-    });
-    if (!switch_parser.ok()) {
-        fail(common::config_err_description(switch_parser.error()));
-        return;
-    }
-    if (!parameters.empty())
-        if (auto configure_err = engine->configure(props, parameters)) {
-            fail(configure_err.data);
-            return;
-        }
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Switched " + dev.name + " to Synnax only";
-    task_status.description = parameters.empty()
-                                ? "The device already runs Synnax only."
-                                : "Restart the power of the device to finish.";
+    task_status.description = wrote ? "Restart the power of the device to finish."
+                                    : "The device already runs Synnax only.";
     this->ctx->set_status(task_status);
 }
 }

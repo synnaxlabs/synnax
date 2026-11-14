@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { label, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  RoleClients,
 } from "@synnaxlabs/client/testutil";
+import { Access } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -24,9 +27,23 @@ import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
-import { awaitGranted, createConsoleWrapper, uniqueName } from "@/testutil";
+import { renderPalette } from "@/feature/command/testutil";
+import { findCommand } from "@/platform/command/testutil";
+import {
+  createPanelWrapper,
+  createServerPanel,
+  primePanel,
+} from "@/platform/panel/testutil";
+import {
+  assertDefined,
+  awaitGranted,
+  createConsoleWrapper,
+  renderHookWithConsole,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 // Can read users and nothing else, so it can neither open tabs, read the license, nor
 // manage users.
@@ -59,17 +76,46 @@ describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
     const sections = ["Profile", "API keys", "Appearance", "Storage", "General"];
-    for (const name of [...sections, "Users", "License"]) {
+    for (const name of [...sections, "Users", "Labels", "License"]) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
   });
 
-  it("should hide License and Users from a user who cannot use them", async () => {
+  it("should hide License, Users, and Labels from a user who cannot use them", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "License" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Users" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Labels" })).toBeNull();
+  });
+
+  it("should show the Labels page when Edit labels runs", async () => {
+    const existing = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [{ variant: "view", key: uuid.create(), type: "other" }],
+    });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      panelKey: existing.key,
+    });
+    await primePanel(wrapper, existing.key);
+    const { Content } = Settings.TABS.settings;
+    render(
+      <Suspense fallback={null}>
+        <Content />
+      </Suspense>,
+      { wrapper },
+    );
+    expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
+    const { openCommandPalette, selectCommand } = await renderPalette({
+      commands: Settings.COMMANDS,
+      client,
+      store,
+    });
+    await openCommandPalette();
+    await selectCommand("Edit labels");
+    expect(await screen.findByRole("heading", { name: "Labels" })).toBeTruthy();
   });
 
   it("should offer the gear and the command to a user who can open tabs", async () => {
@@ -89,5 +135,28 @@ describe("Settings", () => {
     await act(async () => {});
     expect(result.current).toBe(false);
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  it("should offer Edit labels to an Engineer", async () => {
+    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
+    assertDefined(visible);
+    const { result } = await renderHookWithConsole(visible, {
+      client: await roles.get("Engineer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Edit labels from a Viewer", async () => {
+    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
+    assertDefined(visible);
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: visible(),
+        loaded: Access.useRetrieveGranted(label.TYPE_RESOURCE_ID),
+      }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });

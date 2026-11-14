@@ -48,7 +48,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should create a new label", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
@@ -63,7 +63,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should refuse a label whose key exists", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			again := label.Label{Key: l.Key, Name: "Renamed"}
@@ -76,11 +76,11 @@ var _ = Describe("Label", Ordered, func() {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 				{
 					Name:  "label",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
@@ -93,7 +93,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should delete a label", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
@@ -105,11 +105,11 @@ var _ = Describe("Label", Ordered, func() {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 				{
 					Name:  "label",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
@@ -125,7 +125,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "match-name-target",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			var got label.Label
@@ -139,9 +139,9 @@ var _ = Describe("Label", Ordered, func() {
 			"Should retrieve labels matching any of the provided names",
 			func(ctx SpecContext) {
 				ls := []label.Label{
-					{Name: "mn-a", Color: MustSucceed(color.FromHex("#000000"))},
-					{Name: "mn-b", Color: MustSucceed(color.FromHex("#000000"))},
-					{Name: "mn-c", Color: MustSucceed(color.FromHex("#000000"))},
+					{Name: "mn-a", Color: MustSucceed(color.Parse("#000000"))},
+					{Name: "mn-b", Color: MustSucceed(color.Parse("#000000"))},
+					{Name: "mn-c", Color: MustSucceed(color.Parse("#000000"))},
 				}
 				Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 				var got []label.Label
@@ -156,9 +156,9 @@ var _ = Describe("Label", Ordered, func() {
 	Describe("Limit", func() {
 		BeforeEach(func(ctx SpecContext) {
 			ls := []label.Label{
-				{Name: "page-a", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "page-b", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "page-c", Color: MustSucceed(color.FromHex("#000000"))},
+				{Name: "page-a", Color: MustSucceed(color.Parse("#000000"))},
+				{Name: "page-b", Color: MustSucceed(color.Parse("#000000"))},
+				{Name: "page-c", Color: MustSucceed(color.Parse("#000000"))},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 		})
@@ -172,7 +172,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should fuzzy search labels by name", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Searchable Critical Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -190,7 +190,7 @@ var _ = Describe("Label", Ordered, func() {
 	Describe("Search", func() {
 		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
-			l := label.Label{Name: name, Color: MustSucceed(color.FromHex("#000000"))}
+			l := label.Label{Name: name, Color: MustSucceed(color.Parse("#000000"))}
 			Expect(w.Create(ctx, &l)).To(Succeed())
 			return l.ResourceID()
 		}

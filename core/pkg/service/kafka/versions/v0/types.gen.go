@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -166,6 +166,16 @@ func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadField) Validate() error {
+	v := validate.New("ReadField")
+	if r.TimeFormat != nil {
+		v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", *r.TimeFormat)
+	}
+	return v.Error()
+}
+
 // ReadRecord is a set of fields read from the records with one Kafka key.
 type ReadRecord struct {
 	// Key uniquely identifies the record within the task.
@@ -185,6 +195,16 @@ func (r *ReadRecord) ApplyDefaults() {
 	for i := range r.Fields {
 		r.Fields[i].ApplyDefaults()
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadRecord) Validate() error {
+	v := validate.New("ReadRecord")
+	for i := range r.Fields {
+		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
@@ -243,6 +263,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Ternaryf("start_offset", !r.StartOffset.IsValid(), "invalid start_offset: %v", r.StartOffset)
+	for i := range r.Records {
+		v.Exec(func() error { return validate.PathedError(r.Records[i].Validate(), "records", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -300,6 +323,9 @@ func (w *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteChannel) Validate() error {
 	v := validate.New("WriteChannel")
 	v.Ternaryf("json_type", !w.JSONType.IsValid(), "invalid json_type: %v", w.JSONType)
+	if w.TimeFormat != nil {
+		v.Ternaryf("time_format", !w.TimeFormat.IsValid(), "invalid time_format: %v", *w.TimeFormat)
+	}
 	return v.Error()
 }
 

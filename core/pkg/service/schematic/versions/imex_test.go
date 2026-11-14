@@ -37,7 +37,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
@@ -62,7 +61,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
@@ -99,7 +97,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
-		Expect(sch.Snapshot).To(BeFalse())
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges[0].Source).
 			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
@@ -112,7 +109,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
 		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
 		Expect(valveConfig(sch, "n1").StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.
@@ -120,7 +117,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		func(ctx SpecContext, path string, nodes int) {
 			s := decode(ctx, path)
 			Expect(s.Nodes).To(HaveLen(nodes))
-			Expect(s.Snapshot).To(BeFalse())
 			// The Console's per-node render state — id, type, selected, measured — does
 			// not survive: a stored node keeps only key, position, and z-index.
 			for _, n := range s.Nodes {
@@ -167,7 +163,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Edges[0].Source.Param).To(Equal("outlet"))
 		Expect(s.Edges[0].Target.Param).To(Equal("inlet"))
 		Expect(s.Configs).To(HaveKey("n1"))
-		Expect(s.Snapshot).To(BeFalse())
 	})
 
 	It("Should lift the Console state that added a legend", func(ctx SpecContext) {

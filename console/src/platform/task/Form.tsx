@@ -28,8 +28,8 @@ import { type z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+import { Section } from "@/platform/section";
 import { Controls } from "@/platform/task/controls";
-import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
@@ -77,38 +77,31 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   showControls?: boolean;
 }
 
-export const useIsSnapshot = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => PForm.useFieldValue(formPath.snapshot, { ctx });
-
 const Header = () => (
-  <>
-    <div className={CSS.BE("task-configure", "header")}>
-      <PForm.Field
-        path={formPath.name}
-        showLabel={false}
-        padHelpText={false}
-        className={CSS.BE("task-configure", "name")}
-      >
-        {(p) => (
-          <Input.Text
-            variant="text"
-            level="h2"
-            onlyChangeOnBlur
-            aria-label="Name"
-            {...p}
-          />
-        )}
-      </PForm.Field>
-      <div className={CSS.BE("task-configure", "rack")}>
-        <Rack />
-      </div>
-      <div className={CSS.BE("task-configure", "actions")}>
-        <UtilityButtons />
-      </div>
+  <div className={CSS.BE("task-configure", "header")}>
+    <PForm.Field
+      path={formPath.name}
+      showLabel={false}
+      padHelpText={false}
+      className={CSS.BE("task-configure", "name")}
+    >
+      {(p) => (
+        <Input.Text
+          variant="text"
+          level="h2"
+          onlyChangeOnBlur
+          aria-label="Name"
+          {...p}
+        />
+      )}
+    </PForm.Field>
+    <div className={CSS.BE("task-configure", "rack")}>
+      <Rack />
     </div>
-    <ParentRangeButton />
-  </>
+    <div className={CSS.BE("task-configure", "actions")}>
+      <UtilityButtons />
+    </div>
+  </div>
 );
 
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
@@ -181,7 +174,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       }, "Failed to stop task");
     };
 
-    const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     return (
       <Flex.Box
         y
@@ -192,7 +184,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         <Flex.Box grow>
           <PForm.Form<PTask.FormSchema<S>>
             {...form}
-            mode={isSnapshot || !canEdit ? "preview" : "normal"}
+            mode={canEdit ? "normal" : "preview"}
           >
             {showHeader && <Header />}
             {Properties != null && (
@@ -200,17 +192,16 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
                 <Properties />
               </Flex.Box>
             )}
-            <Flex.Box
+            <Section.Section
               x
               className={CSS.B("task-channel-form-container")}
-              bordered
               grow
               empty
             >
               <Errors.SuspenseBoundary>
                 <Form />
               </Errors.SuspenseBoundary>
-            </Flex.Box>
+            </Section.Section>
             {showControls && (
               <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
             )}

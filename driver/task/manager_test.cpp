@@ -43,7 +43,7 @@ public:
 
     [[nodiscard]] std::string name() const override { return "echo"; }
 
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         synnax::task::Status status{
             .variant = synnax::status::VARIANT_SUCCESS,
             .details =
@@ -72,7 +72,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         return {std::make_unique<MockEchoTask>(ctx, task), true};
@@ -102,7 +103,7 @@ public:
     }
 
     [[nodiscard]] std::string name() const override { return "blocking"; }
-    void exec(synnax::task::Command &) override {}
+    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
     void stop(bool) override {}
 };
 
@@ -116,7 +117,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type == ALT_SYNTHETIC_TASK_TYPE)
             return {
@@ -163,7 +165,7 @@ public:
 
     [[nodiscard]] std::string name() const override { return "tracking"; }
 
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         state->exec_count++;
         std::lock_guard lock(state->cmd_order_mu);
         state->cmd_order.push_back(cmd.key);
@@ -188,7 +190,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE) {
             auto state = std::make_shared<TrackingTaskState>();
@@ -220,7 +223,7 @@ public:
     }
 
     [[nodiscard]] std::string name() const override { return "timeout"; }
-    void exec(synnax::task::Command &) override {}
+    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
     void stop(bool) override {}
 };
 
@@ -233,7 +236,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE)
             return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
@@ -630,19 +634,6 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
 }
 
-TEST_F(TaskManagerTest, IgnoresSnapshot) {
-    start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task{
-        .rack = rack.key,
-        .name = "t",
-        .type = SYNTHETIC_TASK_TYPE,
-    };
-    task.snapshot = true;
-    ASSERT_NIL(rack.tasks.create(task));
-    send_start(client, task);
-    expect_no_driver_status(task);
-}
-
 TEST_F(TaskManagerTest, ParallelConfig) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
@@ -703,7 +694,8 @@ public:
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         this->initial = {
             .rack = rack.key,
@@ -714,7 +706,7 @@ public:
             ADD_FAILURE() << err;
             return {};
         }
-        auto [tsk, _] = this->configure_task(ctx, this->initial, NO_COMMAND);
+        auto [tsk, _] = this->configure_task(ctx, this->initial, NO_COMMAND, cancel);
         std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
         tasks.emplace_back(this->initial, std::move(tsk));
         return tasks;
@@ -723,7 +715,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         synnax::task::Status status{
@@ -1336,7 +1329,7 @@ public:
 
     [[nodiscard]] std::string name() const override { return "destructor_tracking"; }
 
-    void exec(synnax::task::Command &) override {}
+    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
 
     void stop(bool) override { stopped = true; }
 };
@@ -1350,7 +1343,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         int count = configure_count.fetch_add(1);
@@ -1480,7 +1474,7 @@ public:
         stop_called(stop_called), release(release), cv(cv), mu(mu) {}
 
     [[nodiscard]] std::string name() const override { return "blocking_stop"; }
-    void exec(synnax::task::Command &) override {}
+    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
 
     void stop(bool) override {
         stop_called = true;
@@ -1499,7 +1493,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
         const synnax::task::Task &task,
-        const std::string &
+        const std::string &,
+        x::breaker::Breaker &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE)
             return {
@@ -1567,7 +1562,7 @@ public:
         stop_duration(duration), stopped(stopped) {}
 
     [[nodiscard]] std::string name() const override { return "slow_stop"; }
-    void exec(synnax::task::Command &) override {}
+    void exec(synnax::task::Command &, x::breaker::Breaker &) override {}
 
     void stop(bool) override {
         std::this_thread::sleep_for(stop_duration.chrono());
@@ -1586,7 +1581,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
         const synnax::task::Task &task,
-        const std::string &
+        const std::string &,
+        x::breaker::Breaker &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE) {
             auto *flag = new std::atomic<bool>(false);
@@ -1648,7 +1644,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
         const synnax::task::Task &task,
-        const std::string &
+        const std::string &,
+        x::breaker::Breaker &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE) {
             configure_started = true;
@@ -1720,7 +1717,8 @@ public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
         this->captured_ctx = ctx;
@@ -1730,7 +1728,8 @@ public:
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::rack::Rack &
+        const synnax::rack::Rack &,
+        x::breaker::Breaker &
     ) override {
         this->captured_ctx = ctx;
         return {};

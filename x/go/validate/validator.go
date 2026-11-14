@@ -44,6 +44,11 @@ func (e ruleError) Unwrap() error { return e.error }
 
 func (ruleError) Is(target error) bool { return target == ErrValidation }
 
+// Errorf returns a validation error whose message is the formatted text alone.
+func Errorf(format string, args ...any) error {
+	return ruleError{errors.Newf(format, args...)}
+}
+
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {

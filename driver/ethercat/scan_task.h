@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -109,15 +110,30 @@ private:
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
 
-    /// @brief creates a slave device for the given slave, and returns whether its saved
-    /// config enables it. The status names any invalid property, and otherwise reflects
-    /// the slave's live state when health holds an entry for it.
+    /// @brief creates the slave device with key for the given slave, and returns
+    /// whether its saved config enables it. The status names any invalid property, and
+    /// otherwise reflects the slave's live state when health holds an entry for it.
     [[nodiscard]] std::pair<synnax::device::Device, bool> create_slave_device(
         const slave::DiscoveryResult &slave,
+        const std::string &key,
         const std::vector<slave::Health> &health,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;
+
+    /// @brief returns the device key of each slave with an identity on the master
+    /// with master_key, in the order of slaves, and adds each key to kept. A slave
+    /// takes the stored device with its identity: its vendor, product, and serial
+    /// number, or with serial number 0, its network and position. Else a slave with a
+    /// serial number takes the stored device of its model at its position saved with
+    /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
+    /// new key that no stored device holds. No slave takes a device in kept.
+    [[nodiscard]] static std::vector<std::string> slave_keys(
+        const std::vector<slave::DiscoveryResult> &slaves,
+        const std::string &master_key,
+        const common::ScannerContext &scan_ctx,
+        std::set<std::string> &kept
+    );
 
     /// @brief gets base properties from existing device or returns empty JSON.
     static nlohmann::json get_existing_properties(

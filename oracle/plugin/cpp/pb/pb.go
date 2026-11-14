@@ -798,7 +798,7 @@ func (p *Plugin) generatePrimitiveConversion(
 				pbSetter,
 				cppFieldName,
 			)
-			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::uuid::UUID::parse(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
@@ -1549,6 +1549,40 @@ func (p *Plugin) generateUnionArrayConversion(
 }
 
 func (p *Plugin) generateMapConversion(
+	field resolution.Field,
+	data *templateData,
+) (forward, backward string) {
+	forward, backward = p.generateMapLoops(field, data)
+	if len(field.Type.TypeArgs) < 2 {
+		return forward, backward
+	}
+	keyRef := field.Type.TypeArgs[0]
+	if _, ref, ok := resolution.Dealias(keyRef, data.table); ok {
+		keyRef = ref
+	}
+	switch keyRef.Name {
+	case "int8", "int16", "uint8", "uint16":
+	default:
+		return forward, backward
+	}
+	return forward, narrowMapKey(backward, primitiveMapper.Map(keyRef.Name).TargetType)
+}
+
+// narrowMapKey rewrites a map's backward loop so that it narrows each protobuf key to
+// keyType and returns a validation error for a key that does not fit.
+func narrowMapKey(backward, keyType string) string {
+	check := fmt.Sprintf(`
+        auto [key, key_err] = x::pb::narrow<%s>(k);
+        if (key_err) return {{}, key_err};`, keyType)
+	if head, body, ok := strings.Cut(backward, ") {"); ok {
+		backward = head + ") {" + check + body
+	} else if head, body, ok := strings.Cut(backward, ") cpp."); ok {
+		backward = head + ") {" + check + "\n        cpp." + body + "\n    }"
+	}
+	return strings.ReplaceAll(backward, "[k] = ", "[key] = ")
+}
+
+func (p *Plugin) generateMapLoops(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {

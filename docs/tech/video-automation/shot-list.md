@@ -18,21 +18,17 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
   `device-drivers/*/read-task/*` and `device-drivers/task/task-basic`.
 - **Pre-seeded ranges**: `console/ui-overview/palette-search`,
   `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
-  `console/ranges/add-meta-data`, `console/ranges/add-label`, `console/channels/alias`,
-  `console/schematics/snapshot`.
+  `console/ranges/add-meta-data`, `console/ranges/add-label`.
 - **Pre-seeded users**: `console/users/modal-change-role`.
 - **Pre-seeded channels** (index + data channels already created, with or without data):
-  `console/channels/alias`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/logs/example`,
-  `console/schematics/value`, `console/schematics/valve`,
+  `console/calculated-channels/create`, `console/calculated-channels/edit`,
+  `console/logs/example`, `console/schematics/value`, `console/schematics/valve`,
   `control/arc/get-started/create-automation`.
-- **Pre-seeded workspaces/visualizations**: `console/workspaces/load`,
-  `console/schematics/snapshot`.
+- **Pre-seeded workspaces/visualizations**: `console/workspaces/load`.
 - **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
   `console/schematics/edit-several-elements` (drag select box), symbol placement in any
   schematic shot.
-- **Context menus**: `console/channels/alias`, `console/calculated-channels/edit`,
-  `console/schematics/snapshot`, `device-drivers/task/toolbar`,
+- **Context menus**: `console/calculated-channels/edit`, `device-drivers/task/toolbar`,
   `device-drivers/ni/configure-device/ni-configure-device`,
   `device-drivers/labjack/configure-device/lj-configure`,
   `device-drivers/ethercat/configure-device/ethercat-configure`,
@@ -112,11 +108,6 @@ All on reference/get-started/sample-project.mdx.
 - `console/channels/create_new` (reference/channels/create.mdx) -> click the "+" action
   in the Channels Toolbar -> fill name, data type, and index channel in the dialog ->
   submit -> the channel appears in the Channels Toolbar.
-- `console/channels/alias` (reference/ranges/aliases.mdx) -> with a range active, open
-  the Channels Toolbar -> right-click a channel -> choose the alias option and type a
-  range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show the alias
-  displayed while that range is active -> requires a pre-seeded channel and an active
-  range.
 
 ## console/calculated-channels
 
@@ -200,10 +191,6 @@ All shots require channels with data (live streaming for the rolling-range ones)
   show the control indicator circle (blue/green/red) and the colored control legend
   while the state channel reflects the actuation -> requires state/command channels,
   ideally with a sim echoing state.
-- `console/schematics/snapshot` (reference/ranges/snapshots.mdx) -> find the schematic
-  in the Workspaces Toolbar -> open its context menu -> snapshot the schematic to a
-  range -> show the snapshot appear under the range -> requires an existing schematic
-  and an existing range.
 - `console/schematics/symbol-create-group` (reference/visualize/custom-symbols.mdx) ->
   in the schematic symbols browser at the bottom, create a new custom symbol group ->
   the empty group appears in the library.
