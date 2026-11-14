@@ -1793,6 +1793,16 @@ describe("Read", () => {
       return { slave, ...rendered };
     };
 
+    it("should count none of the channels that Start reuses from it", async () => {
+      const identifier = createIdentifier();
+      const first = await deploySlave(identifier);
+      await deleteSlave(first.slave.key, first.task);
+      await renderSlave(identifier);
+      expect(
+        await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+      ).toBeTruthy();
+    });
+
     it("should reuse the index and data channels of the deleted slave", async () => {
       const identifier = createIdentifier();
       const first = await deploySlave(identifier);

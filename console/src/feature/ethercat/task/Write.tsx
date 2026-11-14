@@ -143,7 +143,12 @@ const Form: FC = () => {
         contextMenuItems={contextMenuItems}
         resolve={resolve}
       />
-      <ChannelUsage pdoType="outputs" channels={channels} slaves={slaves} />
+      <ChannelUsage
+        indexOptions={WRITE_INDEX_OPTIONS}
+        pdoType="outputs"
+        channels={channels}
+        slaves={slaves}
+      />
     </Flex.Box>
   );
 };

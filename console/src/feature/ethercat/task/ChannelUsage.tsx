@@ -9,19 +9,23 @@
 
 import "@/feature/ethercat/task/ChannelUsage.css";
 
-import { type channel, query } from "@synnaxlabs/client";
+import { channel, query } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Flux, License, Synnax } from "@synnaxlabs/pluto";
 import { primitive, unique } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { type IndexOptions } from "@/feature/ethercat/task/configure";
 import {
   type Channel as TaskChannel,
   type DataTypes,
+  entryAt,
   hasEntry,
   type PDOType,
+  readChannelName,
   readChannelOf,
+  writeChannelNames,
   writeChannelOf,
 } from "@/feature/ethercat/task/types";
 import { CSS } from "@/platform/css";
@@ -32,6 +36,7 @@ const { useResult: useResultCount, useRefresh: useRefreshCount } = Flux.createRe
 >({
   name: "channel count",
   retrieve: async ({ client }) => await client.channels.count(),
+  retryUnreachable: true,
 });
 
 // A fetch that discovers a channel fills the cache. It does not change the count.
@@ -39,7 +44,7 @@ const changesCount = (event: query.TableEvent<channel.Key, channel.Channel>): bo
   event.variant === "delete" || event.discovered !== true;
 
 /** @returns the count of the channels that the license counts, kept current. */
-const useCount = (): number | undefined => {
+const useCount = (): Flux.Result<number> => {
   const client = Synnax.use();
   const refresh = useRefreshCount();
   useEffect(() => {
@@ -50,7 +55,7 @@ const useCount = (): number | undefined => {
       if (events.some(changesCount)) refresh({});
     });
   }, [client, refresh]);
-  return useResultCount({}).data;
+  return useResultCount({});
 };
 
 /** @returns the keys of the channels that the slaves map, indexes among them. */
@@ -66,31 +71,54 @@ const mappedKeys = (slaves: SlaveDevice[]): number[] =>
       .filter(primitive.isNonZero),
   );
 
+/** A channel that a Start creates when no channel holds its name. */
+interface Creation {
+  name: string;
+  /** How many channels the Start creates for it. */
+  count: number;
+}
+
 /**
- * @returns how many channels a Start creates on the slaves: an index for each slave
- * whose index is gone, and each channel that an enabled channel needs and the slave
- * does not map. existing holds the data types of the mapped channels that exist.
+ * @returns the channels that a Start creates on the slaves, before Start reuses the
+ * channels that hold their names: the index of each slave whose index is gone, and each
+ * channel that an enabled channel needs and the slave does not map. existing holds the
+ * data types of the mapped channels that exist.
  */
-const createsOf = (
+const creationsOf = (
+  { indexProperty, nameSuffix }: IndexOptions,
   pdoType: PDOType,
   slaves: SlaveDevice[],
   channels: TaskChannel[],
   existing: DataTypes,
-): number =>
-  slaves.reduce((count, slave) => {
-    const missing = (key: number) => (existing.has(key) ? 0 : 1);
-    let needed = 0;
+): Creation[] =>
+  slaves.flatMap((slave) => {
+    const { identifier, pdos } = slave.properties;
+    // A new index clears the channels that the slave maps.
+    const indexGone = !existing.has(slave.properties[indexProperty]);
+    const gone = (key: number) => indexGone || !existing.has(key);
+    const creations: Creation[] = [];
+    if (indexGone)
+      creations.push({
+        name: `${channel.escapeInvalidName(identifier)}${nameSuffix}`,
+        count: 1,
+      });
     for (const ch of channels) {
       if (ch.device !== slave.key || ch.disabled || !hasEntry(ch)) continue;
-      if ("calibrated" in ch) needed += missing(readChannelOf(slave, ch, existing));
-      else
-        needed +=
-          missing(writeChannelOf(slave, ch, "command")) +
-          missing(writeChannelOf(slave, ch, "state"));
+      if (entryAt(pdos[pdoType], ch) == null) continue;
+      if ("calibrated" in ch) {
+        if (gone(readChannelOf(slave, ch, existing)))
+          creations.push({ name: readChannelName(slave, ch, existing), count: 1 });
+        continue;
+      }
+      const { cmd, state } = writeChannelNames(slave, ch);
+      // A new command channel gets an index of its own.
+      if (gone(writeChannelOf(slave, ch, "command")))
+        creations.push({ name: cmd, count: 2 });
+      if (gone(writeChannelOf(slave, ch, "state")))
+        creations.push({ name: state, count: 1 });
     }
-    const { readIndex, writeStateIndex } = slave.properties;
-    return count + needed + missing(pdoType === "inputs" ? readIndex : writeStateIndex);
-  }, 0);
+    return creations;
+  });
 
 const channelsText = (count: number): string => {
   if (count === 0) return "no channels";
@@ -98,6 +126,7 @@ const channelsText = (count: number): string => {
 };
 
 export interface ChannelUsageProps {
+  indexOptions: IndexOptions;
   pdoType: PDOType;
   channels: TaskChannel[];
   /** The slaves that the channels use, or undefined while they load. */
@@ -106,9 +135,10 @@ export interface ChannelUsageProps {
 
 /**
  * Says how many channels a Start creates and how many of the channels that the license
- * allows are in use. Renders nothing until both counts load.
+ * allows are in use. Renders nothing while the counts load.
  */
 export const ChannelUsage = ({
+  indexOptions,
   pdoType,
   channels,
   slaves,
@@ -117,18 +147,31 @@ export const ChannelUsage = ({
   const { data: mapped } = Channel.useResultMultiple(
     keys.length === 0 ? null : query.keysRequest(keys),
   );
-  const inUse = useCount();
-  const { data: info } = License.useResult({});
-  if (slaves == null || inUse == null) return null;
-  if (keys.length > 0 && mapped == null) return null;
-  const existing: DataTypes = new Map(
-    (mapped ?? []).map((c) => [c.key, c.dataType.toString()]),
+  const existing: DataTypes | undefined =
+    keys.length > 0 && mapped == null
+      ? undefined
+      : new Map((mapped ?? []).map((c) => [c.key, c.dataType.toString()]));
+  const creations =
+    slaves == null || existing == null
+      ? undefined
+      : creationsOf(indexOptions, pdoType, slaves, channels, existing);
+  const names = unique.unique((creations ?? []).map(({ name }) => name));
+  const { data: named } = Channel.useResultMultiple(
+    names.length === 0 ? null : { where: { name: { in: names } } },
   );
-  const creates = createsOf(pdoType, slaves, channels, existing);
+  const count = useCount();
+  const { data: info } = License.useResult({});
+  if (creations == null || (names.length > 0 && named == null)) return null;
+  const inUse = count.data;
+  // A count that fails, as for a user who cannot retrieve channels, leaves it out.
+  if (inUse == null && count.variant !== "error") return null;
+  const held = new Set((named ?? []).map(({ name }) => name));
+  const creates = creations.reduce((n, c) => (held.has(c.name) ? n : n + c.count), 0);
   const cap = info?.license?.channels ?? 0;
-  let message = `Start creates ${channelsText(creates)}, ${inUse}`;
-  message += cap === 0 ? " in use." : ` of ${cap} in use.`;
-  const over = cap === 0 ? 0 : inUse + creates - cap;
+  let message = `Start creates ${channelsText(creates)}`;
+  if (inUse == null) message += ".";
+  else message += cap === 0 ? `, ${inUse} in use.` : `, ${inUse} of ${cap} in use.`;
+  const over = cap === 0 || inUse == null ? 0 : inUse + creates - cap;
   if (over > 0) {
     message += ` Delete ${channelsText(over)} that you do not use`;
     message += " before you start the task.";

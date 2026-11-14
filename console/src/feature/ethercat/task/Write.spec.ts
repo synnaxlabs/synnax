@@ -628,7 +628,7 @@ describe("Write channel names", () => {
 });
 
 describe("Write channel usage", () => {
-  it("should count the state index and the command and state channels", async () => {
+  it("should count the state index and each channel and command index", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
@@ -639,7 +639,7 @@ describe("Write channel usage", () => {
       channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     expect(
-      await screen.findByText(/^Start creates 3 channels, \d+ in use\.$/),
+      await screen.findByText(/^Start creates 4 channels, \d+ in use\.$/),
     ).toBeTruthy();
   });
 });
