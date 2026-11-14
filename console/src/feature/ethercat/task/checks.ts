@@ -12,7 +12,13 @@ import { DataType, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  canSwitch,
+  isShared,
+  of,
+  onlyReaderOf,
+  setUpBy,
+} from "@/feature/ethercat/device/setup";
 import {
   type SlaveDevice,
   type SlaveProperties,
@@ -107,6 +113,21 @@ const settingProblem = (
   return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
+/** @returns the step that tells the user which of the two devices to delete. */
+const deleteStep = (
+  slave: SlaveDevice,
+  other: SlaveDevice,
+  onRack: SlaveDevice[],
+): string => {
+  const connected = (d: SlaveDevice): boolean =>
+    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const slaveConnected = connected(slave);
+  if (slaveConnected === connected(other))
+    return "Delete the one that is not on the network.";
+  const stale = slaveConnected ? other : slave;
+  return `Delete ${stale.name}, which is not connected.`;
+};
+
 /**
  * @returns why the slave cannot start because another device on the rack is at its
  * network and position, or null. The problem names the device that is not connected,
@@ -121,17 +142,46 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
       o.properties.position === position,
   );
   if (other == null) return null;
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
-  const stale = connected(slave) ? other : connected(other) ? slave : null;
-  const step =
-    stale == null
-      ? "Delete the one that is not on the network."
-      : `Delete ${stale.name}, which is not connected.`;
   return (
     `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
-    `${network}. ${step}`
+    `${network}. ${deleteStep(slave, other, onRack)}`
   );
+};
+
+/**
+ * @returns why the slave cannot start because another device on its network is the same
+ * module: the same vendor, product, and serial number. The problem names the device
+ * that is not connected, which the user deletes. A slave with no serial number has no
+ * problem, as the Driver cannot tell its module apart. The Driver keeps a serial number
+ * unique on one network only, so two networks can each hold a module with it.
+ */
+const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
+  const { network, vendorId, productCode, serial } = slave.properties;
+  if (serial === 0) return null;
+  const other = onRack.find(
+    ({ key, properties: p }) =>
+      key !== slave.key &&
+      p.network === network &&
+      p.vendorId === vendorId &&
+      p.productCode === productCode &&
+      p.serial === serial,
+  );
+  if (other == null) return null;
+  return (
+    `Slaves ${slave.name} and ${other.name} have the same serial number ${serial}. ` +
+    `${deleteStep(slave, other, onRack)}`
+  );
+};
+
+/** @returns what the user must do when other software sets up the slave, or null. */
+const setupStep = (slave: SlaveDevice): string | null => {
+  const reader = setUpBy(slave.properties);
+  if (reader == null) return null;
+  const step = canSwitch(slave.properties)
+    ? "Switch it to Synnax"
+    : `Set it up for Synnax in ${reader}`;
+  const state = `Slave ${slave.name} is set up for ${reader}.`;
+  return `${state} ${step} before you start the task.`;
 };
 
 /** @returns why the slaves of the task cannot run on one network, or null. */
@@ -157,6 +207,8 @@ export interface CheckedConfig {
 interface Problem {
   path: PropertyKey[];
   message: string;
+  /** A warning never blocks a deploy. */
+  variant?: "warning";
 }
 
 /**
@@ -173,14 +225,24 @@ const problemsOf = (
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
   const taskWide = [
     networkProblem(used),
-    ...used.map((slave) => positionProblem(slave, onRack)),
+    ...used.map(
+      (slave) => positionProblem(slave, onRack) ?? serialProblem(slave, onRack),
+    ),
   ].filter((p): p is string => p != null);
-  const problems: Problem[] =
-    taskWide.length === 0 ? [] : [{ path: ["channels"], message: taskWide.join(" ") }];
   const enabled = Map.groupBy(
     channels.filter((ch) => !ch.disabled),
     (ch) => ch.device,
   );
+  const steps = used
+    .filter((s) => enabled.has(s.key))
+    .map(setupStep)
+    .filter((p): p is string => p != null);
+  const problems: Problem[] = [];
+  // An error at a path hides a warning at it, so the error carries the steps.
+  if (taskWide.length > 0)
+    problems.push({ path: ["channels"], message: [...taskWide, ...steps].join(" ") });
+  else if (steps.length > 0)
+    problems.push({ path: ["channels"], message: steps.join(" "), variant: "warning" });
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
     if (slave == null || ch.disabled) return;
@@ -194,9 +256,11 @@ const problemsOf = (
 
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
- * every slave, no other device at the position of a slave, and for each enabled channel
- * its entry and, on inputs, the settings of the input it reads. A channel whose slave
- * has not loaded is not checked, so a deploy runs {@link checkSlaves} too.
+ * every slave, no other device at the position or with the serial number of a slave,
+ * and for each enabled channel its entry and, on inputs, the settings of the input it
+ * reads. It warns of a slave with an enabled channel that other software sets up. A
+ * channel whose slave has not loaded is not checked, so a deploy runs
+ * {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */
@@ -206,14 +270,14 @@ export const slavesZ = (
   onRack: SlaveDevice[],
 ): z.ZodType =>
   Task.check<CheckedConfig>((config, report) =>
-    problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message }) =>
-      report(path, message),
+    problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message, variant }) =>
+      report(path, message, variant),
     ),
   );
 
 /**
  * Runs the checks of {@link slavesZ} on the slaves.
- * @throws {Error} with the first problem.
+ * @throws {Error} with the first problem that is not a warning.
  */
 export const checkSlaves = (
   pdoType: PDOType,
@@ -221,6 +285,8 @@ export const checkSlaves = (
   slaves: SlaveDevice[],
   onRack: SlaveDevice[],
 ): void => {
-  const [problem] = problemsOf(pdoType, config, slaves, onRack);
+  const problem = problemsOf(pdoType, config, slaves, onRack).find(
+    ({ variant }) => variant == null,
+  );
   if (problem != null) throw new Error(problem.message);
 };

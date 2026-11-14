@@ -90,18 +90,21 @@ protected:
 
 TYPED_TEST_SUITE_P(Contract);
 
-/// @brief it should fail to count slaves before a scan.
-TYPED_TEST_P(Contract, CountSlavesFailsBeforeScan) {
+/// @brief it should fail to compare the bus with a scan before the scan.
+TYPED_TEST_P(Contract, ChangedFailsBeforeScan) {
     this->bus.add_slave();
-    ASSERT_OCCURRED_AS_P(this->bus.master().count_slaves(), errors::MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(this->bus.master().changed(), errors::MASTER_INIT_ERROR);
 }
 
-/// @brief it should count the slaves on the bus after a scan.
-TYPED_TEST_P(Contract, CountSlavesAfterScan) {
-    this->bus.add_slave();
+/// @brief it should report a change once another slave is on the bus after a scan.
+TYPED_TEST_P(Contract, ChangedOnceASlaveIsAdded) {
     this->bus.add_slave();
     ASSERT_NIL(this->bus.master().scan().second);
-    EXPECT_EQ(ASSERT_NIL_P(this->bus.master().count_slaves()), 2);
+    EXPECT_FALSE(ASSERT_NIL_P(this->bus.master().changed()).stale);
+    this->bus.add_slave();
+    const auto change = ASSERT_NIL_P(this->bus.master().changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_TRUE(change.restarted.empty());
 }
 
 /// @brief it should return the slaves of the first scan until deactivate().
@@ -232,8 +235,8 @@ TYPED_TEST_P(Contract, ScanAndActivateAgainAfterDeactivate) {
 
 REGISTER_TYPED_TEST_SUITE_P(
     Contract,
-    CountSlavesFailsBeforeScan,
-    CountSlavesAfterScan,
+    ChangedFailsBeforeScan,
+    ChangedOnceASlaveIsAdded,
     ScanReturnsTheSlavesItFoundUntilDeactivate,
     ActivateFailsBeforeScan,
     ReceiveAndSendFailBeforeActivation,

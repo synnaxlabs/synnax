@@ -56,14 +56,43 @@ protected:
         return dev;
     }
 
-    /// @brief sets whether the last scan found the device at key.
-    void set_connected(const std::string &key, const bool connected) const {
-        const auto dev = ASSERT_NIL_P(
-            this->client->devices.retrieve(key, {.include_status = true})
-        );
-        auto status = dev.status.value();
-        status.details.connected = connected;
-        ASSERT_NIL(this->client->statuses.set(status));
+    /// @brief puts a slave with the model of slave_device at position on the bus.
+    void add_bus_slave(const uint16_t position, const uint32_t serial) const {
+        this->mock_master->add_slave({
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "EL3102",
+        });
+    }
+
+    /// @brief returns the properties of a slave of the saved model on the bus.
+    [[nodiscard]] static slave::Properties
+    slave_properties(const uint16_t position, const uint32_t serial) {
+        return {
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "Test Slave",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "status_word",
+                 .data_type = x::telem::INT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "sensor_value",
+                 .data_type = x::telem::INT32_T},
+            },
+        };
     }
 
     void SetUp() override {
@@ -97,31 +126,7 @@ protected:
         );
 
         mock_master = std::make_shared<testutil::Master>();
-        mock_master->add_slave(
-            slave::Properties{
-                .position = 1,
-                .vendor_id = 0x1,
-                .product_code = 0x2,
-                .serial = SLAVE_SERIAL,
-                .name = "Test Slave",
-                .input_pdos = {
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = true,
-                     .name = "status_word",
-                     .data_type = x::telem::INT16_T},
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = true,
-                     .name = "sensor_value",
-                     .data_type = x::telem::INT32_T},
-                },
-            }
-        );
+        mock_master->add_slave(this->slave_properties(1, SLAVE_SERIAL));
         engine = std::make_shared<engine::Engine>(NETWORK_INTERFACE, mock_master);
     }
 
@@ -551,6 +556,40 @@ TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
         EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
     brk.stop();
     ASSERT_NIL(source.stop());
+}
+
+/// @brief it should fail a start that discovers the slaves while another task starts
+/// the bus, once the start timeout passes.
+TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartFailsAtTheStartTimeout) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    engine::Config engine_cfg;
+    engine_cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto source = [&] {
+        auto parser = x::json::Parser(cfg);
+        ReadTaskConfig task_cfg(this->client, parser);
+        EXPECT_NIL(parser.error());
+        return std::make_unique<ReadTaskSource>(this->engine, std::move(task_cfg));
+    };
+    const auto first = source();
+    const auto second = source();
+    this->mock_master->hold_activate();
+    std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
+    this->mock_master->wait_until_activating();
+    const auto err = second->start("second", this->cancel);
+    this->mock_master->release_activate();
+    starter.join();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    ASSERT_NIL(first->stop());
 }
 
 /// @brief it should reject a stream rate that does not divide the sample rate.
@@ -983,7 +1022,9 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    on_network.properties["serial"] = 777;
     ASSERT_NIL(this->client->devices.create(on_network));
+    this->add_bus_slave(2, 777);
     auto off_network = this->create_configured_slave("eth1", 3, nullptr);
     ASSERT_NIL(this->client->devices.create(off_network));
     synnax::task::Command start{.task = task.key, .type = "start"};
@@ -1243,19 +1284,19 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
     );
 }
 
-/// @brief it should start with the connected device when a disconnected device is saved
-/// at its position with different settings.
-TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
+/// @brief it should start a slave with the settings of its own device when a device
+/// with no serial number is saved at its position with other settings.
+TEST_F(EtherCATReadTest, StartGivesASlaveTheSettingsOfItsOwnDevice) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
+    removed.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(removed));
-    this->set_connected(removed.key, false);
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
     replacement.name = "EL3102";
     replacement.properties["serial"] = 54321;
     ASSERT_NIL(this->client->devices.create(replacement));
-    this->set_connected(replacement.key, true);
+    this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -1281,17 +1322,57 @@ TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
     read_task->exec(stop, this->cancel);
 }
 
-/// @brief it should fail to start, naming both devices, when two devices at one
-/// position have different settings, and start once their settings match.
+/// @brief it should start a moved slave with its saved settings when the device of
+/// another slave is saved at its old position.
+TEST_F(EtherCATReadTest, StartGivesAMovedSlaveItsSettingsWhenAnotherHoldsItsPosition) {
+    auto moved = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    moved.properties["serial"] = 11111;
+    ASSERT_NIL(this->client->devices.create(moved));
+    auto staying = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
+    staying.key += "_staying";
+    staying.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(staying));
+    this->add_bus_slave(2, 54321);
+    this->add_bus_slave(4, 11111);
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start, this->cancel);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_TRUE(this->mock_master->config(2).enabled);
+    EXPECT_FALSE(this->mock_master->config(4).enabled);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop, this->cancel);
+}
+
+/// @brief it should fail to start, naming both devices, when two devices with no serial
+/// number at one position have different settings, and start once their settings match.
 TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
+    removed.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(removed));
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
-    replacement.name = "EL3102";
-    replacement.properties["serial"] = 54321;
+    replacement.name = "EL3102 spare";
+    replacement.properties["serial"] = 0;
     ASSERT_NIL(this->client->devices.create(replacement));
+    this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -1314,9 +1395,9 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 2 "
-        "on eth0 with different settings. Give them the same settings, or delete the "
-        "device that is no longer on the bus."
+        "EL3102 and EL3102 spare are both saved for slave 2 on eth0 with different "
+        "settings. Give them the same settings, or delete the device that is no longer "
+        "on the bus."
     );
     ASSERT_NIL(this->client->devices.dispatch(
         replacement.key,
@@ -1358,6 +1439,60 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should read a slave with its serial number at the position where it is on
+/// the bus, not at its saved position.
+TEST_F(EtherCATReadTest, SourceReadsASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto source = start_scaled_source(
+        {{"type", "linear"}, {"slope", 1}, {"offset", 0}}
+    );
+    this->mock_master->set_input<int16_t>(0, 11);
+    this->mock_master->set_input<int16_t>(6, 22);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source->read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        22.0
+    );
+    brk.stop();
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should write the startup parameters of a slave with its serial number at
+/// the position where it is on the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParametersOfASlaveThatMoved) {
+    this->mock_master->replace_slave(1, slave_properties(1, 999));
+    this->mock_master->add_slave(slave_properties(2, SLAVE_SERIAL));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", 6}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
+    EXPECT_TRUE(this->mock_master->config(1).startup_parameters.empty());
+    const auto params = this->mock_master->config(2).startup_parameters;
+    ASSERT_EQ(params.size(), 1);
+    EXPECT_EQ(params[0].value, 6);
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should refuse to start when a slave on the bus is not the device that
 /// the task names.
 TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
@@ -1393,10 +1528,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(
-        err.data,
-        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
-    );
+    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
 }
 
 }

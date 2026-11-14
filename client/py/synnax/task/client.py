@@ -266,7 +266,7 @@ class Task:
                     if status.details is not None and status.details.cmd == key:
                         if status.variant != VARIANT_LOADING:
                             return status
-                        # A loading status shows the driver still works on the
+                        # A loading status shows the Driver still works on the
                         # command, so the wait starts again.
                         if not acknowledged:
                             acknowledged = True
