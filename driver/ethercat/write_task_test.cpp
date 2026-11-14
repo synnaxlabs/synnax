@@ -21,6 +21,9 @@
 namespace driver::ethercat {
 class EtherCATWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<testutil::Master> mock_master;
@@ -32,6 +35,7 @@ protected:
     const std::string NETWORK_INTERFACE = "eth0";
 
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         index_channel = synnax::channel::Channel{
@@ -172,6 +176,8 @@ protected:
             false
         ));
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should pair each state channel with the command channel that names it, not
@@ -372,16 +378,16 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
         .type = WRITE_TASK_TYPE,
         .config = cfg,
     };
-    auto [write_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [write_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(write_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    write_task->exec(start);
+    write_task->exec(start, this->cancel);
     ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
     EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    write_task->exec(stop);
+    write_task->exec(stop, this->cancel);
 }
 
 /// @brief it should reject a write task whose channels are all disabled.
