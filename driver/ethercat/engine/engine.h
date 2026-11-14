@@ -353,9 +353,8 @@ public:
         /// call, or returns an empty string when none were.
         [[nodiscard]] std::string warning();
 
-        /// @brief explains, in full sentences, which startup parameters the bus did not
-        /// apply when the reader opened, because another program sets up their slave.
-        /// Returns an empty string when it applied them all.
+        /// @brief returns why the bus did not apply startup parameters when the reader
+        /// opened, in full sentences, or an empty string.
         [[nodiscard]] const std::string &unapplied() const {
             return this->input->unapplied;
         }
@@ -404,9 +403,8 @@ public:
         /// @brief creates a transaction for writing multiple PDO entries under a lock.
         [[nodiscard]] Transaction open_tx() const;
 
-        /// @brief explains, in full sentences, which startup parameters the bus did not
-        /// apply when the writer opened, because another program sets up their slave.
-        /// Returns an empty string when it applied them all.
+        /// @brief returns why the bus did not apply startup parameters when the writer
+        /// opened, in full sentences, or an empty string.
         [[nodiscard]] const std::string &unapplied() const {
             return this->output->unapplied;
         }
