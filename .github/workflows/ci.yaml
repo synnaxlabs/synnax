@@ -441,6 +441,7 @@ jobs:
       directory: core
       macos: *full
       shards: 3
+      warmed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
