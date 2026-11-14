@@ -642,6 +642,9 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     }
     retry.stop();
     this->slaves = this->image.slaves;
+    this->unchecked.clear();
+    for (const auto &[pos, cfg]: plan.slaves)
+        if (!cfg.enabled) this->unchecked.insert(pos);
     this->track_restarts_locked({});
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
@@ -653,14 +656,14 @@ void Engine::stop_locked() {
     this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
-    // The supervisor counts the restarts on the running bus, where changed() also
+    // The supervisor counts the restarts of the slaves it checks, where changed() also
     // reports a slave stuck in INIT.
     if (auto [restarted, err] = this->restarted_locked(); err)
         LOG(WARNING) << "[ethercat] failed to check " << this->iface
                      << " for restarted slaves: " << err.message();
     else {
         std::erase_if(restarted, [this](const uint16_t pos) {
-            return !this->left_out.contains(pos);
+            return !this->unchecked.contains(pos);
         });
         this->track_restarts_locked(restarted);
     }

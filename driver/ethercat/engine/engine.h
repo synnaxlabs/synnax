@@ -103,6 +103,9 @@ class Engine {
     /// Written only while the bus is stopped, so the supervisor reads it without a
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
+    /// @brief the positions of the slaves that the running bus does not check: those it
+    /// started without, and those that their settings disable.
+    std::set<uint16_t> unchecked;
 
     struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.

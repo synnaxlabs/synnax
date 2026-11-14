@@ -3066,6 +3066,27 @@ TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {
     EXPECT_GE(slaves[1].restarted_at.value(), back);
 }
 
+/// @brief it should count a slave that its settings disable and that restarted while
+/// the bus ran as restarted when the bus stops, as the running bus does not check it.
+TEST_F(EngineTest, StopCountsADisabledSlaveThatRestartedAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto back = x::telem::TimeStamp::now();
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
 /// @brief it should not count a slave of the running bus that changed() reports at stop
 /// as restarted, as SOEM reports a slave stuck in INIT that still answers.
 TEST_F(EngineTest, StopCountsAStuckSlaveOnTheRunningBusAsNotRestarted) {
