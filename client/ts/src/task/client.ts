@@ -718,8 +718,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A waiting command shows each new problem of its rack, since the Core copies an
-  // outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core's outage copy
+  // carries no command key and so never answers the command.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
