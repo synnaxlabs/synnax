@@ -1290,6 +1290,75 @@ TEST_F(SOEMMasterTest, ActivateRecordsEachSlaveThatRefusesAState) {
     EXPECT_EQ(this->activation.refusals, expected);
 }
 
+/// @brief it should refuse a used slave with no identity once the image shows the
+/// other slaves, without mapping the slave or checking its chosen mode.
+TEST_F(SOEMMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    unidentified.name = "? M:00000000 I:00000000";
+    unidentified.Ibits = 16;
+    this->add_slave(unidentified);
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {
+        {1, {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}}
+    };
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
+        "EEPROM"
+    );
+    const std::map<uint16_t, slave::Refusal> expected = {
+        {1, {.reason = "gave no identity when the Driver read its EEPROM"}},
+    };
+    EXPECT_EQ(this->activation.refusals, expected);
+    EXPECT_EQ(this->image.slaves.size(), 2);
+    EXPECT_EQ(this->mock->context.slavelist[1].Ibits, 0);
+    EXPECT_EQ(this->mock->context.slavelist[2].Ibits, 32);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should refuse a used slave with no identity when it is the only slave
+/// with process data.
+TEST_F(SOEMMasterTest, ActivateRefusesTheOnlySlaveWithIOWhenItHasNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    unidentified.name = "? M:00000000 I:00000000";
+    unidentified.Ibits = 16;
+    this->add_slave(unidentified);
+    ASSERT_NIL_P(this->master->scan());
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
+        "EEPROM"
+    );
+    EXPECT_EQ(this->activation.refusals.size(), 1);
+    EXPECT_TRUE(this->activation.refusals.contains(1));
+}
+
+/// @brief it should start a bus with a slave that has no identity when no task uses
+/// the slave.
+TEST_F(SOEMMasterTest, ActivateStartsPastAnUnusedSlaveWithNoIdentity) {
+    MockSlaveInfo unidentified;
+    unidentified.state = EC_STATE_PRE_OP;
+    unidentified.eep_man = 0;
+    unidentified.eep_id = 0;
+    this->add_slave(unidentified);
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.enabled = false}}};
+    ASSERT_NIL(this->activate());
+    EXPECT_TRUE(this->activation.refusals.empty());
+}
+
 /// @brief it should mark the refusal of a slave that reports "Invalid DC SYNC
 /// configuration", so that each message about it gives the DC sync advice.
 TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
@@ -1635,8 +1704,39 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     this->mock->write_register_return = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "slave 1 (EL3104) did not take a write to DC register 0x0980");
+    EXPECT_EQ(err.data, "slave 1 (EL3104) refused a write to DC register 0x0980");
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
+}
+
+/// @brief it should tell a DC register write that got no reply from one that the slave
+/// refused.
+TEST_F(SOEMMasterTest, ActivateReportsADCWriteThatGotNoReply) {
+    MockSlaveInfo dc;
+    dc.state = EC_STATE_PRE_OP;
+    dc.hasdc = true;
+    dc.name = "EL3104";
+    this->add_slave(dc);
+    ASSERT_NIL_P(this->master->scan());
+    this->mock->write_register_return = EC_NOFRAME;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (EL3104) did not reply to a write to DC register 0x0980"
+    );
+}
+
+/// @brief it should give each read and write of a DC register the SOEM timeout that
+/// sends the frame up to three times.
+TEST_F(SOEMMasterTest, ActivateGivesEachDCRegisterAccessThreeTries) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    ASSERT_NIL(this->activate());
+    ASSERT_FALSE(this->mock->register_timeouts.empty());
+    // SOEM sends a frame again only when its timeout is longer than EC_TIMEOUTRET.
+    EXPECT_EQ(EC_TIMEOUTRET3, EC_TIMEOUTRET * 3);
+    EXPECT_TRUE(std::ranges::all_of(this->mock->register_timeouts, [](const int t) {
+        return t == EC_TIMEOUTRET3;
+    }));
 }
 
 /// @brief it should start SYNC0 and SYNC1 on a slave that lists only a DC mode, before
@@ -1900,14 +2000,14 @@ TEST_F(SOEMMasterTest, ActivateReadsTheSignOfTheClockDifference) {
     EXPECT_EQ(this->mock->register_writes.size(), 7);
 }
 
-/// @brief it should fail activation when a slave does not answer a read of its clock
+/// @brief it should fail activation when a slave refuses a read of its clock
 /// difference.
 TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockCannotBeRead) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->mock->read_register_return = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "slave 1 (16xAO) did not answer a read of DC register 0x092C");
+    EXPECT_EQ(err.data, "slave 1 (16xAO) refused a read of DC register 0x092C");
 }
 
 /// @brief it should turn DC sync off when it stops the bus.
@@ -2458,6 +2558,22 @@ TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
     EXPECT_EQ(health[0].dc_restore_error, "no slave latched its receive time");
 }
 
+/// @brief it should tell a latch frame that got no reply from a latch that no slave
+/// took.
+TEST_F(SOEMMasterTest, CheckReportsALatchFrameThatGotNoReply) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->latch_return = EC_NOFRAME;
+    this->master->check(this->brk);
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(
+        health[0].dc_restore_error,
+        "the frame that latches the receive times got no reply"
+    );
+}
+
 /// @brief it should request PRE-OP and never OP on each check of a slave whose clock
 /// restore failed while it stays in SAFE-OP, as when a PRE-OP request gets lost.
 TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
@@ -2495,8 +2611,7 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
     );
     EXPECT_EQ(
         this->master->check(this->brk)[1].dc_restore_error,
-        "slave 1 (16xAO) did not answer a "
-        "read of DC register 0x0918"
+        "slave 1 (16xAO) did not reply to a read of DC register 0x0918"
     );
 }
 

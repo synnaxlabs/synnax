@@ -533,6 +533,42 @@ class TestTaskClient:
         assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
         t.join()
 
+    def test_execute_command_sync_waits_while_loading_statuses_arrive(
+        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Each loading status restarts the wait, so a command whose loading statuses
+        span more than the limit still gets its final status."""
+        monkeypatch.setattr(
+            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        )
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+
+        def driver(ev: threading.Event) -> None:
+            with client.open_streamer("sy_task_cmd") as s:
+                ev.set()
+                f = s.read(timeout=5)
+                assert f is not None
+                cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
+                replies = [sy.status.VARIANT_LOADING] * 4 + [sy.status.VARIANT_SUCCESS]
+                for variant in replies:
+                    client.statuses.set(
+                        sy.task.Status(
+                            variant=variant,
+                            message="Starting task",
+                            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+                            owner=sy.task.resource_id(cmd.task),
+                        )
+                    )
+                    sy.sleep(0.6)
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        status = tsk.execute_command_sync("start", timeout=0.5)
+        assert status.variant == sy.status.VARIANT_SUCCESS
+        t.join()
+
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
     ) -> None:
