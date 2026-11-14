@@ -43,6 +43,11 @@ class MockSource final : public Source {
     }
 
 public:
+    /// @brief the command key that the last start() got.
+    std::string start_key;
+    /// @brief the cancel token that the last start() got.
+    const x::breaker::Breaker *start_cancel = nullptr;
+
     explicit MockSource(
         const std::shared_ptr<std::vector<x::telem::Frame>> &reads,
         const std::shared_ptr<std::vector<x::errors::Error>> &read_errors = nullptr,
@@ -51,7 +56,10 @@ public:
     ):
         start_errs(start_err), stop_errs(stop_err), wrapped(reads, read_errors) {}
 
-    x::errors::Error start() override {
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
+        this->start_key = cmd_key;
+        this->start_cancel = &cancel;
         if (start_count >= start_errs.size()) return x::errors::NIL;
         return start_errs[start_count++];
     }
@@ -188,7 +196,8 @@ struct ScriptedRead {
     /// @brief starts the task, waits for the given number of reads, and stops it.
     void run(const size_t reads) const {
         const auto target = this->source->reads.load() + reads;
-        this->task->start("start_cmd");
+        x::breaker::Breaker cancel;
+        this->task->start("start_cmd", cancel);
         ASSERT_EVENTUALLY_GE(this->source->reads.load(), target);
         this->task->stop("stop_cmd", true);
     }
@@ -196,6 +205,7 @@ struct ScriptedRead {
 
 /// @brief it should start and stop the read task with successful status.
 TEST(TestCommonReadTask, testBasicOperation) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -212,7 +222,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
         mock_writer_factory
     );
     const std::string start_cmd_key = "start_cmd";
-    read_task.start(start_cmd_key);
+    read_task.start(start_cmd_key, cancel);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -231,9 +241,31 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
+/// @brief it should give the source the key and cancel token of the start command.
+TEST(TestCommonReadTask, ExecGivesTheSourceTheStartCommand) {
+    x::breaker::Breaker cancel;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    reads->emplace_back(0, x::telem::Series(x::telem::TimeStamp::now()));
+    auto source = std::make_unique<MockSource>(reads);
+    const auto *raw_source = source.get();
+    ReadTask read_task(
+        synnax::task::Task{.key = x::uuid::create()},
+        std::make_shared<task::MockContext>(nullptr),
+        x::breaker::default_config("cat"),
+        std::move(source),
+        std::make_shared<pipeline::testutil::WriterFactory>()
+    );
+    synnax::task::Command cmd{.type = "start", .key = "start_cmd"};
+    read_task.exec(cmd, cancel);
+    EXPECT_EQ(raw_source->start_key, "start_cmd");
+    EXPECT_EQ(raw_source->start_cancel, &cancel);
+    ASSERT_TRUE(read_task.stop("stop_cmd", true));
+}
+
 /// @brief it should interrupt a read that blocks when the task stops, and report a
 /// successful stop.
 TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
+    x::breaker::Breaker cancel;
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -246,7 +278,7 @@ TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
         std::move(source),
         std::make_shared<pipeline::testutil::WriterFactory>()
     );
-    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_TRUE(read_task.start("start_cmd", cancel));
     ASSERT_EVENTUALLY_TRUE(interruptible->reading.load());
     const auto stopping = std::chrono::steady_clock::now();
     ASSERT_TRUE(read_task.stop("stop_cmd", true));
@@ -260,6 +292,7 @@ TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
 /// @brief a start on a running task should ack the command without reopening
 /// the source.
 TEST(TestCommonReadTask, testStartWhileRunningAcks) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -275,13 +308,13 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
         std::move(mock_source),
         mock_writer_factory
     );
-    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_TRUE(read_task.start("start_cmd", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     ASSERT_EVENTUALLY_EQ(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
         1
     );
-    ASSERT_FALSE(read_task.start("start_cmd_2"));
+    ASSERT_FALSE(read_task.start("start_cmd_2", cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto ack_state = ctx->statuses[1];
     EXPECT_EQ(ack_state.owner, synnax::task::resource_id(t.key));
@@ -296,6 +329,7 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
 
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -316,7 +350,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
         mock_writer_factory
     );
     const std::string start_cmd_key = "start_cmd";
-    ASSERT_FALSE(read_task.start(start_cmd_key));
+    ASSERT_FALSE(read_task.start(start_cmd_key, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -349,6 +383,7 @@ std::unique_ptr<ReadTask> create_read_task(
 
 /// @brief it should report a failed start when the writer fails to open.
 TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto read_task = create_read_task(
         ctx,
@@ -357,7 +392,7 @@ TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
             std::vector{OPEN_ERR}
         )
     );
-    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_TRUE(read_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     const auto status = ctx->snapshot()[1];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -369,16 +404,17 @@ TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
 /// @brief it should report a failed start when the writer fails to open on a restart
 /// after it opened on an earlier start.
 TEST(TestCommonReadTask, testWriterOpenErrorOnRestartFailsStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector{x::errors::NIL, OPEN_ERR}
     );
     auto read_task = create_read_task(ctx, writer_factory);
-    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_TRUE(read_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(writer_factory->writes->size(), 1);
     ASSERT_TRUE(read_task->stop("stop_cmd", true));
-    ASSERT_TRUE(read_task->start("start_cmd_2"));
+    ASSERT_TRUE(read_task->start("start_cmd_2", cancel));
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 4);
     const auto status = ctx->snapshot()[3];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -389,6 +425,7 @@ TEST(TestCommonReadTask, testWriterOpenErrorOnRestartFailsStart) {
 /// @brief it should report a failed read when the writer fails to reopen after it
 /// opened.
 TEST(TestCommonReadTask, testWriterReopenErrorFailsRead) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     // The second write fails, the writer closes as unreachable, and the reopen fails.
     auto read_task = create_read_task(
@@ -400,7 +437,7 @@ TEST(TestCommonReadTask, testWriterReopenErrorFailsRead) {
             std::vector{1}
         )
     );
-    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_TRUE(read_task->start("start_cmd", cancel));
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     const auto status = ctx->snapshot()[1];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
@@ -411,6 +448,7 @@ TEST(TestCommonReadTask, testWriterReopenErrorFailsRead) {
 
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -432,7 +470,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
         mock_writer_factory
     );
     const std::string start_cmd_key = "start_cmd";
-    ASSERT_TRUE(read_task.start(start_cmd_key));
+    ASSERT_TRUE(read_task.start(start_cmd_key, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -452,6 +490,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
 
 /// @brief it should support multiple start-stop cycles.
 TEST(TestCommonReadTask, testMultiStartStop) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -473,7 +512,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
     // First start-stop cycle
     const std::string start_cmd_key1 = "start_cmd1";
-    ASSERT_TRUE(read_task.start(start_cmd_key1));
+    ASSERT_TRUE(read_task.start(start_cmd_key1, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
     EXPECT_EQ(start_state1.owner, synnax::task::resource_id(t.key));
@@ -495,7 +534,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
     // Second start-stop cycle
     const std::string start_cmd_key2 = "start_cmd2";
-    ASSERT_TRUE(read_task.start(start_cmd_key2));
+    ASSERT_TRUE(read_task.start(start_cmd_key2, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
     EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
@@ -518,6 +557,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
 /// @brief it should report error status when read fails during operation.
 TEST(TestCommonReadTask, testReadError) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -542,7 +582,7 @@ TEST(TestCommonReadTask, testReadError) {
     );
 
     const std::string start_cmd_key = "start_cmd";
-    ASSERT_TRUE(read_task.start(start_cmd_key));
+    ASSERT_TRUE(read_task.start(start_cmd_key, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -573,6 +613,7 @@ TEST(TestCommonReadTask, testReadError) {
 
 /// @brief it should recover on second start after first start failure.
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -598,7 +639,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 
     // First start attempt - should fail
     const std::string start_cmd_key1 = "start_cmd1";
-    ASSERT_FALSE(read_task.start(start_cmd_key1));
+    ASSERT_FALSE(read_task.start(start_cmd_key1, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
     EXPECT_EQ(start_state1.owner, synnax::task::resource_id(t.key));
@@ -609,7 +650,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 
     // Second start attempt - should succeed
     const std::string start_cmd_key2 = "start_cmd2";
-    ASSERT_TRUE(read_task.start(start_cmd_key2));
+    ASSERT_TRUE(read_task.start(start_cmd_key2, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto start_state2 = ctx->statuses[1];
     EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
@@ -634,6 +675,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 
 /// @brief it should recover on second stop after first stop failure.
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
+    x::breaker::Breaker cancel;
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -663,7 +705,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 
     // Start the task
     const std::string start_cmd_key = "start_cmd";
-    ASSERT_TRUE(read_task.start(start_cmd_key));
+    ASSERT_TRUE(read_task.start(start_cmd_key, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -689,7 +731,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 
     // Start the task again
     const std::string start_cmd_key2 = "start_cmd2";
-    ASSERT_TRUE(read_task.start(start_cmd_key2));
+    ASSERT_TRUE(read_task.start(start_cmd_key2, cancel));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
     EXPECT_EQ(start_state2.owner, synnax::task::resource_id(t.key));
@@ -714,6 +756,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 /// @brief it should report warning status on temporary hardware error and recover.
 /// Neither the warning nor the recovery answers the start, so neither claims its key.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
+    x::breaker::Breaker cancel;
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
@@ -736,7 +779,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     breaker_config.base_interval = 10 * x::telem::MILLISECOND;
     ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
-    read_task.start("start_cmd");
+    read_task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
@@ -777,6 +820,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 /// @brief it should show the retry count and the backoff interval in the warning for a
 /// temporary error, then send only the latest state once the status window ends.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
+    x::breaker::Breaker cancel;
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
@@ -800,7 +844,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     breaker_config.scale = 2;
     ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
-    read_task.start("start_cmd");
+    read_task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         ctx->snapshot().size(),
         3,
@@ -818,6 +862,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
 /// @brief it should send no queued status while the stop of a removed task waits on
 /// hardware.
 TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
+    x::breaker::Breaker cancel;
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
@@ -843,7 +888,7 @@ TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
     auto breaker_config = x::breaker::default_config("cat");
     breaker_config.base_interval = 10 * x::telem::MILLISECOND;
     ReadTask read_task(t, ctx, breaker_config, std::move(source), mock_writer_factory);
-    read_task.start("start_cmd");
+    read_task.start("start_cmd", cancel);
     ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     // The recovery read follows the warning inside the window, so its status waits.
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
