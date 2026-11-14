@@ -481,26 +481,25 @@ void Manager::monitor_loop() {
                 if (!entry->processing) continue;
                 auto started = entry->op_started.load();
                 if (started.nanoseconds() == 0) continue;
-                if (x::telem::TimeStamp::now() - started > this->op_timeout) {
-                    if (entry->timed_out.exchange(true)) continue;
-                    LOG(ERROR) << "task " << key << " operation timed out";
-                    synnax::task::Status status;
-                    status.owner = synnax::task::resource_id(key);
-                    status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "Failed to complete task operation";
-                    status.description = "The operation did not finish within " +
-                                         this->op_timeout.to_string() + ".";
-                    {
-                        std::lock_guard entry_lock{entry->mu};
-                        status.name = entry->row.name;
-                        status.details.config_hash = entry->op_config_hash;
-                        // running is left false: the operation is stuck, and the
-                        // instance belongs to the claiming worker while
-                        // processing.
-                        status.details.cmd = entry->op_cmd;
-                    }
-                    timed_out.push_back(std::move(status));
-                }
+                if (x::telem::TimeStamp::now() - started <= this->op_timeout) continue;
+                std::lock_guard entry_lock{entry->mu};
+                // The status of a task on another rack belongs to the Driver of that
+                // rack, which may be running it.
+                if (entry->row.rack != this->rack.key) continue;
+                if (entry->timed_out.exchange(true)) continue;
+                LOG(ERROR) << "task " << key << " operation timed out";
+                synnax::task::Status status;
+                status.owner = synnax::task::resource_id(key);
+                status.variant = synnax::status::VARIANT_ERROR;
+                status.message = "Failed to complete task operation";
+                status.description = "The operation did not finish within " +
+                                     this->op_timeout.to_string() + ".";
+                status.name = entry->row.name;
+                status.details.config_hash = entry->op_config_hash;
+                // running is left false: the operation is stuck, and the instance
+                // belongs to the claiming worker while processing.
+                status.details.cmd = entry->op_cmd;
+                timed_out.push_back(std::move(status));
             }
         }
         for (auto &status: timed_out)
@@ -519,23 +518,25 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 auto [fetched, err] = this->rack.tasks.retrieve(op.task_key);
                 if (err) {
                     LOG(WARNING) << "failed to retrieve task for start: " << err;
-                    // A not-found task was deleted: a status written now would
-                    // recreate the one the delete removed. Other errors answer
-                    // the start so the sender does not wait forever.
-                    if (!err.matches(x::errors::NOT_FOUND)) {
-                        synnax::task::Status status;
-                        status.owner = synnax::task::resource_id(op.task_key);
-                        status.variant = synnax::status::VARIANT_ERROR;
-                        status.message = "Failed to start task";
-                        status.description = err.data;
-                        status.details.cmd = op.cmd.key;
-                        {
-                            std::lock_guard entry_lock{entry->mu};
-                            status.name = entry->row.name;
-                            status.details.config_hash = entry->op_config_hash;
-                        }
-                        this->ctx->set_status(status);
+                    // A not-found task was deleted: a status written now would recreate
+                    // the one the delete removed. Other errors answer the start so the
+                    // sender does not wait forever, but only on the rack of the task:
+                    // every Driver fetches a task it does not know.
+                    bool ours = false;
+                    synnax::task::Status status;
+                    status.owner = synnax::task::resource_id(op.task_key);
+                    status.variant = synnax::status::VARIANT_ERROR;
+                    status.message = "Failed to start task";
+                    status.description = err.data;
+                    status.details.cmd = op.cmd.key;
+                    {
+                        std::lock_guard entry_lock{entry->mu};
+                        ours = entry->row.rack == this->rack.key;
+                        status.name = entry->row.name;
+                        status.details.config_hash = entry->op_config_hash;
                     }
+                    if (ours && !err.matches(x::errors::NOT_FOUND))
+                        this->ctx->set_status(status);
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
                     break;
