@@ -225,6 +225,34 @@ describe("View queries", () => {
       expect(result.current.variant).toEqual("error");
       expect(result.current.form.value().name).toEqual("typed-view");
     });
+    it("should refuse a name made only of spaces", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "   "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      const { status } = result.current.form.get(path.name);
+      expect(status.variant).toEqual("error");
+      expect(status.message).toEqual("Name is required");
+    });
+    it("should trim the name of a new view before it saves", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "  trimmed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const { key } = result.current.form.value();
+      if (key == null) throw new Error("the view has no key");
+      const stored = await createTestClient().views.retrieve(key);
+      expect(stored.name).toEqual("trimmed-view");
+    });
+    it("should trim the name of an existing view before it saves", async () => {
+      const view = await client.views.create({ name: "existing-view", type: "range" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "  renamed-view  "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().views.retrieve(view.key);
+      expect(stored.name).toEqual("renamed-view");
+    });
     it("should save a view it starts from without a query", async () => {
       const view = await client.views.create({ name: "existing-view", type: "range" });
       const { result } = renderHook(
@@ -249,6 +277,24 @@ describe("View queries", () => {
       });
       const retrieved = await client.views.retrieve(view.key);
       expect(retrieved.name).toEqual("renamed-view");
+    });
+  });
+  describe("useSetFields", () => {
+    it("should set the icon and color of a view", async () => {
+      const created = await client.views.create({ name: "styled-view", type: "range" });
+      const { result } = renderHook(() => View.useSetFields(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: created.key,
+          actions: [
+            view.set({ path: ["icon"], value: "Range" }),
+            view.set({ path: ["color"], value: "#FF0000" }),
+          ],
+        });
+      });
+      const retrieved = await createTestClient().views.retrieve(created.key);
+      expect(retrieved.icon).toEqual("Range");
+      expect(retrieved.color).toEqual(color.construct("#FF0000"));
     });
   });
 });

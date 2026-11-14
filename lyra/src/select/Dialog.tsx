@@ -21,10 +21,17 @@ import { createPortal } from "react-dom";
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { Input } from "@/input";
+import { Menu } from "@/menu";
 import { ClosedContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends BaseDialog.DialogProps {}
+export interface DialogProps extends BaseDialog.DialogProps {
+  /**
+   * The surface the dialog draws. A menu surface is a `Menu.Dialog`: its search is a
+   * line of text over a hairline, and its options take the size of menu items.
+   */
+  surface?: "dialog" | "menu";
+}
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
 const getSnapshot = (): boolean => true;
@@ -40,12 +47,23 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
  * element outside the page, so a selected fixed {@link Item} can still show its label
  * in the trigger.
  */
-export const Dialog = ({ className, children, ...rest }: DialogProps): ReactNode => {
+export const Dialog = ({
+  className,
+  children,
+  surface = "dialog",
+  ...rest
+}: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
   if (!visible) return hydrated && <Closed>{content}</Closed>;
+  if (surface === "menu")
+    return (
+      <Menu.Dialog {...rest} className={CSS.cls(CSS.BE("select", "dialog"), className)}>
+        {content}
+      </Menu.Dialog>
+    );
   return (
     <BaseDialog.Dialog
       {...rest}

@@ -117,7 +117,7 @@ class ViewsClient(ResourceClient):
     def create(self, name: str) -> None:
         """Create a view from the current search and filters.
 
-        The create button pops a rename modal prefilled with a default name.
+        The create button opens a modal that asks for the name of the view.
 
         :param name: Name to give the new view.
         """
@@ -125,8 +125,8 @@ class ViewsClient(ResourceClient):
         self.page.get_by_role("button", name="Create view", exact=True).first.click()
         modal = self.layout.dialog
         modal.wait_for(state="visible", timeout=5000)
-        modal.get_by_placeholder("Name", exact=True).fill(name)
-        modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
+        modal.get_by_placeholder("View name", exact=True).fill(name)
+        modal.get_by_role("button", name="Create", exact=True).click(timeout=5000)
         modal.wait_for(state="hidden", timeout=5000)
         self.wait_for(name)
 
@@ -209,27 +209,27 @@ class ViewsClient(ResourceClient):
     def select_filter(self, trigger: str, option: str) -> None:
         """Select an option in one of the explorer's filter dropdowns.
 
-        The filter is a two-level dialog: the filter button opens the first dialog,
-        the trigger opens the second dialog holding the option list.
+        The filter button opens the filter menu, and the menu item of the property
+        opens its picker beside the menu.
 
-        :param trigger: Accessible name of the dropdown trigger, e.g. "Labels".
+        :param trigger: Name of the property's menu item, e.g. "Labels".
         :param option: Display name of the option to select.
         """
         filter_dialog = self.open_filter()
-        filter_dialog.get_by_role("button", name=trigger, exact=True).click()
+        filter_dialog.get_by_role("menuitem", name=trigger, exact=True).click()
         item = self.layout.dialog.get_by_role("option").filter(has_text=option).first
         item.wait_for(state="visible", timeout=5000)
         item.click()
         self.layout.press_escape()
         self.layout.press_escape()
 
-    def clear_filter(self, option: str) -> None:
-        """Remove an option from the active filter by clicking its chip close button.
+    def clear_filter(self, prop: str) -> None:
+        """Remove a property from the active filter with the remove button of its chip.
 
-        :param option: Display name of the option to remove.
+        :param prop: Name of the property the chip shows, e.g. "Labels".
         """
         remove_btn = self.page.get_by_role(
-            "button", name=f"Remove {option}", exact=True
+            "button", name=f"Remove {prop} filter", exact=True
         ).first
         remove_btn.wait_for(state="visible", timeout=5000)
         remove_btn.dispatch_event("click")

@@ -9,40 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range__explorer-list {
-    & > .lyra-list__virtualizer {
-        display: grid;
-        grid-template-columns: auto 1fr auto auto auto;
-        align-items: center;
-    }
-
-    & .console-range__list-item,
-    & .console-range__list-item-trailing {
-        display: grid;
-        grid-template-columns: subgrid;
-        align-items: center;
-    }
-
-    & .console-range__list-item,
-    & .lyra-list__sentinel {
-        grid-column: 1 / -1;
-    }
-
-    & .console-range__list-item-trailing {
-        grid-column: 3 / -1;
-        column-gap: 0;
-    }
-
-    & .lyra-tags {
-        grid-column: 1;
-        justify-self: end;
-    }
-
-    & .console-range__time-range {
-        grid-column: 2;
-    }
-
-    & .console-range__time-range ~ * {
-        grid-column: 3;
-    }
+/* Each item lays out on its own, so a minimum width lines up the time ranges. */
+.console-range__explorer-list .console-range__time-range {
+    min-width: 24rem;
 }

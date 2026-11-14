@@ -10,19 +10,17 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
-import { useContext, useFormContext } from "@/platform/view/context";
+import { useContext } from "@/platform/view/context";
 
-export const Search = (): ReactElement | null => {
-  const { search } = useFormContext("View.Search");
-  const { editable, resourceType } = useContext("View.Search");
-  const [value, setValue] = useState("");
-  const handleChange = (v: string) => {
-    setValue(v);
-    search(v);
-  };
-  if (!editable) return null;
+/**
+ * The search field of a frame, which holds the term. It saves nothing, so every reader
+ * gets it.
+ */
+export const SearchInput = (): ReactElement => {
+  const { resourceType, searchInViews, searchTerm, setSearchTerm } =
+    useContext("View.Search");
   return (
     <Input.Text
       size="small"
@@ -30,11 +28,21 @@ export const Search = (): ReactElement | null => {
       color={9}
       startContent={startContent}
       variant="text"
-      value={value}
-      onChange={handleChange}
+      grow={searchInViews}
+      value={searchTerm}
+      onChange={setSearchTerm}
       placeholder={`Search ${plural(resourceType)}...`}
     />
   );
 };
 
 const startContent = <Icon.Search color={9} />;
+
+/**
+ * Searches the resources of the view, in place. It renders nothing when the frame leads
+ * the views bar with the search.
+ */
+export const Search = (): ReactElement | null => {
+  const { searchInViews } = useContext("View.Search");
+  return searchInViews ? null : <SearchInput />;
+};

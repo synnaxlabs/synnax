@@ -230,7 +230,6 @@ export const Text = ({
         CSS.B("input"),
         CSS.M("focus-frozen"),
         flush && CSS.M("flush"),
-        variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
         itemStatus.status != null && CSS.M(itemStatus.status),
         className,
@@ -244,7 +243,7 @@ export const Text = ({
       borderColor={borderColor}
       borderWidth={borderWidth}
       pack
-      variant={variant === "shadow" ? "outlined" : variant}
+      variant={variant}
       preview={preview}
       rounded={rounded}
       tabIndex={tabIndex}

@@ -9,12 +9,11 @@
 
 import { useContext as useCtx } from "@/platform/view/context";
 
-export * from "@/platform/view/FilterChip";
-export * from "@/platform/view/FilterMenu";
+export * from "@/platform/view/filter";
 export * from "@/platform/view/Form";
 export * from "@/platform/view/Frame";
 export * from "@/platform/view/Items";
-export * from "@/platform/view/Search";
+export { Search } from "@/platform/view/Search";
 export * from "@/platform/view/Toolbar";
 
 export const useContext = () => useCtx("View.useContext");

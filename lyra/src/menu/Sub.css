@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-view-filter-menu {
-    padding: 1rem;
+.lyra-menu-item.lyra-btn.lyra-menu-sub__trigger--lit {
+    --pluto-bg: var(--pluto-fill-hover);
+}
+
+.lyra-menu-sub__caret {
+    margin-left: auto;
 }
