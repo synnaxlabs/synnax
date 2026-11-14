@@ -52,6 +52,17 @@ protected:
         return dev;
     }
 
+    /// @brief puts a slave with the model of slave_device at position on the bus.
+    void add_bus_slave(const uint16_t position, const uint32_t serial) const {
+        this->mock_master->add_slave({
+            .position = position,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = serial,
+            .name = "EL3102",
+        });
+    }
+
     /// @brief sets whether the last scan found the device at key.
     void set_connected(const std::string &key, const bool connected) const {
         const auto dev = ASSERT_NIL_P(
@@ -865,7 +876,9 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    on_network.properties["serial"] = 777;
     ASSERT_NIL(this->client->devices.create(on_network));
+    this->add_bus_slave(2, 777);
     auto off_network = this->create_configured_slave("eth1", 3, nullptr);
     ASSERT_NIL(this->client->devices.create(off_network));
     synnax::task::Command start{.task = task.key, .type = "start"};
@@ -1138,6 +1151,7 @@ TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
     replacement.properties["serial"] = 54321;
     ASSERT_NIL(this->client->devices.create(replacement));
     this->set_connected(replacement.key, true);
+    this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -1168,12 +1182,14 @@ TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
 TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
     removed.name = "EL3102";
+    removed.properties["serial"] = 11111;
     ASSERT_NIL(this->client->devices.create(removed));
     auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
     replacement.key += "_replacement";
     replacement.name = "EL3102";
     replacement.properties["serial"] = 54321;
     ASSERT_NIL(this->client->devices.create(replacement));
+    this->add_bus_slave(2, 54321);
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -1196,7 +1212,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EL3102 (serial 12345) and EL3102 (serial 54321) are both saved at position 2 "
+        "EL3102 (serial 11111) and EL3102 (serial 54321) are both saved at position 2 "
         "on eth0 with different settings. Give them the same settings, or delete the "
         "device that is no longer on the bus."
     );

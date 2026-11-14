@@ -33,6 +33,12 @@ namespace driver::ethercat::engine {
 /// position, in the order they are written.
 using Settings = std::map<uint16_t, std::vector<slave::StartupParameter>>;
 
+/// @brief the settings that the Core saved for one slave.
+struct SavedSlave {
+    slave::Identity identity;
+    slave::Config config;
+};
+
 /// @brief Configuration for the Engine.
 struct Config {
     /// @brief lends the cycle thread an RT core while the bus runs. Without it, the
@@ -55,15 +61,15 @@ struct Config {
     x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
     x::loop::HostClock host_clock;
-    /// @brief returns the settings of each slave, keyed by position. An open_reader or
-    /// open_writer that finds the bus stopped calls it outside the engine's lock, so it
-    /// can run on several threads at once. Only an open that then starts the bus uses
-    /// the result, and only that open fails on an error. A slave missing from the map
-    /// runs with the defaults of slave::Config.
-    std::function<std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>()>
-        slave_configs = [] {
-            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
-        };
+    /// @brief returns the saved settings of the slaves, at most one per saved position.
+    /// An open_reader or open_writer that finds the bus stopped calls it outside the
+    /// engine's lock, so it can run on several threads at once. Only an open that then
+    /// starts the bus uses the result, and only that open fails on an error. The bus
+    /// start finds each saved slave with slave::locate. A slave on the bus with no
+    /// saved settings runs with the defaults of slave::Config.
+    std::function<std::pair<std::vector<SavedSlave>, x::errors::Error>()>
+        slave_configs =
+            [] { return std::pair{std::vector<SavedSlave>{}, x::errors::NIL}; };
 
     Config() = default;
 };
@@ -196,8 +202,17 @@ class Engine {
     void run();
     void supervise();
     /// @param mhz the bus rate in millihertz.
-    [[nodiscard]] x::errors::Error
-    start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
+    /// @param settings the startup parameters of the opening task, keyed by position on
+    /// the bus.
+    [[nodiscard]] x::errors::Error start_locked(
+        uint64_t mhz,
+        const std::vector<SavedSlave> &saved,
+        const Settings &settings
+    );
+    /// @brief returns the settings of each slave on the latest scan, keyed by position,
+    /// with the startup parameters of settings. A slave in left_out is disabled.
+    [[nodiscard]] std::map<uint16_t, slave::Config>
+    plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,
     /// then a sentence for each slave in left_out. The error ends with each distinct
@@ -215,7 +230,7 @@ class Engine {
     /// @brief returns the slave settings while the bus is stopped, read after the bus
     /// last stopped, or empty settings while it runs. Unlocks lock while the loader
     /// runs, since the loader can block, and returns with lock held.
-    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+    [[nodiscard]] std::pair<std::vector<SavedSlave>, x::errors::Error>
     read_slave_configs(std::unique_lock<std::mutex> &lock) const;
     [[nodiscard]] std::vector<x::telem::Rate> read_rates_locked() const;
     [[nodiscard]] std::vector<x::telem::Rate> write_rates_locked() const;
