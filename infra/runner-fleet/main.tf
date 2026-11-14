@@ -321,6 +321,25 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
+import {
+  to = aws_iam_role_policy.runner_agent_read
+  id = "EC2-SSM-Role:RunnerAgentRead"
+}
+
+# The agent on a runner reads its API key and its deployed commit from this path.
+resource "aws_iam_role_policy" "runner_agent_read" {
+  name = "RunnerAgentRead"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ssm:GetParameter"
+      Resource = "arn:aws:ssm:${var.region}:${local.account}:parameter/runner-agents/*"
+    }]
+  })
+}
+
 # Inline policies and managed attachments not declared here show up as drift, and an
 # apply removes them.
 
@@ -342,8 +361,11 @@ resource "aws_iam_role_policy_attachments_exclusive" "sandbox" {
 }
 
 resource "aws_iam_role_policies_exclusive" "runner" {
-  role_name    = aws_iam_role.runner.name
-  policy_names = [aws_iam_role_policy.deny_runner_secrets.name]
+  role_name = aws_iam_role.runner.name
+  policy_names = [
+    aws_iam_role_policy.deny_runner_secrets.name,
+    aws_iam_role_policy.runner_agent_read.name,
+  ]
 }
 
 resource "aws_iam_role_policy_attachments_exclusive" "runner" {

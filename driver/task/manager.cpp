@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -96,12 +97,29 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(
+        synnax::task::Where{},
+        synnax::task::RetrieveOptions{.include_status = true}
+    );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
+    for (const auto &task: tasks)
+        this->fail_interrupted_start(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // The ops of an earlier run are for its stuck workers. This run's deploys and
+        // removes stop their instances instead, and a remove does it silently.
+        this->op_queue.clear();
+        // An entry left by a worker of an earlier run that is still stuck holds a task
+        // that may have left this Driver. Its removal waits for that worker, and the
+        // statuses that the worker sends are dropped now.
+        for (const auto &[key, _]: this->entries) {
+            if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
+                continue;
+            this->statuses->drop(key);
+            this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
+        }
         for (const auto &task: tasks) {
             VLOG(1) << "queuing configure for task " << task;
             const auto entry = this->entry_for(task.key);
@@ -151,26 +169,26 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
         return x::errors::NIL;
     }
     this->start_workers();
-    if (const auto err = this->configure_initial_tasks()) {
-        this->stop_workers();
-        return err;
-    }
+    const auto err = this->serve(on_started);
+    // Workers run the shutdown of each task, so they stop last. The next run starts
+    // with no statuses and no control states, so it trusts nothing from before the
+    // outage, such as the status of a task deleted during it.
+    this->stop_all_tasks();
+    this->stop_workers();
+    this->statuses->clear();
+    this->control_states->set({});
+    return err;
+}
+
+x::errors::Error Manager::serve(const std::function<void()> &on_started) {
+    if (const auto err = this->configure_initial_tasks()) return err;
     if (this->exit_early) {
         VLOG(1) << "exiting early";
-        this->stop_workers();
-        this->stop_all_tasks();
         return x::errors::NIL;
     }
-    if (const auto err = this->open_streamer()) {
-        this->stop_workers();
-        return err;
-    }
+    if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
-    if (this->streamer == nullptr) {
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
+    if (this->streamer == nullptr) return x::errors::NIL;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -195,8 +213,6 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
                 this->process_rack_set(series);
         }
     } while (true);
-    this->stop_all_tasks();
-    this->stop_workers();
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
@@ -358,9 +374,10 @@ void Manager::stop_all_tasks() {
         }
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
-    // A worker stuck past the deadline is still alive and using the map.
+    // The entry of a worker stuck past the deadline stays, so the next run waits for
+    // that worker before it deploys or removes the task.
     std::lock_guard<std::mutex> lock(this->mu);
-    this->entries.clear();
+    std::erase_if(this->entries, [](const auto &e) { return !e.second->processing; });
 }
 
 void Manager::process_task_delete(const x::telem::Series &series) {
@@ -374,11 +391,12 @@ void Manager::process_task_delete(const x::telem::Series &series) {
 
 void Manager::start_workers() {
     this->breaker.start();
+    const auto run = ++this->runs;
     for (size_t i = 0; i < this->worker_count; i++) {
         auto done = std::make_shared<std::atomic<bool>>(false);
         this->workers.push_back(
-            {std::thread([this, done] {
-                 this->worker_loop();
+            {std::thread([this, done, run] {
+                 this->worker_loop(run);
                  *done = true;
              }),
              done}
@@ -398,15 +416,9 @@ void Manager::stop_workers() {
         if (w.done->load())
             w.thread.join();
         else {
-            // NOTE: C++ has no safe way to forcibly terminate threads. Detaching here
-            // means the thread may access freed Manager resources (use-after-free).
-            // This is acceptable because:
-            // 1. Manager destruction only occurs during process shutdown
-            // 2. The OS will terminate all threads when the process exits
-            // 3. The alternative (waiting forever) would hang shutdown
-            // If this becomes a mid-process operation, we'd need to either:
-            // - Ensure all tasks respect stop() within the timeout
-            // - Move tasks to child processes that can be safely killed
+            // C++ cannot kill a thread, and waiting forever would hang shutdown. The
+            // worker keeps using this Manager, which must outlive it: the Rack keeps
+            // one Manager until the process exits.
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
         }
@@ -415,13 +427,17 @@ void Manager::stop_workers() {
     if (this->monitor_thread.joinable()) this->monitor_thread.join();
 }
 
-void Manager::worker_loop() {
-    while (this->breaker.running()) {
+void Manager::worker_loop(const uint64_t run) {
+    // A worker detached by an earlier run exits once its op returns.
+    const auto serving = [this, run] {
+        return this->breaker.running() && this->runs == run;
+    };
+    while (serving()) {
         std::unique_lock<std::mutex> lock(this->mu);
         // Wait until there's work we can actually process - not just ops in the queue,
         // but ops whose entries aren't currently being processed by another worker.
-        this->cv.wait(lock, [this] {
-            if (!this->breaker.running()) return true;
+        this->cv.wait(lock, [this, &serving] {
+            if (!serving()) return true;
             for (const auto &op: this->op_queue) {
                 const auto it = this->entries.find(op.task_key);
                 if (it != this->entries.end() && !it->second->processing.load())
@@ -429,7 +445,7 @@ void Manager::worker_loop() {
             }
             return false;
         });
-        if (!this->breaker.running()) break;
+        if (!serving()) break;
 
         // Find and claim the first available op. An op whose entry is gone was
         // queued before the task was deleted or released.
@@ -564,6 +580,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     this->refuse_pinned_start(tsk, op.cmd);
                     break;
                 }
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
                 std::string deployed;
                 {
                     std::lock_guard entry_lock{entry->mu};
@@ -585,7 +602,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     entry->instance->exec(cmd, this->breaker);
                     break;
                 }
-            }
+            } else
+                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
@@ -638,6 +656,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 if (!op.cmd.key.empty()) this->refuse_command(op);
                 return;
             }
+            {
+                std::unique_lock entry_lock{entry->mu};
+                const auto name = entry->row.name;
+                const auto hash = entry->deployed_hash;
+                entry_lock.unlock();
+                this->announce_start(op.task_key, name, hash, op.cmd);
+            }
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
@@ -681,6 +706,43 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+}
+
+void Manager::announce_start(
+    const synnax::task::Key &key,
+    const std::string &name,
+    const std::string &config_hash,
+    const synnax::task::Command &cmd
+) {
+    if (cmd.type != synnax::task::START_CMD_TYPE || cmd.key.empty()) return;
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(key);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_LOADING;
+    status.message = "Starting task";
+    status.details.running = false;
+    status.details.cmd = cmd.key;
+    status.details.config_hash = config_hash;
+    this->ctx->set_status(status);
+}
+
+void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
+    if (!tsk.status.has_value() ||
+        tsk.status->variant != synnax::status::VARIANT_LOADING)
+        return;
+    // A Driver that stops mid-start leaves "Starting task" stored, and the Console
+    // disables Start and Stop while a start is loading.
+    auto status = *tsk.status;
+    status.time = x::telem::TimeStamp::now();
+    status.variant = synnax::status::VARIANT_ERROR;
+    status.message = "Failed to start task";
+    status.description = this->runs == 1
+                           ? "The Driver restarted while the task was starting. "
+                             "Start the task again."
+                           : "The Driver lost its connection to the Core while the "
+                             "task was starting. Start the task again.";
+    status.details.running = false;
+    this->ctx->set_status(status);
 }
 
 void Manager::refuse_pinned_start(

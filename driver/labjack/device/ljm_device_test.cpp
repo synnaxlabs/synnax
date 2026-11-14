@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -141,11 +140,17 @@ TEST(LJMDeviceTest, testStreamReadReportsLostStream) {
 TEST(LJMDeviceTest, testStreamReadStopsWithBreaker) {
     const LJMDevice dev(open_fake_api(), STALLED_STREAM_HANDLE);
     ASSERT_NIL(start_stream(dev));
+    x::lib::Shared lib("./driver/labjack/device/libfake_ljm.so");
+    ASSERT_TRUE(lib.load());
+    const auto wait_for_stalled_read = reinterpret_cast<bool (*)()>(
+        const_cast<void *>(lib.get_func_ptr(WAIT_FOR_STALLED_READ))
+    );
+    ASSERT_NE(wait_for_stalled_read, nullptr);
     x::breaker::Breaker breaker;
     breaker.start();
-    x::defer::defer stop_breaker([&] { breaker.stop(); });
+    bool stalled = false;
     std::thread stopper([&] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        stalled = wait_for_stalled_read();
         breaker.stop();
     });
     double value = 0;
@@ -155,6 +160,7 @@ TEST(LJMDeviceTest, testStreamReadStopsWithBreaker) {
     const auto err = dev.e_stream_read(&value, &dev_backlog, &ljm_backlog, breaker);
     const auto elapsed = x::telem::TimeStamp::now() - start;
     stopper.join();
+    EXPECT_TRUE(stalled);
     ASSERT_OCCURRED_AS(err, driver::errors::NOMINAL_SHUTDOWN_ERROR);
     EXPECT_LT(elapsed, x::telem::SECOND);
 }

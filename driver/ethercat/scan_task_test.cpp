@@ -559,6 +559,25 @@ TEST_F(EtherCATScanStatusTest, GivesANewKeyWhenAMovedDeviceHoldsTheKey) {
     EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
 }
 
+/// @brief it should keep a moved device with invalid properties on its slave.
+TEST_F(EtherCATScanStatusTest, KeepsAMovedDeviceWithInvalidProperties) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    this->master->add_slave(identity(2, 0x2, 777));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 777));
+    devices["ethercat_eth0_1_2_1"].properties["op_mode"] = {
+        {"index", 1},
+        {"assign_activate", 0x0700},
+        {"sync0_cycle", -1},
+    };
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1_2");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
+}
+
 /// @brief it should give the device of a serial number to one slave when slaves on two
 /// networks have the serial number.
 TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
@@ -579,6 +598,33 @@ TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
     ASSERT_EQ(scanned.size(), 2);
     EXPECT_EQ(scanned.at(0).key, "saved");
     EXPECT_EQ(scanned.at(1).key, "ethercat_1_2_777");
+}
+
+/// @brief it should save no new device for a slave whose serial number read fails, and
+/// discover the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsASlaveWhoseSerialReadFails) {
+    this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
+    Devices devices;
+    store(devices, "elsewhere", identity(2, 0x2, 777));
+    for (size_t i = 0; i < 13; ++i)
+        EXPECT_TRUE(
+            ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices})).empty()
+        );
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
+/// @brief it should keep the stored device and serial number at the position of a
+/// slave whose serial number read fails.
+TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWhoseSerialReadFails) {
+    this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 777));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "saved");
+    EXPECT_EQ(scanned.at(0).properties.at("serial"), 777);
 }
 
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
@@ -622,16 +668,62 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
-/// @brief it should save no device for a slave with no vendor and product, and discover
-/// the slaves again every sixth scan.
+/// @brief it should save no device for a slave with no vendor and product, discover the
+/// slaves again every sixth scan, and report the slave once two rediscoveries in a row
+/// find no identity.
 TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
     this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
-    for (size_t i = 0; i < 13; ++i) {
-        const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    for (size_t i = 0; i < 19; ++i) {
+        const auto [devices, err] = this->scanner->scan({.count = i});
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices.at(0).key, "ethercat_1_2_12345");
+        if (i < 12) {
+            ASSERT_NIL(err);
+            continue;
+        }
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
     }
-    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
+}
+
+/// @brief it should not report a slave that first has no identity at a rediscovery,
+/// while it reports a slave that had none at the rediscovery before.
+TEST_F(EtherCATScanStatusTest, ReportsOnlyASlaveWithNoIdentityAtTwoRediscoveries) {
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
+    for (size_t i = 0; i < 12; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 3});
+    for (size_t i = 12; i < 18; ++i) {
+        const auto [devices, err] = this->scanner->scan({.count = i});
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
+    }
+}
+
+/// @brief it should stop reporting a slave with no identity once a rediscovery finds
+/// its identity.
+TEST_F(EtherCATScanStatusTest, StopsReportingASlaveOnceItHasAnIdentity) {
+    this->master->add_slave(slave::Properties{.network = "eth0", .position = 2});
+    for (size_t i = 0; i < 12; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 12}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    this->master->replace_slave(
+        2,
+        slave::Properties{
+            .network = "eth0",
+            .position = 2,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .serial = 999,
+            .name = "Restarted Slave",
+        }
+    );
+    const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = 18}));
+    EXPECT_EQ(devices.size(), 2);
 }
 
 /// @brief it should show a failed settings read as a warning that says the Driver tries
@@ -1279,7 +1371,9 @@ protected:
                    {"settings", x::json::json::array()},
                    {"requires", x::json::json::array()}}}},
                 {"mode",
-                 {{"value", shared ? 1 : 0},
+                 {{"index", this->standalone[0].index},
+                  {"sub_index", this->standalone[0].sub_index},
+                  {"value", shared ? 1 : 0},
                   {"shared", shared},
                   {"bus", 1},
                   {"switch", change}}},
@@ -1477,7 +1571,10 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
-    EXPECT_EQ(status.description, "Restart the power of the device to finish.");
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
     EXPECT_EQ(
         this->master->written(),
         (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
@@ -1491,8 +1588,123 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesNothingToAStandaloneSlave) {
     this->start(false, 0x6041);
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(status.description, "The device already runs Synnax only.");
+    EXPECT_EQ(status.description, "The device in slot 1 already runs Synnax only.");
     EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should ask for no power restart when the slave maps only entries that
+/// Synnax reads after the switch.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForNoRestartWhenTheEntriesChange) {
+    this->start(true);
+    auto switched = this->props;
+    switched.input_pdos[0].index = 0x6001;
+    this->master->replace_after_write(1, switched);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
+    EXPECT_EQ(status.description, "The device in slot 1 runs Synnax only now.");
+}
+
+/// @brief it should report a switch that the slave did not save.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) {
+    this->start(true);
+    this->master->fail_write(
+        0x8020,
+        2,
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:02")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax until a power restart");
+    EXPECT_EQ(
+        status.description,
+        "The device in slot 1 did not save the switch, so it goes back to its saved "
+        "mode when its power restarts. Rejected 0x8020:02."
+    );
+}
+
+/// @brief it should ask for a power restart, not report an unsaved switch, when the
+/// scan after a switch that the slave took fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedScan) {
+    this->start(true);
+    this->master->fail_scan_after_write(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no slaves")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the scan after the switch cannot read
+/// the settings of the slave.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedSettingsRead) {
+    this->start(true);
+    auto switched = this->props;
+    switched.input_pdos[0].index = 0x6001;
+    switched.settings.reset();
+    this->master->replace_after_write(1, switched);
+    this->master->fail_settings_read(1, "failed to read 0x8020:09: no response");
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the catalog of the slave marks no
+/// entry, so the scan cannot show that the switch took effect.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartWhenNoEntryIsMarked) {
+    this->start(true);
+    auto switched = this->props;
+    switched.settings.value()["channels"] = x::json::json::array();
+    this->master->replace_after_write(1, switched);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should fail a switch when the slave holds another mode after writes that
+/// it answered.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveKeeps) {
+    this->start(true);
+    this->master->set_object(1, 0x8020, 9, 1);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "The device holds mode 1 after the switch.");
+}
+
+/// @brief it should fail a switch when the read of the mode after it fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAFailedReadOfTheMode) {
+    this->start(true);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read 0x8020:09: Object does not exist in the object dictionary."
+    );
+}
+
+/// @brief it should report a failed switch when the slave does not take the mode.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveDidNotTake) {
+    this->start(true);
+    this->master->fail_write(
+        0x8020,
+        9,
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:09")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "Rejected 0x8020:09.");
 }
 
 /// @brief it should refuse to switch a slave while a task runs its bus.
