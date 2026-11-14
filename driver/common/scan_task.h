@@ -610,18 +610,7 @@ public:
             return;
         }
         if (cmd.type == synnax::task::START_CMD_TYPE) {
-            if (this->running()) {
-                this->send_status();
-                return;
-            }
-            // The run thread answers the start with the command key. Until then, this
-            // status shows the start, and the Manager does not replace it at boot.
-            this->status.time = x::telem::TimeStamp::now();
-            this->status.variant = synnax::status::VARIANT_LOADING;
-            this->status.message = "Starting scan task";
-            this->status.description = "";
-            this->ctx->set_status(this->status);
-            this->start();
+            if (!this->start()) this->send_status();
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {

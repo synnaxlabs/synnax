@@ -160,7 +160,7 @@ TEST_F(FactoryTest, ScannerWarnsUntilLJMLoads) {
     scan_task->stop(false);
     const auto statuses = this->ctx->snapshot();
     EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_LOADING);
-    EXPECT_EQ(statuses[0].message, "Starting scan task");
+    EXPECT_EQ(statuses[0].message, "Starting task");
     EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(statuses[1].message, "Started scan task");
     EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_WARNING);

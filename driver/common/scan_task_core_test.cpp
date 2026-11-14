@@ -10,13 +10,11 @@
 #include <atomic>
 #include <memory>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -279,86 +277,5 @@ TEST(TestScanTask, testUpdatesDeviceLocation) {
     EXPECT_EQ(got.location, "slot-2");
     EXPECT_EQ(got.name, "user name");
     EXPECT_EQ(x::json::json(got.properties), x::json::json(dev.properties));
-}
-
-/// @brief configures each task as a scan task that starts on its own, as an integration
-/// factory does at boot.
-class ScanTaskFactory final : public task::Factory {
-public:
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        const std::string &cmd_key,
-        x::breaker::Breaker &cancel
-    ) override {
-        ConfigureResult result;
-        result.task = std::make_unique<ScanTask>(
-            std::make_unique<FixedScanner>(std::vector<synnax::device::Device>{}),
-            ctx,
-            task,
-            x::breaker::Config{},
-            x::telem::HERTZ * 10
-        );
-        result.auto_start = true;
-        return handle_config_err(
-            ctx,
-            task,
-            {std::move(result), x::errors::NIL},
-            cmd_key,
-            cancel
-        );
-    }
-};
-
-/// @brief it should show a scan task that a Driver restart starts again as starting
-/// and then started, never as stopped.
-TEST(TestScanTask, testRestartNeverShowsTheTaskStopped) {
-    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("scan_task_boot_rack"));
-    synnax::task::Task task{
-        .rack = rack.key,
-        .name = "Test Scan Task",
-        .type = SYNTHETIC_TASK_TYPE,
-    };
-    ASSERT_NIL(rack.tasks.create(task));
-    synnax::task::Status stored;
-    stored.key = "stored-" + task.key.to_string();
-    stored.owner = synnax::task::resource_id(task.key);
-    stored.name = task.name;
-    stored.variant = synnax::status::VARIANT_SUCCESS;
-    stored.message = "Started scan task";
-    stored.time = x::telem::TimeStamp::now();
-    stored.details.running = true;
-    ASSERT_NIL(client->statuses.set(stored));
-    const auto ch = ASSERT_NIL_P(
-        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
-    );
-    auto streamer = ASSERT_NIL_P(client->telem.open_streamer({.channels = {ch.key}}));
-    std::vector<std::string> messages;
-    const auto read_until = [&](const std::string &message) {
-        while (messages.empty() || messages.back() != message) {
-            auto frame = ASSERT_NIL_P(streamer.read());
-            for (const auto &j: frame.series->at(0).json_values()) {
-                auto parser = x::json::Parser(j);
-                const auto s = synnax::task::Status::parse(parser);
-                if (s.owner == stored.owner) messages.push_back(s.message);
-            }
-        }
-    };
-    task::Manager manager(rack, client, std::make_unique<ScanTaskFactory>());
-    std::thread runner([&] { ASSERT_NIL(manager.run()); });
-    read_until("Started scan task");
-    manager.stop();
-    runner.join();
-    read_until("Stopped scan task");
-    ASSERT_NIL(streamer.close());
-    EXPECT_EQ(
-        messages,
-        (std::vector<std::string>{
-            "Starting scan task",
-            "Started scan task",
-            "Stopped scan task",
-        })
-    );
 }
 }

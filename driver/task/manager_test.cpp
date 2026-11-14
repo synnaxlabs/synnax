@@ -987,7 +987,7 @@ TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
     start_manager(std::make_unique<QuietEchoTaskFactory>());
     for (const auto &s: statuses_until_command(task)) {
         EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
-        if (s.description != "stored") EXPECT_NE(s.message, "Failed to start task");
+        if (s.description != "stored") { EXPECT_NE(s.message, "Failed to start task"); }
     }
 }
 
