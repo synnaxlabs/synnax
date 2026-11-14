@@ -354,9 +354,13 @@
     }
 }
 
-/* A selected default tab or chip fills in the subtle tier, outranking the control-tier
-   default. A focused one keeps the control tier. */
-:is(.lyra-tabs__selector--default, .lyra-tabs__selector--chip)
+/* A selected default, chip, or text tab fills in the subtle tier, outranking the
+   control-tier default. A focused one keeps the control tier. */
+:is(
+        .lyra-tabs__selector--default,
+        .lyra-tabs__selector--chip,
+        .lyra-tabs__selector--text
+    )
     .lyra-tabs__tab.lyra--selected {
     --pluto-bg: var(--pluto-selected-subtle-bg);
     --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
@@ -366,6 +370,34 @@
         --pluto-bg: var(--pluto-selected-bg);
         --pluto-hover-bg: var(--pluto-selected-hover-bg);
         --pluto-active-bg: var(--pluto-selected-active-bg);
+    }
+}
+
+/* A text tab keeps the height its size gives it, with an even gap between its icon and
+   its name. Its icon keeps the small text size. */
+.lyra-tabs__selector--text {
+    --pluto-tabs-selected-text-color: var(--pluto-text-color);
+
+    &.lyra--direction-x {
+        padding: 0 0.75rem;
+
+        .lyra-tabs__tab {
+            gap: 1rem;
+        }
+    }
+
+    .lyra-tabs__tab {
+        padding: 0 1.5rem;
+
+        & > .lyra-icon {
+            flex-shrink: 0;
+            color: var(--pluto-gray-l9);
+            font-size: var(--pluto-small-size);
+        }
+
+        &.lyra--selected {
+            box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-gray-l6);
+        }
     }
 }
 

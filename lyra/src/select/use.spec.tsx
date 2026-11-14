@@ -193,6 +193,20 @@ describe("useSelect", () => {
         });
         expect(result.current.value).toEqual(["2"]);
       });
+
+      it("should keep a selection made as its old item is removed", () => {
+        let data = ["1", "2", "3"];
+        const { result } = renderMultiple(
+          { autoSelectOnNone: true, replaceOnSingle: true },
+          ["1"],
+          () => data,
+        );
+        act(() => {
+          data = ["2", "3"];
+          result.current.onSelect("3");
+        });
+        expect(result.current.value).toEqual(["3"]);
+      });
     });
   });
   describe("single selection", () => {

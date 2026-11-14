@@ -89,6 +89,13 @@ inline void serve(
     myStreamServiceImpl s_service;
 
     ::grpc::ServerBuilder builder;
+    // Accepts frequent pings, so a GOAWAY for too many pings never ends a keepalive
+    // spec.
+    builder.AddChannelArgument(
+        GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS,
+        0
+    );
+    builder.AddChannelArgument(GRPC_ARG_HTTP2_MAX_PING_STRIKES, 0);
     builder.AddListeningPort(target, credentials);
     builder.RegisterService(&u_service);
     builder.RegisterService(&s_service);

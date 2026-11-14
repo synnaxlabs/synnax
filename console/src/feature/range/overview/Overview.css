@@ -9,63 +9,126 @@
  * included in the file licenses/APL.txt.
  */
 
-@container (max-width: 500px) {
-    .console-header {
-        flex-direction: column-reverse !important;
+.console-range-overview__scroll {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.console-range-overview {
+    width: 100%;
+    max-width: 175rem;
+    margin: 0 auto;
+    padding: 7rem 7rem 12rem;
+
+    & > * + * {
+        margin-top: 6rem;
     }
 }
 
-.console-range__overview {
-    container-type: size;
+/* The add lines of empty sections sit together, as one short list. */
+.console-range-overview__add {
+    width: fit-content;
+    margin-left: -1.5rem;
+
+    & + & {
+        margin-top: 0.5rem;
+    }
+}
+
+.console-range-overview__header {
+    gap: 2rem;
+}
+
+.console-range-overview__crumbs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 -1rem -1.5rem;
+}
+
+.console-range-overview__crumb {
+    font-weight: 400;
+}
+
+.console-range-overview__separator {
+    color: var(--pluto-gray-l7);
+}
+
+.console-range-overview__name {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-left: -0.5rem;
+}
+
+.console-range-overview__actions {
+    flex-shrink: 0;
+}
+
+.console-range-overview__timeline {
+    margin-left: -2rem;
+}
+
+.console-range-overview__labels-select {
+    width: fit-content;
+}
+
+/* Puts the chip, not the box around it, on the content edge. */
+.console-range-overview__color {
+    margin-left: round(-0.65rem, 1px);
+}
+
+.console-range-overview__caret {
+    display: flex;
+    transition: transform 0.1s ease;
+
+    .console-range-overview__section--collapsed & {
+        transform: rotate(-90deg);
+    }
+}
+
+.console-range-overview__children {
+    max-height: 76rem;
+
+    & .console-range-timeline {
+        --console-range-timeline-label: 36rem;
+        --console-range-timeline-bg: var(--pluto-gray-l1);
+    }
+}
+
+.console-range-overview__fields {
+    padding: 1rem;
+}
+
+.console-range-overview__field {
+    display: grid;
+    grid-template-columns: 34rem minmax(0, 1fr) auto;
+    gap: 2rem;
     align-items: center;
-
-    > div {
-        max-width: 1050px;
-        width: 100%;
-        padding: 5rem;
-        overflow-y: auto;
-    }
-}
-
-.console-range__metadata {
-    .lyra-header {
-        margin-bottom: 2rem;
-    }
-}
-
-.console-metadata__list-item {
-    height: 6rem;
-    max-height: 6rem;
-    min-height: 6rem;
-    padding: 0 1rem;
-
-    .console-metadata__delete {
-        opacity: 0;
-    }
+    min-height: 5.5rem;
+    padding: 0 1rem 0 1.5rem;
+    border-radius: var(--pluto-border-radius);
 
     &:hover {
-        .console-metadata__delete {
-            opacity: 1;
-        }
+        background: var(--pluto-gray-l2);
     }
+}
 
-    &.console--create {
-        background: var(--pluto-gray-l3);
-        border: var(--pluto-border-l6);
-        border-radius: var(--pluto-border-radius);
-        transition:
-            height 0.1s ease,
-            min-height 0.1s ease;
+.console-range-overview__field-name,
+.console-range-overview__field-value {
+    min-width: 0;
+}
 
-        &.lyra--hidden {
-            height: 0;
-            padding: 0;
-            min-height: 0;
-            flex-grow: 0;
-            border: none;
-            max-height: 0;
-            overflow: hidden;
-            transition: none;
-        }
+.console-range-overview__field-input {
+    width: calc(100% + 1.5rem);
+    margin-left: -1.5rem;
+}
+
+.console-range-overview__field-actions {
+    gap: 0.5rem;
+    opacity: 0;
+
+    .console-range-overview__field:hover &,
+    .console-range-overview__field:focus-within & {
+        opacity: 1;
     }
 }

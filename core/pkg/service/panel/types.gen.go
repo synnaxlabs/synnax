@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -106,4 +107,8 @@ type Where struct {
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 	// Projects matches the panels in any of the given projects.
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	// Owners matches the drafts of any of the given users.
+	Owners []user.Key `json:"owners,omitzero" msgpack:"owners,omitempty"`
+	// Owned matches the drafts, or the shared panels when false.
+	Owned *bool `json:"owned,omitzero" msgpack:"owned,omitempty"`
 }

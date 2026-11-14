@@ -258,16 +258,20 @@ func (w *bundleWalk) directory(
 			}
 			w.groups = append(w.groups, child.ID)
 		case child.ID.Type == resource.TypePanel:
-			fileName, err := filename.Sanitize(child.Name, w.ext)
-			if err != nil {
-				return err
-			}
-			fileName = claims.Claim(fileName, w.ext)
 			w.visited.Add(child.ID)
 			p, err := w.retrievePanel(ctx, child.ID)
 			if err != nil {
 				return err
 			}
+			// A draft is private to its owner, so it never leaves the Core.
+			if p.Owner != nil {
+				continue
+			}
+			fileName, err := filename.Sanitize(child.Name, w.ext)
+			if err != nil {
+				return err
+			}
+			fileName = claims.Claim(fileName, w.ext)
 			w.panels = append(w.panels, bundlePanel{
 				panel: p,
 				path:  prefix + fileName,

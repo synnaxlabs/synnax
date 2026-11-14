@@ -40,7 +40,6 @@ import {
 import {
   ensureFetch,
   type EnsureFetchParams,
-  fulfilled,
   invalidate,
   type LocalCache,
   localFor,
@@ -468,7 +467,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
       throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
-    return use(fulfilled(cached));
+    return use(pending.fulfill(cached));
   }
   return use(
     promiseFor(
@@ -518,7 +517,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
           `${caseconv.capitalize(name)} was deleted`,
           cached.corpse,
         );
-      use(fulfilled(cached));
+      use(pending.fulfill(cached));
       return;
     }
   }

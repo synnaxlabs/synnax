@@ -15,6 +15,7 @@ import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -40,6 +41,9 @@ type Range struct {
 	// Parent is the key of the range this range is nested in. Empty for a top-level
 	// range.
 	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	// HasChildren is true when a range is nested in the range, derived on read and not
+	// persisted.
+	HasChildren bool `json:"has_children" msgpack:"has_children"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -50,8 +54,57 @@ func (r Range) Validate() error {
 	return v.Error()
 }
 
+// Stage is where a range stands against the current time.
+type Stage string
+
+const (
+	// StageToDo is a range that has not started.
+	StageToDo Stage = "to_do"
+	// StageInProgress is a range that has started and not ended.
+	StageInProgress Stage = "in_progress"
+	// StageCompleted is a range that has ended.
+	StageCompleted Stage = "completed"
+)
+
+// IsValid reports whether s is one of the defined Stage
+// values.
+func (s Stage) IsValid() bool {
+	switch s {
+	case StageToDo, StageInProgress, StageCompleted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Where is a filter that selects ranges.
-type Where = v2.Where
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Overlaps matches ranges whose time range overlaps the given range.
+	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
+	// Labels matches ranges that have any of the given labels.
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+	// Parents matches the ranges nested in any of the given ranges.
+	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	// Nested matches the ranges nested in a range, or top-level ranges when false.
+	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
+	// Labeled matches ranges that have a label, or ranges with none when false.
+	Labeled *bool `json:"labeled,omitzero" msgpack:"labeled,omitempty"`
+	// Stages matches ranges in any of the given stages at the Core's clock.
+	Stages []Stage `json:"stages,omitzero" msgpack:"stages,omitempty"`
+	// Recent matches ranges that overlap the span ending now, or starting now if
+	// negative.
+	Recent *telem.TimeSpan `json:"recent,omitzero" msgpack:"recent,omitempty"`
+}
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.

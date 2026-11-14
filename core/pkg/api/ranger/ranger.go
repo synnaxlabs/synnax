@@ -128,7 +128,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 
 // Retrieve returns the ranges that req selects and that the subject can retrieve. A
 // child range passes only when the subject can also retrieve its parent, and a named
-// child with a denied parent fails the request with an access error.
+// child with a denied parent fails the request with an access error. HasChildren counts
+// only the children that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -160,6 +161,11 @@ func (s *Service) Retrieve(
 		}
 		return false, nil
 	})).Exec(ctx, snap); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err = s.internal.Derive(ctx, snap, res.Ranges, func(k ranger.Key) bool {
+		return snap.Allowed(ranger.ResourceID(k))
+	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil

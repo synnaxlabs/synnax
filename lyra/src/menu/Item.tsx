@@ -14,6 +14,7 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useContext } from "@/menu/Menu";
+import { useSubmenusContext } from "@/menu/submenus";
 
 export interface ItemProps extends Button.ButtonProps {
   itemKey: string;
@@ -23,10 +24,14 @@ export const Item = ({
   itemKey,
   className,
   onClick,
+  onPointerMove,
+  onPointerLeave,
   size,
   ...rest
 }: ItemProps): ReactElement => {
   const { onClick: ctxOnClick, selected, level = "p", gap } = useContext();
+  const { aiming, item } = useSubmenusContext();
+  const handlers = item(itemKey);
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
     onClick?.(e);
@@ -38,11 +43,24 @@ export const Item = ({
       overflow="nowrap"
       onClick={handleClick}
       variant="text"
-      className={CSS.cls(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      className={CSS.cls(
+        CSS.B("menu-item"),
+        CSS.selected(_selected),
+        aiming && CSS.BM("menu-item", "aiming"),
+        className,
+      )}
       size={size}
       gap={gap}
       propagateClick
       role="menuitem"
+      onPointerMove={(e) => {
+        onPointerMove?.(e);
+        handlers.onPointerMove(e);
+      }}
+      onPointerLeave={(e) => {
+        onPointerLeave?.(e);
+        handlers.onPointerLeave(e);
+      }}
       {...rest}
     />
   );

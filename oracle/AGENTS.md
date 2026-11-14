@@ -276,6 +276,18 @@ struct with a hand-written Go JSON decoder, such as `color.Color`, declares
 `@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
 runs the decoder.
 
+## Filters and sorted indexes
+
+A typed line of a `filter` calls `Match<Line>` in the Go package of its target, with the
+line's value. `@go match <Func>` on the line calls an existing matcher instead, such as
+`nested bool { @go match MatchHasParent }`. A line that takes an operator cannot carry
+it.
+
+`@index sorted` with several values on a struct field declares one sorted index per
+sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
+`OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with
+`SortedIndex.FilterRange`.
+
 ## Rules
 
 - Never hand-edit generated output — edit the schema, then sync (see Sync Workflow). For

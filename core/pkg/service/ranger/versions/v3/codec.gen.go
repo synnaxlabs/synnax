@@ -14,6 +14,8 @@ package v3
 import (
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"uuid"
 )
 
@@ -102,6 +104,308 @@ func (rv *Range) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rv.Parent = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Where) EncodeOrc(w *orc.Writer) error {
+	if wv.And != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.And)))
+		for j := range wv.And {
+			if err := wv.And[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Or != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Or)))
+		for j := range wv.Or {
+			if err := wv.Or[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Not != nil {
+		w.Bool(true)
+		if err := wv.Not.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Key != nil {
+		w.Bool(true)
+		if err := wv.Key.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Name != nil {
+		w.Bool(true)
+		if err := wv.Name.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Overlaps != nil {
+		w.Bool(true)
+		if err := wv.Overlaps.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Labels != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Labels)))
+		for j := range wv.Labels {
+			w.Write(wv.Labels[j][:])
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Parents != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Parents)))
+		for j := range wv.Parents {
+			w.Write(wv.Parents[j][:])
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Nested != nil {
+		w.Bool(true)
+		w.Bool(*wv.Nested)
+	} else {
+		w.Bool(false)
+	}
+	if wv.Labeled != nil {
+		w.Bool(true)
+		w.Bool(*wv.Labeled)
+	} else {
+		w.Bool(false)
+	}
+	if wv.Stages != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Stages)))
+		for j := range wv.Stages {
+			w.String(string(wv.Stages[j]))
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Recent != nil {
+		w.Bool(true)
+		w.Int64(int64(*wv.Recent))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Where) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.And = make([]Where, n)
+			for j := range wv.And {
+				if err = wv.And[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Or = make([]Where, n)
+			for j := range wv.Or {
+				if err = wv.Or[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Where
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Not = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[Key]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Key = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.String
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Name = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.TimeRange
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Overlaps = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Labels = make([]uuid.UUID, n)
+			for j := range wv.Labels {
+				if _, err := r.Read(wv.Labels[j][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Parents = make([]uuid.UUID, n)
+			for j := range wv.Parents {
+				if _, err := r.Read(wv.Parents[j][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			wv.Nested = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			wv.Labeled = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Stages = make([]Stage, n)
+			for j := range wv.Stages {
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					wv.Stages[j] = Stage(rawV)
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			wv.Recent = &hv
 		}
 	}
 	return nil

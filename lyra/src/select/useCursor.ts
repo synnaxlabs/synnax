@@ -32,12 +32,15 @@ export type Cursor = "hover" | "selection";
 
 /** Reads and acts on the options by key. */
 export interface Order<K extends record.Key> {
-  /** Changes identity whenever the options change. */
+  /**
+   * Reads the options in order. When they change, it changes identity or the listeners
+   * of subscribe run.
+   */
   getOrder: () => K[];
   scrollTo: (key: K, direction: location.Y) => void;
   /** Clicks the option with the given key, as a mouse click would. */
   click: (key: K) => void;
-  /** Calls the listener whenever the options change but getOrder does not. */
+  /** Calls the listener whenever the options change but getOrder keeps its identity. */
   subscribe: (listener: () => void) => destructor.Destructor;
 }
 

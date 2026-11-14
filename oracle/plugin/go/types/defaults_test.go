@@ -121,6 +121,54 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
+		"Should validate an optional enum only when it is present",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Cfg struct {
+				level Level?
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c Cfg) Validate() error {",
+				"if c.Level != nil {",
+				`v.Ternaryf("level", !c.Level.IsValid(), "invalid level: %v", *c.Level)`,
+			)
+		},
+	)
+
+	It(
+		"Should validate an optional enum of a union variant only when it is present",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Shape union on type {
+				first { level Level? }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				"func (f FirstShape) Validate() error {",
+				"if f.Level != nil {",
+				`v.Ternaryf("level", !f.Level.IsValid(), "invalid level: %v", *f.Level)`,
+			)
+		},
+	)
+
+	It(
 		"Should widen the receiver when the type name would collide with the validator",
 		func(ctx SpecContext) {
 			source := `

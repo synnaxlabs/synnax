@@ -31,7 +31,9 @@ namespace driver::ethercat::esi {
 /// "shared_with" when Synnax still reads the card's data or in "only_read_by" when it
 /// does not, the EtherCAT bus of the card that Synnax is on ("bus", 1 or 2) when the
 /// card has two, the sync mode that the value needs as a dc::Choice among op_modes
-/// ("op_mode"), and the startup parameters that make the card standalone ("switch").
+/// ("op_mode") or its assign activate value when op_modes does not list it
+/// ("unlisted_assign_activate"), and the startup parameters that make the card
+/// standalone ("switch").
 /// Reads the values, option lists, limits, and mode from the card through read. Returns
 /// nullopt when the catalog describes no settings for the revision. Leaves out each
 /// setting whose object the card does not have, or whose table counts no options or

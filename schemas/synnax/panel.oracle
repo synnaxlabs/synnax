@@ -10,6 +10,7 @@
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/resource"
+import "schemas/synnax/user"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -152,6 +153,11 @@ Panel struct {
     project project.Key? {
         @doc value     "is the project that holds the panel."
         @ref kind      place
+        @ref on_delete cascade
+    }
+    owner   user.Key?    {
+        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
+        @ref kind      use
         @ref on_delete cascade
     }
 
@@ -311,6 +317,12 @@ Where filter Panel {
     }
     projects project.Key[] {
         @doc value "matches the panels in any of the given projects."
+    }
+    owners   user.Key[]    {
+        @doc value "matches the drafts of any of the given users."
+    }
+    owned    bool          {
+        @doc value "matches the drafts, or the shared panels when false."
     }
 
     @doc value         "is a filter that selects panels."

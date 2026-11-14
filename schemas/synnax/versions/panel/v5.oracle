@@ -11,6 +11,7 @@ import "schemas/synnax/resource"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/user/v1"
 import "schemas/x/versions/color/v2"
 
 TabKey = v0.TabKey
@@ -25,4 +26,8 @@ Node = v1.Node
 
 Key = v0.Key
 
-Panel struct extends v4.Panel {}
+Panel struct extends v4.Panel {
+    owner user.Key? {
+        @doc value "is the user whose draft the panel is. Nil for a shared panel."
+    }
+}
