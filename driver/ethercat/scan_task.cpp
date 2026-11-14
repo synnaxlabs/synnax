@@ -113,10 +113,10 @@ std::string pdo_error_description(const std::string &error) {
 const std::string SWITCHED_AT = "switched_at";
 
 /// @brief returns the time of the last switch to Synnax only in props, or 0 when they
-/// hold none.
+/// hold none. The Core gives the time back as a double.
 x::telem::TimeStamp switched_at(const nlohmann::json &props) {
     const auto at = props.find(SWITCHED_AT);
-    if (at == props.end() || !at->is_number_integer()) return x::telem::TimeStamp(0);
+    if (at == props.end() || !at->is_number()) return x::telem::TimeStamp(0);
     return x::telem::TimeStamp(at->get<int64_t>());
 }
 
@@ -740,8 +740,13 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         return;
     }
     {
+        // The Core stores the time as a double, which holds whole seconds exactly, so
+        // the next scan finds no change.
+        const auto now = x::telem::TimeStamp::now().nanoseconds();
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp::now();
+        this->switch_times[dev.key] = x::telem::TimeStamp(
+            now - now % x::telem::SECOND.nanoseconds()
+        );
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {

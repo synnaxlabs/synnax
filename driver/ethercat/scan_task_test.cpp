@@ -1375,12 +1375,24 @@ protected:
         return "ethercat_1_2_" + std::to_string(this->props.serial);
     }
 
-    /// @brief scans once with a stored device that a switch at time recorded, and
-    /// returns the status of the only slave device.
+    /// @brief stores the device of the slave in the Core with a switch at time, and
+    /// scans once with the device that the Core gives back. Returns the status of the
+    /// only slave device.
     [[nodiscard]] synnax::device::Status scan_switched_at(const int64_t time) const {
-        Devices devices;
-        store(devices, this->device_key(), this->props);
-        devices[this->device_key()].properties["switched_at"] = time;
+        synnax::device::Device dev{
+            .key = this->device_key(),
+            .rack = this->rack.key,
+            .location = "eth0.Slot 1",
+            .make = INTEGRATION_NAME,
+            .model = SLAVE_DEVICE_MODEL,
+            .name = "Test Slave",
+            .properties = this->props.to_json(),
+        };
+        dev.properties["switched_at"] = time;
+        EXPECT_NIL(this->client->devices.create(dev));
+        Devices devices{
+            {dev.key, ASSERT_NIL_P(this->client->devices.retrieve(dev.key))},
+        };
         const auto scanned = ASSERT_NIL_P(
             this->scanner->scan({.count = 1, .devices = &devices})
         );
@@ -1555,8 +1567,8 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     );
 }
 
-/// @brief it should write the time of a switch with the properties of each scan, also
-/// when the devices of the scan do not hold it.
+/// @brief it should write the time of a switch, to the second, with the properties of
+/// each scan, also when the devices of the scan do not hold it.
 TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     this->start(true);
     const auto before = x::telem::TimeStamp::now();
@@ -1570,8 +1582,35 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     const auto at = x::telem::TimeStamp(
         scanned.at(0).properties.at("switched_at").get<int64_t>()
     );
-    EXPECT_GE(at, before);
+    EXPECT_EQ(at.nanoseconds() % x::telem::SECOND.nanoseconds(), 0);
+    EXPECT_GT(at, before - x::telem::SECOND);
     EXPECT_LE(at, x::telem::TimeStamp::now());
+}
+
+/// @brief it should write a switch time that the Core gives back unchanged, so that the
+/// next scan finds no change.
+TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
+    this->start(true);
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto first = ASSERT_NIL_P(this->scanner->scan({.count = 1}));
+    ASSERT_EQ(first.size(), 1);
+    const auto key = first.at(0).key;
+    ASSERT_NIL(this->client->devices.dispatch(
+        key,
+        {synnax::device::set({
+            .path = {"properties"},
+            .value = x::json::json(first.at(0).properties),
+        })}
+    ));
+    Devices devices{{key, ASSERT_NIL_P(this->client->devices.retrieve(key))}};
+    const auto second = ASSERT_NIL_P(
+        this->scanner->scan({.count = 2, .devices = &devices})
+    );
+    ASSERT_EQ(second.size(), 1);
+    EXPECT_EQ(
+        x::json::json(second.at(0).properties),
+        x::json::json(devices.at(key).properties)
+    );
 }
 
 /// @brief it should warn about a slave that left Synnax mode after a switch, and give
