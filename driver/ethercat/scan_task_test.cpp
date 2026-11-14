@@ -299,6 +299,34 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
+/// @brief it should scan an interface that holds saved devices and has no slaves on
+/// each scan, and report it.
+TEST_F(EtherCATScanProbeTest, ReportsAnEmptyInterfaceWithSavedDevicesOnEachScan) {
+    this->master->set_name("Ethernet");
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+    );
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {"saved",
+         {.key = "saved",
+          .model = SLAVE_DEVICE_MODEL,
+          .properties = {{"network", "eth0"}}}},
+    };
+    for (std::size_t i = 0; i < 7; ++i) {
+        const auto [scanned, err] = this->scanner->scan(
+            {.count = i, .devices = &devices}
+        );
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "No module answered on Ethernet. Check the cable and the power of the "
+            "first module."
+        );
+        EXPECT_TRUE(scanned.empty());
+    }
+    EXPECT_EQ(this->master->call_count("scan"), 7);
+}
+
 /// @brief it should report an interface whose replies a filter blocks on each scan, and
 /// still probe it only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {
