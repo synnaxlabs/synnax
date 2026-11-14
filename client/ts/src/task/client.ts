@@ -372,16 +372,16 @@ export interface ClientConfig {
   statuses: status.Client;
 }
 
-/**
- * Creates, reads, deletes, and commands tasks on a Core. Reach it through
- * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
- */
 interface Parsed {
   schema: z.ZodType;
   tasks: WeakMap<Task, Task | undefined>;
   deleted: WeakMap<query.Deleted<Task>, query.Deleted<Task>>;
 }
 
+/**
+ * Creates, reads, deletes, and commands tasks on a Core. Reach it through
+ * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
+ */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
