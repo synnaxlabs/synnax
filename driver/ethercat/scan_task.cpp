@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <string>
 #include <tuple>
@@ -172,6 +173,12 @@ bool holds_devices_on(const common::ScannerContext &ctx, const std::string &netw
     });
 }
 
+/// @brief whether the master read the identity of the slave. A slave whose EEPROM read
+/// failed, as while it restarts, has none.
+bool has_identity(const slave::DiscoveryResult &slave) {
+    return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -203,6 +210,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     std::set<std::string> failures;
     std::vector<std::pair<std::string, std::string>> blocked;
+    std::set<std::string> kept;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -235,12 +243,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
-        const auto keys = slave_keys(slaves, key, scan_ctx);
+        const auto keys = slave_keys(slaves, key, scan_ctx, kept);
         bool rediscovery_needed = false;
         for (size_t i = 0; i < slaves.size(); ++i) {
             const auto &slave = slaves[i];
-            // A slave whose EEPROM read failed, as while it restarts, has no identity.
-            if (slave.properties.vendor_id == 0 && slave.properties.product_code == 0) {
+            if (!has_identity(slave)) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
@@ -394,44 +401,47 @@ std::string Scanner::generate_slave_key(
 std::vector<std::string> Scanner::slave_keys(
     const std::vector<slave::DiscoveryResult> &slaves,
     const std::string &master_key,
-    const common::ScannerContext &scan_ctx
+    const common::ScannerContext &scan_ctx,
+    std::set<std::string> &kept
 ) {
-    std::vector<std::pair<std::string, slave::Properties>> stored;
+    std::map<std::string, slave::Properties> stored;
     if (scan_ctx.devices != nullptr)
         for (const auto &[key, dev]: *scan_ctx.devices) {
             if (dev.model != SLAVE_DEVICE_MODEL) continue;
             auto [props, err] = parse_properties(dev.properties);
-            if (!err) stored.emplace_back(key, std::move(props));
+            if (!err) stored.emplace(key, std::move(props));
         }
-    std::ranges::sort(stored, {}, &std::pair<std::string, slave::Properties>::first);
-    const auto same_model = [](const slave::Properties &a, const slave::Properties &b) {
-        return a.vendor_id == b.vendor_id && a.product_code == b.product_code;
+    const auto find = [&](const slave::Properties &live, const bool by_serial) {
+        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
+            const auto &p = s.second;
+            if (kept.contains(s.first) || p.vendor_id != live.vendor_id ||
+                p.product_code != live.product_code)
+                return false;
+            if (by_serial && live.serial != 0) return p.serial == live.serial;
+            return p.serial == 0 && p.network == master_key &&
+                   p.position == live.position;
+        });
+        return it == stored.end() ? std::string() : it->first;
     };
     std::vector<std::string> keys(slaves.size());
-    std::set<std::string> kept;
-    for (size_t i = 0; i < slaves.size(); ++i) {
-        const auto &live = slaves[i].properties;
-        if (live.serial == 0) {
-            keys[i] = generate_slave_key(live, master_key);
-            kept.insert(keys[i]);
-            continue;
+    // A device saved with no serial number goes to a slave with one at its position
+    // only after each slave has taken its own device.
+    for (const bool by_serial: {true, false})
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+            keys[i] = find(slaves[i].properties, by_serial);
+            if (!keys[i].empty()) kept.insert(keys[i]);
         }
-        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
-            return same_model(s.second, live) && s.second.serial == live.serial;
-        });
-        if (it == stored.end()) continue;
-        keys[i] = it->first;
-        kept.insert(keys[i]);
-    }
     for (size_t i = 0; i < slaves.size(); ++i) {
-        if (!keys[i].empty()) continue;
-        const auto &live = slaves[i].properties;
-        const auto it = std::ranges::find_if(stored, [&](const auto &s) {
-            return !kept.contains(s.first) && s.second.network == master_key &&
-                   s.second.position == live.position && same_model(s.second, live);
-        });
-        keys[i] = it != stored.end() ? it->first : generate_slave_key(live, master_key);
-        kept.insert(keys[i]);
+        if (!keys[i].empty() || !has_identity(slaves[i])) continue;
+        const auto base = generate_slave_key(slaves[i].properties, master_key);
+        auto key = base;
+        // Another slave's device can hold the key, as after it took a device by
+        // position.
+        for (int n = 2; kept.contains(key) || stored.contains(key); ++n)
+            key = base + "_" + std::to_string(n);
+        keys[i] = key;
+        kept.insert(key);
     }
     return keys;
 }

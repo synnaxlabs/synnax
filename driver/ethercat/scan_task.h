@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -120,15 +121,18 @@ private:
         const common::ScannerContext &scan_ctx
     ) const;
 
-    /// @brief returns the device key of each slave on the master with master_key, in
-    /// the order of slaves. A slave with a serial number keeps the stored device with
-    /// its vendor, product, and serial number. Else it takes the stored device of its
-    /// model at its position that no other slave keeps, as a device saved before the
-    /// Driver read serial numbers. Else it gets a new key.
+    /// @brief returns the device key of each slave with an identity on the master
+    /// with master_key, in the order of slaves, and adds each key to kept. A slave
+    /// takes the stored device with its identity: its vendor, product, and serial
+    /// number, or with serial number 0, its network and position. Else a slave with a
+    /// serial number takes the stored device of its model at its position saved with
+    /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
+    /// new key that no stored device holds. No slave takes a device in kept.
     [[nodiscard]] static std::vector<std::string> slave_keys(
         const std::vector<slave::DiscoveryResult> &slaves,
         const std::string &master_key,
-        const common::ScannerContext &scan_ctx
+        const common::ScannerContext &scan_ctx,
+        std::set<std::string> &kept
     );
 
     /// @brief gets base properties from existing device or returns empty JSON.
