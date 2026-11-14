@@ -103,21 +103,25 @@ const settingProblem = (
   const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
   const [problem] = check(input, fill(input.settings, prior));
   if (problem == null) return null;
-  return `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`;
+  const address = ethercat.formatAddress(ch);
+  return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
 /**
- * @returns why the slave cannot start because another device on the rack is at its
- * network and position, or null. The problem names the device that is not connected,
- * which the user deletes.
+ * @returns why the slave cannot start because another device on the rack is the same
+ * module: the same vendor, product, and serial number. The problem names the device
+ * that is not connected, which the user deletes. A slave with no serial number has no
+ * problem, as the Driver cannot tell its module apart.
  */
-const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
-  const { network, position } = slave.properties;
+const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
+  const { vendorId, productCode, serial } = slave.properties;
+  if (serial === 0) return null;
   const other = onRack.find(
-    (o) =>
-      o.key !== slave.key &&
-      o.properties.network === network &&
-      o.properties.position === position,
+    ({ key, properties: p }) =>
+      key !== slave.key &&
+      p.vendorId === vendorId &&
+      p.productCode === productCode &&
+      p.serial === serial,
   );
   if (other == null) return null;
   const connected = (d: SlaveDevice): boolean =>
@@ -127,10 +131,8 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
     stale == null
       ? "Delete the one that is not on the network."
       : `Delete ${stale.name}, which is not connected.`;
-  return (
-    `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
-    `${network}. ${step}`
-  );
+  const pair = `Slaves ${slave.name} and ${other.name}`;
+  return `${pair} have the same serial number ${serial}. ${step}`;
 };
 
 /** @returns why the slaves of the task cannot run on one network, or null. */
@@ -155,9 +157,9 @@ interface CheckedConfig {
 
 /**
  * Checks the channels of a task against their slaves: one network for every slave, no
- * other device at the position of a slave, and for each enabled channel its entry and,
- * on inputs, the settings of the input it reads. A channel whose slave has not loaded
- * is not checked.
+ * other device with the serial number of a slave, and for each enabled channel its
+ * entry and, on inputs, the settings of the input it reads. A channel whose slave has
+ * not loaded is not checked.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */
@@ -171,8 +173,8 @@ export const slavesZ = (
     const network = networkProblem(used);
     if (network != null) report(["channels"], network);
     for (const slave of used) {
-      const position = positionProblem(slave, onRack);
-      if (position != null) report(["channels"], position);
+      const duplicate = serialProblem(slave, onRack);
+      if (duplicate != null) report(["channels"], duplicate);
     }
     channels.forEach((ch, i) => {
       const slave = used.find((s) => s.key === ch.device);
