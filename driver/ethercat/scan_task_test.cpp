@@ -1509,14 +1509,20 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     );
 }
 
-/// @brief it should record the time of a switch in the properties of the device.
-TEST_F(EtherCATScanModeTest, SetStandaloneRecordsTheSwitchTime) {
+/// @brief it should write the time of a switch with the properties of each scan, also
+/// when the devices of the scan do not hold it.
+TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     this->start(true);
     const auto before = x::telem::TimeStamp::now();
     ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
-    const auto dev = ASSERT_NIL_P(this->client->devices.retrieve(this->device_key()));
+    Devices devices;
+    store(devices, this->device_key(), this->props);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
     const auto at = x::telem::TimeStamp(
-        dev.properties.at("switched_at").get<int64_t>()
+        scanned.at(0).properties.at("switched_at").get<int64_t>()
     );
     EXPECT_GE(at, before);
     EXPECT_LE(at, x::telem::TimeStamp::now());
@@ -1531,9 +1537,23 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveThatLeftSynnaxModeAfterASwitch) {
     EXPECT_EQ(status.message, "Set up for DewesoftX again");
     EXPECT_EQ(
         status.description,
-        "The device was switched to Synnax at 2025-11-13 21:40 UTC. A power restart "
-        "or DewesoftX set it back to DewesoftX mode, because the switch is not saved "
-        "on the device. Switch it to Synnax again in Configure."
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went "
+        "back to DewesoftX mode. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should warn about a switched slave that holds a mode that its catalog
+/// does not list.
+TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
+    this->start(false, 0x6041);
+    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Left Synnax mode");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
+        "a mode that its catalog does not list. Switch it to Synnax again in Configure."
     );
 }
 

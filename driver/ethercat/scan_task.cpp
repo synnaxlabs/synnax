@@ -177,16 +177,24 @@ bool set_setup_status(
         if (bus == 2)
             status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
     } else if (reverted) {
-        if (reader.empty()) reader = mode.value("shared_with", "other software");
-        status.message = "Set up for " + reader + " again";
-        status.description = std::format(
-            "The device was switched to Synnax at {}. A power restart or {} set it "
-            "back to {} mode, because the switch is not saved on the device. Switch it "
-            "to Synnax again in Configure.",
-            utc_minute(switch_time),
-            reader,
-            reader
-        );
+        if (reader.empty()) reader = mode.value("shared_with", "");
+        const auto at = utc_minute(switch_time);
+        status.message = reader.empty() ? "Left Synnax mode"
+                                        : "Set up for " + reader + " again";
+        status
+            .description = reader.empty()
+                             ? std::format(
+                                   "The device was switched to Synnax at {}, and then "
+                                   "went to a mode that its catalog does not list.",
+                                   at
+                               )
+                             : std::format(
+                                   "The device was switched to Synnax at {}, and then "
+                                   "went back to {} mode.",
+                                   at,
+                                   reader
+                               );
+        status.description += " Switch it to Synnax again in Configure.";
     } else if (!reader.empty()) {
         status.message = "Set up for " + reader;
         status.description = "Synnax cannot read its data.";
@@ -386,6 +394,12 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     auto slave_props = props.to_json();
     for (const auto &[k, v]: slave_props.items())
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
+    {
+        std::lock_guard lock(this->switch_mu);
+        if (const auto it = this->switch_times.find(key);
+            it != this->switch_times.end())
+            json_props[SWITCHED_AT] = it->second.nanoseconds();
+    }
 
     const auto [saved, saved_err] = parse_properties(json_props);
     const bool is_enabled = saved.config.enabled;
@@ -592,7 +606,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     this->ctx->set_status(task_status);
 }
 
-void Scanner::set_standalone(const synnax::task::Command &cmd) const {
+void Scanner::set_standalone(const synnax::task::Command &cmd) {
     x::json::Parser parser(cmd.args);
     const SetStandaloneArgs args(parser);
     synnax::task::Status task_status{
@@ -702,15 +716,10 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
             fail(std::format("the device holds mode {} after the switch", held));
         return;
     }
-    if (const auto record_err = this->ctx->client->devices.dispatch(
-            dev.key,
-            {synnax::device::set({
-                .path = {"properties", SWITCHED_AT},
-                .value = x::telem::TimeStamp::now().nanoseconds(),
-            })}
-        ))
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to record the switch of " << dev.name
-                     << ": " << record_err;
+    {
+        std::lock_guard lock(this->switch_mu);
+        this->switch_times[dev.key] = x::telem::TimeStamp::now();
+    }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
         task_status.variant = synnax::status::VARIANT_WARNING;

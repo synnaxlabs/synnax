@@ -168,6 +168,8 @@ export const slavePropertiesZ = z.object({
   startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
   settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
+  /** When the Driver last switched the slave to Synnax only, in nanoseconds. */
+  switchedAt: z.number().optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
