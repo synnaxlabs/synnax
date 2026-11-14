@@ -17,6 +17,7 @@ import {
   TEST_CREDENTIALS,
 } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
+import { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -493,14 +494,16 @@ describe("reconcile panel order and selection", () => {
     });
     const store = await createStoreWithProject(proj.key, draft.key);
     const remove = vi.spyOn(editor.panels, "delete");
-    await renderHookWithConsole(
-      () =>
+    const { result } = await renderHookWithConsole(
+      () => {
         Session.Synchronizer.use(
           pickSynchronizer(
             Session.Panel.WINDOW_SYNCHRONIZERS,
             "reconcile panel order and selection",
           ),
-        ),
+        );
+        return Status.useNotifications().statuses;
+      },
       { client: editor, store },
     );
     await waitFor(() => expect(stripOrder(store)).toEqual([draft.key]));
@@ -510,6 +513,13 @@ describe("reconcile panel order and selection", () => {
     // A round trip gives a retry loop time to send its next delete.
     await editor.panels.retrieve({ key: draft.key });
     expect(remove).toHaveBeenCalledTimes(1);
+    expect(result.current).toEqual([
+      expect.objectContaining({
+        variant: "error",
+        name: draft.name,
+        message: "Failed to delete draft",
+      }),
+    ]);
   });
 
   it("prunes a deleted panel from the strip order", async () => {

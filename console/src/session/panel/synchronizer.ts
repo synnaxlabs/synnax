@@ -67,8 +67,6 @@ const hasTabs = (node: panel.Node): boolean =>
     ? node.tabs.length > 0
     : hasTabs(node.first) || hasTabs(node.last);
 
-const DELETE_FAILED = { name: "Draft", message: "Failed to delete draft" };
-
 // Drafts of the user that lost their last tab. A rejected delete puts the draft back,
 // so a failed key is not deleted again until the draft holds a tab once more.
 interface Emptied {
@@ -92,7 +90,9 @@ const deleteEmptied = (params: Params, state: Emptied, key: panel.Key): void => 
     })
     .catch((e: unknown) => {
       state.failed.add(key);
-      state.handleError(e, DELETE_FAILED);
+      const cached = client.panels.watch(key).getCached();
+      const name = query.isLive(cached) ? cached.name : "";
+      state.handleError(e, { name, message: "Failed to delete draft" });
       // The rollback ran before the key was marked failed, so it left the draft out.
       return repairMembership(params, state);
     })
