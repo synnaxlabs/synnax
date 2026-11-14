@@ -108,7 +108,9 @@ describe("Menu", () => {
       await userEvent.click(getByText("Target"), { button: "right" });
       const menu = page.getByRole("menu").element();
       expect(computed(menu, "position")).toBe("fixed");
-      expect(computed(menu, "background-color")).toBe(resolve("var(--pluto-gray-l2)"));
+      expect(computed(menu, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
       expect(computed(menu, "box-shadow")).toBe(
         resolve("var(--pluto-shadow-overlay)", "box-shadow"),
       );
