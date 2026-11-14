@@ -60,6 +60,13 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// The waits between the clock restores of a slave whose restores fail.
+const x::breaker::Config CLOCK_RETRY{
+    .name = "clock_restore",
+    .base_interval = x::telem::MILLISECOND * 100,
+    .scale = 2,
+    .max_interval = x::telem::SECOND * 10,
+};
 /// Timeout for one SDO (Service Data Object) read or write in microseconds.
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
@@ -558,34 +565,55 @@ void Master::update_lost(const uint16_t pos) {
 }
 
 void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
-    if (this->session.value().startup_failures.contains(pos)) return;
+    auto &session = this->session.value();
+    if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;
-    if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
+    const auto retry = session.clock_retries.find(pos);
+    const bool waits = retry != session.clock_retries.end() &&
+                       this->cfg.clock.steady() < retry->second.at;
+    if (state == EC_STATE_OPERATIONAL)
+        session.clock_retries.erase(pos);
+    else if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->record(pos).state = EC_STATE_SAFE_OP + EC_STATE_ACK;
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        // From PRE-OP, the next check restores the clock again.
+        // From PRE-OP, a later check restores the clock again.
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+    } else if (state > EC_STATE_NONE && !waits) {
         auto params = this->config(pos).startup_parameters;
-        const bool has_dc = this->record(pos).hasdc != 0;
-        if (has_dc || !params.empty())
+        const bool restores = this->keeps_clock(pos);
+        if (this->record(pos).hasdc && !restores) session.unrestored_clocks.insert(pos);
+        if (restores || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
-                [this, pos, &breaker, params = std::move(params), has_dc](uint16_t) {
-                    if (!this->write_startup_parameters(pos, params) || !has_dc) return;
+                [this, pos, &breaker, params = std::move(params), restores](uint16_t) {
+                    if (!this->write_startup_parameters(pos, params) || !restores)
+                        return;
+                    auto &s = this->session.value();
                     const auto err = this->restore_dc(pos, breaker);
-                    if (err)
-                        this->session.value().dc_restore_errors[pos] = err.data;
-                    else
-                        this->session.value().dc_restore_errors.erase(pos);
+                    if (!err) {
+                        s.dc_restore_errors.erase(pos);
+                        return;
+                    }
+                    s.dc_restore_errors[pos] = err.data;
+                    auto &retry = s.clock_retries
+                                      .try_emplace(
+                                          pos,
+                                          ClockRetry{.wait = CLOCK_RETRY.base_interval}
+                                      )
+                                      .first->second;
+                    retry.at = this->cfg.clock.steady() + retry.wait.chrono();
+                    retry.wait = std::min(
+                        retry.wait * CLOCK_RETRY.scale,
+                        CLOCK_RETRY.max_interval
+                    );
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
-        if (this->session.value().startup_failures.contains(pos)) {
+        if (session.startup_failures.contains(pos)) {
             this->record(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
@@ -1219,7 +1247,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         if (other == pos || this->record(other).group != ENABLED_GROUP ||
             !this->record(other).hasdc || this->record(other).islost ||
             (this->record(other).state & 0x0F) < EC_STATE_SAFE_OP ||
-            this->restore_failed(other))
+            this->restore_failed(other) ||
+            this->session.value().unrestored_clocks.contains(other))
             continue;
         const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
             other,
@@ -1306,6 +1335,12 @@ bool Master::al_error(const uint16_t pos) const {
 
 bool Master::restore_failed(const uint16_t pos) const {
     return this->session.value().dc_restore_errors.contains(pos);
+}
+
+bool Master::keeps_clock(const uint16_t pos) const {
+    if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
+    const auto &setups = this->session.value().dc_setups;
+    return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();
 }
 
 bool Master::wait_for_frame(

@@ -101,6 +101,14 @@ class Master final : public master::Master {
         dc::Registers registers;
     };
 
+    /// @brief the wait before the next clock restore of a slave whose restore failed.
+    struct ClockRetry {
+        /// @brief the Config::clock time of the next restore.
+        std::chrono::steady_clock::time_point at;
+        /// @brief the wait after the next failure.
+        x::telem::TimeSpan wait;
+    };
+
     /// @brief the state of one bus run, from activate() to deactivate().
     struct Session {
         /// @brief the plan that activate() got.
@@ -121,6 +129,12 @@ class Master final : public master::Master {
         /// @brief why the master could not restore the distributed clock of a slave
         /// that came back, keyed by position.
         std::unordered_map<uint16_t, std::string> dc_restore_errors;
+        /// @brief the wait before the next clock restore of each slave in
+        /// dc_restore_errors, keyed by position. A slave in OP leaves it.
+        std::unordered_map<uint16_t, ClockRetry> clock_retries;
+        /// @brief the slaves with a clock that came back without a clock restore. No
+        /// restore reads the clock of one.
+        std::set<uint16_t> unrestored_clocks;
         /// @brief the latest DC time that moved forward, in nanoseconds.
         int64_t last_dc_time = NO_DC_FRAME;
         /// @brief the Config::clock time of the last process data send.
@@ -369,6 +383,10 @@ private:
     /// @brief whether the latest clock restore of the slave failed.
     [[nodiscard]] bool restore_failed(uint16_t pos) const;
 
+    /// @brief whether the master restores the clock of the slave when it comes back:
+    /// the reference clock and each slave in a DC mode.
+    [[nodiscard]] bool keeps_clock(uint16_t pos) const;
+
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
 
@@ -386,8 +404,10 @@ private:
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
     /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
     /// to PRE-OP, not to OP. Takes no step for a slave that rejected a startup
-    /// parameter, so it stays in PRE-OP until the next activation. A wait for the
-    /// clock of a DC slave ends once breaker stops.
+    /// parameter, so it stays in PRE-OP until the next activation. After a failed clock
+    /// restore, the next one waits from 100 ms, twice as long after each failure up to
+    /// 10 s, and the wait starts again at 100 ms once the slave reaches OP. A wait for
+    /// the clock of a DC slave ends once breaker stops.
     void recover(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
