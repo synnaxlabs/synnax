@@ -570,8 +570,10 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
-        this->read_serial(slave);
-        this->read_settings(slave);
+        if (!slave.status.starting) {
+            this->read_serial(slave);
+            this->read_settings(slave);
+        }
         this->slave_list.push_back(std::move(slave));
     }
     slave::clear_duplicate_serials(this->slave_list);
@@ -634,10 +636,12 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
+    const auto al_state = this->record(pos).state & 0x0F;
+    result.status.starting = al_state < EC_STATE_PRE_OP || al_state == EC_STATE_BOOT;
     Description unshared;
     const auto model = this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;
-    this->discover_slave_pdos(result, description);
+    if (!result.status.starting) this->discover_slave_pdos(result, description);
     result.properties.op_modes = this->read_op_modes(pos, description);
     return result;
 }

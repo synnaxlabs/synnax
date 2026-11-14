@@ -1062,6 +1062,33 @@ MockSlaveInfo create_coe_slave(const uint32_t serial) {
     return slave;
 }
 
+/// @brief it should read nothing through the mailbox of a slave below PRE-OP, and mark
+/// it as starting.
+TEST_F(SOEMMasterTest, ScanMarksASlaveBelowPreOpAsStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (const uint16_t state: {EC_STATE_INIT, EC_STATE_BOOT}) {
+        auto slave = create_coe_slave(0x5555);
+        slave.eep_ser = state;
+        slave.bus_state = state;
+        this->add_slave(slave);
+    }
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_EQ(slaves.size(), 3);
+    for (const auto &slave: {slaves[0], slaves[1]}) {
+        EXPECT_TRUE(slave.status.starting);
+        EXPECT_EQ(
+            slave.properties.serial,
+            slave.properties.position == 1 ? EC_STATE_INIT : EC_STATE_BOOT
+        );
+        EXPECT_TRUE(slave.status.serial_error.empty());
+        EXPECT_TRUE(slave.status.settings_error.empty());
+        EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
+    }
+    EXPECT_FALSE(slaves[2].status.starting);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
 /// @brief it should read the serial number of a slave from its CoE identity object.
 TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
     this->add_slave(create_coe_slave(0x5555));

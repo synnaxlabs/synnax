@@ -368,6 +368,9 @@ struct Status {
     /// @brief why the read of the serial number got no answer, or empty when the slave
     /// answered. The serial number of a slave with one is not known.
     std::string serial_error;
+    /// @brief whether the slave was below PRE-OP when the master read it. The master
+    /// then reads only its identity and sync modes from the SII.
+    bool starting = false;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
