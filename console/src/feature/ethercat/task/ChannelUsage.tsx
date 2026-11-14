@@ -46,8 +46,10 @@ const mappedKeys = (slaves: SlaveDevice[]): number[] =>
 /** A channel that a Start creates when no channel holds its name. */
 interface Creation {
   name: string;
-  /** How many channels the Start creates for it. */
-  count: number;
+  /** How many data channels the Start creates for it. */
+  data: number;
+  /** How many index channels the Start creates for it. */
+  indexes: number;
 }
 
 /**
@@ -72,29 +74,39 @@ const creationsOf = (
     if (indexGone)
       creations.push({
         name: `${channel.escapeInvalidName(identifier)}${nameSuffix}`,
-        count: 1,
+        data: 0,
+        indexes: 1,
       });
     for (const ch of channels) {
       if (ch.device !== slave.key || ch.disabled || !hasEntry(ch)) continue;
       if (entryAt(pdos[pdoType], ch) == null) continue;
       if ("calibrated" in ch) {
         if (gone(readChannelOf(slave, ch, existing)))
-          creations.push({ name: readChannelName(slave, ch, existing), count: 1 });
+          creations.push({
+            name: readChannelName(slave, ch, existing),
+            data: 1,
+            indexes: 0,
+          });
         continue;
       }
       const { cmd, state } = writeChannelNames(slave, ch);
       // A new command channel gets an index of its own.
       if (gone(writeChannelOf(slave, ch, "command")))
-        creations.push({ name: cmd, count: 2 });
+        creations.push({ name: cmd, data: 1, indexes: 1 });
       if (gone(writeChannelOf(slave, ch, "state")))
-        creations.push({ name: state, count: 1 });
+        creations.push({ name: state, data: 1, indexes: 0 });
     }
     return creations;
   });
 
-const channelsText = (count: number): string => {
-  if (count === 0) return "no channels";
-  return count === 1 ? "1 channel" : `${count} channels`;
+const countText = (count: number, noun: string): string =>
+  `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+const createsText = (data: number, indexes: number): string => {
+  const parts: string[] = [];
+  if (data > 0) parts.push(countText(data, "channel"));
+  if (indexes > 0) parts.push(countText(indexes, "time channel"));
+  return parts.length === 0 ? "no channels" : parts.join(" and ");
 };
 
 export interface ChannelUsageProps {
@@ -139,13 +151,17 @@ export const ChannelUsage = ({
   // A count that fails, as for a user who cannot retrieve channels, leaves it out.
   if (inUse == null && count.variant !== "error") return null;
   const held = new Set((named ?? []).map(({ name }) => name));
-  const creates = creations.reduce((n, c) => (held.has(c.name) ? n : n + c.count), 0);
+  const created = creations.filter(({ name }) => !held.has(name));
+  const data = created.reduce((n, c) => n + c.data, 0);
+  const indexes = created.reduce((n, c) => n + c.indexes, 0);
   const cap = license.data?.license?.channels ?? 0;
-  let message = `Start creates ${channelsText(creates)}`;
+  let message = `Start creates ${createsText(data, indexes)}`;
   if (inUse == null) message += ".";
-  else message += cap === 0 ? `, ${inUse} in use.` : `, ${inUse} of ${cap} in use.`;
-  const over = cap === 0 || inUse == null ? 0 : inUse + creates - cap;
-  if (over > 0) message += ` Delete ${channelsText(over)} before you start the task.`;
+  else if (cap === 0) message += `, ${countText(inUse, "channel")} in use.`;
+  else message += `, ${inUse} of ${countText(cap, "channel")} in use.`;
+  const over = cap === 0 || inUse == null ? 0 : inUse + data + indexes - cap;
+  if (over > 0)
+    message += ` Delete ${countText(over, "channel")} before you start the task.`;
   return (
     <Text.Text
       level="small"

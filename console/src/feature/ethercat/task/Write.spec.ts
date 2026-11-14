@@ -456,7 +456,7 @@ describe("Write", () => {
       channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     expect(
-      await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+      await screen.findByText(/^Start creates no channels, \d+ channels? in use\.$/),
     ).toBeTruthy();
   });
 
@@ -665,7 +665,9 @@ describe("Write channel usage", () => {
       channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     expect(
-      await screen.findByText(/^Start creates 4 channels, \d+ in use\.$/),
+      await screen.findByText(
+        /^Start creates 2 channels and 2 time channels, \d+ channels? in use\.$/,
+      ),
     ).toBeTruthy();
   });
 
@@ -680,10 +682,10 @@ describe("Write channel usage", () => {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
-    const footer = await screen.findByText(
-      /^Start creates \d+ channels?, \d+ in use\.$/,
-    );
-    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    const creates = /^Start creates (\d+) channels? and (\d+) time channels?, /;
+    const footer = await screen.findByText(creates);
+    const [, data, indexes] = creates.exec(footer.textContent ?? "") ?? [];
+    const counted = Number(data) + Number(indexes);
     await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.WRITE_SCHEMAS);
     const created = await client.channels.retrieve({
       where: { name: { startsWith: slave.properties.identifier } },

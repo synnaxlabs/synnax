@@ -1842,7 +1842,7 @@ describe("Read", () => {
       await deleteSlave(first.slave.key, first.task);
       await renderSlave(identifier);
       expect(
-        await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+        await screen.findByText(/^Start creates no channels, \d+ channels? in use\.$/),
       ).toBeTruthy();
     });
 
@@ -2153,7 +2153,9 @@ describe("Read channel usage", () => {
     const slave = await createTwoEntrySlave();
     await renderRead(createConfig(slave));
     expect(
-      await screen.findByText(/^Start creates 3 channels, \d+ in use\.$/),
+      await screen.findByText(
+        /^Start creates 2 channels and 1 time channel, \d+ channels? in use\.$/,
+      ),
     ).toBeTruthy();
   });
 
@@ -2161,17 +2163,19 @@ describe("Read channel usage", () => {
     const slave = await createTwoEntrySlave();
     await renderRead(createConfig(slave, true));
     expect(
-      await screen.findByText(/^Start creates 2 channels, \d+ in use\.$/),
+      await screen.findByText(
+        /^Start creates 1 channel and 1 time channel, \d+ channels? in use\.$/,
+      ),
     ).toBeTruthy();
   });
 
   it("should count no channels once Start creates them", async () => {
     const slave = await createTwoEntrySlave();
     const { container, draft } = await renderRead(createConfig(slave));
-    await screen.findByText(/^Start creates 3 channels/);
+    await screen.findByText(/^Start creates 2 channels and 1 time channel,/);
     await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.READ_SCHEMAS);
     expect(
-      await screen.findByText(/^Start creates no channels, \d+ in use\.$/),
+      await screen.findByText(/^Start creates no channels, \d+ channels? in use\.$/),
     ).toBeTruthy();
   });
 
@@ -2179,10 +2183,10 @@ describe("Read channel usage", () => {
   it("should create as many channels at Start as it counts", async () => {
     const slave = await createTwoEntrySlave();
     const { container, draft } = await renderRead(createConfig(slave, true));
-    const footer = await screen.findByText(
-      /^Start creates \d+ channels?, \d+ in use\.$/,
-    );
-    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    const creates = /^Start creates (\d+) channels? and (\d+) time channels?, /;
+    const footer = await screen.findByText(creates);
+    const [, data, indexes] = creates.exec(footer.textContent ?? "") ?? [];
+    const counted = Number(data) + Number(indexes);
     await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.READ_SCHEMAS);
     const created = await client.channels.retrieve({
       where: { name: { startsWith: slave.properties.identifier } },
@@ -2197,7 +2201,7 @@ describe("Read channel usage", () => {
     await client.channels.delete(deployed.config.channels[1].channel);
     await renderRead(createConfig(slave));
     expect(
-      await screen.findByText(/^Start creates 1 channel, \d+ in use\.$/),
+      await screen.findByText(/^Start creates 1 channel, \d+ channels? in use\.$/),
     ).toBeTruthy();
   });
 
@@ -2215,7 +2219,9 @@ describe("Read channel usage", () => {
       ],
     });
     await renderTaskFormTab(EtherCAT.Task.Read, { client, as, taskKey: draft.key });
-    expect(await screen.findByText("Start creates 3 channels.")).toBeTruthy();
+    expect(
+      await screen.findByText("Start creates 2 channels and 1 time channel."),
+    ).toBeTruthy();
   });
 
   it("should show the count of the channels in use as it changes", async () => {
@@ -2224,7 +2230,7 @@ describe("Read channel usage", () => {
     const expectInUse = async () => {
       const count = await client.channels.countLimited();
       expect(screen.getByText(/ in use\.$/).textContent).toMatch(
-        new RegExp(`, ${count} in use\\.$`),
+        new RegExp(`, ${count} channels? in use\\.$`),
       );
     };
     await waitFor(expectInUse);
