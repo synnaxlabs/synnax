@@ -43,7 +43,7 @@ export interface FrameProps extends PropsWithChildren {
 const ZERO_VARIANTS: {
   [K in view.Type]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
 } = {
-  range: { type: "range" },
+  range: { type: "range", sort: "newest", layout: "tree" },
   status: { type: "status" },
 };
 

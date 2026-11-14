@@ -47,6 +47,18 @@ type Filter[K Key, E Entry[K]] struct {
 	// resolver-backed so the per-call eval can close over the
 	// materialized child without sharing mutable state across Execs.
 	resolve resolveFilter[K, E]
+	// span, if non-nil, marks a filter whose keys are one range of a sorted index and
+	// whose eval checks the same range.
+	span *span[K]
+}
+
+// span reads one range of a sorted index.
+type span[K Key] struct {
+	// count returns the number of committed keys in the range.
+	count func(ctx context.Context) (int, error)
+	// keep returns each key of keys that lies in the range, with the changes of snap
+	// applied.
+	keep func(ctx context.Context, snap Snapshot, keys []K) ([]K, error)
 }
 
 // evalFunc is the signature of Filter.eval. Kept as a named alias so
@@ -124,12 +136,12 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 	}
 }
 
-// And returns a filter that matches when ALL children match. Each
-// child's keys, raw, and eval constraints are composed independently:
-// keys are intersected, raw runs as a short-circuit AND pre-screen,
-// and eval runs as an AND-composed post-decode predicate. The raw
-// pre-screen survives composition, so MatchRaw children retain their
-// no-decode skip.
+// And returns a filter that matches when ALL children match. Each child's keys, raw,
+// and eval constraints are composed independently: keys are intersected, raw runs as a
+// short-circuit AND pre-screen, and eval runs as an AND-composed post-decode predicate.
+// The raw pre-screen survives composition, so MatchRaw children retain their no-decode
+// skip. Of several SortedIndex.FilterRange children, And reads the keys of the
+// narrowest range only.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 	f.eval = andEval(filters)
@@ -168,7 +180,11 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 
 	if anyHasResolver(filters) {
 		f.resolve = func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
-			materialized, err := materializeFilters(ctx, snap, filters)
+			narrowed, err := narrowSpans(ctx, filters)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			materialized, err := materializeFilters(ctx, snap, narrowed)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -181,6 +197,58 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 	f.keys = keyset.Intersect(filterKeys(filters)...)
 	return f
+}
+
+// narrowSpans returns filters with the resolve of every child that has a span dropped,
+// except the child with the smallest span. That child keeps only the keys that every
+// other span also holds.
+func narrowSpans[K Key, E Entry[K]](
+	ctx context.Context,
+	filters []Filter[K, E],
+) ([]Filter[K, E], error) {
+	narrowest, least, spanned := 0, 0, 0
+	for i, child := range filters {
+		if child.span == nil {
+			continue
+		}
+		n, err := child.span.count(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if spanned == 0 || n < least {
+			narrowest, least = i, n
+		}
+		spanned++
+	}
+	if spanned < 2 {
+		return filters, nil
+	}
+	out := slices.Clone(filters)
+	others := make([]*span[K], 0, spanned-1)
+	for i := range out {
+		if out[i].span != nil && i != narrowest {
+			others = append(others, out[i].span)
+			out[i].resolve, out[i].span = nil, nil
+		}
+	}
+	resolve := out[narrowest].resolve
+	out[narrowest].resolve = func(
+		ctx context.Context,
+		snap Snapshot,
+	) (resolved[K, E], error) {
+		res, err := resolve(ctx, snap)
+		if err != nil || !res.keys.Bounded() {
+			return res, err
+		}
+		keys := res.keys.Keys()
+		for _, other := range others {
+			if keys, err = other.keep(ctx, snap, keys); err != nil {
+				return resolved[K, E]{}, err
+			}
+		}
+		return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+	}
+	return out, nil
 }
 
 // andEval returns the eval closure used by And composition, or nil when no child has

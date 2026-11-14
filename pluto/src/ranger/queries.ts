@@ -81,7 +81,7 @@ const timeRangeZ = z
   });
 
 export const createFormSchema = z.object({
-  ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
+  ...ranger.newZ.omit({ timeRange: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
   timeRange: timeRangeZ,

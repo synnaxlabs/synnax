@@ -621,6 +621,32 @@ class TestRangeClient:
             child_names = {child.name for child in children}
             assert child_names == {"child1", "child2"}
 
+        def test_has_children(self, client: sy.Synnax) -> None:
+            """Should mark a retrieved range that has a child range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            child = parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            assert client.ranges.retrieve(key=parent_rng.key).has_children
+            assert not client.ranges.retrieve(key=child.key).has_children
+
+        def test_to_payload_has_children(self, client: sy.Synnax) -> None:
+            """Should keep has_children in the payload of a retrieved parent range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            retrieved = client.ranges.retrieve(key=parent_rng.key)
+            assert retrieved.to_payload().has_children
+
         def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax) -> None:
             """Client.create(parent=range) should attach the child under the parent"""
             parent_rng = client.ranges.create(
@@ -886,6 +912,84 @@ class TestRangeRetrieveFilters:
         assert all(r.parent == parent.key for r in res)
         assert client.ranges.retrieve(key=child.key).parent == parent.key
         assert client.ranges.retrieve(key=parent.key).parent is None
+
+    def test_nested(self, client: sy.Synnax) -> None:
+        """Should keep the nested ranges, or the top-level ranges when false"""
+        parent = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = parent.create_child_range(
+            name=random_name(), time_range=parent.time_range
+        )
+        keys = [parent.key, child.key]
+        nested = client.ranges.retrieve(key=keys, nested=True)
+        assert [r.key for r in nested] == [child.key]
+        top = client.ranges.retrieve(key=keys, nested=False)
+        assert [r.key for r in top] == [parent.key]
+
+    def test_labeled(self, client: sy.Synnax) -> None:
+        """Should keep the labeled ranges, or the ranges with no label when false"""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        labeled, bare = client.ranges.create(
+            [sy.Range(name=random_name(), time_range=tr) for _ in range(2)]
+        )
+        _create_label(client, labeled)
+        keys = [labeled.key, bare.key]
+        res = client.ranges.retrieve(key=keys, labeled=True)
+        assert [r.key for r in res] == [labeled.key]
+        res = client.ranges.retrieve(key=keys, labeled=False)
+        assert [r.key for r in res] == [bare.key]
+
+    @pytest.fixture
+    def staged(self, client: sy.Synnax) -> list[sy.Range]:
+        now = sy.TimeStamp.now()
+        hour = sy.TimeSpan.HOUR
+        return client.ranges.create(
+            [
+                sy.Range(name=random_name(), time_range=sy.TimeRange(start, end))
+                for start, end in [
+                    (now - 2 * hour, now - hour),
+                    (now - hour, now + hour),
+                    (now + hour, now + 2 * hour),
+                ]
+            ]
+        )
+
+    def test_stages(self, client: sy.Synnax, staged: list[sy.Range]) -> None:
+        """Should keep the ranges in the given stages at the Core's clock"""
+        done, running, planned = staged
+        keys = [r.key for r in staged]
+        res = client.ranges.retrieve(key=keys, stages="in_progress")
+        assert [r.key for r in res] == [running.key]
+        res = client.ranges.retrieve(key=keys, stages=["to_do", "completed"])
+        assert {r.key for r in res} == {planned.key, done.key}
+
+    def test_recent(self, client: sy.Synnax, staged: list[sy.Range]) -> None:
+        """Should keep the ranges that overlap the span ending now, or starting now
+        if negative"""
+        done, running, planned = staged
+        keys = [r.key for r in staged]
+        span = 90 * sy.TimeSpan.MINUTE
+        res = client.ranges.retrieve(key=keys, recent=span)
+        assert {r.key for r in res} == {done.key, running.key}
+        res = client.ranges.retrieve(key=keys, recent=-span)
+        assert {r.key for r in res} == {running.key, planned.key}
+
+    def test_order_by_end(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should page through the matching ranges by the end of their time range"""
+        order = ranger.Order(field="time_range_end")
+        first = client.ranges.retrieve(overlaps=window, order=order, limit=2)
+        after = ranger.Cursor(
+            key=first[-1].key, time_range_end=first[-1].time_range.end
+        )
+        rest = client.ranges.retrieve(overlaps=window, order=order, after=after)
+        assert [r.key for r in first + rest] == [r.key for r in window_ranges]
 
 
 @pytest.mark.ranger
