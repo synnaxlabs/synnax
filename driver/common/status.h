@@ -277,11 +277,12 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, empty at boot. A boot configure that does not auto-start
-/// logs its failures instead of reporting them. A successful configure writes no
-/// status: the start that follows it answers the command. Only a boot configure
-/// auto-starts the task, because the start command of a deploy starts it with its own
-/// key. cancel is passed to the auto-start.
+/// command driving the deploy, or NO_COMMAND for a configure at boot or after a save. A
+/// configure with no command that does not auto-start logs its failures instead of
+/// reporting them. A successful configure writes no status: the start that follows it
+/// answers the command. Only a configure with no command auto-starts the task, because
+/// a start command that drives a deploy starts the task with its own key. cancel is
+/// passed to the auto-start.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -289,7 +290,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::string &cmd_key,
     x::breaker::Breaker &cancel
 ) {
-    const bool boot = cmd_key == driver::task::NO_COMMAND;
+    const bool commanded = cmd_key != driver::task::NO_COMMAND;
     if (res.second) {
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
@@ -301,14 +302,14 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        if (boot && !res.first.auto_start)
+        if (!commanded && !res.first.auto_start)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
                          << res.second;
         else
             ctx->set_status(status);
         return {std::move(res.first.task), true};
     }
-    if (boot && res.first.auto_start) {
+    if (!commanded && res.first.auto_start) {
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

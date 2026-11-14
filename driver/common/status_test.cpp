@@ -698,9 +698,9 @@ TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
     EXPECT_TRUE(raw->cmds.empty());
 }
 
-/// @brief auto-start at boot should exec the start command instead of writing a
-/// configure status.
-TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
+/// @brief auto-start should exec the start command for a configure with no command,
+/// at boot or after a save, instead of writing a configure status.
+TEST(TestHandleConfigErr, testAutoStartWithNoCommandExecsStart) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};

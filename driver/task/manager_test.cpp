@@ -1036,6 +1036,25 @@ public:
     }
 };
 
+/// @brief it should configure a saved task with no command, so that an auto-start
+/// task starts itself, and configure for a start command with the key of the start.
+TEST_F(TaskManagerTest, ConfigureGetsTheKeyOfTheStartOnly) {
+    start_manager(std::make_unique<FailingConfigureFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task" && s.details.cmd == NO_COMMAND;
+    });
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task" && s.details.cmd == "start-cmd";
+    });
+}
+
 /// @brief it should answer a command for a task that failed to configure with the
 /// error of the configure.
 TEST_F(TaskManagerTest, CommandForFailedConfigureAnswersWithConfigureError) {
