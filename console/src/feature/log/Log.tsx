@@ -13,6 +13,7 @@ import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
@@ -45,6 +46,7 @@ const Internal: Panel.Content = () => {
       onHold={handleHold}
       position={position}
       onLeave={handleLeave}
+      onLinkOpen={Runtime.openExternal}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action

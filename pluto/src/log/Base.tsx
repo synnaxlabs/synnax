@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings } from "@synnaxlabs/x";
+import { box, runtime, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -39,6 +39,9 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+// Control with a click opens the context menu on macOS, so Meta opens a link there.
+const LINK_KEY = runtime.getOS() === "macOS" ? "metaKey" : "ctrlKey";
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -71,6 +74,8 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   /** When set, the context menu offers undo and redo for the host document. */
   undoRedo?: Menu.UndoRedoItemsProps;
   enableTriggers?: Triggers.Condition;
+  /** Called with the URL of a link on a click with Control or Meta */
+  onLinkOpen?: (url: string) => void | Promise<void>;
 }
 
 export const Base = ({
@@ -93,6 +98,7 @@ export const Base = ({
   onHold,
   position,
   onLeave,
+  onLinkOpen,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -138,6 +144,8 @@ export const Base = ({
 
   const draggingRef = useRef(false);
   const [linkHovered, setLinkHovered] = useState(false);
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;
@@ -147,8 +155,17 @@ export const Base = ({
     return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
+  const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
+    links.find((link) => box.contains(link.region, { x, y }));
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    const link = e[LINK_KEY] ? linkAt(e) : undefined;
+    if (link != null)
+      return handleError(
+        async () => await onLinkOpen?.(link.url),
+        "Failed to open link",
+      );
     const idx = mouseYToEntryIndex(e.clientY);
     draggingRef.current = true;
     if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
@@ -160,9 +177,6 @@ export const Base = ({
       });
   };
 
-  const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
-    links.find((link) => box.contains(link.region, { x, y }));
-
   const handleMouseMove = (e: React.MouseEvent) => {
     setLinkHovered(linkAt(e) != null);
     if (!draggingRef.current) return;
@@ -173,9 +187,6 @@ export const Base = ({
   const handleMouseUp = () => {
     draggingRef.current = false;
   };
-
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
 
   // The worker formats the lines only now, so a large selection costs nothing until a
   // copy. The write must start inside the user gesture, so the item holds promises. An
