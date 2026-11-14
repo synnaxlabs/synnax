@@ -57,6 +57,18 @@ export const operationZ = z.object({
 });
 export interface Operation extends z.infer<typeof operationZ> {}
 
+/**
+ * CountResponse holds the channel count that the Core checks against the channel limit.
+ */
+export const countResponseZ = z.object({
+  /**
+   * count is how many channels count toward the channel limit of the license: the
+   * channels that are neither internal nor virtual.
+   */
+  count: z.uint32(),
+});
+export interface CountResponse extends z.infer<typeof countResponseZ> {}
+
 /** Where is a filter that selects channels. */
 export type Where = {
   and?: Where[];

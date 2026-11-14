@@ -33,6 +33,7 @@ import {
   singleWhere,
 } from "@/channel/payload";
 import {
+  countResponseZ,
   type Key,
   keyZ,
   type Name,
@@ -523,6 +524,21 @@ export class Client extends query.Retriever<
     await this.writer.delete({ names });
     const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
+  }
+
+  /**
+   * Retrieves how many channels count toward the channel limit of the license: the
+   * channels that are neither internal nor virtual.
+   * @throws {AccessDeniedError} if the caller cannot retrieve every channel.
+   */
+  async count(): Promise<number> {
+    const { count } = await this.cfg.unary.send(
+      "/channel/count",
+      {},
+      z.object({}),
+      countResponseZ,
+    );
+    return count;
   }
 
   /** Renames the channels in one transaction, giving each key the name at its index. */

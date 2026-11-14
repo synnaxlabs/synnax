@@ -13,7 +13,7 @@ from typing import Any, Literal, overload, override
 
 from pydantic import PrivateAttr
 
-from freighter import UnaryClient
+from freighter import Empty, UnaryClient
 from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
@@ -22,6 +22,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    CountResponse,
     Cursor,
     Operation,
     Order,
@@ -44,6 +45,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util import request_where, returns_one, sole
+from synnax.util.send_required import send_required
 from x import control, filter
 from x.lists import normalize
 
@@ -238,6 +240,17 @@ class Client:
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
+
+    def count(self) -> int:
+        """Retrieves how many channels count toward the channel limit of the license:
+        the channels that are neither internal nor virtual.
+
+        :returns: The number of channels.
+        :raises AccessDenied: If the caller cannot retrieve every channel.
+        """
+        return send_required(
+            self._client, "/channel/count", Empty(), CountResponse
+        ).count
 
     @overload
     def create(

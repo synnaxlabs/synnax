@@ -65,6 +65,17 @@ class Operation(BaseModel):
     )
 
 
+class CountResponse(BaseModel):
+    """Holds the channel count that the Core checks against the channel limit.
+
+    Attributes:
+        count: Is how many channels count toward the channel limit of the license: the
+            channels that are neither internal nor virtual.
+    """
+
+    count: int = Field(ge=0, le=4294967295)
+
+
 class Where(BaseModel):
     """Is a filter that selects channels.
 

@@ -131,6 +131,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/delete",
 		),
+		ChannelCount: unary[channel.CountRequest, channel.CountResponse](
+			router,
+			"/api/v1/channel/count",
+		),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
 			"/api/v1"+api.PathChannelDispatch,

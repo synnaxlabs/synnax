@@ -89,6 +89,8 @@ type Transport struct {
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	// ChannelCount returns how many channels count toward the channel limit.
+	ChannelCount freighter.UnaryServer[channel.CountRequest, channel.CountResponse]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
@@ -365,6 +367,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
+		t.ChannelCount,
 		t.ChannelDispatch,
 
 		// FRAME
@@ -596,6 +599,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelCount.BindHandler(bind.Read(l.binder, l.Channel.Count))
 	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME

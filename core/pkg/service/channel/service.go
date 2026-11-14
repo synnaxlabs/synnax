@@ -202,6 +202,14 @@ func (s *Service) NewRetrieve() Retrieve {
 	return r
 }
 
+// CountLimited returns how many channels count toward the channel limit: the channels
+// that are neither internal nor virtual. A channel counts once its transaction commits.
+func (s *Service) CountLimited() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
+}
+
 // Close releases the resources held by the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 

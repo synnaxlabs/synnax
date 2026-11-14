@@ -78,6 +78,13 @@ func (c Channel) Validate() error {
 	return v.Error()
 }
 
+// CountResponse holds the channel count that the Core checks against the channel limit.
+type CountResponse struct {
+	// Count is how many channels count toward the channel limit of the license: the
+	// channels that are neither internal nor virtual.
+	Count uint32 `json:"count" msgpack:"count"`
+}
+
 // Cursor is a position in an order of channels: the sort value and the key of a
 // channel.
 type Cursor struct {

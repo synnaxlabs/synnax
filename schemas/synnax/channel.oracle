@@ -302,6 +302,20 @@ APIChannel struct {
     @ts name       "Payload"
 }
 
+CountResponse struct {
+    count uint32 {
+        @doc value """
+            is how many channels count toward the channel limit of the license: the
+            channels that are neither internal nor virtual.
+        """
+    }
+
+    @cpp omit
+    @doc value "holds the channel count that the Core checks against the channel limit."
+    @go output "core/pkg/api/channel"
+    @pb omit
+}
+
 Where filter Channel {
     key
     name
