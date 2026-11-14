@@ -1416,6 +1416,26 @@ TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
 
+/// @brief it should tell the user to switch a slave to Synnax when it refuses its sync
+/// configuration in a mode whose data only another program reads.
+TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
+    auto shared = io_slave(1);
+    shared.settings = x::json::json{
+        {"mode", {{"shared", true}, {"only_read_by", "DewesoftX"}}}
+    };
+    this->master->add_slave(shared);
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    auto res = this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "SYNC configuration. Fix the device, then stop every task on the network to "
+        "try it again. The device is set up for DewesoftX. In Configure, switch the "
+        "device to Synnax."
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
+}
+
 /// @brief it should fail a reader on a slave that the bus started without, and stop the
 /// bus that the reader started.
 TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
