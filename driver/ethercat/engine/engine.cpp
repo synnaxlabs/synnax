@@ -15,6 +15,7 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/engine/clock.h"
@@ -32,6 +33,8 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief how often a call that needs the stopped bus tries mu again.
+const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
@@ -724,6 +727,10 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const size_t samples_per_read,
     const Settings &settings
 ) {
+    this->opens.fetch_add(1, std::memory_order_acq_rel);
+    x::defer::defer done([this] {
+        this->opens.fetch_sub(1, std::memory_order_acq_rel);
+    });
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, entries, sample_rate, false, settings);
     if (err) return {nullptr, err};
@@ -751,6 +758,10 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         pdo_entries.push_back(entry);
         stop_values.push_back(stop_value);
     }
+    this->opens.fetch_add(1, std::memory_order_acq_rel);
+    x::defer::defer done([this] {
+        this->opens.fetch_sub(1, std::memory_order_acq_rel);
+    });
     std::unique_lock lock(this->mu);
     auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true, {});
     if (err) return {nullptr, err};
@@ -793,17 +804,37 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
     return this->rediscover_locked();
 }
 
-x::errors::Error Engine::configure(
-    const slave::Properties &slave,
-    const std::vector<slave::StartupParameter> &parameters
-) {
-    std::lock_guard lock(this->mu);
+std::pair<std::unique_lock<std::mutex>, x::errors::Error> Engine::lock_stopped() {
+    std::unique_lock lock(this->mu, std::defer_lock);
+    // An open counts itself before it waits on mu, so this never waits behind a start.
+    while (this->opens.load(std::memory_order_acquire) == 0 && !lock.try_lock())
+        std::this_thread::sleep_for(LOCK_POLL_INTERVAL.chrono());
+    if (!lock.owns_lock())
+        return {
+            std::move(lock),
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                "A task is starting on " + this->network_name +
+                    ". Try again when the start ends, or stop the task."
+            )
+        };
     if (this->running())
-        return x::errors::Error(
-            errors::SLAVE_CONFIG_ERROR,
-            "A task uses " + this->network_name + ". Stop the tasks that use it first."
-        );
-    const auto [slaves, err] = this->master->scan();
+        return {
+            std::move(lock),
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                "A task uses " + this->network_name +
+                    ". Stop the tasks that use it first."
+            )
+        };
+    return {std::move(lock), x::errors::NIL};
+}
+
+x::errors::Error
+Engine::configure(const slave::Properties &slave, const Parameters &parameters) {
+    const auto [lock, lock_err] = this->lock_stopped();
+    if (lock_err) return lock_err;
+    const auto [slaves, err] = this->rediscover_locked();
     if (err) return err;
     const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
         const auto &p = s.properties;
@@ -817,7 +848,10 @@ x::errors::Error Engine::configure(
             slave.name + " is not on " + this->network_name +
                 ". Check its power and cabling."
         );
-    if (auto write_err = this->master->write(found->properties.position, parameters))
+    const auto [params, params_err] = parameters(*found);
+    if (params_err) return params_err;
+    if (params.empty()) return x::errors::NIL;
+    if (auto write_err = this->master->write(found->properties.position, params))
         return write_err;
     return this->rediscover_locked().second;
 }
