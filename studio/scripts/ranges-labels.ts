@@ -55,13 +55,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.waitFor(trigger);
 
-  // Script-local override: drop the sections unrelated to labels so the shot
-  // stays on the Details block.
+  // Script-local override: drop the lines that add other parts, so the shot stays on
+  // the header.
   await page.evaluate(() => {
-    const hide = ["Child ranges", "Metadata"];
-    for (const el of document.querySelectorAll(".lyra-header"))
-      if (hide.includes(el.textContent?.trim() ?? ""))
-        el.parentElement?.style.setProperty("display", "none");
+    for (const el of document.querySelectorAll<HTMLElement>(
+      ".console-range-overview__add",
+    ))
+      el.style.setProperty("display", "none");
   });
 
   await session.moveTo({ x: 800, y: 450 });
@@ -113,9 +113,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   );
   await session.hold(600);
 
-  // The range holds a label now, so the selector opens from its add button.
-  // The Details block of the range overview holds the label selector.
-  await session.zoom(page.locator(".console-range__overview > div > *").first());
+  // The range holds a label now, so the selector opens from its add button. The
+  // header of the range overview holds the label selector.
+  await session.zoom(page.locator(".console-range-overview__header").first());
   const labels = page.locator(".lyra-dialog__trigger").filter({ hasText: NEW_LABEL });
   await session.click(labels.locator("button:has(.lyra-icon--add)").first());
   await pick("Nominal");

@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-@container (max-width: 500px) {
-    .console-range__list-item {
-        .lyra-tags {
-            display: none;
-        }
-    }
+.console-range-tree__list .console-range-item {
+    padding-right: 1.5rem;
 }

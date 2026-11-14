@@ -63,8 +63,8 @@ export interface TextProps
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous
  * value if blurred while empty.
- * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
- * user blurs the input or the user presses 'Enter'.
+ * @param props.onlyChangeOnBlur - If true, the input calls `onChange` only when the
+ * user blurs it or presses 'Enter', and only when the text differs from `value`.
  * @param props.flush - Marks the input as its surface's sole keystroke target,
  * removing the focus ring and widening the content inset.
  * @param props.onKeyDown - Called before the input handles Escape, which blurs the
@@ -126,8 +126,13 @@ export const Text = ({
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
     focusedRef.current = false;
-    if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
-    else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
+    let committed: string | null = null;
+    // Only the user's edit commits, so a change from elsewhere while focused stays.
+    if (resetOnBlurIfEmpty && e.target.value === "")
+      committed = onlyChangeOnBlur ? null : cachedFocusRef.current;
+    else if (onlyChangeOnBlur && tempValue !== cachedFocusRef.current)
+      committed = tempValue;
+    if (committed != null && committed !== value) onChange?.(committed);
     setTempValue(null);
     onBlur?.(e);
   };

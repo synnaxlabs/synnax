@@ -18,7 +18,6 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
-import { enableEditing } from "@/platform/view/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -66,7 +65,6 @@ describe("Status.Filter.VARIANT", () => {
 
   it("should add a variant from the picker below the chip", async () => {
     await renderFixture({ variant: { in: ["error"] } });
-    await enableEditing();
     fireEvent.click(await screen.findByRole("button", { name: "Error" }));
     const picker = await screen.findByRole("dialog", { name: "Variants" });
     fireEvent.click(within(picker).getByText("Warning"));
