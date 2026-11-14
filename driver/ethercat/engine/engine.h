@@ -182,8 +182,8 @@ class Engine {
         /// or starts to respond.
         std::function<void()> changed;
 
-        /// @brief records which slaves of the writer are in out, and which of them do
-        /// not respond. Calls changed after a change. Called only by the supervisor.
+        /// @brief records which slaves of the writer are out of OP, and which of them
+        /// do not respond. Calls changed after a change. Called only by the supervisor.
         void update(const Outage &out);
     };
 
