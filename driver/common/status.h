@@ -26,6 +26,30 @@
 namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
+
+/// @brief returns the field errors of a parser validation error, in the form
+/// {"errors": [{"path", "message"}]}, or nothing for any other error.
+inline std::optional<x::json::json::object_t>
+field_errors(const x::errors::Error &err) {
+    if (!err.matches(x::errors::VALIDATION)) return std::nullopt;
+    auto parsed = x::json::json::parse(err.data, nullptr, false);
+    if (!parsed.is_object() || !parsed.contains("errors") ||
+        !parsed["errors"].is_array())
+        return std::nullopt;
+    return parsed.get<x::json::json::object_t>();
+}
+
+/// @brief returns the text of a configuration error, with each field error of a parser
+/// validation error on its own line as "path: message".
+inline std::string config_err_description(const x::errors::Error &err) {
+    const auto fields = field_errors(err);
+    if (!fields.has_value()) return err.data;
+    std::vector<std::string> lines;
+    for (const auto &field: fields->at("errors"))
+        lines.push_back(field.value("path", "") + ": " + field.value("message", ""));
+    return x::strings::join(lines, "\n");
+}
+
 /// @brief a utility structure for managing the state of tasks. A status that answers no
 /// command is sent at most once per window, and only when it changes.
 struct StatusHandler {
@@ -97,7 +121,7 @@ struct StatusHandler {
     void send_error(const x::errors::Error &err, const std::string &message) {
         if (!this->error(err, message)) return;
         this->status.details.running = false;
-        this->set_text(message, err.data);
+        this->set_err_text(message, err);
         this->maybe_set_status();
     }
 
@@ -108,7 +132,7 @@ struct StatusHandler {
             this->status.variant = synnax::status::VARIANT_WARNING;
             this->set_text(message, description);
         } else
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_err_text(this->accumulated_msg, this->accumulated_err);
         this->maybe_set_status();
     }
 
@@ -132,7 +156,7 @@ struct StatusHandler {
         } else {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.details.running = false;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_err_text(this->accumulated_msg, this->accumulated_err);
         }
         this->set_status();
     }
@@ -147,7 +171,7 @@ struct StatusHandler {
         this->status.details.running = false;
         if (this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_ERROR;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_err_text(this->accumulated_msg, this->accumulated_err);
         } else {
             this->status.variant = synnax::status::VARIANT_SUCCESS;
             this->set_text("Stopped task");
@@ -187,10 +211,18 @@ private:
     std::thread flusher;
 
     /// @brief sets the status text. Every transition sets both fields, so a stale
-    /// description never outlives the message it explained.
+    /// description never outlives the message it explained. It also drops the field
+    /// errors of an earlier error.
     void set_text(const std::string &message, const std::string &description = "") {
         this->status.message = message;
         this->status.description = description;
+        this->status.details.data.reset();
+    }
+
+    /// @brief sets the status text for err, with its field errors in the details.
+    void set_err_text(const std::string &message, const x::errors::Error &err) {
+        this->set_text(message, config_err_description(err));
+        this->status.details.data = field_errors(err);
     }
 
     /// @brief writes status to ctx. Requires mu.
@@ -262,19 +294,6 @@ private:
     }
 };
 
-/// @brief returns the text of a configuration error, with each field error of a parser
-/// validation error on its own line as "path: message".
-inline std::string config_err_description(const x::errors::Error &err) {
-    const auto parsed = x::json::json::parse(err.data, nullptr, false);
-    if (!err.matches(x::errors::VALIDATION) || !parsed.is_object() ||
-        !parsed.contains("errors") || !parsed["errors"].is_array())
-        return err.data;
-    std::vector<std::string> lines;
-    for (const auto &field: parsed["errors"])
-        lines.push_back(field.value("path", "") + ": " + field.value("message", ""));
-    return x::strings::join(lines, "\n");
-}
-
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
 /// command driving the deploy, empty at boot. A boot configure that does not
@@ -298,6 +317,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to configure task";
         status.description = config_err_description(res.second);
+        status.details.data = field_errors(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
         if (boot && !res.first.auto_start)
