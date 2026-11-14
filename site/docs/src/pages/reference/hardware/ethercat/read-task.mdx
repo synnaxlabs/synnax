@@ -476,6 +476,37 @@ which module is lost. Check its power and its cable.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"... is a USB adapter, which can hold frames back. ..."} id="a-usb-adapter-drops-samples">
+<Problem.Cause>
+
+The task shows **Dropped samples**, and the port is on a USB Ethernet adapter. A USB
+adapter can hold a frame back past the end of its bus cycle. That cycle fails, and every
+read task on the port loses its sample. More cycles fail at higher rates. On macOS, the
+warning gives only `Bus cycles failed: process data receive failed.`
+
+For example, a Realtek USB Ethernet adapter on a Windows computer, with one Dewesoft
+IOLITE 6xSTG module, missed 3 of 90,109 samples in 3 minutes at 500 Hz, and 753 of
+180,297 (0.4%) at 1 kHz. Other adapters and computers give other results.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Connect the modules to a PCIe or onboard Ethernet port. To keep the USB adapter, make
+the network cycle slower:
+
+1. Stop every task on the port.
+2. Lower the sample rates of the read tasks and the execution rates of the write tasks.
+   Keep each read rate a divisor of the fastest one, such as 500 Hz and 250 Hz. The
+   network cycles at a common multiple of the read rates, so a rate such as 300 Hz next
+   to 500 Hz makes it cycle faster.
+3. Start the tasks again.
+
+See
+[how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
+
+</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
