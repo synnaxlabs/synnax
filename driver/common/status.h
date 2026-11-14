@@ -279,12 +279,14 @@ inline std::string config_err_description(const x::errors::Error &err) {
 /// communicates them back to Synnax in the standard format. cmd_key is the start
 /// command driving the deploy, empty at boot. A boot configure that does not
 /// auto-start logs its failures instead of reporting them. A successful configure
-/// writes no status: the start that follows it answers the command.
+/// writes no status: the start that follows it answers the command. cancel is passed
+/// to the auto-start.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     std::pair<common::ConfigureResult, x::errors::Error> res,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     const bool boot = cmd_key == driver::task::NO_COMMAND;
     if (res.second) {
@@ -310,7 +312,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,
         };
-        res.first.task->exec(start_cmd);
+        res.first.task->exec(start_cmd, cancel);
     }
     return {std::move(res.first.task), true};
 }

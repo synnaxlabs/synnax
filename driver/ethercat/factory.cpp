@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
-#include <format>
-#include <map>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -75,14 +71,10 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-/// @brief returns the settings saved for the slaves on the network, one per saved
-/// position. Its errors call the network name. At a position that holds a connected
-/// device, the devices that are not connected give way to it. Elsewhere, devices of one
-/// model with the same settings at one position give them to the slave of their model
-/// there.
+/// @brief returns the settings saved for the slaves on the network. Its errors call the
+/// network name.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings or models and none of them is connected.
+/// properties, since the bus starts every slave on it.
 std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
@@ -94,8 +86,7 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
             .make = DEVICE_MAKE,
             .model = SLAVE_DEVICE_MODEL,
             .rack = rack,
-        },
-        {.include_status = true}
+        }
     );
     if (dev_err)
         return {
@@ -106,13 +97,7 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
                     " from the Core: " + dev_err.data
             )
         };
-    const auto connected = [](const synnax::device::Device &dev) {
-        return dev.status.has_value() && dev.status->details.connected;
-    };
-    std::ranges::stable_partition(devices, connected);
-    std::map<uint16_t, engine::SavedSlave> configs;
-    std::map<uint16_t, std::string> labels;
-    std::set<uint16_t> held;
+    std::vector<engine::SavedSlave> saved;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -128,64 +113,18 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
                         common::config_err_description(parser.error())
                 )
             };
-        const auto label = props.serial == 0
-                             ? dev.name
-                             : std::format("{} (serial {})", dev.name, props.serial);
-        const auto &config = props.config;
-        const auto [it, added] = configs.emplace(
-            props.position,
-            engine::SavedSlave{
-                .identity =
-                    {
-                        .position = props.position,
-                        .vendor_id = props.vendor_id,
-                        .product_code = props.product_code,
-                        .serial = props.serial,
-                        .name = dev.name,
-                    },
-                .config = config,
-            }
-        );
-        if (added) {
-            labels[props.position] = label;
-            if (connected(dev)) held.insert(props.position);
-            continue;
-        }
-        if (held.contains(props.position) && !connected(dev)) continue;
-        const auto &kept = it->second.identity;
-        const bool agree = it->second.config == config;
-        if (agree && (held.contains(props.position) ||
-                      (kept.vendor_id == props.vendor_id &&
-                       kept.product_code == props.product_code))) {
-            // With no connected device to tell which unit they name, agreeing devices
-            // give their settings to the slave of their model at the position.
-            if (!held.contains(props.position)) it->second.identity.serial = 0;
-            continue;
-        }
-        const auto [first, second] = std::minmax(labels[props.position], label);
-        const auto both = std::format(
-            "{} and {} are both saved at position {} on {}",
-            first,
-            second,
-            props.position,
-            name
-        );
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                agree ? both + " as different models. Delete the device that is no "
-                               "longer on the bus."
-                      : both + " with different settings. Give them the same "
-                               "settings, or delete the device that is no longer on "
-                               "the bus."
-            )
-        };
+        saved.push_back({
+            .identity =
+                {
+                    .position = props.position,
+                    .vendor_id = props.vendor_id,
+                    .product_code = props.product_code,
+                    .serial = props.serial,
+                    .name = dev.name,
+                },
+            .config = props.config,
+        });
     }
-    std::vector<engine::SavedSlave> saved;
-    saved.reserve(configs.size());
-    for (auto &[_, s]: configs)
-        saved.push_back(std::move(s));
     return {std::move(saved), x::errors::NIL};
 }
 }
@@ -286,7 +225,8 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -298,13 +238,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = this->configure_scan(ctx, task);
     else
         return {nullptr, false};
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -312,7 +253,8 @@ Factory::configure_initial_tasks(
         rack,
         "EtherCAT Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 

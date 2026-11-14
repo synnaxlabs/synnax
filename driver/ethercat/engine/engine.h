@@ -61,12 +61,13 @@ struct Config {
     x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
     x::loop::HostClock host_clock;
-    /// @brief returns the saved settings of the slaves, at most one per saved position.
-    /// An open_reader or open_writer that finds the bus stopped calls it outside the
-    /// engine's lock, so it can run on several threads at once. Only an open that then
-    /// starts the bus uses the result, and only that open fails on an error. The bus
-    /// start finds each saved slave with slave::locate. A slave on the bus with no
-    /// saved settings runs with the defaults of slave::Config.
+    /// @brief returns the saved settings of the slaves. An open_reader or open_writer
+    /// that finds the bus stopped calls it outside the engine's lock, so it can run on
+    /// several threads at once. Only an open that then starts the bus uses the result,
+    /// and only that open fails on an error. The bus start finds each saved slave with
+    /// slave::locate, and fails when two saved slaves that find one slave have
+    /// different settings. A slave on the bus with no saved settings runs with the
+    /// defaults of slave::Config.
     std::function<std::pair<std::vector<SavedSlave>, x::errors::Error>()>
         slave_configs =
             [] { return std::pair{std::vector<SavedSlave>{}, x::errors::NIL}; };
@@ -211,7 +212,9 @@ class Engine {
     );
     /// @brief returns the settings of each slave on the latest scan, keyed by position,
     /// with the startup parameters of settings. A slave in left_out is disabled.
-    [[nodiscard]] std::map<uint16_t, slave::Config>
+    /// @returns errors::SLAVE_CONFIG_ERROR when two saved slaves that find one slave on
+    /// the scan have different settings.
+    [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
     plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,

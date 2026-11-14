@@ -36,7 +36,11 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
 
 class EtherCATScanTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     void SetUp() override {
+        this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->rack = ASSERT_NIL_P(this->client->racks.create("test_rack"));
         this->ctx = std::make_shared<task::MockContext>(this->client);
@@ -54,6 +58,8 @@ protected:
             .internal = true
         };
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 class EtherCATScanStatusTest : public EtherCATScanTest {
@@ -410,7 +416,8 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     const auto [configured, handled] = factory.configure_task(
         this->ctx,
         task,
-        driver::task::NO_COMMAND
+        driver::task::NO_COMMAND,
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(configured, nullptr);

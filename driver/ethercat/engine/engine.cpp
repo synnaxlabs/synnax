@@ -13,6 +13,7 @@
 #include <format>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -426,7 +427,9 @@ x::errors::Error Engine::start_locked(
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
-            plan.slaves = this->plan_locked(saved, settings);
+            std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+        }
+        if (!err) {
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
@@ -511,7 +514,7 @@ void Engine::stop_locked() {
     this->slave_health.clear();
 }
 
-std::map<uint16_t, slave::Config> Engine::plan_locked(
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_locked(
     const std::vector<SavedSlave> &saved,
     const Settings &settings
 ) const {
@@ -519,16 +522,47 @@ std::map<uint16_t, slave::Config> Engine::plan_locked(
     identities.reserve(saved.size());
     for (const auto &s: saved)
         identities.push_back(s.identity);
-    const auto positions = slave::locate(std::move(identities), this->slaves);
+    const auto found = slave::locate(identities, this->slaves);
     std::map<uint16_t, slave::Config> configs;
-    for (const auto &s: saved)
-        if (const auto it = positions.find(s.identity.position); it != positions.end())
-            configs[it->second] = s.config;
+    std::map<uint16_t, const slave::Identity *> owners;
+    for (size_t i = 0; i < saved.size(); ++i) {
+        const auto position = found[i];
+        if (!position) continue;
+        const auto &[identity, config] = saved[i];
+        const auto [owner, added] = owners.emplace(*position, &identity);
+        if (added) {
+            configs[*position] = config;
+            continue;
+        }
+        if (configs[*position] == config) continue;
+        const auto label = [](const slave::Identity &id) {
+            return id.serial == 0 ? id.name
+                                  : std::format("{} (serial {})", id.name, id.serial);
+        };
+        auto first = label(*owner->second);
+        auto second = label(identity);
+        if (second < first) std::swap(first, second);
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved for slave {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    *position,
+                    this->network_name
+                )
+            )
+        };
+    }
     for (const auto &[pos, params]: settings)
         configs[pos].add_startup_parameters(params);
     for (const auto &[pos, _]: this->left_out)
         configs[pos].enabled = false;
-    return configs;
+    return {configs, x::errors::NIL};
 }
 
 std::pair<std::vector<SavedSlave>, x::errors::Error>
