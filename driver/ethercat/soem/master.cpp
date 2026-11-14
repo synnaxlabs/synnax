@@ -583,7 +583,7 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         this->api->writestate(pos);
     } else if (state > EC_STATE_NONE && !waits) {
         auto params = this->config(pos).startup_parameters;
-        const bool restores = this->keeps_clock(pos);
+        const bool restores = this->restores_clock(pos);
         if (this->record(pos).hasdc && !restores) session.unrestored_clocks.insert(pos);
         if (restores || !params.empty())
             this->api->set_PO2SOconfig(
@@ -1337,7 +1337,7 @@ bool Master::restore_failed(const uint16_t pos) const {
     return this->session.value().dc_restore_errors.contains(pos);
 }
 
-bool Master::keeps_clock(const uint16_t pos) const {
+bool Master::restores_clock(const uint16_t pos) const {
     if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
     const auto &setups = this->session.value().dc_setups;
     return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();

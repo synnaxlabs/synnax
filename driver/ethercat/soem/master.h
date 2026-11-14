@@ -385,7 +385,7 @@ private:
 
     /// @brief whether the master restores the clock of the slave when it comes back:
     /// the reference clock and each slave in a DC mode.
-    [[nodiscard]] bool keeps_clock(uint16_t pos) const;
+    [[nodiscard]] bool restores_clock(uint16_t pos) const;
 
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
