@@ -286,6 +286,63 @@ var _ = Describe("Service", func() {
 		)
 	})
 
+	Describe("CountLimited", func() {
+		It(
+			"Should count the committed channels that are neither internal nor virtual",
+			func(ctx SpecContext) {
+				node := testutil.NewNode(ctx)
+				countSvc := openService(ctx, node)
+				base := countSvc.CountLimited()
+				idx := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				data := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				virtual := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				internal := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Internal:    true,
+					Leaseholder: 1,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					w := countSvc.NewWriter(tx)
+					if err := w.Create(ctx, &idx); err != nil {
+						return err
+					}
+					data.LocalIndex = idx.LocalKey
+					if err := w.Create(ctx, &data); err != nil {
+						return err
+					}
+					if err := w.Create(ctx, &virtual); err != nil {
+						return err
+					}
+					if err := w.Create(ctx, &internal); err != nil {
+						return err
+					}
+					Expect(countSvc.CountLimited()).To(Equal(base))
+					return nil
+				})).To(Succeed())
+				Expect(countSvc.CountLimited()).To(Equal(base + 2))
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return countSvc.NewWriter(tx).Delete(ctx, data.Key(), false)
+				})).To(Succeed())
+				Expect(countSvc.CountLimited()).To(Equal(base + 1))
+			},
+		)
+	})
+
 	Describe("Observe", func() {
 		It("Should return a non-nil observable", func(ctx SpecContext) {
 			obs := svc.Observe()
