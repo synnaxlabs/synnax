@@ -232,9 +232,9 @@ bool has_identity(const slave::DiscoveryResult &slave) {
     return slave.properties.vendor_id != 0 || slave.properties.product_code != 0;
 }
 
-/// @brief whether the master could not read the serial number of the slave.
+/// @brief whether the master did not read the serial number of the slave.
 bool serial_unread(const slave::DiscoveryResult &slave) {
-    return !slave.status.serial_error.empty();
+    return slave.status.starting || !slave.status.serial_error.empty();
 }
 
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
@@ -314,9 +314,15 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 continue;
             }
             if (serial_unread(slave)) {
-                LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
-                             << " on " << key << " gave no serial number ("
-                             << slave.status.serial_error << "), rediscovering";
+                if (slave.status.starting)
+                    LOG(INFO) << SCAN_LOG_PREFIX << "slave "
+                              << slave.properties.position << " on " << key
+                              << " is below PRE-OP, rediscovering";
+                else
+                    LOG(WARNING)
+                        << SCAN_LOG_PREFIX << "slave " << slave.properties.position
+                        << " on " << key << " gave no serial number ("
+                        << slave.status.serial_error << "), rediscovering";
                 rediscovery_needed = true;
                 if (keys[i].empty()) continue;
             }
@@ -400,24 +406,30 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const auto rack_key = this->task.rack;
 
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
-    auto slave_props = props.to_json();
-    // An incomplete PDO read keeps the stored PDOs, unless the slave now holds another
-    // mode. A failed settings read gives no settings, so the stored ones stay.
-    const auto mode = mode_value(slave_props);
-    const auto stored_mode = mode_value(json_props);
-    const bool same_mode = mode.is_null() || stored_mode.is_null() ||
-                           mode == stored_mode;
-    const bool pdos_kept = same_mode && !sts.pdo_discovery_error.empty() &&
-                           holds_pdos(json_props);
-    if (pdos_kept) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << props.position << " on "
-                     << master_key
-                     << " keeps its stored PDOs: " << sts.pdo_discovery_error;
-        slave_props.erase("pdos");
+    // The master reads nothing through the mailbox of a starting slave, so its stored
+    // properties stay.
+    bool pdos_kept = false;
+    if (!sts.starting) {
+        auto slave_props = props.to_json();
+        // An incomplete PDO read keeps the stored PDOs, unless the slave now holds
+        // another mode. A failed settings read gives no settings, so the stored ones
+        // stay.
+        const auto mode = mode_value(slave_props);
+        const auto stored_mode = mode_value(json_props);
+        const bool same_mode = mode.is_null() || stored_mode.is_null() ||
+                               mode == stored_mode;
+        pdos_kept = same_mode && !sts.pdo_discovery_error.empty() &&
+                    holds_pdos(json_props);
+        if (pdos_kept) {
+            LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << props.position << " on "
+                         << master_key
+                         << " keeps its stored PDOs: " << sts.pdo_discovery_error;
+            slave_props.erase("pdos");
+        }
+        if (!sts.serial_error.empty()) slave_props.erase("serial");
+        for (const auto &[k, v]: slave_props.items())
+            if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
     }
-    if (!sts.serial_error.empty()) slave_props.erase("serial");
-    for (const auto &[k, v]: slave_props.items())
-        if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
     const auto [saved, saved_err] = parse_properties(json_props);
     const bool is_enabled = saved.config.enabled;
@@ -449,7 +461,13 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(saved, status)) {
+    else if (sts.starting) {
+        status.message = "Starting up";
+        status.description = "The module was not ready when the Driver scanned the "
+                             "network. The Driver reads it again on a later scan. If "
+                             "the module stays in this status, restart its power.";
+        status.variant = synnax::status::VARIANT_WARNING;
+    } else if (set_setup_status(saved, status)) {
         add_settings_error(sts.settings_error, status);
         add_unlisted_op_mode(saved, status);
     } else if (

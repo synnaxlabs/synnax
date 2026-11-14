@@ -305,8 +305,9 @@ public:
         return this->config_init_return;
     }
 
-    /// @brief like ecx_config_map_group, maps the slaves of group into iomap, sets the
-    /// group sizes and working counters, and runs the PO2SOconfig hook of each slave.
+    /// @brief like ecx_config_map_group, checks that each slave of group reaches
+    /// PRE-OP, maps the slaves into iomap, sets the group sizes and working counters,
+    /// and runs the PO2SOconfig hook of each slave.
     int config_map_group(void *iomap, uint8_t group) override {
         auto *base = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
@@ -318,6 +319,7 @@ public:
             for (int sm = 2; sm < EC_MAXSM; ++sm)
                 if (slave.SM[sm].SMlength != 0) this->sms_cleared_at_map = false;
             const auto pos = static_cast<uint16_t>(i + 1);
+            this->statecheck(pos, EC_STATE_PRE_OP, 0);
             this->run_PO2SOconfig(pos);
             const auto &info = this->slave_infos[i];
             slave.Ibits = info.Ibits;
