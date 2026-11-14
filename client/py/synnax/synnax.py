@@ -25,6 +25,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    icd,
     imex as imex_,
     label,
     license as license_,
@@ -98,6 +99,7 @@ class Synnax(framer.Client):
     views: view.Client
     secrets: secret.Client
     certificates: certificate.Client
+    icds: icd.Client
     imex: imex_.Client
     projects: project.Client
     tables: table.Client
@@ -253,6 +255,7 @@ class Synnax(framer.Client):
         self.views = view.Client(client=self._transport.unary)
         self.secrets = secret.Client(client=self._transport.unary)
         self.certificates = certificate.Client(client=self._transport.unary)
+        self.icds = icd.Client(client=self._transport.unary)
         self.imex = imex_.Client(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,

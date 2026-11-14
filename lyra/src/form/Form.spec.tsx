@@ -681,6 +681,24 @@ describe("Form", () => {
       ]);
     });
 
+    it("should clear the status at one path and keep the others", () => {
+      const { result } = renderStatuses(path.nested);
+      act(() => {
+        result.current.ctx.setStatus(path.nested.ssn, {
+          variant: "error",
+          message: "A",
+        });
+        result.current.ctx.setStatus(path.nested.ein, {
+          variant: "error",
+          message: "B",
+        });
+      });
+      act(() => result.current.ctx.clearStatus(path.nested.ssn));
+      expect(result.current.statuses).toEqual([
+        { key: "nested.ein", variant: "error", message: "B" },
+      ]);
+    });
+
     it("should leave out success statuses", () => {
       const { result } = renderHook(
         () => {

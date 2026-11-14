@@ -259,7 +259,6 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			Doc:       doc.Get(v.Domains),
 		}
 		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
-		vd.Receiver = receiverName(vd.TypeName)
 		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {
@@ -329,6 +328,10 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			data,
 			validateHasOwn,
 			validateSkip,
+		)
+		vd.Receiver = receiverName(
+			vd.TypeName,
+			hasSliceRecurse(vd.DefaultRecurse) || hasSliceRecurse(vd.ValidateRecurse),
 		)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
 			len(vd.DefaultFills) > 0 || len(vd.DefaultGroups) > 0

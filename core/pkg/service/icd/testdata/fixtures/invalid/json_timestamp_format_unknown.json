@@ -1,0 +1,35 @@
+{
+  "description": "A JSON timestamp field has an unknown format.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.0.format",
+      "message": "format is not valid"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/t",
+              "type": "timestamp",
+              "format": "unix_days"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

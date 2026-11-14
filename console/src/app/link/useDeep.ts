@@ -11,6 +11,7 @@ import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
+import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
@@ -27,6 +28,7 @@ const useLinks = (): void =>
     arc: Arc.useLink(),
     channel: Channel.useLink(),
     device: Device.useLink(),
+    icd: ICD.useLink(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
     project: Project.useLink(),

@@ -1,0 +1,47 @@
+{
+  "description": "A field's minimum is above its maximum.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.0.max",
+      "message": "max must be greater than or equal to min"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "signed": false,
+              "float": false,
+              "min": 10,
+              "max": 5
+            }
+          ],
+          "length": 8,
+          "identifier": {
+            "type": "can",
+            "id": 256,
+            "extended": false,
+            "fd": false
+          }
+        }
+      }
+    ]
+  }
+}

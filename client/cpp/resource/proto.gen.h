@@ -59,6 +59,7 @@ type_to_pb(const std::string &cpp) {
         {TYPE_ARC_DIRECTORY, ::service::resource::pb::TYPE_ARC_DIRECTORY},
         {TYPE_SECRET, ::service::resource::pb::TYPE_SECRET},
         {TYPE_CERTIFICATE, ::service::resource::pb::TYPE_CERTIFICATE},
+        {TYPE_ICD, ::service::resource::pb::TYPE_ICD},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -139,6 +140,8 @@ type_from_pb(::service::resource::pb::Type pb) {
             return {TYPE_SECRET, x::errors::NIL};
         case ::service::resource::pb::TYPE_CERTIFICATE:
             return {TYPE_CERTIFICATE, x::errors::NIL};
+        case ::service::resource::pb::TYPE_ICD:
+            return {TYPE_ICD, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Type protobuf value")};
     }

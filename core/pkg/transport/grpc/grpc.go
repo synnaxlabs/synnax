@@ -23,6 +23,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -167,6 +168,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, struct{}]{}
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
+
+	// ICD
+	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
+	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
+	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
+	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
+	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
+	t.ICDDelete = noop.UnaryServer[icd.DeleteRequest, struct{}]{}
 
 	// PANEL
 	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}

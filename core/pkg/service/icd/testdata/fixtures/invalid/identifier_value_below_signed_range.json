@@ -1,0 +1,44 @@
+{
+  "description": "An 8-bit signed identifier field cannot hold -129.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "messages.0.payload.identifier.value",
+      "message": "value -129 does not fit the field \"id\""
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "id",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "signed": true,
+              "float": false
+            }
+          ],
+          "length": 8,
+          "identifier": {
+            "type": "field",
+            "field": "00000000-0000-4000-8000-00000000000a",
+            "value": -129
+          }
+        }
+      }
+    ]
+  }
+}

@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -162,6 +163,13 @@ type Transport struct {
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, struct{}]
 	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]
+	// ICD
+	ICDCreate   freighter.UnaryServer[icd.CreateRequest, icd.CreateResponse]
+	ICDRetrieve freighter.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]
+	ICDCheck    freighter.UnaryServer[icd.CheckRequest, icd.CheckResponse]
+	ICDDispatch freighter.UnaryServer[icd.DispatchRequest, struct{}]
+	ICDImport   freighter.UnaryServer[icd.ImportRequest, icd.ImportResponse]
+	ICDDelete   freighter.UnaryServer[icd.DeleteRequest, struct{}]
 	// PANEL
 	PanelCreate   freighter.UnaryServer[panel.CreateRequest, panel.CreateResponse]
 	PanelRetrieve freighter.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]
@@ -267,6 +275,7 @@ type Transport struct {
 type Layer struct {
 	Project      *project.Service
 	LinePlot     *lineplot.Service
+	ICD          *icd.Service
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
@@ -429,6 +438,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotDispatch,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// ICD
+		t.ICDCreate,
+		t.ICDRetrieve,
+		t.ICDCheck,
+		t.ICDDispatch,
+		t.ICDImport,
+		t.ICDDelete,
 
 		// PANEL
 		t.PanelCreate,
@@ -673,6 +690,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
 	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
+	// ICD
+	t.ICDCreate.BindHandler(bind.Write(l.binder, l.ICD.Create))
+	t.ICDRetrieve.BindHandler(bind.Read(l.binder, l.ICD.Retrieve))
+	t.ICDCheck.BindHandler(bind.Read(l.binder, l.ICD.Check))
+	t.ICDDispatch.BindHandler(bind.Write(l.binder, l.ICD.Dispatch))
+	t.ICDImport.BindHandler(bind.Write(l.binder, l.ICD.Import))
+	t.ICDDelete.BindHandler(bind.Write(l.binder, l.ICD.Delete))
+
 	// PANEL
 	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
@@ -910,6 +935,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
 		LinePlot: cfg.Service.LinePlot,
+	}); err != nil {
+		return nil, err
+	}
+	if l.ICD, err = icd.NewService(icd.ServiceConfig{
+		ICD: cfg.Service.ICD,
 	}); err != nil {
 		return nil, err
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -358,6 +359,29 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathLinePlotDispatch,
 		),
+
+		// ICD
+		ICDCreate: unary[icd.CreateRequest, icd.CreateResponse](
+			router,
+			"/api/v1/icd/create",
+		),
+		ICDRetrieve: unary[icd.RetrieveRequest, icd.RetrieveResponse](
+			router,
+			"/api/v1/icd/retrieve",
+		),
+		ICDCheck: unary[icd.CheckRequest, icd.CheckResponse](
+			router,
+			"/api/v1/icd/check",
+		),
+		ICDDispatch: unary[icd.DispatchRequest, struct{}](
+			router,
+			"/api/v1/icd/dispatch",
+		),
+		ICDImport: unary[icd.ImportRequest, icd.ImportResponse](
+			router,
+			"/api/v1/icd/import",
+		),
+		ICDDelete: unary[icd.DeleteRequest, struct{}](router, "/api/v1/icd/delete"),
 
 		// PANEL
 		PanelCreate: unary[panel.CreateRequest, panel.CreateResponse](

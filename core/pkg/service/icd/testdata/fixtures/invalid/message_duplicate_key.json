@@ -1,0 +1,44 @@
+{
+  "description": "Two messages share a key.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "messages.1.key",
+      "message": "duplicate message key 00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "A",
+        "payload": {
+          "format": "binary",
+          "identifier": {
+            "type": "can",
+            "id": 256,
+            "extended": false,
+            "fd": false
+          },
+          "fields": []
+        }
+      },
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "B",
+        "payload": {
+          "format": "binary",
+          "identifier": {
+            "type": "can",
+            "id": 257,
+            "extended": false,
+            "fd": false
+          },
+          "fields": []
+        }
+      }
+    ]
+  }
+}

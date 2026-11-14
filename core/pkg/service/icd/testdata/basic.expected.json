@@ -1,0 +1,244 @@
+{
+  "messages": [
+    {
+      "name": "Engine",
+      "id": 256,
+      "extended": false,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "Rpm",
+          "start_bit": 0,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.25,
+          "offset": 0.0,
+          "units": "rpm",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 16383.75
+        },
+        {
+          "name": "CoolantTemp",
+          "start_bit": 16,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": true,
+          "float": false,
+          "scale": 1.0,
+          "offset": -40.0,
+          "units": "degC",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": -168,
+          "max": 87
+        },
+        {
+          "name": "Gear",
+          "start_bit": 24,
+          "bit_length": 3,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 7
+        },
+        {
+          "name": "Throttle",
+          "start_bit": 27,
+          "bit_length": 10,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.1,
+          "offset": 0.0,
+          "units": "%",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 102.3
+        }
+      ]
+    },
+    {
+      "name": "Battery",
+      "id": 419361024,
+      "extended": true,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "Voltage",
+          "start_bit": 7,
+          "bit_length": 16,
+          "byte_order": "big_endian",
+          "signed": false,
+          "float": false,
+          "scale": 0.01,
+          "offset": 0.0,
+          "units": "V",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 655.35
+        },
+        {
+          "name": "Current",
+          "start_bit": 23,
+          "bit_length": 12,
+          "byte_order": "big_endian",
+          "signed": true,
+          "float": false,
+          "scale": 0.1,
+          "offset": 0.0,
+          "units": "A",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": -204.8,
+          "max": 204.7
+        },
+        {
+          "name": "State",
+          "start_bit": 27,
+          "bit_length": 4,
+          "byte_order": "big_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 15
+        },
+        {
+          "name": "Charge",
+          "start_bit": 39,
+          "bit_length": 7,
+          "byte_order": "big_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "%",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "name": "Imu",
+      "id": 512,
+      "extended": false,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "AccelX",
+          "start_bit": 0,
+          "bit_length": 32,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": true,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "m/s^2",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": -100,
+          "max": 100
+        },
+        {
+          "name": "AccelY",
+          "start_bit": 39,
+          "bit_length": 32,
+          "byte_order": "big_endian",
+          "signed": false,
+          "float": true,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "m/s^2",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": -100,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "name": "Position",
+      "id": 513,
+      "extended": false,
+      "fd": false,
+      "length": 8,
+      "fields": [
+        {
+          "name": "Latitude",
+          "start_bit": 0,
+          "bit_length": 64,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": true,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "deg",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": -90,
+          "max": 90
+        }
+      ]
+    },
+    {
+      "name": "Bulk",
+      "id": 512,
+      "extended": true,
+      "fd": true,
+      "length": 64,
+      "fields": [
+        {
+          "name": "Sequence",
+          "start_bit": 0,
+          "bit_length": 16,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 65535
+        },
+        {
+          "name": "Checksum",
+          "start_bit": 504,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "signed": false,
+          "float": false,
+          "scale": 1.0,
+          "offset": 0.0,
+          "units": "",
+          "multiplexor": null,
+          "multiplex_values": [],
+          "min": 0,
+          "max": 255
+        }
+      ]
+    }
+  ]
+}

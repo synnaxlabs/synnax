@@ -33,6 +33,7 @@ import { device } from "@/device";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
 import { license } from "@/license";
@@ -149,6 +150,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   framer: null,
   group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   http_server: null,
+  icd: changes(icd.ACTION_CHANNEL_NAME, icd.DELETE_CHANNEL_NAME),
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   labjack_device: null,
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
@@ -207,6 +209,7 @@ export default class Synnax extends framer.Client {
   readonly views: view.Client;
   readonly secrets: secret.Client;
   readonly certificates: certificate.Client;
+  readonly icds: icd.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -389,6 +392,7 @@ export default class Synnax extends framer.Client {
       usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
     });
     this.certificates = new certificate.Client({ unary, cache });
+    this.icds = new icd.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,

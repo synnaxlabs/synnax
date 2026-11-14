@@ -20,6 +20,7 @@ export { Direction } from "@/direction";
 export { Errors } from "@/errors";
 export { Flux } from "@/flux";
 export { Group } from "@/group";
+export { ICD } from "@/icd";
 export { JSON } from "@/json";
 export { Label } from "@/label";
 export { License } from "@/license";
