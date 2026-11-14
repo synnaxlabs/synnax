@@ -152,9 +152,10 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const query = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const slaves = query.data;
   const onRack = useSlavesOnRack(slaves?.[0]?.rack);
-  PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
+  PForm.useCheck(path.config, slavesZ("inputs", query, onRack));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);

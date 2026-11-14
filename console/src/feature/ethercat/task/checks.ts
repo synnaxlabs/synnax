@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ethercat } from "@synnaxlabs/client";
-import { DataType, unique } from "@synnaxlabs/x";
+import { type device, ethercat } from "@synnaxlabs/client";
+import { type Flux } from "@synnaxlabs/pluto";
+import { DataType, primitive, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
@@ -103,7 +104,8 @@ const settingProblem = (
   const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
   const [problem] = check(input, fill(input.settings, prior));
   if (problem == null) return null;
-  return `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`;
+  const address = ethercat.formatAddress(ch);
+  return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
 /**
@@ -146,6 +148,24 @@ const networkProblem = (slaves: SlaveDevice[]): string | null => {
   return null;
 };
 
+/**
+ * @returns why the check cannot run yet on the slaves of the query, or null. A query
+ * that loads with earlier data that holds every key is ready.
+ */
+const loadProblem = (
+  query: Flux.Result<SlaveDevice[]>,
+  keys: device.Key[],
+): string | null => {
+  if (query.variant === "error") {
+    const { message, description } = query.status;
+    return description == null ? `${message}.` : `${message}. ${description}`;
+  }
+  if (query.variant === "success") return null;
+  const loaded = query.data ?? [];
+  if (keys.every((k) => loaded.some((s) => s.key === k))) return null;
+  return "Loading the slaves of the task.";
+};
+
 /** The parts of the config of an EtherCAT task that its checks read. */
 interface CheckedConfig {
   channels: Channel[];
@@ -156,24 +176,31 @@ interface CheckedConfig {
 /**
  * Checks the channels of a task against their slaves: one network for every slave, no
  * other device at the position of a slave, and for each enabled channel its entry and,
- * on inputs, the settings of the input it reads. A channel whose slave has not loaded
- * is not checked.
- * @param slaves - The slaves that the channels of the task use.
- * @param onRack - The slaves on the rack of the task, with their statuses.
+ * on inputs, the settings of the input it reads. Until both queries hold the slaves
+ * they need, the check reports that they load, so a deploy cannot skip it.
+ * @param query - The query of the slaves that the channels of the task use.
+ * @param onRack - The query of the slaves on the rack of the task, with statuses.
  */
 export const slavesZ = (
   pdoType: PDOType,
-  slaves: SlaveDevice[],
-  onRack: SlaveDevice[],
+  query: Flux.Result<SlaveDevice[]>,
+  onRack: Flux.Result<SlaveDevice[]>,
 ): z.ZodType =>
   Task.check<CheckedConfig>(({ channels, startupParameters = [] }, report) => {
-    const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
-    const network = networkProblem(used);
-    if (network != null) report(["channels"], network);
-    for (const slave of used) {
-      const position = positionProblem(slave, onRack);
-      if (position != null) report(["channels"], position);
-    }
+    const keys = unique.unique(
+      channels.map(({ device }) => device).filter(primitive.isNonZero),
+    );
+    const slaves = query.data ?? [];
+    const used = slaves.filter((s) => keys.includes(s.key));
+    const usedKeys = used.map(({ key }) => key);
+    const unloaded = loadProblem(query, keys) ?? loadProblem(onRack, usedKeys);
+    if (unloaded != null) return report(["channels"], unloaded);
+    const onRackSlaves = onRack.data ?? [];
+    const problems = [
+      networkProblem(used),
+      ...used.map((slave) => positionProblem(slave, onRackSlaves)),
+    ].filter((p): p is string => p != null);
+    if (problems.length > 0) report(["channels"], problems.join(" "));
     channels.forEach((ch, i) => {
       const slave = used.find((s) => s.key === ch.device);
       if (slave == null || ch.disabled) return;
