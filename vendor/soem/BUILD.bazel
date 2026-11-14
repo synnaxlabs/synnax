@@ -50,11 +50,11 @@ LINUX_PLATFORM_HDRS = [
     "SOEM/oshw/linux/oshw.h",
 ]
 
-# Windows OSAL + OSHW
-WIN32_OSAL_SRCS = ["SOEM/osal/win32/osal.c"]
+# Windows OSAL + OSHW (copies of the SOEM files, so the Driver can fix them)
+WIN32_OSAL_SRCS = ["windows/osal/osal.c"]
 
 WIN32_OSHW_SRCS = [
-    "SOEM/oshw/win32/nicdrv.c",
+    "windows/oshw/nicdrv.c",
     "SOEM/oshw/win32/oshw.c",
 ]
 
@@ -131,7 +131,7 @@ extern "C" {
 #define EC_MAXSLAVE 200
 
 /** max. number of groups */
-#define EC_MAXGROUP 2
+#define EC_MAXGROUP 3
 
 /** max. number of IO segments per group */
 #define EC_MAXIOSEGMENTS 64
@@ -175,7 +175,7 @@ extern "C" {
 #define EC_TIMEOUTRET 2000
 
 /** timeout value in us for safe data transfer, max. triple retry */
-#define EC_TIMEOUTRET3 2000
+#define EC_TIMEOUTRET3 (EC_TIMEOUTRET * 3)
 
 /** timeout value in us for return "safe" variant (f.e. wireless) */
 #define EC_TIMEOUTSAFE 20000

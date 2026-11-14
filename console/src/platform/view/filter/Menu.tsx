@@ -51,7 +51,7 @@ export interface MenuProps<W> {
 export const Menu = <W extends { and?: W[] }>({
   properties,
 }: MenuProps<W>): ReactNode => {
-  const { editable, searchInViews } = useContext("View.Filter.Menu");
+  const { editable } = useContext("View.Filter.Menu");
   const [conditions, setConditions] = useConditions(properties);
   if (!editable) return null;
   return (
@@ -59,7 +59,7 @@ export const Menu = <W extends { and?: W[] }>({
       <Dialog.Trigger
         hideCaret
         variant="text"
-        size={searchInViews ? "medium" : "small"}
+        size="medium"
         textColor={9}
         gap="small"
         tooltip="Filter"

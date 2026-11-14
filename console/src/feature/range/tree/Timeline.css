@@ -1,0 +1,194 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-timeline {
+    --console-range-timeline-label: 46rem;
+    --console-range-timeline-line: var(--pluto-gray-l4);
+    --console-range-timeline-bg: var(--pluto-gray-l0);
+
+    padding-top: 0;
+}
+
+.console-range-timeline__header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-shrink: 0;
+    height: 5rem;
+    min-height: 5rem;
+
+    /* Spans the list's side padding, so its columns line up with the lanes. */
+    margin: 0 -1rem;
+    padding: 0 3rem 0 2rem;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    background: var(--console-range-timeline-bg);
+}
+
+.console-range-timeline__label {
+    flex: 0 0 var(--console-range-timeline-label);
+    gap: 1rem;
+    width: var(--console-range-timeline-label);
+    min-width: 0;
+    padding-right: 2rem;
+}
+
+.console-range-timeline__controls {
+    margin-left: -0.5rem;
+}
+
+.console-range-timeline__axis {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+.console-range-timeline__tick {
+    /* Each tick sets its time in milliseconds after the timeline origin. */
+    --console-range-timeline-tick-from: calc(
+        var(--console-range-timeline-tick) - var(--console-range-timeline-start)
+    );
+
+    position: absolute;
+    top: 50%;
+    left: calc(
+        var(--console-range-timeline-tick-from) * 100% /
+            (var(--console-range-timeline-end) - var(--console-range-timeline-start))
+    );
+    padding-left: 0.75rem;
+    transform: translateY(-50%);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.console-range-timeline__lane {
+    gap: 0;
+    height: 5.5rem;
+    min-height: 5.5rem;
+    padding: 0 2rem;
+
+    /* The lane spaces its leading checkbox as the tree does. The label gives up the
+       width that takes, so the track lines up with the axis. */
+    & > .console-range-timeline__label {
+        --console-range-timeline-lane-label: calc(
+            var(--console-range-timeline-label) - var(--pluto-height-medium) + 0.5rem
+        );
+
+        flex-basis: var(--console-range-timeline-lane-label);
+        width: var(--console-range-timeline-lane-label);
+        margin-left: 1rem;
+    }
+}
+
+.console-range-timeline__track {
+    /* The root sets the window and now in milliseconds after the timeline origin. */
+    --console-range-timeline-ms: calc(
+        100% / (var(--console-range-timeline-end) - var(--console-range-timeline-start))
+    );
+
+    position: relative;
+    flex: 1 1 0;
+    align-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--console-range-timeline-grid, none);
+
+    &::after {
+        --console-range-timeline-at: calc(
+            var(--console-range-timeline-now) - var(--console-range-timeline-start)
+        );
+
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: clamp(
+            -1px,
+            var(--console-range-timeline-at) * var(--console-range-timeline-ms),
+            100%
+        );
+        width: 1px;
+        background: var(--pluto-primary-z);
+        content: "";
+        opacity: 0.6;
+    }
+}
+
+.console-range-timeline__bar {
+    --console-range-bar: var(--console-range-color, var(--pluto-gray-l8));
+    --console-range-bar-from: calc(
+        var(--console-range-bar-start) - var(--console-range-timeline-start)
+    );
+
+    /* An open bar ends at now. */
+    --console-range-bar-stop: var(
+        --console-range-bar-end,
+        max(var(--console-range-timeline-now), var(--console-range-bar-start))
+    );
+    --console-range-bar-to: calc(
+        var(--console-range-bar-stop) - var(--console-range-timeline-start)
+    );
+
+    /* An end past the window stops 3rem outside it, so the track hides that edge. */
+    --console-range-bar-left: clamp(
+        -3rem,
+        var(--console-range-bar-from) * var(--console-range-timeline-ms),
+        100% + 3rem
+    );
+    --console-range-bar-right: clamp(
+        -3rem,
+        var(--console-range-bar-to) * var(--console-range-timeline-ms),
+        100% + 3rem
+    );
+
+    position: absolute;
+    top: 50%;
+    left: var(--console-range-bar-left);
+    width: calc(var(--console-range-bar-right) - var(--console-range-bar-left));
+    height: 2.5rem;
+    min-width: 2.5rem;
+    transform: translateY(-50%);
+    border: var(--pluto-border-width) solid var(--console-range-bar);
+    border-radius: var(--pluto-border-radius-small);
+    background: color-mix(in srgb, var(--console-range-bar) 22%, transparent);
+    cursor: zoom-in;
+
+    &:hover {
+        background: color-mix(in srgb, var(--console-range-bar) 38%, transparent);
+    }
+}
+
+.console-range-timeline__bar--plain {
+    border-color: var(--pluto-gray-l8);
+    background: var(--pluto-gray-l5);
+
+    &:hover {
+        background: var(--pluto-gray-l6);
+    }
+}
+
+.console-range-timeline__bar--open {
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    mask-image: linear-gradient(
+        to right,
+        #000 max(50%, calc(100% - 3rem)),
+        transparent
+    );
+}
