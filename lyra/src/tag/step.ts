@@ -14,12 +14,15 @@ const TAG = CSS.B("tag");
 const MORE = CSS.BE("tags", "more");
 const LAST = CSS.BE("tags", "last");
 const DOTS = CSS.BM("tags", "dots");
+const EMPTY = CSS.BM("tags", "empty");
+const ENTERING = CSS.BM("tags", "entering");
 const MEASURING = CSS.BM("tags", "measuring");
 const HIDDEN = "data-hidden";
 const STACKED = "--lyra-tags-stacked";
 const STACK_GAP = "--lyra-tags-stack-gap";
-// The room, in rem, the count takes beside tags.
+// The room, in rem, the count takes beside tags, and with its dots alone.
 const COUNT = 13;
+const DOT_COUNT = 10;
 
 /** A group's tags at full width, in CSS pixels. */
 interface Fit {
@@ -57,7 +60,7 @@ const moreOf = (el: HTMLElement): HTMLElement | undefined =>
 const expand = (el: HTMLElement): void => {
   const more = moreOf(el);
   if (more != null) delete more.dataset.count;
-  el.classList.remove(DOTS);
+  el.classList.remove(DOTS, EMPTY);
   el.classList.add(MEASURING);
   el.style.setProperty(STACKED, "false");
   tagsOf(el).forEach((t) => t.removeAttribute(HIDDEN));
@@ -114,8 +117,9 @@ export class Steps {
   private readonly fits = new Map<HTMLElement, Fit>();
   private root: HTMLElement | null = null;
   private frame = 0;
-  // A hovered group widens alone, and may stop stacking.
-  private readonly resize = new ResizeObserver(() => this.request());
+  // A resize refits before the frame paints. A hovered group widens alone, and may stop
+  // stacking.
+  private readonly resize = new ResizeObserver(() => this.flush());
   // Groups mount and their tags load as the list scrolls.
   private readonly mutations = new MutationObserver(() => this.request());
   private readonly onFonts = (): void => {
@@ -165,8 +169,18 @@ export class Steps {
   }
 
   private flush(): void {
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
     const els = [...this.groups].filter((el) => el.getClientRects().length > 0);
     const stale = els.filter((el) => this.fits.get(el)?.tags !== signature(el));
+    // Tags that load after their group painted fade in, rather than pop.
+    stale.forEach((el) => {
+      const before = this.fits.get(el)?.tags.split("\n");
+      if (before == null) return;
+      tagsOf(el).forEach((t) => {
+        if (!before.includes(t.textContent ?? "")) t.classList.add(ENTERING);
+      });
+    });
     // All new groups lay out at full width together, so measuring costs one layout.
     stale.forEach(expand);
     stale.forEach((el) => this.fits.set(el, fit(el)));
@@ -177,6 +191,7 @@ export class Steps {
     const count = COUNT * rem;
     const fits = fitted.map((el) => this.fits.get(el) as Fit);
     const need = Math.max(...fits.map((f) => full(f, f.measures.length, count)));
+    // Set before reading widths, since the container sizes from it.
     this.root?.style.setProperty("--lyra-tags-need", `${need}px`);
     // Hovering widens one group's container, so the narrowest is the shared room.
     const room = Math.min(...fitted.map(cssWidth)) + 0.5;
@@ -187,7 +202,10 @@ export class Steps {
       !fits.every((f) => stacked(f, Math.min(shown, f.measures.length), count) <= room)
     )
       shown--;
-    fitted.forEach((el, i) => write(el, fits[i], shown, cssWidth(el) + 0.5, count));
+    const dots = DOT_COUNT * rem;
+    fitted.forEach((el, i) =>
+      write(el, fits[i], shown, cssWidth(el) + 0.5, count, dots),
+    );
   }
 }
 
@@ -197,6 +215,7 @@ const write = (
   step: number,
   room: number,
   count: number,
+  dots: number,
 ): void => {
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
@@ -204,6 +223,7 @@ const write = (
   el.style.setProperty(STACKED, String(overlap));
   el.style.setProperty("--lyra-tags-fit", `${full(f, shown, count)}px`);
   el.classList.toggle(DOTS, shown === 0);
+  el.classList.toggle(EMPTY, shown === 0 && f.frame + dots > room);
   tags.forEach((t, i) => {
     t.toggleAttribute(HIDDEN, i >= shown);
     t.classList.toggle(LAST, overlap && i === shown - 1);

@@ -31,6 +31,7 @@ export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void =>
     if (list == null) return;
     let frame = 0;
     const fit = (): void => {
+      cancelAnimationFrame(frame);
       frame = 0;
       const items = Array.from(list.querySelectorAll(`.${CSS.B("range-item")}`));
       if (items.length === 0) return;
@@ -61,7 +62,8 @@ export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void =>
     const request = (): void => {
       if (frame === 0) frame = requestAnimationFrame(fit);
     };
-    const resize = new ResizeObserver(request);
+    // A resize refits before the frame paints.
+    const resize = new ResizeObserver(fit);
     resize.observe(list);
     const mutations = new MutationObserver(request);
     mutations.observe(list, { childList: true, subtree: true, characterData: true });

@@ -156,6 +156,22 @@
     }
 }
 
+/* A tag that loads after its group painted fades in. */
+.lyra-tags--stepped > .lyra-tags--entering {
+    animation: lyra-tags-enter 0.1s ease-out;
+}
+
+@keyframes lyra-tags-enter {
+    from {
+        opacity: 0;
+    }
+}
+
+/* A group too narrow even for its dots shows nothing. */
+.lyra-tags.lyra-tags--empty {
+    visibility: hidden;
+}
+
 /* With no tags shown, the first three show as dots in the count. */
 .lyra-tags.lyra-tags--dots {
     gap: var(--lyra-tags-stack-gap);

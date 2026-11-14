@@ -59,11 +59,12 @@
     width: var(--pluto-height-tiny);
 }
 
-/* The name takes the room the columns leave, so indentation never moves a column. */
+/* The name takes the room the columns leave, so indentation never moves a column. It
+   never gets narrower than its text or 16 characters, whichever is less: its width sets
+   that floor, and the labels give way first. */
 .console-range-item__name {
-    flex: 1 1 auto;
-    min-width: 0;
-    transition: flex-shrink 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+    flex: 1 10 auto;
+    width: 16ch;
 
     & > :first-child {
         flex-shrink: 0;
@@ -76,39 +77,50 @@
     min-width: 0;
 }
 
+/* How far a hovered item's labels have spread, from 0 to 1. Only it animates, so a
+   resize moves the column at once. */
+@property --console-range-labels-spread {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0;
+}
+
 /* One labels column, as wide on every item. It takes the room the names leave, up to
-   what the range with the most labels needs. */
+   what the range with the most labels needs. When the item runs short, it shrinks in the
+   same frame, before any name passes its floor. */
 .console-range-item__labels {
-    --console-range-labels-width: clamp(
-        17rem,
-        var(--console-range-labels-room, 17rem),
-        var(--lyra-tags-need, 17rem)
+    --console-range-labels-width: min(
+        var(--console-range-labels-room, var(--lyra-tags-need, 0px)),
+        var(--lyra-tags-need, 0px)
     );
 
     display: flex;
-    flex-shrink: 0;
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
     overflow: hidden;
 
+    /* Hover spreads a stacked item's labels into its name. The step stays. */
     & .console-range-item__tags {
-        justify-content: flex-end;
-        width: var(--console-range-labels-width);
-        transition: width 0.25s cubic-bezier(0.38, 0.01, 0.33, 1);
+        --console-range-labels-spread: 0;
+
+        width: calc(
+            var(--console-range-labels-width) + var(--console-range-labels-spread) *
+                max(
+                    0px,
+                    min(
+                        var(--lyra-tags-fit, 0px) - var(--console-range-labels-width),
+                        24rem
+                    )
+                )
+        );
+        max-width: 100%;
+        transition: --console-range-labels-spread 0.16s cubic-bezier(0.2, 0, 0, 1);
     }
 }
 
-/* Hover widens a stacked item's labels into its name, so they spread. The step stays. */
-.console-range-item:hover {
-    /* The name gives way first, however far it has shrunk already. */
-    & .console-range-item__name {
-        flex-shrink: 10;
-    }
-
-    & .console-range-item__labels .console-range-item__tags {
-        width: max(
-            var(--console-range-labels-width),
-            min(var(--lyra-tags-fit, 0px), var(--console-range-labels-width) + 24rem)
-        );
-    }
+.console-range-item:hover .console-range-item__labels .console-range-item__tags {
+    --console-range-labels-spread: 1;
 }
 
 .console-range-item__when {
