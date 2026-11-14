@@ -121,6 +121,48 @@ public:
     void stop(bool) override {}
 };
 
+/// @brief a factory whose first configure blocks until released. It counts the
+/// instances that live at once.
+class StuckTaskFactory final : public Factory {
+    class Instance final : public Task {
+        StuckTaskFactory &factory;
+
+    public:
+        explicit Instance(StuckTaskFactory &factory): factory(factory) {
+            const int live = ++factory.live;
+            int max = factory.max_live;
+            while (live > max && !factory.max_live.compare_exchange_weak(max, live)) {}
+        }
+
+        ~Instance() override { --this->factory.live; }
+
+        [[nodiscard]] std::string name() const override { return "stuck"; }
+        void exec(synnax::task::Command &) override {}
+        void stop(bool) override {}
+    };
+
+public:
+    std::atomic<bool> stuck{false};
+    std::atomic<bool> released{false};
+    std::atomic<int> configures{0};
+    std::atomic<int> live{0};
+    std::atomic<int> max_live{0};
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (++this->configures == 1) {
+            this->stuck = true;
+            while (!this->released)
+                std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        }
+        return {std::make_unique<Instance>(*this), true};
+    }
+};
+
 class BlockingTaskFactory final : public Factory {
 public:
     std::atomic<bool> started{false};
@@ -350,11 +392,12 @@ synnax::task::Status wait_for_task_status(
 
 #ifndef _WIN32
 /// @brief forwards local TCP connections to the Core. cut drops every open
-/// connection, as a Core outage does. Later connections still go through.
+/// connection, as a short Core outage does. Later connections still go through.
 class CorePipe {
     int listener = -1;
     sockaddr_in core{};
     std::atomic<bool> open{true};
+    std::atomic<bool> paused{false};
     std::mutex mu;
     std::vector<int> sockets;
     std::vector<std::thread> pumps;
@@ -382,6 +425,10 @@ class CorePipe {
             if (poll(&fd, 1, 50) <= 0) continue;
             const int client = accept(this->listener, nullptr, nullptr);
             if (client < 0) continue;
+            if (this->paused) {
+                close(client);
+                continue;
+            }
             const int upstream = socket(AF_INET, SOCK_STREAM, 0);
             const auto *addr = reinterpret_cast<sockaddr *>(&this->core);
             if (connect(upstream, addr, sizeof(this->core)) != 0) {
@@ -422,6 +469,14 @@ public:
             shutdown(s, SHUT_RDWR);
     }
 
+    /// @brief cuts every connection and refuses new ones until resume.
+    void pause() {
+        this->paused = true;
+        this->cut();
+    }
+
+    void resume() { this->paused = false; }
+
     ~CorePipe() {
         this->open = false;
         this->acceptor.join();
@@ -443,6 +498,43 @@ protected:
     std::thread thread;
     synnax::framer::Streamer streamer;
     bool setup_succeeded = false;
+#ifndef _WIN32
+    std::unique_ptr<CorePipe> pipe;
+    std::mutex runs_mu;
+    std::condition_variable runs_cv;
+    int runs = 0;
+
+    /// @brief starts a manager that reaches the Core through pipe, and runs it again
+    /// after each error, as the rack does.
+    void start_piped_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
+        pipe = std::make_unique<CorePipe>(test_client_config().port);
+        auto conn = test_client_config();
+        conn.host = "127.0.0.1";
+        conn.port = pipe->port;
+        const auto piped = std::make_shared<synnax::Synnax>(conn);
+        const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
+        manager = std::make_unique<Manager>(piped_rack, piped, std::move(factory), cfg);
+        thread = std::thread([this] {
+            const auto started = [this] {
+                {
+                    std::lock_guard lock{this->runs_mu};
+                    this->runs++;
+                }
+                this->runs_cv.notify_all();
+            };
+            while (this->manager->run(started))
+                std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
+        });
+    }
+
+    /// @returns true once n runs of the manager have started.
+    bool wait_for_run(const int n) {
+        std::unique_lock lock{this->runs_mu};
+        return this->runs_cv.wait_for(lock, (10 * x::telem::SECOND).chrono(), [&] {
+            return this->runs >= n;
+        });
+    }
+#endif
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -566,43 +658,7 @@ TEST_F(TaskManagerTest, DeployOnStart) {
 /// @brief it should deploy its tasks and answer commands again when it runs again
 /// after the connection to the Core drops.
 TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
-    const auto direct = test_client_config();
-    CorePipe pipe(direct.port);
-    auto conn = direct;
-    conn.host = "127.0.0.1";
-    conn.port = pipe.port;
-    const auto piped = std::make_shared<synnax::Synnax>(conn);
-    const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(
-        piped_rack,
-        piped,
-        std::make_unique<EchoTaskFactory>()
-    );
-    std::mutex mu;
-    std::condition_variable cv;
-    int runs = 0;
-    const auto started = [&] {
-        {
-            std::lock_guard lock{mu};
-            runs++;
-        }
-        cv.notify_all();
-    };
-    // Runs the manager again after each error, as the rack does.
-    thread = std::thread([&] {
-        while (manager->run(started))
-            std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
-    });
-    x::defer::defer stop([&] {
-        manager->stop();
-        thread.join();
-    });
-    const auto wait_for_run = [&](const int n) {
-        std::unique_lock lock{mu};
-        return cv.wait_for(lock, (10 * x::telem::SECOND).chrono(), [&] {
-            return runs >= n;
-        });
-    };
+    start_piped_manager(std::make_unique<EchoTaskFactory>());
     ASSERT_TRUE(wait_for_run(1));
     auto task = synnax::task::Task{
         .rack = rack.key,
@@ -614,7 +670,7 @@ TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "start-1";
     });
-    pipe.cut();
+    pipe->cut();
     ASSERT_TRUE(wait_for_run(2));
     send_start(client, task, "start-2");
     const auto s = WAIT_FOR_TASK_STATUS(
@@ -624,6 +680,63 @@ TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
     );
     EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_TRUE(s.details.running);
+}
+
+/// @brief it should wait for a worker stuck across runs before it deploys the task
+/// again, so the task never has two instances.
+TEST_F(TaskManagerTest, StuckWorkerKeepsItsTaskAcrossARun) {
+    auto factory = std::make_unique<StuckTaskFactory>();
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_piped_manager(
+        std::move(factory),
+        {.shutdown_timeout = 200 * x::telem::MILLISECOND}
+    );
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    EXPECT_EQ(f->configures.load(), 1);
+    f->released = true;
+    ASSERT_EVENTUALLY_EQ(f->configures.load(), 2);
+    EXPECT_EQ(f->live.load(), 1);
+    EXPECT_EQ(f->max_live.load(), 1);
+}
+
+/// @brief it should remove a task deleted during an outage once the worker stuck on
+/// it returns.
+TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageIsRemovedAfterItsStuckWorker) {
+    auto factory = std::make_unique<StuckTaskFactory>();
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_piped_manager(
+        std::move(factory),
+        {.shutdown_timeout = 200 * x::telem::MILLISECOND}
+    );
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    pipe->pause();
+    ASSERT_NIL(rack.tasks.del(task.key));
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    f->released = true;
+    ASSERT_EVENTUALLY_EQ(f->max_live.load(), 1);
+    ASSERT_EVENTUALLY_EQ(f->live.load(), 0);
+    EXPECT_EQ(f->configures.load(), 1);
 }
 #endif
 

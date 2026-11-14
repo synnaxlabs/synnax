@@ -103,6 +103,9 @@ x::errors::Error Manager::configure_initial_tasks() {
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // The ops of an earlier run are for its stuck workers. This run's deploys and
+        // removes stop their instances instead, and a remove does it silently.
+        this->op_queue.clear();
         // An entry left by a worker of an earlier run that is still stuck holds a task
         // that this run does not deploy. Its removal waits for that worker.
         for (const auto &[key, _]: this->entries)
@@ -649,8 +652,6 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             if (entry->instance == nullptr) return;
             LOG(INFO) << "shutting down task " << entry->instance->name();
             entry->instance->stop(false);
-            entry->instance = nullptr;
-            this->clear_deploy(entry);
             break;
         }
         case Op::Type::REMOVE: {
