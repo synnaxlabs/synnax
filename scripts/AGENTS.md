@@ -120,13 +120,11 @@ instance.
 its labels queues. It finds a seat by its instance tags, because the seat runners belong
 to the organization. A seat stops itself when it is idle.
 
-Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
-Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
-the scripts by hand on the box.
-
-Back up the Core on the box with the `Backup - Runner Core` workflow. Install a Core
-release or dev build with the `Deploy - Runner Core` workflow, which backs up first.
-Both run `core.ps1` over SSM.
+Deploy with the `Deploy - Runners` workflow. Its checkboxes select the controller, a
+Core release or dev build, and a backup of the Core, and the steps run in one fixed
+order. It copies the `RUNNERS_*` repo secrets into Parameter Store under `/runners/` and
+runs `deploy.ps1` and `core.ps1` on the box over SSM. Never start the scripts by hand on
+the box.
 
 The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
 controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.
