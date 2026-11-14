@@ -2142,6 +2142,21 @@ describe("Read channel usage", () => {
     ).toBeTruthy();
   });
 
+  // The footer plans what Start creates apart from Start, so this ties the two.
+  it("should create as many channels at Start as it counts", async () => {
+    const slave = await createTwoEntrySlave();
+    const { container, draft } = await renderRead(createConfig(slave, true));
+    const footer = await screen.findByText(
+      /^Start creates \d+ channels?, \d+ in use\.$/,
+    );
+    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.READ_SCHEMAS);
+    const created = await client.channels.retrieve({
+      where: { name: { startsWith: slave.properties.identifier } },
+    });
+    expect(created).toHaveLength(counted);
+  });
+
   it("should count a channel again once it is deleted", async () => {
     const slave = await createTwoEntrySlave();
     const deployed = await deployRead(createConfig(slave));
@@ -2174,7 +2189,7 @@ describe("Read channel usage", () => {
     const slave = await createTwoEntrySlave();
     await renderRead(createConfig(slave));
     const expectInUse = async () => {
-      const count = await client.channels.count();
+      const count = await client.channels.countLimited();
       expect(screen.getByText(/ in use\.$/).textContent).toMatch(
         new RegExp(`, ${count} in use\\.$`),
       );

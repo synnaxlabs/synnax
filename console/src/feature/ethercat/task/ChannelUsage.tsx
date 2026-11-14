@@ -11,9 +11,9 @@ import "@/feature/ethercat/task/ChannelUsage.css";
 
 import { channel, query } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Flux, License, Synnax } from "@synnaxlabs/pluto";
+import { Channel, License } from "@synnaxlabs/pluto";
 import { primitive, unique } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement } from "react";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type IndexOptions } from "@/feature/ethercat/task/configure";
@@ -22,6 +22,7 @@ import {
   type DataTypes,
   entryAt,
   hasEntry,
+  mappedChannels,
   type PDOType,
   readChannelName,
   readChannelOf,
@@ -30,43 +31,14 @@ import {
 } from "@/feature/ethercat/task/types";
 import { CSS } from "@/platform/css";
 
-const { useResult: useResultCount, useRefresh: useRefreshCount } = Flux.createRetrieve<
-  Record<string, never>,
-  number
->({
-  name: "channel count",
-  retrieve: async ({ client }) => await client.channels.count(),
-  retryUnreachable: true,
-});
-
-// A fetch that discovers a channel fills the cache. It does not change the count.
-const changesCount = (event: query.TableEvent<channel.Key, channel.Channel>): boolean =>
-  event.variant === "delete" || event.discovered !== true;
-
-/** @returns the count of the channels that the license counts, kept current. */
-const useCount = (): Flux.Result<number> => {
-  const client = Synnax.use();
-  const refresh = useRefreshCount();
-  useEffect(() => {
-    if (client == null) return;
-    // The cache keeps the count of an earlier mount, which missed the changes since.
-    refresh({});
-    return client.channels.store.subscribeBatch((events) => {
-      if (events.some(changesCount)) refresh({});
-    });
-  }, [client, refresh]);
-  return useResultCount({});
-};
-
 /** @returns the keys of the channels that the slaves map, indexes among them. */
 const mappedKeys = (slaves: SlaveDevice[]): number[] =>
   unique.unique(
     slaves
-      .flatMap(({ properties: p }) => [
-        p.readIndex,
-        p.writeStateIndex,
-        ...p.read.channels.map(({ channel }) => channel),
-        ...p.write.channels.flatMap(({ command, state }) => [command, state]),
+      .flatMap((s) => [
+        s.properties.readIndex,
+        s.properties.writeStateIndex,
+        ...mappedChannels(s),
       ])
       .filter(primitive.isNonZero),
   );
@@ -79,10 +51,10 @@ interface Creation {
 }
 
 /**
- * @returns the channels that a Start creates on the slaves, before Start reuses the
- * channels that hold their names: the index of each slave whose index is gone, and each
- * channel that an enabled channel needs and the slave does not map. existing holds the
- * data types of the mapped channels that exist.
+ * @param existing - The data types of the mapped channels that exist.
+ * @returns the channels a Start creates before it reuses names: the index of each slave
+ * whose index is gone, and each channel an enabled channel needs that the slave does
+ * not map.
  */
 const creationsOf = (
   { indexProperty, nameSuffix }: IndexOptions,
@@ -159,7 +131,7 @@ export const ChannelUsage = ({
   const { data: named } = Channel.useResultMultiple(
     names.length === 0 ? null : { where: { name: { in: names } } },
   );
-  const count = useCount();
+  const count = Channel.useResultCountLimited();
   const { data: info } = License.useResult({});
   if (creations == null || (names.length > 0 && named == null)) return null;
   const inUse = count.data;

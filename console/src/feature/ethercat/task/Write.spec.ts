@@ -660,4 +660,26 @@ describe("Write channel usage", () => {
       await screen.findByText(/^Start creates 4 channels, \d+ in use\.$/),
     ).toBeTruthy();
   });
+
+  // The footer plans what Start creates apart from Start, so this ties the two.
+  it("should create as many channels at Start as it counts", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const footer = await screen.findByText(
+      /^Start creates \d+ channels?, \d+ in use\.$/,
+    );
+    const counted = Number(/\d+/.exec(footer.textContent ?? "")?.[0]);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.WRITE_SCHEMAS);
+    const created = await client.channels.retrieve({
+      where: { name: { startsWith: slave.properties.identifier } },
+    });
+    expect(created).toHaveLength(counted);
+  });
 });
