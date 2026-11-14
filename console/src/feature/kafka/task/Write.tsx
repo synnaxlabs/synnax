@@ -9,22 +9,22 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import { kafka } from "@synnaxlabs/client";
+import { DisconnectedError, kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel as PChannel } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
+import { deep, id, type payload, primitive } from "@synnaxlabs/x";
+import { type FC, useEffect, useRef } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
 import {
   deployWriteConfigZ,
-  isString,
   type RecordKey,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -33,6 +33,7 @@ import {
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
+import { Form as PlatformForm } from "@/platform/form";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -130,7 +131,7 @@ const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.channels[itemKey];
-  const { channel: key, jsonType, disabled } = PForm.useFieldValue(path);
+  const { channel: key, type, disabled } = PForm.useFieldValue(path);
   return (
     <Select.Item
       {...props}
@@ -149,7 +150,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           className={CSS.BE("kafka-item", "name")}
         />
         <Text.Text level="small" color={9}>
-          {jsonType}
+          {Task.Payload.kindName(type)}
         </Text.Text>
       </Flex.Box>
       <Task.EnabledCheckbox path={path.disabled} />
@@ -159,54 +160,189 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const renderSelectChannel = Component.renderProp(
-  (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-    <PChannel.SelectSingle {...p} />
-  ),
+type NumericKind = "float" | "integer" | "unsigned";
+
+const isNumericKind = (kind: payload.Kind): kind is NumericKind =>
+  kind === "float" || kind === "integer" || kind === "unsigned";
+
+interface NumericEntry {
+  label: string;
+  value: number | string;
+}
+
+const numericEntries = (ch: WriteChannel): NumericEntry[] =>
+  ch.type === "float" || ch.type === "integer" || ch.type === "unsigned"
+    ? ch.enumValues
+    : [];
+
+const MAX_EXACT_FLOAT = 2n ** 53n;
+
+const RANGES: Record<"integer" | "unsigned", [bigint, bigint]> = {
+  integer: [-(2n ** 63n), 2n ** 63n - 1n],
+  unsigned: [0n, 2n ** 64n - 1n],
+};
+
+const exactInteger = (value: number | string): bigint | null => {
+  if (typeof value === "number") return Number.isInteger(value) ? BigInt(value) : null;
+  return /^-?[0-9]+$/.test(value) ? BigInt(value) : null;
+};
+
+/** Returns value as an entry value of kind, or null when it does not stay exact. */
+const convertValue = (
+  value: number | string,
+  kind: NumericKind,
+): number | string | null => {
+  if (kind === "float" && typeof value === "number") return value;
+  const n = exactInteger(value);
+  if (n == null) return null;
+  if (kind === "float")
+    return n >= -MAX_EXACT_FLOAT && n <= MAX_EXACT_FLOAT ? Number(n) : null;
+  const [min, max] = RANGES[kind];
+  return n >= min && n <= max ? n.toString() : null;
+};
+
+/**
+ * Returns ch written as kind, with the defaults of kind. Between numeric kinds, each
+ * entry that stays exact carries over.
+ */
+const asKind = (ch: WriteChannel, kind: payload.Kind): WriteChannel =>
+  kafka.writeChannelZ.parse({
+    key: ch.key,
+    disabled: ch.disabled,
+    channel: ch.channel,
+    type: kind,
+    ...(kind === "timestamp" ? { timeFormat: "iso8601" } : {}),
+    ...(isNumericKind(kind)
+      ? {
+          enumValues: numericEntries(ch).flatMap(({ label, value }) => {
+            const converted = convertValue(value, kind);
+            return converted == null ? [] : [{ label, value: converted }];
+          }),
+        }
+      : {}),
+  });
+
+interface KindSelectProps {
+  path: deep.Target<WriteChannel>;
+  kinds: payload.Kind[];
+}
+
+const KindSelect = ({ path, kinds }: KindSelectProps) => (
+  <PForm.Field<WriteChannel> path={path} label="Output type" padHelpText={false}>
+    {({ value, onChange }) => (
+      <Select.Simple<payload.Kind>
+        value={value.type}
+        onChange={(kind: payload.Kind) => onChange(asKind(value, kind))}
+        resourceName="kind"
+      >
+        {kinds.map((kind) => (
+          <Select.Item key={kind} itemKey={kind}>
+            {Task.Payload.kindName(kind)}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    )}
+  </PForm.Field>
 );
 
-const JSON_TYPE_ITEMS = (
-  <>
-    <Select.Item itemKey="number">Number</Select.Item>
-    <Select.Item itemKey="string">String</Select.Item>
-    <Select.Item itemKey="boolean">Boolean</Select.Item>
-  </>
-);
+interface EntriesSectionProps {
+  path: deep.Target<WriteChannel>;
+  type: payload.Kind;
+}
 
-const renderSelectJSONType = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
-    <Select.Simple<string> {...p} resourceName="JSON type">
-      {JSON_TYPE_ITEMS}
-    </Select.Simple>
-  ),
-);
+const EntriesSection = ({ path, type }: EntriesSectionProps) => {
+  switch (type) {
+    case "float":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", "float").enumValues}
+          valueFirst
+        />
+      );
+    case "integer":
+    case "unsigned":
+    case "string":
+      return (
+        <PForm.Section title="Enum mapping">
+          <PlatformForm.KeyValueEditor
+            path={deep.variant(path, "type", type).enumValues}
+            resourceName="mapping"
+            keyField="label"
+            keyPlaceholder="String (e.g. ON)"
+            valuePlaceholder={type === "string" ? "Text" : "Integer"}
+            valueFirst
+          />
+        </PForm.Section>
+      );
+    case "boolean":
+      return (
+        <PForm.Section title="Enum mapping">
+          <PlatformForm.KeyValueEditor
+            path={deep.variant(path, "type", "boolean").enumValues}
+            resourceName="mapping"
+            keyField="label"
+            keyPlaceholder="String (e.g. ON)"
+            valueType="boolean"
+            valueFirst
+          />
+        </PForm.Section>
+      );
+    default:
+      return null;
+  }
+};
+
+/**
+ * Selects the channel of the write channel at path. It sets the channel and an output
+ * type that the channel allows in one change, so the Core never sees a pair it rejects.
+ */
+const ChannelField = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const { get, set } = PForm.useContext();
+  const latest = useRef(0);
+  const handleChange = (key: number) => {
+    const pick = ++latest.current;
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const { dataType } = await client.channels.retrieve(key);
+      // A slow lookup for an earlier pick must not replace a later one.
+      if (pick !== latest.current) return;
+      const kinds = Task.Payload.channelKinds(dataType);
+      const ch = { ...get<WriteChannel>(path).value, channel: key };
+      set(path, kinds.includes(ch.type) ? ch : asKind(ch, kinds[0]));
+    }, "Failed to select the channel");
+  };
+  return (
+    <PForm.Field path={path.channel} label="Channel" required>
+      {({ value }) => <PChannel.SelectSingle value={value} onChange={handleChange} />}
+    </PForm.Field>
+  );
+};
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const { channel: key, jsonType } = PForm.useFieldValue(path);
-  const query = primitive.isNonZero(key) ? { key } : null;
+  const ch = PForm.useFieldValue(path);
+  const { set } = PForm.useContext();
+  const query = primitive.isNonZero(ch.channel) ? { key: ch.channel } : null;
   const { data: dataType } = PChannel.useResultDataType(query);
-  const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
-  // A string, JSON, or UUID channel always goes out as a string, and the time format
-  // alone encodes a timestamp channel, so neither has a JSON type.
-  const typed = dataType == null || (!isString(dataType) && !isTimestamp);
+  const kinds = dataType == null ? null : Task.Payload.channelKinds(dataType);
+  const allowed = kinds == null || kinds.includes(ch.type);
+  useEffect(() => {
+    if (kinds != null && !allowed) set(path, asKind(ch, kinds[0]));
+  }, [kinds?.[0], allowed]);
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
-        <PForm.Field path={path.channel} label="Channel" required>
-          {renderSelectChannel}
-        </PForm.Field>
-        {typed && (
-          <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
-            {renderSelectJSONType}
-          </PForm.Field>
-        )}
-        {isTimestamp && (
-          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
+        <ChannelField path={path} />
+        {kinds != null && kinds.length > 1 && <KindSelect path={path} kinds={kinds} />}
+        {ch.type === "timestamp" && (
+          <Task.Payload.TimeFormatField
+            path={deep.variant(path, "type", "timestamp").timeFormat}
+            label="Time format"
+          />
         )}
       </PForm.Section>
-      {jsonType === "string" && typed && (
-        <Task.Payload.EnumMappingSection path={path.enumValues} valueFirst />
-      )}
+      <EntriesSection path={path} type={ch.type} />
     </PForm.Sections>
   );
 };
@@ -223,7 +359,9 @@ const detailsTitle = Component.renderProp(ChannelTitle);
 const createChannel = (channels: WriteChannel[], keyToCopy?: string): WriteChannel => {
   const source = channels.find((c) => c.key === keyToCopy);
   return {
-    ...(source != null ? { ...source, channel: 0 } : kafka.writeChannelZ.parse({})),
+    ...(source != null
+      ? { ...source, channel: 0 }
+      : kafka.writeChannelZ.parse({ type: "float" })),
     key: id.create(),
   };
 };
@@ -255,12 +393,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "Kafka write task", type: WRITE_TYPE, config: cfg };
 };
 
-/**
- * A cleared pointer is omitted from the record instead of placed at "". A string,
- * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
- * format, whatever JSON type the form holds. Disabled rows are left alone, so a
- * deleted channel on one cannot block the deploy.
- */
+/** A cleared pointer is omitted from the record instead of placed at "". */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -268,23 +401,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
-  });
-  const chs = await client.channels.retrieve(
-    config.channels
-      .filter((c) => !c.disabled)
-      .map((c) => c.channel)
-      .filter((k) => k !== 0),
-  );
-  const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
-  const timestamps = new Set(
-    chs.filter((c) => DataType.TIMESTAMP.equals(c.dataType)).map((c) => c.key),
-  );
-  config.channels.forEach((c) => {
-    if (stringOnly.has(c.channel)) c.jsonType = "string";
-    if (timestamps.has(c.channel)) {
-      c.jsonType = "number";
-      c.enumValues = [];
-    }
   });
   if (config.record.channelPointer === "") delete config.record.channelPointer;
   if (config.record.timestampPointer === "") delete config.record.timestampPointer;

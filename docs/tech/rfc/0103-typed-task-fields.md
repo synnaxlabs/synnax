@@ -309,9 +309,11 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   or is logged and dropped when no entry has it. `optional` with no fill is `"NaN"` on
   `float`. On each other kind the Driver rejected it, so it was never a working config:
   it becomes no fill, the field warns as usual, and the migration logs it.
-- **Channel field**: A stored `timestamp` data type wins. `json_type: string` with
-  entries, or `number`, becomes the numeric kind. `string` with no entries stays
-  `string`.
+- **Channel field**: A stored `timestamp` data type wins. Kafka v0 stores none, so there
+  a `number` with a `time_format` and no entries becomes `timestamp`. `number` becomes
+  the numeric kind. `string` stays `string`, and its entries take the decimal text of
+  their values, so a numeric sample writes the same JSON string as before. A v0
+  timestamp row with `json_type: string` or entries takes `iso8601`, as v0 rejected it.
 - **Static write field**: Lift by the stored Go type, not `json_type`, because the HTTP
   Driver sends the value as it is. A whole `float64` within 2^53 becomes `integer`, and
   other numbers become `float`. An `int64` or `uint64` keeps its value. A string or

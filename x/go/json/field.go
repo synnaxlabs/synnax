@@ -32,10 +32,12 @@ const (
 	String
 	// Boolean is a JSON boolean.
 	Boolean
+	// JSON is the JSON value a sample of the JSON data type holds.
+	JSON
 )
 
-// ParseType parses the config form of a Type: "number", "string", or "boolean". It
-// returns an error wrapping validate.ErrValidation for any other text.
+// ParseType parses the config form of a Type: "number", "string", "boolean", or
+// "json". It returns an error wrapping validate.ErrValidation for any other text.
 func ParseType(text string) (Type, error) {
 	switch text {
 	case "number":
@@ -44,10 +46,12 @@ func ParseType(text string) (Type, error) {
 		return String, nil
 	case "boolean":
 		return Boolean, nil
+	case "json":
+		return JSON, nil
 	}
 	return Number, errors.Wrapf(
 		validate.ErrValidation,
-		`unknown JSON type %q: expected "number", "string", or "boolean"`,
+		`unknown JSON type %q: expected "number", "string", "boolean", or "json"`,
 		text,
 	)
 }
@@ -59,6 +63,8 @@ func (t Type) String() string {
 		return "string"
 	case Boolean:
 		return "boolean"
+	case JSON:
+		return "json"
 	}
 	return "number"
 }
@@ -137,8 +143,9 @@ type Field struct {
 	Type Type
 	// Enums label the samples of a numeric, boolean, or string data type. A Decoder
 	// reads a label as its sample. An Encoder writes a sample as the label of the first
-	// entry that matches it, whatever the Type. Floats match by value, and a NaN entry
-	// matches any NaN.
+	// entry that matches it. Floats match by value, and a NaN entry matches any NaN.
+	// With Type Boolean, a numeric sample matches by its truth value, and NaN matches
+	// no entry.
 	Enums []Enum
 }
 
@@ -395,7 +402,12 @@ type Encoder struct {
 // value does not convert to f.DataType.
 func NewEncoder(f Field) (*Encoder, error) {
 	dt := f.DataType
-	if dt != telem.TimestampT && !numeric(dt) && f.Type != String {
+	if f.Type == JSON && dt != telem.JSONT {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "data type %s has no JSON value of its own", dt,
+		)
+	}
+	if f.Type != JSON && dt != telem.TimestampT && !numeric(dt) && f.Type != String {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "data type %s only serializes as a string", dt,
 		)
@@ -416,14 +428,15 @@ func NewEncoder(f Field) (*Encoder, error) {
 }
 
 // Append appends the JSON value of sample to dst. A variable-density sample is its data
-// alone, without a length. Bytes are standard, padded base64. A sample that matches no
-// enum and is a NaN or infinite number writes as NaN, Infinity, or -Infinity when Type
-// is String. It returns an error wrapping validate.ErrValidation when sample has no
-// JSON value: a NaN or infinite number, or a NaN boolean.
+// alone, without a length. With Type JSON, a JSON sample is written as it is. Bytes are
+// standard, padded base64. A sample that matches no enum and is a NaN or infinite
+// number writes as NaN, Infinity, or -Infinity when Type is String. It returns an error
+// wrapping validate.ErrValidation when sample has no JSON value: a NaN or infinite
+// number, a NaN boolean, or a JSON sample that is not valid JSON.
 func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	dt := e.field.DataType
 	for _, en := range e.enums {
-		if matches(dt, en.sample, sample) {
+		if fieldMatches(e.field, en.sample, sample) {
 			return append(dst, en.label...), nil
 		}
 	}
@@ -431,6 +444,14 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	case dt == telem.TimestampT:
 		ts := telem.TimeStamp(telem.ByteOrder.Uint64(sample))
 		return AppendTimeStamp(dst, ts, e.field.TimeFormat), nil
+	case e.field.Type == JSON:
+		if !jsontext.Value(sample).IsValid() {
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"JSON sample is not valid JSON",
+			)
+		}
+		return append(dst, sample...), nil
 	case dt == telem.UUIDT:
 		dst = append(dst, '"')
 		var err error
@@ -457,6 +478,37 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	default:
 		return appendJSONNumber(dst, n)
 	}
+}
+
+// CheckEnums returns an error wrapping validate.ErrValidation when an enum value of f
+// does not convert to f.DataType, or two convert to samples that an Encoder for f
+// matches alike. An Encoder writes such a sample as the first of the labels.
+func CheckEnums(f Field) error {
+	enums, err := encodeEnums(f.Enums, f.DataType)
+	if err != nil {
+		return err
+	}
+	for i, a := range enums {
+		for _, b := range enums[:i] {
+			if fieldMatches(f, a.sample, b.sample) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"enum labels %q and %q have the same %s value",
+					b.label, a.label, f.DataType,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func fieldMatches(f Field, en, sample []byte) bool {
+	dt := f.DataType
+	if f.Type != Boolean || dt == telem.BooleanT || !numeric(dt) {
+		return matches(dt, en, sample)
+	}
+	x, y := sampleNumber(dt, en).float(), sampleNumber(dt, sample).float()
+	return !math.IsNaN(x) && !math.IsNaN(y) && (x != 0) == (y != 0)
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,

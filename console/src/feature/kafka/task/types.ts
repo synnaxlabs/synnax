@@ -100,7 +100,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface WriteChannel extends kafka.WriteChannel {}
+export type WriteChannel = kafka.WriteChannel;
 
 export type RecordKey = kafka.RecordKey;
 

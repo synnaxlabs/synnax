@@ -109,10 +109,28 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
+			Migrations:      []gorp.Migration{newWriteMigration(cfg.Channel)},
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ValidateEntry:   (*WriteConfig).Validate,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				_ string,
+				e *WriteConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, resolveWriteConfig(ctx, snap, cfg.Channel, e)
+			},
+			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, e *WriteConfig) error {
+				return reconcileWriteConfig(
+					ctx,
+					tx,
+					cfg.Channel,
+					cfg.Instrumentation,
+					e,
+				)
+			},
+			ValidateEntry: validateWriteConfig,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
