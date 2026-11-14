@@ -153,7 +153,7 @@
         border-bottom-right-radius: var(--pluto-border-radius-tiny);
 
         & > *,
-        & .lyra--shadow {
+        & .lyra-btn--shadow {
             border-bottom-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -163,7 +163,7 @@
         border-top-right-radius: var(--pluto-border-radius-tiny);
 
         & > *,
-        & .lyra--shadow {
+        & .lyra-btn--shadow {
             border-top-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -178,7 +178,7 @@
         border-bottom-left-radius: var(--pluto-border-radius-tiny);
 
         & > *,
-        & .lyra--shadow {
+        & .lyra-btn--shadow {
             border-bottom-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -200,7 +200,7 @@
         border-top-left-radius: var(--pluto-border-radius-tiny);
 
         & > *,
-        & .lyra--shadow {
+        & .lyra-btn--shadow {
             border-top-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -208,7 +208,7 @@
     /* A cell control takes the cell variant, wrapped or not. It draws its border on the
        grid line, so focus and hover frame the whole cell. The focused cell stays above
        its neighbors. */
-    & tbody .lyra--shadow {
+    & tbody .lyra-btn--shadow {
         border-width: 0;
         border-radius: 0;
         outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);

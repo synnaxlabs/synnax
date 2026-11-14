@@ -169,7 +169,7 @@ describe("Input.Table", () => {
         </Input.Table>,
       );
       return Array.from(container.querySelectorAll("tbody tr"), (row) =>
-        Array.from(row.querySelectorAll(`.${CSS.M("shadow")}`)),
+        Array.from(row.querySelectorAll(`.${CSS.BM("btn", "shadow")}`)),
       );
     };
 
