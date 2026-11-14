@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,13 +37,15 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given range, assigning a new key when it has none, and stores the
-// labels r carries. The parent and labels must exist. It returns an error wrapping
-// validate.ErrValidation when a range with the key exists. After the transaction
-// commits, Create broadcasts a create action that carries the stored range.
+// labels r carries. It sets HasChildren to false, since a new range has no children.
+// The parent and labels must exist. It returns an error wrapping validate.ErrValidation
+// when a range with the key exists. After the transaction commits, Create broadcasts a
+// create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
+	r.HasChildren = false
 	if err := r.Validate(); err != nil {
 		return err
 	}
@@ -60,12 +63,21 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	return nil
 }
 
-// CreateMany calls Create for each range, in order.
+// CreateMany calls Create for each range, in order. It sets HasChildren on each range
+// that another range in ranges names as its parent.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
+	parents := make(set.Set[Key], len(*ranges))
 	for i := range *ranges {
-		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
+		r := &(*ranges)[i]
+		if err := w.Create(ctx, r); err != nil {
 			return err
 		}
+		if r.Parent != nil {
+			parents.Add(*r.Parent)
+		}
+	}
+	for i := range *ranges {
+		(*ranges)[i].HasChildren = parents.Contains((*ranges)[i].Key)
 	}
 	return nil
 }
@@ -158,7 +170,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 }
 
 // Delete deletes the ranges with the given keys, along with each range nested in them
-// and the aliases and key-value pairs of every deleted range. Delete is idempotent.
+// and the key-value pairs of every deleted range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil

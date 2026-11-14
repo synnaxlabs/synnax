@@ -38,7 +38,8 @@ Chassis struct {
         @doc value "is the key of the rack the chassis is connected to."
     }
     name          string   {
-        @doc value "is a human-readable name for the chassis."
+        @doc value         "is a human-readable name for the chassis."
+        @validate required
     }
     serial        string = "" {
         @doc value """
@@ -46,12 +47,14 @@ Chassis struct {
         """
     }
     resource_name string   {
-        @doc value """
+        @doc value         """
             is the NI-MAX resource name of the chassis, a GUID that survives renames.
         """
+        @validate required
     }
     model         string   {
-        @doc value "is the product name of the chassis."
+        @doc value         "is the product name of the chassis."
+        @validate required
     }
     status        Status?  {
         @doc value  "is the current operational status of the chassis."

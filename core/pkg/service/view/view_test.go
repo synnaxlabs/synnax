@@ -28,7 +28,11 @@ import (
 
 func rangeView(name string) view.View {
 	return view.View{
-		Variant: view.RangeView{Base: view.Base{Key: uuid.New(), Name: name}},
+		Variant: view.RangeView{
+			Base:   view.Base{Key: uuid.New(), Name: name},
+			Sort:   view.RangeSortNewest,
+			Layout: view.RangeLayoutTree,
+		},
 	}
 }
 
@@ -59,9 +63,11 @@ var _ = Describe("View", func() {
 			It(
 				"Should create a new view with an auto-generated key",
 				func(ctx SpecContext) {
-					s := &view.View{
-						Variant: view.RangeView{Base: view.Base{Name: "Test"}},
-					}
+					s := &view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Test"},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
+					}}
 					Expect(w.Create(ctx, s)).To(Succeed())
 					Expect(s.GorpKey()).ToNot(Equal(uuid.Nil()))
 				},
@@ -90,12 +96,28 @@ var _ = Describe("View", func() {
 				"Should reject a range view with an invalid regex",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.RangeView{
-						Base:  view.Base{Name: "Bad"},
-						Where: &ranger.Where{Name: &filter.String{Regex: new("(")}},
+						Base:   view.Base{Name: "Bad"},
+						Where:  &ranger.Where{Name: &filter.String{Regex: new("(")}},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
 					}}
 					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
 						"where.name.regex: error parsing regexp: missing closing )",
 					)))
+				},
+			)
+			It(
+				"Should reject a range view with an invalid sort",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Bad"},
+						Sort:   "random",
+						Layout: view.RangeLayoutTree,
+					}}
+					Expect(w.Create(ctx, &s)).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("sort: invalid sort: random")),
+					))
 				},
 			)
 			It("Should reject a view with no name", func(ctx SpecContext) {

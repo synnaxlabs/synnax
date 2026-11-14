@@ -32,7 +32,9 @@ When CI failed on the head:
 ## 3. Address every review finding
 
 A Sedosaur score of 5/5 does not mean the work is done. Every open Sedosaur finding, P2
-and style findings included, gets a fix or a reply that gives the reason.
+and style findings included, gets a fix or a reply that gives the reason. A finding
+marked "(follow-up)" gets no fix here: reply that it waits for a follow-up issue, and
+name it in your last message so that a person files the issue.
 
 - `.github/scripts/review_threads.sh <number>` prints each review thread that needs
   action as one JSON line.

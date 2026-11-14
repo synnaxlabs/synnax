@@ -69,7 +69,10 @@ describe("table path actions", () => {
     const { next, targets } = table.reduceAll(state, [
       set(["cells", "a", "fill_color"], "#ff0000"),
     ]);
-    expect(next.cells.a).toMatchObject({ variant: "text", fillColor: "#ff0000" });
+    expect(next.cells.a).toMatchObject({
+      variant: "text",
+      fillColor: [255, 0, 0, 255],
+    });
     expect(next.cells.b).toBe(state.cells.b);
     expect(targets).toEqual(["a"]);
   });

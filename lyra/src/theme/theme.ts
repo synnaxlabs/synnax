@@ -107,8 +107,8 @@ export const themeZ = z
       black: color.colorZ,
       text: color.colorZ,
       textInverted: color.colorZ,
-      textOnPrimary: color.colorZ.default(color.ZERO),
-      textOnWarning: color.colorZ.default(color.ZERO),
+      textOnPrimary: color.colorZ.optional(),
+      textOnWarning: color.colorZ.optional(),
       primaryText: color.colorZ,
       errorText: color.colorZ,
       warningText: color.colorZ,
@@ -149,19 +149,17 @@ export const themeZ = z
     symbol: symbolZ,
   })
   .transform((theme) => {
-    if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
-      theme.colors.textOnPrimary = color.pickByContrast(
-        theme.colors.primary.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    if (theme.colors.textOnWarning == null || color.isZero(theme.colors.textOnWarning))
-      theme.colors.textOnWarning = color.pickByContrast(
-        theme.colors.warning.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    return theme;
+    const { colors } = theme;
+    const onScale = (scale: color.Color): color.Color =>
+      color.pickByContrast(scale, colors.text, colors.textInverted);
+    return {
+      ...theme,
+      colors: {
+        ...colors,
+        textOnPrimary: colors.textOnPrimary ?? onScale(colors.primary.z),
+        textOnWarning: colors.textOnWarning ?? onScale(colors.warning.z),
+      },
+    };
   });
 
 export type ThemeSpec = z.input<typeof themeZ>;

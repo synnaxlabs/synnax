@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { createRenderCounter } from "@/testutil";
 import { mockGeometry } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
 
@@ -64,5 +65,36 @@ describe("Select.Frame pinned", () => {
     expect(c.queryByText("150", { exact: true })).not.toBeNull();
     expect(c.queryByText("299", { exact: true })).not.toBeNull();
     expect(c.queryByText("151", { exact: true })).toBeNull();
+  });
+});
+
+const { Counted, counts, reset } = createRenderCounter();
+
+const OPTIONS = ["x"];
+
+const nested = ({ key, ...rest }: List.ItemProps<string>): ReactElement => (
+  <div key={key}>
+    <Counted id={rest.itemKey}>
+      <Select.Frame multiple data={OPTIONS} value={OPTIONS} onChange={vi.fn()}>
+        <span>{rest.itemKey}</span>
+      </Select.Frame>
+    </Counted>
+  </div>
+);
+
+const Outer = ({ data }: { data: string[] }): ReactElement => (
+  <List.Frame data={data}>
+    <List.Scroll>
+      <List.Items<string>>{nested}</List.Items>
+    </List.Scroll>
+  </List.Frame>
+);
+
+describe("Select.Frame nested in a list", () => {
+  it("should not render when the keys of the outer list change", () => {
+    const c = render(<Outer data={["a", "b"]} />);
+    reset();
+    c.rerender(<Outer data={["a", "b", "c"]} />);
+    expect(Object.fromEntries(counts)).toEqual({});
   });
 });

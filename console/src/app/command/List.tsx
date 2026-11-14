@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
@@ -20,7 +21,6 @@ import { Embedded } from "@/feature/embedded";
 import { Framer } from "@/feature/framer";
 import { ICD } from "@/feature/icd";
 import { Import } from "@/feature/import";
-import { Label } from "@/feature/label";
 import { License } from "@/feature/license";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -46,7 +46,6 @@ const COMMANDS: Command.Command[] = [
   ...Framer.COMMANDS,
   ...ICD.COMMANDS,
   ...Import.COMMANDS,
-  ...Label.COMMANDS,
   ...License.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
@@ -62,6 +61,7 @@ const COMMANDS: Command.Command[] = [
   ...Arc.COMMANDS,
   ...Status.COMMANDS,
   ...Theme.COMMANDS,
+  ...Settings.COMMANDS,
 ];
 
 export const List = (props: Palette.ListProps<Command.Command>): ReactElement => (

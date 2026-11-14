@@ -139,6 +139,101 @@ var _ = Describe("@ref", func() {
 			}`, "Use"),
 	)
 
+	union := func(schema, field string) string {
+		imports := ""
+		for dep := range strings.SplitSeq(schema, ",") {
+			imports += "import \"schemas/" + dep + "\"\n"
+		}
+		return `
+			` + imports + `
+
+			@go output "core/pkg/service/device"
+
+			Key = string
+
+			Base struct {
+				key Key @key
+				` + field + `
+			}
+
+			Device union on model extends Base {
+				t4 {}
+				t7 {}
+				@resource type "device"
+				@retrieve
+			}
+		`
+	}
+
+	DescribeTable(
+		"Should declare a reference on the base of a union once",
+		func(ctx SpecContext, schema, field, name, targets, match string) {
+			resp := MustGenerate(ctx, union(schema, field), "device", loader, p)
+			content := MustContentOf(resp, "retrieve.gen.go")
+			Expect(strings.Count(content, `Name:     "`+name+`",`)).To(Equal(1))
+			Expect(content).To(ContainSubstring(targets))
+			Expect(content).To(ContainSubstring(match))
+		},
+		Entry(
+			"a restrict key",
+			"rack",
+			`rack rack.Key @ref on_delete restrict @ref kind place`,
+			"rack",
+			"targets = append(targets, v1.Rack)",
+			"func MatchRacks(",
+		),
+		Entry(
+			"a cascade optional key",
+			"label",
+			`label label.Key? @ref on_delete cascade @ref kind use`,
+			"label",
+			"targets = append(targets, *v1.Label)",
+			"func MatchLabels(",
+		),
+	)
+
+	It("Should declare a resource target for an ID reference on a union", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, union(
+			"resource",
+			`owner resource.ID? @ref on_delete cascade @ref types device @ref kind use`,
+		), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToContain(
+			"func resourceTarget(id resource.ID) gorp.Target {",
+			"targets[i] = resourceTarget(v)",
+		)
+	})
+
+	It("Should name the index of a union reference after the field", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, union(
+			"rack",
+			`rack rack.Key {
+				@ref on_delete restrict
+				@ref kind place
+				@go name "RackKey"
+			}`,
+		), "device", loader, p)
+		content := MustContentOf(resp, "retrieve.gen.go")
+		Expect(content).To(ContainSubstring("r.indexes.rack.Filter("))
+		Expect(content).ToNot(ContainSubstring("r.indexes.rackKey"))
+	})
+
+	It("Should refuse a detach reference on a union", func(ctx SpecContext) {
+		req := MustGenerateRequest(
+			ctx,
+			union("label", `labels label.Key[] @ref on_delete detach @ref kind use`),
+			"device",
+			loader,
+		)
+		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"device.Device: @ref on_delete detach is not supported on the base " +
+				"fields of a union (labels)",
+		)))
+	})
+
 	It("Should register an optional reference to its own type", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, device(`
 			parent Key? {

@@ -11,25 +11,34 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
-type Device = v0.Device
+type Device = v1.Device
 
 // Key uniquely identifies an NI device.
-type Key = v0.Key
-
-// InputPorts holds the channels that a device reads into.
-type InputPorts = v0.InputPorts
+type Key = v1.Key
 
 // CommandStatePair is the pair of channels that writes to one port.
-type CommandStatePair = v0.CommandStatePair
+type CommandStatePair = v1.CommandStatePair
 
-// OutputPorts holds the channels that a device writes through.
-type OutputPorts = v0.OutputPorts
+// AnalogInputPorts holds the channels that a device reads analog input into.
+type AnalogInputPorts = v1.AnalogInputPorts
+
+// AnalogOutputChannels holds the channels of one analog output port.
+type AnalogOutputChannels = v1.AnalogOutputChannels
+
+// CounterInputChannels holds the channels of one counter input.
+type CounterInputChannels = v1.CounterInputChannels
+
+// DigitalInputChannels holds the channels of one digital input port.
+type DigitalInputChannels = v1.DigitalInputChannels
+
+// DigitalOutputChannels holds the channels of one digital output port.
+type DigitalOutputChannels = v1.DigitalOutputChannels
 
 // StatusDetails identifies the device and rack that a status pertains to.
-type StatusDetails = v0.StatusDetails
+type StatusDetails = v1.StatusDetails
 
 // Status is the operational status of a device.
-type Status = v0.Status
+type Status = v1.Status

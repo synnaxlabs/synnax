@@ -14,11 +14,9 @@ import (
 	"slices"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
@@ -67,19 +65,15 @@ func resolveStatus(t *Task, provided *Status) *Status {
 
 // Create creates a task. The task's config is stored as a record keyed by the task's
 // key in its type's config store; the task row itself carries only the config hash.
-// Create returns a validation error when a task that is not a snapshot has a range, and
-// an error wrapping validate.ErrValidation when a task with the key exists. A provided
-// status is persisted as given. Without one, the task gets a "not deployed"
-// placeholder. After the transaction commits, Create broadcasts a create action that
-// carries the stored task.
+// Create returns an error wrapping validate.ErrValidation when a task with the key
+// exists. A provided status is persisted as given. Without one, the task gets a "not
+// deployed" placeholder. After the transaction commits, Create broadcasts a create
+// action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
 	}
 	if err := t.Validate(); err != nil {
-		return err
-	}
-	if err := validateRange(t.Snapshot, t.Range); err != nil {
 		return err
 	}
 	store, ok := w.configs.Store(t.Type)
@@ -140,9 +134,8 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 // transaction of w, so its commit broadcasts them with the dispatch key of w, then a
 // set of the stored config when storing changed it, such as by filling a default, then
 // a set of the new config hash. Apply returns the sets it added. Apply returns an error
-// wrapping validate.ErrValidation when an action is a create, an action other than a
-// set of the name targets a snapshot, or the result fails to decode or validate, and an
-// error wrapping query.ErrNotFound when no task has the key.
+// wrapping validate.ErrValidation when an action is a create or the result fails to
+// decode or validate, and an error wrapping query.ErrNotFound when no task has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	added, err := w.apply(ctx, key, acts)
 	if err != nil {
@@ -163,13 +156,6 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
-	}
-	if prev.Snapshot && !renamesOnly(acts) {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"task %s is a snapshot, so only its name can change",
-			key,
-		)
 	}
 	others, cursors, err := splitConfig(acts)
 	if err != nil {
@@ -290,30 +276,12 @@ func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	return nil
 }
 
-func renamesOnly(acts []Action) bool {
-	return lo.EveryBy(acts, func(a Action) bool {
-		return a.Type == ActionTypeSet &&
-			a.Set != nil &&
-			slices.Equal(a.Set.Path, []string{"name"})
-	})
-}
-
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx)
-}
-
-func validateRange(snapshot bool, rng *ranger.Key) error {
-	if rng == nil || snapshot {
-		return nil
-	}
-	return validate.PathedError(errors.Wrap(
-		validate.ErrValidation,
-		"only a snapshot can sit in a range",
-	), "range")
 }
 
 // DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
@@ -324,20 +292,9 @@ func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 }
 
 // Copy stores a copy of the task with the given key under a new key and name, with its
-// config. A snapshot copy sits in rng, or in no range when rng is nil. After the
-// transaction commits, Copy broadcasts a create action that carries the copy. It
-// returns query.ErrNotFound if no task with the key exists, and a validation error when
-// rng is set for a copy that is not a snapshot.
-func (w Writer) Copy(
-	ctx context.Context,
-	key Key,
-	name string,
-	snapshot bool,
-	rng *ranger.Key,
-) (Task, error) {
-	if err := validateRange(snapshot, rng); err != nil {
-		return Task{}, err
-	}
+// config. After the transaction commits, Copy broadcasts a create action that carries
+// the copy. It returns query.ErrNotFound if no task with the key exists.
+func (w Writer) Copy(ctx context.Context, key Key, name string) (Task, error) {
 	newKey := uuid.New()
 	var res Task
 	if err := w.table.NewUpdate().
@@ -345,8 +302,6 @@ func (w Writer) Copy(
 		ChangeErr(func(_ gorp.Context, t Task) (Task, error) {
 			t.Key = newKey
 			t.Name = name
-			t.Snapshot = snapshot
-			t.Range = rng
 			res = t
 			return t, t.Validate()
 		}).

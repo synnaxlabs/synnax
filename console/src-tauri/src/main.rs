@@ -53,6 +53,7 @@ fn main() {
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
+        supervisor::commands::supervisor_quit,
         supervisor::commands::supervisor_reset,
         supervisor::commands::supervisor_show_logs,
         supervisor::commands::supervisor_show_data,
@@ -66,6 +67,8 @@ fn main() {
     builder
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            #[cfg(feature = "desktop")]
+            supervisor::commands::relaunched(app);
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.unminimize();
                 let _ = win.show();
@@ -110,8 +113,16 @@ fn main() {
         .expect("error while building tauri application")
         .run(|_app, _event| {
             #[cfg(feature = "desktop")]
-            if let tauri::RunEvent::Exit = _event {
-                supervisor::commands::shutdown(_app);
+            match _event {
+                tauri::RunEvent::ExitRequested { code, api, .. } => {
+                    supervisor::commands::exit_requested(_app, code, &api);
+                }
+                // Windows ends a session with `Exit` and no `ExitRequested` first.
+                tauri::RunEvent::Exit => supervisor::commands::shutdown(_app),
+                // macOS opens a running app again with `Reopen`, not a second process.
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => supervisor::commands::relaunched(_app),
+                _ => {}
             }
         });
 }

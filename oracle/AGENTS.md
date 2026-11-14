@@ -64,6 +64,12 @@ or generator logic and schemas disagree.
   into an ended chain; `oracle migrate` refuses it; declare members in a new version
   file to revive it. Example: arc `Program` ended at v1 — arc v0 records embed its v0
   bytes, and arc v1+ resolve the live shape at read time.
+- **A resource whose stored data the Core deletes is removed whole.** Delete its live
+  file, every version file, and its generated outputs (sync leaves them), and add a Core
+  migration that deletes its stored entries. Leave an empty `removed` file as the only
+  entry of its version directory: the `versions` gate passes a shipped chain only with
+  it, so a rename still fails. Delete the marker once a stable release ships without the
+  chain.
 - **Version files pin every versioned dependency.** A stored reference (a range's color)
   and a `@go marshal omit` field (a task's status) both import a pinned version file
   (`import "schemas/x/versions/color/v0"`), and the version package resolves them there.
@@ -269,6 +275,18 @@ struct that a `@patch` field reaches, in the version package that declares the s
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares
 `@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
 runs the decoder.
+
+## Filters and sorted indexes
+
+A typed line of a `filter` calls `Match<Line>` in the Go package of its target, with the
+line's value. `@go match <Func>` on the line calls an existing matcher instead, such as
+`nested bool { @go match MatchHasParent }`. A line that takes an operator cannot carry
+it.
+
+`@index sorted` with several values on a struct field declares one sorted index per
+sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
+`OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with
+`SortedIndex.FilterRange`.
 
 ## Rules
 

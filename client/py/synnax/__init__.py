@@ -24,6 +24,7 @@ from synnax import (
     opcua,
     pagerduty,
     resource,
+    sift,
     status,
 )
 from synnax.access.policy import Policy
@@ -240,6 +241,7 @@ __all__ = [
     "pagerduty",
     "poll",
     "resource",
+    "sift",
     "sleep",
     "status",
 ]

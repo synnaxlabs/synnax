@@ -914,33 +914,6 @@ var _ = Describe("Driver", func() {
 			})
 		})
 
-		It("should ignore start commands for snapshot tasks", func(ctx SpecContext) {
-			var configuredCount atomic.Int32
-			factory := &mockFactory{
-				name: "test",
-				configureFunc: func(
-					_ context.Context,
-					t task.Task,
-				) (driver.Task, error) {
-					configuredCount.Add(1)
-					return &mockTask{key: t.Key}, nil
-				},
-			}
-			openDriver(ctx, factory)
-			countAfterOpen := configuredCount.Load()
-
-			t := newTask(embeddedRackKey(ctx))
-			t.Snapshot = true
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return taskService.NewWriter(tx).Create(ctx, &t)
-			})).To(Succeed())
-
-			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
-			Consistently(
-				func() int32 { return configuredCount.Load() },
-			).Should(Equal(countAfterOpen))
-		})
-
 		It("should delete task and stop it", func(ctx SpecContext) {
 			var (
 				stopped    atomic.Bool

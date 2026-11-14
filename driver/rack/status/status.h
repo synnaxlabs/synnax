@@ -231,7 +231,8 @@ struct Factory final : task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type == TASK_TYPE)
             return {Task::configure(ctx, task, this->health), true};
@@ -241,7 +242,8 @@ struct Factory final : task::Factory {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         common::delete_legacy_task_by_type(
             rack,
@@ -254,7 +256,8 @@ struct Factory final : task::Factory {
             rack,
             TASK_NAME,
             TASK_TYPE,
-            INTEGRATION_NAME
+            INTEGRATION_NAME,
+            cancel
         );
     }
 

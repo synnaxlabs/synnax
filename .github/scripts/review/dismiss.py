@@ -27,7 +27,8 @@ USAGE = (
 REFUSED = "Only a member can dismiss a finding, not an agent."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
-    " Every finding of the review of the head is dismissed, so the head scores 5/5."
+    " Every blocking finding of the review of the head is dismissed, so the head"
+    " scores 5/5."
 )
 _REPLY = """mutation($t: ID!, $b: String!) {
   addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
@@ -41,9 +42,9 @@ _RESOLVE = """mutation($t: ID!) {
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     """Answers a reply that mentions the bot on the thread of one of its findings. A
-    member's `@sedosaur dismiss` resolves the thread, and when every finding of the
-    newest review of the head is then dismissed, a new check run scores the head 5/5.
-    Any other reply gets the usage.
+    member's `@sedosaur dismiss` resolves the thread, and when every blocking finding of
+    the newest review of the head is then dismissed, a new check run scores the head
+    5/5. Any other reply gets the usage.
 
     :param comment: The database ID of the reply.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.

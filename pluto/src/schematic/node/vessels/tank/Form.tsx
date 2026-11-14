@@ -77,13 +77,14 @@ export const TankForm = ({
       <Base.Section title="Appearance">
         <Form.ColorField path={path.strokeColor} label="Stroke" />
         <Form.FillField />
-        <Form.RadiusFields path={path.borderRadius} />
-        {showBorderRadius && (
+        {showBorderRadius ? (
           <Base.NumericField
             path={boxPath.borderRadius}
             label="Border radius"
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
+        ) : (
+          <Form.RadiusFields path={path.borderRadius} />
         )}
         {showStrokeWidth && (
           <Base.NumericField

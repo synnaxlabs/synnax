@@ -48,6 +48,12 @@ var _ = Describe("Key", func() {
 		})
 	})
 
+	Describe("NamedPrefix", func() {
+		It("Should start every table key with gorp. and the given name", func() {
+			Expect(string(key.NamedPrefix("Widget"))).To(Equal("gorp.Widget"))
+		})
+	})
+
 	Describe("Migrations", func() {
 		It("Should record a namespace's migrations under gorp.migration.", func() {
 			Expect(string(key.Migrations("widget"))).To(Equal("gorp.migration.widget"))

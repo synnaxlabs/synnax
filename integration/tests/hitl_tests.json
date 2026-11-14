@@ -14,6 +14,10 @@
       ]
     },
     {
+      "sequence_name": "LabJack",
+      "tests": [{ "case": "hitl/labjack" }]
+    },
+    {
       "sequence_name": "cRIO",
       "tests": [
         { "case": "hitl/crio_driver" },

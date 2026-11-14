@@ -11,6 +11,7 @@ package schematic_test
 
 import (
 	"encoding/json/v2"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -33,7 +34,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 		Label: schematic.LabelConfig{Label: label},
 	}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	ec := schematic.ElementConfig{Variant: cfg}
 	ec.ApplyDefaults()
@@ -45,7 +46,7 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
+		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
@@ -965,10 +966,70 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.Units).To(Equal(""))
 	})
 
+	It("Should keep a zero precision", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value", "precision": 0}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Precision).To(HaveValue(BeZero()))
+	})
+
+	It("Should leave an omitted precision absent", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value"}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Precision).To(BeNil())
+	})
+
+	DescribeTable("Should reject a precision that is not a byte", func(p string) {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
+			"v1", "config": {"variant": "value", "precision": `+p+`}}}`), &a)).
+			To(MatchError(validate.ErrValidation))
+	},
+		Entry("fraction", "2.6"),
+		Entry("negative", "-1"),
+		Entry("above the byte range", "300"),
+	)
+
+	It("Should reject a precision above 17", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value", "precision": 18}}}`)
+		Expect(a.SetConfig.Config.Validate()).
+			To(MatchError(ContainSubstring("precision")))
+	})
+
 	It("Should reject a config naming no variant", func() {
 		var a schematic.Action
 		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
 			"n1", "config": {"scale": 2}}}`), &a)).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject a null set_config config", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
+			"n1", "config": null}}`), &a)).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject an invalid set_node config", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
+			{"key": "v1"}, "config": {"variant": "value", "precision": 2.6}}}`), &a)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject a msgpack config that has no JSON form", func() {
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
+			"type": "set_config",
+			"set_config": map[string]any{
+				"key":    "v1",
+				"config": map[string]any{"variant": "value", "scale": math.NaN()},
+			},
+		}))
+		var a schematic.Action
+		Expect(msgpack.Codec.Decode(body, &a)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("NaN")),
+		))
 	})
 
 	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
@@ -1038,7 +1099,7 @@ var _ = Describe("Path actions", func() {
 			))
 			Expect(
 				tank(next).StrokeColor,
-			).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+			).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 		})
 
 		It("Should do nothing when the variant guard fails", func() {

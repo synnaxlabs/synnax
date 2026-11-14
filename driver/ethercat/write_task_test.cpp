@@ -21,6 +21,9 @@
 namespace driver::ethercat {
 class EtherCATWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<testutil::Master> mock_master;
@@ -32,6 +35,7 @@ protected:
     const std::string NETWORK_INTERFACE = "eth0";
 
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         index_channel = synnax::channel::Channel{
@@ -172,6 +176,8 @@ protected:
             false
         ));
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should pair each state channel with the command channel that names it, not
@@ -372,16 +378,16 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
         .type = WRITE_TASK_TYPE,
         .config = cfg,
     };
-    auto [write_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [write_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(write_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    write_task->exec(start);
+    write_task->exec(start, this->cancel);
     ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
     EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    write_task->exec(stop);
+    write_task->exec(stop, this->cancel);
 }
 
 /// @brief it should reject a write task whose channels are all disabled.
@@ -412,7 +418,7 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
     ASSERT_EVENTUALLY_EQ(
@@ -441,7 +447,7 @@ TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {
     const auto period = task_cfg.state_rate.period().chrono();
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
@@ -477,7 +483,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series(x::telem::INT16_T, 3);
     series.write(static_cast<int16_t>(0x1111));
@@ -523,7 +529,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series1(x::telem::INT16_T, 1);
     series1.write(static_cast<int16_t>(0x1234));
@@ -566,7 +572,7 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame empty_frame(0);
     ASSERT_NIL(sink.write(empty_frame));
@@ -609,7 +615,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
-    const auto err = sink.start();
+    const auto err = sink.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,

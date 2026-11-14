@@ -420,5 +420,14 @@ func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(w))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThanEq("state_rate", w.StateRate, 0)
+	v.GreaterThanEq("execution_rate", w.ExecutionRate, 0)
+	return v.Error()
+}
+
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v1.ScanConfig

@@ -126,7 +126,7 @@ class TestMain:
             "release/console-0.58",
             "release/core-0.58",
             "release/driver-0.58",
-            "release/desktop-1.0",
+            "release/desktop-1.0.x",
         ],
     )
     @pytest.mark.parametrize("product", ["console", "core", "driver", "ts", "py"])
@@ -138,6 +138,14 @@ class TestMain:
         result = repo.run(product, prerelease, ref, "", "0.59.0")
         assert result.returncode != 0
         assert "releases run only from main or release/X.Y, not" in result.stderr
+
+    @pytest.mark.parametrize("product", ["console", "core", "driver", "ts", "py"])
+    def test_should_reject_a_desktop_release_branch(
+        self, repo: Repo, product: str
+    ) -> None:
+        error = repo.resolve_error(product, ref="release/desktop-1.0", core="0.59.0")
+        assert "release/desktop-1.0 releases only Desktop" in error
+        assert f"Leave {product} out of the run" in error
 
     def test_should_reject_a_bump(self, repo: Repo) -> None:
         assert "takes no bump" in repo.resolve_error("core", bump="patch")

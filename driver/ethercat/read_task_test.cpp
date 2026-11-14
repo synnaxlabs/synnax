@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 
 #include "gtest/gtest.h"
 
@@ -25,6 +26,9 @@
 namespace driver::ethercat {
 class EtherCATReadTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<testutil::Master> mock_master;
@@ -52,7 +56,18 @@ protected:
         return dev;
     }
 
+    /// @brief sets whether the last scan found the device at key.
+    void set_connected(const std::string &key, const bool connected) const {
+        const auto dev = ASSERT_NIL_P(
+            this->client->devices.retrieve(key, {.include_status = true})
+        );
+        auto status = dev.status.value();
+        status.details.connected = connected;
+        ASSERT_NIL(this->client->statuses.set(status));
+    }
+
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         index_channel = synnax::channel::Channel{
@@ -194,7 +209,7 @@ protected:
         ReadTaskConfig task_cfg(client, parser);
         EXPECT_NIL(parser.error());
         auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
-        EXPECT_NIL(source->start());
+        EXPECT_NIL(source->start("start_cmd", this->cancel));
         return source;
     }
 
@@ -238,6 +253,8 @@ protected:
             false
         ));
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should parse a read channel bound to an entry address.
@@ -356,7 +373,7 @@ TEST_F(EtherCATReadTest, StartIgnoresTheSlaveOfADisabledChannel) {
     ASSERT_EQ(task_cfg.channels.size(), 1);
     EXPECT_EQ(task_cfg.channels[0]->synnax_key, enabled_ch.key);
     ReadTaskSource source(engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     ASSERT_NIL(source.stop());
 }
 
@@ -520,7 +537,7 @@ TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker brk;
     brk.start();
     x::telem::Frame frame;
@@ -565,7 +582,7 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     const auto receives = this->mock_master->call_count("receive");
     this->mock_master->inject_receive_error(
@@ -581,6 +598,41 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ASSERT_NIL(result.error);
     EXPECT_EQ(result.warning.message, "Dropped samples");
     EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should return an empty frame and a warning that names the slave while the
+/// bus lost the only slave of the task.
+TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
+    this->mock_master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 1 && this->engine->health()[0].lost
+    );
+    this->mock_master->set_shortfall(1);
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    common::ReadResult result;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        (result = source.read(brk, frame), frame.empty()),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(1)
+    );
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Lost contact with slave 1 (Test Slave).");
     brk.stop();
     ASSERT_NIL(source.stop());
 }
@@ -643,7 +695,7 @@ TEST_F(EtherCATReadTest, SourceAppliesTheCalibrationOfTheSlave) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     this->mock_master->set_input<int32_t>(2, -100);
     x::breaker::Breaker brk;
     brk.start();
@@ -672,7 +724,7 @@ TEST_F(EtherCATReadTest, SourceScalesACalibratedChannelAfterItsCalibration) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     this->mock_master->set_input<int32_t>(2, -100);
     x::breaker::Breaker brk;
     brk.start();
@@ -698,7 +750,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
     EXPECT_EQ(
         err.data,
@@ -753,7 +805,7 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     ASSERT_NIL(parser.error());
 
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     this->mock_master->set_input<int16_t>(0, static_cast<int16_t>(0xABCD));
     this->mock_master->set_input<int32_t>(2, 0x12345678);
@@ -799,14 +851,14 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     this->mock_master->inject_receive_error(
         x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
     );
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     // The first read fails after 400 ms, which is 40 cycles at 100 Hz.
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         this->mock_master->call_count("receive"),
@@ -815,7 +867,7 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
         std::chrono::milliseconds(10)
     );
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
     const auto warning = std::ranges::find(
         this->ctx->statuses,
         std::string(synnax::status::VARIANT_WARNING),
@@ -827,6 +879,43 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
         warning->description,
         "Every bus cycle failed: expected 3, got 1. Next retry 1/∞ in 1.0 s."
     );
+}
+
+/// @brief it should give a bus start three quarters of the task operation timeout, so
+/// the start returns its own error before the operation times out.
+TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    // One more try needs up to the 5 s longest retry wait, which fits in 6 s but not in
+    // 4.5 s.
+    Factory factory(
+        std::move(manager),
+        this->client,
+        this->rack.key,
+        nullptr,
+        x::telem::SECOND * 6
+    );
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    this->mock_master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "s1"};
+    read_task->exec(start, this->cancel);
+    EXPECT_EQ(this->mock_master->call_count("activate"), 1);
+    read_task->stop(false);
 }
 
 /// @brief it should apply the settings saved for each slave on the task's network when
@@ -847,7 +936,7 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     auto on_network = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
@@ -855,12 +944,12 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     auto off_network = this->create_configured_slave("eth1", 3, nullptr);
     ASSERT_NIL(this->client->devices.create(off_network));
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_FALSE(this->mock_master->config(2).enabled);
     EXPECT_TRUE(this->mock_master->config(3).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should write the startup parameters of each slave to it, in order, when
@@ -893,10 +982,10 @@ TEST_F(EtherCATReadTest, StartWritesTheStartupParameters) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     const auto params = this->mock_master->config(1).startup_parameters;
     ASSERT_EQ(params.size(), 2);
@@ -906,7 +995,7 @@ TEST_F(EtherCATReadTest, StartWritesTheStartupParameters) {
     EXPECT_EQ(params[1].sub_index, 1);
     EXPECT_EQ(params[1].value, 6);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should reject a startup parameter whose value does not fit its data type.
@@ -953,15 +1042,15 @@ TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_EQ(this->mock_master->config(1).op_mode, choice);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should pass the startup parameters saved on a device to the master when
@@ -986,11 +1075,11 @@ TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_EQ(
         this->mock_master->config(1).startup_parameters,
@@ -1002,7 +1091,7 @@ TEST_F(EtherCATReadTest, StartPassesTheStartupParametersOfASavedDevice) {
         }})
     );
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should drop the settings of a deleted device at the next bus start.
@@ -1023,19 +1112,19 @@ TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     ASSERT_FALSE(this->mock_master->config(1).enabled);
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
     ASSERT_NIL(this->client->devices.del(saved.key));
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_TRUE(this->mock_master->config(1).enabled);
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should fail to start, naming the slave and the network by the name of its
@@ -1060,11 +1149,11 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     const auto &status = this->ctx->statuses.back();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to start task");
@@ -1096,11 +1185,11 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     const auto &status = this->ctx->statuses.back();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to start task");
@@ -1109,6 +1198,44 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
         "The Driver could not read the slave settings for eth0 from the Core: invalid "
         "credentials: auth error"
     );
+}
+
+/// @brief it should start with the connected device when a disconnected device is saved
+/// at its position with different settings.
+TEST_F(EtherCATReadTest, StartSkipsADisconnectedDeviceAtAPosition) {
+    auto removed = this->create_configured_slave(NETWORK_INTERFACE, 2, false);
+    removed.name = "EL3102";
+    ASSERT_NIL(this->client->devices.create(removed));
+    this->set_connected(removed.key, false);
+    auto replacement = this->create_configured_slave(NETWORK_INTERFACE, 2, true);
+    replacement.key += "_replacement";
+    replacement.name = "EL3102";
+    replacement.properties["serial"] = 54321;
+    ASSERT_NIL(this->client->devices.create(replacement));
+    this->set_connected(replacement.key, true);
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start, this->cancel);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    EXPECT_TRUE(this->mock_master->config(2).enabled);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should fail to start, naming both devices, when two devices at one
@@ -1136,11 +1263,11 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
         .type = READ_TASK_TYPE,
         .config = cfg,
     };
-    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(read_task, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start"};
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
@@ -1152,11 +1279,11 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
         replacement.key,
         {synnax::device::set({.path = {"properties", "enabled"}, .value = false})}
     ));
-    read_task->exec(start);
+    read_task->exec(start, this->cancel);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_FALSE(this->mock_master->config(2).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
-    read_task->exec(stop);
+    read_task->exec(stop, this->cancel);
 }
 
 /// @brief it should return an empty frame when the breaker is stopped.
@@ -1176,7 +1303,7 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     ASSERT_NIL(parser.error());
 
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
 
     x::breaker::Breaker brk;
 
@@ -1221,7 +1348,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     );
 
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,

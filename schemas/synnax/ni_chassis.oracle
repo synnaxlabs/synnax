@@ -9,6 +9,7 @@
 
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/ni/chassis"
 @go output  "core/pkg/service/ni/chassis"
@@ -54,6 +55,7 @@ Chassis struct {
     status        Status?  {
         @doc value  "is the current operational status of the chassis."
         @go marshal omit
+        @include
     }
 
     @create
@@ -66,6 +68,18 @@ Chassis struct {
 
 Key = uuid {
     @doc value "uniquely identifies an NI chassis."
+}
+
+Where filter Chassis {
+    key
+    name
+    serial
+    resource_name
+    model
+    rack
+
+    @doc value         "is a filter that selects NI chassis."
+    @go request_output "core/pkg/api/ni/chassis"
 }
 
 StatusDetails struct {
@@ -81,4 +95,51 @@ StatusDetails struct {
 
 Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a chassis."
+}
+
+Identity struct {
+    rack          rack.Key {
+        @doc value         "is the key of the rack the chassis is connected to."
+        @validate required
+    }
+    serial        string = "" {
+        @doc value """
+            is the serial number of the chassis. Empty on simulated hardware.
+        """
+    }
+    resource_name string   {
+        @doc value         """
+            is the NI-MAX resource name of the chassis, a GUID that survives renames.
+        """
+        @validate required
+    }
+    model         string   {
+        @doc value         "is the product name of the chassis."
+        @validate required
+    }
+
+    @doc value "holds the chassis fields that the scanner owns."
+}
+
+Configuration struct {
+    name string {
+        @doc value         "is a human-readable name for the chassis."
+        @validate required
+    }
+
+    @doc value "holds the chassis fields that the user owns."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields that the scanner owns."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the fields that the user owns. A client sends the whole group,
+            because a field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a chassis."
 }

@@ -96,13 +96,19 @@ interface ElementGroup {
   colorPair: ColorPair;
 }
 
+/** Parses an SVG paint value, or returns undefined when it names no single color. */
+const parsePaint = (paint: string): color.Color | undefined => {
+  const res = color.colorZ.safeParse(paint);
+  return res.success ? res.data : undefined;
+};
+
 /**
  * Resolves an SVG paint value to a Color. A missing or unparseable paint reads as
  * fully transparent, which is how an unpainted element renders.
  */
 const normalizeColor = (colorStr: string | null | undefined): color.Color => {
-  if (colorStr == null || colorStr === "") return color.ZERO;
-  return color.fromCSS(colorStr) ?? color.ZERO;
+  if (colorStr == null || colorStr === "") return color.TRANSPARENT;
+  return parsePaint(colorStr) ?? color.TRANSPARENT;
 };
 
 const getElementColors = (element: SVGElement): ColorPair => {
@@ -181,7 +187,7 @@ export const paint = (svg: string, selectors: string[]): ColorPair => {
         fill: normalizeColor(el.getAttribute("fill")),
       };
   }
-  return { stroke: color.ZERO, fill: color.ZERO };
+  return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
 };
 
 const REGION_ID_ATTRIBUTE = "data-region-id";
@@ -247,7 +253,7 @@ const paintToAttribute = (computed: string): string | null => {
   // the reference verbatim.
   if (trimmed.startsWith("url(")) return trimmed;
   if (trimmed === "none") return "none";
-  const parsed = color.fromCSS(trimmed);
+  const parsed = parsePaint(trimmed);
   // Fall back to the raw computed value for anything unparseable (e.g. context-fill);
   // it remains a valid presentation-attribute value.
   return parsed == null ? trimmed : color.hex(parsed);

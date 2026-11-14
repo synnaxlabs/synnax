@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/credential/Keys";
+export * from "@/platform/credential/Password";
 export * from "@/platform/credential/Token";
 export * from "@/platform/credential/useModal";

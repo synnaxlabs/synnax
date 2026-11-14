@@ -199,7 +199,7 @@ export const readConfigZ = task.readConfigZ.extend({
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.writeConfigZ.extend({
-  stateRate: z.number().default(10),
+  stateRate: z.number().gt(0).default(10),
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

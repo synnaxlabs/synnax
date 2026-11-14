@@ -396,7 +396,7 @@ describe("Schematic toolbar Properties", () => {
         ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
       expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
-        "rgba(0, 0, 0, 0)",
+        "#00000000",
       );
     });
 

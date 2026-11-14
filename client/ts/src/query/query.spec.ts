@@ -2680,8 +2680,8 @@ describe("referential stability", () => {
       single: true,
     });
 
-  /** Query-dependent compose: the answer is assembled per read, as the channel
-   *  alias, device status, and rack status composes are. */
+  /** Query-dependent compose: the answer is assembled per read, as the device status
+   *  and rack status composes are. */
   const composingSpace = (
     table: query.Table<string, Doc>,
     suffix: () => string,

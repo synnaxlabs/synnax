@@ -57,7 +57,8 @@ type DynamicWindow = versions.DynamicWindow
 type StaticWindow = versions.StaticWindow
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.

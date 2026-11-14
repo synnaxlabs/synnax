@@ -248,11 +248,6 @@ APIChannel struct {
             with a timestamp.
         """
     }
-    alias       string?             {
-        @doc value """
-            is an optional alternate name for the channel within a specific context.
-        """
-    }
     virtual     bool = false {
         @cpp name  "is_virtual"
         @doc value """
@@ -305,6 +300,20 @@ APIChannel struct {
     @py name       "Payload"
     @resource type "channel"
     @ts name       "Payload"
+}
+
+CountLimitedResponse struct {
+    count uint32 {
+        @doc value "is how many channels count against the license channel limit."
+    }
+
+    @cpp omit
+    @doc value """
+        holds the count of the channels that count against the license channel limit
+        (not internal, not virtual).
+    """
+    @go output "core/pkg/api/channel"
+    @pb omit
 }
 
 Where filter Channel {

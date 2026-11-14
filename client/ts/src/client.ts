@@ -331,7 +331,6 @@ export default class Synnax extends framer.Client {
     this.ranges = new ranger.Client({
       framer: this,
       unary,
-      channels: retrieveChannels,
       labels: this.labels,
       cache,
     });
@@ -340,7 +339,6 @@ export default class Synnax extends framer.Client {
       unary,
       writer: chCreator,
       statuses: this.statuses,
-      ranges: this.ranges,
       cache,
       batch: this.batch,
     });
@@ -365,7 +363,6 @@ export default class Synnax extends framer.Client {
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ranges: this.ranges,
       cache,
       statuses: this.statuses,
     });

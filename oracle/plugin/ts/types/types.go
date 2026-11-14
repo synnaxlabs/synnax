@@ -543,10 +543,16 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	case resolution.DistinctForm:
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
 			zodType := primitiveToZod(typeOverride, data)
-			if validateDomain, ok := td.Domains["validate"]; ok {
+			// The override replaces the schema of every type in the chain, so the type
+			// applies all of their rules.
+			rules := validation.TypeRules(validation.TypeChain(
+				resolution.TypeRef{Name: td.QualifiedName},
+				data.Request.Resolutions,
+			))
+			if !validation.IsEmpty(rules) {
 				result := p.applyValidation(
 					zodType,
-					validateDomain,
+					rules,
 					nil,
 					form.Base,
 					td.Name,
@@ -597,7 +603,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		if validateDomain, ok := td.Domains["validate"]; ok {
 			result := p.applyValidation(
 				zodType,
-				validateDomain,
+				validation.Parse(validateDomain),
 				nil,
 				form.Base,
 				td.Name,
@@ -648,7 +654,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		if validateDomain, ok := td.Domains["validate"]; ok {
 			result := p.applyValidation(
 				zodType,
-				validateDomain,
+				validation.Parse(validateDomain),
 				nil,
 				form.Target,
 				td.Name,
@@ -1730,10 +1736,13 @@ func (p *Plugin) processField(
 			fd.TSType = primitiveToTS(typeOverride)
 			fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
 		}
-		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
+		// The override replaces the schema of every type in the chain, so the field
+		// applies all of their rules.
+		rules := validation.FieldRules(field, table)
+		if !validation.IsEmpty(rules) || field.Default != nil {
 			result := p.applyValidation(
 				fd.ZodType,
-				validateDomain,
+				rules,
 				field.Default,
 				field.Type,
 				field.Name,
@@ -1760,13 +1769,17 @@ func (p *Plugin) processField(
 		if isArray {
 			elemDefault = nil
 		}
-		if validateDomain, ok := field.Domains["validate"]; ok || elemDefault != nil {
+		rules := validation.Merge(
+			validation.Parse(field.Domains["validate"]),
+			handTypeRules(field.Type, table),
+		)
+		if !validation.IsEmpty(rules) || elemDefault != nil {
 			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
 				paramPart := fd.ZodType[:sepIndex]
 				fallbackPart := fd.ZodType[sepIndex+4:]
 				result := p.applyValidation(
 					fallbackPart,
-					validateDomain,
+					rules,
 					elemDefault,
 					field.Type,
 					field.Name,
@@ -1781,7 +1794,7 @@ func (p *Plugin) processField(
 			} else {
 				result := p.applyValidation(
 					fd.ZodType,
-					validateDomain,
+					rules,
 					elemDefault,
 					field.Type,
 					field.Name,
@@ -2643,9 +2656,23 @@ func defaultSchemaWrapper(r validationResult, inner string) string {
 	return fmt.Sprintf("z.ZodDefault<%s>", inner)
 }
 
+// handTypeRules returns the rules of the first hand-written type in ref's chain and of
+// each type it reaches. A generated schema applies its type's rules itself, but a
+// hand-written one does not.
+func handTypeRules(ref resolution.TypeRef, table *resolution.Table) *validation.Rules {
+	chain := validation.TypeChain(ref, table)
+	i := slices.IndexFunc(chain, func(t resolution.Type) bool {
+		return omit.IsSkipped(t, "ts")
+	})
+	if i < 0 {
+		return &validation.Rules{}
+	}
+	return validation.TypeRules(chain[i:])
+}
+
 func (p *Plugin) applyValidation(
 	zodType string,
-	domain resolution.Domain,
+	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
 	fieldName string,
@@ -2653,7 +2680,6 @@ func (p *Plugin) applyValidation(
 	data *templateData,
 	tsTypeOverride string,
 ) validationResult {
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
@@ -2667,7 +2693,9 @@ func (p *Plugin) applyValidation(
 	// A @ts type override (e.g. a telem.Rate field surfaced as a plain "number"
 	// in TypeScript) drives both the validation rules and the default literal off
 	// the overridden primitive, not the underlying schema type.
-	if tsTypeOverride != "" {
+	if tsTypeOverride == "number" {
+		effectiveType = "float64"
+	} else if tsTypeOverride != "" {
 		effectiveType = tsTypeOverride
 	} else if !resolution.IsPrimitive(effectiveType) {
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its

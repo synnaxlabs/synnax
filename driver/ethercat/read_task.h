@@ -232,7 +232,7 @@ public:
         engine(std::move(eng)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
         if (auto err = this->cfg.slaves.validate(slaves)) return err;
@@ -246,6 +246,7 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
+            this->engine->begin_start(cancel),
             this->cfg.settings
         );
         if (err) return err;
@@ -281,13 +282,17 @@ public:
             fr.clear();
             return res;
         }
-        if (res.error = this->calibrations.transform(fr); res.error) return res;
-        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {
                 .message = "Dropped samples",
                 .description = std::move(description),
             };
+        if (this->times.empty()) {
+            fr.clear();
+            return res;
+        }
+        if (res.error = this->calibrations.transform(fr); res.error) return res;
+        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
             fr.series->at(i).write(this->times);
         return res;

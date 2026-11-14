@@ -160,6 +160,8 @@ jobs:
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
@@ -170,26 +172,35 @@ jobs:
         with:
           version: latest-known
 
-      # Compares against the same base as the filter.
+      # The first parent of a pull request's merge checkout is its current base.
+      - name: Find the base
+        id: base
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          base=$GROUP_BASE
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base=$(git rev-parse HEAD^1)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
       - name: Find the jobs a CI edit selects
         id: ci
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           jobs=$(uv run --locked --project .github/scripts \
-            python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/changed_jobs.py "$BASE")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
       - name: Find whether the change touches only unit tests
         id: spec
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           spec_only=$(uv run --locked --project .github/scripts \
-            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/spec_only.py "$BASE")
           echo "$spec_only"
           echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 

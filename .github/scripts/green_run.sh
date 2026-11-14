@@ -24,7 +24,7 @@ fi
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 
 # The workflows that call ci.yaml with full: true, in a job named CI.
-WORKFLOWS=(nightly.yaml release.yaml release.desktop.yaml)
+WORKFLOWS=(nightly.yaml release.yaml)
 JOB="CI / OK"
 # A page of 100 jobs of a large run at times gets an HTTP 502.
 PER_PAGE=50

@@ -192,11 +192,7 @@ func (copyRequestTranslator) Forward(
 	_ context.Context,
 	req task.CopyRequest,
 ) (*CopyRequest, error) {
-	return &CopyRequest{
-		Key:      req.Key.String(),
-		Name:     req.Name,
-		Snapshot: req.Snapshot,
-	}, nil
+	return &CopyRequest{Key: req.Key.String(), Name: req.Name}, nil
 }
 
 func (copyRequestTranslator) Backward(
@@ -207,11 +203,7 @@ func (copyRequestTranslator) Backward(
 	if err != nil {
 		return task.CopyRequest{}, err
 	}
-	return task.CopyRequest{
-		Key:      key,
-		Name:     req.Name,
-		Snapshot: req.Snapshot,
-	}, nil
+	return task.CopyRequest{Key: key, Name: req.Name}, nil
 }
 
 func (copyResponseTranslator) Forward(

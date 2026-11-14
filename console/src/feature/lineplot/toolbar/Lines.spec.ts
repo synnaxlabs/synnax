@@ -21,9 +21,11 @@ import { Toolbar } from "@/feature/lineplot/toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import {
   findDialogTriggerByText,
+  findIconButton,
   getIconButton,
   isPlutoDisabled,
   queryIcon,
+  queryIconButton,
   uniqueName,
 } from "@/testutil";
 
@@ -93,6 +95,20 @@ describe("lineplot/toolbar/Lines", () => {
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.label).toBe("My Line");
+    });
+  });
+
+  it("resets a line label override to the channel name", async () => {
+    const { key, lineKey, ch, result } = await renderLinesTab();
+    const input = await screen.findByDisplayValue(ch.name);
+    expect(queryIconButton(result.container, "sync")).toBeNull();
+    fireEvent.change(input, { target: { value: "My Line" } });
+    fireEvent.click(await findIconButton(result.container, "sync"));
+    expect(await screen.findByDisplayValue(ch.name)).toBeDefined();
+    expect(queryIconButton(result.container, "sync")).toBeNull();
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.lines.find((l) => l.key === lineKey)?.label).toBeUndefined();
     });
   });
 

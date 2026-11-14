@@ -10,7 +10,6 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
-import "schemas/synnax/ranger"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
@@ -907,52 +906,37 @@ ElementConfig union on variant extends NodeConfig, EdgeConfig {
 }
 
 Schematic struct {
-    key      Key = create {
+    key     Key = create {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name     string                     {
+    name    string                     {
         @doc value         "is a human-readable name for the schematic."
         @index sorted
         @search
         @validate required
     }
-    snapshot bool = false {
-        @doc value "is true if this schematic is an immutable snapshot copy."
-        @filter
-    }
-    nodes    Node[] = [] {
+    nodes   Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges    Edge[] = [] {
+    edges   Edge[] = [] {
         @doc value "contains all connections between nodes."
     }
-    configs  map<string, ElementConfig> = {} {
+    configs map<string, ElementConfig> = {} {
         @doc value        """
             contains per-element configuration keyed by node or edge key. The variant of
             each value selects the symbol or edge style it configures.
         """
         @ts preserve_keys
     }
-    group    group.Key?                 {
+    group   group.Key?                 {
         @doc value     "is the group the schematic sits in, if any."
         @group scope   project
         @ref kind      place
         @ref on_delete detach
     }
-    project  project.Key?               {
-        @doc value     """
-            is the project that owns the schematic, if any. Exactly one of project and
-            range is set.
-        """
-        @ref kind      place
-        @ref on_delete cascade
-    }
-    range    ranger.Key?                {
-        @doc value     """
-            is the range that owns the schematic, if any. Exactly one of project and
-            range is set.
-        """
+    project project.Key?               {
+        @doc value     "is the project that holds the schematic."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -1061,7 +1045,6 @@ Schematic struct {
 
 Where filter Schematic {
     key
-    snapshot
     groups   group.Key[]   {
         @doc value "matches the schematics in any of the given groups."
     }
@@ -1069,10 +1052,7 @@ Where filter Schematic {
         @doc value "matches the schematics in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the schematics owned by any of the given projects."
-    }
-    ranges   ranger.Key[]  {
-        @doc value "matches the schematics owned by any of the given ranges."
+        @doc value "matches the schematics in any of the given projects."
     }
 
     @doc value         "is a filter that selects schematics."
@@ -1175,8 +1155,11 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64 = 2 {
-        @doc value "is the number of decimal places shown."
+    precision       uint8?            {
+        @doc value    """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
+        @validate max 17
     }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."

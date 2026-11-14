@@ -9,9 +9,9 @@
 
 # Answers a reply that mentions Sedosaur on the thread of one of its findings, as the
 # sedosaur GitHub App. A member's `@sedosaur dismiss` resolves the thread, and later
-# reviews of the pull request do not report the finding. When no finding of the head's
-# review is left, a new check run scores the head 5/5. The scripts come from the default
-# branch, never from the pull request.
+# reviews of the pull request do not report the finding. When no blocking finding of the
+# head's review is left, a new check run scores the head 5/5. The scripts come from the
+# default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}

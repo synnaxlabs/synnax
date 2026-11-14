@@ -11,7 +11,6 @@ package bind_test
 
 import (
 	"context"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,11 +24,9 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -256,19 +253,6 @@ func createTask(ctx context.Context) task.Task {
 		return svc.Task.NewWriter(tx).Create(ctx, &t)
 	})).To(Succeed())
 	return t
-}
-
-func createChannel(ctx context.Context) channel.Channel {
-	GinkgoHelper()
-	ch := channel.Channel{
-		Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
-		DataType: telem.Float64T,
-		Virtual:  true,
-	}
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-	})).To(Succeed())
-	return ch
 }
 
 func setPair(ctx context.Context, tx gorp.Tx, rng ranger.Key, value string) error {
@@ -589,18 +573,15 @@ var _ = Describe("Write", func() {
 				}
 			},
 		),
-		Entry("create on a new range alias", func(ctx context.Context) rule {
-			r := createRange(ctx, nil)
-			ch := createChannel(ctx)
+		Entry("create on a new child range", func(ctx context.Context) rule {
+			parent := createRange(ctx, nil)
+			child := newRange(&parent.Key)
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
-					return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
+					return svc.Ranger.NewWriter(tx).Create(ctx, &child)
 				},
-				granted: []need{{access.ActionUpdate, r.ResourceID()}},
-				needed: need{
-					access.ActionCreate,
-					alias.ResourceID(r.Key, ch.Key()),
-				},
+				granted: []need{{access.ActionUpdate, parent.ResourceID()}},
+				needed:  need{access.ActionCreate, child.ResourceID()},
 			}
 		}),
 		Entry("update on the task of a new task config record", func(

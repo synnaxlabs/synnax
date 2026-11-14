@@ -38,10 +38,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  reserved 1 to 4;
-  reserved "node_key", "keys", "names", "search";
+  reserved 1 to 4, 6;
+  reserved "node_key", "keys", "names", "search", "range_key";
   api.channel.pb.RetrieveRequest request = 5;
-  optional string range_key = 6;
 }
 
 message DeleteRequest {

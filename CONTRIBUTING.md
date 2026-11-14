@@ -63,14 +63,15 @@ requests changes, and confirms a stored shape change carries a migration.
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
 Sedosaur confidence score below 5/5 fails it: push a fix, then comment
-`@sedosaur review`. A review starts when a PR opens or leaves draft, and when a member
-or an agent mentions `@sedosaur` in a comment. A push, a new base, or a reply alone
-starts none. Sedosaur reacts with a rocket when it takes the request. A head never gets
-a second review on one base once one succeeds, and a request after a push that leaves
-the diff the same, as a merge of the base does, gets the last review at once. To make
+`@sedosaur review`. A finding marked follow-up does not lower the score: file an issue
+for it, or fix it. A review starts when a PR opens or leaves draft, and when a member or
+an agent mentions `@sedosaur` in a comment. A push, a new base, or a reply alone starts
+none. Sedosaur reacts with a rocket when it takes the request. A head never gets a
+second review on one base once one succeeds, and a request after a push that leaves the
+diff the same, as a merge of the base does, gets the last review at once. To make
 Sedosaur stop reporting a finding, a member replies `@sedosaur dismiss` and a reason on
 its thread. Sedosaur resolves the thread, later reviews of the PR leave the finding out,
-and the head scores 5/5 once no finding of its review is left. The review reads no other
+and the head scores 5/5 once only follow-ups are left. The review reads no other
 replies. The gate does not wait for a human approval on either tier. A pull request
 Dependabot opened and wrote every commit of passes the gate without a review. `OK` is
 the CI workflow's last job: it fails when any check the PR's paths select failed. A

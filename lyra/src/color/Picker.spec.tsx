@@ -77,16 +77,20 @@ describe("Picker", () => {
 
     it("should keep the current alpha when the hex has no alpha digits", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: [255, 0, 0, 0.5], onChange });
+      const c = renderPicker({ value: [255, 0, 0, 128], onChange });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
-      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 0.5]);
+      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 128]);
     });
 
     it("should make a typed hex opaque when the color is transparent", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: undefined, fallback: color.ZERO, onChange });
+      const c = renderPicker({
+        value: undefined,
+        fallback: color.TRANSPARENT,
+        onChange,
+      });
       fireEvent.change(hexInput(c), { target: { value: "0000ff" } });
-      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+      expect(color.opacity(onChange.mock.calls[0][0])).toEqual(1);
     });
 
     it("should take the alpha from an eight digit hex", () => {
@@ -102,7 +106,7 @@ describe("Picker", () => {
       fireEvent.paste(hexInput(c), {
         clipboardData: { getData: () => "rgb(0 0 255 / 50%)" },
       });
-      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 0.5]);
+      expect(onChange.mock.calls[0][0]).toEqual([0, 0, 255, 128]);
     });
 
     it("should restore the current color when the input is not a color", () => {
@@ -122,7 +126,7 @@ describe("Picker", () => {
       const input = c.getByLabelText("Alpha percentage") as HTMLInputElement;
       fireEvent.change(input, { target: { value: "25" } });
       fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
-      expect(onChange.mock.calls.at(-1)?.[0]).toEqual([255, 0, 0, 0.25]);
+      expect(onChange.mock.calls.at(-1)?.[0]).toEqual([255, 0, 0, 64]);
     });
   });
 
@@ -175,16 +179,16 @@ describe("Picker", () => {
       fireEvent.keyDown(c.getByRole("slider", { name: "Alpha" }), {
         key: "ArrowLeft",
       });
-      expect(color.aValue(onChange.mock.calls[0][0])).toBeCloseTo(0.99);
+      expect(color.opacity(onChange.mock.calls[0][0])).toBeCloseTo(0.99);
     });
 
     it("should make a transparent color opaque when the plane moves", () => {
       const onChange = vi.fn();
-      const c = renderPicker({ value: color.ZERO, onChange });
+      const c = renderPicker({ value: color.TRANSPARENT, onChange });
       fireEvent.keyDown(c.getByRole("slider", { name: "Saturation and brightness" }), {
         key: "ArrowUp",
       });
-      expect(color.aValue(onChange.mock.calls[0][0])).toEqual(1);
+      expect(color.opacity(onChange.mock.calls[0][0])).toEqual(1);
     });
 
     it("should keep the hue through a move to gray", () => {

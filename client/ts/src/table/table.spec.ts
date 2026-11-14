@@ -107,11 +107,11 @@ describe("Table", () => {
             notation: "scientific",
             redline: {
               bands: [
-                { key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true },
+                { key: "hi", threshold: 90, color: [255, 0, 0, 255], flashing: true },
               ],
               smooth: true,
             },
-            fillColor: [0, 255, 0, 1],
+            fillColor: [0, 255, 0, 255],
             units: "psi",
             stalenessTimeout: 5,
           },
@@ -126,10 +126,10 @@ describe("Table", () => {
       expect(cfg.precision).toEqual(3);
       expect(cfg.notation).toEqual("scientific");
       expect(cfg.redline).toEqual({
-        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true }],
+        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 255], flashing: true }],
         smooth: true,
       });
-      expect(cfg.fillColor).toEqual([0, 255, 0, 1]);
+      expect(cfg.fillColor).toEqual([0, 255, 0, 255]);
       expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });

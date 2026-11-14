@@ -181,13 +181,6 @@ class TestGreenRun:
         github.runs = [run for run in github.runs if run["id"] != NIGHTLY]
         assert_green(github.run(GREEN_SHA), RELEASE_FAILED_BUILD)
 
-    def test_should_find_a_green_desktop_release_run(self, github: GitHub) -> None:
-        path = ".github/workflows/release.desktop.yaml"
-        github.runs = [
-            {**run, "path": path} for run in github.runs if run["id"] == RELEASE
-        ]
-        assert_green(github.run(GREEN_SHA), RELEASE)
-
     def test_should_count_a_run_that_failed_after_ci_passed(
         self, github: GitHub
     ) -> None:

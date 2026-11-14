@@ -12,6 +12,7 @@ package service_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -190,56 +191,90 @@ var _ = Describe("Ontology drop", func() {
 		Expect(resources(ctx, node.DB)).To(HaveLen(1))
 		Expect(relationships(ctx, node.DB)).To(ConsistOf(rel))
 	})
+})
 
-	Describe("Channels", func() {
-		names := []string{
-			"sy_ontology_resource_set",
-			"sy_ontology_resource_delete",
-			"sy_ontology_relationship_set",
-			"sy_ontology_relationship_delete",
-		}
-		retrieve := func(
-			ctx SpecContext,
-			db *gorp.DB,
-			l *service.Layer,
-		) []channel.Channel {
-			GinkgoHelper()
-			var chs []channel.Channel
-			Expect(l.Channel.NewRetrieve().
-				Where(channel.MatchNames(names...)).
-				Entries(&chs).
-				Exec(ctx, db)).To(Succeed())
-			return chs
-		}
+var _ = Describe("Retired channels", func() {
+	names := []string{
+		"sy_ontology_resource_set",
+		"sy_ontology_resource_delete",
+		"sy_ontology_relationship_set",
+		"sy_ontology_relationship_delete",
+		"sy_range_alias_set",
+		"sy_range_alias_delete",
+		"sy_range_alias_action_set",
+	}
+	retrieve := func(
+		ctx SpecContext,
+		db *gorp.DB,
+		l *service.Layer,
+	) []channel.Channel {
+		GinkgoHelper()
+		var chs []channel.Channel
+		Expect(l.Channel.NewRetrieve().
+			Where(channel.MatchNames(names...)).
+			Entries(&chs).
+			Exec(ctx, db)).To(Succeed())
+		return chs
+	}
 
-		It(
-			"Should delete the ontology channels of an upgraded store",
-			func(ctx SpecContext) {
-				n := testutil.NewNode(ctx)
-				first := MustSucceed(svctestutil.OpenLayer(ctx, n))
-				chs := make([]channel.Channel, len(names))
-				for i, name := range names {
-					chs[i] = channel.Channel{
-						Name:        name,
-						DataType:    telem.StringT,
-						Virtual:     true,
-						Internal:    true,
-						Leaseholder: node.KeyFree,
-					}
+	It(
+		"Should delete the retired channels of an upgraded store",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+			chs := make([]channel.Channel, len(names))
+			for i, name := range names {
+				chs[i] = channel.Channel{
+					Name:        name,
+					DataType:    telem.StringT,
+					Virtual:     true,
+					Internal:    true,
+					Leaseholder: node.KeyFree,
 				}
-				Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return first.Channel.NewWriter(tx).CreateMany(ctx, &chs)
-				})).To(Succeed())
-				Expect(retrieve(ctx, n.DB, first)).To(HaveLen(len(names)))
-				Expect(first.Close()).To(Succeed())
-				second := MustSucceed(svctestutil.OpenLayer(ctx, n))
-				Expect(retrieve(ctx, n.DB, second)).To(BeEmpty())
-				Expect(second.Close()).To(Succeed())
-				By("Opening again with no channels to delete")
-				Expect(retrieve(ctx, n.DB, MustOpen(svctestutil.OpenLayer(ctx, n)))).
-					To(BeEmpty())
-			},
-		)
+			}
+			Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return first.Channel.NewWriter(tx).CreateMany(ctx, &chs)
+			})).To(Succeed())
+			Expect(retrieve(ctx, n.DB, first)).To(HaveLen(len(names)))
+			Expect(first.Close()).To(Succeed())
+			second := MustSucceed(svctestutil.OpenLayer(ctx, n))
+			Expect(retrieve(ctx, n.DB, second)).To(BeEmpty())
+			Expect(second.Close()).To(Succeed())
+			By("Opening again with no channels to delete")
+			Expect(retrieve(ctx, n.DB, MustOpen(svctestutil.OpenLayer(ctx, n)))).
+				To(BeEmpty())
+		},
+	)
+})
+
+// storedAlias is the shape that releases before v0.62 stored a range alias in.
+type storedAlias struct {
+	Range   uuid.UUID
+	Channel uint32
+	Alias   string
+}
+
+func (a storedAlias) GorpKey() string {
+	return a.Range.String() + "/" + strconv.Itoa(int(a.Channel))
+}
+
+func (storedAlias) CustomTypeName() string { return "Alias" }
+
+var _ = Describe("Range alias drop", func() {
+	It("Should delete the range aliases of an upgraded store", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		Expect(gorp.WrapWriter[string, storedAlias](legacyDB).Set(
+			ctx,
+			storedAlias{Range: uuid.New(), Channel: 1, Alias: "pressure"},
+			storedAlias{Range: uuid.New(), Channel: 2, Alias: "temperature"},
+		)).To(Succeed())
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		var aliases []storedAlias
+		Expect(gorp.NewRetrieve[string, storedAlias]().
+			Entries(&aliases).
+			Exec(ctx, legacyDB)).To(Succeed())
+		Expect(aliases).To(BeEmpty())
 	})
 })
 

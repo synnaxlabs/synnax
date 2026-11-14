@@ -56,7 +56,7 @@ describe("Channel select", () => {
     );
     const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
     expect(trigger?.classList.contains("custom")).toBe(true);
-    expect(trigger?.classList.contains("lyra--shadow")).toBe(true);
+    expect(trigger?.classList.contains("lyra-btn--shadow")).toBe(true);
   });
 
   it("should keep the multiple select's trigger mark beside the caller's trigger props", () => {

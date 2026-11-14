@@ -161,6 +161,7 @@ public:
 
 /// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, Nominal) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
@@ -181,7 +182,9 @@ TEST(stateTests, Nominal) {
         .task = task.key,
         .type = "start",
     };
-    hb->exec(cmd);
+    cancel.start();
+    hb->exec(cmd, cancel);
+    cancel.stop();
     x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
         synnax::framer::StreamerConfig{
