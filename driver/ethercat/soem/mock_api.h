@@ -153,8 +153,8 @@ public:
     /// of zero at the latest config_map_group call.
     bool sms_cleared_at_map = false;
     int readstate_count = 0;
-    /// @brief the number of next readstate calls that get no reply. As in SOEM, each
-    /// one sets every slave to EC_STATE_NONE.
+    /// @brief the number of next readstate calls that get no reply. As in the patched
+    /// SOEM, each one keeps the state of every slave.
     int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
@@ -347,12 +347,7 @@ public:
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
-            for (size_t i = 0; i < this->slave_infos.size(); ++i) {
-                this->slave_infos[i].state = EC_STATE_NONE;
-                this->context.slavelist[i + 1].state = EC_STATE_NONE;
-            }
-            this->read_state.store(EC_STATE_NONE);
-            return EC_STATE_NONE;
+            return this->context.slavelist[0].state;
         }
         uint16_t lowest = 0xFF;
         for (size_t i = 0; i < this->slave_infos.size(); ++i) {

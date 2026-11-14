@@ -2062,29 +2062,16 @@ TEST_F(SOEMMasterTest, CheckKeepsStatesOnDroppedStateRead) {
     EXPECT_TRUE(this->mock->recovered_slaves.empty());
 }
 
-/// @brief it should report the state a slave reads again when a state read gets no
-/// reply.
-TEST_F(SOEMMasterTest, CheckReportsTheStateReadAgainAfterDroppedStateRead) {
-    this->initialize_with_slave();
-    this->activate_master();
-    this->mock->dropped_state_reads = 1;
-    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
-                                                             EC_STATE_ERROR;
-    const auto health = this->master->check(this->brk);
-    ASSERT_EQ(health.size(), 1);
-    EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
-    EXPECT_TRUE(health[0].faulted);
-    EXPECT_FALSE(health[0].lost);
-}
-
-/// @brief it should read a slave again after a dropped state read once the breaker
-/// stops.
+/// @brief it should read a slave that reads no state again once the breaker stops,
+/// and report the state it reads.
 TEST_F(SOEMMasterTest, CheckReadsSlaveAgainOnceBreakerStops) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->dropped_state_reads = 1;
+    this->mock->slave_infos[0].state = EC_STATE_NONE;
     this->brk.stop();
-    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::OP);
+    const auto health = this->master->check(this->brk);
+    EXPECT_EQ(health[0].state, slave::State::OP);
+    EXPECT_FALSE(health[0].lost);
 }
 
 /// @brief it should recover a lost slave and clear its lost flag.

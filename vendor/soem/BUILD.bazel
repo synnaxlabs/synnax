@@ -16,6 +16,25 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("//vendor/open62541:codegen.bzl", "generate")
+
+py_binary(
+    name = "patch",
+    srcs = ["patch.py"],
+)
+
+generate(
+    name = "ec_main",
+    srcs = ["SOEM/src/ec_main.c"],
+    outs = ["src_patched/ec_main.c"],
+    arguments = [
+        "$(execpath SOEM/src/ec_main.c)",
+        "{out}",
+    ],
+    stem = "ec_main.c",
+    tool = ":patch",
+)
 
 # Core SOEM sources (platform-independent)
 SOEM_CORE_SRCS = [
@@ -25,9 +44,9 @@ SOEM_CORE_SRCS = [
     "SOEM/src/ec_dc.c",
     "SOEM/src/ec_eoe.c",
     "SOEM/src/ec_foe.c",
-    "SOEM/src/ec_main.c",
     "SOEM/src/ec_print.c",
     "SOEM/src/ec_soe.c",
+    "src_patched/ec_main.c",
 ]
 
 # Core SOEM headers
@@ -39,10 +58,9 @@ SOEM_HDRS = glob(
 # Linux OSAL + OSHW (custom nicdrv.c that needs only CAP_NET_RAW)
 LINUX_OSAL_SRCS = ["SOEM/osal/linux/osal.c"]
 
-LINUX_OSHW_SRCS = [
-    "linux/oshw/nicdrv.c",
-    "SOEM/oshw/linux/oshw.c",
-]
+LINUX_OSHW_SRCS = ["SOEM/oshw/linux/oshw.c"]
+
+LINUX_NIC_SRCS = ["linux/oshw/nicdrv.c"]
 
 LINUX_PLATFORM_HDRS = [
     "SOEM/osal/linux/osal_defs.h",
@@ -76,10 +94,9 @@ WIN32_PLATFORM_HDRS = [
 # macOS OSAL + OSHW (custom platform files using pcap)
 MACOS_OSAL_SRCS = ["macos/osal/osal.c"]
 
-MACOS_OSHW_SRCS = [
-    "macos/oshw/nicdrv.c",
-    "macos/oshw/oshw.c",
-]
+MACOS_OSHW_SRCS = ["macos/oshw/oshw.c"]
+
+MACOS_NIC_SRCS = ["macos/oshw/nicdrv.c"]
 
 MACOS_PLATFORM_HDRS = [
     "macos/osal/osal_defs.h",
@@ -211,68 +228,107 @@ extern "C" {
 EOF""",
 )
 
+# The headers, options, and links of soem and core.
+SOEM_LIBRARY_HDRS = SOEM_HDRS + [
+    "SOEM/osal/osal.h",
+    ":generate_ec_options_h",
+] + select({
+    "@platforms//os:linux": LINUX_PLATFORM_HDRS,
+    "@platforms//os:macos": MACOS_PLATFORM_HDRS,
+    "@platforms//os:windows": WIN32_PLATFORM_HDRS,
+})
+
+SOEM_COPTS = select({
+    "@platforms//os:windows": [
+        "/D_CRT_SECURE_NO_WARNINGS",
+        "/DWIN32",
+    ],
+    "//conditions:default": [
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+    ],
+})
+
+SOEM_INCLUDES = [
+    ".",
+    "SOEM/include",
+    "SOEM/osal",
+] + select({
+    "@platforms//os:linux": [
+        "SOEM/osal/linux",
+        "SOEM/oshw/linux",
+    ],
+    "@platforms//os:macos": [
+        "macos/osal",
+        "macos/oshw",
+    ],
+    "@platforms//os:windows": [
+        "SOEM/osal/win32",
+        "SOEM/oshw/win32",
+        "SOEM/oshw/win32/wpcap/Include",
+    ],
+})
+
+SOEM_LINKOPTS = select({
+    "@platforms//os:linux": ["-lpthread"],
+    "@platforms//os:macos": [
+        "-lpthread",
+        "-lpcap",
+    ],
+    "@platforms//os:windows": [
+        "Ws2_32.lib",
+        "winmm.lib",
+        "Delayimp.lib",
+        "/DELAYLOAD:Packet.dll",
+        "/DELAYLOAD:wpcap.dll",
+    ],
+})
+
 cc_library(
     name = "soem",
     srcs = SOEM_CORE_SRCS + select({
-        "@platforms//os:linux": LINUX_OSAL_SRCS + LINUX_OSHW_SRCS,
-        "@platforms//os:macos": MACOS_OSAL_SRCS + MACOS_OSHW_SRCS,
+        "@platforms//os:linux": LINUX_OSAL_SRCS + LINUX_OSHW_SRCS + LINUX_NIC_SRCS,
+        "@platforms//os:macos": MACOS_OSAL_SRCS + MACOS_OSHW_SRCS + MACOS_NIC_SRCS,
         "@platforms//os:windows": WIN32_OSAL_SRCS + WIN32_OSHW_SRCS + [
             "SOEM/oshw/win32/wpcap/Lib/x64/Packet.lib",
             "SOEM/oshw/win32/wpcap/Lib/x64/wpcap.lib",
         ],
     }),
-    hdrs = SOEM_HDRS + [
-        "SOEM/osal/osal.h",
-        ":generate_ec_options_h",
-    ] + select({
-        "@platforms//os:linux": LINUX_PLATFORM_HDRS,
-        "@platforms//os:macos": MACOS_PLATFORM_HDRS,
-        "@platforms//os:windows": WIN32_PLATFORM_HDRS,
-    }),
-    copts = select({
-        "@platforms//os:windows": [
-            "/D_CRT_SECURE_NO_WARNINGS",
-            "/DWIN32",
-        ],
-        "//conditions:default": [
-            "-Wno-unused-parameter",
-            "-Wno-sign-compare",
-        ],
-    }),
-    includes = [
-        ".",
-        "SOEM/include",
-        "SOEM/osal",
-    ] + select({
-        "@platforms//os:linux": [
-            "SOEM/osal/linux",
-            "SOEM/oshw/linux",
-        ],
-        "@platforms//os:macos": [
-            "macos/osal",
-            "macos/oshw",
-        ],
-        "@platforms//os:windows": [
-            "SOEM/osal/win32",
-            "SOEM/oshw/win32",
-            "SOEM/oshw/win32/wpcap/Include",
-        ],
-    }),
-    linkopts = select({
-        "@platforms//os:linux": ["-lpthread"],
-        "@platforms//os:macos": [
-            "-lpthread",
-            "-lpcap",
-        ],
-        "@platforms//os:windows": [
-            "Ws2_32.lib",
-            "winmm.lib",
-            "Delayimp.lib",
-            "/DELAYLOAD:Packet.dll",
-            "/DELAYLOAD:wpcap.dll",
-        ],
-    }),
+    hdrs = SOEM_LIBRARY_HDRS,
+    copts = SOEM_COPTS,
+    includes = SOEM_INCLUDES,
+    linkopts = SOEM_LINKOPTS,
     visibility = ["//visibility:public"],
+)
+
+# SOEM without its NIC driver, for a test that sends frames to a fake bus.
+cc_library(
+    name = "core",
+    testonly = True,
+    srcs = SOEM_CORE_SRCS + select({
+        "@platforms//os:linux": LINUX_OSAL_SRCS + LINUX_OSHW_SRCS,
+        "@platforms//os:macos": MACOS_OSAL_SRCS + MACOS_OSHW_SRCS,
+        "//conditions:default": [],
+    }),
+    hdrs = SOEM_LIBRARY_HDRS,
+    copts = SOEM_COPTS,
+    includes = SOEM_INCLUDES,
+    linkopts = SOEM_LINKOPTS,
+    target_compatible_with = select({
+        "@platforms//os:linux": [],
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+cc_test(
+    name = "main_test",
+    srcs = ["main_test.cpp"],
+    linkstatic = True,
+    deps = [
+        ":core",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(
