@@ -71,19 +71,6 @@ func binaryFieldOf(m icd.Message, i int) icd.BinaryField {
 	return binaryPayloadOf(m).Fields[i]
 }
 
-// setScale returns a copy of ic with the scale of the first field of message i set.
-func setScale(ic icd.ICD, i int, scale float64) icd.ICD {
-	ic.Messages = append([]icd.Message(nil), ic.Messages...)
-	ic.Messages[i] = updateBinary(
-		ic.Messages[i],
-		func(p *icd.BinaryPayload) {
-			p.Fields = append([]icd.BinaryField(nil), p.Fields...)
-			p.Fields[0].Scale = scale
-		},
-	)
-	return ic
-}
-
 func retrieveICD(ctx SpecContext, key icd.Key) icd.ICD {
 	GinkgoHelper()
 	var res icd.ICD

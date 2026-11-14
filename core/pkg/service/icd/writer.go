@@ -11,10 +11,12 @@ package icd
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes ICDs within a transaction.
@@ -108,7 +110,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // attaches the actions to the transaction, so its commit broadcasts them. Problems that
 // Check finds do not stop it. It returns an error wrapping validate.ErrValidation when
 // an action is a create or the ICD cannot hold its value, a path-scoped validation
-// error when the result breaks a rule of the ICD's schema, and an error wrapping
+// error when the result breaks a rule of the ICD's schema or has a message or field
+// with no key, and an error wrapping
 // query.ErrNotFound when no ICD has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.
@@ -122,13 +125,29 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err = next.Validate(); err != nil {
 				return ICD{}, err
 			}
-			return next, nil
+			return next, requireKeys(next)
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// requireKeys returns a path-scoped validation error for each message and field of ic
+// with no key. Apply cannot assign keys, as the actions it broadcasts would not carry
+// them.
+func requireKeys(ic ICD) error {
+	v := validate.New("icd")
+	for i, m := range ic.Messages {
+		path := "messages." + strconv.Itoa(i)
+		v.Ternary(path+".key", m.Key == uuid.Nil(), "required")
+		for j, b := range m.Payload.FieldBases() {
+			fieldPath := path + ".payload.fields." + strconv.Itoa(j) + ".key"
+			v.Ternary(fieldPath, b.Key == uuid.Nil(), "required")
+		}
+	}
+	return v.Error()
 }
 
 // assignKeys gives a new key to every message and field that has none. It skips text

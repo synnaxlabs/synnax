@@ -394,7 +394,7 @@ describe("ICD editor", () => {
     expect(await screen.findByText("Mode")).toBeTruthy();
     expect(screen.getByText("Binary")).toBeTruthy();
     expect(screen.queryByText("JSON")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
     expect(screen.queryByText("Add message")).toBeNull();
     expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
   });
@@ -402,7 +402,7 @@ describe("ICD editor", () => {
   it("should add a tagged field before it has a tag", async () => {
     const ic = await createICD([createTextMessage()]);
     await renderEditor(ic);
-    const [, addTagged] = await screen.findAllByRole("button", { name: "Add row" });
+    const [, addTagged] = await screen.findAllByRole("button", { name: "Add field" });
     fireEvent.click(addTagged);
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([

@@ -202,6 +202,20 @@ var _ = Describe("Apply", func() {
 			return set(fieldPath(0, 0, "bit_length"), 0)
 		}, "messages.0.payload.fields.0.bit_length: "+
 			"must be greater than or equal to 1"),
+		Entry("a message with no key", func() icd.Action {
+			return icd.NewInsertAction(icd.InsertPayload{
+				Path:  []string{"messages"},
+				Value: canMessage("Doors", 0x102),
+			})
+		}, "messages.0.key: required"),
+		Entry("a field with no key", func() icd.Action {
+			f := field("open", 16)
+			f.Key = uuid.Nil()
+			return icd.NewInsertAction(icd.InsertPayload{
+				Path:  messagePath(0, "payload", "fields"),
+				Value: f,
+			})
+		}, "messages.0.payload.fields.0.key: required"),
 	)
 
 	It("Should reject a value the ICD cannot hold", func(ctx SpecContext) {

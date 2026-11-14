@@ -390,6 +390,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         onChange={handleChange}
         onRemove={handleRemove}
         createRow={createRow}
+        resourceName="field"
         rowLabel={(i) => (i + 1).toString()}
         preview={ctx.mode === "preview"}
       >
