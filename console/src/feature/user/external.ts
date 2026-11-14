@@ -8,6 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/user/commands";
-export * from "@/feature/user/Toolbar";
-export * from "@/feature/user/tree";
+export * from "@/feature/user/Members";
+export * from "@/feature/user/Settings";
 export * from "@/platform/user/external";

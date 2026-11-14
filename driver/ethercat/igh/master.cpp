@@ -12,7 +12,6 @@
 #include <charconv>
 #include <format>
 #include <optional>
-#include <set>
 #include <string_view>
 #include <system_error>
 
@@ -247,7 +246,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
         ) >= 0)
         return x::errors::NIL;
     return x::errors::Error(
-        errors::STARTUP_PARAMETER_ERROR,
+        errors::startup_parameter_error(abort_code),
         "slave " + std::to_string(slave.position) + " (" + slave.name +
             ") rejected startup parameter " + param.to_string() + ": " +
             errors::sdo_abort_reason(abort_code)
@@ -285,7 +284,7 @@ x::errors::Error Master::write(
                 &abort_code
             ) < 0)
             return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
+                errors::startup_parameter_error(abort_code),
                 "slave " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     errors::sdo_abort_reason(abort_code)
@@ -700,7 +699,7 @@ void Master::register_pdo_entries(
     master::Image &image
 ) {
     // A slave adds 1 to the datagram of each domain that holds one of its entries.
-    std::set<ec_domain_t *> domains;
+    master::WorkingCounterShare share;
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -733,16 +732,17 @@ void Master::register_pdo_entries(
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
-        domains.insert(domain);
+        if (domain == this->output_domain)
+            share.outputs = 1;
+        else
+            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
         add(pdo, this->output_domain);
     for (const auto &pdo: slave.input_pdos)
         add(pdo, this->input_domain);
-    if (!domains.empty())
-        image.working_counter_shares[slave.position] = static_cast<uint32_t>(
-            domains.size()
-        );
+    if (share != master::WorkingCounterShare{})
+        image.working_counter_shares[slave.position] = share;
 }
 
 x::errors::Error

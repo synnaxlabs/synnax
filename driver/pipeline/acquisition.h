@@ -70,7 +70,8 @@ public:
     /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
     /// after the breaker stops, and before the pipeline joins its thread. It can come
     /// before the read blocks, so a blocking call made after it must also return. The
-    /// read it ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR.
+    /// read it ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called
+    /// when the pipeline already stopped itself.
     virtual void interrupt() {}
 
     virtual ~Source() = default;

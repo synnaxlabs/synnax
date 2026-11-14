@@ -10,9 +10,8 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/users/register`: click the "+" action in the Users toolbar,
- * fill the form and pick a role, and submit; the new user appears under its
- * role in the toolbar.
+ * Docs `console/users/register`: click "Create user" on the Users page of Settings,
+ * fill the form and pick a role, and submit; the new user appears in the table.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
@@ -20,14 +19,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
 
-    await capture.openToolbar(session, "user");
-    await capture.resizeToolbar(session, 400);
-    await session.moveTo({ x: 756, y: 500 });
+    await capture.openSettings(session, "Users");
+    await session.moveTo({ x: 756, y: 700 });
 
     session.startRecording();
     await session.hold(1800);
 
-    await capture.clickToolbarCreate(session);
+    await capture.clickButton(session, "Create user");
     const name = page.getByPlaceholder("Richard Feynman").first();
     await session.waitFor(name);
     await session.hold(600);
@@ -49,15 +47,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.getByPlaceholder("Search roles...").first());
     await session.hold(400);
     await session.type("Operator");
-    const role = page
-      .locator(".lyra-list__item:not(.lyra-tree__item)")
-      .filter({ hasText: "Operator" })
-      .first();
+    const role = page.getByRole("option", { name: /^Operator/ }).first();
     await session.waitFor(role);
     await session.hold(400);
-    await session.click(role.getByText("Operator", { exact: true }).first(), {
-      text: true,
-    });
+    await session.click(role, { text: true });
     await session.hold(600);
 
     await capture.clickButton(session, "Register");
@@ -65,14 +58,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.endZoom();
     await session.hold(800);
 
-    // The toolbar groups users by role and the groups start collapsed; expand
-    // the Operator group to show the new user.
-    const drawer = page.locator(".console-nav__drawer").first();
-    await session.click(drawer.getByText("Operator", { exact: true }).first(), {
-      text: true,
-    });
-    const created = drawer.getByText("Grace Hopper", { exact: true }).first();
-    await session.waitFor(created);
+    await session.waitFor(
+      page.getByRole("option", { name: "Grace Hopper", exact: true }),
+    );
     // Park clear of the component buttons, so none shows a hover state.
     await session.moveTo({ x: 1300, y: 780 });
     await session.hold(2800);

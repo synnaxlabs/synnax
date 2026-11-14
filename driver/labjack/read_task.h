@@ -956,7 +956,8 @@ public:
         if (res.error = this->dev->e_stream_read(
                 this->interleaved_buf.data(),
                 &device_scan_backlog,
-                &ljm_scan_backlog
+                &ljm_scan_backlog,
+                breaker
             );
             res.error) {
             if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();

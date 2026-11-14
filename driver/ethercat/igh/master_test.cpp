@@ -593,7 +593,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -609,6 +609,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
@@ -908,15 +909,18 @@ TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
     EXPECT_EQ(this->master.shortfall(), 1);
 }
 
-/// @brief it should give each enabled slave a working counter share of 1 for each
-/// domain that holds one of its entries.
+/// @brief it should give each enabled slave a working counter share of 1 in each domain
+/// that holds one of its entries.
 TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     create_io(this->api->add_slave());
     this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_EQ(
         this->image.working_counter_shares,
-        (std::map<uint16_t, uint32_t>{{1, 2}, {2, 1}})
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 1, .inputs = 1}},
+            {2, {.inputs = 1}},
+        })
     );
 }
 

@@ -701,6 +701,18 @@ Identity saved(
     };
 }
 
+/// @brief returns a slave at position on the bus whose serial number read got no
+/// answer, with serial as the serial number from its SII.
+DiscoveryResult unread_on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0
+) {
+    auto result = on_bus(position, product_code, serial);
+    result.status.serial_error = "no answer";
+    return result;
+}
+
 using Positions = std::vector<uint16_t>;
 using Located = std::vector<std::optional<uint16_t>>;
 }
@@ -854,6 +866,39 @@ TEST(Locate, GivesAUnitToItsSerialNumberBeforeItsPosition) {
     EXPECT_EQ(
         locate({saved(1, 0x1), saved(3, 0x1, 777)}, {on_bus(1, 0x1, 777)}),
         (Located{std::nullopt, 1})
+    );
+}
+
+/// @brief it should find a slave with an unread serial number for each slave of its
+/// model saved at its position.
+TEST(Locate, FindsASlaveWithAnUnreadSerialNumberAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888), saved(2, 0x2, 999)},
+            {unread_on_bus(1, 0x1), unread_on_bus(2, 0x9)}
+        ),
+        (Located{1, 1, std::nullopt})
+    );
+}
+
+/// @brief it should give a slave with an unread serial number to a saved slave only
+/// after each unit with a known serial number goes to its saved slave.
+TEST(Locate, GivesASlaveWithAnUnreadSerialNumberToASlaveThatFoundNoUnit) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888)},
+            {unread_on_bus(1, 0x1), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 1})
+    );
+}
+
+/// @brief it should not find a slave by an unread serial number, as the serial number
+/// from the SII of a slave can be wrong.
+TEST(Locate, IgnoresAnUnreadSerialNumber) {
+    EXPECT_EQ(
+        locate({saved(2, 0x1, 777)}, {unread_on_bus(5, 0x1, 777)}),
+        (Located{std::nullopt})
     );
 }
 

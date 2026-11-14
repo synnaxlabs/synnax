@@ -424,13 +424,15 @@ public:
     std::atomic<bool> reading{false};
     /// @brief whether the breaker still ran when the read woke.
     std::atomic<bool> running_on_wake{true};
+    /// @brief whether the interrupt, not the five-second limit, woke the read.
+    std::atomic<bool> woken{false};
     x::errors::Error stopped_err = x::errors::NIL;
 
     x::errors::Error
     read(x::breaker::Breaker &breaker, x::telem::Frame &, Authorities &) override {
         std::unique_lock lock(this->mu);
         this->reading = true;
-        this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+        this->woken = this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
             return this->interrupted;
         });
         this->running_on_wake = breaker.running();
@@ -462,9 +464,8 @@ TEST(AcquisitionPipeline, StopInterruptsBlockedRead) {
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_TRUE(source->reading.load());
-    const auto stopping = std::chrono::steady_clock::now();
     ASSERT_TRUE(pipeline.stop());
-    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_TRUE(source->woken.load());
     EXPECT_FALSE(source->running_on_wake.load());
     ASSERT_NIL(source->stopped_err);
 }

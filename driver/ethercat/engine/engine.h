@@ -100,6 +100,7 @@ class Engine {
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
 
+    struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
         /// @brief where one entry sits in the input image and in a sample.
@@ -111,6 +112,17 @@ class Engine {
             telem::Decoder decoder;
         };
         std::vector<Entry> entries;
+        /// @brief a slave that holds entries of the reader.
+        struct Slave {
+            uint16_t position = 0;
+            std::string name;
+            /// @brief set when a cycle dropped a sample because the slave was out.
+            std::atomic<bool> lost{false};
+            /// @brief whether the slave did not respond at the latest dropped sample.
+            std::atomic<bool> silent{false};
+        };
+        /// @brief the slaves of the entries, in ascending position.
+        std::vector<Slave> slaves;
         /// @brief what the reader writes to the slaves.
         Settings settings;
         x::telem::Rate rate;
@@ -131,9 +143,12 @@ class Engine {
         /// @brief cycles left until the next sample. Used only by the cycle thread.
         size_t countdown = 0;
 
+        /// @param bus the slaves of the running bus, which name the slaves of the
+        /// entries.
         Input(
             const std::vector<pdo::Entry> &entries,
             const std::vector<pdo::Offset> &offsets,
+            const std::vector<slave::DiscoveryResult> &bus,
             x::telem::Rate rate,
             size_t samples_per_read
         );
@@ -141,6 +156,12 @@ class Engine {
         /// @brief copies this reader's entries from the input image into the buffer.
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
+
+        /// @brief marks each slave of the reader in out as lost, and records whether it
+        /// responds.
+        /// @returns true when the reader has a slave in out. Called only by the cycle
+        /// thread.
+        bool lose(const Outage &out);
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -195,6 +216,23 @@ class Engine {
 
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
+
+    /// @brief the enabled slaves that the latest state read found out of OP.
+    struct Outage {
+        /// @brief the positions of the slaves, in ascending order.
+        std::vector<uint16_t> positions;
+        /// @brief the positions of the slaves that do not respond, in ascending order.
+        std::vector<uint16_t> silent;
+        /// @brief how far the slaves keep the working counter from a full cycle: the
+        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
+        /// a slave in SAFE-OP.
+        uint32_t shortfall = 0;
+
+        bool operator==(const Outage &) const = default;
+    };
+    std::mutex outage_mu;
+    Outage outage;
+    std::atomic<uint64_t> outage_version{0};
 
     mutable std::mutex cycle_err_mu;
     /// @brief why the latest failed cycle failed.
@@ -309,8 +347,10 @@ public:
         /// @brief blocks until a full read of samples is ready, writes each entry's
         /// samples to the series of the same index in the frame, and writes the time of
         /// each sample's cycle to times. Returns early with fewer samples when the bus
-        /// delivers less than a read within twice its duration, and returns NIL with no
-        /// samples when the breaker stops.
+        /// delivers less than a read within twice its duration. Returns NIL with no
+        /// samples when the breaker stops, or when the bus lost a slave of the reader
+        /// for the whole read. A cycle that only the slaves out of OP fall short in
+        /// drops the samples of only the readers of those slaves.
         /// @returns errors::CYCLE_FAILED when failed cycles dropped every sample, or
         /// errors::CYCLE_OVERRUN when the bus delivered nothing.
         [[nodiscard]] x::errors::Error read(

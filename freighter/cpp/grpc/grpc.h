@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdlib>
 
@@ -44,9 +45,25 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
     if (status.error_code() == ::grpc::StatusCode::UNAVAILABLE)
         return {UNREACHABLE.type, status.error_message()};
+    if (status.error_code() == ::grpc::StatusCode::DEADLINE_EXCEEDED)
+        return {TIMEOUT.type, status.error_message()};
     return x::errors::Error(status.error_message());
 }
 }
+
+/// @brief how a channel finds a server that stops answering while calls run.
+struct Keepalive {
+    /// @brief how long the channel gets no bytes from the server before it pings. A
+    /// Core closes a connection that pings more often than every five minutes.
+    std::chrono::milliseconds time = std::chrono::minutes(6);
+    /// @brief how long the channel waits for the answer to any ping, a keepalive ping
+    /// or a flow control ping, before it closes the connection, which fails its calls
+    /// with UNREACHABLE. A Core waits the same time for the answers to its own pings.
+    std::chrono::milliseconds timeout = std::chrono::seconds(20);
+};
+
+/// @brief the default Pool::unary_timeout.
+const std::chrono::milliseconds UNARY_TIMEOUT = std::chrono::seconds(60);
 
 class Pool {
     std::mutex mu;
@@ -54,14 +71,25 @@ class Pool {
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
+    Keepalive keepalive;
 
 public:
+    /// @brief how long a unary call waits for its response when its context sets no
+    /// deadline. Each attempt of a retried call gets the full time.
+    const std::chrono::milliseconds unary_timeout;
+
     /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
     /// server against the trust anchors described by priv::ssl_credentials.
-    explicit Pool(const bool secure = false):
+    explicit Pool(
+        const bool secure = false,
+        const Keepalive keepalive = {},
+        const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
+    ):
         credentials(
             secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
-        ) {}
+        ),
+        keepalive(keepalive),
+        unary_timeout(unary_timeout) {}
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
@@ -70,8 +98,12 @@ public:
     }
 
     /// @brief instantiates a gRPC pool with the provided credentials.
-    explicit Pool(const std::shared_ptr<::grpc::ChannelCredentials> &credentials):
-        credentials(credentials) {}
+    explicit Pool(
+        const std::shared_ptr<::grpc::ChannelCredentials> &credentials,
+        const Keepalive keepalive = {},
+        const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
+    ):
+        credentials(credentials), keepalive(keepalive), unary_timeout(unary_timeout) {}
 
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
@@ -87,7 +119,24 @@ public:
             else
                 return channel;
         }
-        const ::grpc::ChannelArguments args;
+        ::grpc::ChannelArguments args;
+        args.SetInt(
+            GRPC_ARG_KEEPALIVE_TIME_MS,
+            static_cast<int>(this->keepalive.time.count())
+        );
+        args.SetInt(
+            GRPC_ARG_KEEPALIVE_TIMEOUT_MS,
+            static_cast<int>(this->keepalive.timeout.count())
+        );
+        // gRPC times out a keepalive ping with its ping timeout, which has no public
+        // name.
+        args.SetInt(
+            "grpc.http2.ping_timeout_ms",
+            static_cast<int>(this->keepalive.timeout.count())
+        );
+        // A stream that only receives sends no data, so its keepalive pings must not
+        // wait for a budget of pings without data.
+        args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);
         auto channel = CreateCustomChannel(host_addr, this->credentials, args);
         this->channels[host_addr] = channel;
         return channel;
@@ -135,7 +184,9 @@ public:
         ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);
-        if (req_ctx.deadline) grpc_ctx.set_deadline(*req_ctx.deadline);
+        grpc_ctx.set_deadline(req_ctx.deadline.value_or(
+            std::chrono::system_clock::now() + this->pool->unary_timeout
+        ));
 
         // Execute request.
         auto channel = this->pool->get_channel(req_ctx.target);

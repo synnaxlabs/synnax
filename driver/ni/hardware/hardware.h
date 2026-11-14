@@ -193,9 +193,14 @@ public:
     x::errors::Error stop() override;
     x::errors::Error abort() override;
 
+    /// @brief waits until a read waits for abort(), or until the timeout.
+    /// @returns true if a read waits for abort().
+    bool wait_until_blocked(std::chrono::nanoseconds timeout);
+
 private:
     std::mutex mu;
-    std::condition_variable aborted;
+    std::condition_variable cv;
+    bool blocked = false;
 };
 
 /// @brief Mock implementation of Reader interface for testing

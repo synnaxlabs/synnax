@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -64,6 +65,9 @@ type Config struct {
 	// block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
+	// Clock times the AutoIndexPersistInterval of each writer. See domain.Config.Clock.
+	// [OPTIONAL] Default: xtime.Real
+	Clock xtime.Clock
 }
 
 var (
@@ -93,6 +97,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
 	cfg.OnHistoryChange = override.Nil(cfg.OnHistoryChange, other.OnHistoryChange)
+	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	return cfg
 }
 
@@ -115,6 +120,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
 		OnHistoryChange: cfg.OnHistoryChange,
+		Clock:           cfg.Clock,
 	})
 	if err != nil {
 		return nil, err
