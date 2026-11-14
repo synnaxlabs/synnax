@@ -318,6 +318,13 @@ public:
         std::shared_ptr<Input> input;
         /// @brief the decoded values of one entry in a read.
         std::vector<uint8_t> values;
+        /// @brief why samples were dropped, and when warning() last saw such a drop.
+        struct Drop {
+            std::string reason;
+            x::telem::TimeStamp at;
+        };
+        Drop failed;
+        Drop overflowed;
 
     public:
         Reader(Engine &engine, std::shared_ptr<Input> input);
@@ -341,8 +348,10 @@ public:
             x::telem::Series &times
         );
 
-        /// @brief explains, in full sentences, why samples were dropped since the last
-        /// call, or returns an empty string when none were.
+        /// @brief explains, in full sentences, why samples were dropped, or returns an
+        /// empty string when none were. Failed cycles and a reader that falls behind
+        /// stay in the warning for 10 seconds after the last call that saw them, so a
+        /// task that keeps dropping keeps one warning.
         [[nodiscard]] std::string warning();
     };
 

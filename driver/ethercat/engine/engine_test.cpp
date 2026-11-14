@@ -1729,7 +1729,6 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: expected 3, got 1.");
-    EXPECT_EQ(reader->warning(), "");
 }
 
 /// @brief it should name each slave that is out of OP in the warning of cycles that
@@ -1916,6 +1915,39 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
+/// @brief it should keep the warning of a failed cycle for 10 seconds after the last
+/// warning that saw it, so that a task that keeps dropping keeps one warning.
+TEST_F(EngineTest, FailedCycleWarningHoldsForTenSeconds) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->stall();
+    this->master->wait_until_stalled();
+    // The fake clock ran the bus ahead of the reader before the stall.
+    (void) reader->warning();
+    clock.sleep(x::telem::SECOND * 10);
+    ASSERT_EQ(reader->warning(), "");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed")
+    );
+    this->master->step();
+    this->master->wait_until_stalled();
+    const std::string failed = "Bus cycles failed: process data receive failed.";
+    EXPECT_EQ(reader->warning(), failed);
+    clock.sleep(x::telem::SECOND * 10 - x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), failed);
+    clock.sleep(x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), "");
+    this->master->clear_injected_errors();
+    this->master->resume();
 }
 
 /// @brief it should report the samples a reader dropped because it fell behind the bus
