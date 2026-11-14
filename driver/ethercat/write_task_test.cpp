@@ -448,7 +448,7 @@ TEST_F(EtherCATWriteTest, SinkWritesASlaveThatMoved) {
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
     ASSERT_EVENTUALLY_EQ(

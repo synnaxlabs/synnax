@@ -1408,7 +1408,7 @@ TEST_F(EtherCATReadTest, StartWritesTheStartupParametersOfASlaveThatMoved) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto source = ReadTaskSource(this->engine, std::move(task_cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_TRUE(this->mock_master->config(1).startup_parameters.empty());
     const auto params = this->mock_master->config(2).startup_parameters;
     ASSERT_EQ(params.size(), 1);
