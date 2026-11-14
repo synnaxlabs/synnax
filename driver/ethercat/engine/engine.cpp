@@ -170,10 +170,27 @@ x::errors::Error Engine::start_error(
 Engine::Input::Input(
     const std::vector<pdo::Entry> &entries,
     const std::vector<pdo::Offset> &offsets,
+    const std::vector<slave::DiscoveryResult> &bus,
     const x::telem::Rate rate,
     const size_t samples_per_read
 ):
     rate(rate), samples_per_read(samples_per_read) {
+    std::vector<uint16_t> positions;
+    positions.reserve(entries.size());
+    for (const auto &entry: entries)
+        positions.push_back(entry.slave_position);
+    std::ranges::sort(positions);
+    const auto [last, end] = std::ranges::unique(positions);
+    positions.erase(last, end);
+    this->slaves = std::vector<Slave>(positions.size());
+    for (size_t i = 0; i < positions.size(); ++i) {
+        auto &slave = this->slaves[i];
+        slave.position = positions[i];
+        const auto it = std::ranges::find(bus, slave.position, [](const auto &s) {
+            return s.properties.position;
+        });
+        if (it != bus.end()) slave.name = it->properties.name;
+    }
     this->entries.reserve(entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto &entry = entries[i];
@@ -220,9 +237,25 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
     }
 }
 
+bool Engine::Input::lose(const std::vector<uint16_t> &out) {
+    bool any = false;
+    for (auto &slave: this->slaves)
+        if (std::ranges::binary_search(out, slave.position)) {
+            slave.lost.store(true, std::memory_order_relaxed);
+            any = true;
+        }
+    return any;
+}
+
 void Engine::run() {
     std::shared_ptr<const Schedule> sched;
     uint64_t version = 0;
+    Outage outage;
+    outage.positions.reserve(this->image.slaves.size());
+    uint64_t outage_version = 0;
+    // How far the time of the latest full cycle ran ahead of its send. A short cycle
+    // keeps it, since its DC time can be stale.
+    x::telem::TimeSpan lead;
     x::loop::Timer timer;
     std::optional<PhaseLock> phase;
     uint64_t late_frames = 0;
@@ -316,6 +349,7 @@ void Engine::run() {
         }
         if (!err) {
             if (dc) latched_at = clock.map(*dc, sent_at);
+            lead = latched_at - sent_at;
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
                           << " after " << receive_failures << " failures";
@@ -327,6 +361,21 @@ void Engine::run() {
             std::lock_guard lock(this->cycle_err_mu);
             this->cycle_err = err;
         }
+        // A short cycle that the slaves out of OP explain holds the other inputs.
+        const Outage *out = nullptr;
+        if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
+            if (this->outage_version.load(std::memory_order_acquire) !=
+                outage_version) {
+                std::lock_guard lock(this->outage_mu);
+                outage = this->outage;
+                outage_version = this->outage_version.load(std::memory_order_relaxed);
+            }
+            if (const auto missing = this->master->shortfall();
+                missing && !outage.positions.empty() && *missing <= outage.share) {
+                out = &outage;
+                latched_at = sent_at + lead;
+            }
+        }
         const uint8_t *inputs = this->image.inputs.data();
         for (const auto &[input, decimation]: sched->inputs) {
             if (input->countdown > 0) {
@@ -334,9 +383,9 @@ void Engine::run() {
                 continue;
             }
             input->countdown = decimation - 1;
-            if (err)
+            if (err && out == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else
+            else if (!err || !input->lose(out->positions))
                 input->push(inputs, latched_at);
         }
 
@@ -357,6 +406,7 @@ void Engine::run() {
 
 void Engine::supervise() {
     std::vector<slave::Health> last;
+    Outage published;
     while (this->bus.running()) {
         auto health = this->master->check(this->bus);
         for (const auto &[pos, left]: this->left_out)
@@ -378,6 +428,21 @@ void Engine::supervise() {
             else if (!h.operational() && *prev != h)
                 LOG(WARNING) << "[ethercat] slave " << h.position << " on "
                              << this->iface << ": " << h.to_string();
+        }
+        Outage next;
+        for (const auto &h: health) {
+            if (h.refusal || (!h.lost && h.state == slave::State::OP)) continue;
+            next.positions.push_back(h.position);
+            const auto &shares = this->image.working_counter_shares;
+            if (const auto it = shares.find(h.position); it != shares.end())
+                next.share += it->second;
+        }
+        std::ranges::sort(next.positions);
+        if (next != published) {
+            std::lock_guard lock(this->outage_mu);
+            this->outage = next;
+            this->outage_version.fetch_add(1, std::memory_order_release);
+            published = std::move(next);
         }
         {
             std::lock_guard health_lock(this->health_mu);
@@ -487,6 +552,11 @@ void Engine::stop_locked() {
         std::lock_guard lock(this->schedule_mu);
         this->schedule.reset();
         this->retired.reset();
+    }
+    {
+        std::lock_guard lock(this->outage_mu);
+        this->outage = {};
+        this->outage_version.fetch_add(1, std::memory_order_release);
     }
     std::lock_guard lock(this->health_mu);
     this->slave_health.clear();
@@ -737,6 +807,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     auto input = std::make_shared<Input>(
         entries,
         joined.offsets,
+        this->image.slaves,
         sample_rate,
         samples_per_read
     );

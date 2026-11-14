@@ -77,6 +77,10 @@ x::errors::Error Engine::Reader::read(
                     "Every bus cycle failed: " + this->engine.cycle_error().data
                 )
             );
+        if (std::ranges::any_of(in.slaves, [](const Input::Slave &slave) {
+                return slave.lost.load(std::memory_order_relaxed);
+            }))
+            return x::errors::NIL;
         return x::errors::Error(
             errors::CYCLE_OVERRUN,
             std::format(
@@ -106,12 +110,22 @@ x::errors::Error Engine::Reader::read(
 
 std::string Engine::Reader::warning() {
     std::string msg;
+    const auto add = [&msg](const std::string &sentence) {
+        msg += (msg.empty() ? "" : " ") + sentence;
+    };
     if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        msg = errors::sentence("Bus cycles failed: " + this->engine.cycle_error().data);
+        add(errors::sentence("Bus cycles failed: " + this->engine.cycle_error().data));
+    for (auto &slave: this->input->slaves)
+        if (slave.lost.exchange(false, std::memory_order_relaxed))
+            add(std::format(
+                "Lost contact with slave {} ({}).",
+                slave.position,
+                slave.name
+            ));
     if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        msg += std::string(msg.empty() ? "" : " ") +
-               "The task cannot keep up with the bus. Lower the stream rate for the "
-               "task.";
+        add(
+            "The task cannot keep up with the bus. Lower the stream rate for the task."
+        );
     return msg;
 }
 }
