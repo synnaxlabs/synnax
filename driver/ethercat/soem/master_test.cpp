@@ -3352,6 +3352,32 @@ TEST_F(SOEMMasterTest, ReadReportsAReplyLargerThanTheRead) {
     );
 }
 
+/// @brief it should report a read that the slave refused with a mailbox error, not as
+/// no reply.
+TEST_F(SOEMMasterTest, ReadReportsAMailboxError) {
+    this->initialize_with_slave();
+    this->mock->slave_infos[0].sdo_read_mailbox_errors.insert({0x8040, 0x15});
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(coe::NO_REPLY));
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: the slave refused the mailbox request"
+    );
+}
+
+/// @brief it should not blame a mailbox error from before the read for a read that got
+/// no reply.
+TEST_F(SOEMMasterTest, ReadIgnoresMailboxErrorsFromBeforeTheRead) {
+    this->initialize_with_slave();
+    ec_errort err{};
+    err.Etype = EC_ERR_TYPE_MBX_ERROR;
+    err.Slave = 1;
+    this->mock->errors.push_back(err);
+    this->mock->slave_infos[0].sdo_read_aborts[{0x8040, 0x15}] = 0;
+    ASSERT_OCCURRED_AS_P(this->master->read(1, 0x8040, 0x15), coe::NO_REPLY);
+}
+
 /// @brief it should not blame a packet error of another object for a failed read.
 TEST_F(SOEMMasterTest, ReadIgnoresPacketErrorsOfOtherObjects) {
     this->initialize_with_slave();
@@ -3365,8 +3391,7 @@ TEST_F(SOEMMasterTest, ReadIgnoresPacketErrorsOfOtherObjects) {
 TEST_F(SOEMMasterTest, ActivateRetriesAStartupParameterWithAnUnexpectedReply) {
     this->initialize_with_slave();
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
-    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0;
-    this->mock->push_packet_error(1, 0x8000, 0x19, 1);
+    this->mock->slave_infos[0].sdo_write_packet_errors[{0x8000, 0x19}] = 1;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));

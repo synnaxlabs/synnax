@@ -89,6 +89,9 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO write replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_write_packet_errors;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
@@ -585,6 +588,11 @@ public:
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
         auto &info = this->slave_infos.at(slave - 1);
+        if (const auto packet = info.sdo_write_packet_errors.find({index, sub_index});
+            packet != info.sdo_write_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
         const auto it = info.sdo_write_aborts.find({index, sub_index});
         if (it == info.sdo_write_aborts.end()) {
             uint32_t value = 0;

@@ -98,6 +98,8 @@ std::string SDOFailure::reason() const {
             return "the slave sent an unexpected reply";
         case Kind::REPLY_TOO_LARGE:
             return "the reply is larger than the read allows";
+        case Kind::MAILBOX_ERROR:
+            return "the slave refused the mailbox request";
     }
     std::unreachable();
 }

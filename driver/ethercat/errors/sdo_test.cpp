@@ -46,6 +46,10 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
         SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.reason(),
         "the reply is larger than the read allows"
     );
+    EXPECT_EQ(
+        SDOFailure{.kind = Kind::MAILBOX_ERROR}.reason(),
+        "the slave refused the mailbox request"
+    );
 }
 
 /// @brief it should treat an abort about the value as a rejection.

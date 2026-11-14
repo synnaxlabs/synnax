@@ -91,6 +91,8 @@ struct SDOFailure {
         UNEXPECTED_REPLY,
         /// @brief the reply held more data than the request had room for.
         REPLY_TOO_LARGE,
+        /// @brief the slave refused the mailbox request with a mailbox error.
+        MAILBOX_ERROR,
     };
 
     /// @brief how the transfer failed.
