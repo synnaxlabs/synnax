@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 /*
- * Windows OSAL for SOEM, copied from SOEM/osal/win32/osal.c.
+ * Windows OSAL for SOEM, copied from SOEM/osal/win32/osal.c. It does not request the
+ * 1 ms timer period: ecx_setupnic requests it and ecx_closenic ends it, so each bus
+ * session keeps it.
  */
 
 /*
@@ -20,7 +22,6 @@
 #include <osal.h>
 #include <stdlib.h>
 #include <inttypes.h>
-#include <timeapi.h>
 
 static LARGE_INTEGER sysfrequency;
 
@@ -32,7 +33,6 @@ void osal_get_monotonic_time(ec_timet *ts)
 
    if (!sysfrequency.QuadPart)
    {
-      timeBeginPeriod(1);
       QueryPerformanceFrequency(&sysfrequency);
    }
 
