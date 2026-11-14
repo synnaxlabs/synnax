@@ -99,9 +99,11 @@ struct Source {
 
     virtual ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
 
-    /// @brief unblocks a read in progress when the task stops. Called on the stopping
-    /// thread after the breaker stops, and before stop(). A read that an interrupt
-    /// ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR.
+    /// @brief unblocks a read when the task stops. Called on the stopping thread after
+    /// the breaker stops, and before stop(). It can come before the read blocks, so a
+    /// blocking call made after it must also return. A read that an interrupt ends
+    /// should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called when the
+    /// pipeline already stopped itself.
     virtual void interrupt() {}
 
     virtual ~Source() = default;

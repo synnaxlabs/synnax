@@ -67,9 +67,10 @@ public:
     /// @brief called on the pipeline thread each time the writer opens.
     virtual void writer_opened() {}
 
-    /// @brief unblocks a read in progress. Called on the stopping thread after the
-    /// breaker stops, and before the pipeline joins its thread. A read that an
-    /// interrupt ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR.
+    /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
+    /// after the breaker stops, and before the pipeline joins its thread. It can come
+    /// before the read blocks, so a blocking call made after it must also return. The
+    /// read it ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR.
     virtual void interrupt() {}
 
     virtual ~Source() = default;

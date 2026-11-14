@@ -469,6 +469,34 @@ TEST(AcquisitionPipeline, StopInterruptsBlockedRead) {
     ASSERT_NIL(source->stopped_err);
 }
 
+/// @brief a source whose read fails with a critical error.
+class FailingSource final : public Source {
+public:
+    std::atomic<int> interrupts{0};
+
+    x::errors::Error
+    read(x::breaker::Breaker &, x::telem::Frame &, Authorities &) override {
+        return x::errors::Error(errors::CRITICAL_HARDWARE_ERROR);
+    }
+
+    void interrupt() override { this->interrupts++; }
+};
+
+/// @brief it should not interrupt the source when the pipeline already stopped itself.
+TEST(AcquisitionPipeline, StopSkipsInterruptAfterPipelineStopsItself) {
+    const auto source = std::make_shared<FailingSource>();
+    auto pipeline = Acquisition(
+        std::make_shared<testutil::WriterFactory>(),
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_FALSE(pipeline.stop());
+    EXPECT_EQ(source->interrupts.load(), 0);
+}
+
 class AuthoritySource final : public Source {
     x::telem::TimeStamp start_ts;
     Authorities auth;
