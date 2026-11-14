@@ -217,6 +217,14 @@ public:
                 slave.status.settings_error = error;
     }
 
+    /// @brief sets the settings that a scan reads from the slave at position.
+    void set_settings(const uint16_t position, const x::json::json &settings) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.properties.settings = settings;
+    }
+
     /// @brief makes the serial number read of the slave at position fail with error.
     void fail_serial_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);

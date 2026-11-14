@@ -1599,10 +1599,12 @@ TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
 }
 
 /// @brief a 6xSTG that holds the mode in which DewesoftX sets it up.
-const x::json::json SHARED_SETTINGS{{"mode", {{"shared", true}}}};
+const x::json::json SHARED_SETTINGS{
+    {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
+};
 
 /// @brief it should write no settings to a slave that another program sets up when the
-/// bus starts.
+/// bus starts, and say so with the count of its device and reader settings.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
@@ -1610,9 +1612,16 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::vector{
-                saved(io_slave(1), {.startup_parameters = measurement(1, 3).at(1)})
-            },
+            std::vector{saved(
+                io_slave(1),
+                {.startup_parameters =
+                     {
+                         {.index = 0x8040,
+                          .sub_index = 2,
+                          .data_type = x::telem::UINT16_T,
+                          .value = 3},
+                     }}
+            )},
             x::errors::NIL
         };
     };
@@ -1625,14 +1634,37 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
         measurement(1, 6)
     ));
     EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+    EXPECT_EQ(
+        reader->unapplied(),
+        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "startup settings. Remove them, or switch the device to Synnax in Configure."
+    );
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
-/// running bus.
+/// running bus, and warn each reader of that slave of its skipped settings, with a
+/// reader setting that replaces a device setting counted once.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
     this->master->add_slave(shared);
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::vector{saved(
+                io_slave(1),
+                {.startup_parameters =
+                     {
+                         {.index = 0x8040,
+                          .sub_index = 2,
+                          .data_type = x::telem::UINT16_T,
+                          .value = 3},
+                     }}
+            )},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(this->engine->open_reader(
         {IN_I16},
         x::telem::Rate(100),
@@ -1643,10 +1675,40 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
         {on_slave(IN_I16, 1)},
         x::telem::Rate(100),
         1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto third = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
         this->engine->begin_start(this->cancel),
         measurement(1, 6)
     ));
+    const auto replacing = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel),
+        Settings{
+            {1,
+             {{.index = 0x8040,
+               .sub_index = 2,
+               .data_type = x::telem::UINT16_T,
+               .value = 5}}}
+        }
+    ));
     EXPECT_TRUE(this->master->written().empty());
+    const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
+                            "not apply its 1 startup setting. Remove it, or switch the "
+                            "device to Synnax in Configure.";
+    EXPECT_EQ(first->unapplied(), one);
+    EXPECT_EQ(second->unapplied(), one);
+    EXPECT_EQ(replacing->unapplied(), one);
+    EXPECT_EQ(
+        third->unapplied(),
+        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "startup settings. Remove them, or switch the device to Synnax in Configure."
+    );
 }
 
 /// @brief it should not check the settings of a slave that another program sets up

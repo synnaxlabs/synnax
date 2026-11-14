@@ -471,6 +471,65 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
 }
 
+/// @brief it should hold a warning when the bus did not apply the startup parameters of
+/// a slave that another program sets up.
+TEST_F(EtherCATWriteTest, SinkHoldsAWarningForSkippedStartupSettings) {
+    this->mock_master->set_settings(
+        1,
+        {{"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}}
+    );
+    engine::Config engine_cfg;
+    engine_cfg.slave_configs = [this] {
+        return std::pair{
+            std::vector{engine::SavedSlave{
+                .identity =
+                    {
+                        .position = 1,
+                        .vendor_id = 0x1,
+                        .product_code = 0x2,
+                        .serial = SLAVE_SERIAL,
+                        .name = "Test Slave",
+                    },
+                .config =
+                    {.startup_parameters =
+                         {
+                             {.index = 0x8040,
+                              .sub_index = 1,
+                              .data_type = x::telem::UINT16_T,
+                              .value = 6},
+                         }},
+            }},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    EXPECT_EQ(
+        sink.held_warning(),
+        (common::Warning{
+            .message = "Skipped startup settings",
+            .description = "Slave 1 (Test Slave) is set up for DewesoftX, so Synnax "
+                           "did not apply its 1 startup setting. Remove it, or switch "
+                           "the device to Synnax in Configure.",
+        })
+    );
+    ASSERT_NIL(sink.stop());
+}
+
 /// @brief it should hold a warning while its slave is lost, tell when the slave
 /// returns, and end the warning at the next command.
 TEST_F(EtherCATWriteTest, SinkHoldsAWarningWhileItsSlaveIsLost) {
