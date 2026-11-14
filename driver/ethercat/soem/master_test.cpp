@@ -1873,6 +1873,38 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
+    EXPECT_EQ(this->master->shortfall(), 2);
+}
+
+/// @brief it should report no shortfall for a working counter above the expected count.
+TEST_F(SOEMMasterTest, ReceiveReportsNoShortfallAboveTheExpectedCount) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = 4;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master->shortfall(), std::nullopt);
+}
+
+/// @brief it should give each enabled slave a working counter share of 2 for its
+/// outputs and 1 for its inputs, and none to a slave without process data.
+TEST_F(SOEMMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
+    this->add_default_slave();
+    const auto add = [this](const uint16_t ibits, const uint16_t obits) {
+        MockSlaveInfo slave;
+        slave.state = EC_STATE_PRE_OP;
+        slave.Ibits = ibits;
+        slave.Obits = obits;
+        this->add_slave(slave);
+    };
+    add(16, 0);
+    add(0, 8);
+    add(0, 0);
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, uint32_t>{{1, 3}, {2, 1}, {3, 2}})
+    );
 }
 
 /// @brief it should accept a receive whose working counter is the expected count.

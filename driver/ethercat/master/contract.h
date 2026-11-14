@@ -143,6 +143,19 @@ TYPED_TEST_P(Contract, ActivateRunsEachEnabledSlave) {
     EXPECT_EQ(health[0].state, slave::State::OP);
 }
 
+/// @brief it should give a working counter share to each enabled slave that maps
+/// input(), and none to a disabled slave.
+TYPED_TEST_P(Contract, ActivateGivesEachEnabledSlaveAWorkingCounterShare) {
+    this->bus.add_slave();
+    this->bus.add_slave();
+    ASSERT_NIL(this->bus.master().scan().second);
+    ASSERT_NIL(this->activate({{2, {.enabled = false}}}).err);
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, uint32_t>{{1, 1}})
+    );
+}
+
 /// @brief it should map every entry inside the process image.
 TYPED_TEST_P(Contract, ActivateMapsEachEntryInsideTheImage) {
     this->bus.add_slave();
@@ -225,6 +238,7 @@ REGISTER_TYPED_TEST_SUITE_P(
     ActivateFailsBeforeScan,
     ReceiveAndSendFailBeforeActivation,
     ActivateRunsEachEnabledSlave,
+    ActivateGivesEachEnabledSlaveAWorkingCounterShare,
     ActivateMapsEachEntryInsideTheImage,
     ActivateFailsTwice,
     ActivateReturnsTheRefusalOfASlave,

@@ -63,6 +63,12 @@ class Master final : public master::Master {
     x::telem::TimeStamp last_sent;
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
+    /// @brief the working counter share of each slave in the latest activation.
+    std::map<uint16_t, uint32_t> shares;
+    /// @brief the shortfall of each cycle that set_shortfall() sets.
+    std::optional<uint32_t> cycle_shortfall;
+    /// @brief what shortfall() returns.
+    std::optional<uint32_t> latest_shortfall;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -256,6 +262,14 @@ public:
         std::lock_guard lock(this->mu);
         this->start_frames = frames;
         this->short_until_op = true;
+    }
+
+    /// @brief makes each receive() take the inputs and return
+    /// errors::WORKING_COUNTER_ERROR with shortfall, as when slaves miss the cycle, or
+    /// ends that when shortfall is nullopt.
+    void set_shortfall(const std::optional<uint32_t> shortfall) {
+        std::lock_guard lock(this->mu);
+        this->cycle_shortfall = shortfall;
     }
 
     /// @brief injects an error to be returned by receive().
@@ -482,6 +496,7 @@ public:
                 .offsets = this->pdo_offset_cache,
                 .dc_sync = this->syncs,
                 .slaves = this->slave_list,
+                .working_counter_shares = this->shares,
             };
         }
         start_cycle(image);
@@ -554,6 +569,7 @@ public:
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
+        this->latest_shortfall.reset();
         if (!this->activated)
             return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
@@ -577,7 +593,17 @@ public:
             this->pending_inputs.data(),
             std::min(this->pending_inputs.size(), this->input_iomap.size())
         );
-        return x::errors::NIL;
+        if (!this->cycle_shortfall) return x::errors::NIL;
+        this->latest_shortfall = this->cycle_shortfall;
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "short by " + std::to_string(*this->cycle_shortfall)
+        );
+    }
+
+    std::optional<uint32_t> shortfall() const override {
+        std::lock_guard lock(this->mu);
+        return this->latest_shortfall;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -739,11 +765,16 @@ private:
 
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
+        this->shares.clear();
         this->input_sz = 0;
         this->output_sz = 0;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;
+            if (const uint32_t share = (props.output_pdos.empty() ? 0 : 2) +
+                                       (props.input_pdos.empty() ? 0 : 1);
+                share > 0)
+                this->shares[props.position] = share;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
                 props.position,
@@ -792,5 +823,4 @@ public:
         };
     }
 };
-
 }
