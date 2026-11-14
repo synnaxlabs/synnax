@@ -412,6 +412,9 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         .slaves = std::move(configs),
     };
     this->left_out.clear();
+    // The activation brings a restarted slave up, so changed() misses it afterwards.
+    auto [restarted, restarted_err] = this->restarted_locked();
+    if (restarted_err) return restarted_err;
     std::set<uint16_t> reset;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
@@ -424,7 +427,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
-            this->track_restarts_locked({});
+            this->track_restarts_locked(std::exchange(restarted, {}));
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
@@ -812,7 +815,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
     if (change.stale) {
         LOG(INFO) << "[ethercat] the slaves on " << this->iface
                   << " changed since the last discovery, rediscovering";
-        return this->rediscover_locked(change.restarted);
+        return this->rescan_locked(change.restarted);
     }
     this->slaves = std::move(slaves);
     this->track_restarts_locked({});
@@ -884,13 +887,28 @@ Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_in
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-Engine::rediscover_locked(const std::set<uint16_t> &restarted) {
+Engine::rediscover_locked() {
+    const auto [restarted, err] = this->restarted_locked();
+    if (err) return {{}, err};
+    return this->rescan_locked(restarted);
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::rescan_locked(const std::set<uint16_t> &restarted) {
     this->master->deactivate();
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
     this->slaves = std::move(slaves);
     this->track_restarts_locked(restarted);
     return {this->slaves, x::errors::NIL};
+}
+
+std::pair<std::set<uint16_t>, x::errors::Error> Engine::restarted_locked() {
+    if (!this->master->restarts_visible()) return {{}, x::errors::NIL};
+    auto [change, err] = this->master->changed();
+    // A master that has no scan has nothing to compare.
+    if (err.matches(errors::MASTER_INIT_ERROR)) return {{}, x::errors::NIL};
+    return {std::move(change.restarted), err};
 }
 
 void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {

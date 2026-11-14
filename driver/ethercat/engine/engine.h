@@ -215,10 +215,17 @@ class Engine {
         const std::map<uint16_t, slave::Refusal> &refused,
         const std::map<uint16_t, LeftOut> &left_out
     );
-    /// @brief scans the stopped bus again. restarted names the slaves that restarted
+    /// @brief scans the stopped bus again. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rediscover_locked();
+    /// @brief scans the stopped bus again, with restarted as the slaves that restarted
     /// since the last scan. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
-    rediscover_locked(const std::set<uint16_t> &restarted = {});
+    rescan_locked(const std::set<uint16_t> &restarted);
+    /// @brief returns the positions of the slaves that restarted since the last scan of
+    /// the master, or none when the master has no scan or cannot see a restart.
+    /// Requires mu.
+    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
     /// @brief records now as the restart time of each slave in slaves that restarted
     /// names or that the last scan did not find, and gives each slave in slaves its
     /// time. Forgets the slaves that slaves lacks. Requires mu.
