@@ -2355,6 +2355,71 @@ TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
     EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
 }
 
+/// @brief it should count a lost slave that comes back in INIT while the bus runs as
+/// restarted, as a slave does after a power restart.
+TEST_F(EngineTest, RunningBusCountsASlaveBackInInitAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].operational()
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should not count a lost slave that comes back in SAFE-OP while the bus
+/// runs as restarted, as a slave does after a cable pull.
+TEST_F(EngineTest, RunningBusCountsASlaveBackInSafeOpAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].operational()
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should not count a slave that drops to INIT while it still answers as
+/// restarted.
+TEST_F(EngineTest, RunningBusCountsASlaveInInitThatStillAnswersAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
 /// @brief it should count a slave that the last scan did not find as restarted.
 TEST_F(EngineTest, RediscoverCountsANewSlaveAsRestarted) {
     const auto clock = x::loop::fake_clock();

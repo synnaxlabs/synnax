@@ -86,7 +86,9 @@ class Engine {
     /// @brief the vendor, product, and serial number of a slave, and its position when
     /// it has no serial number.
     using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
-    /// @brief the time of the last restart of each slave in slaves. Guarded by mu.
+    /// @brief guards restarts, which the supervisor writes without mu.
+    std::mutex restarts_mu;
+    /// @brief the time of the last restart of each slave in slaves.
     std::map<RestartKey, x::telem::TimeStamp> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
@@ -268,6 +270,7 @@ class Engine {
     /// names or that the last scan did not find, and gives each slave in slaves its
     /// time. Forgets the slaves that slaves lacks. Requires mu.
     void track_restarts_locked(const std::set<uint16_t> &restarted);
+    [[nodiscard]] static RestartKey restart_key(const slave::Properties &props);
     /// @brief locks mu without waiting behind an open_reader or open_writer.
     /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
     std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
