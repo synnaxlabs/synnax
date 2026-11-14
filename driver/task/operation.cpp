@@ -23,8 +23,8 @@ Operation::Operation(
     const x::telem::TimeSpan limit
 ):
     cmd(std::move(cmd)),
-    write(std::move(write)),
     task(task),
+    write(std::move(write)),
     name(std::move(name)),
     config_hash(std::move(config_hash)),
     step_started(x::telem::TimeStamp::now()),
@@ -51,6 +51,7 @@ bool Operation::cancel(const synnax::task::Command &stop) {
     {
         std::lock_guard lock{this->mu};
         if (this->finished || this->closed) return false;
+        this->stopped = !stop.type.empty();
         if (!stop.key.empty()) this->stopping = stop;
         LOG(INFO) << "[task.operation] cancelling " << this->cmd << " on task "
                   << this->name;
@@ -176,10 +177,33 @@ void Operation::check(const x::telem::TimeStamp now) {
 }
 
 std::vector<synnax::task::Command> Operation::close() {
-    std::scoped_lock lock{this->write_mu, this->mu};
-    this->closed = true;
-    // Whatever cancelled the start came after its joined starts.
-    if (this->finished || !this->breaker.running()) return {};
-    return std::exchange(this->joined, {});
+    std::lock_guard write_lock{this->write_mu};
+    synnax::task::Status status;
+    std::vector<std::string> keys;
+    {
+        std::lock_guard lock{this->mu};
+        this->closed = true;
+        if (this->finished) return {};
+        if (this->breaker.running()) return std::exchange(this->joined, {});
+        if (this->cmd.type != synnax::task::START_CMD_TYPE) return {};
+        this->finished = true;
+        keys = this->keys();
+        status.owner = synnax::task::resource_id(this->task);
+        status.name = this->name;
+        status.details.running = false;
+        status.details.config_hash = this->config_hash;
+        if (this->stopped) {
+            status.variant = synnax::status::VARIANT_SUCCESS;
+            status.message = "Stopped task";
+            status.description = "A stop ended the start before it finished.";
+        } else {
+            status.variant = synnax::status::VARIANT_ERROR;
+            status.message = "Failed to start task";
+            status.description = "The Driver stopped while the task was starting. "
+                                 "Start the task again.";
+        }
+    }
+    this->send(std::move(status), keys);
+    return {};
 }
 }

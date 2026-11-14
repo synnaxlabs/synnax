@@ -52,6 +52,8 @@ public:
 
     /// @brief the command the operation runs.
     const synnax::task::Command cmd;
+    /// @brief the task the operation runs on.
+    const synnax::task::Key task;
 
     /// @brief records the name and config of the task, once a fetch knows them.
     void set_task(const std::string &name, const std::string &config_hash);
@@ -65,6 +67,8 @@ public:
 
     /// @brief cancels a start that has no final status yet. A stop with a key gets a
     /// loading status on the next check, so its sender knows the stop arrived.
+    /// @param stop the stop command that cancels the start, or empty when the task
+    /// manager cancels it as it stops its tasks.
     /// @returns true if the operation was cancelled.
     bool cancel(const synnax::task::Command &stop = {});
 
@@ -94,14 +98,14 @@ public:
 
     /// @brief stops the statuses of check, once the worker is done with the operation.
     /// Waits for a check in progress, so no status of check follows a status that the
-    /// task sends after this call.
+    /// task sends after this call. A cancelled start with no final status gets one
+    /// here, and so does each start that joined it.
     /// @returns the joined starts that got no final status, or none if the operation
     /// was cancelled. The caller runs them as their own commands.
     std::vector<synnax::task::Command> close();
 
 private:
     const Writer write;
-    const synnax::task::Key task;
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.operation"}};
     /// @brief orders the writes of the operation, so no step follows the final status.
     /// Taken before mu.
@@ -121,6 +125,8 @@ private:
     x::telem::TimeStamp step_started;
     x::telem::TimeSpan limit;
     bool warned = false;
+    /// @brief true when a stop command cancelled the operation.
+    bool stopped = false;
     bool finished = false;
     bool closed = false;
 

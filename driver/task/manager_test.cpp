@@ -15,6 +15,7 @@
 #include <future>
 #include <mutex>
 #include <set>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -349,6 +350,8 @@ public:
     x::telem::TimeSpan step_limit = x::telem::TimeSpan(0);
     /// @brief true when a start sends no final status.
     bool silent = false;
+    /// @brief the context of the last configured task.
+    std::shared_ptr<Context> ctx;
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -357,6 +360,7 @@ public:
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        this->ctx = ctx;
         return {
             std::make_unique<
                 SlowStartTask>(ctx, task, release, starts, step_limit, silent),
@@ -2022,9 +2026,9 @@ TEST_F(TaskManagerTest, ManagerStopCancelsARunningStart) {
     EXPECT_EQ(s.message, "start cancelled");
 }
 
-/// @brief it should not run a joined start again when the task manager stops, even
-/// when the start that it joined ends with no final status.
-TEST_F(TaskManagerTest, ManagerStopDropsJoinedStarts) {
+/// @brief it should fail a start that ends with no final status when the task manager
+/// stops, and each start that joined it, without running the joined start again.
+TEST_F(TaskManagerTest, ManagerStopFailsASilentStartAndItsJoin) {
     auto factory = std::make_unique<SlowStartTaskFactory>();
     factory->silent = true;
     auto *f = factory.get();
@@ -2048,6 +2052,69 @@ TEST_F(TaskManagerTest, ManagerStopDropsJoinedStarts) {
     thread.join();
     EXPECT_LT(x::telem::TimeStamp::now() - stopping, 5 * x::telem::SECOND);
     EXPECT_EQ(f->starts.load(), 1);
+    std::unordered_map<std::string, synnax::task::Status> finals;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        if (s.variant != synnax::status::VARIANT_LOADING) finals[s.details.cmd] = s;
+        return finals.contains("start-cmd") && finals.contains("start-2");
+    });
+    for (const auto &key: {"start-cmd", "start-2"}) {
+        EXPECT_EQ(finals[key].variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(finals[key].message, "Failed to start task");
+    }
+}
+
+/// @brief it should answer a start that a stop cancelled, and each start that joined
+/// it, once, when the start ends with no final status. A late answer from the task
+/// answers nothing.
+TEST_F(TaskManagerTest, StopAnswersASilentStartAndItsJoinOnce) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    factory->silent = true;
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_start(client, task, "start-2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-2";
+    });
+    send_stop(client, task);
+    std::unordered_map<std::string, synnax::task::Status> finals;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        if (s.variant != synnax::status::VARIANT_LOADING) finals[s.details.cmd] = s;
+        return finals.contains("start-cmd") && finals.contains("start-2") &&
+               finals.contains("stop-cmd");
+    });
+    for (const auto &key: {"start-cmd", "start-2"}) {
+        EXPECT_EQ(finals[key].variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(finals[key].message, "Stopped task");
+        EXPECT_EQ(
+            finals[key].description,
+            "A stop ended the start before it finished."
+        );
+    }
+    EXPECT_EQ(finals["stop-cmd"].message, "stopped");
+    EXPECT_EQ(f->starts.load(), 1);
+    synnax::task::Status late{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "started late",
+        .details = {.cmd = "start-cmd", .config_hash = task.config_hash},
+        .owner = synnax::task::resource_id(task.key),
+    };
+    f->ctx->set_status(late);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "started late"; }
+    );
+    EXPECT_EQ(s.details.cmd, "");
 }
 
 TEST_F(TaskManagerTest, CommandFIFO) {

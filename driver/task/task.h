@@ -152,10 +152,13 @@ class SynnaxContext final : public Context {
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
-    /// @brief guards operations.
+    /// @brief guards operations and cancelled.
     std::mutex operations_mu;
-    /// @brief the open operations, by the key of their command.
+    /// @brief the open operations and the cancelled ones, by the key of their command.
     std::unordered_map<std::string, std::shared_ptr<Operation>> operations;
+    /// @brief the last cancelled operation of each task. It stays in operations, so a
+    /// late answer from its task answers nothing.
+    std::unordered_map<synnax::task::Key, std::shared_ptr<Operation>> cancelled;
 
     /// @returns the open operation of the command that status answers, or null.
     std::shared_ptr<Operation> operation(const synnax::task::Status &status) {
@@ -236,17 +239,26 @@ public:
         return op;
     }
 
-    /// @brief stops sending the statuses of op through it and closes op. A later
-    /// status for its command is written as it is.
+    /// @brief closes op. A later status for its command is written as it is, unless
+    /// op was cancelled. Then the status still goes through op, so it answers nothing.
     /// @returns the joined starts that got no final status.
     std::vector<synnax::task::Command> end(const std::shared_ptr<Operation> &op) {
-        {
-            std::lock_guard lock{this->operations_mu};
-            const auto it = this->operations.find(op->cmd.key);
-            if (it != this->operations.end() && it->second == op)
-                this->operations.erase(it);
+        auto joined = op->close();
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->operations.find(op->cmd.key);
+        if (it == this->operations.end() || it->second != op) return joined;
+        if (op->token().running()) {
+            this->operations.erase(it);
+            return joined;
         }
-        return op->close();
+        auto &last = this->cancelled[op->task];
+        if (last != nullptr) {
+            const auto prev = this->operations.find(last->cmd.key);
+            if (prev != this->operations.end() && prev->second == last)
+                this->operations.erase(prev);
+        }
+        last = op;
+        return joined;
     }
 };
 
