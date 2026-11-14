@@ -98,6 +98,13 @@ describe("issue.validate", () => {
     expect(() => validate({ ...base, channels: -1 })).toThrow("Channels must be");
   });
 
+  it("should reject a channel cap that a Postgres integer cannot hold", () => {
+    expect(() => validate({ ...base, channels: 2 ** 31 - 1 })).not.toThrow();
+    expect(() => validate({ ...base, channels: 2 ** 31 })).toThrow(
+      "Channels must be a whole number, 0 for unlimited",
+    );
+  });
+
   it("should require a label", () => {
     expect(() => validate({ ...base, label: "" })).toThrow("Give the license a label");
   });
