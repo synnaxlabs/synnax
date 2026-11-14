@@ -30,7 +30,7 @@ namespace {
 /// @brief a loader for a network with no saved slave settings.
 const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
                                                  const std::string &) {
-    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    return std::pair{std::vector<engine::SavedSlave>{}, x::errors::NIL};
 };
 }
 
@@ -627,6 +627,44 @@ TEST_F(EtherCATScanStatusTest, KeepsTheDeviceOfASlaveWhoseSerialReadFails) {
     EXPECT_EQ(scanned.at(0).properties.at("serial"), 777);
 }
 
+/// @brief it should keep the stored properties of a slave below PRE-OP, show that it is
+/// starting up, and read it at the next rediscovery.
+TEST_F(EtherCATScanStatusTest, ShowsASlaveBelowPreOpAsStartingUp) {
+    this->master->set_starting(1, true);
+    Devices devices;
+    store(devices, "saved", identity(1, 0x2, 12345));
+    for (size_t i = 0; i < 6; ++i) {
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = i, .devices = &devices})
+        );
+        ASSERT_EQ(scanned.size(), 1);
+        EXPECT_EQ(scanned.at(0).key, "saved");
+        EXPECT_EQ(scanned.at(0).properties, devices.at("saved").properties);
+        const auto status = scanned.at(0).status.value();
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+        EXPECT_EQ(status.message, "Starting up");
+        EXPECT_EQ(
+            status.description,
+            "The module was not ready when the Driver scanned the network. The Driver "
+            "reads it again on a later scan. If the module stays in this status, "
+            "restart its power."
+        );
+    }
+    this->master->set_starting(1, false);
+    const auto read = ASSERT_NIL_P(
+        this->scanner->scan({.count = 6, .devices = &devices})
+    );
+    ASSERT_EQ(read.size(), 1);
+    EXPECT_EQ(read.at(0).key, "saved");
+    EXPECT_EQ(read.at(0).status.value().message, "Discovered (1 inputs, 0 outputs)");
+}
+
+/// @brief it should save no new device for a slave below PRE-OP.
+TEST_F(EtherCATScanStatusTest, SkipsANewSlaveBelowPreOp) {
+    this->master->set_starting(1, true);
+    EXPECT_TRUE(ASSERT_NIL_P(this->scanner->scan({.count = 0})).empty());
+}
+
 /// @brief it should show a failed PDO discovery as a warning that says the Driver tries
 /// again.
 TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
@@ -640,6 +678,125 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryShowsAWarning) {
         "No PDO objects found in object dictionary. Channels can use only the entries "
         "a scan discovers. The Driver tries again while no task uses the port."
     );
+}
+
+namespace {
+/// @brief the device key of the slave of EtherCATScanStatusTest.
+const std::string SLAVE_KEY = "ethercat_1_2_12345";
+
+/// @brief an input entry of object 0x6000 at sub_index.
+pdo::Properties input(const uint8_t sub_index) {
+    return {
+        .pdo_index = 0x1A00,
+        .index = 0x6000,
+        .sub_index = sub_index,
+        .bit_length = 16,
+        .is_input = true,
+        .data_type = x::telem::INT16_T,
+    };
+}
+
+/// @brief the slave of EtherCATScanStatusTest with inputs and the settings of a card
+/// that holds mode value. Each entry of only_read alone reads input 0x6000:1.
+slave::Properties card(
+    std::vector<pdo::Properties> inputs,
+    const int value,
+    const std::vector<std::string> &only_read = {}
+) {
+    auto props = identity(1, 0x2, 12345);
+    props.input_pdos = std::move(inputs);
+    x::json::json channels = x::json::json::array();
+    for (const auto &reader: only_read)
+        channels.push_back({
+            {"entries",
+             {{{"index", 0x6000}, {"sub_index", 1}, {"only_read_by", reader}}}},
+            {"settings", x::json::json::array()},
+            {"requires", x::json::json::array()},
+        });
+    props.settings = x::json::json{
+        {"device", x::json::json::array()},
+        {"channels", channels},
+        {"mode", {{"value", value}, {"shared", false}}},
+    };
+    return props;
+}
+}
+
+/// @brief it should keep the stored PDOs of a slave whose PDO read is not complete, and
+/// count them in the status.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredPDOsOfAnIncompleteRead) {
+    Devices devices;
+    const auto stored = card({input(1), input(2)}, 1);
+    store(devices, SLAVE_KEY, stored);
+    this->master->replace_slave(1, card({input(1)}, 1));
+    this->master->fall_back_pdo_discovery(
+        1,
+        "failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII"
+    );
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), stored.to_json().at("pdos"));
+    const auto status = dev.status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (2 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the PDO layout: no answer, so the Driver uses the PDOs in its "
+        "SII. PDO order may be unreliable. Verify data correctness after "
+        "configuration. The device keeps the PDOs of an earlier scan in place of the "
+        "PDOs of this scan."
+    );
+}
+
+/// @brief it should keep the stored settings of a slave whose settings read fails, and
+/// give the status of the stored mode.
+TEST_F(EtherCATScanStatusTest, GivesTheStatusOfTheStoredSettingsAfterAFailedRead) {
+    Devices devices;
+    const auto stored = card({input(1)}, 1, {"DewesoftX"});
+    store(devices, SLAVE_KEY, stored);
+    auto scanned = card({input(1)}, 1);
+    scanned.settings.reset();
+    this->master->replace_slave(1, scanned);
+    this->master->fail_settings_read(1, "failed to read 0x8020:09: no response");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("settings"), stored.to_json().at("settings"));
+    EXPECT_EQ(dev.status.value().message, "Set up for DewesoftX");
+}
+
+/// @brief it should keep the stored PDOs of a slave whose stored device holds no mode.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredPDOsOfADeviceWithNoStoredMode) {
+    Devices devices;
+    auto stored = card({input(1), input(2)}, 1);
+    stored.settings.reset();
+    store(devices, SLAVE_KEY, stored);
+    this->master->replace_slave(1, card({input(1)}, 1));
+    this->master->fall_back_pdo_discovery(1, "failed to read the PDO layout");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), stored.to_json().at("pdos"));
+}
+
+/// @brief it should replace the stored PDOs with an incomplete read of a slave that
+/// holds another mode.
+TEST_F(EtherCATScanStatusTest, ReplacesTheStoredReadOfASlaveInAnotherMode) {
+    Devices devices;
+    store(devices, SLAVE_KEY, card({input(1), input(2)}, 1));
+    const auto scanned = card({input(1)}, 2);
+    this->master->replace_slave(1, scanned);
+    this->master->fall_back_pdo_discovery(1, "failed to read the PDO layout");
+    const auto dev = ASSERT_NIL_P(
+                         this->scanner->scan({.count = 0, .devices = &devices})
+    )
+                         .at(0);
+    EXPECT_EQ(dev.properties.at("pdos"), scanned.to_json().at("pdos"));
 }
 
 /// @brief it should show the PDOs of a fallback discovery with its error as a warning.
@@ -941,9 +1098,12 @@ TEST_F(EtherCATScanStatusTest, DiscoveredSlavesAreNotRediscovered) {
 /// @brief it should show a slave in OP on a running bus as operational.
 TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 1);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
@@ -955,9 +1115,12 @@ TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
 /// description.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->fault_slave(1, slave::State::SAFE_OP, "Sync manager watchdog");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
@@ -977,9 +1140,12 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
 /// the master reads no AL status code.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->fault_slave(1, slave::State::SAFE_OP, "");
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
@@ -996,9 +1162,12 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
 /// @brief it should show the startup parameter that a slave rejected as a sentence.
 TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASentence) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_state(1, slave::State::PRE_OP);
     this->master->fail_startup(
         1,
@@ -1022,9 +1191,12 @@ TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASenten
 /// as an error that tells why.
 TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_state(1, slave::State::PRE_OP);
     this->master->fail_dc_restore(1, "no slave latched its receive time");
     ASSERT_EVENTUALLY_TRUE(
@@ -1045,9 +1217,12 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
 /// @brief it should show a lost slave as not responding.
 TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].lost);
     const auto status = this->scan_status();
@@ -1071,9 +1246,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     );
     this->master->refuse(2, {.reason = "refused SAFE-OP: Inconsistent settings"});
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
     const auto devices = ASSERT_NIL_P(
         this->scanner->scan(common::ScannerContext{.count = 1})
@@ -1113,9 +1291,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
          .advice = slave::DC_SYNC_ADVICE}
     );
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_EQ(engine->health().size(), 2);
     const auto devices = ASSERT_NIL_P(
         this->scanner->scan(common::ScannerContext{.count = 1})
@@ -1140,9 +1321,12 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
 /// to OP.
 TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {this->entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->set_slave_state(1, slave::State::PRE_OP);
     ASSERT_EVENTUALLY_TRUE(
@@ -1416,11 +1600,41 @@ protected:
         return devices.at(0).status.value();
     }
 
+    /// @brief the key of the device of the slave.
+    [[nodiscard]] std::string device_key() const {
+        return "ethercat_1_2_" + std::to_string(this->props.serial);
+    }
+
+    /// @brief stores the device of the slave in the Core with a switch at time, and
+    /// scans once with the device that the Core gives back. Returns the status of the
+    /// only slave device.
+    [[nodiscard]] synnax::device::Status scan_switched_at(const int64_t time) const {
+        synnax::device::Device dev{
+            .key = this->device_key(),
+            .rack = this->rack.key,
+            .location = "eth0.Slot 1",
+            .make = INTEGRATION_NAME,
+            .model = SLAVE_DEVICE_MODEL,
+            .name = "Test Slave",
+            .properties = this->props.to_json(),
+        };
+        dev.properties["switched_at"] = time;
+        EXPECT_NIL(this->client->devices.create(dev));
+        Devices devices{
+            {dev.key, ASSERT_NIL_P(this->client->devices.retrieve(dev.key))},
+        };
+        const auto scanned = ASSERT_NIL_P(
+            this->scanner->scan({.count = 1, .devices = &devices})
+        );
+        EXPECT_EQ(scanned.size(), 1);
+        return scanned.at(0).status.value();
+    }
+
     /// @brief creates the device of the slave and sends the set_standalone command for
     /// it. Returns the status that the command sets.
     synnax::task::Status set_standalone() {
         synnax::device::Device dev{
-            .key = "ethercat_1_2_" + std::to_string(this->props.serial),
+            .key = this->device_key(),
             .rack = this->rack.key,
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
@@ -1498,6 +1712,43 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     EXPECT_EQ(status.description, "");
 }
 
+/// @brief returns the slave in Synnax mode with a catalog that marks no entry, as an
+/// unmarked slave reads after a switch.
+[[nodiscard]] slave::Properties unmarked_in_synnax_mode(slave::Properties props) {
+    props.settings.value()["channels"] = x::json::json::array();
+    props.settings.value()["mode"]["switch"] = x::json::json::array();
+    props.settings.value()["mode"]["value"] = 0;
+    return props;
+}
+
+/// @brief it should ask for a power restart of a slave with an unmarked catalog until
+/// the slave restarts after its switch.
+TEST_F(EtherCATScanModeTest, AsksForARestartOfAnUnmarkedSlaveUntilItRestarts) {
+    this->start(true);
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto held = this->scan_status();
+    EXPECT_EQ(held.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(held.message, "Restart the power of the device");
+    EXPECT_EQ(
+        held.description,
+        "Synnax cannot tell if the switch took effect until the device restarts."
+    );
+    EXPECT_EQ(this->scan_status().message, held.message);
+    this->master->restart_slave(1);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should not ask for a power restart of an unmarked slave when its master
+/// cannot see a restart.
+TEST_F(EtherCATScanModeTest, DoesNotAskForARestartWhenTheMasterSeesNoRestart) {
+    this->start(true);
+    this->master->hide_restarts();
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
+}
+
 /// @brief it should ask for bus 1 before the power restart of a switched slave on bus
 /// 2.
 TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
@@ -1534,9 +1785,12 @@ TEST_F(EtherCATScanModeTest, ShowsTheLiveHealthOverTheSetupWarning) {
     this->start(true);
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && engine->health()[0].operational()
     );
@@ -1581,6 +1835,87 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
             {1, this->standalone},
         })
     );
+}
+
+/// @brief it should write the time of a switch with the properties of each scan, also
+/// when the devices of the scan do not hold it.
+TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
+    this->start(true);
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    Devices devices;
+    store(devices, this->device_key(), this->props);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    const auto at = x::telem::TimeStamp(
+        scanned.at(0).properties.at("switched_at").get<int64_t>()
+    );
+    EXPECT_GE(at, before);
+    EXPECT_LE(at, x::telem::TimeStamp::now());
+}
+
+/// @brief it should find no change in a switch time that the Core gives back as a
+/// double.
+TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
+    this->start(true);
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto first = ASSERT_NIL_P(this->scanner->scan({.count = 1}));
+    ASSERT_EQ(first.size(), 1);
+    const auto key = first.at(0).key;
+    ASSERT_NIL(this->client->devices.dispatch(
+        key,
+        {synnax::device::set({
+            .path = {"properties"},
+            .value = x::json::json(first.at(0).properties),
+        })}
+    ));
+    Devices devices{{key, ASSERT_NIL_P(this->client->devices.retrieve(key))}};
+    const auto second = ASSERT_NIL_P(
+        this->scanner->scan({.count = 2, .devices = &devices})
+    );
+    ASSERT_EQ(second.size(), 1);
+    EXPECT_EQ(
+        x::json::json(second.at(0).properties),
+        x::json::json(devices.at(key).properties)
+    );
+}
+
+/// @brief it should warn about a slave that left Synnax mode after a switch, and give
+/// the time of the switch.
+TEST_F(EtherCATScanModeTest, WarnsAboutASlaveThatLeftSynnaxModeAfterASwitch) {
+    this->start(true);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX again");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went "
+        "back to DewesoftX mode. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should warn about a switched slave that holds a mode that its catalog
+/// does not list.
+TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
+    this->start(false, 0x6041);
+    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Left Synnax mode");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
+        "a mode that its catalog does not list. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should not warn about a switched slave that is still in Synnax mode.
+TEST_F(EtherCATScanModeTest, DoesNotWarnAboutASwitchedSlaveInSynnaxMode) {
+    this->start(false, 0x6041);
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should write nothing to a slave that already runs Synnax only.
@@ -1712,9 +2047,12 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     this->start(true);
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    const auto reader = ASSERT_NIL_P(
-        engine->open_reader({entry}, x::telem::Rate(100), 1)
-    );
+    const auto reader = ASSERT_NIL_P(engine->open_reader(
+        {entry},
+        x::telem::Rate(100),
+        1,
+        engine->begin_start(this->cancel)
+    ));
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
@@ -1731,8 +2069,13 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskStartsTheBus) {
     this->master->hold_activate();
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
-    std::thread opener([&engine, &entry] {
-        auto [reader, err] = engine->open_reader({entry}, x::telem::Rate(100), 1);
+    std::thread opener([this, &engine, &entry] {
+        auto [reader, err] = engine->open_reader(
+            {entry},
+            x::telem::Rate(100),
+            1,
+            engine->begin_start(this->cancel)
+        );
     });
     this->master->wait_until_activating();
     const auto status = this->set_standalone();

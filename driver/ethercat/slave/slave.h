@@ -293,6 +293,31 @@ struct Properties {
         return this->settings->at("mode").value("shared", false);
     }
 
+    /// @brief returns the program that alone reads an input entry of the slave, or an
+    /// empty string when Synnax can read each of them.
+    [[nodiscard]] std::string only_reader() const {
+        if (!this->settings || !this->settings->contains("channels")) return "";
+        for (const auto &channel: this->settings->at("channels"))
+            for (const auto &entry: channel.at("entries"))
+                if (entry.contains("only_read_by") &&
+                    this->find_pdo(
+                        entry.at("index").get<uint16_t>(),
+                        entry.at("sub_index").get<uint8_t>(),
+                        true
+                    ))
+                    return entry.at("only_read_by").get<std::string>();
+        return "";
+    }
+
+    /// @brief whether the card was switched to Synnax but still runs the layout of
+    /// another program, as until its power restarts.
+    [[nodiscard]] bool switched() const {
+        if (!this->settings || !this->settings->contains("mode")) return false;
+        const auto &mode = this->settings->at("mode");
+        return mode.contains("switch") && mode.at("switch").empty() &&
+               !this->only_reader().empty();
+    }
+
     /// @brief parses slave properties from JSON.
     static Properties parse(x::json::Parser &parser) {
         Properties props;
@@ -374,16 +399,25 @@ struct Status {
     /// @brief why the read of the serial number got no answer, or empty when the slave
     /// answered. The serial number of a slave with one is not known.
     std::string serial_error;
+    /// @brief whether the slave was below PRE-OP when the master read it. The master
+    /// then reads only its SII, such as its identity, PDOs, and sync modes.
+    bool starting = false;
+
+    /// @brief whether the master did not read the serial number of the slave. The
+    /// serial number from its SII can then be wrong.
+    [[nodiscard]] bool serial_unread() const {
+        return this->starting || !this->serial_error.empty();
+    }
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
 /// message about one or more such slaves ends with it once.
-inline constexpr std::string_view DC_SYNC_ADVICE =
+inline const std::string DC_SYNC_ADVICE =
     "To fix \"Invalid DC SYNC configuration\", right-click the device, select "
     "Configure, and pick another sync mode.";
 
 /// @brief advice for a slave that reports an invalid input or output configuration.
-inline constexpr std::string_view
+inline const std::string
     MODE_RESTART_ADVICE = "If the mode of the device changed, restart its power.";
 
 /// @brief why the bus started without a slave that refused a state.
@@ -393,7 +427,7 @@ struct Refusal {
     std::string reason;
     /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
     /// for none. Each message about the refusal ends with it.
-    std::string_view advice;
+    std::string advice;
     /// @brief the AL status code of the refusal, or 0 when the master cannot read it.
     uint16_t code = 0;
 
@@ -449,6 +483,9 @@ struct Health {
 struct DiscoveryResult {
     Properties properties;
     Status status;
+    /// @brief when the Engine last saw the slave restart, or std::nullopt when its
+    /// master cannot see a restart. The first scan of the Engine counts as one.
+    std::optional<x::telem::TimeStamp> restarted_at;
 };
 
 /// @brief gives serial number 0 to each slave that has the vendor, product, and serial
@@ -501,33 +538,36 @@ inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
 /// @brief finds each saved slave on bus. A slave with a serial number is the unit with
 /// its vendor, product, and serial number at any position. A unit at the saved
 /// position of a slave goes to that slave before a moved slave takes it. A slave with
-/// serial number 0 is the slave of its model at its saved position, unless a slave
-/// with a serial number found it. Several slaves with serial number 0 can find one
-/// slave on bus.
+/// serial number 0 is the slave of its model at its saved position, unless a slave with
+/// a serial number found it. So is a slave that found no unit, when the serial number
+/// of the slave at its saved position is unread. Several slaves can find one slave on
+/// bus this way.
 /// @returns the position on bus of saved[i] at index i, or nullopt when it is not on
 /// bus.
 [[nodiscard]] inline std::vector<std::optional<uint16_t>>
 locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus) {
     std::vector<std::optional<uint16_t>> found(saved.size());
-    const auto at = [&bus](const uint16_t position) -> const Properties * {
+    const auto at = [&bus](const uint16_t position) -> const DiscoveryResult * {
         const auto it = std::ranges::find(bus, position, [](const DiscoveryResult &d) {
             return d.properties.position;
         });
-        return it == bus.end() ? nullptr : &it->properties;
+        return it == bus.end() ? nullptr : &*it;
+    };
+    const auto known_unit = [](const Identity &s, const DiscoveryResult &live) {
+        return !live.status.serial_unread() && s.same_unit(live.properties);
     };
     std::set<uint16_t> units;
     const auto order = by_position(saved);
     for (const auto i: order)
         if (const auto *live = at(saved[i].position);
-            saved[i].serial != 0 && live != nullptr && saved[i].same_unit(*live)) {
-            found[i] = live->position;
-            units.insert(live->position);
+            saved[i].serial != 0 && live != nullptr && known_unit(saved[i], *live)) {
+            found[i] = saved[i].position;
+            units.insert(saved[i].position);
         }
     for (const auto i: order) {
         if (saved[i].serial == 0 || found[i]) continue;
         const auto it = std::ranges::find_if(bus, [&](const DiscoveryResult &d) {
-            return !units.contains(d.properties.position) &&
-                   saved[i].same_unit(d.properties);
+            return !units.contains(d.properties.position) && known_unit(saved[i], d);
         });
         if (it == bus.end()) continue;
         found[i] = it->properties.position;
@@ -535,11 +575,12 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
     }
     for (const auto i: order) {
         const auto &s = saved[i];
-        if (s.serial != 0 || units.contains(s.position)) continue;
-        if (const auto *live = at(s.position); live != nullptr &&
-                                               live->vendor_id == s.vendor_id &&
-                                               live->product_code == s.product_code)
-            found[i] = s.position;
+        const auto *live = at(s.position);
+        if (found[i] || units.contains(s.position) || live == nullptr ||
+            live->properties.vendor_id != s.vendor_id ||
+            live->properties.product_code != s.product_code)
+            continue;
+        if (s.serial == 0 || live->status.serial_unread()) found[i] = s.position;
     }
     return found;
 }

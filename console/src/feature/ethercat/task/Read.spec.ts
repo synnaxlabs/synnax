@@ -26,6 +26,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import {
   createCalibratedDescription,
   createDewesoftXSettings,
+  createExcitationDescription,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -97,6 +98,23 @@ const deployRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) 
   rendered.unmount();
   return deployed;
 };
+
+/**
+ * Marks the slave as connected, as a scan does. The Core clears the mark on each device
+ * of a rack that is silent for 5 s, so the slave needs a rack that its spec creates.
+ */
+const markConnected = async (slave: Pick<device.Device, "key" | "name" | "rack">) =>
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Device connected",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
+
+const createRack = async () =>
+  await client.racks.create({ name: uniqueName("ecat_rack") });
 
 const awaitStatus = async (
   statuses: Status.NotificationSpec[],
@@ -384,7 +402,144 @@ describe("Read", () => {
       await screen.findByText("DewesoftX sets the settings of this device."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
-    expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
+  });
+
+  it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Switch it to Synnax before you ` +
+          "start the task.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+  });
+
+  it("should ask to set up in DewesoftX a slave that Synnax cannot switch", async () => {
+    const settings = createDewesoftXSettings(true);
+    if (settings.mode == null) throw new Error("DewesoftX settings have no mode");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: { ...settings, mode: { ...settings.mode, switch: [] } },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
+          "DewesoftX before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should add the DewesoftX step to a task-wide error", async () => {
+    const shared = await createSharedSlave();
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth1",
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    expect(
+      await screen.findByText(
+        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+          `one network. Slave ${shared.name} is set up for DewesoftX. Switch it to ` +
+          "Synnax before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should not warn of a slave in DewesoftX mode that only disabled channels use", async () => {
+    const shared = await createSharedSlave();
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    const stale = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+          disabled: true,
+        },
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    // The whole text matches only when the error carries no DewesoftX step.
+    expect(
+      await screen.findByText(
+        `Slaves ${other.name} and ${stale.name} are both at position ${position} on ` +
+          "eth0. Delete the one that is not on the network.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
+    const slave = await createSharedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(deployed.config.channels[0].channel).not.toBe(0);
+  });
+
+  it("should note a moved excitation voltage until the next change", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createExcitationDescription(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...EXCITATION, value: 24 }] },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Bipolar/ }));
+    expect(
+      await screen.findByText("Excitation voltage changed from 24 V to 12 V."),
+    ).toBeTruthy();
+    // The value stays at 12 V, so a change back to unipolar moves nothing.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Excitation polarity/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: /Unipolar/ }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Excitation voltage changed from 24 V to 12 V."),
+      ).toBeNull(),
+    );
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -694,26 +849,6 @@ describe("Read", () => {
     );
   });
 
-  it("should block configuration when two channels use the same entry", async () => {
-    const slave = await createRepeatedNameSlave(client, testRack.key);
-    const { inputs } = createRepeatedNamePDOs();
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [
-        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
-        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
-      ],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `More than one channel uses entry 0x6030:01 on slave ${slave.name}\\. ` +
-          "Pick a different entry for one of them\\.$",
-      ),
-    );
-  });
-
   it("should show why a channel that shares an entry cannot run, and mark the entry in use", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
@@ -742,7 +877,94 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should block configuration of a slave at the position of another device", async () => {
+  describe("a slave with the serial number of another device", () => {
+    const createIdentity = () => ({
+      vendorId: 0xde,
+      productCode: 0x5,
+      serial: Math.floor(Math.random() * 2 ** 31) + 1,
+    });
+
+    const createPair = async (overrides: { position?: number } = {}) => {
+      const identity = { ...overrides, ...createIdentity() };
+      const ownRack = await createRack();
+      const stale = await createSlaveDevice(client, ownRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const connected = await createSlaveDevice(client, ownRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      await markConnected(connected);
+      return { stale, connected, serial: identity.serial };
+    };
+
+    it("should name the device that is not connected", async () => {
+      const { stale, connected, serial } = await createPair();
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+      });
+      expect(
+        await screen.findByText(
+          `Slaves ${stale.name} and ${connected.name} have the same serial number ` +
+            `${serial}. Delete ${stale.name}, which is not connected.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should report only the position of a pair at one position", async () => {
+      const position = Math.floor(Math.random() * 2 ** 31);
+      const { stale, connected } = await createPair({ position });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+      });
+      // The whole text matches only when the error carries no serial problem.
+      expect(
+        await screen.findByText(
+          `Slaves ${stale.name} and ${connected.name} are both at position ` +
+            `${position} on eth0. Delete ${stale.name}, which is not connected.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should report no device with the serial number on another network", async () => {
+      const identity = createIdentity();
+      const onEth0 = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const onEth1 = await createSlaveDevice(client, testRack.key, {
+        ...identity,
+        identifier: createIdentifier(),
+        network: "eth1",
+        pdos: createPDOs(),
+      });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(onEth0.key, STATUS_ENTRY),
+          EtherCAT.Task.createEntryReadChannel(onEth1.key, STATUS_ENTRY),
+        ],
+      });
+      // The whole text matches only when the error carries no serial problem.
+      expect(
+        await screen.findByText(
+          "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+            "one network.",
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  it("should name the slave that is not connected at the position of another device", async () => {
     const position = Math.floor(Math.random() * 2 ** 31);
     const props = {
       identifier: createIdentifier(),
@@ -750,34 +972,52 @@ describe("Read", () => {
       position,
       pdos: createPDOs(),
     };
-    const stale = await createSlaveDevice(client, testRack.key, props);
-    const connected = await createSlaveDevice(client, testRack.key, {
+    const ownRack = await createRack();
+    const stale = await createSlaveDevice(client, ownRack.key, props);
+    const connected = await createSlaveDevice(client, ownRack.key, {
       ...props,
       identifier: createIdentifier(),
     });
-    await client.statuses.set({
-      owner: device.resourceID(connected.key),
-      name: connected.name,
-      variant: "success",
-      message: "Device connected",
-      time: TimeStamp.now(),
-      details: { rack: testRack.key, connected: true },
-    });
-    const { container, statuses } = await renderRead({
+    await markConnected(connected);
+    await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `^Slaves ${stale.name} and ${connected.name} are both at position ` +
-          `${position} on eth0\\. Delete ${stale.name}, which is not connected\\.$`,
+    expect(
+      await screen.findByText(
+        `Slaves ${stale.name} and ${connected.name} are both at position ` +
+          `${position} on eth0. Delete ${stale.name}, which is not connected.`,
       ),
-    );
+    ).toBeTruthy();
   });
 
-  it("should block configuration of an entry the slave does not have", async () => {
+  it("should name neither slave at one position when both are connected", async () => {
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const ownRack = await createRack();
+    const props = { network: "eth0", position, pdos: createPDOs() };
+    const first = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      identifier: createIdentifier(),
+    });
+    const second = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      identifier: createIdentifier(),
+    });
+    await markConnected(first);
+    await markConnected(second);
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(first.key, STATUS_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slaves ${first.name} and ${second.name} are both at position ${position} ` +
+          "on eth0. Delete the one that is not on the network.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should show why a channel on an entry the slave does not have cannot run", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
@@ -785,22 +1025,16 @@ describe("Read", () => {
     });
     // The address of an entry picked on another slave before the slave was switched.
     const { inputs } = createRepeatedNamePDOs();
-    const { container, statuses } = await renderRead({
+    await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3])],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `Slave ${slave.name} has no input entry at 0x6030:01\\. Pick an entry\\.$`,
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} has no input entry at 0x6030:01. Pick an entry.`,
       ),
-    );
-    const updated = await client.devices.retrieve({
-      key: slave.key,
-      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-    });
-    expect(updated.properties.readIndex).toBe(0);
+    ).toBeTruthy();
   });
 
   it("should save one value for each setting of each input that a channel reads", async () => {
@@ -938,23 +1172,22 @@ describe("Read", () => {
     );
   });
 
-  it("should block configuration of a setting that breaks a rule of the catalog", async () => {
+  it("should show why a channel whose setting breaks a rule of the catalog cannot run", async () => {
     const slave = await createStrainSlave();
-    const { container, statuses } = await renderRead({
+    await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
       startupParameters: [
         { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
       ],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `^Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
-          "voltage above 0 V\\.$",
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(
+      await screen.findByText(
+        `Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+          "voltage above 0 V.",
       ),
-    );
+    ).toBeTruthy();
   });
 
   it("should configure a task whose unresolved channel is disabled", async () => {
@@ -978,30 +1211,17 @@ describe("Read", () => {
     expect(disabled).toMatchObject({ type: "unresolved", pdo: "Input", channel: 0 });
   });
 
-  it("should block configuration of an unresolved channel", async () => {
+  it("should show why a channel with no entry cannot run", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [createUnresolvedReadChannel(slave.key, "Input")],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      /'Input' matches more than one input entry on slave .+\. Pick an entry\.$/,
-    );
-  });
-
-  it("should block configuration of a channel with no entry", async () => {
-    const slave = await createRepeatedNameSlave(client, testRack.key);
-    const { container, statuses } = await renderRead({
+    await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
-    );
+    expect(
+      await screen.findByText(
+        `A channel on slave ${slave.name} has no entry. Pick an entry.`,
+      ),
+    ).toBeTruthy();
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {
@@ -1783,7 +2003,7 @@ describe("Read", () => {
     ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
     ["switched but not restarted", false, "Restart the power of the slave"],
   ])(
-    "should reject a channel of an input that only DewesoftX reads on a slave %s",
+    "should show why a channel of an input that only DewesoftX reads cannot run on a slave %s",
     async (_, shared, step) => {
       const slave = await createSlaveDevice(client, testRack.key, {
         identifier: createIdentifier(),
@@ -1791,20 +2011,19 @@ describe("Read", () => {
         pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
         settings: createDewesoftXSettings(shared),
       });
-      const { container, statuses } = await renderRead({
+      await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [
           EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
         ],
       });
-      await clickDeploy(container);
-      await awaitStatus(
-        statuses,
-        new RegExp(
-          `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
-            `reads\\. ${step}\\.$`,
+      fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
+      expect(
+        await screen.findByText(
+          `Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+            `reads. ${step}.`,
         ),
-      );
+      ).toBeTruthy();
     },
   );
 
@@ -1981,13 +2200,13 @@ describe("Read", () => {
     });
   });
 
-  it("should reject a data type that does not fit the entry before creating a channel", async () => {
+  it("should show why a channel whose data type does not fit its entry cannot run", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
       pdos: createPDOs(),
     });
-    const { container, statuses } = await renderRead({
+    await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
         {
@@ -1996,16 +2215,13 @@ describe("Read", () => {
         },
       ],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      /Data type float64 does not fit entry 0x6000:01 on slave .+, which holds 16 bits\. Pick a 2 byte number type\./,
-    );
-    const updated = await client.devices.retrieve({
-      key: slave.key,
-      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-    });
-    expect(updated.properties.read.channels).toEqual([]);
+    fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
+    expect(
+      await screen.findByText(
+        `Data type float64 does not fit entry 0x6000:01 on slave ${slave.name}, ` +
+          "which holds 16 bits. Pick a 2 byte number type.",
+      ),
+    ).toBeTruthy();
   });
 
   it("should mark the channel list when the task has no channels", async () => {

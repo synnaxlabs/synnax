@@ -12,6 +12,8 @@
 package secret
 
 import (
+	"strconv"
+
 	servicesecret "github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -87,4 +89,14 @@ func (r RetrieveRequest) Validate() error {
 type RetrieveResponse struct {
 	// Secrets are the secrets the request selects.
 	Secrets []servicesecret.Secret `json:"secrets" msgpack:"secrets"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Secrets {
+		v.Exec(func() error { return validate.PathedError(r.Secrets[i].Validate(), "secrets", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
