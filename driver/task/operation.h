@@ -95,8 +95,8 @@ public:
     /// @brief stops the statuses of check, once the worker is done with the operation.
     /// Waits for a check in progress, so no status of check follows a status that the
     /// task sends after this call.
-    /// @returns the joined starts that got no final status. The caller runs them as
-    /// their own commands.
+    /// @returns the joined starts that got no final status, or none if the operation
+    /// was cancelled. The caller runs them as their own commands.
     std::vector<synnax::task::Command> close();
 
 private:

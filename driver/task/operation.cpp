@@ -178,7 +178,8 @@ void Operation::check(const x::telem::TimeStamp now) {
 std::vector<synnax::task::Command> Operation::close() {
     std::scoped_lock lock{this->write_mu, this->mu};
     this->closed = true;
-    if (this->finished) return {};
+    // Whatever cancelled the start came after its joined starts.
+    if (this->finished || !this->breaker.running()) return {};
     return std::exchange(this->joined, {});
 }
 }

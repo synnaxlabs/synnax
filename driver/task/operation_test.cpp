@@ -160,6 +160,13 @@ TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
     EXPECT_EQ(unanswered[0].key, "cmd-2");
 }
 
+/// @brief it should return no joined starts at close after a cancel.
+TEST_F(OperationTest, CloseAfterCancelReturnsNoJoins) {
+    ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    ASSERT_TRUE(op.cancel());
+    EXPECT_TRUE(op.close().empty());
+}
+
 /// @brief it should stop the token on cancel and tell the stop that it arrived.
 TEST_F(OperationTest, CancelStopsTheTokenAndAnswersTheStop) {
     op.step(loading("Starting task"), x::telem::MINUTE);
