@@ -11,27 +11,104 @@ package v13
 
 import (
 	"context"
+	"encoding/json/v2"
 	"reflect"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/set"
 )
 
-// MigrateSchematic lifts a v12 schematic to v13, which stores every color alpha as a
-// 0-255 byte. A zero color in a field that v12 read as "the theme picks the color"
-// becomes absent. Every other zero color still paints transparent and stays.
+// MigrateSchematic lifts a v12 schematic to v13. Every color alpha becomes a 0-255
+// byte, and a zero color in a field that v12 read as "the theme picks the color"
+// becomes absent. Each entry of the configs map moves onto the node or edge it
+// configures. A node with no node config draws nothing, so it is dropped, and so is an
+// edge whose source or target is dropped. An edge with no edge config gets the default
+// pipe, which the Console drew for it before v0.55.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	for k, cfg := range s.Configs {
-		clearThemeColors(reflect.ValueOf(&cfg).Elem())
-		s.Configs[k] = cfg
+	configs := make(map[string]ElementConfig, len(old.Configs))
+	for k, cfg := range old.Configs {
+		c, err := MigrateElementConfig(ctx, cfg)
+		if err != nil {
+			return Schematic{}, err
+		}
+		clearThemeColors(reflect.ValueOf(&c).Elem())
+		configs[k] = c
 	}
+	kept := make(set.Set[string], len(s.Nodes))
+	nodes := s.Nodes[:0]
+	for _, n := range s.Nodes {
+		ok, err := convert[NodeConfig, EdgeConfig](configs, n.Key, &n.Config)
+		if err != nil {
+			return Schematic{}, err
+		}
+		if ok {
+			nodes = append(nodes, n)
+			kept.Add(n.Key)
+		}
+	}
+	s.Nodes = nodes
+	edges := s.Edges[:0]
+	for _, e := range s.Edges {
+		if !kept.Contains(e.Source.Node) || !kept.Contains(e.Target.Node) {
+			continue
+		}
+		ok, err := convert[EdgeConfig, NodeConfig](configs, e.Key, &e.Config)
+		if err != nil {
+			return Schematic{}, err
+		}
+		if !ok {
+			e.Config = EdgeConfig{
+				Variant: PipeEdgeConfig{
+					SegmentedEdgeConfig: SegmentedEdgeConfig{Segments: []Segment{}},
+				},
+			}
+		}
+		edges = append(edges, e)
+	}
+	s.Edges = edges
 	return s, nil
+}
+
+// MigrateNode copies the node. MigrateSchematic sets its config from the configs map.
+func MigrateNode(ctx context.Context, old v12.Node) (Node, error) {
+	return autoMigrateNode(ctx, old)
+}
+
+// MigrateEdge copies the edge. MigrateSchematic sets its config from the configs map.
+func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
+	return autoMigrateEdge(ctx, old)
+}
+
+// convert decodes the config stored under key into dst. It returns false when no
+// config is stored under key, or when the stored config is of the Other element kind.
+func convert[C, Other any](
+	configs map[string]ElementConfig,
+	key string,
+	dst *C,
+) (bool, error) {
+	cfg, ok := configs[key]
+	if !ok {
+		return false, nil
+	}
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return false, err
+	}
+	if err = json.Unmarshal(b, dst); err == nil {
+		return true, nil
+	}
+	var other Other
+	if json.Unmarshal(b, &other) == nil {
+		return false, nil
+	}
+	return false, err
 }
 
 // themeColors names, for each struct, the optional colors whose zero color v12 read as
@@ -86,7 +163,7 @@ func clearThemeColors(v reflect.Value) {
 }
 
 // Migration lifts stored schematics from v12 to v13.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSchematic)
+var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSchematic)
 
 // MigrateElementConfig lifts a v12 element config to v13.
 func MigrateElementConfig(

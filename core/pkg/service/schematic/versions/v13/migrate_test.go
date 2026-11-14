@@ -23,9 +23,46 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// withElements gives each config key of s a node, or an edge between two capped anchor
+// nodes when the config is a pipe, so the migration keeps every config.
+func withElements(s v12.Schematic) v12.Schematic {
+	anchor := v12.ElementConfig{Variant: v12.CapElementConfig{}}
+	s.Configs["src"], s.Configs["dst"] = anchor, anchor
+	for k, cfg := range s.Configs {
+		if _, isPipe := cfg.Variant.(v12.PipeElementConfig); isPipe {
+			s.Edges = append(s.Edges, v12.Edge{
+				Key:    k,
+				Source: v12.Handle{Node: "src"},
+				Target: v12.Handle{Node: "dst"},
+			})
+			continue
+		}
+		s.Nodes = append(s.Nodes, v12.Node{Key: k})
+	}
+	return s
+}
+
+// configOf returns the config variant of the node or edge of s with the key.
+func configOf(s v13.Schematic, key string) any {
+	GinkgoHelper()
+	for _, n := range s.Nodes {
+		if n.Key == key {
+			return n.Config.Variant
+		}
+	}
+	for _, e := range s.Edges {
+		if e.Key == key {
+			return e.Config.Variant
+		}
+	}
+	Fail("no element with key " + key)
+	return nil
+}
 
 var _ = Describe("Migration", func() {
 	DescribeTable("Should store every element color alpha as a byte",
@@ -35,7 +72,7 @@ var _ = Describe("Migration", func() {
 				DB: db,
 			}))
 			c := func(r uint8) *color.Color { return &color.Color{R: r, A: a} }
-			old := v12.Schematic{
+			old := withElements(v12.Schematic{
 				Key:  uuid.New(),
 				Name: "s",
 				Configs: map[string]v12.ElementConfig{
@@ -61,7 +98,7 @@ var _ = Describe("Migration", func() {
 						},
 					}},
 				},
-			}
+			})
 			Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
 				To(Succeed())
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
@@ -72,20 +109,23 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
-			Expect(got.Configs["cap"].Variant.(v13.CapElementConfig).StrokeColor).
+			Expect(configOf(got, "cap").(v13.CapNodeConfig).StrokeColor).
 				To(Equal(n(1)))
-			Expect(got.Configs["pipe"].Variant.(v13.PipeElementConfig).StrokeColor).
+			Expect(configOf(got, "pipe").(v13.PipeEdgeConfig).StrokeColor).
 				To(Equal(n(2)))
-			value := got.Configs["value"].Variant.(v13.ValueElementConfig)
+			value := configOf(got, "value").(v13.ValueNodeConfig)
 			Expect(value.StrokeColor).To(Equal(n(3)))
 			Expect(value.TextColor).To(Equal(n(4)))
 			Expect(value.FillColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
-			custom := got.Configs["custom"].Variant.(v13.CustomStaticElementConfig)
+			custom := configOf(got, "custom").(v13.CustomStaticNodeConfig)
 			Expect(custom.StateOverrides).To(Equal([]symbolv4.State{{
-				Key: "on", Regions: []symbolv4.Region{{Key: "r", FillColor: n(7)}},
+				Key: "on",
+				Regions: []symbolv4.Region{
+					{Key: "r", Selectors: []string{}, FillColor: n(7)},
+				},
 			}}))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
@@ -105,14 +145,14 @@ var _ = Describe("Migrate functions", func() {
 		},
 		Entry("MigrateSchematic", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
-			out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+			out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 				Configs: map[string]v12.ElementConfig{
 					"n": {Variant: v12.CapElementConfig{
 						StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: half()},
 					}},
 				},
-			}))
-			return out.Configs["n"].Variant.(v13.CapElementConfig).StrokeColor
+			})))
+			return configOf(out, "n").(v13.CapNodeConfig).StrokeColor
 		}),
 		Entry("MigrateElementConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -179,27 +219,27 @@ var _ = Describe("Migrate functions", func() {
 		func(
 			ctx SpecContext,
 			variant v12.ElementConfigVariant,
-			cleared func(v13.ElementConfigVariant) []*colorv2.Color,
+			cleared func(any) []*colorv2.Color,
 		) {
-			out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+			out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 				Configs: map[string]v12.ElementConfig{"n": {Variant: variant}},
-			}))
-			for _, c := range cleared(out.Configs["n"].Variant) {
+			})))
+			for _, c := range cleared(configOf(out, "n")) {
 				Expect(c).To(BeNil())
 			}
 		},
 		Entry("a value", v12.ValueElementConfig{
 			StalenessColor: &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.ValueElementConfig)
+		}, func(v any) []*colorv2.Color {
+			c := v.(v13.ValueNodeConfig)
 			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
 		Entry("a gauge", v12.GaugeElementConfig{
 			StalenessColor: &color.Color{},
 			StrokeColor:    &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.GaugeElementConfig)
+		}, func(v any) []*colorv2.Color {
+			c := v.(v13.GaugeNodeConfig)
 			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
 		Entry("a scale", v12.ScaleElementConfig{
@@ -207,8 +247,8 @@ var _ = Describe("Migrate functions", func() {
 			LevelColor:     &color.Color{},
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.ScaleElementConfig)
+		}, func(v any) []*colorv2.Color {
+			c := v.(v13.ScaleNodeConfig)
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -221,8 +261,8 @@ var _ = Describe("Migrate functions", func() {
 			LevelColor:     &color.Color{},
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
-		}, func(v v13.ElementConfigVariant) []*colorv2.Color {
-			c := v.(v13.TankElementConfig)
+		}, func(v any) []*colorv2.Color {
+			c := v.(v13.TankNodeConfig)
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -232,17 +272,17 @@ var _ = Describe("Migrate functions", func() {
 		}),
 	)
 	It("Should keep the zero stroke of a value", func(ctx SpecContext) {
-		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
 				"n": {Variant: v12.ValueElementConfig{StrokeColor: &color.Color{}}},
 			},
-		}))
-		Expect(out.Configs["n"].Variant.(v13.ValueElementConfig).StrokeColor).
+		})))
+		Expect(configOf(out, "n").(v13.ValueNodeConfig).StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
-		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
 				"cap": {Variant: v12.CapElementConfig{
 					StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: zero},
@@ -251,14 +291,14 @@ var _ = Describe("Migrate functions", func() {
 					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: zero},
 				}},
 			},
-		}))
-		Expect(out.Configs["cap"].Variant.(v13.CapElementConfig).StrokeColor).
+		})))
+		Expect(configOf(out, "cap").(v13.CapNodeConfig).StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{})))
-		Expect(out.Configs["pipe"].Variant.(v13.PipeElementConfig).StrokeColor).
+		Expect(configOf(out, "pipe").(v13.PipeEdgeConfig).StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
-		out := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
 				"n": {Variant: v12.CustomStaticElementConfig{
 					StateOverrides: []symbolv2.State{
@@ -271,9 +311,201 @@ var _ = Describe("Migrate functions", func() {
 					},
 				}},
 			},
-		}))
-		node := out.Configs["n"].Variant.(v13.CustomStaticElementConfig)
+		})))
+		node := configOf(out, "n").(v13.CustomStaticNodeConfig)
 		Expect(node.StateOverrides[0].Regions[0].FillColor).
 			To(HaveValue(Equal(colorv2.Color{})))
+	})
+})
+
+var _ = Describe("MigrateSchematic config move", func() {
+	var (
+		valve = v12.ValveElementConfig{Orientation: "left", Scale: 2}
+		pipe  = v12.PipeElementConfig{
+			SegmentedEdgeConfig: v12.SegmentedEdgeConfig{Segments: []v12.Segment{}},
+		}
+		movedValve = v13.NodeConfig{
+			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
+		}
+		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{Segments: []v13.Segment{}},
+		}}
+	)
+	node := func(key string) v12.Node {
+		return v12.Node{Key: key, Position: spatial.XY{X: 1, Y: 2}, ZIndex: 3}
+	}
+	edge := func(key, source, target string) v12.Edge {
+		return v12.Edge{
+			Key:    key,
+			Source: v12.Handle{Node: source, Param: "out"},
+			Target: v12.Handle{Node: target, Param: "in"},
+		}
+	}
+	migrate := func(ctx SpecContext, old v12.Schematic) v13.Schematic {
+		GinkgoHelper()
+		return MustSucceed(v13.MigrateSchematic(ctx, old))
+	}
+
+	It("Should move each config onto its node or edge", func(ctx SpecContext) {
+		key := uuid.New()
+		s := migrate(ctx, v12.Schematic{
+			Key:   key,
+			Name:  "Engine",
+			Nodes: []v12.Node{node("n1"), node("n2")},
+			Edges: []v12.Edge{edge("e1", "n1", "n2")},
+			Configs: map[string]v12.ElementConfig{
+				"n1": {Variant: valve},
+				"n2": {Variant: valve},
+				"e1": {Variant: pipe},
+			},
+		})
+		Expect(s.Key).To(Equal(key))
+		Expect(s.Name).To(Equal("Engine"))
+		Expect(s.Nodes).To(Equal([]v13.Node{
+			{
+				Key:      "n1",
+				Position: spatial.XY{X: 1, Y: 2},
+				ZIndex:   3,
+				Config:   movedValve,
+			},
+			{
+				Key:      "n2",
+				Position: spatial.XY{X: 1, Y: 2},
+				ZIndex:   3,
+				Config:   movedValve,
+			},
+		}))
+		Expect(s.Edges).To(Equal([]v13.Edge{{
+			Key:    "e1",
+			Source: v12.Handle{Node: "n1", Param: "out"},
+			Target: v12.Handle{Node: "n2", Param: "in"},
+			Config: movedPipe,
+		}}))
+	})
+
+	It("Should drop a config that no node or edge has", func(ctx SpecContext) {
+		s := migrate(ctx, v12.Schematic{
+			Nodes: []v12.Node{node("n1")},
+			Configs: map[string]v12.ElementConfig{
+				"n1":     {Variant: valve},
+				"orphan": {Variant: valve},
+			},
+		})
+		Expect(s.Nodes).To(HaveLen(1))
+		Expect(s.Nodes[0].Key).To(Equal("n1"))
+	})
+
+	DescribeTable("Should drop a node",
+		func(ctx SpecContext, configs map[string]v12.ElementConfig) {
+			s := migrate(ctx, v12.Schematic{
+				Nodes:   []v12.Node{node("n1"), node("n2")},
+				Configs: configs,
+			})
+			Expect(s.Nodes).To(HaveLen(1))
+			Expect(s.Nodes[0].Key).To(Equal("n2"))
+		},
+		Entry("with no config", map[string]v12.ElementConfig{
+			"n2": {Variant: valve},
+		}),
+		Entry("whose config is an edge config", map[string]v12.ElementConfig{
+			"n1": {Variant: pipe},
+			"n2": {Variant: valve},
+		}),
+	)
+
+	DescribeTable("Should give the default pipe to an edge",
+		func(ctx SpecContext, configs map[string]v12.ElementConfig) {
+			configs["n1"] = v12.ElementConfig{Variant: valve}
+			configs["n2"] = v12.ElementConfig{Variant: valve}
+			s := migrate(ctx, v12.Schematic{
+				Nodes:   []v12.Node{node("n1"), node("n2")},
+				Edges:   []v12.Edge{edge("e1", "n1", "n2")},
+				Configs: configs,
+			})
+			Expect(s.Edges).To(Equal([]v13.Edge{{
+				Key:    "e1",
+				Source: v12.Handle{Node: "n1", Param: "out"},
+				Target: v12.Handle{Node: "n2", Param: "in"},
+				Config: movedPipe,
+			}}))
+		},
+		Entry("with no config", map[string]v12.ElementConfig{}),
+		Entry(
+			"whose config is a node config",
+			map[string]v12.ElementConfig{"e1": {Variant: valve}},
+		),
+	)
+
+	DescribeTable("Should drop an edge",
+		func(ctx SpecContext, e v12.Edge, configs map[string]v12.ElementConfig) {
+			s := migrate(ctx, v12.Schematic{
+				Nodes:   []v12.Node{node("n1"), node("n2"), node("bare")},
+				Edges:   []v12.Edge{e, edge("kept", "n1", "n2")},
+				Configs: configs,
+			})
+			Expect(s.Edges).To(HaveLen(1))
+			Expect(s.Edges[0].Key).To(Equal("kept"))
+		},
+		Entry(
+			"whose source node is dropped",
+			edge("e1", "bare", "n2"),
+			map[string]v12.ElementConfig{
+				"n1":   {Variant: valve},
+				"n2":   {Variant: valve},
+				"e1":   {Variant: pipe},
+				"kept": {Variant: pipe},
+			},
+		),
+		Entry(
+			"whose target node is dropped",
+			edge("e1", "n1", "bare"),
+			map[string]v12.ElementConfig{
+				"n1":   {Variant: valve},
+				"n2":   {Variant: valve},
+				"e1":   {Variant: pipe},
+				"kept": {Variant: pipe},
+			},
+		),
+		Entry(
+			"whose target node does not exist",
+			edge("e1", "n1", "ghost"),
+			map[string]v12.ElementConfig{
+				"n1":   {Variant: valve},
+				"n2":   {Variant: valve},
+				"e1":   {Variant: pipe},
+				"kept": {Variant: pipe},
+			},
+		),
+	)
+
+	It("Should not change the schematic it was given", func(ctx SpecContext) {
+		old := v12.Schematic{
+			Nodes:   []v12.Node{node("n1"), node("n2")},
+			Configs: map[string]v12.ElementConfig{"n2": {Variant: valve}},
+		}
+		migrate(ctx, old)
+		Expect(old.Nodes).To(Equal([]v12.Node{node("n1"), node("n2")}))
+	})
+})
+
+var _ = Describe("MigrateNode", func() {
+	It("Should copy the node with no config", func(ctx SpecContext) {
+		Expect(MustSucceed(v13.MigrateNode(ctx, v12.Node{
+			Key:      "n1",
+			Position: spatial.XY{X: 1, Y: 2},
+			ZIndex:   3,
+		}))).To(Equal(v13.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 3}))
+	})
+})
+
+var _ = Describe("MigrateEdge", func() {
+	It("Should copy the edge with no config", func(ctx SpecContext) {
+		source := v12.Handle{Node: "n1", Param: "out"}
+		target := v12.Handle{Node: "n2", Param: "in"}
+		Expect(MustSucceed(v13.MigrateEdge(ctx, v12.Edge{
+			Key:    "e1",
+			Source: source,
+			Target: target,
+		}))).To(Equal(v13.Edge{Key: "e1", Source: source, Target: target}))
 	})
 })

@@ -75,7 +75,9 @@ Page = v9.Page
 
 NodeConfig union on variant extends v10.NodeConfig {}
 
-ElementConfig union on variant extends v10.ElementConfig {}
+ElementConfig union on variant extends v10.ElementConfig {
+    @go migrate
+}
 
 Schematic struct extends v11.Schematic {
     -snapshot
