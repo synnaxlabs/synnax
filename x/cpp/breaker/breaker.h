@@ -11,7 +11,9 @@
 
 #include <atomic>
 #include <cassert>
+#include <cmath>
 #include <condition_variable>
+#include <cstddef>
 #include <format>
 #include <utility>
 
@@ -40,6 +42,18 @@ struct Config {
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
+    /// @brief returns the wait before the retry that follows the given number of
+    /// failures: base_interval after the first, then scale times as long after each
+    /// next one, at most max_interval.
+    [[nodiscard]] telem::TimeSpan interval(const size_t failures) const {
+        if (failures <= 1) return this->base_interval;
+        const auto scaled = static_cast<double>(this->base_interval.nanoseconds()) *
+                            std::pow(static_cast<double>(this->scale), failures - 1);
+        if (scaled >= static_cast<double>(this->max_interval.nanoseconds()))
+            return this->max_interval;
+        return telem::TimeSpan(static_cast<int64_t>(scaled));
+    }
+
     [[nodiscard]] Config child(const std::string &name) const {
         return Config{
             this->name + "." + name,
@@ -57,8 +71,6 @@ struct Config {
 class Breaker {
     /// @brief configuration parameters for the breaker.
     Config config;
-    /// @brief current retry interval. Guarded by mu.
-    telem::TimeSpan interval;
     /// @brief the current number of retries. Guarded by mu.
     size_t retries;
     /// @brief a flag to indicate if the breaker is currently running.
@@ -80,19 +92,16 @@ class Breaker {
             this->config.max_retries == RETRY_INFINITELY
                 ? std::string("∞")
                 : std::to_string(this->config.max_retries),
-            this->interval.seconds()
+            this->config.interval(next).seconds()
         );
     }
 
     /// @brief requires mu to be held. @see reset().
-    void reset_locked() {
-        this->retries = 0;
-        this->interval = this->config.base_interval;
-    }
+    void reset_locked() { this->retries = 0; }
 
 public:
-    explicit Breaker(const Config &config):
-        config(config), interval(config.base_interval), retries(0), is_running(false) {}
+    explicit Breaker(Config config):
+        config(std::move(config)), retries(0), is_running(false) {}
 
     Breaker():
         Breaker(
@@ -149,16 +158,15 @@ public:
         this->retries++;
         LOG(ERROR) << "[" << this->config.name << "] " << next
                    << ". Error: " << message;
-        if (this->shutdown_cv.wait_for(lock, this->interval.chrono(), [this] {
-                return !this->running();
-            })) {
+        if (this->shutdown_cv.wait_for(
+                lock,
+                this->config.interval(this->retries).chrono(),
+                [this] { return !this->running(); }
+            )) {
             LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
             this->reset_locked();
             return false;
         }
-        this->interval = this->interval * this->config.scale;
-        if (this->interval > this->config.max_interval)
-            this->interval = this->config.max_interval;
         return true;
     }
 

@@ -38,8 +38,10 @@ struct MockSlaveInfo {
     /// @brief the state of the slave on the bus. readstate and statecheck copy it into
     /// the SOEM slave table.
     uint16_t state = EC_STATE_INIT;
-    uint32_t eep_man = 0;
-    uint32_t eep_id = 0;
+    /// @brief the identity that config_init reads from the EEPROM, which is not in the
+    /// catalog. A vendor and product of 0 is a failed read.
+    uint32_t eep_man = 0xFFFF;
+    uint32_t eep_id = 0xFFFF;
     uint32_t eep_rev = 0;
     uint32_t eep_ser = 0;
     std::string name;
@@ -68,8 +70,14 @@ struct MockSlaveInfo {
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index.
+    /// sub-index. A code of 0 makes the read get no answer.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
+    /// @brief objects whose SDO reads bring a CoE emergency from the slave, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_emergencies;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -186,6 +194,8 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief the timeouts of write_register and read_register, in call order.
+    std::vector<int> register_timeouts;
     /// @brief slaves whose register writes return a working counter of 0.
     std::set<uint16_t> unwritable_slaves;
     /// @brief the number of state change requests before each register write, in the
@@ -197,7 +207,7 @@ public:
     std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
-    /// @brief registers, keyed by slave and address, whose reads get no answer.
+    /// @brief registers, keyed by slave and address, whose reads get no reply.
     std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
     /// @brief the host clock that the reference clock of host_dc_offset and
@@ -210,6 +220,8 @@ public:
     int latch_count = 0;
     /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
     int64_t latched_at = 0;
+    /// @brief the timeout of the last latch_receive_times call.
+    int latch_timeout = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
 
@@ -401,7 +413,8 @@ public:
         return this->sync_dc_return;
     }
 
-    int latch_receive_times(int) override {
+    int latch_receive_times(const int timeout) override {
+        this->latch_timeout = timeout;
         this->latched_at = now();
         this->latch_count++;
         return this->latch_return;
@@ -419,8 +432,9 @@ public:
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         this->requests_before_write.push_back(this->state_change_requests.size());
         const int wkc = this->unwritable_slaves.contains(slave)
                           ? 0
@@ -443,14 +457,15 @@ public:
         uint16_t slave,
         uint16_t address,
         std::span<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         const auto it = this->register_values.find({slave, address});
         const auto bytes = x::binary::to_little_endian(
             it == this->register_values.end() ? int64_t{0} : it->second
         );
         std::copy_n(bytes.begin(), data.size(), data.begin());
-        if (this->unanswered_reads.contains({slave, address})) return 0;
+        if (this->unanswered_reads.contains({slave, address})) return EC_NOFRAME;
         return this->read_register_return;
     }
 
@@ -522,9 +537,20 @@ public:
             std::memcpy(p, it->second.data(), *psize);
             return 1;
         }
+        for (const auto &[objects, type]:
+             {std::pair{&info.sdo_read_emergencies, EC_ERR_TYPE_EMERGENCY},
+              std::pair{&info.sdo_read_mailbox_errors, EC_ERR_TYPE_MBX_ERROR}})
+            if (objects->contains({index, sub_index})) {
+                ec_errort err{};
+                err.Etype = type;
+                err.Slave = slave;
+                this->errors.push_back(err);
+            }
+        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) return 0;
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
-            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            if (abort->second != 0)
+                this->push_sdo_abort(slave, index, sub_index, abort->second);
             return 0;
         }
         const auto &objects = info.sdo_objects;
@@ -621,7 +647,13 @@ public:
     ) override {
         const auto &entries = this->slave_infos.at(od_list->Slave - 1).oe_entries;
         const auto it = entries.find({od_list->Index[item], sub_index});
-        if (it == entries.end()) return 0;
+        if (it == entries.end()) {
+            ec_errort err{};
+            err.Etype = EC_ERR_TYPE_SDOINFO_ERROR;
+            err.Slave = od_list->Slave;
+            this->errors.push_back(err);
+            return 0;
+        }
         oe_list->Entries++;
         std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
         oe_list->DataType[sub_index] = it->second.second;

@@ -429,6 +429,26 @@ describe("useList", () => {
     expect(result.current.data).toEqual([]);
   });
 
+  it("should read the first page of an eager list as it mounts", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const c = await create("c");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          pageSize: 2,
+          eager: true,
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    expect(result.current.complete).toBe(false);
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+  });
+
   it("should start the list on a search", async () => {
     const name = randomWord();
     const match = await create(name);

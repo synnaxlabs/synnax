@@ -16,6 +16,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <set>
 #include <span>
@@ -52,6 +53,9 @@ class Master final : public master::Master {
     master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
+    /// @brief the number of starts left that each slave refuses, keyed by position. A
+    /// slave in refusing and not here refuses every start.
+    std::map<uint16_t, size_t> refusals_left;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -63,6 +67,12 @@ class Master final : public master::Master {
     x::telem::TimeStamp last_sent;
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
+    /// @brief the working counter share of each slave in the latest activation.
+    std::map<uint16_t, master::WorkingCounterShare> shares;
+    /// @brief the shortfall of each cycle that set_shortfall() sets.
+    std::optional<uint32_t> cycle_shortfall;
+    /// @brief what shortfall() returns.
+    std::optional<uint32_t> latest_shortfall;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -76,9 +86,18 @@ class Master final : public master::Master {
     std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
-    /// @brief the value of each object that set_object() gave, by position, index, and
-    /// sub-index.
+    /// @brief the value of each object that set_object() or write() gave, by position,
+    /// index, and sub-index.
     std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief the error of each write to an object, by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, x::errors::Error> write_failures;
+    /// @brief the slave that the next write that succeeds replaces, by position.
+    std::optional<std::pair<uint16_t, slave::Properties>> replacement;
+    /// @brief the objects whose writes the slave answers but does not take, by index
+    /// and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> ignored_writes;
+    /// @brief the error of each scan after the next write that succeeds.
+    x::errors::Error scan_err_after_write;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -184,6 +203,14 @@ public:
                 slave.status.settings_error = error;
     }
 
+    /// @brief makes the serial number read of the slave at position fail with error.
+    void fail_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.serial_error = error;
+    }
+
     /// @brief injects an error to be returned by scan().
     void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -244,10 +271,19 @@ public:
     }
 
     /// @brief makes activate() fail with errors::STATE_CHANGE_REFUSED while the slave
-    /// at position is on the bus, as when the slave refuses a state.
-    void refuse(const uint16_t position, slave::Refusal refusal) {
+    /// at position is on the bus, as when the slave refuses a state. The slave refuses
+    /// only the next starts when starts is set.
+    void refuse(
+        const uint16_t position,
+        slave::Refusal refusal,
+        const std::optional<size_t> starts = std::nullopt
+    ) {
         std::lock_guard lock(this->mu);
         this->refusing[position] = std::move(refusal);
+        if (starts)
+            this->refusals_left[position] = *starts;
+        else
+            this->refusals_left.erase(position);
     }
 
     /// @brief makes the slaves reach OP only after the cycle sends frames frames. Until
@@ -256,6 +292,14 @@ public:
         std::lock_guard lock(this->mu);
         this->start_frames = frames;
         this->short_until_op = true;
+    }
+
+    /// @brief makes each receive() take the inputs and return
+    /// errors::WORKING_COUNTER_ERROR with shortfall, as when slaves miss the cycle, or
+    /// ends that when shortfall is nullopt.
+    void set_shortfall(const std::optional<uint32_t> shortfall) {
+        std::lock_guard lock(this->mu);
+        this->cycle_shortfall = shortfall;
     }
 
     /// @brief injects an error to be returned by receive().
@@ -302,6 +346,7 @@ public:
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
         this->refusing.clear();
+        this->refusals_left.clear();
         this->inject_scan_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
@@ -482,6 +527,7 @@ public:
                 .offsets = this->pdo_offset_cache,
                 .dc_sync = this->syncs,
                 .slaves = this->slave_list,
+                .working_counter_shares = this->shares,
             };
         }
         start_cycle(image);
@@ -499,8 +545,14 @@ public:
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
-            if (const auto it = this->refusing.find(pos); it != this->refusing.end())
-                refused.insert(*it);
+            const auto it = this->refusing.find(pos);
+            if (it == this->refusing.end()) continue;
+            refused.insert(*it);
+            if (const auto left = this->refusals_left.find(pos);
+                left != this->refusals_left.end() && --left->second == 0) {
+                this->refusals_left.erase(left);
+                this->refusing.erase(it);
+            }
         }
         if (!refused.empty()) {
             return {
@@ -554,6 +606,7 @@ public:
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
+        this->latest_shortfall.reset();
         if (!this->activated)
             return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
@@ -577,7 +630,17 @@ public:
             this->pending_inputs.data(),
             std::min(this->pending_inputs.size(), this->input_iomap.size())
         );
-        return x::errors::NIL;
+        if (!this->cycle_shortfall) return x::errors::NIL;
+        this->latest_shortfall = this->cycle_shortfall;
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "short by " + std::to_string(*this->cycle_shortfall)
+        );
+    }
+
+    std::optional<uint32_t> shortfall() const override {
+        std::lock_guard lock(this->mu);
+        return this->latest_shortfall;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -660,8 +723,11 @@ public:
         return health;
     }
 
-    /// @brief records the write and adds the parameters to the slave in the latest
-    /// plan, or returns the error that inject_write_error() set.
+    /// @brief records the write, sets each object it names until one that fail_write()
+    /// names, and adds the parameters to the slave in the latest plan. Then replaces
+    /// the slave as replace_after_write() asks, and fails scans as
+    /// fail_scan_after_write() asks. Returns the error that inject_write_error() or
+    /// fail_write() set.
     x::errors::Error write(
         const uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -671,7 +737,57 @@ public:
         if (this->inject_write_err) return this->inject_write_err;
         this->writes.emplace_back(position, parameters);
         this->latest_plan.slaves[position].add_startup_parameters(parameters);
+        for (const auto &param: parameters) {
+            if (const auto it = this->write_failures.find(
+                    {param.index, param.sub_index}
+                );
+                it != this->write_failures.end())
+                return it->second;
+            if (this->ignored_writes.contains({param.index, param.sub_index})) continue;
+            this->objects[{position, param.index, param.sub_index}] = static_cast<
+                uint32_t>(param.value);
+        }
+        if (this->scan_err_after_write)
+            this->inject_scan_err = std::exchange(
+                this->scan_err_after_write,
+                x::errors::NIL
+            );
+        if (this->replacement) {
+            const auto [pos, props] = std::move(*this->replacement);
+            this->replacement.reset();
+            for (auto &slave: this->slave_list)
+                if (slave.properties.position == pos) slave.properties = props;
+        }
         return x::errors::NIL;
+    }
+
+    /// @brief makes each write to index:sub_index fail with err.
+    void fail_write(
+        const uint16_t index,
+        const uint8_t sub_index,
+        const x::errors::Error &err
+    ) {
+        std::lock_guard lock(this->mu);
+        this->write_failures[{index, sub_index}] = err;
+    }
+
+    /// @brief makes the slave answer each write to index:sub_index but keep its value.
+    void ignore_write(const uint16_t index, const uint8_t sub_index) {
+        std::lock_guard lock(this->mu);
+        this->ignored_writes.insert({index, sub_index});
+    }
+
+    /// @brief makes each scan fail with err after the next write that succeeds.
+    void fail_scan_after_write(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->scan_err_after_write = err;
+    }
+
+    /// @brief replaces the slave at position with props after the next write that
+    /// succeeds, as a slave that maps new entries when it takes a new mode.
+    void replace_after_write(const uint16_t position, slave::Properties props) {
+        std::lock_guard lock(this->mu);
+        this->replacement.emplace(position, std::move(props));
     }
 
     /// @brief returns the value that set_object() gave the object, or
@@ -739,11 +855,18 @@ private:
 
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
+        this->shares.clear();
         this->input_sz = 0;
         this->output_sz = 0;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;
+            if (const master::WorkingCounterShare share{
+                    .outputs = props.output_pdos.empty() ? 0U : 2U,
+                    .inputs = props.input_pdos.empty() ? 0U : 1U,
+                };
+                share != master::WorkingCounterShare{})
+                this->shares[props.position] = share;
             pdo::compute_offsets(
                 this->pdo_offset_cache,
                 props.position,
@@ -792,5 +915,4 @@ public:
         };
     }
 };
-
 }

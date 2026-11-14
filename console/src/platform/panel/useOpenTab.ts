@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, panel, query, type resource } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  panel,
+  query,
+  type resource,
+  UnexpectedError,
+  type user,
+} from "@synnaxlabs/client";
 import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
@@ -32,6 +39,12 @@ export interface OpenTabOptions {
    * the leaf is gone, which an await between the drop and the open allows.
    */
   placement?: Placement;
+  /**
+   * Lands the tabs in a draft of the signed-in user: a draft that already holds the
+   * last tab, else the selected panel when it is such a draft, else a new draft with
+   * this name and icon.
+   */
+  draft?: Pick<panel.New, "name" | "icon">;
 }
 
 export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
@@ -82,7 +95,8 @@ export const useOpenTabs = (): OpenTabs => {
     if (last == null) return;
     // A keyless tab opens beside the current one. A keyed one is a reopen, so it
     // carries no placement and keeps wherever it already sits.
-    const besideCurrent = params[0]?.key == null ? parentTabKey : undefined;
+    const besideCurrent =
+      params[0]?.key == null && panelKey === parentPanelKey ? parentTabKey : undefined;
     dispatch({
       key: panelKey,
       actions: panel.insertTabs({
@@ -119,18 +133,56 @@ export const useOpenTabs = (): OpenTabs => {
         );
     },
   });
+  const getUser = (): user.Key => {
+    const cached = client?.users.current.watch().getCached();
+    if (!query.isLive(cached)) throw new UnexpectedError("the user is not loaded");
+    return cached.key;
+  };
+  const findDraft = (
+    user: user.Key,
+    params: panel.NewTab[],
+    singleton?: boolean,
+  ): panel.Key | undefined => {
+    const project = getSelectedProject();
+    const last = params.at(-1);
+    if (client == null || project == null || last == null) return undefined;
+    const tab = panel.tabZ.parse({ ...last });
+    // The strip keeps this list live in every window.
+    const visible = client.panels
+      .watch({ where: panel.visibleTo(project, user) })
+      .getCached();
+    const holder = visible?.records.find(
+      ({ owner, root }) =>
+        owner === user && focusedTabKey(root, tab, singleton) != null,
+    );
+    if (holder != null) return holder.key;
+    const selected = getSelected();
+    if (selected == null) return undefined;
+    const cached = client.panels.watch(selected).getCached();
+    return query.isLive(cached) && cached.owner === user ? selected : undefined;
+  };
   return (params: panel.NewTab[], options?: OpenTabOptions) => {
     if (params.length === 0) return;
-    const panelKey = parentPanelKey ?? getSelected();
-    if (panelKey != null) return insertIntoExisting(panelKey, params, options);
+    const draft = options?.draft;
+    const owner = draft != null ? getUser() : undefined;
+    const panelKey =
+      owner != null
+        ? findDraft(owner, params, options?.singleton)
+        : (parentPanelKey ?? getSelected());
+    if (panelKey != null) {
+      if (owner != null) dispatchSession(Session.Panel.select({ key: panelKey }));
+      return insertIntoExisting(panelKey, params, options);
+    }
     // No panel to insert into: seed the tabs into the new panel's initial root so the
     // create persists them in a single request. This avoids a second remote dispatch
     // that would race the create and fail with "panel not found", while the local
     // store update keeps focus optimistic.
     createPanel({
-      name: "New panel",
+      name: draft?.name ?? "New panel",
+      icon: draft?.icon,
       root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
       project: getSelectedProject(),
+      owner,
     });
   };
 };

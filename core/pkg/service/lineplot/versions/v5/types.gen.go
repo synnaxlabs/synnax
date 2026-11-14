@@ -369,6 +369,9 @@ func (a Axis) Validate() error {
 	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
 	v.Ternaryf("label_direction", !a.LabelDirection.IsValid(), "invalid label_direction: %v", a.LabelDirection)
 	v.Ternaryf("label_level", !a.LabelLevel.IsValid(), "invalid label_level: %v", a.LabelLevel)
+	if a.Type != nil {
+		v.Ternaryf("type", !a.Type.IsValid(), "invalid type: %v", *a.Type)
+	}
 	return v.Error()
 }
 

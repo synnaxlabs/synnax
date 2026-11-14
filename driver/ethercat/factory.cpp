@@ -257,7 +257,8 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -269,13 +270,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = this->configure_scan(ctx, task);
     else
         return {nullptr, false};
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -283,7 +285,8 @@ Factory::configure_initial_tasks(
         rack,
         "EtherCAT Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 

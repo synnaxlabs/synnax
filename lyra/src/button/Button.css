@@ -275,6 +275,35 @@
         }
     }
 
+    /* A field that reads as its value: no box at rest, the outlined box on hover and
+       press. An open shadow button keeps its box, so its dialog points at it. A status
+       colors only the text. */
+    &.lyra-btn--shadow {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+
+        &[aria-expanded="true"] {
+            --pluto-bg: var(--pluto-fill-hover);
+            --pluto-border-color: var(--pluto-gray-l7);
+        }
+
+        &.lyra--status-warning {
+            color: var(--pluto-warning-z);
+        }
+
+        &.lyra--status-error {
+            color: var(--pluto-error-p1);
+        }
+
+        &.lyra--disabled {
+            color: var(--pluto-text-disabled);
+        }
+    }
+
     /* A large pane that stacks an icon tile over a title and a description. It rests
        half a step above the canvas, so a row of cards does not read as heavy. */
     &.lyra-btn--card {

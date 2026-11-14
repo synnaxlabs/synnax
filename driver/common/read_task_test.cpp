@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <mutex>
 #include <string>
@@ -107,6 +108,7 @@ class ScriptedSource final : public Source {
 
 public:
     std::atomic<size_t> reads = 0;
+    std::atomic<size_t> interrupts = 0;
 
     explicit ScriptedSource(std::vector<ReadResult> script):
         script(std::move(script)) {}
@@ -124,6 +126,45 @@ public:
         const auto i = std::min(this->reads.load(), this->script.size() - 1);
         this->reads++;
         return this->script[i];
+    }
+
+    void interrupt() override { this->interrupts++; }
+};
+
+/// @brief a source whose read waits for an interrupt, or for five seconds.
+class InterruptibleSource final : public Source {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool interrupted = false;
+
+public:
+    std::atomic<bool> reading = false;
+    /// @brief whether the interrupt, not the five-second limit, woke the read.
+    std::atomic<bool> woken = false;
+
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
+        return synnax::framer::WriterConfig();
+    }
+
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return {};
+    }
+
+    ReadResult read(x::breaker::Breaker &, x::telem::Frame &) override {
+        std::unique_lock lock(this->mu);
+        this->reading = true;
+        this->woken = this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->interrupted;
+        });
+        return {.error = errors::NOMINAL_SHUTDOWN_ERROR};
+    }
+
+    void interrupt() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->interrupted = true;
+        }
+        this->cv.notify_all();
     }
 };
 
@@ -193,6 +234,53 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should interrupt a read that blocks when the task stops, and report a
+/// successful stop.
+TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto source = std::make_unique<InterruptibleSource>();
+    const auto *interruptible = source.get();
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(source),
+        std::make_shared<pipeline::testutil::WriterFactory>()
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_TRUE(interruptible->reading.load());
+    ASSERT_TRUE(read_task.stop("stop_cmd", true));
+    EXPECT_TRUE(interruptible->woken.load());
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
+}
+
+/// @brief it should not interrupt the source when a critical read error stops the task.
+TEST(TestCommonReadTask, testCriticalReadErrorSkipsInterrupt) {
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto source = std::make_unique<ScriptedSource>(
+        std::vector<ReadResult>{{.error = errors::CRITICAL_HARDWARE_ERROR}}
+    );
+    const auto *scripted = source.get();
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(source),
+        std::make_shared<pipeline::testutil::WriterFactory>()
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    ASSERT_FALSE(read_task.stop("stop_cmd", true));
+    EXPECT_EQ(scripted->interrupts.load(), 0);
 }
 
 /// @brief a start on a running task should ack the command without reopening
@@ -849,6 +937,13 @@ TEST(TestCommonReadTask, testWarningLogsAfterTemporaryError) {
          {.warning = FIRST_WARNING}}
     ).run(5);
     EXPECT_EQ(sink.count(FIRST_WARNING.description), 2);
+}
+
+/// @brief it should not log a read that ends because the task stopped as an error.
+TEST(TestCommonReadTask, testNominalShutdownLogsNoError) {
+    ErrorSink sink;
+    ScriptedRead({{.error = errors::NOMINAL_SHUTDOWN_ERROR}}).run(1);
+    EXPECT_EQ(sink.count(errors::NOMINAL_SHUTDOWN_ERROR.type), 0);
 }
 
 /// @brief it should log a warning once in each run.

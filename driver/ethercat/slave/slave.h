@@ -14,16 +14,22 @@
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <numeric>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -365,6 +371,9 @@ struct Status {
     std::string pdo_discovery_error;
     /// @brief why the read of the settings failed, or empty when it succeeded.
     std::string settings_error;
+    /// @brief why the read of the serial number got no answer, or empty when the slave
+    /// answered. The serial number of a slave with one is not known.
+    std::string serial_error;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
@@ -385,6 +394,8 @@ struct Refusal {
     /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
     /// for none. Each message about the refusal ends with it.
     std::string_view advice;
+    /// @brief the AL status code of the refusal, or 0 when the master cannot read it.
+    uint16_t code = 0;
 
     bool operator==(const Refusal &) const = default;
 };
@@ -440,4 +451,171 @@ struct DiscoveryResult {
     Status status;
 };
 
+/// @brief gives serial number 0 to each slave that has the vendor, product, and serial
+/// number of a slave before it, so that a serial number names one slave. A slave with
+/// serial number 0 has its position as its identity.
+inline void clear_duplicate_serials(std::vector<DiscoveryResult> &slaves) {
+    for (auto it = slaves.begin(); it != slaves.end(); ++it) {
+        auto &props = it->properties;
+        if (props.serial == 0) continue;
+        if (std::any_of(slaves.begin(), it, [&props](const DiscoveryResult &s) {
+                const auto &p = s.properties;
+                return p.vendor_id == props.vendor_id &&
+                       p.product_code == props.product_code && p.serial == props.serial;
+            }))
+            props.serial = 0;
+    }
+}
+
+/// @brief the identity of a slave that the Core saved.
+struct Identity {
+    /// @brief the position where the Core saved the slave.
+    uint16_t position = 0;
+    /// @brief the vendor ID of the slave.
+    uint32_t vendor_id = 0;
+    /// @brief the product code of the slave.
+    uint32_t product_code = 0;
+    /// @brief the serial number, or 0 when the slave is known by position.
+    uint32_t serial = 0;
+    /// @brief the name of the slave, for errors.
+    std::string name;
+
+    /// @brief whether the slave is the unit that live describes.
+    [[nodiscard]] bool same_unit(const Properties &live) const {
+        return live.vendor_id == this->vendor_id &&
+               live.product_code == this->product_code && live.serial == this->serial;
+    }
+};
+
+/// @brief returns the indices of saved in order of saved position, then name.
+inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
+    std::vector<size_t> order(saved.size());
+    // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::sort(order, {}, [&saved](const size_t i) {
+        return std::tie(saved[i].position, saved[i].name);
+    });
+    return order;
+}
+
+/// @brief finds each saved slave on bus. A slave with a serial number is the unit with
+/// its vendor, product, and serial number at any position. A unit at the saved
+/// position of a slave goes to that slave before a moved slave takes it. A slave with
+/// serial number 0 is the slave of its model at its saved position, unless a slave
+/// with a serial number found it. Several slaves with serial number 0 can find one
+/// slave on bus.
+/// @returns the position on bus of saved[i] at index i, or nullopt when it is not on
+/// bus.
+[[nodiscard]] inline std::vector<std::optional<uint16_t>>
+locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus) {
+    std::vector<std::optional<uint16_t>> found(saved.size());
+    const auto at = [&bus](const uint16_t position) -> const Properties * {
+        const auto it = std::ranges::find(bus, position, [](const DiscoveryResult &d) {
+            return d.properties.position;
+        });
+        return it == bus.end() ? nullptr : &it->properties;
+    };
+    std::set<uint16_t> units;
+    const auto order = by_position(saved);
+    for (const auto i: order)
+        if (const auto *live = at(saved[i].position);
+            saved[i].serial != 0 && live != nullptr && saved[i].same_unit(*live)) {
+            found[i] = live->position;
+            units.insert(live->position);
+        }
+    for (const auto i: order) {
+        if (saved[i].serial == 0 || found[i]) continue;
+        const auto it = std::ranges::find_if(bus, [&](const DiscoveryResult &d) {
+            return !units.contains(d.properties.position) &&
+                   saved[i].same_unit(d.properties);
+        });
+        if (it == bus.end()) continue;
+        found[i] = it->properties.position;
+        units.insert(it->properties.position);
+    }
+    for (const auto i: order) {
+        const auto &s = saved[i];
+        if (s.serial != 0 || units.contains(s.position)) continue;
+        if (const auto *live = at(s.position); live != nullptr &&
+                                               live->vendor_id == s.vendor_id &&
+                                               live->product_code == s.product_code)
+            found[i] = s.position;
+    }
+    return found;
+}
+
+/// @brief finds each saved slave on bus as locate does.
+/// @returns the position on bus of saved[i] at index i, or errors::TOPOLOGY_MISMATCH
+/// for the saved slave with the lowest saved position that it does not find, or when
+/// two slaves have one saved position.
+[[nodiscard]] inline std::pair<std::vector<uint16_t>, x::errors::Error>
+bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus) {
+    const auto mismatch = [](const std::string &message) {
+        return std::pair{
+            std::vector<uint16_t>{},
+            x::errors::Error(errors::TOPOLOGY_MISMATCH, message)
+        };
+    };
+    const auto order = by_position(saved);
+    for (size_t i = 1; i < order.size(); ++i)
+        if (const auto &a = saved[order[i - 1]], &b = saved[order[i]];
+            a.position == b.position)
+            return mismatch(
+                std::format(
+                    "{} and {} are both saved as slave {}.",
+                    a.name,
+                    b.name,
+                    b.position
+                )
+            );
+    const auto found = locate(saved, bus);
+    std::vector<uint16_t> positions(saved.size());
+    for (const auto i: order) {
+        if (const auto &position = found[i]) {
+            positions[i] = *position;
+            continue;
+        }
+        const auto &s = saved[i];
+        if (s.serial != 0)
+            return mismatch(
+                std::format("{} (serial {}) is not on the bus.", s.name, s.serial)
+            );
+        const auto unit = std::ranges::find(found, std::optional(s.position));
+        if (unit != found.end()) {
+            const auto &other = saved[unit - found.begin()];
+            return mismatch(
+                std::format(
+                    "Slave {} ({}) is not on the bus. Slave {} is {} (serial {}).",
+                    s.position,
+                    s.name,
+                    s.position,
+                    other.name,
+                    other.serial
+                )
+            );
+        }
+        const auto live = std::ranges::find(
+            bus,
+            s.position,
+            [](const DiscoveryResult &d) { return d.properties.position; }
+        );
+        if (live == bus.end())
+            return mismatch(
+                std::format("Slave {} ({}) is not on the bus.", s.position, s.name)
+            );
+        const auto &props = live->properties;
+        const bool vendor = props.vendor_id != s.vendor_id;
+        return mismatch(
+            std::format(
+                "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
+                s.position,
+                s.name,
+                vendor ? "vendor_id" : "product_code",
+                vendor ? s.vendor_id : s.product_code,
+                vendor ? props.vendor_id : props.product_code
+            )
+        );
+    }
+    return {positions, x::errors::NIL};
+}
 }

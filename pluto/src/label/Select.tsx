@@ -13,12 +13,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import { state } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Flux } from "@/flux";
+import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
-const ListItem = ({
+/** An option of a label select: the color of the label, then its name. */
+export const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
@@ -62,34 +65,83 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
   variant: "text",
 };
 
-export const SelectMultiple = ({
-  filter,
-  query,
-  ...rest
-}: SelectMultipleProps): ReactElement => {
+interface BaseProps extends Omit<
+  Select.MultipleProps<label.Key, label.Label | undefined>,
+  "resourceName" | "children"
+> {}
+
+const Base = (props: BaseProps): ReactElement => (
+  <Select.Multiple<label.Key, label.Label | undefined>
+    haulType={HAUL_TYPE}
+    renderTag={labelRenderTag}
+    icon={<Icon.Label />}
+    triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
+    variant="floating"
+    {...props}
+    resourceName="label"
+  >
+    {listItemRenderProp}
+  </Select.Multiple>
+);
+
+const Open = ({ filter, query, ...rest }: SelectMultipleProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (client: Synnax) => client.labels,
     { name: "labels", query, filter },
   );
   return (
-    <Select.Multiple<label.Key, label.Label | undefined>
-      haulType={HAUL_TYPE}
+    <Base
       getItem={getItem}
       onFetchMore={more}
       onSearch={search}
       status={status}
-      renderTag={labelRenderTag}
-      icon={<Icon.Label />}
-      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
-      variant="floating"
       {...rest}
       data={data}
       subscribe={subscribe}
-      resourceName="label"
-    >
-      {listItemRenderProp}
-    </Select.Multiple>
+    />
   );
+};
+
+interface ClosedProps extends SelectMultipleProps {
+  onOpen: () => void;
+}
+
+const Closed = ({
+  filter: _filter,
+  query: _query,
+  onOpen,
+  ...rest
+}: ClosedProps): ReactElement => {
+  const labels = useResultMultiple({ keys: rest.value }).data ?? [];
+  const getItem = List.createGetItem<label.Key, label.Label | undefined>(
+    (key) => labels.find((l) => l.key === key),
+    (keys) => labels.filter((l) => keys.includes(l.key)),
+  );
+  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
+    if (state.executeSetter(next, false)) onOpen();
+  };
+  return (
+    <Base
+      getItem={getItem}
+      virtual={false}
+      {...rest}
+      data={rest.value}
+      visible={false}
+      onVisibleChange={handleVisibleChange}
+    />
+  );
+};
+
+/**
+ * Selects labels. Until the user first opens it, it reads only the labels of its value:
+ * the list of every label mounts on the first open, since a page can hold one of these
+ * per item.
+ */
+export const SelectMultiple = (props: SelectMultipleProps): ReactElement => {
+  const [opened, setOpened] = useState(false);
+  if (opened || props.visible === true)
+    return <Open initialVisible={opened} {...props} />;
+  return <Closed {...props} onOpen={() => setOpened(true)} />;
 };
 
 export interface SelectSingleProps

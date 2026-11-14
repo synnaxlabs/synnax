@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Sort is a list order that a field's `@index sorted` mark declares. A mark with a
-// value names a sub-field of a struct field: `@index sorted start` on `time_range`
-// orders by `time_range.start`.
+// Sort is a list order that a field's `@index sorted` mark declares. Each value of a
+// mark names a sub-field of a struct field and declares its own order: `@index sorted
+// start end` on `time_range` orders by `time_range.start` and by `time_range.end`.
 type Sort struct {
 	// Name names the order on the wire: the field name, then the sub-field name, joined
 	// by an underscore.
@@ -55,35 +55,53 @@ func Sorts(fields []Field, table *Table) ([]Sort, error) {
 				field.Name,
 			)
 		}
-		sort := Sort{Name: field.Name, Path: []Field{field}, Type: field.Type}
-		if len(expr.Values) > 0 {
-			sub, err := subField(field, expr.Values[0], table)
+		if len(expr.Values) == 0 {
+			sort, err := newSort(Sort{Name: field.Name, Path: []Field{field}}, table)
 			if err != nil {
 				return nil, err
 			}
-			sort.Name += "_" + sub.Name
-			sort.Path = append(sort.Path, sub)
-			sort.Type = sub.Type
+			sorts = append(sorts, sort)
+			continue
 		}
-		if sort.Leaf().Optional {
-			return nil, errors.Newf(
-				"%s: an optional field cannot be sorted",
-				sort.path(),
-			)
+		for _, value := range expr.Values {
+			sub, err := subField(field, value, table)
+			if err != nil {
+				return nil, err
+			}
+			sort, err := newSort(Sort{
+				Name: field.Name + "_" + sub.Name,
+				Path: []Field{field, sub},
+			}, table)
+			if err != nil {
+				return nil, err
+			}
+			sorts = append(sorts, sort)
 		}
-		switch base := PrimitiveBase(sort.Type, table); {
-		case base == "string":
-			sort.Textual = true
-		case IsNumberPrimitive(base):
-		default:
-			return nil, errors.Newf(
-				"%s: only a string or a number can be sorted",
-				sort.path(),
-			)
-		}
-		sorts = append(sorts, sort)
 	}
 	return sorts, nil
+}
+
+// newSort returns sort with the type and textual flag of its leaf.
+func newSort(sort Sort, table *Table) (Sort, error) {
+	leaf := sort.Leaf()
+	if leaf.Optional {
+		return Sort{}, errors.Newf(
+			"%s: an optional field cannot be sorted",
+			sort.path(),
+		)
+	}
+	sort.Type = leaf.Type
+	switch base := PrimitiveBase(sort.Type, table); {
+	case base == "string":
+		sort.Textual = true
+	case IsNumberPrimitive(base):
+	default:
+		return Sort{}, errors.Newf(
+			"%s: only a string or a number can be sorted",
+			sort.path(),
+		)
+	}
+	return sort, nil
 }
 
 func (s Sort) path() string {

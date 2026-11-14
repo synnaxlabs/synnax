@@ -246,8 +246,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
         ) >= 0)
         return x::errors::NIL;
     return x::errors::Error(
-        abort_code == 0 ? errors::STARTUP_PARAMETER_ERROR
-                        : errors::STARTUP_PARAMETER_REJECTED,
+        errors::startup_parameter_error(abort_code),
         "slave " + std::to_string(slave.position) + " (" + slave.name +
             ") rejected startup parameter " + param.to_string() + ": " +
             errors::sdo_abort_reason(abort_code)
@@ -285,8 +284,7 @@ x::errors::Error Master::write(
                 &abort_code
             ) < 0)
             return x::errors::Error(
-                abort_code == 0 ? errors::STARTUP_PARAMETER_ERROR
-                                : errors::STARTUP_PARAMETER_REJECTED,
+                errors::startup_parameter_error(abort_code),
                 "slave " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     errors::sdo_abort_reason(abort_code)
@@ -500,9 +498,12 @@ void Master::deactivate() {
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
+    this->full_working_counter.reset();
+    this->latest_shortfall.reset();
 }
 
 x::errors::Error Master::receive() {
+    this->latest_shortfall.reset();
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
@@ -527,20 +528,28 @@ x::errors::Error Master::receive() {
     }
 
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
-    if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
-        (this->input_sz > 0 && this->input_domain_state.wc_state == EC_WC_ZERO))
+    const bool zero = (this->output_sz > 0 &&
+                       this->output_domain_state.wc_state == EC_WC_ZERO) ||
+                      (this->input_sz > 0 &&
+                       this->input_domain_state.wc_state == EC_WC_ZERO);
+    const bool incomplete = this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
+                            this->input_domain_state.wc_state == EC_WC_INCOMPLETE;
+    const uint32_t wkc = this->output_domain_state.working_counter +
+                         this->input_domain_state.working_counter;
+    if (!zero && !incomplete) {
+        this->full_working_counter = wkc;
+        return x::errors::NIL;
+    }
+    if (this->full_working_counter && wkc < *this->full_working_counter)
+        this->latest_shortfall = *this->full_working_counter - wkc;
+    if (zero)
         return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
-
-    if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
-        this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "incomplete working counter: output " +
-                std::to_string(this->output_domain_state.working_counter) + ", input " +
-                std::to_string(this->input_domain_state.working_counter)
-        );
-
-    return x::errors::NIL;
+    return x::errors::Error(
+        errors::WORKING_COUNTER_ERROR,
+        "incomplete working counter: output " +
+            std::to_string(this->output_domain_state.working_counter) + ", input " +
+            std::to_string(this->input_domain_state.working_counter)
+    );
 }
 
 x::errors::Error Master::send() {
@@ -689,6 +698,8 @@ void Master::register_pdo_entries(
     ec_slave_config_t *sc,
     master::Image &image
 ) {
+    // A slave adds 1 to the datagram of each domain that holds one of its entries.
+    master::WorkingCounterShare share;
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -721,11 +732,17 @@ void Master::register_pdo_entries(
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
+        if (domain == this->output_domain)
+            share.outputs = 1;
+        else
+            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
         add(pdo, this->output_domain);
     for (const auto &pdo: slave.input_pdos)
         add(pdo, this->input_domain);
+    if (share != master::WorkingCounterShare{})
+        image.working_counter_shares[slave.position] = share;
 }
 
 x::errors::Error

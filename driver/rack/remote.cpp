@@ -193,4 +193,29 @@ x::errors::Error Config::load_remote() {
         }
     );
 }
+
+x::errors::Error Config::check_core() const {
+    const auto client = synnax::Synnax(this->connection);
+    const auto core = client.connectivity->check();
+    const auto [cluster_key, err] = parse_cluster_key(core);
+    if (err) return err;
+    if (cluster_key != this->remote_info.cluster_key)
+        return x::errors::Error(
+            CORE_CHANGED,
+            "the Core is now cluster " + cluster_key.to_string() + ", not " +
+                this->remote_info.cluster_key.to_string() +
+                ". The Driver stops so that it can start again on the new cluster"
+        );
+    const bool incompatible = !synnax::connection::versions_compatible(
+        SYNNAX_DRIVER_VERSION,
+        core.node_version
+    );
+    if (incompatible != this->incompatible_core_version.has_value())
+        return x::errors::Error(
+            CORE_CHANGED,
+            "the Core now runs version " + core.node_version +
+                ". The Driver stops so that it can start again for this version"
+        );
+    return x::errors::NIL;
+}
 }

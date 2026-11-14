@@ -99,6 +99,13 @@ struct Source {
 
     virtual ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
 
+    /// @brief unblocks a read when the task stops. Called on the stopping thread after
+    /// the breaker stops, and before stop(). It can come before the read blocks, so a
+    /// blocking call made after it must also return. A read that an interrupt ends
+    /// should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called when the
+    /// pipeline already stopped itself.
+    virtual void interrupt() {}
+
     virtual ~Source() = default;
 };
 
@@ -138,6 +145,8 @@ class ReadTask final : public driver::task::Task {
 
         void writer_opened() override { this->writer_open = true; }
 
+        void interrupt() override { this->internal->interrupt(); }
+
         void stopped_with_err(const x::errors::Error &err) override {
             this->p.state.error(
                 err,
@@ -169,7 +178,7 @@ class ReadTask final : public driver::task::Task {
                     LOG(WARNING)
                         << this->p.name() << ": [" << err.type << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
-                } else
+                } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;
             }
@@ -239,7 +248,7 @@ public:
         ) {}
 
     /// @brief executes the given command on the task.
-    void exec(synnax::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
