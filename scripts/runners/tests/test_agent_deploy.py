@@ -17,6 +17,7 @@ import pytest
 import synnax as sy
 
 import agent_deploy
+import conftest
 from agent_deploy import (
     POLL,
     STOP_LINUX,
@@ -24,8 +25,11 @@ from agent_deploy import (
     install_commands,
     public_address,
     run,
+    scaler_paused,
 )
 from aws import AWS
+from conftest import core
+from scaler import SCALER_CMD
 
 COMMIT = "a" * 40
 UBUNTU = "i-0aaa"
@@ -295,10 +299,80 @@ class TestPublicAddress:
         assert address.get_header("X-aws-ec2-metadata-token") == "token"
 
 
-def start(monkeypatch: pytest.MonkeyPatch, fleet: Fleet, *argv: str) -> int:
+class Switch(conftest.Writer):
+    def write(self, frame: dict) -> None:
+        super().write(frame)
+        controller = cast(Controller, self.client)
+        if not controller.deaf:
+            controller.state = frame[SCALER_CMD]
+
+
+class Controller(conftest.Client):
+    """Stands in for the Core with the controller behind it: the scaler state follows
+    each switch command unless deaf is set. A state of None is a controller that does
+    not run."""
+
+    def __init__(self, state: bool | None = True) -> None:
+        super().__init__()
+        self.state = state
+        self.deaf = False
+        self.closed = False
+
+    def open_writer(
+        self, start: sy.TimeStamp, *args: object, **kwargs: object
+    ) -> Switch:
+        return Switch(client=self, start=start)
+
+    def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
+        return [] if self.state is None else [self.state]
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class TestScalerPaused:
+    """Tests for keeping the scaler off during an install."""
+
+    def test_should_turn_the_scaler_off_for_the_block_and_on_after(self) -> None:
+        client = Controller()
+        with scaler_paused(core(client)):
+            assert client.state is False
+        assert client.written(SCALER_CMD) == [False, True]
+
+    @pytest.mark.parametrize("state", [False, None])
+    def test_should_leave_a_scaler_that_is_off_or_has_no_controller(
+        self, state: bool | None
+    ) -> None:
+        client = Controller(state)
+        with scaler_paused(core(client)):
+            pass
+        assert client.written(SCALER_CMD) == []
+
+    def test_should_turn_the_scaler_on_again_when_the_block_fails(self) -> None:
+        client = Controller()
+        with pytest.raises(RuntimeError, match="lost"), scaler_paused(core(client)):
+            raise RuntimeError("lost")
+        assert client.written(SCALER_CMD) == [False, True]
+
+    def test_should_fail_when_the_controller_does_not_turn_the_scaler_off(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(agent_deploy, "SWITCH_TIMEOUT", sy.TimeSpan(0))
+        client = Controller()
+        client.deaf = True
+        with pytest.raises(TimeoutError), scaler_paused(core(client)):
+            pass
+        assert client.written(SCALER_CMD) == [False, True]
+
+
+def start(
+    monkeypatch: pytest.MonkeyPatch, fleet: Fleet, controller: Controller, *argv: str
+) -> int:
     monkeypatch.setattr(sys, "argv", ["agent_deploy.py", *argv])
     monkeypatch.setattr(agent_deploy, "AWS", lambda: fleet)
     monkeypatch.setattr(agent_deploy, "metadata", lambda request: b"203.0.113.7")
+    monkeypatch.setattr(agent_deploy, "parameter_store", lambda: None)
+    monkeypatch.setattr(agent_deploy, "connect", lambda args, store: controller)
     return agent_deploy.main()
 
 
@@ -308,21 +382,30 @@ class TestMain:
     def test_should_stop_the_agent_on_each_runner(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        assert start(monkeypatch, fleet, "stop") == 0
+        controller = Controller()
+        assert start(monkeypatch, fleet, controller, "stop") == 0
         assert fleet.sent == {UBUNTU: STOP_LINUX, WINDOWS: STOP_WINDOWS}
+        assert controller.written(SCALER_CMD) == []
 
-    def test_should_install_the_agent_with_the_certificate_of_the_core(
+    def test_should_install_the_agent_with_the_scaler_off(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         cert = tmp_path / "ca.crt"
         cert.write_bytes(b"certificate")
-        argv = ("install", "--commit", COMMIT, "--ca-cert", str(cert))
-        assert start(monkeypatch, fleet, *argv) == 0
+        fleet.found[WINDOWS] = instance(
+            "windows-build-bot", windows=True, state="stopped"
+        )
+        controller = Controller()
+        argv = ("install", "--commit", COMMIT, "--secure", "--ca-cert", str(cert))
+        assert start(monkeypatch, fleet, controller, *argv) == 0
         ca = base64.b64encode(b"certificate").decode()
         assert fleet.sent[UBUNTU][0].endswith(f"{COMMIT} 203.0.113.7 {ca}")
+        assert fleet.started == [WINDOWS]
+        assert controller.written(SCALER_CMD) == [False, True]
+        assert controller.closed
 
     def test_should_exit_with_an_error_when_a_runner_fails(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         fleet.statuses[UBUNTU] = ["Failed"]
-        assert start(monkeypatch, fleet, "stop") == 1
+        assert start(monkeypatch, fleet, Controller(), "stop") == 1

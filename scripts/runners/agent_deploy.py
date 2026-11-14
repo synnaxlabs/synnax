@@ -16,21 +16,26 @@
 over SSM.
 
     uv run agent_deploy.py stop
-    uv run agent_deploy.py install --commit <sha> --ca-cert <path>
+    uv run agent_deploy.py install --commit <sha> --username controller --secure \
+        --ca-cert <path>
 
 Run on Sandbox-Windows by the Deploy - Runners workflow. The install starts each stopped
-runner and leaves it up, so the scaler stops it when it is idle.
+runner and leaves it up. It keeps the scaler off until it ends, so the scaler stops no
+runner before its install, and stops the idle ones after.
 """
 
 import argparse
 import base64
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 import synnax as sy
 
 from aws import AWS
+from common import add_connection_args, connect, parameter_store
+from scaler import SCALER_CMD, SCALER_ENABLED
 
 SOURCE = "https://raw.githubusercontent.com/synnaxlabs/synnax/{}/scripts/runners"
 IMDS = "http://169.254.169.254/latest"
@@ -39,6 +44,9 @@ POLL = 5 * sy.TimeSpan.SECOND
 TIMEOUT = 15 * sy.TimeSpan.MINUTE
 UNFINISHED = {"Pending", "InProgress", "Delayed"}
 GONE = {"shutting-down", "terminated"}
+# The controller beats the scaler state every 5 s while it runs.
+BEAT_WINDOW = 30 * sy.TimeSpan.SECOND
+SWITCH_TIMEOUT = 1 * sy.TimeSpan.MINUTE
 
 STOP_LINUX = [
     "if systemctl cat runner-agent.service > /dev/null 2>&1; then "
@@ -164,24 +172,65 @@ def run(
     return all(results[i] == "Success" for i in runners if i not in skipped)
 
 
+def scaler_enabled(client: sy.Synnax) -> bool | None:
+    """The scaler state that the controller last reported, or None when the controller
+    does not run."""
+    now = sy.TimeStamp.now()
+    beats = client.read(sy.TimeRange(now - BEAT_WINDOW, now), SCALER_ENABLED)
+    return bool(beats[-1]) if len(beats) else None
+
+
+def switch_scaler(client: sy.Synnax, *, enabled: bool) -> None:
+    writer = client.open_writer(sy.TimeStamp.now(), [SCALER_CMD])
+    try:
+        writer.write({SCALER_CMD: enabled})
+    finally:
+        writer.close()
+
+
+@contextmanager
+def scaler_paused(client: sy.Synnax) -> Iterator[None]:
+    """Keeps a scaler that is on turned off inside the block, then turns it on again.
+
+    :raises TimeoutError: if the controller does not turn the scaler off.
+    """
+    if not scaler_enabled(client):
+        yield
+        return
+    switch_scaler(client, enabled=False)
+    try:
+        timer = sy.Timer()
+        while scaler_enabled(client):
+            if timer.elapsed() >= SWITCH_TIMEOUT:
+                raise TimeoutError("The controller did not turn the scaler off")
+            sy.sleep(sy.TimeSpan.SECOND)
+        yield
+    finally:
+        switch_scaler(client, enabled=True)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     actions = p.add_subparsers(dest="action", required=True)
     actions.add_parser("stop")
     install = actions.add_parser("install")
     install.add_argument("--commit", required=True)
-    install.add_argument("--ca-cert", required=True, type=Path)
+    add_connection_args(install)
     args = p.parse_args()
+    aws = AWS()
     if args.action == "stop":
-        linux, windows = STOP_LINUX, STOP_WINDOWS
-    else:
-        linux, windows = install_commands(
-            commit=args.commit,
-            host=public_address(metadata),
-            ca=base64.b64encode(args.ca_cert.read_bytes()).decode(),
-        )
-    start_stopped = args.action == "install"
-    passed = run(AWS(), linux=linux, windows=windows, start_stopped=start_stopped)
+        return 0 if run(aws, linux=STOP_LINUX, windows=STOP_WINDOWS) else 1
+    linux, windows = install_commands(
+        commit=args.commit,
+        host=public_address(metadata),
+        ca=base64.b64encode(Path(args.ca_cert).read_bytes()).decode(),
+    )
+    client = connect(args, store=parameter_store())
+    try:
+        with scaler_paused(client):
+            passed = run(aws, linux=linux, windows=windows, start_stopped=True)
+    finally:
+        client.close()
     return 0 if passed else 1
 
 

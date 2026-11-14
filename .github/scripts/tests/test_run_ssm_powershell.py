@@ -103,7 +103,7 @@ class TestRunSSMPowerShell:
             "aws ssm send-command --instance-ids i-123 "
             "--document-name AWS-RunPowerShellScript --comment Back up the Core "
             '--parameters {"commands":["powershell -NoProfile -EncodedCommand '
-            f'{encoded}","exit $LASTEXITCODE"]}} '
+            f'{encoded}","exit $LASTEXITCODE"],"executionTimeout":["900"]}} '
             "--query Command.CommandId --output text"
         )
 

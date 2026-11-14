@@ -12,10 +12,19 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# Held until this process exits, so two steps never run at the same time.
-$Lock = [IO.File]::Open(
-    (Join-Path $env:TEMP 'runners-deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None'
-)
+# Waits for a step that still runs, such as one whose workflow run was cancelled.
+$LockPath = Join-Path $env:TEMP 'runners-deploy.lock'
+$LockDeadline = (Get-Date).AddMinutes(10)
+$Lock = $null
+while (-not $Lock) {
+    try {
+        $Lock = [IO.File]::Open($LockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+    }
+    catch [IO.IOException] {
+        if ((Get-Date) -gt $LockDeadline) { throw }
+        Start-Sleep -Seconds 5
+    }
+}
 
 $Dir = 'C:\Users\Administrator\Desktop\runner_telemetry'
 $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
@@ -141,7 +150,8 @@ switch ($Step) {
         if ($failed) { throw "Exited after start: $($failed -join ', ')" }
     }
     'deploy-agents' {
-        & $Uv run $AgentDeploy install --commit $Sha --ca-cert $Cert
+        & $Uv run $AgentDeploy install --commit $Sha `
+            --username controller --secure --ca-cert $Cert
         if ($LASTEXITCODE -ne 0) { throw 'The agent install failed on a runner' }
     }
     default { throw "Unknown step '$Step'" }

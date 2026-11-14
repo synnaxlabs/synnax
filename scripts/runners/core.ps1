@@ -14,10 +14,19 @@ $ProgressPreference = 'SilentlyContinue'
 # Stop-Service and Start-Service warn every 2 s while they wait.
 $WarningPreference = 'SilentlyContinue'
 
-# The lock of deploy.ps1, so a step and a deploy never run together.
-$Lock = [IO.File]::Open(
-    (Join-Path $env:TEMP 'runners-deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None'
-)
+# Waits for a step that still runs, such as one whose workflow run was cancelled.
+$LockPath = Join-Path $env:TEMP 'runners-deploy.lock'
+$LockDeadline = (Get-Date).AddMinutes(10)
+$Lock = $null
+while (-not $Lock) {
+    try {
+        $Lock = [IO.File]::Open($LockPath, 'OpenOrCreate', 'ReadWrite', 'None')
+    }
+    catch [IO.IOException] {
+        if ((Get-Date) -gt $LockDeadline) { throw }
+        Start-Sleep -Seconds 5
+    }
+}
 
 $Service = 'SynnaxCore'
 $Exe = 'C:\Program Files\Synnax\Core\synnax-server.exe'
@@ -25,6 +34,7 @@ $Data = 'C:\ProgramData\Synnax\data'
 $Config = 'C:\ProgramData\Synnax\config.yaml'
 $Backups = 'C:\Users\Administrator\Desktop\Backups'
 $MinFree = 25GB
+$MaxBackupMinutes = 7
 $Wait = '00:02:00'
 $Temp = Join-Path $env:TEMP 'synnax-core'
 $New = Join-Path $Temp 'synnax-server.exe'
@@ -58,6 +68,7 @@ switch ($Step) {
         "Stopped $Service"
     }
     'backup' {
+        $started = Get-Date
         # The binary prints one line that starts with "Synnax 0.61.0".
         if ("$(& $Exe version)" -notmatch '^Synnax (\d+\.\d+\.\d+\S*)') {
             throw "Cannot read the version of $Exe"
@@ -81,10 +92,17 @@ switch ($Step) {
         Remove-Item $staging -Recurse -Force
         $zip = Get-Item (Join-Path $Backups "$name.zip")
         "Backup $($zip.Name), $([math]::Round($zip.Length / 1MB)) MB"
+        # The zip is saved by now, so these fail the step without losing the backup.
+        $problems = @()
         $free = (Get-PSDrive C).Free
         if ($free -lt $MinFree) {
-            throw "C: has $([math]::Round($free / 1GB)) GB free, less than 25 GB"
+            $problems += "C: has $([math]::Round($free / 1GB)) GB free, less than 25 GB"
         }
+        $minutes = [math]::Round(((Get-Date) - $started).TotalMinutes, 1)
+        if ($minutes -gt $MaxBackupMinutes) {
+            $problems += "The backup took $minutes min, more than $MaxBackupMinutes"
+        }
+        if ($problems) { throw ($problems -join '. ') }
     }
     'install' {
         # Windows lets a binary that just ran be renamed, not removed.

@@ -27,10 +27,12 @@ encoded=$({
 } | iconv -t UTF-16LE | base64 | tr -d '\n')
 command="powershell -NoProfile -EncodedCommand $encoded"
 # SSM reports the exit code of its own script, so that script exits with ours.
+parameters="{\"commands\":[\"$command\",\"exit \$LASTEXITCODE\"]"
+# SSM ends the command at TIMEOUT, so it does not run on after this script gives up.
+parameters+=",\"executionTimeout\":[\"$TIMEOUT\"]}"
 id=$(aws ssm send-command --instance-ids "$INSTANCE" \
     --document-name AWS-RunPowerShellScript --comment "$COMMENT" \
-    --parameters "{\"commands\":[\"$command\",\"exit \$LASTEXITCODE\"]}" \
-    --query Command.CommandId --output text)
+    --parameters "$parameters" --query Command.CommandId --output text)
 
 waited=0
 while :; do
