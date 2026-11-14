@@ -43,8 +43,8 @@ public:
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
-    /// @param cancel stops when the command is cancelled. A task should end a long
-    /// wait when it stops.
+    /// @param cancel stops when the task manager stops its workers, after it stops its
+    /// tasks. A task should end a long wait when it stops.
     virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
@@ -180,7 +180,8 @@ inline constexpr auto NO_COMMAND = "";
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
-    /// @param cancel stops when the Driver shuts down.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns each created task with its live instance, or with null when its
     /// configure failed.
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
@@ -196,8 +197,8 @@ public:
 
     /// @brief builds a live instance of the task if this factory handles its type.
     /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
-    /// @param cancel stops when the deploy is cancelled. A factory should end a long
-    /// wait when it stops.
+    /// @param cancel stops when the task manager stops its workers. A factory should
+    /// end a long wait when it stops.
     /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
