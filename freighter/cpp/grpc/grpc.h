@@ -44,6 +44,8 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
     if (status.error_code() == ::grpc::StatusCode::UNAVAILABLE)
         return {UNREACHABLE.type, status.error_message()};
+    if (status.error_code() == ::grpc::StatusCode::DEADLINE_EXCEEDED)
+        return {TIMEOUT.type, status.error_message()};
     return x::errors::Error(status.error_message());
 }
 }

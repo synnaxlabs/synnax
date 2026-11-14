@@ -25,6 +25,8 @@ const std::string ERR_TYPE_UNKNOWN = "unknown";
 const x::errors::Error STREAM_CLOSED = {"freighter.stream_closed", "Stream closed"};
 const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
 const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
+/// @brief the target sent no response before the deadline of the request.
+const x::errors::Error TIMEOUT = {"freighter.timeout", "Timeout"};
 
 enum TransportVariant { UNARY, STREAM };
 
@@ -126,6 +128,22 @@ public:
     /// @implements Middleware::operator()
     std::pair<Context, x::errors::Error>
     operator()(const Context context, Next &next) override {
+        return next(context);
+    }
+};
+
+/// @brief sets the deadline of each unary request to the time of the request plus
+/// timeout. A Deadline later in the chain replaces it. Leaves streams unchanged.
+class Deadline final : public Middleware {
+    std::chrono::milliseconds timeout;
+
+public:
+    explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
+
+    std::pair<Context, x::errors::Error>
+    operator()(Context context, Next &next) override {
+        if (context.variant == UNARY)
+            context.deadline = std::chrono::system_clock::now() + this->timeout;
         return next(context);
     }
 };

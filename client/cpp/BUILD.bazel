@@ -45,6 +45,20 @@ cc_library(
 )
 
 cc_test(
+    name = "transport_test",
+    size = "small",
+    srcs = ["transport_test.cpp"],
+    deps = [
+        "//client/cpp:synnax",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
     name = "synnax_test",
     size = "small",
     srcs = ["synnax_test.cpp"],

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <chrono>
+
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
@@ -21,8 +23,18 @@
 #include "client/cpp/status/status.h"
 
 namespace synnax::details {
+/// @brief how long a unary request waits for its response by default.
+const std::chrono::milliseconds UNARY_TIMEOUT = std::chrono::seconds(60);
+
 struct Transport {
-    Transport(uint16_t port, const std::string &ip, bool secure);
+    /// @param timeout how long each unary request waits for its response. A deadline
+    /// that a later middleware sets replaces it.
+    Transport(
+        uint16_t port,
+        const std::string &ip,
+        bool secure,
+        std::chrono::milliseconds timeout = UNARY_TIMEOUT
+    );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 

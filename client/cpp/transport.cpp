@@ -38,7 +38,12 @@
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax::details {
-Transport::Transport(const uint16_t port, const std::string &ip, const bool secure) {
+Transport::Transport(
+    const uint16_t port,
+    const std::string &ip,
+    const bool secure,
+    const std::chrono::milliseconds timeout
+) {
     auto base_target = x::url::URL(ip, port, "").to_string();
     auto pool = std::make_shared<freighter::grpc::Pool>(secure);
     this->auth_session_create = std::make_unique<freighter::grpc::UnaryClient<
@@ -193,6 +198,13 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse,
         grpc::connectivity::ConnectivityService>>(pool, base_target);
+    const auto deadline = std::make_shared<freighter::Deadline>(timeout);
+    this->use(deadline);
+    this->auth_session_create->use(deadline);
+    this->auth_session_renew->use(deadline);
+    this->auth_session_retrieve->use(deadline);
+    this->auth_session_delete->use(deadline);
+    this->connectivity_check->use(deadline);
 };
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
