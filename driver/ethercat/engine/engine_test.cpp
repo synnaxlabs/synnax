@@ -1771,6 +1771,50 @@ TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
 }
 
 /// @brief it should drop the samples of every reader when the working counter falls
+/// short by less than the slaves out of OP miss.
+TEST_F(EngineTest, ShortCycleBelowTheLostSlavesFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(1);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when a slave in OP falls short
+/// beside a slave in SAFE-OP, which misses only its outputs, so that no reader takes
+/// the stale inputs of the slave in OP.
+TEST_F(EngineTest, ShortCycleBeyondASafeOpSlaveFailsEveryReader) {
+    this->master->add_slave(io_slave(1));
+    auto inputs_only = io_slave(2);
+    inputs_only.output_pdos.clear();
+    this->master->add_slave(inputs_only);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 2)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 3 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(3);
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    ASSERT_EVENTUALLY_TRUE(
+        reader->read(this->brk, frame, times).matches(errors::CYCLE_FAILED)
+    );
+}
+
+/// @brief it should drop the samples of every reader when the working counter falls
 /// short while every slave is in OP.
 TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
     const auto reader = ASSERT_NIL_P(

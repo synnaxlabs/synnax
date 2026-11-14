@@ -216,8 +216,10 @@ class Engine {
         std::vector<uint16_t> positions;
         /// @brief the positions of the slaves that do not respond, in ascending order.
         std::vector<uint16_t> silent;
-        /// @brief the sum of their working counter shares.
-        uint32_t share = 0;
+        /// @brief how far the slaves keep the working counter from a full cycle: the
+        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
+        /// a slave in SAFE-OP.
+        uint32_t shortfall = 0;
 
         bool operator==(const Outage &) const = default;
     };
