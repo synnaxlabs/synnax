@@ -194,7 +194,10 @@ const problemsOf = (
     networkProblem(used),
     ...used.map((slave) => positionProblem(slave, onRack)),
   ].filter((p): p is string => p != null);
-  const steps = used.map(setupStep).filter((p): p is string => p != null);
+  const steps = used
+    .filter((s) => channels.some((ch) => !ch.disabled && ch.device === s.key))
+    .map(setupStep)
+    .filter((p): p is string => p != null);
   const problems: Problem[] = [];
   // An error at a path hides a warning at it, so the error carries the steps.
   if (taskWide.length > 0)
@@ -217,8 +220,8 @@ const problemsOf = (
  * Checks the channels of a task against their slaves as the user edits: one network
  * for every slave, no other device at the position of a slave, and for each enabled
  * channel its entry and, on inputs, the settings of the input it reads. It warns of a
- * slave that other software sets up. A channel whose slave has not loaded is not
- * checked, so a deploy runs {@link checkSlaves} too.
+ * slave with an enabled channel that other software sets up. A channel whose slave has
+ * not loaded is not checked, so a deploy runs {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */

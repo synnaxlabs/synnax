@@ -403,6 +403,84 @@ describe("Read", () => {
     expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
   });
 
+  it("should ask to set up in DewesoftX a slave that Synnax cannot switch", async () => {
+    const settings = createDewesoftXSettings(true);
+    if (settings.mode == null) throw new Error("DewesoftX settings have no mode");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: { ...settings, mode: { ...settings.mode, switch: [] } },
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
+          "DewesoftX before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should add the DewesoftX step to a task-wide error", async () => {
+    const shared = await createSharedSlave();
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth1",
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    expect(
+      await screen.findByText(
+        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+          `one network. Slave ${shared.name} is set up for DewesoftX. Switch it to ` +
+          "Synnax before you start the task.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should not warn of a slave in DewesoftX mode that only disabled channels use", async () => {
+    const shared = await createSharedSlave();
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    const stale = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
+          disabled: true,
+        },
+        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
+      ],
+    });
+    // The whole text matches only when the error carries no DewesoftX step.
+    expect(
+      await screen.findByText(
+        `Slaves ${other.name} and ${stale.name} are both at position ${position} on ` +
+          "eth0. Delete the one that is not on the network.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
     const slave = await createSharedSlave();
     const deployed = await deployRead({
