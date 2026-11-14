@@ -580,6 +580,9 @@ void Master::populate_slaves() {
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    ec_errort err{};
+    // Only the errors of this read can show that the slave answered it.
+    while (this->api->poperror(err)) {}
     uint32_t serial = 0;
     int size = sizeof(serial);
     if (this->api->SDOread(
@@ -595,11 +598,10 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
         return;
     }
     // A slave that answers the read with an error, such as an SDO abort or a mailbox
-    // error, has no CoE serial number. Only a read with no reply leaves no error.
+    // error, has no CoE serial number. An emergency is no answer.
     bool answered = false;
-    ec_errort err{};
     while (this->api->poperror(err))
-        answered |= err.Slave == pos;
+        answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
     if (!answered)
         slave.status.serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, 0)
                                         .data;

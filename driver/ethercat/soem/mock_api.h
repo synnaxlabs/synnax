@@ -73,6 +73,9 @@ struct MockSlaveInfo {
     /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
     /// index and sub-index.
     std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
+    /// @brief objects whose SDO reads bring a CoE emergency from the slave, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_emergencies;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -525,13 +528,16 @@ public:
             std::memcpy(p, it->second.data(), *psize);
             return 1;
         }
-        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) {
-            ec_errort err{};
-            err.Etype = EC_ERR_TYPE_MBX_ERROR;
-            err.Slave = slave;
-            this->errors.push_back(err);
-            return 0;
-        }
+        for (const auto &[objects, type]:
+             {std::pair{&info.sdo_read_emergencies, EC_ERR_TYPE_EMERGENCY},
+              std::pair{&info.sdo_read_mailbox_errors, EC_ERR_TYPE_MBX_ERROR}})
+            if (objects->contains({index, sub_index})) {
+                ec_errort err{};
+                err.Etype = type;
+                err.Slave = slave;
+                this->errors.push_back(err);
+            }
+        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) return 0;
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
             if (abort->second != 0)

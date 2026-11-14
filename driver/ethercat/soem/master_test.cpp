@@ -1115,6 +1115,21 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
+/// @brief it should report a serial read with no reply after an earlier error of the
+/// slave, and with an emergency from the slave during the read.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoReplyAfterOtherErrors) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    slave.sdo_read_emergencies.insert({0x1018, 4});
+    this->add_slave(slave);
+    ec_errort earlier{};
+    earlier.Etype = EC_ERR_TYPE_MBX_ERROR;
+    earlier.Slave = 1;
+    this->mock->errors.push_back(earlier);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
+}
+
 /// @brief it should not read the CoE serial number of a slave without CoE.
 TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
     auto slave = create_coe_slave(0x5555);
