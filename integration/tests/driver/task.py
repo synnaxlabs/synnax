@@ -428,14 +428,6 @@ class StatusWatch:
             expected=f"an answer to command {key}",
         )
 
-    def step(self, key: str, *, timeout: sy.TimeSpan) -> sy.task.Status:
-        """Returns the next loading status of the command key."""
-        return self.wait(
-            lambda s: command_of(s) == key and s.variant == "loading",
-            timeout=timeout,
-            expected=f"a step of command {key}",
-        )
-
     def collect(self, duration: sy.TimeSpan) -> list[sy.task.Status]:
         """Returns the statuses that arrive in the next duration."""
         start = len(self.seen)

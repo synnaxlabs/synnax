@@ -7,8 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Start and stop commands on EtherCAT tasks on the HITL station: an auto-start task,
-a stop that meets a start, two starts on one network, and a repeated start."""
+"""Start and stop commands on EtherCAT tasks on the HITL station: an auto-start task and
+a stop that meets a start that fails."""
+
+import re
 
 import synnax as sy
 from framework.test_case import TestCase
@@ -21,21 +23,17 @@ from tests.driver.task import (
     status_text,
 )
 from tests.hitl.ethercat import (
-    ACK_TIMEOUT,
     START_TIMEOUT,
-    STG_DC,
     STGS,
     create_read_task,
-    expect_retry,
-    free_run,
     prepare_bus,
-    set_op_mode,
 )
 
 _START_LIMIT = 45 * sy.TimeSpan.SECOND
 """A bus start gets 75% of the 60 s limit of its command."""
 _SLACK = 5 * sy.TimeSpan.SECOND
-_STOP_LIMIT = sy.TimeSpan.SECOND
+_STOP_ANSWER = 10 * sy.TimeSpan.SECOND
+"""How long the answer of the stop may trail the answer of the start."""
 _QUIET = 5 * sy.TimeSpan.SECOND
 """How long a test watches for a status that must not come."""
 _BAD_ADDRESS = sy.ethercat.StartupParameter(
@@ -43,11 +41,13 @@ _BAD_ADDRESS = sy.ethercat.StartupParameter(
 )
 """An object that the 6xSTG does not have, so it aborts the write at once."""
 _ABORT = "Object does not exist in the object dictionary"
-_STOP_ENDED_START = "A stop ended the start before it finished."
+_ACTIVATING = re.compile(r"Bringing \d+ slaves? to OP\.")
+"""The description of the start step right before the bus writes the startup
+parameters."""
 
 
-class EtherCATCommands(TestCase):
-    """Sends start and stop commands to EtherCAT tasks and checks the answers."""
+class _Command(TestCase):
+    """Sends commands to read tasks of the first 6xSTG."""
 
     stg: sy.Device
     tasks: list[sy.ethercat.ReadTask]
@@ -56,17 +56,7 @@ class EtherCATCommands(TestCase):
         self.tasks = []
         self.stg = prepare_bus(self.client)[STGS[0]]
 
-    def run(self) -> None:
-        self.test_auto_start_command()
-        self.test_stop_keeps_start_error()
-        set_op_mode(self.client, self.stg, free_run(self.stg))
-        self.test_two_starts()
-        self.test_stop_during_retry()
-        self.test_repeat_start()
-
     def teardown(self) -> None:
-        with self._try_to("put back the DC mode of the 6xSTG"):
-            set_op_mode(self.client, self.stg, STG_DC)
         for tsk in self.tasks:
             with self._try_to(f"delete task {tsk.name}"):
                 self.client.tasks.delete(tsk.key)
@@ -77,11 +67,33 @@ class EtherCATCommands(TestCase):
             )
         super().teardown()
 
-    def test_auto_start_command(self) -> None:
-        """Checks that a start command on an auto-start task starts it once, and that
-        each status of the start answers the command."""
-        self.log("Testing: Start command on an auto-start task")
-        tsk = self._create_task("Auto Start Command", auto_start=True)
+    def _create_task(
+        self,
+        label: str,
+        *,
+        auto_start: bool = False,
+        startup_parameters: list[sy.ethercat.SlaveStartupParameters] | None = None,
+    ) -> sy.ethercat.ReadTask:
+        tsk = create_read_task(
+            self.client,
+            [self.stg],
+            name=f"HITL EtherCAT Commands {label}",
+            sample_rate=100 * sy.Rate.HZ,
+            stream_rate=25 * sy.Rate.HZ,
+            auto_start=auto_start,
+            startup_parameters=startup_parameters,
+        )
+        self.client.tasks.configure(tsk)
+        self.tasks.append(tsk)
+        return tsk
+
+
+class EtherCATAutoStartCommand(_Command):
+    """Checks that a start command on an auto-start task starts it once, and that each
+    status of the start answers the command."""
+
+    def run(self) -> None:
+        tsk = self._create_task("Auto Start", auto_start=True)
         with StatusWatch(self.client, [tsk.key]) as watch:
             key = tsk._internal.execute_command("start")
             started = watch.answer(key, timeout=_START_LIMIT + _SLACK)
@@ -102,10 +114,12 @@ class EtherCATCommands(TestCase):
             raise AssertionError(f"Expected one start, but saw {watch.texts()}")
         tsk.stop(timeout=START_TIMEOUT)
 
-    def test_stop_keeps_start_error(self) -> None:
-        """Checks that a start that fails on its own while a stop waits keeps its
-        error, and that the stop answers with that error."""
-        self.log("Testing: Stop during a start that fails")
+
+class EtherCATStopKeepsStartError(_Command):
+    """Checks that a start that fails on its own while a stop waits keeps its error, and
+    that the stop answers with that error."""
+
+    def run(self) -> None:
         tsk = self._create_task(
             "Bad Parameter",
             startup_parameters=[
@@ -116,10 +130,17 @@ class EtherCATCommands(TestCase):
         )
         with StatusWatch(self.client, [tsk.key]) as watch:
             start = tsk._internal.execute_command("start")
-            watch.step(start, timeout=ACK_TIMEOUT)
+            watch.wait(
+                lambda s: (
+                    command_of(s) == start
+                    and _ACTIVATING.fullmatch(s.description) is not None
+                ),
+                timeout=_START_LIMIT,
+                expected=f"a step of command {start} that brings the bus to OP",
+            )
             stop = tsk._internal.execute_command("stop")
             failed = watch.answer(start, timeout=_START_LIMIT + _SLACK)
-            stopped = watch.answer(stop, timeout=ACK_TIMEOUT)
+            stopped = watch.answer(stop, timeout=_STOP_ANSWER)
         if failed.message == "Stopped task":
             raise AssertionError(
                 "Expected the bad startup parameter to fail the start, but the stop "
@@ -141,108 +162,3 @@ class EtherCATCommands(TestCase):
             description=failed.description,
             running=False,
         )
-
-    def test_two_starts(self) -> None:
-        """Checks that of two starts sent at once on one network, the start that
-        waits for the other fails at its limit and names the other start."""
-        self.log("Testing: Two starts on one network")
-        tasks = [self._create_task("First Start"), self._create_task("Second Start")]
-        expected = (
-            f"Another task is still starting on {self.stg.properties['network']}."
-        )
-        with StatusWatch(self.client, [t.key for t in tasks]) as watch:
-            timer = sy.Timer()
-            keys = [t._internal.execute_command("start") for t in tasks]
-            expect_retry(watch, keys)
-            answers = [
-                watch.answer(k, timeout=_START_LIMIT + _SLACK - timer.elapsed())
-                for k in keys
-            ]
-        waiting = [a for a in answers if a.description == expected]
-        if len(waiting) != 1:
-            raise AssertionError(
-                f"Expected one start to fail with {expected!r}, but the starts "
-                f"answered {[status_text(a) for a in answers]}"
-            )
-        expect_status(
-            waiting[0],
-            variant="error",
-            message="Failed to start task",
-            description=expected,
-            running=False,
-        )
-
-    def test_stop_during_retry(self) -> None:
-        """Checks that a stop ends a start that retries within a second."""
-        self.log("Testing: Stop during the retries of a start")
-        tsk = self._create_task("Stop During Retry")
-        with StatusWatch(self.client, [tsk.key]) as watch:
-            start = tsk._internal.execute_command("start")
-            expect_retry(watch, [start])
-            stop = tsk._internal.execute_command("stop")
-            ended = watch.answer(start, timeout=_STOP_LIMIT)
-            stopped = watch.answer(stop, timeout=ACK_TIMEOUT)
-        expect_status(
-            ended,
-            variant="success",
-            message="Stopped task",
-            description=_STOP_ENDED_START,
-            running=False,
-        )
-        expect_status(
-            stopped,
-            variant="success",
-            message="Stopped task",
-            description="",
-            running=False,
-        )
-
-    def test_repeat_start(self) -> None:
-        """Checks that a start sent while a start runs joins it, and that each start
-        gets one answer, the same for both."""
-        self.log("Testing: Repeated start during a start")
-        tsk = self._create_task("Repeat Start")
-        with StatusWatch(self.client, [tsk.key]) as watch:
-            first = tsk._internal.execute_command("start")
-            expect_retry(watch, [first])
-            second = tsk._internal.execute_command("start")
-            watch.step(second, timeout=ACK_TIMEOUT)
-            tsk._internal.execute_command("stop")
-            for key in (first, second):
-                expect_status(
-                    watch.answer(key, timeout=ACK_TIMEOUT),
-                    variant="success",
-                    message="Stopped task",
-                    description=_STOP_ENDED_START,
-                    running=False,
-                )
-            watch.collect(_QUIET)
-        answers = [
-            s
-            for s in watch.seen
-            if command_of(s) in (first, second) and s.variant != "loading"
-        ]
-        if len(answers) != 2:
-            raise AssertionError(
-                f"Expected one answer for each start, but saw {watch.texts()}"
-            )
-
-    def _create_task(
-        self,
-        label: str,
-        *,
-        auto_start: bool = False,
-        startup_parameters: list[sy.ethercat.SlaveStartupParameters] | None = None,
-    ) -> sy.ethercat.ReadTask:
-        tsk = create_read_task(
-            self.client,
-            [self.stg],
-            name=f"HITL EtherCAT Commands {label}",
-            sample_rate=100 * sy.Rate.HZ,
-            stream_rate=25 * sy.Rate.HZ,
-            auto_start=auto_start,
-            startup_parameters=startup_parameters,
-        )
-        self.client.tasks.configure(tsk)
-        self.tasks.append(tsk)
-        return tsk

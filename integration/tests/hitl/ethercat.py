@@ -20,15 +20,7 @@ Position | Slave
 from pydantic import JsonValue
 
 import synnax as sy
-from tests.driver.task import (
-    ReadTaskCase,
-    StatusWatch,
-    WriteTaskCase,
-    command_of,
-    create_channel,
-    create_index,
-    status_text,
-)
+from tests.driver.task import ReadTaskCase, WriteTaskCase, create_channel, create_index
 
 SLAVES = [
     "IOLITE GATE LATCH v2.00 BUS1",
@@ -61,10 +53,6 @@ STG_DC: dict[str, JsonValue] = {
 _SCAN_TIMEOUT = 30 * sy.TimeSpan.SECOND
 START_TIMEOUT = sy.TimeSpan.MINUTE
 """The Driver retries a bus start for up to a minute."""
-ACK_TIMEOUT = 10 * sy.TimeSpan.SECOND
-"""How long the Driver takes to write the first step of a command."""
-_RETRY_CHECK = 5 * sy.TimeSpan.SECOND
-"""A free-run start that still runs after this retries."""
 
 
 def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
@@ -97,58 +85,14 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
         names = {p: d.name for p, d in sorted(found.items())}
         raise TimeoutError(f"Expected the slaves {SLAVES} present, but found {names}")
     for pos in STGS:
-        set_op_mode(client, slaves[pos], STG_DC)
-    return slaves
-
-
-def set_op_mode(
-    client: sy.Synnax, slave: sy.Device, op_mode: dict[str, JsonValue]
-) -> None:
-    """Sets the sync mode that the next bus start gives the slave."""
-    client.devices.dispatch(
-        slave.key,
-        sy.device.set(
-            sy.device.SetPayload(path=["properties", "op_mode"], value=op_mode)
-        ),
-    )
-    slave.properties["op_mode"] = op_mode
-
-
-def free_run(stg: sy.Device) -> dict[str, JsonValue]:
-    """Returns the choice of the free-run mode of a 6xSTG. A start of a 6xSTG in free
-    run fails and retries, which holds a start open for the tests that need one.
-
-    :raises AssertionError: If the 6xSTG lists no free-run mode.
-    """
-    modes = stg.properties.get("op_modes")
-    if isinstance(modes, list):
-        for i, mode in enumerate(modes):
-            if isinstance(mode, dict) and mode.get("assign_activate") == 0:
-                return {
-                    "index": i,
-                    "assign_activate": 0,
-                    "sync0_cycle": 0,
-                    "sync1_cycle": 0,
-                }
-    raise AssertionError(f"Expected a free-run mode in the 6xSTG modes {modes}")
-
-
-def expect_retry(watch: StatusWatch, keys: list[str]) -> None:
-    """Checks that each start still runs 5 s after its first step.
-
-    :raises AssertionError: If a start ends, as its config then does not retry.
-    """
-    for key in keys:
-        watch.step(key, timeout=ACK_TIMEOUT)
-    watch.collect(_RETRY_CHECK)
-    if ended := [
-        s for s in watch.seen if command_of(s) in keys and s.variant != "loading"
-    ]:
-        raise AssertionError(
-            f"Expected the start to retry for {_RETRY_CHECK}, but it ended with "
-            f"{[status_text(s) for s in ended]}. A free-run 6xSTG does not retry, "
-            "so the tests that need an open start need another config."
+        client.devices.dispatch(
+            slaves[pos].key,
+            sy.device.set(
+                sy.device.SetPayload(path=["properties", "op_mode"], value=STG_DC)
+            ),
         )
+        slaves[pos].properties["op_mode"] = STG_DC
+    return slaves
 
 
 def create_read_task(
