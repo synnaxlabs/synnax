@@ -153,29 +153,39 @@ std::string only_reader(const slave::Properties &props) {
 }
 
 /// @brief sets status to a warning when other software sets up the slave in a way that
-/// keeps Synnax from using it, when the slave left Synnax mode after the switch at
-/// switch_time, or when Synnax is on the wrong bus of the slave. Returns whether it set
-/// one.
+/// keeps Synnax from using it, when the slave must restart to finish the switch at
+/// switch_time or left Synnax mode after it, or when Synnax is on the wrong bus of the
+/// slave. Returns whether it set one.
 bool set_setup_status(
-    const slave::Properties &props,
+    const slave::DiscoveryResult &slave,
     const x::telem::TimeStamp switch_time,
     synnax::device::Status &status
 ) {
+    const auto &props = slave.properties;
     const auto none = x::json::json::object();
     const auto &mode = props.settings && props.settings->contains("mode")
                          ? props.settings->at("mode")
                          : none;
     const auto bus = mode.value("bus", 0);
     auto reader = only_reader(props);
-    const bool switched = !reader.empty() && mode.contains("switch") &&
-                          mode.at("switch").empty();
+    const bool synnax_mode = mode.contains("switch") && mode.at("switch").empty();
+    const bool switched = !reader.empty() && synnax_mode;
+    // The entries of a catalog that marks none show no switch, so only a restart of the
+    // slave after the switch shows that it took effect.
+    const bool unconfirmed = synnax_mode && !marks_entries(props) &&
+                             slave.restarted_at && *slave.restarted_at < switch_time;
     if (reader.empty()) reader = mode.value("only_read_by", "");
     const bool reverted = switch_time != x::telem::TimeStamp(0) &&
                           mode.contains("switch") && !mode.at("switch").empty();
-    if (switched) {
-        status.message = "Restart the power of the device";
-        if (bus == 2)
-            status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
+    if (switched || unconfirmed) {
+        status.message = "Restart the power to finish the switch to Synnax";
+        if (unconfirmed)
+            status.description = "Synnax cannot tell if the switch took effect until "
+                                 "the device restarts.";
+        if (bus == 2) {
+            if (!status.description.empty()) status.description += ' ';
+            status.description += "First, connect Synnax to EtherCAT bus 1 IN.";
+        }
     } else if (reverted) {
         if (reader.empty()) reader = mode.value("shared_with", "");
         const auto at = utc_minute(switch_time);
@@ -431,7 +441,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (set_setup_status(props, switched_at(json_props), status)) {
+    else if (set_setup_status(slave, switched_at(json_props), status)) {
         add_settings_error(sts.settings_error, status);
         add_unlisted_op_mode(saved, status);
     } else if (

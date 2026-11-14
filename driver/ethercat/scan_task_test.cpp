@@ -1420,8 +1420,45 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     this->start(false);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(status.message, "Restart the power to finish the switch to Synnax");
     EXPECT_EQ(status.description, "");
+}
+
+/// @brief returns the slave in Synnax mode with a catalog that marks no entry, as an
+/// unmarked slave reads after a switch.
+[[nodiscard]] slave::Properties unmarked_in_synnax_mode(slave::Properties props) {
+    props.settings.value()["channels"] = x::json::json::array();
+    props.settings.value()["mode"]["switch"] = x::json::json::array();
+    props.settings.value()["mode"]["value"] = 0;
+    return props;
+}
+
+/// @brief it should ask for a power restart of a slave with an unmarked catalog until
+/// the slave restarts after its switch.
+TEST_F(EtherCATScanModeTest, AsksForARestartOfAnUnmarkedSlaveUntilItRestarts) {
+    this->start(true);
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    const auto held = this->scan_status();
+    EXPECT_EQ(held.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(held.message, "Restart the power to finish the switch to Synnax");
+    EXPECT_EQ(
+        held.description,
+        "Synnax cannot tell if the switch took effect until the device restarts."
+    );
+    EXPECT_EQ(this->scan_status().message, held.message);
+    this->master->restart_slave(1);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should not ask for a power restart of an unmarked slave when its master
+/// cannot see a restart.
+TEST_F(EtherCATScanModeTest, DoesNotAskForARestartWhenTheMasterSeesNoRestart) {
+    this->start(true);
+    this->master->hide_restarts();
+    this->master->replace_after_write(1, unmarked_in_synnax_mode(this->props));
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->scan_status().variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should ask for bus 1 before the power restart of a switched slave on bus
@@ -1430,7 +1467,7 @@ TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
     this->start(false);
     this->set_mode({{"bus", 2}});
     const auto status = this->scan_status();
-    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(status.message, "Restart the power to finish the switch to Synnax");
     EXPECT_EQ(status.description, "First, connect Synnax to EtherCAT bus 1 IN.");
 }
 
