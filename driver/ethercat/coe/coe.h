@@ -27,11 +27,18 @@ const x::errors::Error OBJECT_MISSING = errors::SDO_READ_ERROR.sub("object_missi
 const x::errors::Error SUBINDEX_MISSING = errors::SDO_READ_ERROR.sub(
     "subindex_missing"
 );
+/// @brief an SDO read that got no reply.
+const x::errors::Error NO_REPLY = errors::SDO_READ_ERROR.sub("no_reply");
 
-/// @brief returns the error for an SDO read of index:sub_index that the slave aborted
-/// with abort_code, or that got no answer when abort_code is 0. Matches OBJECT_MISSING
-/// when the slave does not have the object, and SUBINDEX_MISSING when the object does
-/// not have the sub-index.
+/// @brief returns the error for an SDO read of index:sub_index that failed. Matches
+/// NO_REPLY when no reply came, OBJECT_MISSING when the slave does not have the
+/// object, and SUBINDEX_MISSING when the object does not have the sub-index.
+x::errors::Error
+read_error(uint16_t index, uint8_t sub_index, const errors::SDOFailure &failure);
+
+/// @brief returns read_error() for a read that the slave aborted with abort_code. For
+/// an abort_code of 0, it returns errors::SDO_READ_ERROR, as a master that reports only
+/// abort codes cannot tell a read with no reply from one with a bad reply.
 x::errors::Error read_error(uint16_t index, uint8_t sub_index, uint32_t abort_code);
 
 /// @brief reads an unsigned value of at most four bytes from the object dictionary of
