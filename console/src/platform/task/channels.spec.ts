@@ -234,6 +234,18 @@ describe("channels", () => {
       expect(write).toEqual({ "/cmd": ch.key });
     });
 
+    it("should throw when it must create a channel with no data type", async () => {
+      const write = { "/cmd": MISSING_KEY };
+      await expect(
+        Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: 0,
+          name: "no_type",
+        }),
+      ).rejects.toThrow("Command channel no_type has no data type");
+      expect(write["/cmd"]).toBe(MISSING_KEY);
+    });
+
     it("should create a channel when neither exists", async () => {
       const name = uniqueName("cmd");
       const write = { "/cmd": MISSING_KEY };

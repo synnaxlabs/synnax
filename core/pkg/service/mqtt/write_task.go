@@ -121,24 +121,13 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	if err := validateTopic(target.Topic); err != nil {
 		return writeTarget{}, err
 	}
-	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
+	pointer, err := xjson.ParsePointer(target.Channel.Base().Pointer)
 	if err != nil {
 		return writeTarget{}, errors.Wrap(err, path)
 	}
-	f := xjson.Field{DataType: ch.DataType, Enums: enums(target.Channel.EnumValues)}
-	if f.Type, err = xjson.ParseType(string(target.Channel.JSONType)); err != nil {
-		return writeTarget{}, errors.Wrap(err, path)
-	}
-	if ch.DataType == telem.TimestampT {
-		if f.TimeFormat, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
-			return writeTarget{}, errors.Wrap(err, path)
-		}
-	}
-	if len(f.Enums) > 0 && f.Type != xjson.String {
-		return writeTarget{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s: enum values require the string JSON type", path,
-		)
+	f, err := channelOf(target.Channel).Field(ch.DataType)
+	if err != nil {
+		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
 	if t.encoder, err = xjson.NewEncoder(f); err != nil {
 		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)

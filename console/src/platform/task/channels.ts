@@ -176,7 +176,8 @@ export interface CommandChannelSpec {
   channel: channel.Key;
   /** The name of a channel to create. */
   name: string;
-  dataType: string;
+  /** The data type of a channel to create. Absent when the target has a channel. */
+  dataType?: string;
 }
 
 /**
@@ -185,6 +186,7 @@ export interface CommandChannelSpec {
  *
  * @param write - The write properties of the device. Updated in place.
  * @returns the command channel.
+ * @throws {Error} if a new channel is needed and spec has no data type.
  */
 export const configureCommandChannel = async (
   client: Client,
@@ -197,6 +199,7 @@ export const configureCommandChannel = async (
   }
   const stored = write[propertiesKey];
   if (await channelExists(client, stored)) return stored;
+  if (dataType == null) throw new Error(`Command channel ${name} has no data type`);
   const cmdCh = await createChannelWithIndex(client, name, dataType);
   write[propertiesKey] = cmdCh.key;
   return cmdCh.key;

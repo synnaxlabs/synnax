@@ -19,7 +19,7 @@ export const integrations = ["modbus"];
 /**
  * Docs `reference/hardware/mqtt/write-task` (Create an MQTT write task): open Add
  * targets, add a command topic by name, because a command topic publishes nothing until
- * a command arrives, set its pointer and JSON type, add a static field, and start the
+ * a command arrives, set its pointer and output type, add a static field, and start the
  * task.
  */
 export default serverTaskScript(MQTT, {
@@ -43,7 +43,7 @@ export default serverTaskScript(MQTT, {
 
     await setText(session, form, "Topic", "plant/valve/set");
     await setText(session, form, "Pointer", "/position");
-    await choose(session, form, "JSON type", "Number");
+    await choose(session, form, "Output type", "Number");
     await session.click(
       form.getByRole("button", { name: "Static", exact: true }).first(),
     );
