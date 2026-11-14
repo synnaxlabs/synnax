@@ -1519,7 +1519,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) 
     this->master->fail_write(
         0x8020,
         2,
-        x::errors::Error(errors::SLAVE_CONFIG_ERROR, "rejected 0x8020:02")
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:02")
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
@@ -1527,7 +1527,77 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) 
     EXPECT_EQ(
         status.description,
         "The device in slot 1 did not save the switch, so it goes back to its saved "
-        "mode when its power restarts. Switch it again to save it. Rejected 0x8020:02."
+        "mode when its power restarts. Rejected 0x8020:02."
+    );
+}
+
+/// @brief it should ask for a power restart, not report an unsaved switch, when the
+/// scan after a switch that the slave took fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedScan) {
+    this->start(true);
+    this->master->fail_scan_after_write(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no slaves")
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the scan after the switch cannot read
+/// the settings of the slave.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedSettingsRead) {
+    this->start(true);
+    auto switched = this->props;
+    switched.input_pdos[0].index = 0x6001;
+    switched.settings.reset();
+    this->master->replace_after_write(1, switched);
+    this->master->fail_settings_read(1, "failed to read 0x8020:09: no response");
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should ask for a power restart when the catalog of the slave marks no
+/// entry, so the scan cannot show that the switch took effect.
+TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartWhenNoEntryIsMarked) {
+    this->start(true);
+    auto switched = this->props;
+    switched.settings.value()["channels"] = x::json::json::array();
+    this->master->replace_after_write(1, switched);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(
+        status.description,
+        "Restart the power of the device in slot 1 to finish."
+    );
+}
+
+/// @brief it should fail a switch when the slave holds another mode after writes that
+/// it answered.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveKeeps) {
+    this->start(true);
+    this->master->set_object(1, 0x8020, 9, 1);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "The device holds mode 1 after the switch.");
+}
+
+/// @brief it should fail a switch when the read of the mode after it fails.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsAFailedReadOfTheMode) {
+    this->start(true);
+    this->master->ignore_write(0x8020, 9);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read 0x8020:09: Object does not exist in the object dictionary."
     );
 }
 
@@ -1537,7 +1607,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAModeThatTheSlaveDidNotTake) {
     this->master->fail_write(
         0x8020,
         9,
-        x::errors::Error(errors::SLAVE_CONFIG_ERROR, "rejected 0x8020:09")
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:09")
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);

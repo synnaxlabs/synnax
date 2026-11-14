@@ -109,6 +109,16 @@ std::string pdo_error_description(const std::string &error) {
     return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
+/// @brief whether the catalog of the slave marks an entry that only other software
+/// reads, so a scan can show that a switch to Synnax took effect.
+bool marks_entries(const slave::Properties &props) {
+    if (!props.settings || !props.settings->contains("channels")) return false;
+    for (const auto &channel: props.settings->at("channels"))
+        for (const auto &entry: channel.at("entries"))
+            if (entry.contains("only_read_by")) return true;
+    return false;
+}
+
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
 /// string when Synnax can read each of them.
 std::string only_reader(const slave::Properties &props) {
@@ -657,13 +667,14 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
             fail(std::format("the device holds mode {} after the switch", held));
         return;
     }
-    if (err) {
+    // configure also returns the error of its scan after the write.
+    if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
         task_status.variant = synnax::status::VARIANT_WARNING;
         task_status.message = "Switched " + dev.name +
                               " to Synnax until a power restart";
         task_status.description = std::format(
             "The device in slot {} did not save the switch, so it goes back to its "
-            "saved mode when its power restarts. Switch it again to save it. {}",
+            "saved mode when its power restarts. {}",
             position,
             errors::sentence(err.data)
         );
@@ -692,7 +703,9 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     );
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Switched " + dev.name + " to Synnax only";
-    const bool restart = discover_err || after == slaves.end() ||
+    const bool restart = err || discover_err || after == slaves.end() ||
+                         !after->status.settings_error.empty() ||
+                         !marks_entries(after->properties) ||
                          !only_reader(after->properties).empty();
     task_status.description = restart
                                 ? std::format(

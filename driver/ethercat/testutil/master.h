@@ -93,6 +93,11 @@ class Master final : public master::Master {
     std::map<std::pair<uint16_t, uint8_t>, x::errors::Error> write_failures;
     /// @brief the slave that the next write that succeeds replaces, by position.
     std::optional<std::pair<uint16_t, slave::Properties>> replacement;
+    /// @brief the objects whose writes the slave answers but does not take, by index
+    /// and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> ignored_writes;
+    /// @brief the error of each scan after the next write that succeeds.
+    x::errors::Error scan_err_after_write;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -712,8 +717,9 @@ public:
 
     /// @brief records the write, sets each object it names until one that fail_write()
     /// names, and adds the parameters to the slave in the latest plan. Then replaces
-    /// the slave as replace_after_write() asks. Returns the error that
-    /// inject_write_error() or fail_write() set.
+    /// the slave as replace_after_write() asks, and fails scans as
+    /// fail_scan_after_write() asks. Returns the error that inject_write_error() or
+    /// fail_write() set.
     x::errors::Error write(
         const uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -729,9 +735,15 @@ public:
                 );
                 it != this->write_failures.end())
                 return it->second;
+            if (this->ignored_writes.contains({param.index, param.sub_index})) continue;
             this->objects[{position, param.index, param.sub_index}] = static_cast<
                 uint32_t>(param.value);
         }
+        if (this->scan_err_after_write)
+            this->inject_scan_err = std::exchange(
+                this->scan_err_after_write,
+                x::errors::NIL
+            );
         if (this->replacement) {
             const auto [pos, props] = std::move(*this->replacement);
             this->replacement.reset();
@@ -742,10 +754,25 @@ public:
     }
 
     /// @brief makes each write to index:sub_index fail with err.
-    void
-    fail_write(const uint16_t index, const uint8_t sub_index, x::errors::Error err) {
+    void fail_write(
+        const uint16_t index,
+        const uint8_t sub_index,
+        const x::errors::Error &err
+    ) {
         std::lock_guard lock(this->mu);
-        this->write_failures[{index, sub_index}] = std::move(err);
+        this->write_failures[{index, sub_index}] = err;
+    }
+
+    /// @brief makes the slave answer each write to index:sub_index but keep its value.
+    void ignore_write(const uint16_t index, const uint8_t sub_index) {
+        std::lock_guard lock(this->mu);
+        this->ignored_writes.insert({index, sub_index});
+    }
+
+    /// @brief makes each scan fail with err after the next write that succeeds.
+    void fail_scan_after_write(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->scan_err_after_write = err;
     }
 
     /// @brief replaces the slave at position with props after the next write that
