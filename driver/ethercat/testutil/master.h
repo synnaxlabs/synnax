@@ -43,6 +43,8 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief what scan() found, which it returns again until deactivate().
     std::vector<slave::DiscoveryResult> scanned;
+    /// @brief why the serial number read of each slave fails in the next new scan only.
+    std::map<uint16_t, std::string> next_serial_errors;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
@@ -212,6 +214,13 @@ public:
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.serial_error = error;
+    }
+
+    /// @brief makes the serial number read of the slave at position fail with error in
+    /// the next new scan only.
+    void fail_next_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->next_serial_errors[position] = error;
     }
 
     /// @brief sets whether the slave at position is below PRE-OP when the master reads
@@ -455,6 +464,13 @@ public:
         if (!this->initialized) {
             this->scanned = this->slave_list;
             this->restarted.clear();
+            for (auto &slave: this->scanned)
+                if (const auto it = this->next_serial_errors.find(
+                        slave.properties.position
+                    );
+                    it != this->next_serial_errors.end())
+                    slave.status.serial_error = it->second;
+            this->next_serial_errors.clear();
         }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
