@@ -116,8 +116,12 @@ std::string Engine::Reader::warning() {
     if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
         add(errors::sentence("Bus cycles failed: " + this->engine.cycle_error().data));
     for (auto &slave: this->input->slaves)
-        if (slave.lost.exchange(false, std::memory_order_relaxed))
-            add(lost_contact(slave.position, slave.name));
+        if (slave.lost.exchange(false, std::memory_order_acquire))
+            add(out_of_op(
+                slave.position,
+                slave.name,
+                slave.silent.load(std::memory_order_relaxed)
+            ));
     if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
         add(
             "The task cannot keep up with the bus. Lower the stream rate for the task."

@@ -646,6 +646,42 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
     EXPECT_EQ(reader->warning(), "");
 }
 
+/// @brief it should keep sample times in order when full cycles return after the
+/// reference clock was lost, which leaves its distributed clock time behind.
+TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
+    constexpr size_t SAMPLES = 9;
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_step(this->period);
+    const auto writer = ASSERT_NIL_P(
+        this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
+    );
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), SAMPLES)
+    );
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    for (size_t s = 0; s < SAMPLES; ++s) {
+        this->master->wait_until_stalled();
+        const bool lost = s >= 3 && s < 6;
+        this->master->set_shortfall(lost ? std::optional<uint32_t>(3) : std::nullopt);
+        // SOEM repeats the last DC time of a frame that misses the reference clock.
+        this->master->set_dc_step(lost ? x::telem::TimeSpan(0) : this->period);
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+}
+
 /// @brief it should decode each sample of reads that cross the end of the sample
 /// buffer, for entries of different widths.
 TEST_F(EngineLockTest, ReaderDecodesEachSampleAcrossTheBufferEnd) {
@@ -1733,6 +1769,24 @@ TEST_F(EngineTest, WriterIgnoresAnotherSlaveOutOfOP) {
     EXPECT_EQ(changes.load(), 0);
 }
 
+/// @brief it should name a writer's slave that responds out of OP by its state.
+TEST_F(EngineTest, WriterNamesAResponsiveSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        [&changes] { ++changes; }
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 1);
+    EXPECT_EQ(writer->warning(), "Slave 1 (Slave1) is not in OP.");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 2);
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+}
+
 /// @brief it should warn a writer that opens while its slave is out of OP.
 TEST_F(EngineTest, WriterOpenedWhileItsSlaveIsOutOfOPWarns) {
     this->master->add_slave(io_slave(1));
@@ -1747,6 +1801,23 @@ TEST_F(EngineTest, WriterOpenedWhileItsSlaveIsOutOfOPWarns) {
         this->engine->open_writer({{on_slave(OUT_I16, 1), 0}}, x::telem::Rate(100))
     );
     EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+}
+
+/// @brief it should name a slave that responds out of OP by its state, not as lost.
+TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    this->master->set_shortfall(2);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
 }
 
 /// @brief it should drop the samples of every reader when the working counter falls
@@ -1813,8 +1884,8 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
 }
 
-/// @brief it should report the samples a reader dropped because it fell behind the bus
-/// as a warning.
+/// @brief it should report the samples a reader dropped because it fell behind the
+/// bus as a warning.
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1841,8 +1912,8 @@ TEST_F(EngineTest, SlowTasksRunTheBusAtTheMinimumRate) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
-/// @brief it should open a 0.1 Hz reader on a 100 Hz bus, despite the float precision
-/// of a rate.
+/// @brief it should open a 0.1 Hz reader on a 100 Hz bus, despite the float
+/// precision of a rate.
 TEST_F(EngineTest, TenthHzReaderOpens) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(0.1), 1)
@@ -1861,8 +1932,8 @@ TEST_F(EngineTest, BusRateIsTheCommonMultipleOfReadRates) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(600));
 }
 
-/// @brief it should run the bus at the smallest multiple of the read rates that is at
-/// least the rate of the fastest writer.
+/// @brief it should run the bus at the smallest multiple of the read rates that is
+/// at least the rate of the fastest writer.
 TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1873,8 +1944,8 @@ TEST_F(EngineTest, BusRateCoversTheFastestWriter) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(300));
 }
 
-/// @brief it should reject a reader when no bus rate up to the maximum is a multiple of
-/// every read rate.
+/// @brief it should reject a reader when no bus rate up to the maximum is a
+/// multiple of every read rate.
 TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(997), 1)
@@ -1890,8 +1961,8 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(997));
 }
 
-/// @brief it should reject a writer faster than the maximum bus rate and not start the
-/// bus.
+/// @brief it should reject a writer faster than the maximum bus rate and not start
+/// the bus.
 TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(20000));
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
@@ -1903,8 +1974,8 @@ TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
-/// @brief it should slow the bus down when the fastest task closes, and keep the sample
-/// spacing of the open readers.
+/// @brief it should slow the bus down when the fastest task closes, and keep the
+/// sample spacing of the open readers.
 TEST_F(EngineTest, BusSlowsDownWhenAFasterTaskCloses) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 5)
@@ -1944,8 +2015,8 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(250));
 }
 
-/// @brief it should refuse a reader whose sample rate the fixed bus rate does not serve
-/// while a slave runs DC sync.
+/// @brief it should refuse a reader whose sample rate the fixed bus rate does not
+/// serve while a slave runs DC sync.
 TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     const auto reader = ASSERT_NIL_P(
@@ -1962,8 +2033,8 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
-/// @brief it should keep the bus rate when a faster task closes and when a slower task
-/// opens while a slave runs DC sync.
+/// @brief it should keep the bus rate when a faster task closes and when a slower
+/// task opens while a slave runs DC sync.
 TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsDCSync) {
     this->master->set_dc_sync({SYNC0_AT_10MS});
     auto writer = ASSERT_NIL_P(
@@ -2027,8 +2098,8 @@ TEST_F(EngineTest, HealthReportsALeftOutSlave) {
     );
 }
 
-/// @brief it should report a faulted slave in its health, then return the slave to OP
-/// while the bus keeps running.
+/// @brief it should report a faulted slave in its health, then return the slave to
+/// OP while the bus keeps running.
 TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -2063,8 +2134,8 @@ TEST_F(EngineTest, HealthIsEmptyWhenTheBusStops) {
     EXPECT_TRUE(this->engine->health().empty());
 }
 
-/// @brief it should keep the outputs and samples of running tasks correct while other
-/// tasks open and close.
+/// @brief it should keep the outputs and samples of running tasks correct while
+/// other tasks open and close.
 TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     const auto writer = ASSERT_NIL_P(
         this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100))
@@ -2129,8 +2200,8 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
     EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100));
 }
 
-/// @brief it should keep the discovered slaves and not reinitialize the master when the
-/// slave count is unchanged.
+/// @brief it should keep the discovered slaves and not reinitialize the master when
+/// the slave count is unchanged.
 TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
     ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
@@ -2190,7 +2261,8 @@ standalone(const slave::DiscoveryResult &) {
     return {STANDALONE, x::errors::NIL};
 }
 
-/// @brief it should write to a slave on a stopped bus, then discover the slaves again.
+/// @brief it should write to a slave on a stopped bus, then discover the slaves
+/// again.
 TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     ASSERT_NIL(this->engine->configure(io_slave(0), standalone));
     EXPECT_EQ(
@@ -2205,8 +2277,8 @@ TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     );
 }
 
-/// @brief it should scan the bus again before it looks for the slave, so a slave that
-/// restarted since the last scan is not looked up in that old scan.
+/// @brief it should scan the bus again before it looks for the slave, so a slave
+/// that restarted since the last scan is not looked up in that old scan.
 TEST_F(EngineTest, ConfigureScansTheBusAgainBeforeItLooksForTheSlave) {
     ASSERT_NIL_P(this->engine->discover());
     auto restarted = io_slave(0);
@@ -2285,8 +2357,8 @@ TEST_F(EngineTest, ConfigureRefusesAtOnceWhileATaskStartsTheBus) {
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
-/// @brief it should write nothing and scan only once when the parameters for the slave
-/// are empty.
+/// @brief it should write nothing and scan only once when the parameters for the
+/// slave are empty.
 TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
     ASSERT_NIL(this->engine->configure(io_slave(0), [](const auto &) {
         return std::pair{std::vector<slave::StartupParameter>{}, x::errors::NIL};
@@ -2297,7 +2369,8 @@ TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
     );
 }
 
-/// @brief it should call the network by the name of its master, not by its interface.
+/// @brief it should call the network by the name of its master, not by its
+/// interface.
 TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
     this->master->set_name("Ethernet 2");
     this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master);
@@ -2382,7 +2455,8 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
-/// @brief it should discover again after a failed discovery, not return the failure.
+/// @brief it should discover again after a failed discovery, not return the
+/// failure.
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     auto master = std::make_shared<testutil::Master>();
     master->inject_scan_error(
@@ -2397,8 +2471,8 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     EXPECT_EQ(ASSERT_NIL_P(pool.discover("eth0")).size(), 1);
 }
 
-/// @brief it should give the slave settings loader the interface and the name of its
-/// master.
+/// @brief it should give the slave settings loader the interface and the name of
+/// its master.
 TEST(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
     auto master = std::make_shared<testutil::Master>();
     master->add_slave(io_slave(0));

@@ -226,12 +226,16 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
     }
 }
 
-void Engine::Output::update(const std::vector<uint16_t> &out) {
+void Engine::Output::update(const Outage &out) {
     bool any = false;
     for (auto &slave: this->slaves) {
-        const bool now = std::ranges::binary_search(out, slave.position);
-        if (slave.out.exchange(now, std::memory_order_relaxed) == now) continue;
-        if (!now) slave.returned.store(true, std::memory_order_relaxed);
+        const bool now = std::ranges::binary_search(out.positions, slave.position);
+        const bool silent = std::ranges::binary_search(out.silent, slave.position);
+        const bool was = slave.out.exchange(now, std::memory_order_relaxed);
+        if (slave.silent.exchange(silent, std::memory_order_relaxed) == silent &&
+            was == now)
+            continue;
+        if (was && !now) slave.returned.store(true, std::memory_order_relaxed);
         any = true;
     }
     if (any && this->changed) this->changed();
@@ -257,15 +261,21 @@ std::vector<std::pair<uint16_t, std::string>> Engine::slaves_of(
     return slaves;
 }
 
-std::string Engine::lost_contact(const uint16_t position, const std::string &name) {
-    return std::format("Lost contact with slave {} ({}).", position, name);
+std::string
+Engine::out_of_op(const uint16_t position, const std::string &name, const bool silent) {
+    if (silent) return std::format("Lost contact with slave {} ({}).", position, name);
+    return std::format("Slave {} ({}) is not in OP.", position, name);
 }
 
-bool Engine::Input::lose(const std::vector<uint16_t> &out) {
+bool Engine::Input::lose(const Outage &out) {
     bool any = false;
     for (auto &slave: this->slaves)
-        if (std::ranges::binary_search(out, slave.position)) {
-            slave.lost.store(true, std::memory_order_relaxed);
+        if (std::ranges::binary_search(out.positions, slave.position)) {
+            slave.silent.store(
+                std::ranges::binary_search(out.silent, slave.position),
+                std::memory_order_relaxed
+            );
+            slave.lost.store(true, std::memory_order_release);
             any = true;
         }
     return any;
@@ -276,10 +286,13 @@ void Engine::run() {
     uint64_t version = 0;
     Outage outage;
     outage.positions.reserve(this->image.slaves.size());
+    outage.silent.reserve(this->image.slaves.size());
     uint64_t outage_version = 0;
     // How far the time of the latest full cycle ran ahead of its send. A short cycle
     // keeps it, since its DC time can be stale.
     x::telem::TimeSpan lead;
+    // Whether a sample time came from the host clock since the latest full cycle.
+    bool host_timed = false;
     x::loop::Timer timer;
     std::optional<PhaseLock> phase;
     uint64_t late_frames = 0;
@@ -372,7 +385,14 @@ void Engine::run() {
                                 "a SYNC0 event";
         }
         if (!err) {
-            if (dc) latched_at = clock.map(*dc, sent_at);
+            if (dc && host_timed) {
+                // The distributed clock can drift from the host times of the short
+                // cycles, so its times go on from where those left off.
+                clock = Clock();
+                latched_at = clock.map(*dc, sent_at + lead);
+            } else if (dc)
+                latched_at = clock.map(*dc, sent_at);
+            host_timed = false;
             lead = latched_at - sent_at;
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
@@ -398,6 +418,7 @@ void Engine::run() {
                 missing && !outage.positions.empty() && *missing <= outage.share) {
                 out = &outage;
                 latched_at = sent_at + lead;
+                host_timed = true;
             }
         }
         const uint8_t *inputs = this->image.inputs.data();
@@ -409,7 +430,7 @@ void Engine::run() {
             input->countdown = decimation - 1;
             if (err && out == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else if (!err || !input->lose(out->positions))
+            else if (!err || !input->lose(*out))
                 input->push(inputs, latched_at);
         }
 
@@ -457,11 +478,13 @@ void Engine::supervise() {
         for (const auto &h: health) {
             if (h.refusal || (!h.lost && h.state == slave::State::OP)) continue;
             next.positions.push_back(h.position);
+            if (h.lost) next.silent.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
             if (const auto it = shares.find(h.position); it != shares.end())
                 next.share += it->second;
         }
         std::ranges::sort(next.positions);
+        std::ranges::sort(next.silent);
         if (next != published) {
             std::lock_guard outputs_lock(this->outputs_mu);
             {
@@ -470,7 +493,7 @@ void Engine::supervise() {
                 this->outage_version.fetch_add(1, std::memory_order_release);
             }
             for (const auto &output: this->outputs)
-                output->update(next.positions);
+                output->update(next);
             published = std::move(next);
         }
         {
@@ -885,6 +908,10 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
             std::tie(slave.position, slave.name) = slaves[i];
             slave.out = std::ranges::binary_search(
                 this->outage.positions,
+                slave.position
+            );
+            slave.silent = std::ranges::binary_search(
+                this->outage.silent,
                 slave.position
             );
         }

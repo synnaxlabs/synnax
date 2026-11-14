@@ -94,6 +94,7 @@ class Engine {
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
 
+    struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
         /// @brief where one entry sits in the input image and in a sample.
@@ -111,6 +112,8 @@ class Engine {
             std::string name;
             /// @brief set when a cycle dropped a sample because the slave was out.
             std::atomic<bool> lost{false};
+            /// @brief whether the slave did not respond at the latest dropped sample.
+            std::atomic<bool> silent{false};
         };
         /// @brief the slaves of the entries, in ascending position.
         std::vector<Slave> slaves;
@@ -152,7 +155,7 @@ class Engine {
         /// @param out positions in ascending order.
         /// @returns true when the reader has a slave in out. Called only by the cycle
         /// thread.
-        bool lose(const std::vector<uint16_t> &out);
+        bool lose(const Outage &out);
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -168,19 +171,20 @@ class Engine {
             std::string name;
             /// @brief true while the slave is out of OP.
             std::atomic<bool> out{false};
+            /// @brief true while the slave does not respond.
+            std::atomic<bool> silent{false};
             /// @brief set when the slave returns to OP, and cleared by open_tx().
             std::atomic<bool> returned{false};
         };
         /// @brief the slaves of the entries, in ascending position.
         std::vector<Slave> slaves;
-        /// @brief called after a slave of the writer leaves or returns to OP.
+        /// @brief called after a slave of the writer leaves or returns to OP, or stops
+        /// or starts to respond.
         std::function<void()> changed;
 
-        /// @brief marks the slaves of the writer at a position in out as out of OP, and
-        /// the others as in OP. Calls changed after a change. Called only by the
-        /// supervisor.
-        /// @param out positions in ascending order.
-        void update(const std::vector<uint16_t> &out);
+        /// @brief marks the slaves of the writer as out holds them. Calls changed after
+        /// a change. Called only by the supervisor.
+        void update(const Outage &out);
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -234,6 +238,8 @@ class Engine {
     struct Outage {
         /// @brief the positions of the slaves, in ascending order.
         std::vector<uint16_t> positions;
+        /// @brief the positions of the slaves that do not respond, in ascending order.
+        std::vector<uint16_t> silent;
         /// @brief the sum of their working counter shares.
         uint32_t share = 0;
 
@@ -332,8 +338,10 @@ class Engine {
         const std::vector<pdo::Entry> &entries,
         const std::vector<slave::DiscoveryResult> &bus
     );
-    /// @brief the sentence that the warning of a reader or writer gives a lost slave.
-    static std::string lost_contact(uint16_t position, const std::string &name);
+    /// @brief the sentence that the warning of a reader or writer gives a slave out of
+    /// OP, which is silent when it does not respond.
+    static std::string
+    out_of_op(uint16_t position, const std::string &name, bool silent);
 
 public:
     /// @brief reads the samples the bus collects for a set of input entries.

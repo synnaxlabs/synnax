@@ -59,7 +59,11 @@ std::string Engine::Writer::warning() const {
     for (const auto &slave: this->output->slaves) {
         std::string sentence;
         if (slave.out.load(std::memory_order_relaxed))
-            sentence = lost_contact(slave.position, slave.name);
+            sentence = out_of_op(
+                slave.position,
+                slave.name,
+                slave.silent.load(std::memory_order_relaxed)
+            );
         else if (slave.returned.load(std::memory_order_relaxed))
             sentence = std::format(
                 "Slave {} ({}) returned and took the last commanded values.",
