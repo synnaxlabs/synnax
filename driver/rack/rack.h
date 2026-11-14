@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -47,6 +50,9 @@ namespace driver::rack {
 /// @brief the persisted state file or its directory cannot be used safely, such as
 /// when either is a symbolic link.
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+/// @brief the Core is now another cluster, or became compatible or incompatible with
+/// this Driver. The Driver must start again to load it.
+const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_changed");
 
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
@@ -313,6 +319,11 @@ struct Config {
     /// it logs in with the password and loads the saved rack. Writes the rack with this
     /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
+
+    /// @brief checks the Core again, after the Driver lost it.
+    /// @returns CORE_CHANGED when the Core is now another cluster, or became compatible
+    /// or incompatible with this Driver, or the error of a check that failed.
+    [[nodiscard]] x::errors::Error check_core() const;
 };
 
 /// @brief clears the persisted state file, removing all cached information.
@@ -323,6 +334,8 @@ x::errors::Error clear_persisted_state();
 /// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
+    /// @brief guards task_manager.
+    std::mutex mu;
     std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",

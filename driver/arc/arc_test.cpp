@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
 #include <future>
 #include <memory>
 #include <thread>
@@ -896,6 +897,95 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
 
     task->stop("test_stop", true);
+}
+
+/// @brief it should stop a program that runs an infinite loop, and report a successful
+/// stop with no error.
+TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto input_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_input_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_input"),
+        x::telem::INT32_T,
+        input_idx.key
+    ));
+    auto output_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_output_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto output_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_output"),
+        x::telem::INT32_T,
+        output_idx.key
+    ));
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("spin_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {val i32} i32 {\n"
+                   "    for { val = val + 1 }\n"
+                   "    return val\n"
+                   "}\n" +
+                   input_ch.name + " -> spin() -> " + output_ch.name + "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_spin_test_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_spin_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto idx_series = x::telem::Series(x::telem::TimeStamp::now());
+    idx_series.alignment = x::telem::Alignment(1, 0);
+    auto val_series = x::telem::Series(static_cast<int32_t>(1));
+    val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(input_idx.key, std::move(idx_series));
+    trigger_fr.emplace(input_ch.key, std::move(val_series));
+    input_frames->push_back(std::move(trigger_fr));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {input_idx.key, input_ch.key},
+                input_frames
+            )
+        )
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    const auto stopping = std::chrono::steady_clock::now();
+    task->stop("test_stop", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
+    const auto stop_state = ctx->statuses.back();
+    EXPECT_EQ(stop_state.details.cmd, "test_stop");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 
 #include "gtest/gtest.h"
 
@@ -601,6 +602,41 @@ TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should return an empty frame and a warning that names the slave while the
+/// bus lost the only slave of the task.
+TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 1 && this->engine->health()[0].lost
+    );
+    this->mock_master->set_shortfall(1);
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    common::ReadResult result;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        (result = source.read(brk, frame), frame.empty()),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(1)
+    );
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Lost contact with slave 1 (Test Slave).");
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should skip the map scale check on a disabled channel.
 TEST_F(EtherCATReadTest, ParseConfigSkipsTheMapScaleCheckOnADisabledChannel) {
     const auto valid_ch = create_data_channel("valid", x::telem::INT16_T);
@@ -843,6 +879,43 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
         warning->description,
         "Every bus cycle failed: expected 3, got 1. Next retry 1/∞ in 1.0 s."
     );
+}
+
+/// @brief it should give a bus start three quarters of the task operation timeout, so
+/// the start returns its own error before the operation times out.
+TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    // One more try needs up to the 5 s longest retry wait, which fits in 6 s but not in
+    // 4.5 s.
+    Factory factory(
+        std::move(manager),
+        this->client,
+        this->rack.key,
+        nullptr,
+        x::telem::SECOND * 6
+    );
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    this->mock_master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "s1"};
+    read_task->exec(start, this->cancel);
+    EXPECT_EQ(this->mock_master->call_count("activate"), 1);
+    read_task->stop(false);
 }
 
 /// @brief it should apply the settings saved for each slave on the task's network when

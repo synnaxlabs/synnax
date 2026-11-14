@@ -9,7 +9,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <map>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -1380,6 +1382,185 @@ TEST(DeviceTest, ProbeStopsWaitingForBusyConnection) {
     EXPECT_EQ(err.data, "other requests kept the connection busy for 100ms");
     EXPECT_LT(waited, std::chrono::milliseconds(400));
     ASSERT_NIL(probed->probe());
+    slave.stop();
+}
+
+/// @brief it should fail a request that waits for its turn when its device is
+/// interrupted, and fail its later requests at once.
+TEST(DeviceTest, InterruptEndsWaitForBusyConnection) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1684;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto busy = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1684}));
+    ConnectionConfig waiting_cfg{"127.0.0.1", 1684};
+    waiting_cfg.unit_id = 2;
+    auto waiting = ASSERT_NIL_P(manager.acquire(waiting_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(800));
+    std::thread slow([&] {
+        uint16_t r = 0;
+        ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &r));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    x::errors::Error err;
+    std::thread blocked([&] {
+        uint16_t r = 0;
+        err = waiting->read_registers(HoldingRegister, 0, 1, &r);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    waiting->interrupt();
+    blocked.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(400));
+    ASSERT_OCCURRED_AS(err, INTERRUPTED);
+    ASSERT_OCCURRED_AS(
+        waiting->read_registers(HoldingRegister, 0, 1, &reg),
+        INTERRUPTED
+    );
+    slow.join();
+    ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+    slave.stop();
+}
+
+/// @brief it should make no more retries of a request that holds the turn after its
+/// device is interrupted.
+TEST(DeviceTest, InterruptStopsRetriesOfHeldTurn) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1686;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1686};
+    cfg.timeout = x::telem::MILLISECOND * 200;
+    cfg.retries = 3;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(500));
+    x::errors::Error err;
+    std::thread holding([&] {
+        err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    dev->interrupt();
+    holding.join();
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(dev->stats().retries, 0);
+    slave.stop();
+}
+
+/// @brief it should fail a request that waits for its turn only after the request that
+/// holds the turn runs past the time that its timeout and retries allow.
+TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1687;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Connection conn(modbus_new_tcp_pi("127.0.0.1", "1687"), "127.0.0.1:1687", DEMOTION);
+    ConnectionConfig cfg{"127.0.0.1", 1687};
+    cfg.timeout = x::telem::MILLISECOND * 100;
+    cfg.retries = 0;
+    const auto read = [](modbus_t *ctx) {
+        uint16_t reg = 0;
+        return modbus_read_registers(ctx, 0, 1, &reg);
+    };
+    const std::atomic<bool> interrupted = false;
+    std::promise<void> held;
+    // One attempt holds the turn for up to 3 timeouts plus ATTEMPT_SLACK: 1.3 s.
+    std::thread holding([&] {
+        ASSERT_NIL(conn.sequence(
+            cfg,
+            x::telem::TimeSpan(0),
+            false,
+            [&](const auto &send) {
+                held.set_value();
+                const auto err = send(read);
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                return err;
+            },
+            std::nullopt,
+            interrupted
+        ));
+    });
+    held.get_future().wait();
+    const auto start = std::chrono::steady_clock::now();
+    const auto err = conn.exec(
+        cfg,
+        x::telem::TimeSpan(0),
+        false,
+        read,
+        std::nullopt,
+        interrupted
+    );
+    const auto waited = std::chrono::steady_clock::now() - start;
+    holding.join();
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(
+        err.data,
+        "a request held the connection longer than its timeout and retries allow"
+    );
+    EXPECT_GT(waited, std::chrono::milliseconds(1000));
+    EXPECT_LT(waited, std::chrono::milliseconds(1800));
+    slave.stop();
+}
+
+/// @brief it should let a request that waits for its turn wait while the holder waits
+/// for the late reply of an earlier request, even when that reply takes longer than the
+/// holder's own timeout.
+TEST(DeviceTest, TurnWaitCountsLateReplyOfEarlierRequest) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1689;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Connection conn(modbus_new_tcp_pi("127.0.0.1", "1689"), "127.0.0.1:1689", DEMOTION);
+    ConnectionConfig slow{"127.0.0.1", 1689};
+    slow.timeout = x::telem::SECOND * 2;
+    slow.retries = 0;
+    ConnectionConfig fast{"127.0.0.1", 1689};
+    fast.timeout = x::telem::MILLISECOND * 50;
+    fast.retries = 0;
+    const auto read = [](modbus_t *ctx) {
+        uint16_t reg = 0;
+        return modbus_read_registers(ctx, 0, 1, &reg);
+    };
+    const std::atomic<bool> interrupted = false;
+    // The slow request times out at 2 s, and its reply comes at 3.5 s. The fast request
+    // then waits 1.5 s for that reply, past its own limit of 1.15 s.
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(3500));
+    ASSERT_OCCURRED_AS(
+        conn.exec(slow, x::telem::TimeSpan(0), false, read, std::nullopt, interrupted),
+        UNREACHABLE
+    );
+    std::promise<void> held;
+    std::thread holding([&] {
+        ASSERT_NIL(conn.sequence(
+            fast,
+            x::telem::TimeSpan(0),
+            false,
+            [&](const auto &send) {
+                held.set_value();
+                return send(read);
+            },
+            std::nullopt,
+            interrupted
+        ));
+    });
+    held.get_future().wait();
+    const auto err = conn.exec(
+        fast,
+        x::telem::TimeSpan(0),
+        false,
+        read,
+        std::nullopt,
+        interrupted
+    );
+    holding.join();
+    ASSERT_NIL(err);
     slave.stop();
 }
 

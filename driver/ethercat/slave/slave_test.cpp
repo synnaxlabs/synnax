@@ -701,7 +701,8 @@ Identity saved(
     };
 }
 
-using Positions = std::map<uint16_t, uint16_t>;
+using Positions = std::vector<uint16_t>;
+using Located = std::vector<std::optional<uint16_t>>;
 }
 
 /// @brief it should find each slave at its saved position, and ignore other slaves.
@@ -711,7 +712,7 @@ TEST(Bind, FindsTheSlavesAtTheirSavedPositions) {
             {saved(1, 0x1), saved(2, 0x2, 777)},
             {on_bus(1, 0x1), on_bus(2, 0x2, 777), on_bus(3, 0x3)}
         )),
-        (Positions{{1, 1}, {2, 2}})
+        (Positions{1, 2})
     );
 }
 
@@ -762,7 +763,7 @@ TEST(Bind, FindsASlaveBySerialNumberAfterItMoves) {
         ASSERT_NIL_P(
             bind({saved(2, 0x1, 777)}, {on_bus(1, 0x1, 888), on_bus(4, 0x1, 777)})
         ),
-        (Positions{{2, 4}})
+        (Positions{4})
     );
 }
 
@@ -782,7 +783,7 @@ TEST(Bind, FindsSlavesWithOneSerialNumberAtTheirPositions) {
             {saved(2, 0x1, 777), saved(1, 0x1, 777)},
             {on_bus(1, 0x1, 777), on_bus(2, 0x1, 777)}
         )),
-        (Positions{{1, 1}, {2, 2}})
+        (Positions{2, 1})
     );
 }
 
@@ -794,17 +795,21 @@ TEST(Bind, KeepsASlaveAtItsPositionBeforeItMovesAnother) {
             {saved(1, 0x1, 777), saved(3, 0x1, 777)},
             {on_bus(3, 0x1, 777), on_bus(5, 0x1, 777)}
         )),
-        (Positions{{1, 5}, {3, 3}})
+        (Positions{5, 3})
     );
 }
 
-/// @brief it should reject a slave whose unit is only at a position that a slave with
-/// serial number 0 holds.
-TEST(Bind, RejectsASlaveWhoseUnitIsAtAHeldPosition) {
-    const auto err = bind({saved(1, 0x1), saved(3, 0x1, 777)}, {on_bus(1, 0x1, 777)})
-                         .second;
+/// @brief it should reject a slave with serial number 0 whose position holds the unit
+/// of a slave with a serial number.
+TEST(Bind, RejectsASlaveWhosePositionHoldsAKnownUnit) {
+    auto known = saved(3, 0x1, 777);
+    known.name = "Known";
+    const auto err = bind({saved(1, 0x1), known}, {on_bus(1, 0x1, 777)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Slave 3 (serial 777) is not on the bus.");
+    EXPECT_EQ(
+        err.data,
+        "Slave 1 (Slave 1) is not on the bus. Slave 1 is Known (serial 777)."
+    );
 }
 
 /// @brief it should reject two slaves with one saved position.
@@ -827,7 +832,37 @@ TEST(Locate, LeavesOutTheSlavesThatItDoesNotFind) {
             {saved(1, 0x1), saved(2, 0x2), saved(3, 0x3, 777), saved(4, 0x4, 888)},
             {on_bus(1, 0x1), on_bus(2, 0x9), on_bus(5, 0x3, 777)}
         ),
-        (Positions{{1, 1}, {3, 5}})
+        (Located{1, std::nullopt, 5, std::nullopt})
+    );
+}
+
+/// @brief it should find each of two slaves with serial numbers that share a saved
+/// position.
+TEST(Locate, FindsTheSlavesOfOneSavedPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(2, 0x1, 777), saved(2, 0x1, 888)},
+            {on_bus(2, 0x1, 888), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 2})
+    );
+}
+
+/// @brief it should give the slave at a saved position to the slave with its serial
+/// number before a slave with serial number 0 saved there.
+TEST(Locate, GivesAUnitToItsSerialNumberBeforeItsPosition) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(3, 0x1, 777)}, {on_bus(1, 0x1, 777)}),
+        (Located{std::nullopt, 1})
+    );
+}
+
+/// @brief it should find one slave for several slaves with serial number 0 saved at its
+/// position.
+TEST(Locate, FindsOneSlaveForSlavesWithNoSerialNumber) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(1, 0x1)}, {on_bus(1, 0x1, 777)}),
+        (Located{1, 1})
     );
 }
 }

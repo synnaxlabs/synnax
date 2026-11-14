@@ -18,17 +18,18 @@ import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
+const WIDE = <p>{"wide ".repeat(200)}</p>;
 
 const openDialog = async (
   variant: Dialog.FrameProps["variant"],
   content: ReactNode = <p>Content</p>,
-  size?: Dialog.DialogProps["size"],
+  dialogProps: Dialog.DialogProps = {},
 ): Promise<{ trigger: Element; dialog: Element; unmount: () => unknown }> => {
   const { getByText, unmount } = await renderThemed(
     <Triggers.Provider>
       <Dialog.Frame variant={variant}>
         <Dialog.Trigger>Toggle</Dialog.Trigger>
-        <Dialog.Dialog size={size}>{content}</Dialog.Dialog>
+        <Dialog.Dialog {...dialogProps}>{content}</Dialog.Dialog>
       </Dialog.Frame>
     </Triggers.Provider>,
   );
@@ -44,10 +45,20 @@ const openDialog = async (
 
 /** @returns the height of a floating dialog of the size, holding tall content. */
 const capOf = async (size?: Dialog.DialogProps["size"]): Promise<number> => {
-  const { dialog, unmount } = await openDialog("floating", TALL, size);
+  const { dialog, unmount } = await openDialog("floating", TALL, { size });
   const { height } = dialog.getBoundingClientRect();
   await unmount();
   return height;
+};
+
+/** @returns the width of a floating dialog holding a long line of text. */
+const widthOf = async (maxWidth?: string): Promise<number> => {
+  const style: CSS.VarProperties =
+    maxWidth == null ? {} : { "--pluto-dialog-max-width": maxWidth };
+  const { dialog, unmount } = await openDialog("floating", WIDE, { style });
+  const { width } = dialog.getBoundingClientRect();
+  await unmount();
+  return width;
 };
 
 /** @returns true when the element is the topmost one at its own center. */
@@ -253,6 +264,11 @@ describe("Dialog", () => {
       const medium = await capOf();
       expect(await capOf("small")).toBeLessThan(medium);
       expect(await capOf("large")).toBeGreaterThan(medium);
+    });
+
+    it("should wrap its content at the maximum width its caller sets", async () => {
+      expect(await widthOf()).toBeGreaterThan(300);
+      expect(await widthOf("200px")).toBeCloseTo(200, 0);
     });
 
     describe("focus", () => {
