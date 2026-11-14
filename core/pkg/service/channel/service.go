@@ -202,6 +202,14 @@ func (s *Service) NewRetrieve() Retrieve {
 	return r
 }
 
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
+}
+
 // Close releases the resources held by the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
