@@ -700,6 +700,41 @@ TEST_F(AnalogReadTest, testFailedInLoopRestartReclaimsOnNextRead) {
     rt->stop("stop_cmd", true);
 }
 
+/// @brief it should build the hardware again after a temporary read error, such as a
+/// device that disconnects and comes back, since a read does not start a stopped task.
+TEST_F(AnalogReadTest, testTemporaryReadErrorRebuildsHardware) {
+    parse_config();
+    mock_hw = std::make_shared<hardware::mock::Reader<double>>(
+        std::vector{x::errors::NIL},
+        std::vector{x::errors::NIL},
+        std::vector<hardware::mock::Reader<double>::ReadResponse>{
+            {.error = daqmx::DEVICE_DISCONNECTED},
+            {.data = {0.5}}
+        }
+    );
+    std::atomic<size_t> builds = 0;
+    const auto rt = create_task(
+        [&](
+            const ni::ReadTaskConfig &
+        ) -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
+            ++builds;
+            return {
+                std::make_unique<hardware::mock::SharedReader<double>>(mock_hw),
+                x::errors::NIL
+            };
+        }
+    );
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        mock_factory->writes->size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(builds.load(), 2);
+    rt->stop("stop_cmd", true);
+}
+
 /// @brief it should make no read with hardware that a read rebuilt after the task
 /// stopped, since the stop found no hardware to abort.
 TEST_F(AnalogReadTest, testStopDuringRebuildSkipsRead) {
