@@ -135,6 +135,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   accept_invitation: "Invitation accepted",
   change_role: "Role changed",
   remove_member: "Member removed",
+  change_desktop_channels: "Desktop channels changed",
 };
 
 const REASON_LABELS: Partial<Record<string, string>> = {
