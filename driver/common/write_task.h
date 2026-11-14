@@ -592,6 +592,7 @@ public:
             if (this->sink->internal->streamer_config().channels.empty()) {
                 this->running_without_commands = true;
                 this->state.send_start(cmd_key);
+                this->sink->show_held();
                 return true;
             }
             this->opening = true;

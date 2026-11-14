@@ -933,8 +933,8 @@ public:
     /// @brief the calls of held_warning() while the sink was stopped.
     std::atomic<size_t> stopped_reads{0};
 
-    explicit HoldingSink(Warning held = {}):
-        Sink(std::vector<synnax::channel::Key>{1}), held(std::move(held)) {}
+    explicit HoldingSink(Warning held, std::vector<synnax::channel::Key> commands):
+        Sink(std::move(commands)), held(std::move(held)) {}
 
     x::errors::Error start() override {
         this->running = true;
@@ -973,18 +973,27 @@ public:
     }
 };
 
-/// @brief a write task that runs a HoldingSink on the given commands.
+/// @brief a write task that runs a HoldingSink on the given commands to channel 1, or
+/// with no command channels when commanded is false.
 struct HoldingWrite {
     std::shared_ptr<driver::task::MockContext>
         ctx = std::make_shared<driver::task::MockContext>(nullptr);
     HoldingSink *sink;
     std::unique_ptr<WriteTask> task;
 
-    explicit HoldingWrite(const std::vector<uint8_t> &commands, Warning held = {}) {
+    explicit HoldingWrite(
+        const std::vector<uint8_t> &commands,
+        Warning held = {},
+        const bool commanded = true
+    ) {
         const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
         for (const auto v: commands)
             reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
-        auto s = std::make_unique<HoldingSink>(std::move(held));
+        auto s = std::make_unique<HoldingSink>(
+            std::move(held),
+            commanded ? std::vector<synnax::channel::Key>{1}
+                      : std::vector<synnax::channel::Key>{}
+        );
         this->sink = s.get();
         synnax::task::Task t;
         t.key = x::uuid::create();
@@ -1041,6 +1050,20 @@ TEST(TestCommonWriteTask, HeldWarningShowsWithoutAWrite) {
 /// @brief it should show a warning that the sink held before the task started.
 TEST(TestCommonWriteTask, HeldWarningShowsWhenTheTaskStarts) {
     HoldingWrite w({}, {.message = "Lost device"});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return w.message(); },
+        std::string("Lost device"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should show the held warning of a sink with no command channels when the
+/// task starts.
+TEST(TestCommonWriteTask, HeldWarningShowsWhenATaskWithNoCommandsStarts) {
+    HoldingWrite w({}, {.message = "Lost device"}, false);
     ASSERT_TRUE(w.task->start("start"));
     ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
         [&] { return w.message(); },
