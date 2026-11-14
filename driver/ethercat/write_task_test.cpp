@@ -418,7 +418,7 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
     ASSERT_EVENTUALLY_EQ(
@@ -442,7 +442,7 @@ TEST_F(EtherCATWriteTest, SinkHoldsAWarningWhileItsSlaveIsLost) {
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_TRUE(sink.held_warning().empty());
 
     this->mock_master->set_slave_lost(1, true);
@@ -479,7 +479,7 @@ TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {
     const auto period = task_cfg.state_rate.period().chrono();
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
     ASSERT_NIL(sink.write(frame));
@@ -515,7 +515,7 @@ TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series(x::telem::INT16_T, 3);
     series.write(static_cast<int16_t>(0x1111));
@@ -561,7 +561,7 @@ TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Series series1(x::telem::INT16_T, 1);
     series1.write(static_cast<int16_t>(0x1234));
@@ -604,7 +604,7 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
     ASSERT_NIL(parser.error());
 
     auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame empty_frame(0);
     ASSERT_NIL(sink.write(empty_frame));
@@ -647,7 +647,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     );
 
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
-    const auto err = sink.start();
+    const auto err = sink.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
