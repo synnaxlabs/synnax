@@ -414,6 +414,21 @@ describe("desktop ledger", () => {
       const machine = await resolve(store, linked.secret);
       const renewed = await renew(store, signer(), { machine, now: RENEWED });
       expect(renewed.license.channels).toBe(55);
+      expect(await eventsOf("amend")).toEqual([
+        expect.objectContaining({
+          at: RENEWED,
+          actor: linked.activation.key,
+          license: linked.license.key,
+          detail: { channels: { from: 50, to: 55 } },
+        }),
+      ]);
+    });
+
+    it("should amend nothing when the cap did not change", async () => {
+      const linked = await linkMachine();
+      const machine = await resolve(store, linked.secret);
+      await renew(store, signer(), { machine, now: RENEWED });
+      expect(await eventsOf("amend")).toHaveLength(0);
     });
 
     it("should refuse a machine unlinked after it was resolved", async () => {
@@ -567,7 +582,7 @@ describe("desktop ledger", () => {
 
     it("should refuse a cap that is not a whole number of at least 0", async () => {
       await linkMachine();
-      for (const channels of [-1, 1.5, Number.NaN])
+      for (const channels of [-1, 1.5, Number.NaN, 2 ** 31])
         await expect(set(channels)).rejects.toMatchObject({
           status: 400,
           message: "Channels must be a whole number, 0 for unlimited",

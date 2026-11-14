@@ -244,6 +244,10 @@ export const renew = async (
     if (org?.owner == null)
       throw new Error(`desktop license ${row.license.key} has no personal owner`);
     const previous = await lastUse(tx, row.license.organization);
+    const [held] = await tx
+      .select({ channels: license.channels })
+      .from(license)
+      .where(eq(license.key, row.license.key));
     const [lic] = await tx
       .update(license)
       .set({ expiresAt: expiryFrom(now), channels: desktopCap(org) })
@@ -254,6 +258,15 @@ export const renew = async (
       .update(activation)
       .set({ lastSeen: now })
       .where(eq(activation.key, row.activation.key));
+    if (held.channels !== lic.channels)
+      await tx.insert(event).values({
+        at: now,
+        kind: "amend",
+        actor: row.activation.key,
+        organization: lic.organization,
+        license: lic.key,
+        detail: { channels: { from: held.channels, to: lic.channels } },
+      });
     await tx.insert(event).values({
       at: now,
       kind: "renew",
@@ -321,6 +334,9 @@ export const unlink = async (
   });
 };
 
+/** MAX_CHANNELS is the largest cap that a Postgres integer column holds. */
+const MAX_CHANNELS = 2 ** 31 - 1;
+
 export interface SetChannelsArgs {
   /** userID is the Clerk user ID of the user whose personal organization changes. */
   userID: string;
@@ -341,7 +357,10 @@ export const setChannels = async (
   store: Store,
   { userID, channels, actor, now }: SetChannelsArgs,
 ): Promise<void> => {
-  if (channels != null && (!Number.isInteger(channels) || channels < 0))
+  if (
+    channels != null &&
+    (!Number.isInteger(channels) || channels < 0 || channels > MAX_CHANNELS)
+  )
     throw badRequest("Channels must be a whole number, 0 for unlimited");
   await store.transact(async (tx) => {
     // Locks the personal organization first, as link and renew do.
