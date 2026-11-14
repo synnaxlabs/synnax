@@ -93,6 +93,7 @@ class Engine {
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
 
+    struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
     struct Input {
         /// @brief where one entry sits in the input image and in a sample.
@@ -110,6 +111,8 @@ class Engine {
             std::string name;
             /// @brief set when a cycle dropped a sample because the slave was out.
             std::atomic<bool> lost{false};
+            /// @brief whether the slave did not respond at the latest dropped sample.
+            std::atomic<bool> silent{false};
         };
         /// @brief the slaves of the entries, in ascending position.
         std::vector<Slave> slaves;
@@ -151,7 +154,7 @@ class Engine {
         /// @param out positions in ascending order.
         /// @returns true when the reader has a slave in out. Called only by the cycle
         /// thread.
-        bool lose(const std::vector<uint16_t> &out);
+        bool lose(const Outage &out);
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -211,6 +214,8 @@ class Engine {
     struct Outage {
         /// @brief the positions of the slaves, in ascending order.
         std::vector<uint16_t> positions;
+        /// @brief the positions of the slaves that do not respond, in ascending order.
+        std::vector<uint16_t> silent;
         /// @brief the sum of their working counter shares.
         uint32_t share = 0;
 
