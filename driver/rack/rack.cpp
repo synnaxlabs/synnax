@@ -37,26 +37,35 @@ Rack::~Rack() {
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
     x::thread::set_name("rack");
     LOG(INFO) << x::thread::rt::capabilities();
-    while (this->breaker.running()) {
-        auto [cfg, err] = Config::load(args, this->breaker);
-        if (err) {
-            if (this->should_exit(err, on_shutdown)) return;
-            continue;
+    Config cfg;
+    while (true) {
+        auto [loaded, err] = Config::load(args, this->breaker);
+        if (!err) {
+            cfg = std::move(loaded);
+            break;
         }
-        VLOG(1) << "loaded config. starting task manager";
+        if (this->should_exit(err, on_shutdown)) return;
+    }
+    VLOG(1) << "loaded config. starting task manager";
+    const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
+    const auto client = cfg.new_client();
+    {
+        std::lock_guard lock{this->mu};
+        // A stop that came first sees no task manager, so none starts.
         if (!this->breaker.running()) return;
-        auto rt_manager = std::make_shared<x::thread::rt::Manager>();
-        const auto client = cfg.new_client();
+        // One task manager lives until the process exits, so a worker that it detached
+        // never outlives it. A Core outage only reopens its streamer.
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             client,
             cfg.new_factory(client, rt_manager),
             cfg.manager
         );
-        err = this->task_manager->run([this]() { this->breaker.reset(); });
-        if (err && this->should_exit(err, on_shutdown)) return;
     }
-    if (this->task_manager != nullptr) this->task_manager->stop();
+    while (this->breaker.running()) {
+        const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
+        if (this->should_exit(err, on_shutdown)) return;
+    }
 }
 
 void Rack::start(x::args::Parser &args, std::function<void()> on_shutdown) {
@@ -70,7 +79,10 @@ void Rack::start(x::args::Parser &args, std::function<void()> on_shutdown) {
 
 x::errors::Error Rack::stop() {
     if (!this->breaker.stop()) return x::errors::NIL;
-    if (this->task_manager != nullptr) this->task_manager->stop();
+    {
+        std::lock_guard lock{this->mu};
+        if (this->task_manager != nullptr) this->task_manager->stop();
+    }
     this->run_thread.join();
     return this->run_err;
 }

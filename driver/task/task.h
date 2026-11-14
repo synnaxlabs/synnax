@@ -318,8 +318,10 @@ public:
         this->ctx->set_rack_name(this->rack.name);
     }
 
-    /// @brief runs the main task manager loop, blocking until stop() is called.
-    /// Safe to call stop() from another thread.
+    /// @brief runs the main task manager loop, blocking until stop() is called or the
+    /// connection to the Core fails. Safe to call stop() from another thread. Call it
+    /// again after an error to run the tasks again; it is not safe to call while a call
+    /// is in progress.
     x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
@@ -427,6 +429,9 @@ private:
         synnax::channel::Channel rack_set;
     } channels;
 
+    /// @brief configures the tasks and applies the events of the Core until the
+    /// streamer stops.
+    x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.

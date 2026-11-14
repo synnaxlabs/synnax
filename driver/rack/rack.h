@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -323,6 +326,8 @@ x::errors::Error clear_persisted_state();
 /// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
+    /// @brief guards task_manager.
+    std::mutex mu;
     std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",

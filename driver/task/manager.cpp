@@ -147,26 +147,23 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
         return x::errors::NIL;
     }
     this->start_workers();
-    if (const auto err = this->configure_initial_tasks()) {
-        this->stop_workers();
-        return err;
-    }
+    const auto err = this->serve(on_started);
+    // Workers run the shutdown of each task, so they stop last. Every run ends with no
+    // tasks and no workers, so the next run starts clean.
+    this->stop_all_tasks();
+    this->stop_workers();
+    return err;
+}
+
+x::errors::Error Manager::serve(const std::function<void()> &on_started) {
+    if (const auto err = this->configure_initial_tasks()) return err;
     if (this->exit_early) {
         VLOG(1) << "exiting early";
-        this->stop_workers();
-        this->stop_all_tasks();
         return x::errors::NIL;
     }
-    if (const auto err = this->open_streamer()) {
-        this->stop_workers();
-        return err;
-    }
+    if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
-    if (this->streamer == nullptr) {
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
+    if (this->streamer == nullptr) return x::errors::NIL;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -191,8 +188,6 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
                 this->process_rack_set(series);
         }
     } while (true);
-    this->stop_all_tasks();
-    this->stop_workers();
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
@@ -394,15 +389,9 @@ void Manager::stop_workers() {
         if (w.done->load())
             w.thread.join();
         else {
-            // NOTE: C++ has no safe way to forcibly terminate threads. Detaching here
-            // means the thread may access freed Manager resources (use-after-free).
-            // This is acceptable because:
-            // 1. Manager destruction only occurs during process shutdown
-            // 2. The OS will terminate all threads when the process exits
-            // 3. The alternative (waiting forever) would hang shutdown
-            // If this becomes a mid-process operation, we'd need to either:
-            // - Ensure all tasks respect stop() within the timeout
-            // - Move tasks to child processes that can be safely killed
+            // C++ cannot kill a thread, and waiting forever would hang shutdown. The
+            // worker keeps using this Manager, which must outlive it: the Rack keeps
+            // one Manager until the process exits.
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
         }
