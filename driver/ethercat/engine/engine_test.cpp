@@ -2416,6 +2416,28 @@ TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {
     EXPECT_GE(slaves[1].restarted_at.value(), back);
 }
 
+/// @brief it should not count a slave of the running bus that changed() reports at stop
+/// as restarted, as SOEM reports a slave stuck in INIT that still answers.
+TEST_F(EngineTest, StopCountsAStuckSlaveOnTheRunningBusAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
 /// @brief it should not count a lost slave that comes back in SAFE-OP while the bus
 /// runs as restarted, as a slave does after a cable pull.
 TEST_F(EngineTest, RunningBusCountsASlaveBackInSafeOpAsNotRestarted) {

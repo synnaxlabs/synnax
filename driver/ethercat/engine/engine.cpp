@@ -609,13 +609,17 @@ void Engine::stop_locked() {
     this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
-    // The supervisor never checks a slave outside the running bus, such as a left-out
-    // slave.
-    if (const auto [restarted, err] = this->restarted_locked(); err)
+    // The supervisor counts the restarts on the running bus, where changed() also
+    // reports a slave stuck in INIT.
+    if (auto [restarted, err] = this->restarted_locked(); err)
         LOG(WARNING) << "[ethercat] failed to check " << this->iface
                      << " for restarted slaves: " << err.message();
-    else
+    else {
+        std::erase_if(restarted, [this](const uint16_t pos) {
+            return !this->left_out.contains(pos);
+        });
         this->track_restarts_locked(restarted);
+    }
     this->master->deactivate();
     this->image = {};
     this->cycle_mhz.store(0, std::memory_order_release);
