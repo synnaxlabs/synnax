@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -140,9 +141,9 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer
 	// since it last ended a domain.
 	len int64
-	// lastIndexPersist stores the timestamp of the last time changes to index were
-	// flushed to disk.
-	lastIndexPersist telem.TimeStamp
+	// lastIndexPersist is when changes to the index were last flushed to disk. It
+	// holds a monotonic reading, so a system clock change does not delay a persist.
+	lastIndexPersist time.Time
 	// fileKey represents the key of the file written to by the writer. One can convert
 	// it to a filename via the fileKeyToName function.
 	fileKey uint16
@@ -191,7 +192,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		started:          started,
-		lastIndexPersist: telem.Now(),
+		lastIndexPersist: time.Now(),
 		onClose: func() {
 			db.resourceCount.Add(-1)
 		},
@@ -291,11 +292,11 @@ func (w *Writer) Write(p []byte) (int, error) {
 // would only be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
-		now = telem.Now()
+		now = time.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the
 		// interval is not met yet.
 		shouldPersist = !*w.EnableAutoCommit ||
-			w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
+			now.Sub(w.lastIndexPersist) >= w.AutoIndexPersistInterval.Duration()
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
