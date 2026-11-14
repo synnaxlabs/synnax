@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -141,9 +142,10 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer
 	// since it last ended a domain.
 	len int64
-	// lastIndexPersist is when changes to the index were last flushed to disk. It
-	// holds a monotonic reading, so a system clock change does not delay a persist.
+	// lastIndexPersist is the clock reading when changes to the index were last flushed
+	// to disk.
 	lastIndexPersist time.Time
+	clock            xtime.Clock
 	// fileKey represents the key of the file written to by the writer. One can convert
 	// it to a filename via the fileKeyToName function.
 	fileKey uint16
@@ -192,7 +194,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		started:          started,
-		lastIndexPersist: time.Now(),
+		lastIndexPersist: db.cfg.Clock.Now(),
+		clock:            db.cfg.Clock,
 		onClose: func() {
 			db.resourceCount.Add(-1)
 		},
@@ -292,7 +295,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 // would only be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
-		now = time.Now()
+		now = w.clock.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the
 		// interval is not met yet.
 		shouldPersist = !*w.EnableAutoCommit ||
