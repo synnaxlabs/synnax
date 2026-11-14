@@ -42,8 +42,49 @@ KEEP_STATE_ON_LOST_FRAME = (
 """,
 )
 
+# A late reply to an earlier read of another sub-index of the same object passes as the
+# reply to this read. The patch checks the sub-index, as ecx_SDOwrite does, so the read
+# fails with SOEM packet error 1 (unexpected frame).
+CHECK_SDO_READ_SUBINDEX = (
+    """         /* slave response should be CoE, SDO response and the correct index */
+         if (((aSDOp->MbxHeader.mbxtype & 0x0f) == ECT_MBXT_COE) &&
+             ((etohs(aSDOp->CANOpen) >> 12) == ECT_COES_SDORES) &&
+             (aSDOp->Index == SDOp->Index))
+""",
+    """         /* slave response should be CoE, SDO response and the correct index */
+         if (((aSDOp->MbxHeader.mbxtype & 0x0f) == ECT_MBXT_COE) &&
+             ((etohs(aSDOp->CANOpen) >> 12) == ECT_COES_SDORES) &&
+             (aSDOp->Index == SDOp->Index) &&
+             (aSDOp->SubIndex == SDOp->SubIndex))
+""",
+)
+
+# When the slave refuses an EEPROM read, EEPDAT still holds the word of the read before,
+# so the slave gets the wrong identity. The patch returns 0, as for a slave that does not
+# answer, and pushes SOEM packet error 30 for the slave.
+FAIL_REFUSED_EEPROM_READ = (
+    """   if (ecx_eeprom_waitnotbusyFP(context, configadr, &estat, timeout))
+   {
+      do
+      {
+         wkc = ecx_FPRD(&context->port, configadr, ECT_REG_EEPDAT, sizeof(edat), &edat, EC_TIMEOUTRET);
+""",
+    """   if (ecx_eeprom_waitnotbusyFP(context, configadr, &estat, timeout))
+   {
+      if (estat & EC_ESTAT_NACK)
+      {
+         ecx_packeterror(context, slave, 0, 0, 30); /* EEPROM read refused */
+         return 0;
+      }
+      do
+      {
+         wkc = ecx_FPRD(&context->port, configadr, ECT_REG_EEPDAT, sizeof(edat), &edat, EC_TIMEOUTRET);
+""",
+)
+
 PATCHES = {
-    "ec_main.c": [KEEP_STATE_ON_LOST_FRAME],
+    "ec_coe.c": [CHECK_SDO_READ_SUBINDEX],
+    "ec_main.c": [KEEP_STATE_ON_LOST_FRAME, FAIL_REFUSED_EEPROM_READ],
 }
 
 source, output = sys.argv[1:]

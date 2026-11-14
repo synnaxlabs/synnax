@@ -25,6 +25,18 @@ py_binary(
 )
 
 generate(
+    name = "ec_coe",
+    srcs = ["SOEM/src/ec_coe.c"],
+    outs = ["src_patched/ec_coe.c"],
+    arguments = [
+        "$(execpath SOEM/src/ec_coe.c)",
+        "{out}",
+    ],
+    stem = "ec_coe.c",
+    tool = ":patch",
+)
+
+generate(
     name = "ec_main",
     srcs = ["SOEM/src/ec_main.c"],
     outs = ["src_patched/ec_main.c"],
@@ -39,13 +51,13 @@ generate(
 # Core SOEM sources (platform-independent)
 SOEM_CORE_SRCS = [
     "SOEM/src/ec_base.c",
-    "SOEM/src/ec_coe.c",
     "SOEM/src/ec_config.c",
     "SOEM/src/ec_dc.c",
     "SOEM/src/ec_eoe.c",
     "SOEM/src/ec_foe.c",
     "SOEM/src/ec_print.c",
     "SOEM/src/ec_soe.c",
+    "src_patched/ec_coe.c",
     "src_patched/ec_main.c",
 ]
 
