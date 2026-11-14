@@ -53,3 +53,10 @@ const selectSettingsSection = (state: StoreState): string | undefined =>
 /** Returns the Settings section this window last showed, if any. */
 export const useSelectSettingsSection = (): string | undefined =>
   Select.useMemo(selectSettingsSection, []);
+
+const selectSettingsItem = (state: StoreState): string | undefined =>
+  selectWindowState(state).settings.item;
+
+/** Returns the key of the item that the Settings section should select, if any. */
+export const useSelectSettingsItem = (): string | undefined =>
+  Select.useMemo(selectSettingsItem, []);

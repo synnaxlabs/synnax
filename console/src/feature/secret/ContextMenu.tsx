@@ -8,108 +8,97 @@
 // included in the file licenses/APL.txt.
 
 import { certificate, secret } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { usedByDialogID } from "@/feature/secret/UsedBy";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
 import { Secret as PlatformSecret } from "@/platform/secret";
 
-type Named = Pick<secret.Secret, "key" | "name">;
+const rename = (key: string): void => Text.edit(List.itemNameID(key));
 
-const useDeleteSecret = (): ((s: Named) => void) => {
-  const confirm = Modals.useConfirmDelete({ type: "Secret", title: "Delete secret" });
-  const { update } = Secret.useDelete();
-  return (s) => {
-    void (async () => {
-      if (await confirm(s)) update(s.key);
-    })();
-  };
-};
-
-const useDeleteCertificate = (): ((c: Named) => void) => {
-  const confirm = Modals.useConfirmDelete({
-    type: "Certificate",
-    title: "Delete certificate",
-  });
-  const { update } = Certificate.useDelete();
-  return (c) => {
-    void (async () => {
-      if (await confirm(c)) update(c.key);
-    })();
-  };
-};
-
-export interface SecretMenuProps {
-  secret: secret.Secret;
-  onUsedBy: (key: secret.Key) => void;
-  onRename: (key: secret.Key) => void;
-}
-
-export const SecretMenu = ({
-  secret: s,
-  onUsedBy,
-  onRename,
-}: SecretMenuProps): ReactElement => {
-  const id = secret.resourceID(s.key);
-  const canUpdate = Access.useUpdateGranted(id);
-  const canDelete = Access.useDeleteGranted(id);
+/** The menu of the selected secrets. */
+export const SecretsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+  const { getItem } = List.useUtilContext<secret.Key, secret.Secret>();
+  const secrets = getItem?.(keys) ?? [];
+  const ids = secret.resourceID(keys);
+  const canUpdate = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
   const openReplace = PlatformSecret.useCreateModal();
-  const handleDelete = useDeleteSecret();
+  const confirm = Modals.useConfirmDelete({ type: "Secret", title: "Delete secret" });
+  const { update: remove } = Secret.useDelete({
+    beforeUpdate: async () => await confirm(secrets),
+  });
+  const single = secrets.length === 1 ? secrets[0] : undefined;
   return (
     <ContextMenu.Menu>
-      <Menu.Item itemKey="usedBy" onClick={() => onUsedBy(s.key)}>
-        <Icon.Link />
-        Used by
-      </Menu.Item>
+      {single != null && (
+        <Menu.Item
+          itemKey="usedBy"
+          onClick={() => Dialog.open(usedByDialogID(single.key))}
+        >
+          <Icon.Link />
+          Used by
+        </Menu.Item>
+      )}
       <Menu.Divider />
-      {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
+      {single != null && canUpdate && (
+        <ContextMenu.RenameItem onClick={() => rename(single.key)} />
+      )}
       <Menu.Divider />
-      {canUpdate && s.source === "stored" && (
+      {single != null && canUpdate && single.source === "stored" && (
         <Menu.Item
           itemKey="replace"
-          onClick={() => void openReplace({ replace: s.key })}
+          onClick={() => void openReplace({ replace: single.key })}
         >
           <Icon.Refresh />
           Replace value
         </Menu.Item>
       )}
       <Menu.Divider />
-      {canDelete && <ContextMenu.DeleteItem onClick={() => handleDelete(s)} />}
+      {secrets.length > 0 && canDelete && (
+        <ContextMenu.DeleteItem onClick={() => remove(secrets.map((s) => s.key))} />
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
 
-export interface CertificateMenuProps {
-  certificate: certificate.Certificate;
-  onRename: (key: certificate.Key) => void;
-}
-
-export const CertificateMenu = ({
-  certificate: c,
-  onRename,
-}: CertificateMenuProps): ReactElement => {
-  const id = certificate.resourceID(c.key);
-  const canUpdate = Access.useUpdateGranted(id);
-  const canDelete = Access.useDeleteGranted(id);
-  const handleDelete = useDeleteCertificate();
+/** The menu of the selected certificates. */
+export const CertificatesMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+  const { getItem } = List.useUtilContext<certificate.Key, certificate.Certificate>();
+  const certificates = getItem?.(keys) ?? [];
+  const ids = certificate.resourceID(keys);
+  const canUpdate = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
+  const confirm = Modals.useConfirmDelete({
+    type: "Certificate",
+    title: "Delete certificate",
+  });
+  const { update: remove } = Certificate.useDelete({
+    beforeUpdate: async () => await confirm(certificates),
+  });
+  const single = certificates.length === 1 ? certificates[0] : undefined;
   return (
     <ContextMenu.Menu>
-      {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(c.key)} />}
+      {single != null && canUpdate && (
+        <ContextMenu.RenameItem onClick={() => rename(single.key)} />
+      )}
       <Menu.Divider />
-      {canDelete && <ContextMenu.DeleteItem onClick={() => handleDelete(c)} />}
+      {certificates.length > 0 && canDelete && (
+        <ContextMenu.DeleteItem
+          onClick={() => remove(certificates.map((c) => c.key))}
+        />
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
-
-export const FallbackMenu = (): ReactElement => (
-  <ContextMenu.Menu>
-    <ContextMenu.ReloadConsoleItem />
-  </ContextMenu.Menu>
-);
