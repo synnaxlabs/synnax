@@ -588,7 +588,7 @@ TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartFailsAtTheStartTimeout) {
     this->mock_master->release_activate();
     starter.join();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(err.data, "Another task is still using eth0.");
     ASSERT_NIL(first->stop());
 }
 

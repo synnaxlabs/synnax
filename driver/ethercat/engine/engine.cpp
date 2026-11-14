@@ -51,12 +51,6 @@ void report(const Engine::Start &start, const Engine::Step &step) {
     if (start.report) start.report(step);
 }
 
-/// @brief returns text with a period at the end, so that a sentence can follow it.
-std::string sentence(std::string text) {
-    if (!text.empty() && !text.ends_with('.')) text += '.';
-    return text;
-}
-
 /// @brief returns the error of an open whose cancel stopped before the bus started.
 x::errors::Error start_canceled_error(const std::string &network) {
     return x::errors::Error(
@@ -74,11 +68,11 @@ x::errors::Error start_late_error(const std::string &network) {
 }
 
 /// @brief returns the error of a start whose deadline passed while or after it waited
-/// for another start.
+/// for another task.
 x::errors::Error start_blocked_error(const std::string &network) {
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
-        "Another task is still starting on " + network + "."
+        "Another task is still using " + network + "."
     );
 }
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
@@ -695,7 +689,7 @@ x::errors::Error Engine::start_locked(
                                 pos,
                                 s == this->slaves.end() ? "" : s->properties.name
                             ),
-                            .description = sentence("It " + refusal.reason) +
+                            .description = errors::sentence("It " + refusal.reason) +
                                            " Starting " + this->network_name +
                                            " again with it reset.",
                             .limit = RESET_STEP_LIMIT,
@@ -747,11 +741,12 @@ x::errors::Error Engine::start_locked(
             return start_error(err, refused, this->left_out);
         LOG(WARNING) << "[ethercat] failed to start " << this->iface
                      << ", trying again in " << wait << ": " << err.message();
+        const auto why = errors::sentence(err.data);
         report(
             start,
             {
                 .message = "Retrying the start",
-                .description = sentence(err.data) + " Trying again in " +
+                .description = (why.empty() ? "" : why + " ") + "Trying again in " +
                                wait.to_string() + ".",
                 .limit = wait + RETRY_STEP_SLACK,
             }
@@ -1251,14 +1246,14 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
-    for (bool waiting = false; !lock.try_lock(); waiting = true) {
-        if (!waiting)
+    // A wait of one poll is a short hold, such as a notify of the cycle thread.
+    for (int polls = 0; !lock.try_lock(); polls++) {
+        if (polls == 1)
             report(
                 start,
                 {
                     .message = "Waiting for another task",
-                    .description = "Another task is starting on " + this->network_name +
-                                   ".",
+                    .description = "Another task is using " + this->network_name + ".",
                     .limit = WAIT_STEP_LIMIT,
                 }
             );

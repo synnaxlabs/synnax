@@ -2533,7 +2533,7 @@ TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
     this->master->release_activate();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
 }
 
 /// @brief it should fail a writer that still waits for the start of another task at the
@@ -2560,7 +2560,7 @@ TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
     this->master->release_activate();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
 }
 
 /// @brief it should end the wait of an open for the start of another task when its
@@ -2631,7 +2631,7 @@ TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
     second.join();
     const auto &failed = errs[0] ? errs[0] : errs[1];
     ASSERT_OCCURRED_AS(failed, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(failed.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(failed.data, "Another task is still using eth0.");
     EXPECT_NIL(errs[0] ? errs[1] : errs[0]);
 }
 
@@ -2701,7 +2701,7 @@ TEST_F(EngineTest, LateStartBehindAnotherStartNamesTheOtherStart) {
     releaser.join();
     first.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
 }
 
 /// @brief it should end the wait between two tries of a failed start when the cancel of
@@ -2833,7 +2833,7 @@ TEST_F(EngineTest, StartReportsTheResetOfASlaveThatRefusedAStaleLayout) {
 /// @brief it should report the wait before a retry with the error of the failed try.
 TEST_F(EngineTest, StartReportsTheWaitBeforeARetry) {
     this->master->inject_activate_error(
-        x::errors::Error(errors::ACTIVATION_ERROR, "Slave 0 did not reach OP")
+        x::errors::Error(errors::ACTIVATION_ERROR, "failed to configure PDO mapping")
     );
     StepLog log;
     log.on_step = [this](const Engine::Step &step) {
@@ -2852,10 +2852,32 @@ TEST_F(EngineTest, StartReportsTheWaitBeforeARetry) {
     EXPECT_EQ(steps[1].message, "Retrying the start");
     EXPECT_EQ(
         steps[1].description,
-        "Slave 0 did not reach OP. Trying again in " + wait.to_string() + "."
+        "Failed to configure PDO mapping. Trying again in " + wait.to_string() + "."
     );
     EXPECT_EQ(steps[1].limit, wait + x::telem::SECOND * 10);
     EXPECT_EQ(steps[2].message, "Starting eth0");
+}
+
+/// @brief it should give only the wait in the retry step of a failed try with no error
+/// text.
+TEST_F(EngineTest, RetryStepOfAnErrorWithNoTextGivesOnlyTheWait) {
+    this->master->inject_activate_error(x::errors::Error(errors::ACTIVATION_ERROR, ""));
+    StepLog log;
+    log.on_step = [this](const Engine::Step &step) {
+        if (step.message == "Retrying the start") this->master->clear_injected_errors();
+    };
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(
+        steps[1].description,
+        "Trying again in " + Config().start_retry.interval(1).to_string() + "."
+    );
 }
 
 /// @brief it should report the wait of a start behind the start of another task.
@@ -2883,7 +2905,7 @@ TEST_F(EngineTest, StartBehindAnotherStartReportsTheWait) {
     const auto steps = log.snapshot();
     ASSERT_EQ(steps.size(), 1);
     EXPECT_EQ(steps[0].message, "Waiting for another task");
-    EXPECT_EQ(steps[0].description, "Another task is starting on eth0.");
+    EXPECT_EQ(steps[0].description, "Another task is using eth0.");
     EXPECT_EQ(steps[0].limit, x::telem::SECOND * 10);
 }
 
