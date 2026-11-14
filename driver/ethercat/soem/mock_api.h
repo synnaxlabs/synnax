@@ -122,6 +122,8 @@ public:
     std::set<std::string> filtered_interfaces;
     /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
     std::map<std::string, std::string> adapter_names;
+    /// @brief the interfaces whose adapters are on USB.
+    std::set<std::string> usb_interfaces;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -264,6 +266,10 @@ public:
         const auto it = this->adapter_names.find(ifname);
         if (it == this->adapter_names.end()) return std::nullopt;
         return it->second;
+    }
+
+    bool on_usb(const char *ifname) override {
+        return this->usb_interfaces.contains(ifname);
     }
 
     int init(const char *) override {

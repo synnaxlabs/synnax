@@ -2082,7 +2082,26 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = -1;
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+}
+
+/// @brief it should say that a USB adapter can hold frames back when no frame comes
+/// back.
+TEST_F(SOEMMasterTest, ReceiveNamesAUSBAdapterWhenNoFrameComesBack) {
+    this->mock->usb_interfaces.insert("eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = -1;
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
+        "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
+    );
 }
 
 /// @brief it should fail a receive whose working counter is not the expected count.

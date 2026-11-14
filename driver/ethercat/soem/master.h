@@ -136,6 +136,8 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
+        /// @brief what receive() returns when no frame comes back.
+        x::errors::Error no_frame_err;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;

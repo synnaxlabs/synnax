@@ -266,7 +266,14 @@ master::Activation Master::activate(
                 "master already activated"
             )
         };
-    this->session.emplace().plan = plan;
+    auto &session = this->session.emplace();
+    session.plan = plan;
+    std::string no_frame = "process data receive failed";
+    if (this->api->on_usb(this->iface_name.c_str()))
+        no_frame += ". " + this->name() +
+                    " is a USB adapter, which can hold frames back. Use a PCIe or "
+                    "onboard Ethernet adapter, or a lower sample rate";
+    session.no_frame_err = x::errors::Error(errors::CYCLIC_ERROR, no_frame);
     return this->start(start_cycle);
 }
 
@@ -435,8 +442,7 @@ x::errors::Error Master::receive() {
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0)
-        return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    if (wkc < 0) return session.no_frame_err;
     this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != session.expected_wkc) {
