@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 
 #include "absl/log/globals.h"
 #include "gtest/gtest.h"
@@ -408,6 +411,61 @@ TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
     pipeline.start();
     ASSERT_EVENTUALLY_TRUE(source->read_called.load());
     pipeline.stop();
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief a source whose read waits for an interrupt, or for five seconds.
+class InterruptibleSource final : public Source {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool interrupted = false;
+
+public:
+    std::atomic<bool> reading{false};
+    /// @brief whether the breaker still ran when the read woke.
+    std::atomic<bool> running_on_wake{true};
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error
+    read(x::breaker::Breaker &breaker, x::telem::Frame &, Authorities &) override {
+        std::unique_lock lock(this->mu);
+        this->reading = true;
+        this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->interrupted;
+        });
+        this->running_on_wake = breaker.running();
+        return errors::NOMINAL_SHUTDOWN_ERROR;
+    }
+
+    void interrupt() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->interrupted = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should interrupt a read that blocks after the breaker stops, so stop
+/// returns without waiting for the read.
+TEST(AcquisitionPipeline, StopInterruptsBlockedRead) {
+    const auto source = std::make_shared<InterruptibleSource>();
+    auto pipeline = Acquisition(
+        std::make_shared<testutil::WriterFactory>(),
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_TRUE(source->reading.load());
+    const auto stopping = std::chrono::steady_clock::now();
+    ASSERT_TRUE(pipeline.stop());
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_FALSE(source->running_on_wake.load());
     ASSERT_NIL(source->stopped_err);
 }
 

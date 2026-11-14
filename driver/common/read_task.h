@@ -99,6 +99,11 @@ struct Source {
 
     virtual ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
 
+    /// @brief unblocks a read in progress when the task stops. Called on the stopping
+    /// thread after the breaker stops, and before stop(). A read that an interrupt
+    /// ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR.
+    virtual void interrupt() {}
+
     virtual ~Source() = default;
 };
 
@@ -137,6 +142,8 @@ class ReadTask final : public driver::task::Task {
         }
 
         void writer_opened() override { this->writer_open = true; }
+
+        void interrupt() override { this->internal->interrupt(); }
 
         void stopped_with_err(const x::errors::Error &err) override {
             this->p.state.error(
