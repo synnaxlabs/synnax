@@ -29,9 +29,10 @@
 #include "x/cpp/testutil/testutil.h"
 
 namespace freighter::grpc {
-/// @brief relays one TCP connection to an upstream port until drop() is called, then
-/// discards all bytes in both directions while it keeps both sockets open, as a lost
-/// network does.
+using namespace std::chrono_literals;
+
+/// @brief relays one TCP connection to an upstream port. After drop(), it discards all
+/// bytes but keeps both sockets open, as a lost network does.
 class Blackhole {
     int listener = -1;
     int client = -1;
@@ -100,77 +101,100 @@ public:
     Blackhole &operator=(const Blackhole &) = delete;
 };
 
+/// @brief serves the test services behind a Blackhole, with a pool that pings soon.
+class KeepaliveTest : public ::testing::Test {
+protected:
+    std::thread server;
+    std::unique_ptr<Blackhole> hole;
+    std::shared_ptr<Pool> pool;
+    std::string target;
+
+    void serve(const std::uint16_t port, const Keepalive keepalive) {
+        this->server = std::thread(
+            testutil::server,
+            "localhost:" + std::to_string(port)
+        );
+        testutil::wait_for_servers();
+        this->hole = std::make_unique<Blackhole>(port);
+        this->pool = std::make_shared<Pool>(false, keepalive);
+        this->target = "127.0.0.1:" + std::to_string(this->hole->port);
+    }
+
+    void TearDown() override {
+        this->hole.reset();
+        if (!this->server.joinable()) return;
+        testutil::stop_servers();
+        this->server.join();
+    }
+};
+
 /// @brief it should fail a stream with UNREACHABLE when its server stops answering
 /// pings.
-TEST(testGRPC, testKeepaliveFailsStreamOnLostConnection) {
-    std::thread s(testutil::server, "localhost:8087");
-    testutil::wait_for_servers();
-    auto hole = std::make_unique<Blackhole>(8087);
-    auto pool = std::make_shared<Pool>(
-        false,
-        Keepalive{
-            .time = std::chrono::milliseconds(500),
-            .timeout = std::chrono::milliseconds(500),
-        }
+TEST_F(KeepaliveTest, FailsStreamOnLostConnection) {
+    this->serve(8087, {.time = 500ms, .timeout = 500ms});
+    StreamClient<test::Message, test::Message, test::StreamMessageService> client(
+        this->pool,
+        this->target
     );
-    auto
-        client = StreamClient<test::Message, test::Message, test::StreamMessageService>(
-            pool,
-            "127.0.0.1:" + std::to_string(hole->port)
-        );
     auto stream = ASSERT_NIL_P(client.stream(""));
     test::Message msg;
     msg.set_payload("ping");
     ASSERT_NIL(stream->send(msg));
     ASSERT_NIL_P(stream->receive());
-    // Lets the server answer the ping that the reply started, so only a keepalive
-    // ping can find the lost connection.
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    hole->drop();
+    // Lets the server answer the ping that the reply started. Any ping that finds the
+    // drop fails the stream, so the sleep picks that ping, not the result.
+    std::this_thread::sleep_for(200ms);
+    this->hole->drop();
     auto received = std::async(std::launch::async, [&stream] {
         return stream->receive();
     });
-    const auto status = received.wait_for(std::chrono::seconds(10));
+    const auto status = received.wait_for(10s);
     // Closing the relay ends a receive that keepalive did not end.
-    hole.reset();
-    const auto err = received.get().second;
+    this->hole.reset();
     EXPECT_EQ(status, std::future_status::ready);
-    ASSERT_OCCURRED_AS(err, UNREACHABLE);
-    testutil::stop_servers();
-    s.join();
+    ASSERT_OCCURRED_AS_P(received.get(), UNREACHABLE);
 }
 
 /// @brief it should fail a stream that sent nothing since it opened with UNREACHABLE
 /// when its server stops answering pings.
-TEST(testGRPC, testKeepaliveFailsReceiveOnlyStream) {
-    std::thread s(testutil::server, "localhost:8088");
-    testutil::wait_for_servers();
-    auto hole = std::make_unique<Blackhole>(8088);
-    auto pool = std::make_shared<Pool>(
-        false,
-        Keepalive{
-            .time = std::chrono::milliseconds(200),
-            .timeout = std::chrono::milliseconds(500),
-        }
+TEST_F(KeepaliveTest, FailsReceiveOnlyStream) {
+    this->serve(8088, {.time = 200ms, .timeout = 500ms});
+    StreamClient<test::Message, test::Message, test::StreamMessageService> client(
+        this->pool,
+        this->target
     );
-    auto
-        client = StreamClient<test::Message, test::Message, test::StreamMessageService>(
-            pool,
-            "127.0.0.1:" + std::to_string(hole->port)
-        );
     auto stream = ASSERT_NIL_P(client.stream(""));
-    // Lets several keepalive pings go out and come back before the drop.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-    hole->drop();
+    // Lets keepalive pings go out and come back before the drop. The sleep picks the
+    // ping that finds the drop, not the result.
+    std::this_thread::sleep_for(1500ms);
+    this->hole->drop();
     auto received = std::async(std::launch::async, [&stream] {
         return stream->receive();
     });
-    const auto status = received.wait_for(std::chrono::seconds(10));
-    hole.reset();
-    const auto err = received.get().second;
+    const auto status = received.wait_for(10s);
+    this->hole.reset();
     EXPECT_EQ(status, std::future_status::ready);
-    ASSERT_OCCURRED_AS(err, UNREACHABLE);
-    testutil::stop_servers();
-    s.join();
+    ASSERT_OCCURRED_AS_P(received.get(), UNREACHABLE);
+}
+
+/// @brief it should fail a unary call with UNREACHABLE when its server stops answering
+/// pings.
+TEST_F(KeepaliveTest, FailsUnaryOnLostConnection) {
+    this->serve(8089, {.time = 200ms, .timeout = 500ms});
+    UnaryClient<test::Message, test::Message, test::UnaryMessageService> client(
+        this->pool,
+        this->target
+    );
+    test::Message msg;
+    msg.set_payload("ping");
+    ASSERT_NIL_P(client.send("", msg));
+    this->hole->drop();
+    auto sent = std::async(std::launch::async, [&client, &msg] {
+        return client.send("", msg);
+    });
+    const auto status = sent.wait_for(10s);
+    this->hole.reset();
+    EXPECT_EQ(status, std::future_status::ready);
+    ASSERT_OCCURRED_AS_P(sent.get(), UNREACHABLE);
 }
 }
