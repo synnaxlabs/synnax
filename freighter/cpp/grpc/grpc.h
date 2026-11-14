@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdlib>
 
@@ -48,20 +49,32 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
 }
 }
 
+/// @brief how a channel finds a server that stops answering while calls run.
+struct Keepalive {
+    /// @brief how long the channel gets no bytes from the server before it pings. A
+    /// Core closes a connection that pings more often than every five minutes.
+    std::chrono::milliseconds time = std::chrono::minutes(6);
+    /// @brief how long the channel waits for a ping answer before it closes the
+    /// connection, which fails its calls with UNREACHABLE.
+    std::chrono::milliseconds timeout = std::chrono::seconds(20);
+};
+
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
+    Keepalive keepalive;
 
 public:
     /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
     /// server against the trust anchors described by priv::ssl_credentials.
-    explicit Pool(const bool secure = false):
+    explicit Pool(const bool secure = false, const Keepalive keepalive = {}):
         credentials(
             secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
-        ) {}
+        ),
+        keepalive(keepalive) {}
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
@@ -70,8 +83,11 @@ public:
     }
 
     /// @brief instantiates a gRPC pool with the provided credentials.
-    explicit Pool(const std::shared_ptr<::grpc::ChannelCredentials> &credentials):
-        credentials(credentials) {}
+    explicit Pool(
+        const std::shared_ptr<::grpc::ChannelCredentials> &credentials,
+        const Keepalive keepalive = {}
+    ):
+        credentials(credentials), keepalive(keepalive) {}
 
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
@@ -87,7 +103,21 @@ public:
             else
                 return channel;
         }
-        const ::grpc::ChannelArguments args;
+        ::grpc::ChannelArguments args;
+        args.SetInt(
+            GRPC_ARG_KEEPALIVE_TIME_MS,
+            static_cast<int>(this->keepalive.time.count())
+        );
+        args.SetInt(
+            GRPC_ARG_KEEPALIVE_TIMEOUT_MS,
+            static_cast<int>(this->keepalive.timeout.count())
+        );
+        // gRPC times out a keepalive ping with its ping timeout, which has no public
+        // name.
+        args.SetInt(
+            "grpc.http2.ping_timeout_ms",
+            static_cast<int>(this->keepalive.timeout.count())
+        );
         auto channel = CreateCustomChannel(host_addr, this->credentials, args);
         this->channels[host_addr] = channel;
         return channel;
