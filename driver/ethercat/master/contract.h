@@ -152,7 +152,7 @@ TYPED_TEST_P(Contract, ActivateGivesEachEnabledSlaveAWorkingCounterShare) {
     ASSERT_NIL(this->activate({{2, {.enabled = false}}}).err);
     EXPECT_EQ(
         this->image.working_counter_shares,
-        (std::map<uint16_t, uint32_t>{{1, 1}})
+        (std::map<uint16_t, master::WorkingCounterShare>{{1, {.inputs = 1}}})
     );
 }
 
