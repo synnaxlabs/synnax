@@ -56,9 +56,10 @@ a value per message. `json` holds JSON text, because `record` holds only objects
 `data_type` sizes a new channel. Phase 27 adds the three `*Options` types without it as
 new types, with no new payload version, and Phases 28 to 31 extend them.
 
-Phase 27 also adds `Binding` to `schemas/synnax/task.oracle`, in task v3 with no new
-version, because `x` cannot import `channel.Key` or its `@ref`. Integration version
-files then pin task v3:
+Phase 27 also adds `Binding` to `schemas/synnax/task.oracle` and to the current task
+version, v4. It is a new type, so it needs no new version (§8). It is not in `payload`,
+because `x` cannot import `channel.Key` or its `@ref`. Integration version files then
+pin task v4:
 
 ```
 Binding union on type {
