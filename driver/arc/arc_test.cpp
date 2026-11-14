@@ -1401,6 +1401,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 }
 
 TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx_name = make_unique_channel_name("stop_cmd_input_idx");
@@ -1481,7 +1482,9 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .type = "start",
         .key = "stop_cmd_test_start",
     };
-    task->exec(start_cmd);
+    cancel.start();
+    task->exec(start_cmd, cancel);
+    cancel.stop();
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     synnax::task::Command stop_cmd{
@@ -1489,7 +1492,9 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .type = "stop",
         .key = "stop_cmd_test_stop",
     };
-    task->exec(stop_cmd);
+    cancel.start();
+    task->exec(stop_cmd, cancel);
+    cancel.stop();
 
     bool found_stop_reply = false;
     for (const auto &s: ctx->statuses)

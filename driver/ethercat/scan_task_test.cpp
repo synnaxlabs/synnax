@@ -36,7 +36,11 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
 
 class EtherCATScanTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     void SetUp() override {
+        this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->rack = ASSERT_NIL_P(this->client->racks.create("test_rack"));
         this->ctx = std::make_shared<task::MockContext>(this->client);
@@ -54,6 +58,8 @@ protected:
             .internal = true
         };
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 class EtherCATScanStatusTest : public EtherCATScanTest {
@@ -410,7 +416,8 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     const auto [configured, handled] = factory.configure_task(
         this->ctx,
         task,
-        driver::task::NO_COMMAND
+        driver::task::NO_COMMAND,
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(configured, nullptr);
@@ -759,6 +766,79 @@ TEST_F(EtherCATScanStatusTest, StoresTheSettingsThatAScanReads) {
     );
     EXPECT_FALSE(rescanned.at(0).properties.contains("settings"));
     EXPECT_EQ(rescanned.at(1).properties.at("settings"), settings);
+}
+
+namespace {
+/// @brief the settings of a card whose mode needs sync mode 0x0300.
+const x::json::json UNLISTED_MODE{
+    {"mode",
+     {{"index", 0x8020},
+      {"sub_index", 9},
+      {"value", 0},
+      {"shared", false},
+      {"switch", x::json::json::array()},
+      {"unlisted_assign_activate", 0x0300}}},
+};
+}
+
+/// @brief it should warn of a mode whose sync mode the module does not list, until the
+/// user chooses a sync mode.
+TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeThatTheModuleDoesNotList) {
+    this->master->replace_slave(
+        1,
+        slave::Properties{
+            .network = "eth0",
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 12345,
+            .name = "6xSTG",
+            .op_modes = {{.name = "SM", .assign_activate = 0}},
+            .settings = UNLISTED_MODE,
+        }
+    );
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    const auto status = dev.status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        status.description,
+        "The mode of the module needs the sync mode with assign activate value 0x0300, "
+        "but the module does not list it. The Driver uses another sync mode, and the "
+        "module can refuse to start. Choose a sync mode for the device."
+    );
+    dev.properties["op_mode"] = dc::Choice{.index = 0, .assign_activate = 0}.to_json();
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_EQ(rescanned.at(0).status.value().variant, synnax::status::VARIANT_SUCCESS);
+}
+
+/// @brief it should not ask for a sync mode when the module lists none.
+TEST_F(EtherCATScanStatusTest, WarnsOfASyncModeWhenTheModuleListsNone) {
+    this->master->replace_slave(
+        1,
+        slave::Properties{
+            .network = "eth0",
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 12345,
+            .name = "6xSTG",
+            .settings = UNLISTED_MODE,
+        }
+    );
+    const auto
+        status = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0).status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        status.description,
+        "The mode of the module needs the sync mode with assign activate value 0x0300, "
+        "but the module lists no sync modes. The Driver uses SM sync, and the module "
+        "can refuse to start."
+    );
 }
 
 /// @brief it should keep the stored settings of a slave when a rescan fails to read
