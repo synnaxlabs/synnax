@@ -272,6 +272,8 @@ void Engine::run() {
     std::optional<PhaseLock> phase;
     uint64_t late_frames = 0;
     uint64_t receive_failures = 0;
+    // The cycle_err that this thread stored last.
+    x::errors::Error stored_err;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
     Clock clock;
@@ -374,11 +376,17 @@ void Engine::run() {
                           << " after " << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (!shortfall(err) && receive_failures++ == 0) {
-            LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
-                         << err.message();
-            std::lock_guard lock(this->cycle_err_mu);
-            this->cycle_err = err;
+        } else if (!shortfall(err)) {
+            if (receive_failures++ == 0)
+                LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
+                             << err.message();
+            // The reason can change during a run of failures, such as late frames that
+            // turn into a dead link.
+            if (!err.matches(stored_err) || err.data != stored_err.data) {
+                stored_err = err;
+                std::lock_guard lock(this->cycle_err_mu);
+                this->cycle_err = err;
+            }
         }
         // A cycle short by exactly what the slaves out of OP miss drops only their
         // inputs.

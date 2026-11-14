@@ -2088,7 +2088,8 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
 }
 
 /// @brief it should say that a USB adapter can hold frames back when no frame comes
-/// back, but only while a frame came back less than a second before.
+/// back, but only while a frame came back less than a second before, even when the
+/// sends fail.
 TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     const auto clock = x::loop::fake_clock();
     auto api = std::make_unique<MockAPI>();
@@ -2120,7 +2121,8 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
         "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
     );
     clock.sleep(x::telem::MILLISECOND);
-    ASSERT_NIL(this->master->send());
+    this->mock->send_return = 0;
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto dead = this->master->receive();
     ASSERT_OCCURRED_AS(dead, errors::CYCLIC_ERROR);
     EXPECT_EQ(dead.data, "process data receive failed");

@@ -450,7 +450,7 @@ x::errors::Error Master::receive() {
 
     if (wkc < 0) {
         if (session.late_frame_err && session.frame_sent_at &&
-            session.sent_at - *session.frame_sent_at < LATE_FRAME_WINDOW)
+            this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
             return session.late_frame_err;
         return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
     }

@@ -42,8 +42,8 @@ std::string to_utf8(const wchar_t *wide) {
     return utf8;
 }
 
-/// @brief returns the Npcap interface name and the Windows name of the first Ethernet
-/// adapter, or std::nullopt when the machine has none.
+/// @brief returns the GUID, the Npcap interface name, and the Windows name of the first
+/// Ethernet adapter, or std::nullopt when the machine has none.
 std::optional<Adapter> first_ethernet_adapter() {
     ULONG size = 16 * 1024;
     std::vector<IP_ADAPTER_ADDRESSES> buf;
@@ -63,6 +63,8 @@ std::optional<Adapter> first_ethernet_adapter() {
     return std::nullopt;
 }
 
+/// @brief returns the PnP instance ID that Windows keeps for the adapter with guid,
+/// such as "USB\VID_0BDA&PID_8153\000001", or std::nullopt when it has none.
 std::optional<std::wstring> pnp_instance_id(const std::string &guid) {
     const auto path = L"SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-"
                       L"11CE-BFC1-08002BE10318}\\" +
@@ -91,7 +93,6 @@ TEST(ProdAPIWindows, ReadsTheNameOfAnAdapter) {
     EXPECT_EQ(api.adapter_name(adapter->interface_name.c_str()), adapter->name);
 }
 
-/// @brief it should find no filter and no name for an adapter that does not exist.
 /// @brief it should find an adapter on USB when Windows enumerates it on USB.
 TEST(ProdAPIWindows, ReadsWhetherAnAdapterIsOnUSB) {
     const auto adapter = first_ethernet_adapter();
@@ -105,6 +106,8 @@ TEST(ProdAPIWindows, ReadsWhetherAnAdapterIsOnUSB) {
     );
 }
 
+/// @brief it should find no filter, no name, and no USB bus for an adapter that does
+/// not exist.
 TEST(ProdAPIWindows, FindsNothingForAnUnknownAdapter) {
     ProdAPI api;
     const char *unknown = "\\Device\\NPF_{00000000-0000-0000-0000-000000000000}";

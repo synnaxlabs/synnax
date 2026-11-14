@@ -1946,6 +1946,25 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
 }
 
+/// @brief it should give the latest reason of a run of failed cycles in the warning, as
+/// the reason can change before a cycle succeeds.
+TEST_F(EngineTest, FailedCycleWarningGivesTheLatestReason) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(x::errors::Error(errors::CYCLIC_ERROR, "first"));
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "second")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: second.");
+}
+
 /// @brief it should report the samples a reader dropped because it fell behind the bus
 /// as a warning.
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
