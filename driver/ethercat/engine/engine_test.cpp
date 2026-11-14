@@ -1161,6 +1161,81 @@ TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
+namespace {
+/// @brief an engine configuration whose slave settings save two units of one model at
+/// position 1 with different settings: serial 8 disabled, and serial 7 with params.
+Config replaced_unit_config(const std::vector<slave::StartupParameter> &params) {
+    auto cfg = quick_start_config();
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    auto old_unit = unit;
+    old_unit.serial = 8;
+    cfg.slave_configs = [unit, old_unit, params] {
+        return std::pair{
+            std::vector{
+                saved(old_unit, {.enabled = false}),
+                saved(unit, {.startup_parameters = params}),
+            },
+            x::errors::NIL
+        };
+    };
+    return cfg;
+}
+}
+
+/// @brief it should start the bus with the settings of the unit on the bus once its
+/// serial number answers, when two saved devices with different settings find the slave
+/// while its serial number is unread.
+TEST_F(EngineTest, StartScansAgainWhenAConflictHasAnUnreadSerial) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->fail_next_serial_read(1, "no answer");
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config(params)
+    );
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1)
+    );
+    EXPECT_TRUE(this->master->config(1).enabled);
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should fail the start with the reason when the serial number of a slave
+/// that two saved devices with different settings find never answers.
+TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->fail_serial_read(1, "no answer");
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config({})
+    );
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
+        "with different settings, and the slave did not give its serial number: no "
+        "answer."
+    );
+    EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
 /// @brief it should start the bus when a saved slave is not on it, and give the slave
 /// at its saved position the defaults.
 TEST_F(EngineTest, SavedSlaveOffTheBusLeavesTheDefaults) {

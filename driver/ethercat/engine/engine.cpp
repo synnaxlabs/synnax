@@ -513,6 +513,8 @@ x::errors::Error Engine::start_locked(
         if (!err) {
             this->slaves = std::move(slaves);
             std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+            // The next scan reads the serial numbers again.
+            if (err.matches(errors::ACTIVATION_ERROR)) this->master->deactivate();
         }
         if (!err) {
             for (const auto &s: this->slaves)
@@ -634,6 +636,30 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_lock
         auto first = label(*owner->second);
         auto second = label(identity);
         if (second < first) std::swap(first, second);
+        // A scan that reads the serial number tells which of the two is on the bus.
+        if (const auto live = std::ranges::find(
+                this->slaves,
+                *position,
+                [](const slave::DiscoveryResult &d) { return d.properties.position; }
+            );
+            live != this->slaves.end() && !live->status.serial_error.empty())
+            return {
+                {},
+                x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    errors::sentence(
+                        std::format(
+                            "{} and {} are both saved for slave {} on {} with different "
+                            "settings, and the slave did not give its serial number: {}",
+                            first,
+                            second,
+                            *position,
+                            this->network_name,
+                            live->status.serial_error
+                        )
+                    )
+                )
+            };
         return {
             {},
             x::errors::Error(
