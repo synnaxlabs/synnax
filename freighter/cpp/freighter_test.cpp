@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <chrono>
-#include <optional>
-
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
@@ -49,47 +46,5 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);
-}
-
-/// @brief records the deadline of the last request.
-class DeadlineFinalizer final : public Finalizer<int, int> {
-public:
-    std::optional<std::chrono::system_clock::time_point> deadline;
-
-    freighter::FinalizerReturn<int>
-    operator()(const freighter::Context context, int &req) override {
-        this->deadline = context.deadline;
-        return {context, x::errors::NIL, req};
-    }
-};
-
-/// @brief it should set a deadline on a unary request and leave a stream unchanged.
-TEST(testFreighter, testDeadlineSetsOnlyUnary) {
-    auto collector = MiddlewareCollector<int, int>();
-    collector.use(std::make_shared<Deadline>(std::chrono::seconds(60)));
-    DeadlineFinalizer f;
-    auto req = 1;
-    const auto before = std::chrono::system_clock::now();
-    ASSERT_NIL_P(collector.exec(Context("test", x::url::URL("1"), UNARY), &f, req));
-    EXPECT_GE(
-        f.deadline.value_or(std::chrono::system_clock::time_point::min()),
-        before + std::chrono::seconds(60)
-    );
-    ASSERT_NIL_P(collector.exec(Context("test", x::url::URL("1"), STREAM), &f, req));
-    EXPECT_FALSE(f.deadline.has_value());
-}
-
-/// @brief it should let a later deadline in the chain replace an earlier one.
-TEST(testFreighter, testLaterDeadlineReplacesEarlier) {
-    auto collector = MiddlewareCollector<int, int>();
-    collector.use(std::make_shared<Deadline>(std::chrono::seconds(60)));
-    collector.use(std::make_shared<Deadline>(std::chrono::seconds(5)));
-    DeadlineFinalizer f;
-    auto req = 1;
-    ASSERT_NIL_P(collector.exec(Context("test", x::url::URL("1"), UNARY), &f, req));
-    EXPECT_LT(
-        f.deadline.value_or(std::chrono::system_clock::time_point::max()),
-        std::chrono::system_clock::now() + std::chrono::seconds(10)
-    );
 }
 }

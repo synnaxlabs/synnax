@@ -132,22 +132,6 @@ public:
     }
 };
 
-/// @brief sets the deadline of each unary request to the time of the request plus
-/// timeout. A Deadline later in the chain replaces it. Leaves streams unchanged.
-class Deadline final : public Middleware {
-    std::chrono::milliseconds timeout;
-
-public:
-    explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
-
-    std::pair<Context, x::errors::Error>
-    operator()(Context context, Next &next) override {
-        if (context.variant == UNARY)
-            context.deadline = std::chrono::system_clock::now() + this->timeout;
-        return next(context);
-    }
-};
-
 template<typename RS>
 struct FinalizerReturn {
     Context context;

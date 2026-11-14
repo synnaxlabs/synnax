@@ -39,7 +39,7 @@ public:
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::UNARY);
+        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }

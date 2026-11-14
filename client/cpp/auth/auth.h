@@ -223,6 +223,19 @@ class Middleware final : public freighter::PassthroughMiddleware {
         }
     };
 
+    class Deadline final : public freighter::PassthroughMiddleware {
+        std::chrono::milliseconds timeout;
+
+    public:
+        explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
+
+        std::pair<freighter::Context, x::errors::Error>
+        operator()(freighter::Context context, freighter::Next &next) override {
+            context.deadline = std::chrono::system_clock::now() + this->timeout;
+            return next(context);
+        }
+    };
+
     std::string token;
     /// Valid only when authenticated.
     Session session;
@@ -271,9 +284,7 @@ public:
         if (this->retrieve_client) this->retrieve_client->use(header);
         if (this->delete_client) {
             this->delete_client->use(header);
-            this->delete_client->use(
-                std::make_shared<freighter::Deadline>(LOGOUT_TIMEOUT)
-            );
+            this->delete_client->use(std::make_shared<Deadline>(LOGOUT_TIMEOUT));
         }
     }
 
