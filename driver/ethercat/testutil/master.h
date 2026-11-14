@@ -56,7 +56,10 @@ class Master final : public master::Master {
     /// @brief the number of starts left that each slave refuses, keyed by position. A
     /// slave in refusing and not here refuses every start.
     std::map<uint16_t, size_t> refusals_left;
-    std::optional<size_t> bus_slaves;
+    /// @brief the positions that changed() reports as restarted until the next scan.
+    std::set<uint16_t> restarted;
+    /// @brief whether restarts_visible() returns false.
+    bool restarts_hidden = false;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
@@ -441,24 +444,45 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
-        if (!this->initialized) this->scanned = this->slave_list;
+        if (!this->initialized) {
+            this->scanned = this->slave_list;
+            this->restarted.clear();
+        }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
 
-    std::pair<size_t, x::errors::Error> count_slaves() override {
+    std::pair<master::Change, x::errors::Error> changed() override {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("count_slaves");
+        this->calls.emplace_back("changed");
         if (!this->initialized)
-            return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
-        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+            return {{}, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {
+            master::Change{
+                .stale = !this->restarted.empty() ||
+                         this->slave_list.size() != this->scanned.size(),
+                .restarted = this->restarted,
+            },
+            x::errors::NIL
+        };
     }
 
-    /// @brief makes count_slaves() report count instead of the number of added slaves,
-    /// as when a slave is plugged in or removed after discovery.
-    void set_bus_slaves(const std::optional<size_t> count) {
+    bool restarts_visible() const override {
         std::lock_guard lock(this->mu);
-        this->bus_slaves = count;
+        return !this->restarts_hidden;
+    }
+
+    /// @brief makes changed() report the slave at position as restarted until the next
+    /// scan.
+    void restart_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        this->restarted.insert(position);
+    }
+
+    /// @brief makes restarts_visible() return false, as on the IgH master.
+    void hide_restarts() {
+        std::lock_guard lock(this->mu);
+        this->restarts_hidden = true;
     }
 
     /// @brief returns the plan of the latest activate().

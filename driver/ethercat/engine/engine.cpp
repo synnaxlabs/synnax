@@ -497,6 +497,11 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         .slaves = std::move(configs),
     };
     this->left_out.clear();
+    // The activation brings a restarted slave up, so changed() misses it afterwards.
+    auto [restarted, restarted_err] = this->restarted_locked();
+    if (restarted_err) return restarted_err;
+    // The cached scan holds the setup from before the restart.
+    if (!restarted.empty()) this->master->deactivate();
     std::set<uint16_t> reset;
     x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
@@ -509,6 +514,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            this->track_restarts_locked(std::exchange(restarted, {}));
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
@@ -575,6 +581,7 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     }
     retry.stop();
     this->slaves = this->image.slaves;
+    this->track_restarts_locked({});
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
@@ -898,15 +905,16 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discove
     if (this->running()) return {this->slaves, x::errors::NIL};
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    const auto [count, count_err] = this->master->count_slaves();
-    if (count_err) return {{}, count_err};
-    if (count != slaves.size()) {
-        LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
-                  << " where " << slaves.size() << " were discovered, rediscovering";
-        return this->rediscover_locked();
+    const auto [change, change_err] = this->master->changed();
+    if (change_err) return {{}, change_err};
+    if (change.stale) {
+        LOG(INFO) << "[ethercat] the slaves on " << this->iface
+                  << " changed since the last discovery, rediscovering";
+        return this->rescan_locked(change.restarted);
     }
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
@@ -975,11 +983,49 @@ Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_in
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rediscover_locked() {
+    const auto [restarted, err] = this->restarted_locked();
+    if (err) return {{}, err};
+    return this->rescan_locked(restarted);
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::rescan_locked(const std::set<uint16_t> &restarted) {
     this->master->deactivate();
     auto [slaves, err] = this->master->scan();
     if (err) return {{}, err};
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked(restarted);
+    return {this->slaves, x::errors::NIL};
+}
+
+std::pair<std::set<uint16_t>, x::errors::Error> Engine::restarted_locked() {
+    if (!this->master->restarts_visible()) return {{}, x::errors::NIL};
+    auto [change, err] = this->master->changed();
+    // A master that has no scan has nothing to compare.
+    if (err.matches(errors::MASTER_INIT_ERROR)) return {{}, x::errors::NIL};
+    return {std::move(change.restarted), err};
+}
+
+void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
+    if (!this->master->restarts_visible()) return;
+    const auto now = this->config.host_clock.now();
+    decltype(this->restarts) found;
+    for (auto &slave: this->slaves) {
+        const auto &props = slave.properties;
+        const RestartKey key{
+            props.vendor_id,
+            props.product_code,
+            props.serial,
+            props.serial == 0 ? props.position : uint16_t{0},
+        };
+        const auto it = this->restarts.find(key);
+        const auto at = it == this->restarts.end() || restarted.contains(props.position)
+                          ? now
+                          : it->second;
+        found[key] = at;
+        slave.restarted_at = at;
+    }
+    this->restarts = std::move(found);
 }
 
 std::pair<std::vector<pdo::Offset>, x::errors::Error>

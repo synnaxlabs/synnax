@@ -449,6 +449,9 @@ struct Health {
 struct DiscoveryResult {
     Properties properties;
     Status status;
+    /// @brief when the Engine last saw the slave restart, or std::nullopt when its
+    /// master cannot see a restart. The first scan of the Engine counts as one.
+    std::optional<x::telem::TimeStamp> restarted_at;
 };
 
 /// @brief gives serial number 0 to each slave that has the vendor, product, and serial

@@ -11,12 +11,15 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
@@ -80,6 +83,11 @@ class Engine {
     std::string network_name;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
+    /// @brief the vendor, product, and serial number of a slave, and its position when
+    /// it has no serial number.
+    using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
+    /// @brief the time of the last restart of each slave in slaves. Guarded by mu.
+    std::map<RestartKey, x::telem::TimeStamp> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
@@ -245,8 +253,21 @@ class Engine {
         const std::map<uint16_t, slave::Refusal> &refused,
         const std::map<uint16_t, LeftOut> &left_out
     );
+    /// @brief scans the stopped bus again. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief scans the stopped bus again, with restarted as the slaves that restarted
+    /// since the last scan. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    rescan_locked(const std::set<uint16_t> &restarted);
+    /// @brief returns the positions of the slaves that restarted since the last scan of
+    /// the master, or none when the master has no scan or cannot see a restart.
+    /// Requires mu.
+    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
+    /// @brief records now as the restart time of each slave in slaves that restarted
+    /// names or that the last scan did not find, and gives each slave in slaves its
+    /// time. Forgets the slaves that slaves lacks. Requires mu.
+    void track_restarts_locked(const std::set<uint16_t> &restarted);
     /// @brief locks mu without waiting behind an open_reader or open_writer.
     /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
     std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
@@ -449,7 +470,8 @@ public:
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
     /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
-    /// again when the number that answer has changed. Thread-safe.
+    /// again when they changed since the last discovery, as when a slave restarts or is
+    /// plugged in. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover();
 
