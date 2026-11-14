@@ -21,13 +21,14 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, Arc, Channel, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
-import { array, unique } from "@synnaxlabs/x";
-import { useRef, useState } from "react";
+import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { array, errors, unique } from "@synnaxlabs/x";
+import pluralize from "pluralize";
+import { useState } from "react";
 
-import { EtherCAT } from "@/feature/ethercat";
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
+import { ownedChannelsOf } from "@/feature/task/types";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -66,25 +67,35 @@ const INITIAL_QUERY: Task.ListQuery = {
 
 const filter = (task: task.Task) => !task.internal;
 
-// The task types whose Start creates the channels that their configs name. Deleting a
-// task of another type offers no channels.
-const CHANNELS_OF: Record<string, (config: unknown) => channel.Key[]> = {
-  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.readChannelsOf,
-  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.writeChannelsOf,
-};
+const DELETE_CONCURRENCY = 8;
 
-const channelsOf = ({ type, config }: task.Task): channel.Key[] =>
-  CHANNELS_OF[type]?.(config) ?? [];
+// The Core refuses a whole batch when a task or a channel uses one of its channels, so
+// each channel goes in its own request. Returns the error of each channel that stayed.
+const deleteEach = async (
+  channels: channel.Client,
+  keys: channel.Key[],
+): Promise<Error[]> => {
+  const queue = [...keys];
+  const failures: Error[] = [];
+  const work = async (): Promise<void> => {
+    for (let key = queue.shift(); key != null; key = queue.shift())
+      await channels
+        .delete(key)
+        .catch((e: unknown) => failures.push(errors.fromUnknown(e)));
+  };
+  await Promise.all(Array.from({ length: DELETE_CONCURRENCY }, work));
+  return failures;
+};
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const confirmDeleteChannels = Modals.useConfirmDelete({
     type: "Channel",
-    description: "No other task uses them. This action cannot be undone.",
+    description:
+      "A channel that another task uses stays. Arc automations are not checked. This " +
+      "action cannot be undone.",
   });
-  // The channels of the tasks being deleted that no other task names.
-  const ownedChannels = useRef<channel.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -105,11 +116,8 @@ const Content = () => {
     },
   });
 
-  const { update: deleteChannels } = Channel.useDelete();
-
-  // The row of an Arc deletes the Arc, as the menu of the Arc does. The Core refuses to
-  // delete a channel that a task uses, so the channels go after their tasks.
-  const { update: handleDelete } = Task.useDelete({
+  // The row of an Arc deletes the Arc, as the menu of the Arc does.
+  const { updateAsync: deleteTasks } = Task.useDelete({
     beforeUpdate: async ({
       data: keys,
     }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
@@ -122,26 +130,49 @@ const Content = () => {
       const taskKeys = rows
         .filter(({ type }) => type !== arc.task.TYPE)
         .map(({ key }) => key);
-      const deleted = new Set(taskKeys);
-      const used = new Set(
-        getItem(data)
-          .filter(({ key }) => !deleted.has(key))
-          .flatMap(channelsOf),
-      );
-      ownedChannels.current = unique
-        .unique(rows.flatMap(channelsOf))
-        .filter((key) => !used.has(key));
       return taskKeys.length > 0 ? taskKeys : false;
     },
-    afterSuccess: async ({ client }) => {
-      const keys = ownedChannels.current;
-      ownedChannels.current = [];
-      if (keys.length === 0) return;
-      const channels = await client.channels.retrieve({ where: { key: { in: keys } } });
-      if (channels.length > 0 && (await confirmDeleteChannels(channels)))
-        deleteChannels(channels.map(({ key }) => key));
-    },
   });
+
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
+  // The Core refuses to delete a channel that a task uses, and an index that a channel
+  // uses, so the tasks go first, then the channels, then their indexes.
+  const handleDelete = (keys: task.Key[]) => {
+    const owned = unique.unique(getItem(keys).flatMap(ownedChannelsOf));
+    handleError(async () => {
+      if (!(await deleteTasks(keys)) || client == null || owned.length === 0) return;
+      const channels = await client.channels.retrieve({
+        where: { key: { in: owned } },
+      });
+      const indexKeys = unique
+        .unique(channels.map(({ index }) => index))
+        .filter((key) => key !== 0 && !owned.includes(key));
+      const indexes =
+        indexKeys.length === 0
+          ? []
+          : await client.channels.retrieve({ where: { key: { in: indexKeys } } });
+      const offered = [...channels, ...indexes];
+      if (offered.length === 0 || !(await confirmDeleteChannels(offered))) return;
+      const failures = [
+        ...(await deleteEach(
+          client.channels,
+          channels.map(({ key }) => key),
+        )),
+        ...(await deleteEach(
+          client.channels,
+          indexes.map(({ key }) => key),
+        )),
+      ];
+      if (failures.length > 0)
+        addStatus({
+          variant: "warning",
+          message: `Kept ${pluralize("channel", failures.length, true)}`,
+          description: failures.map(({ message }) => message).join("\n"),
+        });
+    }, "Failed to delete channels");
+  };
 
   const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({

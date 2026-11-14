@@ -91,19 +91,27 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-/** @returns the keys of the Synnax channels that the read task config names. */
-export const readChannelsOf = (config: unknown): channel.Key[] =>
-  READ_SCHEMAS.config
-    .parse(config)
-    .channels.map(({ channel }) => channel)
-    .filter(primitive.isNonZero);
+/**
+ * @returns the keys of the Synnax channels that the read task config names, or none
+ * when the config fails its schema.
+ */
+export const readChannelsOf = (config: unknown): channel.Key[] => {
+  const parsed = READ_SCHEMAS.config.safeParse(config);
+  if (!parsed.success) return [];
+  return parsed.data.channels.map(({ channel }) => channel).filter(primitive.isNonZero);
+};
 
-/** @returns the keys of the Synnax channels that the write task config names. */
-export const writeChannelsOf = (config: unknown): channel.Key[] =>
-  WRITE_SCHEMAS.config
-    .parse(config)
-    .channels.flatMap(({ cmdChannel, stateChannel }) => [cmdChannel, stateChannel])
+/**
+ * @returns the keys of the Synnax channels that the write task config names, or none
+ * when the config fails its schema.
+ */
+export const writeChannelsOf = (config: unknown): channel.Key[] => {
+  const parsed = WRITE_SCHEMAS.config.safeParse(config);
+  if (!parsed.success) return [];
+  return parsed.data.channels
+    .flatMap(({ cmdChannel, stateChannel }) => [cmdChannel, stateChannel])
     .filter(primitive.isNonZero);
+};
 
 export type EntryReadChannel = ethercat.EntryReadChannel;
 

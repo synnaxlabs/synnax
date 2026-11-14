@@ -28,6 +28,8 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   afterEach,
@@ -46,6 +48,7 @@ import {
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { NI } from "@/feature/ni";
+import { createNIDevice } from "@/feature/ni/task/testutil";
 import { Task } from "@/feature/task";
 import { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -61,6 +64,8 @@ import {
 import {
   assertDefined,
   awaitTextEditing,
+  CaptureStatuses,
+  type CaptureStatusesProps,
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
@@ -166,6 +171,7 @@ const createTestTasksClient = async (roleName: BuiltInRole): Promise<Client> => 
 interface RenderToolbarOptions {
   as?: Client | BuiltInRole;
   analytics?: Analytics.Sink;
+  onStatuses?: CaptureStatusesProps["onStatuses"];
 }
 
 // A client keeps its list answer after the list unmounts and serves it without a fetch,
@@ -173,6 +179,7 @@ interface RenderToolbarOptions {
 const renderToolbar = async ({
   as,
   analytics = Analytics.NOOP,
+  onStatuses,
 }: RenderToolbarOptions = {}) => {
   if (typeof as !== "object") as = await createTestTasksClient(as ?? "Owner");
   onTestFinished(async () => await as.close());
@@ -187,6 +194,7 @@ const renderToolbar = async ({
       <Task.RegistryProvider registry={Task.REGISTRY}>
         {Task.TOOLBAR.content}
         <Modals.Stack />
+        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
       </Task.RegistryProvider>
     </Analytics.Provider>,
     { wrapper },
@@ -208,6 +216,27 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
   await openContextMenu(name);
   await screen.findByText(text);
+};
+
+// A click can land before the list knows the row, so it repeats until the row
+// reads as selected. Control adds the row to the selection.
+const selectRow = async (name: string, control: boolean): Promise<void> => {
+  await screen.findByText(name);
+  await waitFor(() => {
+    const row = screen.getByText(name).closest(".lyra-list__item");
+    assertDefined(row, `no list item for ${name}`);
+    if (row.getAttribute("aria-selected") !== "true") {
+      if (control) fireEvent.keyDown(document.body, { code: "Control" });
+      fireEvent.click(screen.getByText(name));
+      if (control) fireEvent.keyUp(document.body, { code: "Control" });
+    }
+    expect(row.getAttribute("aria-selected")).toBe("true");
+  });
+};
+
+const selectRows = async (first: string, ...others: string[]): Promise<void> => {
+  await selectRow(first, false);
+  for (const name of others) await selectRow(name, true);
 };
 
 const createArc = async (): Promise<arc.Arc> => {
@@ -354,27 +383,6 @@ describe("task/Toolbar Arc rows", () => {
   });
 
   describe("selection with a task", () => {
-    // A click can land before the list knows the row, so it repeats until the row
-    // reads as selected. Control adds the row to the selection.
-    const selectRow = async (name: string, control: boolean): Promise<void> => {
-      await screen.findByText(name);
-      await waitFor(() => {
-        const row = screen.getByText(name).closest(".lyra-list__item");
-        assertDefined(row, `no list item for ${name}`);
-        if (row.getAttribute("aria-selected") !== "true") {
-          if (control) fireEvent.keyDown(document.body, { code: "Control" });
-          fireEvent.click(screen.getByText(name));
-          if (control) fireEvent.keyUp(document.body, { code: "Control" });
-        }
-        expect(row.getAttribute("aria-selected")).toBe("true");
-      });
-    };
-
-    const selectRows = async (first: string, ...others: string[]): Promise<void> => {
-      await selectRow(first, false);
-      for (const name of others) await selectRow(name, true);
-    };
-
     it("starts the Arc and the task, reporting each", async () => {
       const { arc: a } = await createBoundArc();
       const t = await createTask({ running: false });
@@ -747,31 +755,42 @@ describe("task/Toolbar channels of a deleted EtherCAT task", () => {
     slaveRack = await client.racks.create({ name: uniqueName("ecat_rack") });
   });
 
-  const createChannels = async (count: number): Promise<channel.Channel[]> => {
+  interface CreatedChannels {
+    index: channel.Channel;
+    channels: channel.Channel[];
+  }
+
+  const createChannels = async (count: number): Promise<CreatedChannels> => {
     const index = await client.channels.create({
       name: uniqueName("ecat_time"),
       dataType: "timestamp",
       isIndex: true,
     });
-    return await client.channels.create(
+    const channels = await client.channels.create(
       Array.from({ length: count }, () => ({
         name: uniqueName("ecat_channel"),
         dataType: "uint16",
         index: index.key,
       })),
     );
+    return { index, channels };
   };
 
+  const createSlave = async (): Promise<string> =>
+    (
+      await createSlaveDevice(client, slaveRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+      })
+    ).key;
+
   const createReadTask = async (channels: channel.Channel[]) => {
-    const slave = await createSlaveDevice(client, slaveRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-    });
+    const slave = await createSlave();
     return await createTask({
       type: EtherCAT.Task.READ_TYPE,
       config: EtherCAT.Task.READ_SCHEMAS.config.parse({
         channels: channels.map((c, i) => ({
-          ...EtherCAT.Task.createEntryReadChannel(slave.key, {
+          ...EtherCAT.Task.createEntryReadChannel(slave, {
             ...STATUS_ENTRY,
             subIndex: i + 1,
           }),
@@ -781,12 +800,33 @@ describe("task/Toolbar channels of a deleted EtherCAT task", () => {
     });
   };
 
+  const createWriteTask = async (cmd: channel.Channel, state: channel.Channel) => {
+    const slave = await createSlave();
+    return await createTask({
+      type: EtherCAT.Task.WRITE_TYPE,
+      config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+        channels: [
+          {
+            ...EtherCAT.Task.createEntryWriteChannel(slave, STATUS_ENTRY),
+            cmdChannel: cmd.key,
+            stateChannel: state.key,
+          },
+        ],
+      }),
+    });
+  };
+
   const retrieveKeys = async (channels: channel.Channel[]): Promise<channel.Key[]> =>
     (
       await client.channels.retrieve({
         where: { key: { in: channels.map(({ key }) => key) } },
       })
-    ).map(({ key }) => key);
+    )
+      .map(({ key }) => key)
+      .sort();
+
+  const keysOf = (...channels: channel.Channel[]): channel.Key[] =>
+    channels.map(({ key }) => key).sort();
 
   const deleteTask = async (t: task.Task): Promise<void> => {
     await openContextMenuUntil(t.name, "Delete");
@@ -795,40 +835,100 @@ describe("task/Toolbar channels of a deleted EtherCAT task", () => {
     fireEvent.click(findButton("Delete"));
   };
 
-  it("deletes the channels of the task after a second confirmation", async () => {
-    const channels = await createChannels(2);
+  it("deletes the channels of the task and their index after a confirmation", async () => {
+    const { index, channels } = await createChannels(2);
     const t = await createReadTask(channels);
     await renderToolbar();
     await deleteTask(t);
-    await screen.findByText("Are you sure you want to delete 2 channels?");
-    fireEvent.click(findButton("Delete"));
-    await waitFor(async () => expect(await retrieveKeys(channels)).toEqual([]));
-  });
-
-  it("does not offer a channel that another task names", async () => {
-    const [own, shared] = await createChannels(2);
-    const t = await createReadTask([own, shared]);
-    await createReadTask([shared]);
-    await renderToolbar();
-    await deleteTask(t);
-    await screen.findByText(`Are you sure you want to delete ${own.name}?`);
+    await screen.findByText("Are you sure you want to delete 3 channels?");
     fireEvent.click(findButton("Delete"));
     await waitFor(async () =>
-      expect(await retrieveKeys([own, shared])).toEqual([shared.key]),
+      expect(await retrieveKeys([index, ...channels])).toEqual([]),
+    );
+  });
+
+  it("deletes the command and state channels of a write task", async () => {
+    const {
+      index,
+      channels: [cmd, state],
+    } = await createChannels(2);
+    const t = await createWriteTask(cmd, state);
+    await renderToolbar();
+    await deleteTask(t);
+    await screen.findByText("Are you sure you want to delete 3 channels?");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () =>
+      expect(await retrieveKeys([index, cmd, state])).toEqual([]),
+    );
+  });
+
+  it("keeps a channel that another task uses and reports why", async () => {
+    const {
+      index,
+      channels: [own, shared],
+    } = await createChannels(2);
+    const t = await createReadTask([own, shared]);
+    const other = await createReadTask([shared]);
+    let statuses: Status.NotificationSpec[] = [];
+    await renderToolbar({ onStatuses: (s) => (statuses = s) });
+    await deleteTask(t);
+    await screen.findByText("Are you sure you want to delete 3 channels?");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(() => {
+      const kept = statuses.find(({ message }) => message === "Kept 2 channels");
+      assertDefined(kept, "no status names the kept channels");
+      expect(kept.description).toContain(`because task ${other.name} uses it`);
+    });
+    expect(await retrieveKeys([own, shared, index])).toEqual(keysOf(shared, index));
+  });
+
+  it("offers no channel that a task of another type names", async () => {
+    const ethercat = await createChannels(1);
+    const t = await createReadTask(ethercat.channels);
+    const unowned = await createChannels(1);
+    const dev = await createNIDevice(client);
+    const o = await createTask({
+      config: {
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+        channels: [
+          {
+            ...NI.Task.createAIChannel("ai_voltage"),
+            key: id.create(),
+            device: dev.key,
+            channel: unowned.channels[0].key,
+          },
+        ],
+      },
+    });
+    await renderToolbar();
+    await selectRows(t.name, o.name);
+    await openContextMenuUntil(o.name, "Delete");
+    fireEvent.click(screen.getByText("Delete"));
+    await screen.findByText("Are you sure you want to delete 2 tasks?");
+    fireEvent.click(findButton("Delete"));
+    await screen.findByText("Are you sure you want to delete 2 channels?");
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () =>
+      expect(await retrieveKeys([ethercat.index, ...ethercat.channels])).toEqual([]),
+    );
+    expect(await retrieveKeys([unowned.index, ...unowned.channels])).toEqual(
+      keysOf(unowned.index, ...unowned.channels),
     );
   });
 
   it("keeps the channels when the user cancels", async () => {
-    const channels = await createChannels(1);
+    const { index, channels } = await createChannels(1);
     const t = await createReadTask(channels);
     await renderToolbar();
     await deleteTask(t);
-    await screen.findByText(`Are you sure you want to delete ${channels[0].name}?`);
+    await screen.findByText("Are you sure you want to delete 2 channels?");
     fireEvent.click(findButton("Cancel"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
       NotFoundError.matches(e),
     );
-    expect(await retrieveKeys(channels)).toEqual([channels[0].key]);
+    expect(await retrieveKeys([index, ...channels])).toEqual(
+      keysOf(index, ...channels),
+    );
   });
 });
