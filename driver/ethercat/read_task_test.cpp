@@ -957,6 +957,51 @@ TEST_F(EtherCATReadTest, FactoryGivesABusStartThreeQuartersOfTheOperationTimeout
     read_task->stop(false);
 }
 
+/// @brief it should send only the steps that a fast start reached, each as a loading
+/// status of the start command, and then answer the start.
+TEST_F(EtherCATReadTest, FactoryStartSendsTheStepsItReachedThenStarted) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    const auto before = this->ctx->snapshot().size();
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "start_cmd"};
+    read_task->exec(start, this->cancel);
+    const auto all = this->ctx->snapshot();
+    const std::vector statuses(
+        all.begin() + static_cast<std::ptrdiff_t>(before),
+        all.end()
+    );
+    ASSERT_EQ(statuses.size(), 3);
+    EXPECT_EQ(statuses[0].message, "Scanning eth0");
+    EXPECT_EQ(statuses[1].message, "Starting eth0");
+    EXPECT_EQ(statuses[1].description, "Bringing 1 slave to OP.");
+    EXPECT_EQ(statuses[2].message, "Started task");
+    for (size_t i = 0; i < 2; i++) {
+        EXPECT_EQ(statuses[i].variant, synnax::status::VARIANT_LOADING);
+        EXPECT_EQ(statuses[i].name, "read");
+        EXPECT_EQ(statuses[i].owner, synnax::task::resource_id(task.key));
+        EXPECT_FALSE(statuses[i].details.running);
+    }
+    for (const auto &status: statuses)
+        EXPECT_EQ(status.details.cmd, "start_cmd");
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop, this->cancel);
+}
+
 /// @brief it should apply the settings saved for each slave on the task's network when
 /// the bus starts, including a setting saved after configure and a slave the task does
 /// not read, and ignore an invalid slave on another network.

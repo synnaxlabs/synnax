@@ -21,6 +21,7 @@
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/slaves.h"
+#include "driver/ethercat/steps.h"
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT write tasks.
@@ -106,16 +107,24 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
+    StartSteps steps;
     std::unique_ptr<engine::Engine::Writer> writer;
 
 public:
-    explicit WriteTaskSink(std::shared_ptr<engine::Engine> eng, WriteTaskConfig cfg):
+    /// @param steps sends the steps of each start of the task.
+    explicit WriteTaskSink(
+        std::shared_ptr<engine::Engine> eng,
+        WriteTaskConfig cfg,
+        StartSteps steps = {}
+    ):
         Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
-        engine(std::move(eng)) {}
+        engine(std::move(eng)),
+        steps(std::move(steps)) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
-        const auto start = this->engine->begin_start(cancel);
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
+        const auto start = this->engine->begin_start(cancel, this->steps.of(cmd_key));
         const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);

@@ -86,12 +86,24 @@ struct Config {
 /// last one closes. Opening or closing one never interrupts the others.
 class Engine {
 public:
-    /// @brief the time limit and the cancel of one task start.
+    /// @brief a step of a task start, such as a scan of the network.
+    struct Step {
+        /// @brief what the start does now, in one short line.
+        std::string message;
+        /// @brief why, in full sentences, or empty.
+        std::string description;
+        /// @brief how long the step may run before the task warns.
+        x::telem::TimeSpan limit;
+    };
+
+    /// @brief the time limit, the cancel, and the steps of one task start.
     struct Start {
         /// @brief the time at which the start fails.
         std::chrono::steady_clock::time_point deadline;
         /// @brief ends the start when it stops.
         x::breaker::Breaker &cancel;
+        /// @brief receives each step of the start, or nullptr.
+        std::function<void(const Step &)> report;
         /// @brief whether the start waited for another call on the network. The Engine
         /// sets it.
         mutable bool blocked = false;
@@ -523,7 +535,11 @@ public:
 
     /// @brief returns a start that fails Config::start_timeout from now, or when cancel
     /// stops.
-    [[nodiscard]] Start begin_start(x::breaker::Breaker &cancel) const;
+    /// @param report receives each step of the start, or nullptr.
+    [[nodiscard]] Start begin_start(
+        x::breaker::Breaker &cancel,
+        std::function<void(const Step &)> report = nullptr
+    ) const;
 
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the

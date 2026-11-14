@@ -27,6 +27,7 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slaves.h"
+#include "driver/ethercat/steps.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/transform/transform.h"
 
@@ -187,6 +188,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
+    StartSteps steps;
     std::unique_ptr<engine::Engine::Reader> reader;
     /// @brief the calibration of each calibrated channel, from the gain and offset that
     /// its slave held at start().
@@ -227,13 +229,20 @@ class ReadTaskSource final : public common::Source {
     }
 
 public:
-    explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
+    /// @param steps sends the steps of each start of the task.
+    explicit ReadTaskSource(
+        std::shared_ptr<engine::Engine> eng,
+        ReadTaskConfig cfg,
+        StartSteps steps = {}
+    ):
         cfg(std::move(cfg)),
         engine(std::move(eng)),
+        steps(std::move(steps)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start(const std::string &, x::breaker::Breaker &cancel) override {
-        const auto start = this->engine->begin_start(cancel);
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
+        const auto start = this->engine->begin_start(cancel, this->steps.of(cmd_key));
         const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
         const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);

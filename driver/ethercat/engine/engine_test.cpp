@@ -154,6 +154,29 @@ Config disabling(const slave::Properties &slave) {
 }
 }
 
+/// @brief records the steps of one start. on_step runs on each step, under the lock of
+/// the engine.
+struct StepLog {
+    std::mutex mu;
+    std::vector<Engine::Step> steps;
+    std::function<void(const Engine::Step &)> on_step;
+
+    std::function<void(const Engine::Step &)> report() {
+        return [this](const Engine::Step &step) {
+            {
+                std::lock_guard lock(this->mu);
+                this->steps.push_back(step);
+            }
+            if (this->on_step) this->on_step(step);
+        };
+    }
+
+    std::vector<Engine::Step> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->steps;
+    }
+};
+
 class EngineTest : public ::testing::Test {
 protected:
     std::shared_ptr<testutil::Master> master;
@@ -2733,6 +2756,135 @@ TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
     recover.join();
     EXPECT_GE(this->master->call_count("activate"), 2);
     EXPECT_TRUE(this->engine->running());
+}
+
+/// @brief it should report the scan and the start of a stopped bus.
+TEST_F(EngineTest, StartReportsTheScanAndTheStart) {
+    this->master->add_slave(io_slave(1));
+    StepLog log;
+    const auto start = this->engine->begin_start(this->cancel, log.report());
+    ASSERT_NIL_P(this->engine->discover(start));
+    ASSERT_NIL_P(this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, start));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 2);
+    EXPECT_EQ(steps[0].message, "Scanning eth0");
+    EXPECT_EQ(steps[0].description, "");
+    EXPECT_EQ(steps[0].limit, x::telem::SECOND * 10);
+    EXPECT_EQ(steps[1].message, "Starting eth0");
+    EXPECT_EQ(steps[1].description, "Bringing 2 slaves to OP.");
+    EXPECT_EQ(steps[1].limit, x::telem::SECOND * 30);
+}
+
+/// @brief it should count one slave in the singular in the start step.
+TEST_F(EngineTest, StartStepCountsOneSlave) {
+    StepLog log;
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 1);
+    EXPECT_EQ(steps[0].description, "Bringing 1 slave to OP.");
+}
+
+/// @brief it should report no steps for a start that joins a running bus.
+TEST_F(EngineTest, StartOnARunningBusReportsNoSteps) {
+    const auto first = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    StepLog log;
+    const auto start = this->engine->begin_start(this->cancel, log.report());
+    ASSERT_NIL_P(this->engine->discover(start));
+    ASSERT_NIL_P(this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, start));
+    EXPECT_TRUE(log.snapshot().empty());
+}
+
+/// @brief it should report the reset of a slave that refused a stale layout, then the
+/// start again.
+TEST_F(EngineTest, StartReportsTheResetOfASlaveThatRefusedAStaleLayout) {
+    this->master->add_slave(io_slave(1));
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL, 1);
+    StepLog log;
+    ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(steps[0].message, "Starting eth0");
+    EXPECT_EQ(steps[1].message, "Resetting slave 1 (Slave1)");
+    EXPECT_EQ(
+        steps[1].description,
+        "It refused SAFE-OP: Invalid input configuration. Starting eth0 again with it "
+        "reset."
+    );
+    EXPECT_EQ(steps[1].limit, x::telem::SECOND * 10);
+    EXPECT_EQ(steps[2].message, "Starting eth0");
+    EXPECT_EQ(steps[2].description, "Bringing 2 slaves to OP.");
+}
+
+/// @brief it should report the wait before a retry with the error of the failed try.
+TEST_F(EngineTest, StartReportsTheWaitBeforeARetry) {
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "Slave 0 did not reach OP")
+    );
+    StepLog log;
+    log.on_step = [this](const Engine::Step &step) {
+        if (step.message == "Retrying the start") this->master->clear_injected_errors();
+    };
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto wait = Config().start_retry.interval(1);
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(steps[0].message, "Starting eth0");
+    EXPECT_EQ(steps[1].message, "Retrying the start");
+    EXPECT_EQ(
+        steps[1].description,
+        "Slave 0 did not reach OP. Trying again in " + wait.to_string() + "."
+    );
+    EXPECT_EQ(steps[1].limit, wait + x::telem::SECOND * 10);
+    EXPECT_EQ(steps[2].message, "Starting eth0");
+}
+
+/// @brief it should report the wait of a start behind the start of another task.
+TEST_F(EngineTest, StartBehindAnotherStartReportsTheWait) {
+    this->master->hold_activate();
+    std::unique_ptr<Engine::Reader> first;
+    std::thread opener([this, &first] {
+        first = ASSERT_NIL_P(this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        ));
+    });
+    this->master->wait_until_activating();
+    StepLog log;
+    log.on_step = [this](const Engine::Step &) { this->master->release_activate(); };
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    opener.join();
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 1);
+    EXPECT_EQ(steps[0].message, "Waiting for another task");
+    EXPECT_EQ(steps[0].description, "Another task is starting on eth0.");
+    EXPECT_EQ(steps[0].limit, x::telem::SECOND * 10);
 }
 
 /// @brief it should return a temporary error while bus cycles fail, and return samples
