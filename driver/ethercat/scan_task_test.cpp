@@ -552,6 +552,25 @@ TEST_F(EtherCATScanStatusTest, GivesANewKeyWhenAMovedDeviceHoldsTheKey) {
     EXPECT_EQ(scanned.at(1).properties.at("position"), 2);
 }
 
+/// @brief it should keep a moved device with invalid properties on its slave.
+TEST_F(EtherCATScanStatusTest, KeepsAMovedDeviceWithInvalidProperties) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    this->master->add_slave(identity(2, 0x2, 777));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_1", identity(1, 0x2, 777));
+    devices["ethercat_eth0_1_2_1"].properties["op_mode"] = {
+        {"index", 1},
+        {"assign_activate", 0x0700},
+        {"sync0_cycle", -1},
+    };
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 2);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1_2");
+    EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
+}
+
 /// @brief it should give the device of a serial number to one slave when slaves on two
 /// networks have the serial number.
 TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {

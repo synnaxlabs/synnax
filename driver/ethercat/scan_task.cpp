@@ -411,8 +411,8 @@ std::vector<std::string> Scanner::slave_keys(
     if (scan_ctx.devices != nullptr)
         for (const auto &[key, dev]: *scan_ctx.devices) {
             if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            auto [props, err] = parse_properties(dev.properties);
-            if (!err) stored.emplace(key, std::move(props));
+            // A device with invalid properties keeps the fields that parse.
+            stored.emplace(key, parse_properties(dev.properties).first);
         }
     const auto find = [&](const slave::Properties &live, const bool by_serial) {
         const auto it = std::ranges::find_if(stored, [&](const auto &s) {
@@ -425,6 +425,14 @@ std::vector<std::string> Scanner::slave_keys(
                    p.position == live.position;
         });
         return it == stored.end() ? std::string() : it->first;
+    };
+    // A stored device with an identity that no slave took is the device of another
+    // unit. A device with no identity is the device of the slave that its key names.
+    const auto taken = [&](const std::string &key) {
+        if (kept.contains(key)) return true;
+        const auto it = stored.find(key);
+        return it != stored.end() &&
+               (it->second.vendor_id != 0 || it->second.product_code != 0);
     };
     std::vector<std::string> keys(slaves.size());
     // A device saved with no serial number goes to a slave with one at its position
@@ -439,9 +447,7 @@ std::vector<std::string> Scanner::slave_keys(
         if (!keys[i].empty() || !has_identity(slaves[i])) continue;
         const auto base = generate_slave_key(slaves[i].properties, master_key);
         auto key = base;
-        // Another slave's device can hold the key, as after it took a device by
-        // position.
-        for (int n = 2; kept.contains(key) || stored.contains(key); ++n)
+        for (int n = 2; taken(key); ++n)
             key = base + "_" + std::to_string(n);
         keys[i] = key;
         kept.insert(key);
