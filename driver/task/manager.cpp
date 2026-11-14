@@ -103,8 +103,6 @@ x::errors::Error Manager::configure_initial_tasks() {
     );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
-    for (const auto &task: tasks)
-        this->fail_interrupted_start(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -695,6 +693,9 @@ void Manager::execute_op(
             break;
         }
     }
+    // Only a boot deploy carries the stored task, and with it the stored status.
+    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil())
+        this->replace_interrupted_status(op.task);
 }
 
 void Manager::announce_start(const synnax::task::Key &key, Operation &operation) {
@@ -711,22 +712,33 @@ void Manager::announce_start(const synnax::task::Key &key, Operation &operation)
     operation.step(status, this->op_timeout);
 }
 
-void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
-    if (!tsk.status.has_value() ||
-        tsk.status->variant != synnax::status::VARIANT_LOADING)
-        return;
+void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+    // A task that answered its own deploy, such as with an auto-start, owns its status.
+    if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
+    // A task moved here runs on its old Driver until a start arrives.
+    if (tsk.status->details.rack != this->rack.key) return;
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
-    // disables Start and Stop while a start is loading.
+    // disables Start and Stop while a start is loading. One that stops a running task
+    // leaves it shown as running, with no data.
+    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    if (!starting && !tsk.status->details.running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
-    status.variant = synnax::status::VARIANT_ERROR;
-    status.message = "Failed to start task";
-    status.description = this->runs == 1
-                           ? "The Driver restarted while the task was starting. "
-                             "Start the task again."
-                           : "The Driver lost its connection to the Core while the "
-                             "task was starting. Start the task again.";
     status.details.running = false;
+    const std::string cause = this->runs == 1
+                                ? "The Driver restarted"
+                                : "The Driver lost its connection to the Core";
+    if (starting) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start task";
+        status.description = cause +
+                             " while the task was starting. Start the task again.";
+    } else {
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = "Task stopped";
+        status.description = cause +
+                             " while the task was running. Start the task again.";
+    }
     this->ctx->set_status(status);
 }
 
