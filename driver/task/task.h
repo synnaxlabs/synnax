@@ -557,9 +557,12 @@ private:
     /// for the result instead of taking the Driver as down. Does nothing for any other
     /// command.
     void announce_start(const synnax::task::Key &key, Operation &operation);
-    /// @brief replaces a "Starting task" status that a previous Driver run or a run
-    /// before a Core outage left stored with a failed start.
-    void fail_interrupted_start(const synnax::task::Task &tsk);
+    /// @brief replaces a status that a previous Driver run or a run before a Core
+    /// outage left stored: "Starting task" with a failed start, and a running task with
+    /// a stopped one. Replaces only a status that this rack wrote, does nothing once
+    /// this run wrote a status for the task, and never starts the task. Call it after
+    /// the boot deploy of the task.
+    void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
     /// @brief answers a command for a task with no live instance with an error, so its
