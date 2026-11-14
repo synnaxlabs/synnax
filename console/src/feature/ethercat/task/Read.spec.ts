@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -713,6 +714,69 @@ describe("Read", () => {
     );
   });
 
+  it("should show why a channel that shares an entry cannot run, and mark the entry in use", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { inputs } = createRepeatedNamePDOs();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
+        EtherCAT.Task.createEntryReadChannel(slave.key, inputs[3]),
+      ],
+    });
+    fireEvent.click((await screen.findAllByRole("option", { name: /0x6030:01/ }))[0]);
+    expect(
+      await screen.findByText(
+        `More than one channel uses entry 0x6030:01 on slave ${slave.name}. Pick a ` +
+          "different entry for one of them.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
+    expect(
+      await screen.findByRole("option", {
+        name: /Channel 4 › Input.*0x6030:01 \(in use\)/,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: /Channel 1 › Input.*0x6000:01$/ }),
+    ).toBeTruthy();
+  });
+
+  it("should block configuration of a slave at the position of another device", async () => {
+    const position = Math.floor(Math.random() * 2 ** 31);
+    const props = {
+      identifier: createIdentifier(),
+      network: "eth0",
+      position,
+      pdos: createPDOs(),
+    };
+    const stale = await createSlaveDevice(client, testRack.key, props);
+    const connected = await createSlaveDevice(client, testRack.key, {
+      ...props,
+      identifier: createIdentifier(),
+    });
+    await client.statuses.set({
+      owner: device.resourceID(connected.key),
+      name: connected.name,
+      variant: "success",
+      message: "Device connected",
+      time: TimeStamp.now(),
+      details: { rack: testRack.key, connected: true },
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `^Slaves ${stale.name} and ${connected.name} are both at position ` +
+          `${position} on eth0\\. Delete ${stale.name}, which is not connected\\.$`,
+      ),
+    );
+  });
+
   it("should block configuration of an entry the slave does not have", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -857,6 +921,21 @@ describe("Read", () => {
       EtherCAT.Task.READ_SCHEMAS,
     );
     expect(created.config.startupParameters).toEqual([]);
+  });
+
+  it("should mark in the list a channel whose setting breaks a rule of the catalog", async () => {
+    const slave = await createStrainSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
+    });
+    const option = await screen.findByRole("option", { name: /0x6030:01/ });
+    await waitFor(() =>
+      expect(option.classList.contains("lyra--status-error")).toBe(true),
+    );
   });
 
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {

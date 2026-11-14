@@ -206,6 +206,7 @@ public:
         if (this->breaker.running()) return false;
         this->inputs.reset();
         this->outputs.reset();
+        this->mod->resume();
         this->breaker.start();
         this->run_thread = std::thread([this]() { this->run(); });
         return true;
@@ -217,6 +218,7 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
+        this->mod->interrupt();
         this->loop->wake();
         this->run_thread.join();
         this->inputs.close();

@@ -586,7 +586,8 @@ protected:
     /// a task never created, where every status is a defect.
     void expect_no_driver_status(
         const synnax::task::Task &task,
-        const bool any_rack = false
+        const bool any_rack = false,
+        const x::telem::TimeStamp since = x::telem::TimeStamp(0)
     ) {
         std::atomic<bool> received = false;
         std::thread reader([&] {
@@ -597,7 +598,7 @@ protected:
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
                     if (s.owner == synnax::task::resource_id(task.key) &&
-                        (any_rack || s.details.rack == rack.key))
+                        (any_rack || s.details.rack == rack.key) && s.time >= since)
                         received = true;
                 }
             }
@@ -676,6 +677,113 @@ TEST_F(TaskManagerTest, DeployOnStart) {
     ASSERT_EQ(s.details.rack, rack.key);
 }
 
+/// @brief it should answer a start with a loading status before the task starts, so
+/// the sender waits for the result.
+TEST_F(TaskManagerTest, StartAnswersWithALoadingStatusFirst) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-cmd";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(s.message, "Starting task");
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, task.config_hash);
+}
+
+/// @brief it should answer a start of a live task with a loading status too.
+TEST_F(TaskManagerTest, StartOfALiveTaskAnswersWithALoadingStatus) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    ASSERT_EVENTUALLY_EQ(f->task_states[0]->exec_count.load(), 1);
+    send_start(client, task, "s2");
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(s.message, "Starting task");
+}
+
+/// @brief it should fail a start that a previous Driver run left loading, so the
+/// Console does not keep Start and Stop disabled.
+TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status loading;
+    loading.key = "boot-loading";
+    loading.owner = synnax::task::resource_id(task.key);
+    loading.name = task.name;
+    loading.variant = synnax::status::VARIANT_LOADING;
+    loading.message = "Starting task";
+    loading.time = x::telem::TimeStamp::now();
+    loading.details.cmd = "start-cmd";
+    loading.details.rack = rack.key;
+    loading.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(loading));
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to start task";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was starting. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
+/// @brief it should leave a stored status alone when no start was in progress.
+TEST_F(TaskManagerTest, BootLeavesAFinishedStatusAlone) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status stopped;
+    stopped.key = "boot-stopped";
+    stopped.owner = synnax::task::resource_id(task.key);
+    stopped.name = task.name;
+    stopped.variant = synnax::status::VARIANT_SUCCESS;
+    stopped.message = "Task stopped";
+    stopped.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client->statuses.set(stopped));
+    start_manager(std::make_unique<EchoTaskFactory>());
+    std::vector<std::string> messages;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        messages.push_back(s.message);
+        return s.message == "configured";
+    });
+    EXPECT_EQ(std::ranges::count(messages, "Failed to start task"), 0);
+}
+
 #ifndef _WIN32
 /// @brief it should deploy its tasks and answer commands again when it runs again
 /// after the connection to the Core drops.
@@ -698,10 +806,54 @@ TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
     const auto s = WAIT_FOR_TASK_STATUS(
         streamer,
         task,
-        [](const synnax::task::Status &s) { return s.details.cmd == "start-2"; }
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
     );
     EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_TRUE(s.details.running);
+}
+
+/// @brief it should fail a start left loading when the Core connection dropped, and say
+/// that the connection dropped, not that the Driver restarted.
+TEST_F(TaskManagerTest, RunAfterACoreOutageFailsAStartLeftLoading) {
+    start_piped_manager(std::make_unique<EchoTaskFactory>());
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    pipe->pause();
+    synnax::task::Status loading;
+    loading.key = "outage-loading";
+    loading.owner = synnax::task::resource_id(task.key);
+    loading.name = task.name;
+    loading.variant = synnax::status::VARIANT_LOADING;
+    loading.message = "Starting task";
+    loading.time = x::telem::TimeStamp::now();
+    loading.details.cmd = "start-cmd";
+    loading.details.rack = rack.key;
+    loading.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(loading));
+    pipe->cut();
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.message == "Failed to start task";
+        }
+    );
+    EXPECT_EQ(
+        s.description,
+        "The Driver lost its connection to the Core while the task was starting. Start "
+        "the task again."
+    );
+    EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
 /// @brief it should wait for a worker stuck across runs before it deploys the task
@@ -753,6 +905,7 @@ TEST_F(TaskManagerTest, TaskMovedDuringAnOutageIsRemovedAfterItsStuckWorker) {
     ASSERT_EVENTUALLY_TRUE(f->stuck.load());
     const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     pipe->pause();
+    const auto moved_at = x::telem::TimeStamp::now();
     edit_task(
         client,
         task,
@@ -764,7 +917,7 @@ TEST_F(TaskManagerTest, TaskMovedDuringAnOutageIsRemovedAfterItsStuckWorker) {
     ASSERT_EVENTUALLY_EQ(f->max_live.load(), 1);
     ASSERT_EVENTUALLY_EQ(f->live.load(), 0);
     EXPECT_EQ(f->configures.load(), 1);
-    expect_no_driver_status(task);
+    expect_no_driver_status(task, false, moved_at);
 }
 #endif
 
