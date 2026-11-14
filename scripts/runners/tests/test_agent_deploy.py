@@ -52,21 +52,36 @@ def instance(
 class Fleet:
     """Stands in for AWS: holds the instances, records the commands each one gets, and
     answers the statuses queued for an instance, the last one for good. A status of None
-    is a command that SSM does not list yet."""
+    is a command that SSM does not list yet. A started instance runs at the next look,
+    and SSM rejects an instance for the number of sends in rejections."""
 
     def __init__(self, **instances: dict) -> None:
         self.found = {i.replace("_", "-"): info for i, info in instances.items()}
         self.sent: dict[str, list[str]] = {}
         self.statuses: dict[str, list[str | None]] = {}
         self.outputs: dict[str, str] = {}
-        self.rejected: set[str] = set()
+        self.rejections: dict[str, int] = {}
+        self.started: list[str] = []
+        self.full = False
         self.ssm = {"us-east-2": self}
+        self.ec2 = {"us-east-2": self}
 
     def instances(self) -> dict[str, dict]:
+        for info in self.found.values():
+            if info["state"] == "pending":
+                info.update(state="running", running=True)
         return self.found
 
+    def start_instances(self, *, InstanceIds: list[str]) -> None:
+        if self.full:
+            raise RuntimeError("InsufficientInstanceCapacity")
+        self.started.extend(InstanceIds)
+        for iid in InstanceIds:
+            self.found[iid]["state"] = "pending"
+
     def run(self, iid: str, *, info: dict, linux: list[str], windows: list[str]) -> str:
-        if iid in self.rejected:
+        if self.rejections.get(iid):
+            self.rejections[iid] -= 1
             raise ValueError("InvalidInstanceId")
         self.sent[iid] = windows if info["windows"] else linux
         return f"command-{iid}"
@@ -83,13 +98,18 @@ class Fleet:
         return {"CommandInvocations": [{"Status": status, "CommandPlugins": [plugin]}]}
 
 
-def send(fleet: Fleet) -> bool:
-    return run(cast(AWS, fleet), linux=LINUX_COMMANDS, windows=WINDOWS_COMMANDS)
+def send(fleet: Fleet, *, start_stopped: bool = False) -> bool:
+    return run(
+        cast(AWS, fleet),
+        linux=LINUX_COMMANDS,
+        windows=WINDOWS_COMMANDS,
+        start_stopped=start_stopped,
+    )
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[sy.TimeSpan]:
-    """The spans the script sleeps for, which take no time."""
+    """The spans the script sleeps for, which take no time in any test."""
     spans: list[sy.TimeSpan] = []
     monkeypatch.setattr(sy, "sleep", spans.append)
     return spans
@@ -107,7 +127,10 @@ class TestRun:
     """Tests for running commands on the runners of the fleet."""
 
     def test_should_send_each_running_runner_the_commands_of_its_system(
-        self, fleet: Fleet, capsys: pytest.CaptureFixture[str]
+        self,
+        fleet: Fleet,
+        sleeps: list[sy.TimeSpan],
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         assert send(fleet)
         assert fleet.sent == {UBUNTU: LINUX_COMMANDS, WINDOWS: WINDOWS_COMMANDS}
@@ -117,15 +140,19 @@ class TestRun:
 
     def test_should_skip_an_instance_that_is_not_a_runner(self) -> None:
         fleet = Fleet(i_0ccc=instance("Sandbox-Windows", windows=True, runner=False))
-        assert send(fleet)
+        assert send(fleet, start_stopped=True)
         assert fleet.sent == {}
 
     def test_should_pass_over_a_runner_that_is_not_running(
-        self, fleet: Fleet, capsys: pytest.CaptureFixture[str]
+        self,
+        fleet: Fleet,
+        sleeps: list[sy.TimeSpan],
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         fleet.found[WINDOWS] = instance("windows-build-bot", state="stopped")
         assert send(fleet)
         assert list(fleet.sent) == [UBUNTU]
+        assert fleet.started == []
         assert "i-0bbb windows-build-bot: stopped\n" in capsys.readouterr().out
 
     def test_should_wait_until_each_command_ends(
@@ -133,10 +160,13 @@ class TestRun:
     ) -> None:
         fleet.statuses[UBUNTU] = [None, "Pending", "InProgress", "Success"]
         assert send(fleet)
-        assert sleeps == [POLL, POLL, POLL]
+        assert sleeps == [POLL, POLL, POLL, POLL]
 
     def test_should_fail_and_print_the_output_of_a_failed_command(
-        self, fleet: Fleet, capsys: pytest.CaptureFixture[str]
+        self,
+        fleet: Fleet,
+        sleeps: list[sy.TimeSpan],
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
         fleet.statuses[WINDOWS] = ["Failed"]
         fleet.outputs[WINDOWS] = "RunnerAgent did not stay up\n"
@@ -145,28 +175,91 @@ class TestRun:
             "i-0bbb windows-build-bot: Failed\nRunnerAgent did not stay up\n"
         )
 
-    def test_should_fail_when_ssm_rejects_a_running_runner(
-        self, fleet: Fleet, capsys: pytest.CaptureFixture[str]
+    def test_should_send_again_until_ssm_takes_the_runner(
+        self, fleet: Fleet, sleeps: list[sy.TimeSpan]
     ) -> None:
-        fleet.rejected = {UBUNTU}
-        assert not send(fleet)
-        assert list(fleet.sent) == [WINDOWS]
-        assert "i-0aaa ubuntu-build-bot: not sent, ValueError\n" in (
-            capsys.readouterr().out
-        )
+        fleet.rejections[UBUNTU] = 2
+        assert send(fleet)
+        assert fleet.sent[UBUNTU] == LINUX_COMMANDS
 
-    def test_should_fail_a_command_that_does_not_end_in_time(
+    def test_should_fail_a_runner_that_ssm_does_not_take_in_time(
         self,
         fleet: Fleet,
-        sleeps: list[sy.TimeSpan],
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.setattr(agent_deploy, "TIMEOUT", sy.TimeSpan(0))
-        fleet.statuses[UBUNTU] = ["InProgress"]
+        fleet.rejections[UBUNTU] = 1
+        fleet.statuses[WINDOWS] = ["InProgress"]
         assert not send(fleet)
-        assert sleeps == []
-        assert "i-0aaa ubuntu-build-bot: InProgress\n" in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert "i-0aaa ubuntu-build-bot: not sent, ValueError\n" in out
+        assert "i-0bbb windows-build-bot: InProgress\n" in out
+
+
+class TestStart:
+    """Tests for starting the stopped runners before an install."""
+
+    def test_should_start_a_stopped_runner_and_send_it_the_commands(
+        self,
+        fleet: Fleet,
+        sleeps: list[sy.TimeSpan],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        fleet.found[WINDOWS] = instance(
+            "windows-build-bot", windows=True, state="stopped"
+        )
+        assert send(fleet, start_stopped=True)
+        assert fleet.started == [WINDOWS]
+        assert fleet.sent[WINDOWS] == WINDOWS_COMMANDS
+        assert capsys.readouterr().out.endswith(
+            "Started 1 runners. The scaler stops the idle ones.\n"
+        )
+
+    def test_should_start_a_runner_once_it_is_stopped(
+        self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopping")
+
+        def sleep(span: sy.TimeSpan) -> None:
+            if fleet.found[UBUNTU]["state"] == "stopping":
+                fleet.found[UBUNTU]["state"] = "stopped"
+
+        monkeypatch.setattr(sy, "sleep", sleep)
+        assert send(fleet, start_stopped=True)
+        assert fleet.started == [UBUNTU]
+
+    def test_should_skip_a_terminated_runner(
+        self, fleet: Fleet, sleeps: list[sy.TimeSpan]
+    ) -> None:
+        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="terminated")
+        assert send(fleet, start_stopped=True)
+        assert fleet.started == []
+        assert list(fleet.sent) == [WINDOWS]
+
+    def test_should_fail_a_runner_that_does_not_start(
+        self,
+        fleet: Fleet,
+        sleeps: list[sy.TimeSpan],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopped")
+        fleet.full = True
+        assert not send(fleet, start_stopped=True)
+        assert "i-0aaa ubuntu-build-bot: not started, RuntimeError\n" in (
+            capsys.readouterr().out
+        )
+
+    def test_should_fail_a_runner_that_does_not_stop_in_time(
+        self,
+        fleet: Fleet,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(agent_deploy, "TIMEOUT", sy.TimeSpan(0))
+        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopping")
+        assert not send(fleet, start_stopped=True)
+        assert "i-0aaa ubuntu-build-bot: stopping\n" in capsys.readouterr().out
 
 
 class TestInstallCommands:
