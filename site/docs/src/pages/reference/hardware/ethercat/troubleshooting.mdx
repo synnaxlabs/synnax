@@ -236,19 +236,37 @@ Create one task for each port.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the bus` or `Slave ...: expected ..., found ...`
+### `... is not on the bus` or `Slave ...: expected ..., found ...`
 
 <Problem.Body>
 <Problem.Cause>
 
-The network changed after you created the task. A module moved, or the Driver does not
-find it.
+The Driver does not find a module of the task on the network. The Driver finds a module
+with a serial number at any position. It finds a module with no serial number only at
+the position where you added it, so a move or another module at that position gives this
+error.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the cables, then edit the channels of the task to use the modules that are on the
-network now.
+Check the cables and the power of the module. If you replaced the module, edit the
+channels of the task to use the new module.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `... and ... are both saved as slave ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The task uses two modules that the Core holds at one position. This occurs when a module
+moved and the Driver has not scanned the network since.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Wait a few seconds for the next scan, then configure the task again.
 
 </Problem.Fix>
 </Problem.Body>

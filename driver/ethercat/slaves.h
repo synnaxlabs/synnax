@@ -9,10 +9,10 @@
 
 #pragma once
 
-#include <algorithm>
-#include <format>
+#include <map>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -20,7 +20,6 @@
 #include "x/cpp/json/json.h"
 
 #include "driver/common/status.h"
-#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat {
@@ -66,59 +65,27 @@ struct Slaves {
         return &this->by_key.emplace(key, std::move(props)).first->second;
     }
 
-    /// @brief checks, in position order, that each slave is at its saved position on
-    /// bus.
-    /// @returns errors::TOPOLOGY_MISMATCH when a position holds no slave or another
-    /// product.
-    [[nodiscard]] x::errors::Error
-    validate(const std::vector<slave::DiscoveryResult> &bus) const {
-        std::vector<const slave::Properties *> by_position;
-        by_position.reserve(this->by_key.size());
-        for (const auto &[_, saved]: this->by_key)
-            by_position.push_back(&saved);
-        std::ranges::sort(by_position, {}, [](const slave::Properties *s) {
-            return s->position;
-        });
-        for (const auto *saved_ptr: by_position) {
-            const auto &saved = *saved_ptr;
-            const auto found = std::ranges::find(
-                bus,
-                saved.position,
-                [](const slave::DiscoveryResult &s) { return s.properties.position; }
-            );
-            if (found == bus.end())
-                return x::errors::Error(
-                    errors::TOPOLOGY_MISMATCH,
-                    std::format(
-                        "Slave {} ({}) is not on the bus.",
-                        saved.position,
-                        saved.name
-                    )
-                );
-            const auto &actual = found->properties;
-            const auto mismatch = [&](const char *field, uint32_t want, uint32_t got) {
-                return x::errors::Error(
-                    errors::TOPOLOGY_MISMATCH,
-                    std::format(
-                        "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
-                        saved.position,
-                        saved.name,
-                        field,
-                        want,
-                        got
-                    )
-                );
-            };
-            if (actual.vendor_id != saved.vendor_id)
-                return mismatch("vendor_id", saved.vendor_id, actual.vendor_id);
-            if (actual.product_code != saved.product_code)
-                return mismatch(
-                    "product_code",
-                    saved.product_code,
-                    actual.product_code
-                );
-        }
-        return x::errors::NIL;
+    /// @brief finds each slave on bus with slave::bind, then saves the position where
+    /// it found each slave.
+    /// @returns the position on bus of each slave, keyed by its saved position, or the
+    /// error of slave::bind.
+    [[nodiscard]] std::pair<std::map<uint16_t, uint16_t>, x::errors::Error>
+    bind(const std::vector<slave::DiscoveryResult> &bus) {
+        std::vector<slave::Identity> saved;
+        saved.reserve(this->by_key.size());
+        for (const auto &[_, s]: this->by_key)
+            saved.push_back({
+                .position = s.position,
+                .vendor_id = s.vendor_id,
+                .product_code = s.product_code,
+                .serial = s.serial,
+                .name = s.name,
+            });
+        auto [positions, err] = slave::bind(std::move(saved), bus);
+        if (err) return {{}, err};
+        for (auto &[_, s]: this->by_key)
+            s.position = positions.at(s.position);
+        return {positions, x::errors::NIL};
     }
 };
 }

@@ -21,7 +21,6 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/common",
-        "//driver/ethercat/errors",
         "//driver/ethercat/slave",
         "//x/cpp/errors",
         "//x/cpp/json",
@@ -33,6 +32,7 @@ cc_test(
     srcs = ["slaves_test.cpp"],
     deps = [
         ":slaves",
+        "//driver/ethercat/errors",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
