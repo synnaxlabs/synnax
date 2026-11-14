@@ -116,7 +116,7 @@ class RangeLifecycle(ConsoleCase):
         # Child Ranges
         self.test_navigate_to_child_range()
         self.test_create_child_range_from_overview()
-        self.test_change_child_range_stage()
+        self.test_stop_child_range()
 
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
@@ -155,12 +155,14 @@ class RangeLifecycle(ConsoleCase):
 
     def test_create_range_with_parent(self) -> None:
         """Test creating a range with a parent range."""
+        assert self.staged_range_name is not None
         self.log("Testing: Create range with parent")
         self.child_range_name = f"ChildRange_{self.rand_suffix}"
         self.console.ranges.create(
             self.child_range_name, persisted=True, parent=self.staged_range_name
         )
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.child_range_name), (
             "Child range should exist in explorer"
         )
@@ -350,6 +352,15 @@ class RangeLifecycle(ConsoleCase):
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
 
+    def assert_range_ended(self, name: str) -> None:
+        """Poll until the range's end is in the past."""
+
+        def ended(rng: sy.Range) -> bool:
+            return rng.time_range.end < int(sy.TimeStamp.now())
+
+        rng = self.wait_for_range(name, done=ended)
+        assert ended(rng), f"'{name}' end should be in the past"
+
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
         assert self.labeled_range_name is not None
@@ -516,12 +527,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_python_code()
-        notifications = self.console.notifications.check(timeout=10)
-        messages = [n.message for n in notifications]
-        assert "Copied Python code to clipboard" in messages, (
-            "Should show Python code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'rng = client.ranges.retrieve(key="{key}")', (
+            f"Clipboard should hold the Python code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_typescript_code(self) -> None:
         """Test copying TypeScript code from the range overview."""
@@ -532,12 +542,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_typescript_code()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied TypeScript code to clipboard" in messages, (
-            "Should show TypeScript code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'const rng = await client.ranges.retrieve("{key}");', (
+            f"Clipboard should hold the TypeScript code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
         """Test copying link from the range overview."""
@@ -548,12 +557,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_link()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied link to clipboard" in messages, (
-            "Should show link copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert f"range/{key}" in clipboard, (
+            f"Clipboard should hold a link to the range, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_download_csv(self) -> None:
         """Test downloading CSV data from the range overview."""
@@ -624,19 +632,20 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.create_child_range(self.new_child_range_name)
 
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.new_child_range_name), (
             "New child range should appear in explorer"
         )
 
-    def test_change_child_range_stage(self) -> None:
-        """Test changing the stage of a child range from the parent overview."""
+    def test_stop_child_range(self) -> None:
+        """Test stopping a running child range from the parent overview, which moves it
+        to Completed by ending it now."""
         assert self.staged_range_name is not None
         assert self.child_range_name is not None
-        self.log("Testing: Change child range stage")
+        self.log("Testing: Stop child range")
         self.console.ranges.overview.open(self.staged_range_name)
         self.console.ranges.overview.wait_for(self.staged_range_name)
-
-        self.console.ranges.overview.set_child_range_stage(
-            self.child_range_name, "In progress"
-        )
         self.assert_range_spans_now(self.child_range_name)
+
+        self.console.ranges.overview.stop_child_range(self.child_range_name)
+        self.assert_range_ended(self.child_range_name)

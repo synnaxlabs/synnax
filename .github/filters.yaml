@@ -350,6 +350,7 @@ driver: &driver
 
 soem:
   - *cpp
+  - vendor/open62541/codegen.bzl
   - vendor/soem/**
 
 # Every path that changes a C++ CodeQL analysis.

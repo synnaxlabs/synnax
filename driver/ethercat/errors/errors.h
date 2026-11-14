@@ -44,9 +44,9 @@ const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
-/// @brief error returned when a slave aborts a startup parameter write with an abort
-/// code. The same value gets the same abort, so retrying does not help. A write with no
-/// response is a plain STARTUP_PARAMETER_ERROR.
+/// @brief error returned when a slave aborts a startup parameter write because of the
+/// object or its value. The same value gets the same abort, so retrying does not help.
+/// A write with no response or a temporary abort is a plain STARTUP_PARAMETER_ERROR.
 const x::errors::Error STARTUP_PARAMETER_REJECTED = STARTUP_PARAMETER_ERROR.sub(
     "rejected"
 );
@@ -103,6 +103,11 @@ struct SDOFailure {
 
     bool operator==(const SDOFailure &) const = default;
 };
+
+/// @brief returns STARTUP_PARAMETER_REJECTED when the abort code depends on the object
+/// or its value, and STARTUP_PARAMETER_ERROR for no response (0) or an abort that can
+/// pass, such as a timeout or a device that is still starting.
+const x::errors::Error &startup_parameter_error(uint32_t code);
 
 /// @brief returns error text as a sentence: the first letter in upper case and a period
 /// at the end.

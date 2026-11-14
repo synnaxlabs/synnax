@@ -7,25 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { getBySelector, getIconButton } from "@/testutil";
 
 /**
- * Waits for the mounted View.Frame's edit toggle (which only appears once the async
- * update-permission check resolves) and clicks it, flipping the view into its editable
- * state.
- */
-export const enableEditing = async (): Promise<void> => {
-  const toggle = await waitFor(() => getIconButton(document.body, "edit"));
-  fireEvent.click(toggle);
-};
-
-/**
- * Waits for the icon button with the given pluto icon name inside the mounted
- * View.Toolbar (which only renders once editing is enabled) and returns it.
+ * Waits for the icon button with the given icon name in the mounted View.Toolbar, and
+ * returns it.
  */
 export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonElement> =>
   await waitFor(() =>
     getIconButton(getBySelector(document.body, ".console-view__toolbar"), icon),
   );
+
+/**
+ * Opens the filter menu of the mounted editable view, then the submenu of the property
+ * with the name, and returns the picker it opens.
+ */
+export const openFilterProperty = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await waitFor(() => getIconButton(document.body, "filter")));
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
+};

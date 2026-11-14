@@ -47,4 +47,23 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
         "the reply is larger than the read allows"
     );
 }
+
+/// @brief it should treat an abort about the value as a rejection.
+TEST(StartupParameterErrorTest, RejectsAValueAbort) {
+    EXPECT_EQ(
+        startup_parameter_error(0x06090031).type,
+        STARTUP_PARAMETER_REJECTED.type
+    );
+    EXPECT_EQ(
+        startup_parameter_error(0x06020000).type,
+        STARTUP_PARAMETER_REJECTED.type
+    );
+}
+
+/// @brief it should treat no response and a temporary abort as a retryable error.
+TEST(StartupParameterErrorTest, RetriesNoResponseAndTemporaryAborts) {
+    EXPECT_EQ(startup_parameter_error(0).type, STARTUP_PARAMETER_ERROR.type);
+    EXPECT_EQ(startup_parameter_error(0x05040000).type, STARTUP_PARAMETER_ERROR.type);
+    EXPECT_EQ(startup_parameter_error(0x08000022).type, STARTUP_PARAMETER_ERROR.type);
+}
 }

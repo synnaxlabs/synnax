@@ -33,6 +33,10 @@ func CursorToPB(r ranger.Cursor) (*Cursor, error) {
 		v := int64(*r.TimeRangeStart)
 		pb.TimeRangeStart = &v
 	}
+	if r.TimeRangeEnd != nil {
+		v := int64(*r.TimeRangeEnd)
+		pb.TimeRangeEnd = &v
+	}
 	return pb, nil
 }
 
@@ -53,6 +57,10 @@ func CursorFromPB(pb *Cursor) (ranger.Cursor, error) {
 	if pb.TimeRangeStart != nil {
 		v := telem.TimeStamp(*pb.TimeRangeStart)
 		r.TimeRangeStart = &v
+	}
+	if pb.TimeRangeEnd != nil {
+		v := telem.TimeStamp(*pb.TimeRangeEnd)
+		r.TimeRangeEnd = &v
 	}
 	return r, nil
 }
@@ -298,6 +306,8 @@ func OrderFieldToPB(v ranger.OrderField) (OrderField, error) {
 		return OrderField_ORDER_FIELD_NAME, nil
 	case ranger.OrderFieldTimeRangeStart:
 		return OrderField_ORDER_FIELD_TIME_RANGE_START, nil
+	case ranger.OrderFieldTimeRangeEnd:
+		return OrderField_ORDER_FIELD_TIME_RANGE_END, nil
 	default:
 		return 0, errors.Newf("unrecognized ranger.OrderField value: %v", v)
 	}
@@ -310,6 +320,8 @@ func OrderFieldFromPB(v OrderField) (ranger.OrderField, error) {
 		return ranger.OrderFieldName, nil
 	case OrderField_ORDER_FIELD_TIME_RANGE_START:
 		return ranger.OrderFieldTimeRangeStart, nil
+	case OrderField_ORDER_FIELD_TIME_RANGE_END:
+		return ranger.OrderFieldTimeRangeEnd, nil
 	default:
 		return ranger.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
 	}

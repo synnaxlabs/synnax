@@ -160,7 +160,7 @@ class StatusLifecycle(ConsoleCase):
 
         self.console.statuses.wait_for_removed_from_explorer(self.status_c_name)
 
-        self.console.statuses.clear_explorer_label_filter(self.label_a_name)
+        self.console.statuses.clear_explorer_label_filter()
 
     def test_filter_by_variant(self) -> None:
         """Test filtering statuses by variant in the explorer."""
@@ -187,7 +187,7 @@ class StatusLifecycle(ConsoleCase):
 
         self.console.statuses.wait_for_removed_from_explorer(self.status_d_name)
 
-        self.console.statuses.clear_explorer_variant_filter("Error")
+        self.console.statuses.clear_explorer_variant_filter()
 
         statuses = self.client.statuses.retrieve(search_term=error_status_name)
         if len(statuses) > 0:

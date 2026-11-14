@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Test changing a user's role via Console UI context menu."""
+"""Test changing a user's role on the Users page of Settings."""
 
 from console.case import ConsoleCase
 from x import random_name
 
 
 class UserAssignRole(ConsoleCase):
-    """Test assigning a role to a user via context menu modal."""
+    """Test assigning a role to a user with the role picker."""
 
     def run(self) -> None:
         # Create a user with initial role
@@ -31,18 +31,11 @@ class UserAssignRole(ConsoleCase):
             role_name=initial_role,
         )
 
-        # Verify user is under initial role
-        self.console.access.expand_role(initial_role)
         self.console.access.wait_for_user_role(username, role_name=initial_role)
 
-        # Change user's role via context menu
         self.log(f"Changing {username} role from {initial_role} to {new_role}")
         self.console.access.assign_role_to_user(username=username, role_name=new_role)
 
-        # Expand new role and verify user moved
-        self.console.access.expand_role(new_role)
-        self.console.access.wait_for_user_role(
-            username, role_name=new_role, previous_role=initial_role
-        )
+        self.console.access.wait_for_user_role(username, role_name=new_role)
 
         self.log("User role assignment test passed")

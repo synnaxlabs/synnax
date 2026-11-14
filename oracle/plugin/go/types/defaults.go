@@ -55,6 +55,8 @@ type defaultFillData struct {
 type enumCheckData struct {
 	GoName    string
 	FieldName string
+	// Optional is true for an optional field, which the check reads only when present.
+	Optional bool
 }
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
@@ -778,13 +780,9 @@ func numberLiteral(n *validation.Number) string {
 	return strconv.FormatFloat(n.Float, 'g', -1, 64)
 }
 
-// goEnumCheck returns an enum-membership validation for a required field whose type is
-// an enum. Nullable and optional fields are skipped: their pointer may be nil, and
-// absence is legitimate.
+// goEnumCheck returns an enum-membership validation for a field whose type is an enum.
+// An optional field is checked only when present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	if field.Optional {
-		return enumCheckData{}, false
-	}
 	resolved, _, ok := resolution.Dealias(field.Type, data.table)
 	if !ok {
 		return enumCheckData{}, false
@@ -803,6 +801,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	return enumCheckData{
 		GoName:    naming.GetFieldName(field),
 		FieldName: field.Name,
+		Optional:  field.Optional,
 	}, true
 }
 
