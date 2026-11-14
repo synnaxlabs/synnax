@@ -117,7 +117,10 @@ public:
     x::errors::Error start() override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
-        if (auto err = this->cfg.slaves.validate(slaves)) return err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.outputs)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
 
         std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());

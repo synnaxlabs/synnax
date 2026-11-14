@@ -611,10 +611,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
     const auto err = sink.start();
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(
-        err.data,
-        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
-    );
+    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
 }
 
 }

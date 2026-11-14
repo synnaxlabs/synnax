@@ -235,7 +235,14 @@ public:
     x::errors::Error start() override {
         const auto [slaves, discover_err] = this->engine->discover();
         if (discover_err) return discover_err;
-        if (auto err = this->cfg.slaves.validate(slaves)) return err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.channels)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
+        engine::Settings settings;
+        for (auto &[pos, params]: this->cfg.settings)
+            settings[moves.at(pos)] = std::move(params);
+        this->cfg.settings = std::move(settings);
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
