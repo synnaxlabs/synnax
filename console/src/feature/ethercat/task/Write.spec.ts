@@ -155,17 +155,18 @@ describe("Write", () => {
     );
   });
 
-  it("should block configuration of an unresolved output channel", async () => {
+  it("should show why an unresolved output channel cannot run", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
-    const { container, statuses } = await renderWrite({
+    await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [createUnresolvedWriteChannel(slave.key, "Output")],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      /'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
-    );
+    fireEvent.click(await screen.findByRole("option", { name: /Output/ }));
+    expect(
+      await screen.findByText(
+        /^'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
+      ),
+    ).toBeTruthy();
   });
 
   it("should mark in the list each channel that shares an entry", async () => {
@@ -190,41 +191,21 @@ describe("Write", () => {
     expect(alone.classList.contains("lyra--status-error")).toBe(false);
   });
 
-  it("should block configuration when two channels use the same entry", async () => {
-    const slave = await createRepeatedNameSlave(client, testRack.key);
-    const { outputs } = createRepeatedNamePDOs();
-    const { container, statuses } = await renderWrite({
-      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [
-        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
-        EtherCAT.Task.createEntryWriteChannel(slave.key, outputs[3]),
-      ],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `More than one channel uses entry 0x7030:01 on slave ${slave.name}\\. ` +
-          "Pick a different entry for one of them\\.$",
-      ),
-    );
-  });
-
-  it("should block configuration of a channel with no entry", async () => {
+  it("should show why a channel with no entry cannot run", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
       pdos: createPDOs(),
     });
-    const { container, statuses } = await renderWrite({
+    await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [{ ...EtherCAT.Task.createWriteChannel([]), device: slave.key }],
     });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
-    );
+    expect(
+      await screen.findByText(
+        `A channel on slave ${slave.name} has no entry. Pick an entry.`,
+      ),
+    ).toBeTruthy();
   });
 
   it("should add a channel for every unused output of a slave from the context menu", async () => {
@@ -461,6 +442,24 @@ describe("Write", () => {
     );
   });
 
+  it("should count none of the channels that Start reuses from a deleted slave", async () => {
+    const identifier = createIdentifier();
+    const first = await deploySlave(identifier);
+    await deleteSlave(first.slave.key, first.task);
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(/^Start creates no channels, \d+ channels? in use\.$/),
+    ).toBeTruthy();
+  });
+
   it("should reuse a deleted slave's channels when a non-slave EtherCAT device exists", async () => {
     const coupler = await client.devices.create({
       key: id.create(),
@@ -559,7 +558,7 @@ describe("Write", () => {
     );
   });
 
-  it("should surface an error when slaves are on different networks", async () => {
+  it("should show that the slaves of the task are on different networks", async () => {
     const slaveA = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
@@ -570,31 +569,36 @@ describe("Write", () => {
       network: "eth1",
       pdos: createPDOs(),
     });
-    const { container, statuses } = await renderWrite({
+    await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
         EtherCAT.Task.createEntryWriteChannel(slaveA.key, CONTROL_ENTRY),
         EtherCAT.Task.createEntryWriteChannel(slaveB.key, CONTROL_ENTRY),
       ],
     });
-    await clickDeploy(container);
-    await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /All slaves must be on the same network/);
+    expect(
+      await screen.findByText(
+        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+          "one network.",
+      ),
+    ).toBeTruthy();
   });
 
-  it("should surface an error when no slave has a valid network", async () => {
+  it("should ask for a scan when no slave of the task has a network", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "",
       pdos: createPDOs(),
     });
-    const { container, statuses } = await renderWrite({
+    await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
-    await clickDeploy(container);
-    await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /No network found/);
+    expect(
+      await screen.findByText(
+        "No network found for the selected slaves. Scan the network again.",
+      ),
+    ).toBeTruthy();
   });
 
   it("should create the task with one channel", async () => {
@@ -646,5 +650,46 @@ describe("Write channel names", () => {
     const base = channel.escapeInvalidName(`${identifier}_Control`);
     const item = await findChannelListItem(`${base}_cmd`);
     expect(within(item).getByText(`${base}_state`)).toBeTruthy();
+  });
+});
+
+describe("Write channel usage", () => {
+  it("should count the state index and each channel and command index", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    expect(
+      await screen.findByText(
+        /^Start creates 2 channels and 2 time channels, \d+ channels? in use\.$/,
+      ),
+    ).toBeTruthy();
+  });
+
+  // The footer plans what Start creates apart from Start, so this ties the two.
+  it("should create as many channels at Start as it counts", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const creates = /^Start creates (\d+) channels? and (\d+) time channels?, /;
+    const footer = await screen.findByText(creates);
+    const [, data, indexes] = creates.exec(footer.textContent ?? "") ?? [];
+    const counted = Number(data) + Number(indexes);
+    await deployAndAwaitTask(client, container, draft.key, EtherCAT.Task.WRITE_SCHEMAS);
+    const created = await client.channels.retrieve({
+      where: { name: { startsWith: slave.properties.identifier } },
+    });
+    expect(created).toHaveLength(counted);
   });
 });

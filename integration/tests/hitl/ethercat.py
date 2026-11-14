@@ -47,6 +47,9 @@ STGS = (2, 3)
 DO = 4
 """The position of the 32xDO that the write test drives."""
 
+RESCANNED = 6
+"""The position of the 32xDO that the first scan test deletes from the Core."""
+
 STG_DC: dict[str, JsonValue] = {
     "index": 1,
     "assign_activate": 0x0300,

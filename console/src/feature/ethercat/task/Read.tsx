@@ -16,20 +16,25 @@ import { Channel } from "@synnaxlabs/pluto";
 import { deep, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import {
+  useResultSlave,
+  useSlavesByKeys,
+  useSlavesOnRack,
+} from "@/feature/ethercat/device/queries";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
+import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
   createSlaveChannels,
   fillStartupParameters,
-  retrieveAndValidateSlaves,
-  settingProblem,
+  retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
@@ -52,7 +57,6 @@ import {
   readNameSuffix,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
-import { useEntryProblem } from "@/feature/ethercat/task/useEntryProblem";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -90,17 +94,11 @@ const useDataTypes = (slaves: SlaveDevice[]): DataTypes | undefined => {
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
-  const ch = PForm.useFieldValue(entry);
+  const { value: ch, status } = PForm.useFieldState(entry);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
-  const held = PForm.useFieldValue(path.config.startupParameters);
-  const problem =
-    useEntryProblem(ch, slave, "inputs") ??
-    (slave != null && hasEntry(ch) && !ch.disabled
-      ? settingProblem(slave, ch, held)
-      : null);
   const named =
     slave != null &&
     dataTypes != null &&
@@ -111,7 +109,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       nameDirection="y"
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
-      status={problem == null ? undefined : "error"}
+      status={status.variant === "error" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
@@ -154,7 +152,10 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
+  const channels = PForm.useFieldValue(path.config.channels);
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
@@ -162,15 +163,23 @@ const Form: FC = () => {
     return { channel: readChannelOf(slave, ch, dataTypes) };
   };
   return (
-    <Task.Views.ListAndDetails<ReadChannel>
-      path={path.config.channels}
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createReadChannel}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<ReadChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createReadChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+      />
+      <ChannelUsage
+        indexOptions={READ_INDEX_OPTIONS}
+        pdoType="inputs"
+        channels={channels}
+        slaves={slaves}
+      />
+    </Flex.Box>
   );
 };
 
@@ -211,11 +220,13 @@ const checkNamesUnique = (names: string[]): void => {
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
-  const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
+  const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<ReadChannel>(
+    client,
+    "inputs",
+    config,
+  );
 
-  // The settings and name checks run before any create, so their failure leaves
-  // nothing behind.
+  // The checks run before any create, so their failure leaves nothing behind.
   config.startupParameters = fillStartupParameters(
     slaves,
     config.channels,

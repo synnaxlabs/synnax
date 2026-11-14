@@ -11,7 +11,10 @@
         { "case": "hitl/ethercat" },
         { "case": "hitl/ethercat_settings" },
         { "case": "hitl/ethercat_commands" },
-        { "case": "hitl/ethercat_arc" }
+        { "case": "hitl/ethercat_arc" },
+        { "case": "hitl/ethercat_startup" },
+        { "case": "hitl/ethercat_scan" },
+        { "case": "hitl/ethercat_frames" }
       ]
     },
     {

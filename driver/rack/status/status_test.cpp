@@ -314,6 +314,28 @@ TEST(stateTests, TaskRunningTransitions) {
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief it should write the started status before configure returns, so the task
+/// manager never keeps a status that the last run left.
+TEST(stateTests, StartedBeforeConfigureReturns) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    const auto statuses = std::make_shared<driver::task::StatusCache>(client->statuses);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(client, statuses);
+    auto task = synnax::task::Task{
+        .name = "state",
+        .type = driver::rack::status::TASK_TYPE,
+        .internal = true,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto hb = driver::rack::status::Task::configure(ctx, task);
+    ASSERT_NE(hb, nullptr);
+    const auto started = statuses->latest(task.key);
+    hb->stop(false);
+    ASSERT_TRUE(started.has_value());
+    EXPECT_EQ(started.value().message, "Started");
+    EXPECT_TRUE(started.value().details.running);
+}
+
 /// @brief it should send task statuses again on the first heartbeat that succeeds after
 /// a failed one, try again on the next heartbeat when the re-send fails, and stop once
 /// a re-send succeeds.
