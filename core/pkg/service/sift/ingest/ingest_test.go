@@ -1857,13 +1857,16 @@ var _ = Describe("Engine", func() {
 					telem.NewSeries(make([]float64, count)),
 				})))).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
-				// Gives the engine time to receive the values of ch.
-				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+				behind := ingest.ChannelPositions{ch.Key(): at(0)}
+				Eventually(func() ingest.ChannelPositions { return rec.last().Behind }).
+					Should(Equal(behind))
 				cancel()
 				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(
 					WithTransform(status.Code, Equal(codes.Canceled)),
 				))
-				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+				// An idle checkpoint can confirm the index before ch arrives, but the
+				// stop never confirms the values of ch.
+				Expect(rec.last().Behind).To(Equal(behind))
 			})
 		})
 
