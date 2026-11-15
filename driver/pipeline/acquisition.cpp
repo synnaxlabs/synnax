@@ -88,6 +88,7 @@ bool Acquisition::run_once() {
         this->breaker.stop();
         return false;
     }
+    this->breaker.reset_unlimited();
     this->source->writer_opened();
     x::errors::Error source_err;
     x::telem::Frame fr(0);
