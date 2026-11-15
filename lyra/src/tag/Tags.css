@@ -121,8 +121,10 @@
         order: -1;
     }
 
+    /* A step change snaps, so a tag never animates its face. */
     & > .lyra-flex.lyra-btn.lyra-tag {
         flex: 0 0 auto;
+        transition: none;
         min-width: 0;
         max-width: var(--lyra-tags-cap);
 
@@ -172,17 +174,29 @@
     visibility: hidden;
 }
 
-/* With no tags shown, the first three show as dots in the count. */
+/* With no tags shown, the first three show as dots in the count. Each dot overlaps the
+   one before it, with a ring of the count's face between them. */
 .lyra-tags.lyra-tags--dots {
+    --lyra-tags-dot: 1.75rem;
+    --lyra-tags-dot-step: 1.1rem;
+
     gap: var(--lyra-tags-stack-gap);
 
     & > .lyra-flex.lyra-btn.lyra-tag:nth-child(-n + 3 of .lyra-tag) {
         display: flex;
-        width: 1.25rem;
-        margin-right: -0.5rem;
+        margin-right: calc(
+            var(--lyra-tags-dot-step) - var(--lyra-tags-dot) -
+                var(--lyra-tags-stack-gap)
+        );
         padding: 0;
         border: none;
-        background: none;
+
+        /* The dot fills two thirds of its icon. The ring sits just outside it. */
+        background: radial-gradient(
+            circle closest-side,
+            var(--pluto-gray-l0) calc(200% / 3 + 1.5px),
+            transparent calc(200% / 3 + 1.5px)
+        );
         box-shadow: none;
         pointer-events: none;
 
@@ -190,17 +204,24 @@
             display: none;
         }
 
+        & > svg {
+            width: var(--lyra-tags-dot);
+            height: var(--lyra-tags-dot);
+        }
+
         & > .lyra-text {
             display: none;
         }
     }
 
-    /* The count's face reaches back under its dots. */
+    /* The count's face reaches back under its dots, and the count follows them at the
+       small gap. */
     & > .lyra-tags__more[data-count] {
-        --lyra-tags-dots: 2.5rem;
+        --lyra-tags-dots: 1;
 
         z-index: auto;
         overflow: visible;
+        padding-left: 0.75rem;
         border-color: transparent;
         background: none;
 
@@ -208,7 +229,11 @@
             content: "";
             position: absolute;
             z-index: -1;
-            inset: -1px -1px -1px calc(-1 * var(--lyra-tags-dots));
+            inset: -1px -1px -1px
+                calc(
+                    -0.75rem - var(--lyra-tags-dot) - (var(--lyra-tags-dots) - 1) *
+                        var(--lyra-tags-dot-step) - var(--lyra-tags-stack-gap)
+                );
             border: var(--pluto-border);
             border-radius: var(--pluto-border-radius-small);
             background-color: var(--pluto-gray-l0);
@@ -220,11 +245,20 @@
     }
 
     &:has(> .lyra-tag:nth-child(2 of .lyra-tag)) > .lyra-tags__more {
-        --lyra-tags-dots: 3.75rem;
+        --lyra-tags-dots: 2;
     }
 
     &:has(> .lyra-tag:nth-child(3 of .lyra-tag)) > .lyra-tags__more {
-        --lyra-tags-dots: 5rem;
+        --lyra-tags-dots: 3;
+    }
+
+    /* Hover brightens the chip as one unit. */
+    &.lyra-btn:is(:hover, [aria-expanded="true"]) > .lyra-tags__more[data-count] {
+        border-color: transparent;
+
+        &::before {
+            border-color: var(--pluto-gray-l7);
+        }
     }
 }
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefObject, useLayoutEffect } from "react";
+import { type RefObject, useLayoutEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -25,52 +25,63 @@ const part = (item: Element, name: string): Element | null =>
  * take: what the items leave once every name has its full width, up to a cap. Refits
  * when the list resizes or its items change.
  */
-export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void =>
+const fit = (list: HTMLElement | null): void => {
+  if (list == null) return;
+  const items = Array.from(list.querySelectorAll(`.${CSS.B("range-item")}`));
+  if (items.length === 0) return;
+  const [first] = items;
+  const cs = getComputedStyle(first);
+  const children = Array.from(first.children);
+  const flexible = ["indent", "name", "labels"].map((n) => part(first, n));
+  const fixed = children
+    .filter((c) => !flexible.includes(c) && getComputedStyle(c).display !== "none")
+    .reduce((total, c) => total + width(c), 0);
+  const shown = children.filter((c) => getComputedStyle(c).display !== "none");
+  const rest =
+    fixed +
+    parseFloat(cs.columnGap || "0") * (shown.length - 1) +
+    parseFloat(cs.paddingLeft) +
+    parseFloat(cs.paddingRight);
+  const names = Math.max(
+    ...items.map(
+      (item) =>
+        width(part(item, "indent")) +
+        (part(item, "name")?.firstElementChild?.scrollWidth ?? 0),
+    ),
+  );
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const room = width(first) - rest - Math.min(names, NAME_CAP * rem);
+  // A change styles every item again, so set it only when it changes.
+  const value = `${room}px`;
+  if (list.style.getPropertyValue("--console-range-labels-room") !== value)
+    list.style.setProperty("--console-range-labels-room", value);
+};
+export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void => {
+  // Made before the tags' observer, so it reads widths before the tags write theirs.
+  const [resize] = useState(
+    () =>
+      new ResizeObserver(([entry]) =>
+        fit(entry.target.closest<HTMLElement>(`.${CSS.BE("range-tree", "list")}`)),
+      ),
+  );
   useLayoutEffect(() => {
     const list = ref.current;
     if (list == null) return;
-    let frame = 0;
-    const fit = (): void => {
-      cancelAnimationFrame(frame);
-      frame = 0;
-      const items = Array.from(list.querySelectorAll(`.${CSS.B("range-item")}`));
-      if (items.length === 0) return;
-      const [first] = items;
-      const cs = getComputedStyle(first);
-      const children = Array.from(first.children);
-      const flexible = ["indent", "name", "labels"].map((n) => part(first, n));
-      const fixed = children
-        .filter((c) => !flexible.includes(c) && getComputedStyle(c).display !== "none")
-        .reduce((total, c) => total + width(c), 0);
-      const shown = children.filter((c) => getComputedStyle(c).display !== "none");
-      const rest =
-        fixed +
-        parseFloat(cs.columnGap || "0") * (shown.length - 1) +
-        parseFloat(cs.paddingLeft) +
-        parseFloat(cs.paddingRight);
-      const names = Math.max(
-        ...items.map(
-          (item) =>
-            width(part(item, "indent")) +
-            (part(item, "name")?.firstElementChild?.scrollWidth ?? 0),
-        ),
-      );
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      const room = width(first) - rest - Math.min(names, NAME_CAP * rem);
-      list.style.setProperty("--console-range-labels-room", `${room}px`);
-    };
-    const request = (): void => {
-      if (frame === 0) frame = requestAnimationFrame(fit);
-    };
-    // A resize refits before the frame paints.
-    const resize = new ResizeObserver(fit);
+    // Fitting as each item first lays out reads widths with no extra layout.
     resize.observe(list);
-    const mutations = new MutationObserver(request);
-    mutations.observe(list, { childList: true, subtree: true, characterData: true });
-    request();
+    const observed = new WeakSet<Element>();
+    const observe = (): void =>
+      list.querySelectorAll(`.${CSS.B("range-item")}`).forEach((item) => {
+        if (observed.has(item)) return;
+        observed.add(item);
+        resize.observe(item);
+      });
+    const mutations = new MutationObserver(observe);
+    mutations.observe(list, { childList: true, subtree: true });
+    observe();
     return () => {
-      cancelAnimationFrame(frame);
       resize.disconnect();
       mutations.disconnect();
     };
-  }, [ref]);
+  }, [ref, resize]);
+};

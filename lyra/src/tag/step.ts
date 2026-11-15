@@ -87,6 +87,41 @@ const fit = (el: HTMLElement): Fit => {
   };
 };
 
+/**
+ * What laid-out groups teach, so a later group whose tags were all seen before fits
+ * before the browser styles it.
+ */
+interface Template {
+  // Each tag's widths, by its name.
+  tags: Map<string, Measure>;
+  frame: number;
+  fixed: number;
+  gap: number;
+  stackGap: number;
+  rem: number;
+}
+
+const learn = (t: Template, el: HTMLElement, f: Fit): void =>
+  tagsOf(el).forEach((tag, i) => t.tags.set(tag.textContent ?? "", f.measures[i]));
+
+// The group's fit from the tags the template has seen, or null if one is new.
+const estimate = (el: HTMLElement, t: Template): Fit | null => {
+  const measures: Measure[] = [];
+  for (const tag of tagsOf(el)) {
+    const m = t.tags.get(tag.textContent ?? "");
+    if (m == null) return null;
+    measures.push(m);
+  }
+  return {
+    tags: signature(el),
+    measures,
+    frame: t.frame,
+    fixed: t.fixed,
+    gap: t.gap,
+    stackGap: t.stackGap,
+  };
+};
+
 // The width a group takes with its first k tags at full width.
 const full = (f: Fit, k: number, count: number): number => {
   const n = f.measures.length;
@@ -108,26 +143,38 @@ const stacked = (f: Fit, k: number, count: number): number => {
 /**
  * Fits the groups of tags of one list together, so they all show the same step: the
  * same number of tags, then a count. A group stacks its tags only when they do not fit
- * at full width. It sets `--lyra-tags-need` on its root to the full width of the
- * widest group, and `--lyra-tags-fit` on each group to the width its step takes
+ * at full width. It sets `--lyra-tags-fit` on each group to the width its step takes
  * without stacking.
  */
 export class Steps {
   private readonly groups = new Set<HTMLElement>();
   private readonly fits = new Map<HTMLElement, Fit>();
+  private readonly widths = new Map<HTMLElement, number>();
   private root: HTMLElement | null = null;
+  private template: Template | null = null;
+  private early = false;
   private frame = 0;
-  // A resize refits before the frame paints. A hovered group widens alone, and may stop
-  // stacking.
-  private readonly resize = new ResizeObserver(() => this.flush());
+  // A resize refits before the frame paints, where reading widths costs no layout. A
+  // hovered group widens alone, and may stop stacking.
+  private readonly resize = new ResizeObserver((entries) => {
+    const changed = entries.filter((e) => {
+      const el = e.target as HTMLElement;
+      const width = cssWidth(el);
+      if (this.widths.get(el) === width) return false;
+      this.widths.set(el, width);
+      return true;
+    });
+    if (changed.length > 0) this.flush();
+  });
   // Groups mount and their tags load as the list scrolls.
   private readonly mutations = new MutationObserver(() => this.request());
   private readonly onFonts = (): void => {
     this.fits.clear();
+    this.template = null;
     this.request();
   };
 
-  /** Watches the element that holds the groups, and sets `--lyra-tags-need` on it. */
+  /** Watches the element that holds the groups for changes to their tags. */
   attach(root: HTMLElement): void {
     this.root = root;
     document.fonts.addEventListener("loadingdone", this.onFonts);
@@ -148,15 +195,44 @@ export class Steps {
     document.fonts.removeEventListener("loadingdone", this.onFonts);
   }
 
+  /**
+   * Fits a group before the browser styles it, from what an earlier group taught, or
+   * else once it lays out, before it paints.
+   */
   add(el: HTMLElement): void {
     this.groups.add(el);
     this.resize.observe(el);
-    this.request();
+    if (this.early) return;
+    this.early = true;
+    queueMicrotask(() => {
+      this.early = false;
+      this.fitEarly();
+    });
+  }
+
+  // New groups share the width of the groups already laid out.
+  private fitEarly(): void {
+    const template = this.template;
+    if (template == null) return;
+    const laid = [...this.widths.values()].filter((w) => w > 0);
+    if (laid.length === 0) return;
+    const width = Math.min(...laid);
+    const fresh = [...this.groups].filter((el) => !this.widths.has(el));
+    const known = fresh.filter((el) => {
+      const fit = estimate(el, template);
+      if (fit == null) return false;
+      this.fits.set(el, fit);
+      return true;
+    });
+    if (known.length === 0) return;
+    known.forEach((el) => this.widths.set(el, width));
+    this.flush();
   }
 
   remove(el: HTMLElement): void {
     this.groups.delete(el);
     this.fits.delete(el);
+    this.widths.delete(el);
     this.resize.unobserve(el);
   }
 
@@ -171,7 +247,8 @@ export class Steps {
   private flush(): void {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    const els = [...this.groups].filter((el) => el.getClientRects().length > 0);
+    // A group fits once its resize reports its width.
+    const els = [...this.groups].filter((el) => this.widths.has(el));
     const stale = els.filter((el) => this.fits.get(el)?.tags !== signature(el));
     // Tags that load after their group painted fade in, rather than pop.
     stale.forEach((el) => {
@@ -181,20 +258,47 @@ export class Steps {
         if (!before.includes(t.textContent ?? "")) t.classList.add(ENTERING);
       });
     });
-    // All new groups lay out at full width together, so measuring costs one layout.
-    stale.forEach(expand);
-    stale.forEach((el) => this.fits.set(el, fit(el)));
-    stale.forEach((el) => el.classList.remove(MEASURING));
-    const fitted = els.filter((el) => this.fits.get(el)?.measures.length !== 0);
+    const template = this.template;
+    // Groups whose tags were all seen before fit from the template. The rest measure.
+    const unseen = stale.filter((el) => {
+      const fit = template == null ? null : estimate(el, template);
+      if (fit != null) this.fits.set(el, fit);
+      return fit == null;
+    });
+    // A new group lays out at full width, so its resize can measure it with no extra
+    // layout. A group already fitted shows all its tags again, then measures.
+    const changed = unseen.filter((el) => el.style.getPropertyValue(STACKED) !== "");
+    changed.forEach(expand);
+    unseen.forEach((el) => {
+      // A hidden group measures once it shows, and its resize refits it.
+      if (cssWidth(el) > 0) this.fits.set(el, fit(el));
+    });
+    changed.forEach((el) => el.classList.remove(MEASURING));
+    unseen.forEach((el) => {
+      const f = this.fits.get(el);
+      if (f == null || f.measures.length === 0) return;
+      this.template ??= {
+        tags: new Map(),
+        frame: f.frame,
+        fixed: f.fixed,
+        gap: f.gap,
+        stackGap: f.stackGap,
+        rem: px(getComputedStyle(document.documentElement).fontSize),
+      };
+      learn(this.template, el, f);
+    });
+    const fitted = els.filter(
+      (el) =>
+        (this.widths.get(el) ?? 0) > 0 && (this.fits.get(el)?.measures.length ?? 0) > 0,
+    );
     if (fitted.length === 0) return;
-    const rem = px(getComputedStyle(document.documentElement).fontSize);
+    const rem =
+      this.template?.rem ?? px(getComputedStyle(document.documentElement).fontSize);
     const count = COUNT * rem;
     const fits = fitted.map((el) => this.fits.get(el) as Fit);
-    const need = Math.max(...fits.map((f) => full(f, f.measures.length, count)));
-    // Set before reading widths, since the container sizes from it.
-    this.root?.style.setProperty("--lyra-tags-need", `${need}px`);
+    const widths = fitted.map((el) => (this.widths.get(el) ?? 0) + 0.5);
     // Hovering widens one group's container, so the narrowest is the shared room.
-    const room = Math.min(...fitted.map(cssWidth)) + 0.5;
+    const room = Math.min(...widths);
     const most = Math.max(...fits.map((f) => f.measures.length));
     let shown = most;
     while (
@@ -203,11 +307,14 @@ export class Steps {
     )
       shown--;
     const dots = DOT_COUNT * rem;
-    fitted.forEach((el, i) =>
-      write(el, fits[i], shown, cssWidth(el) + 0.5, count, dots),
-    );
+    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count, dots));
   }
 }
+
+// Sets a property only when it changes, so an unchanged group is not styled again.
+const set = (el: HTMLElement, name: string, value: string): void => {
+  if (el.style.getPropertyValue(name) !== value) el.style.setProperty(name, value);
+};
 
 const write = (
   el: HTMLElement,
@@ -220,8 +327,10 @@ const write = (
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
-  el.style.setProperty(STACKED, String(overlap));
-  el.style.setProperty("--lyra-tags-fit", `${full(f, shown, count)}px`);
+  set(el, STACKED, String(overlap));
+  const fits = `${full(f, shown, count)}px`;
+  if (el.style.getPropertyValue("--lyra-tags-fit") !== fits)
+    el.style.setProperty("--lyra-tags-fit", fits);
   el.classList.toggle(DOTS, shown === 0);
   el.classList.toggle(EMPTY, shown === 0 && f.frame + dots > room);
   tags.forEach((t, i) => {
@@ -231,7 +340,9 @@ const write = (
   const more = moreOf(el);
   if (more == null) return;
   // A stacked group's count keeps the full gap, clear of the last tag's face.
-  more.style.marginLeft = overlap ? `${f.gap - f.stackGap}px` : "";
-  if (shown < tags.length) more.dataset.count = String(tags.length - shown);
-  else delete more.dataset.count;
+  set(more, "margin-left", overlap ? `${f.gap - f.stackGap}px` : "");
+  const hidden = shown < tags.length ? String(tags.length - shown) : undefined;
+  if (more.dataset.count === hidden) return;
+  if (hidden == null) delete more.dataset.count;
+  else more.dataset.count = hidden;
 };

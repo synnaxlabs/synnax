@@ -85,15 +85,10 @@
     initial-value: 0;
 }
 
-/* One labels column, as wide on every item. It takes the room the names leave, up to
-   what the range with the most labels needs. When the item runs short, it shrinks in the
-   same frame, before any name passes its floor. */
+/* One labels column, as wide on every item. It takes the room the names leave, and its
+   tags sit at its right. When the item runs short, it shrinks in the same frame, before
+   any name passes its floor. */
 .console-range-item__labels {
-    --console-range-labels-width: min(
-        var(--console-range-labels-room, var(--lyra-tags-need, 0px)),
-        var(--lyra-tags-need, 0px)
-    );
-
     display: flex;
     flex: 0 1 auto;
     justify-content: flex-end;
@@ -103,6 +98,7 @@
     /* Hover spreads a stacked item's labels into its name. The step stays. */
     & .console-range-item__tags {
         --console-range-labels-spread: 0;
+        --console-range-labels-width: var(--console-range-labels-room, 0px);
 
         width: calc(
             var(--console-range-labels-width) + var(--console-range-labels-spread) *

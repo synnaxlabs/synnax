@@ -115,8 +115,7 @@ StepContext.displayName = "Tag.StepContext";
 
 /**
  * Fits the groups of tags under it together, so they all show the same step: the same
- * number of tags, then a count. It sets `--lyra-tags-need` to the full width of the
- * widest group, for a container that sizes itself to hold them.
+ * number of tags, then a count.
  */
 export const StepProvider = ({ children }: PropsWithChildren): ReactElement => {
   const [steps] = useState(() => new Steps());
