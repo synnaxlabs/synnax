@@ -599,11 +599,11 @@ export const ICDRead = Task.wrapForm({
   Form,
   schemas: ICD_READ_SCHEMAS,
   deployConfigZ: deployICDReadConfigZ,
-  type: ICD_READ_TYPE,
+  type: "mqtt_icd_read",
   onConfigure,
 });
 
-export const useCreateICDRead = Task.createUseCreate({
+const useCreateICDRead = Task.createUseCreate({
   getInitialValues,
   deviceMake: MAKE,
 });
