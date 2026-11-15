@@ -398,6 +398,19 @@ describe("Channel", () => {
     });
   });
 
+  describe("countLimited", () => {
+    it("should return the count from the Core", async () => {
+      // Other spec files create and delete channels on the same Core at once, so the
+      // exact count is pinned in the Core's specs.
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      expect(await client.channels.countLimited()).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("delete", async () => {
     test("delete by key", async () => {
       const channel = await client.channels.create({

@@ -36,6 +36,7 @@
   "console/device/http_legacy_device": 15.5,
   "console/documentation": 4.9,
   "console/label/label_lifecycle": 19.8,
+  "console/secret/secret_lifecycle": 20.0,
   "console/layout/keyboard_shortcuts": 10.5,
   "console/layout/mosaic_operations": 18.2,
   "console/log/log_lifecycle": 39.0,

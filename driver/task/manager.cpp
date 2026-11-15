@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <thread>
 #include <utility>
 
@@ -103,8 +104,6 @@ x::errors::Error Manager::configure_initial_tasks() {
     );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
-    for (const auto &task: tasks)
-        this->fail_interrupted_start(task);
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
@@ -173,7 +172,12 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
     // Workers run the shutdown of each task, so they stop last. The next run starts
     // with no statuses and no control states, so it trusts nothing from before the
     // outage, such as the status of a task deleted during it.
-    this->stop_all_tasks();
+    // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
+    // the next run connects again.
+    this->stop_all_tasks(
+        this->exit_early ? "The Driver stopped"
+                         : "The Driver lost its connection to the Core"
+    );
     this->stop_workers();
     this->statuses->clear();
     this->control_states->set({});
@@ -298,9 +302,17 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
-        if (!this->entries.contains(cmd.task)) continue;
+        const auto it = this->entries.find(cmd.task);
+        if (it == this->entries.end()) continue;
+        const auto &entry = it->second;
+        const auto &running = entry->op;
+        std::shared_ptr<Operation> cancelled;
+        if (cmd.type == STOP_CMD_TYPE && running != nullptr &&
+            (running->cmd.type == synnax::task::START_CMD_TYPE || entry->booting) &&
+            running->cancel(cmd))
+            cancelled = running;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
         this->cv.notify_one();
     }
 }
@@ -317,11 +329,19 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             deployed = entry->deployed_hash;
             // The sender's hash can force a deploy but never confirm a match: a sender
             // that disagrees with our copy may have seen a revision whose set event has
-            // not landed here yet. A pinned start always fetches, because only the
-            // fetch can refuse it.
+            // not landed here yet. A pinned start fetches, because only the fetch can
+            // refuse it.
             wanted = entry->row.config_hash;
             if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
                 wanted.clear();
+        }
+        // A pinned start joins a running start only of the config its sender saw.
+        const auto &join_hash = cmd.pinned ? cmd.config_hash : wanted;
+        if (ours && entry->op != nullptr && !join_hash.empty() &&
+            entry->op->join(cmd, join_hash)) {
+            VLOG(1) << "joined start " << cmd.key << " to the running start of task "
+                    << cmd.task;
+            return;
         }
         if (!ours) {
             // The start deploys the task on its new rack and doubles as the
@@ -347,12 +367,13 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     this->cv.notify_one();
 }
 
-void Manager::stop_all_tasks() {
+void Manager::stop_all_tasks(const std::string &cause) {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
+            if (entry->op != nullptr) entry->op->cancel(cause);
             this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
@@ -470,18 +491,29 @@ void Manager::worker_loop(const uint64_t run) {
 
         {
             std::lock_guard entry_lock{entry->mu};
-            entry->op_cmd = op.cmd.key;
-            entry->op_config_hash = op.task.config_hash.empty() ? entry->deployed_hash
-                                                                : op.task.config_hash;
+            entry->op = this->ctx->begin(
+                op.task_key,
+                entry->row.name,
+                op.cmd,
+                op.task.config_hash.empty() ? entry->deployed_hash
+                                            : op.task.config_hash,
+                this->op_timeout
+            );
         }
-        entry->timed_out = false;
-        entry->op_started = x::telem::TimeStamp::now();
+        entry->booting = op.type == Op::Type::DEPLOY && !op.task.key.is_nil();
+        const auto operation = entry->op;
         lock.unlock();
-        this->execute_op(op, entry);
-        entry->op_started = x::telem::TimeStamp(0);
+        this->execute_op(op, entry, *operation);
+        const auto unanswered = this->ctx->end(operation);
         // The flag flips under mu so a waiter mid-predicate cannot miss the
         // notify and sleep past a claimable op.
         lock.lock();
+        // A start that answers after exec returns leaves its joined starts with no
+        // answer. They run next, before the commands that came after them.
+        for (const auto &start: std::views::reverse(unanswered))
+            this->op_queue.push_front(Op{Op::Type::COMMAND, op.task_key, {}, start});
+        entry->op = nullptr;
+        entry->booting = false;
         entry->processing = false;
         lock.unlock();
         this->cv.notify_all();
@@ -492,43 +524,30 @@ void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
-        // Statuses are sent after the lock is released: the write blocks on the
-        // network, and a stuck Core is exactly when timeouts fire.
-        std::vector<synnax::task::Status> timed_out;
+        // Checked after the lock is released: a warning blocks on the network, and a
+        // stuck Core is exactly when steps run late.
+        std::vector<std::shared_ptr<Operation>> running;
         {
             std::lock_guard<std::mutex> lock(this->mu);
-            for (auto &[key, entry]: this->entries) {
-                if (!entry->processing) continue;
-                auto started = entry->op_started.load();
-                if (started.nanoseconds() == 0) continue;
-                if (x::telem::TimeStamp::now() - started > this->op_timeout) {
-                    if (entry->timed_out.exchange(true)) continue;
-                    LOG(ERROR) << "task " << key << " operation timed out";
-                    synnax::task::Status status;
-                    status.owner = synnax::task::resource_id(key);
-                    status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "Failed to complete task operation";
-                    status.description = "The operation did not finish within " +
-                                         this->op_timeout.to_string() + ".";
-                    {
-                        std::lock_guard entry_lock{entry->mu};
-                        status.name = entry->row.name;
-                        status.details.config_hash = entry->op_config_hash;
-                        // running is left false: the operation is stuck, and the
-                        // instance belongs to the claiming worker while
-                        // processing.
-                        status.details.cmd = entry->op_cmd;
-                    }
-                    timed_out.push_back(std::move(status));
-                }
+            for (const auto &[_, entry]: this->entries) {
+                if (entry->op == nullptr) continue;
+                std::lock_guard entry_lock{entry->mu};
+                // The status of a task on another rack belongs to the Driver of that
+                // rack, which may be running it.
+                if (entry->row.rack == this->rack.key) running.push_back(entry->op);
             }
         }
-        for (auto &status: timed_out)
-            this->ctx->set_status(status);
+        const auto now = x::telem::TimeStamp::now();
+        for (const auto &operation: running)
+            operation->check(now);
     }
 }
 
-void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
+void Manager::execute_op(
+    const Op &op,
+    const std::shared_ptr<Entry> &entry,
+    Operation &operation
+) {
     switch (op.type) {
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
@@ -539,22 +558,25 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 auto [fetched, err] = this->rack.tasks.retrieve(op.task_key);
                 if (err) {
                     LOG(WARNING) << "failed to retrieve task for start: " << err;
-                    // A not-found task was deleted: a status written now would
-                    // recreate the one the delete removed. Other errors answer
-                    // the start so the sender does not wait forever.
-                    if (!err.matches(x::errors::NOT_FOUND)) {
+                    // A not-found task was deleted: a status written now would recreate
+                    // the one the delete removed. Other errors answer the start so the
+                    // sender does not wait forever, but only on the rack of the task:
+                    // every Driver fetches a task it does not know.
+                    bool ours = false;
+                    {
+                        std::lock_guard entry_lock{entry->mu};
+                        ours = entry->row.rack == this->rack.key;
+                    }
+                    if (ours && !err.matches(x::errors::NOT_FOUND)) {
+                        const auto [name, hash] = operation.task_info();
                         synnax::task::Status status;
                         status.owner = synnax::task::resource_id(op.task_key);
+                        status.name = name;
                         status.variant = synnax::status::VARIANT_ERROR;
                         status.message = "Failed to start task";
                         status.description = err.data;
-                        status.details.cmd = op.cmd.key;
-                        {
-                            std::lock_guard entry_lock{entry->mu};
-                            status.name = entry->row.name;
-                            status.details.config_hash = entry->op_config_hash;
-                        }
-                        this->ctx->set_status(status);
+                        status.details.config_hash = hash;
+                        operation.answer(status);
                     }
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
@@ -576,11 +598,12 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     this->remove(op.task_key, true);
                     break;
                 }
+                operation.set_task(tsk.name, tsk.config_hash);
                 if (op.cmd.pinned && op.cmd.config_hash != tsk.config_hash) {
-                    this->refuse_pinned_start(tsk, op.cmd);
+                    this->refuse_pinned_start(tsk, operation);
                     break;
                 }
-                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
+                this->announce_start(tsk.key, operation);
                 std::string deployed;
                 {
                     std::lock_guard entry_lock{entry->mu};
@@ -588,7 +611,6 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     // save must not regress it. The fetch fills it only for a
                     // placeholder created for an unknown task.
                     if (entry->row.config_hash.empty()) entry->row = tsk;
-                    entry->op_config_hash = tsk.config_hash;
                     deployed = entry->deployed_hash;
                 }
                 // The fetch is authoritative: a live instance already built
@@ -599,11 +621,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd, this->breaker);
+                    entry->instance->exec(cmd, operation.token());
                     break;
                 }
-            } else
-                this->announce_start(tsk.key, tsk.name, tsk.config_hash, op.cmd);
+            } else {
+                operation.set_task(tsk.name, tsk.config_hash);
+                this->announce_start(tsk.key, operation);
+            }
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
@@ -613,7 +637,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 this->ctx,
                 tsk,
                 op.cmd.key,
-                this->breaker
+                operation.token()
             );
             {
                 std::lock_guard entry_lock{entry->mu};
@@ -625,7 +649,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
-                    entry->instance->exec(cmd, this->breaker);
+                    entry->instance->exec(cmd, operation.token());
                 }
                 break;
             }
@@ -642,9 +666,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                                          "' tasks. Check that the Driver and the "
                                          "Core run the same version.";
                     status.details.running = false;
-                    status.details.cmd = op.cmd.key;
                     status.details.config_hash = tsk.config_hash;
-                    this->ctx->set_status(status);
+                    operation.answer(status);
                 }
             }
             VLOG(1) << "failed to configure task: " << tsk;
@@ -653,20 +676,23 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::COMMAND: {
             if (entry->instance == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
-                if (!op.cmd.key.empty()) this->refuse_command(op);
+                // A start that failed on its own keeps its error, which says what to
+                // fix. A boot deploy is the first op of its task in a run, and a
+                // cancelled one gets no cleanup, so an error status now is its own.
+                const auto latest = this->statuses->latest(op.task_key);
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR;
+                if (op.cancelled != nullptr && op.cancelled->ended_by_stop() && !failed)
+                    this->answer_cancelled_start(op.task_key, operation);
+                else if (!op.cmd.key.empty())
+                    this->refuse_command(op.task_key, operation);
                 return;
             }
-            {
-                std::unique_lock entry_lock{entry->mu};
-                const auto name = entry->row.name;
-                const auto hash = entry->deployed_hash;
-                entry_lock.unlock();
-                this->announce_start(op.task_key, name, hash, op.cmd);
-            }
+            this->announce_start(op.task_key, operation);
             auto cmd = op.cmd;
             LOG(INFO) << "executing command " << cmd << " on task "
                       << entry->instance->name();
-            entry->instance->exec(cmd, this->breaker);
+            entry->instance->exec(cmd, operation.token());
             break;
         }
         case Op::Type::SHUTDOWN: {
@@ -706,49 +732,58 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+    // Only a boot deploy carries the stored task, and with it the stored status. A
+    // cancelled one is answered by the stop that cancelled it, or by the next run.
+    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
+        operation.token().running())
+        this->replace_interrupted_status(op.task);
 }
 
-void Manager::announce_start(
-    const synnax::task::Key &key,
-    const std::string &name,
-    const std::string &config_hash,
-    const synnax::task::Command &cmd
-) {
-    if (cmd.type != synnax::task::START_CMD_TYPE || cmd.key.empty()) return;
+void Manager::announce_start(const synnax::task::Key &key, Operation &operation) {
+    if (operation.cmd.type != synnax::task::START_CMD_TYPE || operation.cmd.key.empty())
+        return;
+    const auto [name, hash] = operation.task_info();
     synnax::task::Status status;
     status.owner = synnax::task::resource_id(key);
     status.name = name;
     status.variant = synnax::status::VARIANT_LOADING;
     status.message = "Starting task";
     status.details.running = false;
-    status.details.cmd = cmd.key;
-    status.details.config_hash = config_hash;
-    this->ctx->set_status(status);
+    status.details.config_hash = hash;
+    operation.step(status, this->op_timeout);
 }
 
-void Manager::fail_interrupted_start(const synnax::task::Task &tsk) {
-    if (!tsk.status.has_value() ||
-        tsk.status->variant != synnax::status::VARIANT_LOADING)
-        return;
+void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+    // A task that answered its own deploy, such as with an auto-start, owns its status.
+    if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
+    // A task moved here runs on its old Driver until a start arrives.
+    if (tsk.status->details.rack != this->rack.key) return;
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
-    // disables Start and Stop while a start is loading.
+    // disables Start and Stop while a start is loading. One that stops a running task
+    // leaves it shown as running, with no data.
+    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    if (!starting && !tsk.status->details.running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
-    status.variant = synnax::status::VARIANT_ERROR;
-    status.message = "Failed to start task";
-    status.description = this->runs == 1
-                           ? "The Driver restarted while the task was starting. "
-                             "Start the task again."
-                           : "The Driver lost its connection to the Core while the "
-                             "task was starting. Start the task again.";
     status.details.running = false;
+    const std::string cause = this->runs == 1
+                                ? "The Driver restarted"
+                                : "The Driver lost its connection to the Core";
+    if (starting) {
+        status.variant = synnax::status::VARIANT_ERROR;
+        status.message = "Failed to start task";
+        status.description = cause +
+                             " while the task was starting. Start the task again.";
+    } else {
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = "Task stopped";
+        status.description = cause +
+                             " while the task was running. Start the task again.";
+    }
     this->ctx->set_status(status);
 }
 
-void Manager::refuse_pinned_start(
-    const synnax::task::Task &tsk,
-    const synnax::task::Command &cmd
-) {
+void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation) {
     LOG(INFO) << "refusing start pinned to a stale config for task " << tsk;
     synnax::task::Status status;
     status.owner = synnax::task::resource_id(tsk.key);
@@ -757,7 +792,6 @@ void Manager::refuse_pinned_start(
     status.message = "Config changed";
     status.description = "The task config changed after you saw it. Review the task, "
                          "then start it again.";
-    status.details.cmd = cmd.key;
     // The live instance runs on as it was, so the status keeps the stored running state
     // and config hash.
     auto [stored, err] = this->ctx->client->statuses
@@ -772,13 +806,13 @@ void Manager::refuse_pinned_start(
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }
-    this->ctx->set_status(status);
+    operation.answer(status);
 }
 
-void Manager::refuse_command(const Op &op) {
+void Manager::refuse_command(const synnax::task::Key &key, Operation &operation) {
     // Only a Driver that tried to deploy the task holds a status for it. After a rack
     // move, another Driver may still run the task and answer.
-    auto latest = this->statuses->latest(op.task_key);
+    auto latest = this->statuses->latest(key);
     if (!latest.has_value()) return;
     auto status = std::move(*latest);
     // A latest error, such as a failed configure, says why the task is not running.
@@ -790,8 +824,23 @@ void Manager::refuse_command(const Op &op) {
     }
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    status.details.cmd = op.cmd.key;
-    this->ctx->set_status(status);
+    operation.answer(status);
+}
+
+void Manager::answer_cancelled_start(
+    const synnax::task::Key &key,
+    Operation &operation
+) {
+    const auto [name, hash] = operation.task_info();
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(key);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Stopped task";
+    status.description = "The stop cancelled the start.";
+    status.details.running = false;
+    status.details.config_hash = hash;
+    operation.answer(status);
 }
 
 void Manager::clear_deploy(const std::shared_ptr<Entry> &entry) {

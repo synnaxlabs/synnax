@@ -16,6 +16,7 @@
 #include <string_view>
 #include <thread>
 #include <tuple>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -235,14 +236,26 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
     return {this->slave_list, x::errors::NIL};
 }
 
-std::pair<size_t, x::errors::Error> Master::count_slaves() {
+std::pair<master::Change, x::errors::Error> Master::changed() {
     if (!this->initialized)
         return {
-            0,
+            {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
         };
-    const int count = this->api->count_bus_slaves();
-    return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
+    const int count = std::max(this->api->count_bus_slaves(), 0);
+    if (std::cmp_not_equal(count, this->slave_list.size()))
+        return {master::Change{.stale = true}, x::errors::NIL};
+    // A restarted slave answers in INIT, or not at all at the address the scan gave it.
+    this->api->readstate();
+    master::Change change;
+    for (const auto &slave: this->slave_list) {
+        const auto pos = slave.properties.position;
+        if (static_cast<uint8_t>(slave::from_al_state(this->record(pos).state)) <
+            static_cast<uint8_t>(slave.status.state))
+            change.restarted.insert(pos);
+    }
+    change.stale = !change.restarted.empty();
+    return {change, x::errors::NIL};
 }
 
 x::errors::Error Master::write_parameters(
@@ -356,16 +369,20 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
-    std::vector<uint16_t> parameterized;
+    // A startup parameter can change the PDO assignment of a slave, and the scan read
+    // only the SII of a starting slave.
+    std::vector<uint16_t> rereads;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         const auto pos = static_cast<uint16_t>(i);
         auto config = this->config(pos);
         this->record(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
+        if (config.enabled && (!config.startup_parameters.empty() ||
+                               this->slave_list[pos - 1].status.starting))
+            rereads.push_back(pos);
         if (!config.enabled || config.startup_parameters.empty()) {
             this->api->set_PO2SOconfig(pos, nullptr);
             continue;
         }
-        parameterized.push_back(pos);
         this->api->set_PO2SOconfig(
             pos,
             [this, params = std::move(config.startup_parameters)](uint16_t p) {
@@ -413,14 +430,19 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     }
     if (!failures.empty()) return {.err = x::errors::Error(type, failures)};
 
-    // A startup parameter can change the slave's PDO assignment.
-    for (const auto pos: parameterized) {
+    for (const auto pos: rereads) {
         auto result = this->discover_slave(pos);
         auto &scanned = this->slave_list[pos - 1];
-        result.properties.serial = scanned.properties.serial;
-        result.status.serial_error = std::move(scanned.status.serial_error);
+        if (scanned.status.starting && !result.status.starting) {
+            this->read_serial(result);
+            this->read_settings(result);
+        } else {
+            result.properties.serial = scanned.properties.serial;
+            result.status.serial_error = std::move(scanned.status.serial_error);
+        }
         scanned = std::move(result);
     }
+    slave::clear_duplicate_serials(this->slave_list);
 
     this->api->configdc();
     // configdc makes only the frames of the reference slave's group carry the DC time.
@@ -676,8 +698,10 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
-        this->read_serial(slave);
-        this->read_settings(slave);
+        if (!slave.status.starting) {
+            this->read_serial(slave);
+            this->read_settings(slave);
+        }
         this->slave_list.push_back(std::move(slave));
     }
     slave::clear_duplicate_serials(this->slave_list);
@@ -739,8 +763,12 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
+    const auto state = result.status.state;
+    result.status.starting = state == slave::State::INIT ||
+                             state == slave::State::BOOT ||
+                             state == slave::State::UNKNOWN;
     Description unshared;
-    const auto model = this->read_model(pos);
+    const auto model = result.status.starting ? std::nullopt : this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;
     this->discover_slave_pdos(result, description);
     result.properties.op_modes = this->read_op_modes(pos, description);
@@ -881,7 +909,8 @@ void Master::discover_slave_pdos(
     auto &props = slave.properties;
     const auto pos = props.position;
     x::errors::Error layout_err;
-    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0 &&
+        !slave.status.starting) {
         coe::Read read = [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);
         };

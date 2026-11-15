@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -482,13 +483,39 @@ TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
     );
 }
 
-/// @brief it should return the number of slaves that answer on the bus.
-TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
+/// @brief it should report a change once another number of slaves answers.
+TEST_F(SOEMMasterTest, ChangedOnceAnotherNumberOfSlavesAnswers) {
     this->initialize_with_slave();
-    this->mock->bus_slaves = 3;
-    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 3);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
     this->mock->bus_slaves = 0;
-    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
+    EXPECT_TRUE(ASSERT_NIL_P(this->master->changed()).stale);
+}
+
+/// @brief it should report a change once a slave falls below its state at the scan, as
+/// after a restart.
+TEST_F(SOEMMasterTest, ChangedOnceASlaveRestarts) {
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    EXPECT_TRUE(this->master->restarts_visible());
+    const auto unchanged = ASSERT_NIL_P(this->master->changed());
+    EXPECT_FALSE(unchanged.stale);
+    EXPECT_TRUE(unchanged.restarted.empty());
+    this->mock->slave_infos[1].bus_state = EC_STATE_INIT;
+    const auto change = ASSERT_NIL_P(this->master->changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_EQ(change.restarted, std::set<uint16_t>{2});
+}
+
+/// @brief it should report no change for a slave that stays below PRE-OP from the scan
+/// on, so that the scan is not repeated for it.
+TEST_F(SOEMMasterTest, ChangedNotForASlaveThatStaysInInit) {
+    this->add_default_slave();
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    this->mock->slave_infos[0].bus_state = EC_STATE_INIT;
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_EQ(slaves[0].status.state, slave::State::INIT);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
 }
 
 /// @brief it should name and type each PDO entry from the CoE object dictionary of the
@@ -1096,6 +1123,32 @@ MockSlaveInfo create_coe_slave(const uint32_t serial) {
     slave.mbx_proto = ECT_MBXPROT_COE;
     slave.sdo_objects = {{{0x1018, 4}, serial}};
     return slave;
+}
+
+/// @brief it should read nothing through the mailbox of a slave below PRE-OP, and mark
+/// it as starting.
+TEST_F(SOEMMasterTest, ScanMarksASlaveBelowPreOpAsStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (const uint16_t state: {EC_STATE_INIT, EC_STATE_BOOT}) {
+        auto slave = create_coe_slave(0x5555);
+        slave.eep_ser = state;
+        slave.bus_state = state;
+        this->add_slave(slave);
+    }
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_EQ(slaves.size(), 3);
+    for (const auto &slave: {slaves[0], slaves[1]}) {
+        EXPECT_TRUE(slave.status.starting);
+        EXPECT_EQ(
+            slave.properties.serial,
+            slave.properties.position == 1 ? EC_STATE_INIT : EC_STATE_BOOT
+        );
+        EXPECT_TRUE(slave.status.serial_error.empty());
+        EXPECT_TRUE(slave.status.settings_error.empty());
+    }
+    EXPECT_FALSE(slaves[2].status.starting);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
 }
 
 /// @brief it should read the serial number of a slave from its CoE identity object.
@@ -2124,19 +2177,8 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
 /// back, but only while a frame came back less than a second before, even when the
 /// sends fail.
 TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
-    const auto clock = x::loop::fake_clock();
-    auto api = std::make_unique<MockAPI>();
-    this->mock = api.get();
-    this->master = std::make_unique<Master>(
-        std::move(api),
-        "eth0",
-        Config{
-            .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MINUTE,
-            .init_timeout = x::telem::MILLISECOND * 100,
-            .clock = clock,
-        }
-    );
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->mock->usb_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     this->initialize_with_slave();
@@ -2144,7 +2186,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = -1;
-    clock.sleep(x::telem::SECOND - x::telem::MILLISECOND);
+    clock.skip(x::telem::SECOND - x::telem::MILLISECOND);
     ASSERT_NIL(this->master->send());
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
@@ -2153,7 +2195,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
         "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
         "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
     );
-    clock.sleep(x::telem::MILLISECOND);
+    clock.skip(x::telem::MILLISECOND);
     this->mock->send_return = 0;
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto dead = this->master->receive();
@@ -3244,6 +3286,58 @@ TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
     this->configs = {{1, {.startup_parameters = {RANGE}}}};
     this->activate_master();
     EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
+}
+
+/// @brief it should read the CoE serial number of a parameterized slave that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAParameterizedSlaveThatWasStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
+}
+
+/// @brief it should read again a slave with no startup parameters that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAStartingSlaveWithNoStartupParameters) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
+}
+
+/// @brief it should give serial number 0 to a slave that the activation reads with the
+/// serial number of a slave before it.
+TEST_F(SOEMMasterTest, ActivateGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (int i = 0; i < 2; i++) {
+        auto slave = create_coe_slave(0x5555);
+        slave.bus_state = EC_STATE_INIT;
+        this->add_slave(slave);
+    }
+    ASSERT_NIL_P(this->master->scan());
+    this->mock->statecheck_overrides.clear();
+    for (auto &info: this->mock->slave_infos)
+        info.bus_state.reset();
+    this->activate_master();
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
 }
 
 /// @brief it should keep the failed serial read of a parameterized slave after

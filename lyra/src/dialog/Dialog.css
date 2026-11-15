@@ -92,6 +92,11 @@
     }
 }
 
+/* Every floating dialog shares one fill. A shade prop or a component rule wins. */
+:where(.lyra-dialog__dialog:not(.lyra--modal)) {
+    background-color: var(--pluto-gray-l1-l2);
+}
+
 .lyra-dialog__frame.lyra--anchored {
     display: contents;
 }

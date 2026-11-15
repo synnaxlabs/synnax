@@ -13,6 +13,7 @@
 #include <format>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -37,6 +38,44 @@ const x::telem::Rate MAX_CYCLE_RATE(10000);
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long each step of a start may run before the task warns.
+const auto WAIT_STEP_LIMIT = x::telem::SECOND * 10;
+const auto SCAN_STEP_LIMIT = x::telem::SECOND * 10;
+const auto ACTIVATE_STEP_LIMIT = x::telem::SECOND * 30;
+const auto RESET_STEP_LIMIT = x::telem::SECOND * 10;
+/// @brief how long a retry step may run past its wait.
+const auto RETRY_STEP_SLACK = x::telem::SECOND * 10;
+
+/// @brief sends step to the report of start, if it has one.
+void report(const Engine::Start &start, const Engine::Step &step) {
+    if (start.report) start.report(step);
+}
+
+/// @brief returns the error of an open whose cancel stopped before the bus started. The
+/// task answers a start that ends with it as stopped.
+x::errors::Error start_canceled_error(const std::string &network) {
+    return x::errors::Error(
+        x::errors::CANCELLED,
+        "The Driver stopped the start on " + network + "."
+    );
+}
+
+/// @brief returns the error of a start whose deadline passed before its first try.
+x::errors::Error start_late_error(const std::string &network) {
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "The start on " + network + " ran out of time."
+    );
+}
+
+/// @brief returns the error of a start whose deadline passed while or after it waited
+/// for another task.
+x::errors::Error start_blocked_error(const std::string &network) {
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "Another task is still using " + network + "."
+    );
+}
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
 constexpr double BUFFER_SECONDS = 2;
 constexpr size_t MIN_BUFFER_SAMPLES = 16;
@@ -145,9 +184,7 @@ void advise_switch(
         refusal.advice = "Restart the power of the device.";
         return;
     }
-    const auto mode = props.settings->value("mode", x::json::json::object());
-    auto program = mode.value("shared_with", "");
-    if (program.empty()) program = mode.value("only_read_by", "");
+    const auto program = props.shared_with();
     if (program.empty()) return;
     refusal.advice = std::format(
         "{}The device is set up for {}. In Configure, switch the device to Synnax.",
@@ -171,6 +208,33 @@ x::errors::Error left_out_error(
     );
     if (!refusal.advice.empty()) msg.append(" ").append(refusal.advice);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
+}
+
+/// @brief returns a sentence for each slave of bus that another program sets up and
+/// that has startup parameters in counts, keyed by position.
+std::string unapplied(
+    const std::vector<slave::DiscoveryResult> &bus,
+    const std::map<uint16_t, size_t> &counts
+) {
+    std::string text;
+    for (const auto &s: bus) {
+        const auto &props = s.properties;
+        const auto it = counts.find(props.position);
+        if (it == counts.end() || it->second == 0 || !props.shared()) continue;
+        const bool one = it->second == 1;
+        if (!text.empty()) text += ' ';
+        text += std::format(
+            "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
+            "setting{}. Remove {}, or switch the device to Synnax in Configure.",
+            props.position,
+            props.name,
+            props.shared_with(),
+            it->second,
+            one ? "" : "s",
+            one ? "it" : "them"
+        );
+    }
+    return text;
 }
 }
 
@@ -206,22 +270,10 @@ Engine::Input::Input(
     const size_t samples_per_read
 ):
     rate(rate), samples_per_read(samples_per_read) {
-    std::vector<uint16_t> positions;
-    positions.reserve(entries.size());
-    for (const auto &entry: entries)
-        positions.push_back(entry.slave_position);
-    std::ranges::sort(positions);
-    const auto [last, end] = std::ranges::unique(positions);
-    positions.erase(last, end);
-    this->slaves = std::vector<Slave>(positions.size());
-    for (size_t i = 0; i < positions.size(); ++i) {
-        auto &slave = this->slaves[i];
-        slave.position = positions[i];
-        const auto it = std::ranges::find(bus, slave.position, [](const auto &s) {
-            return s.properties.position;
-        });
-        if (it != bus.end()) slave.name = it->properties.name;
-    }
+    const auto slaves = slaves_of(entries, bus);
+    this->slaves = std::vector<Slave>(slaves.size());
+    for (size_t i = 0; i < slaves.size(); ++i)
+        std::tie(this->slaves[i].position, this->slaves[i].name) = slaves[i];
     this->entries.reserve(entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto &entry = entries[i];
@@ -266,6 +318,47 @@ void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
         std::lock_guard lock(this->mu);
         this->cv.notify_one();
     }
+}
+
+void Engine::Output::update(const Outage &out) {
+    bool any = false;
+    for (auto &slave: this->slaves) {
+        const bool now = std::ranges::binary_search(out.positions, slave.position);
+        const bool silent = std::ranges::binary_search(out.silent, slave.position);
+        const bool was = slave.out.exchange(now, std::memory_order_relaxed);
+        if (slave.silent.exchange(silent, std::memory_order_relaxed) == silent &&
+            was == now)
+            continue;
+        if (was && !now) slave.returned.store(true, std::memory_order_relaxed);
+        any = true;
+    }
+    if (any && this->changed) this->changed();
+}
+
+std::vector<std::pair<uint16_t, std::string>> Engine::slaves_of(
+    const std::vector<pdo::Entry> &entries,
+    const std::vector<slave::DiscoveryResult> &bus
+) {
+    std::vector<std::pair<uint16_t, std::string>> slaves;
+    slaves.reserve(entries.size());
+    for (const auto &entry: entries)
+        slaves.emplace_back(entry.slave_position, "");
+    std::ranges::sort(slaves);
+    const auto [last, end] = std::ranges::unique(slaves);
+    slaves.erase(last, end);
+    for (auto &[position, name]: slaves) {
+        const auto it = std::ranges::find(bus, position, [](const auto &s) {
+            return s.properties.position;
+        });
+        if (it != bus.end()) name = it->properties.name;
+    }
+    return slaves;
+}
+
+std::string
+Engine::out_of_op(const uint16_t position, const std::string &name, const bool silent) {
+    if (silent) return std::format("Lost contact with slave {} ({}).", position, name);
+    return std::format("Slave {} ({}) is not in OP.", position, name);
 }
 
 bool Engine::Input::lose(const Outage &out) {
@@ -465,6 +558,7 @@ void Engine::supervise() {
         auto health = this->master->check(this->bus);
         for (const auto &[pos, left]: this->left_out)
             health.push_back({.position = pos, .refusal = left.refusal});
+        std::vector<uint16_t> restarted;
         for (const auto &h: health) {
             if (h.refusal) continue;
             const auto prev = std::ranges::find(
@@ -472,6 +566,11 @@ void Engine::supervise() {
                 h.position,
                 &slave::Health::position
             );
+            // A power restart brings a lost slave back in INIT or BOOT, and a cable
+            // pull that trips its watchdog brings it back in SAFE-OP.
+            if (prev != last.end() && prev->lost && !h.lost &&
+                (h.state == slave::State::INIT || h.state == slave::State::BOOT))
+                restarted.push_back(h.position);
             const bool was_operational = prev == last.end() || prev->operational();
             if (was_operational && !h.operational())
                 LOG(WARNING) << "[ethercat] slave " << h.position << " on "
@@ -495,12 +594,28 @@ void Engine::supervise() {
                                        ? 0
                                        : it->second.inputs);
         }
+        if (!restarted.empty()) {
+            const auto now = this->config.host_clock.now();
+            std::lock_guard lock(this->restarts_mu);
+            for (const auto &s: this->image.slaves)
+                if (std::ranges::find(restarted, s.properties.position) !=
+                    restarted.end()) {
+                    LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
+                              << this->iface << " restarted";
+                    this->restarts[restart_key(s.properties)] = now;
+                }
+        }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
         if (next != published) {
-            std::lock_guard lock(this->outage_mu);
-            this->outage = next;
-            this->outage_version.fetch_add(1, std::memory_order_release);
+            std::lock_guard outputs_lock(this->outputs_mu);
+            {
+                std::lock_guard lock(this->outage_mu);
+                this->outage = next;
+                this->outage_version.fetch_add(1, std::memory_order_release);
+            }
+            for (const auto &output: this->outputs)
+                output->update(next);
             published = std::move(next);
         }
         {
@@ -512,8 +627,12 @@ void Engine::supervise() {
     }
 }
 
-x::errors::Error
-Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> configs) {
+x::errors::Error Engine::start_locked(
+    const uint64_t mhz,
+    const std::vector<SavedSlave> &saved,
+    const Settings &settings,
+    const Start &start
+) {
     const auto start_cycle = [this, mhz](const master::Image &image) {
         this->image = image;
         {
@@ -528,25 +647,58 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
     };
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
-        .slaves = std::move(configs),
     };
     this->left_out.clear();
+    // The activation brings a restarted slave up, so changed() misses it afterwards.
+    auto [change, change_err] = this->changed_locked();
+    if (change_err) return change_err;
+    auto &restarted = change.restarted;
+    // The cached scan holds the setup from before the restart.
+    if (!restarted.empty()) this->master->deactivate();
     std::set<uint16_t> reset;
-    x::breaker::Breaker retry(this->config.start_retry);
-    retry.start();
     const auto &clock = this->config.host_clock;
-    const auto started = clock.steady();
+    const auto &retry = this->config.start_retry;
+    int failures = 0;
     x::telem::TimeSpan longest_try(0);
+    if (clock.steady() >= start.deadline)
+        return start.blocked ? start_blocked_error(this->network_name)
+                             : start_late_error(this->network_name);
     while (true) {
+        if (!start.cancel.running()) return start_canceled_error(this->network_name);
         const auto try_started = clock.steady();
-        auto [slaves, err] = this->master->scan();
+        auto [slaves, err] = this->scan_locked();
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            this->track_restarts_locked(std::exchange(restarted, {}));
+            std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+            // The next scan reads the serial numbers again.
+            if (err.matches(errors::ACTIVATION_ERROR)) this->master->deactivate();
+        }
+        if (!err) {
             for (const auto &s: this->slaves)
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
                     it->second.startup_parameters.clear();
+            const auto starting = std::ranges::count_if(
+                this->slaves,
+                [&plan](const slave::DiscoveryResult &s) {
+                    const auto it = plan.slaves.find(s.properties.position);
+                    return it == plan.slaves.end() || it->second.enabled;
+                }
+            );
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "Bringing {} slave{} to OP.",
+                        starting,
+                        starting == 1 ? "" : "s"
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
             auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
@@ -569,6 +721,24 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
                     LOG(WARNING)
                         << "[ethercat] slave " << pos << " on " << this->iface << " "
                         << refusal.reason << ", starting again with it reset";
+                    const auto s = std::ranges::find_if(
+                        this->slaves,
+                        [pos](const auto &d) { return d.properties.position == pos; }
+                    );
+                    report(
+                        start,
+                        {
+                            .message = std::format(
+                                "Resetting slave {} ({})",
+                                pos,
+                                s == this->slaves.end() ? "" : s->properties.name
+                            ),
+                            .description = errors::sentence("It " + refusal.reason) +
+                                           " Starting " + this->network_name +
+                                           " again with it reset.",
+                            .limit = RESET_STEP_LIMIT,
+                        }
+                    );
                     continue;
                 }
                 leaving.insert({pos, refusal});
@@ -586,12 +756,10 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
             else
                 this->master->deactivate();
             if (!refused.empty() && io_left) {
-                for (const auto &[pos, refusal]: leaving) {
+                for (const auto &[pos, refusal]: leaving)
                     LOG(WARNING)
                         << "[ethercat] starting " << this->iface << " without slave "
                         << pos << ": it " << refusal.reason;
-                    plan.slaves[pos].enabled = false;
-                }
                 for (const auto &s: this->slaves)
                     if (const auto it = leaving.find(s.properties.position);
                         it != leaving.end())
@@ -604,21 +772,36 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         }
         const auto now = clock.steady();
         longest_try = std::max(longest_try, x::telem::TimeSpan(now - try_started));
-        const auto next_try_end = x::telem::TimeSpan(now - started) +
-                                  this->config.start_retry.max_interval + longest_try;
+        const auto wait = retry.interval(static_cast<size_t>(++failures));
         // A retry cannot clear a refused state, a setting a slave aborts, or a slave
-        // config that cannot run. A try that ends after start_timeout hides its error
+        // config that cannot run. A try that ends after the deadline hides its error
         // behind the task timeout.
         if (err.matches(errors::STATE_CHANGE_REFUSED) ||
             err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
             err.matches(errors::SLAVE_CONFIG_ERROR) ||
-            next_try_end > this->config.start_timeout || !retry.wait(err)) {
-            retry.stop();
+            (retry.max_retries != x::breaker::RETRY_INFINITELY &&
+             failures > retry.max_retries) ||
+            now + (retry.max_interval + longest_try).chrono() > start.deadline)
             return start_error(err, refused, this->left_out);
-        }
+        LOG(WARNING) << "[ethercat] failed to start " << this->iface
+                     << ", trying again in " << wait << ": " << err.message();
+        const auto why = errors::sentence(err.data);
+        report(
+            start,
+            {
+                .message = "Retrying the start",
+                .description = (why.empty() ? "" : why + " ") + "Trying again in " +
+                               wait.to_string() + ".",
+                .limit = wait + RETRY_STEP_SLACK,
+            }
+        );
+        start.cancel.wait_for(wait);
     }
-    retry.stop();
     this->slaves = this->image.slaves;
+    this->unchecked.clear();
+    for (const auto &[pos, cfg]: plan.slaves)
+        if (!cfg.enabled) this->unchecked.insert(pos);
+    this->track_restarts_locked({});
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
@@ -629,6 +812,23 @@ void Engine::stop_locked() {
     this->stops++;
     this->cycle_thread.join();
     if (this->supervisor_thread.joinable()) this->supervisor_thread.join();
+    // The supervisor counts the restarts of the slaves it checks, where changed() also
+    // reports a slave stuck in INIT.
+    if (auto [change, err] = this->changed_locked(); err)
+        LOG(WARNING) << "[ethercat] failed to check " << this->iface
+                     << " for restarted slaves: " << err.message();
+    else {
+        std::erase_if(change.restarted, [this](const uint16_t pos) {
+            return !this->unchecked.contains(pos);
+        });
+        this->track_restarts_locked(change.restarted);
+        // A slave off the bus now restarts when its power returns, so the scan that
+        // finds it again gives it a new time.
+        if (change.stale)
+            if (const auto scan_err = this->rescan_locked({}).second)
+                LOG(WARNING) << "[ethercat] failed to scan " << this->iface
+                             << " for slaves off the bus: " << scan_err.message();
+    }
     this->master->deactivate();
     this->image = {};
     this->cycle_mhz.store(0, std::memory_order_release);
@@ -646,13 +846,92 @@ void Engine::stop_locked() {
     this->slave_health.clear();
 }
 
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
-Engine::read_slave_configs(std::unique_lock<std::mutex> &lock) const {
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_locked(
+    const std::vector<SavedSlave> &saved,
+    const Settings &settings
+) const {
+    std::vector<slave::Identity> identities;
+    identities.reserve(saved.size());
+    for (const auto &s: saved)
+        identities.push_back(s.identity);
+    const auto found = slave::locate(identities, this->slaves);
+    std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, const slave::Identity *> owners;
+    for (size_t i = 0; i < saved.size(); ++i) {
+        const auto position = found[i];
+        if (!position) continue;
+        const auto &[identity, config] = saved[i];
+        const auto [owner, added] = owners.emplace(*position, &identity);
+        if (added) {
+            configs[*position] = config;
+            continue;
+        }
+        if (configs[*position] == config) continue;
+        const auto label = [](const slave::Identity &id) {
+            return id.serial == 0 ? id.name
+                                  : std::format("{} (serial {})", id.name, id.serial);
+        };
+        auto first = label(*owner->second);
+        auto second = label(identity);
+        if (second < first) std::swap(first, second);
+        // A scan that reads the serial number tells which of the two is on the bus.
+        if (const auto live = std::ranges::find(
+                this->slaves,
+                *position,
+                [](const slave::DiscoveryResult &d) { return d.properties.position; }
+            );
+            (owner->second->serial != 0 || identity.serial != 0) &&
+            live != this->slaves.end() && live->status.serial_unread())
+            return {
+                {},
+                x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    errors::sentence(
+                        std::format(
+                            "{} and {} are both saved for slave {} on {} with different "
+                            "settings, and the slave did not give its serial number: {}",
+                            first,
+                            second,
+                            *position,
+                            this->network_name,
+                            live->status.starting ? "it is still starting up"
+                                                  : live->status.serial_error
+                        )
+                    )
+                )
+            };
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved for slave {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    *position,
+                    this->network_name
+                )
+            )
+        };
+    }
+    for (const auto &[pos, params]: settings)
+        configs[pos].add_startup_parameters(params);
+    for (const auto &[pos, _]: this->left_out)
+        configs[pos].enabled = false;
+    return {configs, x::errors::NIL};
+}
+
+std::pair<std::vector<SavedSlave>, x::errors::Error> Engine::read_slave_configs(
+    std::unique_lock<std::mutex> &lock,
+    const Start &start
+) const {
     while (!this->running()) {
         const auto stops = this->stops;
         lock.unlock();
         auto result = this->config.slave_configs();
-        lock.lock();
+        if (auto err = this->lock_for(lock, start)) return {{}, err};
         // A bus that ran during the read may have run with newer settings.
         if (this->stops == stops) return result;
     }
@@ -767,7 +1046,10 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     std::lock_guard lock(this->mu);
     {
         std::lock_guard write_lock(this->write_mu);
-        std::erase(this->outputs, output);
+        {
+            std::lock_guard outputs_lock(this->outputs_mu);
+            std::erase(this->outputs, output);
+        }
         for (size_t i = 0; i < output->entries.size(); ++i) {
             const auto &entry = output->entries[i];
             const auto &offset = output->offsets[i];
@@ -839,9 +1121,11 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate rate,
     const bool output,
-    const Settings &settings
+    const Settings &settings,
+    const Start &start
 ) {
-    auto [configs, configs_err] = this->read_slave_configs(lock);
+    const auto [saved, configs_err] = this->read_slave_configs(lock, start);
+    if (!lock.owns_lock()) return {{}, configs_err};
     if (auto err = this->check_settings_locked(settings)) return {{}, err};
     auto reads = this->read_rates_locked();
     auto writes = this->write_rates_locked();
@@ -849,12 +1133,33 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
+    std::set<uint16_t> positions;
     if (started) {
         if (configs_err) return {{}, configs_err};
-        for (const auto &[pos, params]: settings)
-            configs[pos].add_startup_parameters(params);
-        if (auto err = this->start_locked(mhz, std::move(configs)); err)
+        if (auto err = this->start_locked(mhz, saved, settings, start))
             return {{}, err};
+        // The start planned on this scan, so the plan finds the same slaves.
+        auto [configs, plan_err] = this->plan_locked(saved, {});
+        if (plan_err) {
+            this->stop_locked();
+            return {{}, plan_err};
+        }
+        this->device_configs = std::move(configs);
+        for (const auto &[pos, _]: this->device_configs)
+            positions.insert(pos);
+    } else {
+        for (const auto &entry: entries)
+            positions.insert(entry.slave_position);
+    }
+    for (const auto &[pos, _]: settings)
+        positions.insert(pos);
+    std::map<uint16_t, size_t> counts;
+    for (const auto pos: positions) {
+        const auto it = this->device_configs.find(pos);
+        auto cfg = it == this->device_configs.end() ? slave::Config{} : it->second;
+        if (const auto params = settings.find(pos); params != settings.end())
+            cfg.add_startup_parameters(params->second);
+        counts[pos] = cfg.startup_parameters.size();
     }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
@@ -872,21 +1177,49 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
         }
-    return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
+    return {
+        {
+            .mhz = mhz,
+            .offsets = std::move(offsets),
+            .unapplied = unapplied(this->slaves, counts),
+        },
+        x::errors::NIL
+    };
+}
+
+Engine::Start Engine::begin_start(
+    x::breaker::Breaker &cancel,
+    std::function<void(const Step &)> report
+) const {
+    return {
+        .deadline = this->config.host_clock.steady() +
+                    this->config.start_timeout.chrono(),
+        .cancel = cancel,
+        .report = std::move(report),
+    };
 }
 
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate sample_rate,
     const size_t samples_per_read,
+    const Start &start,
     const Settings &settings
 ) {
     this->opens.fetch_add(1, std::memory_order_acq_rel);
     x::defer::defer done([this] {
         this->opens.fetch_sub(1, std::memory_order_acq_rel);
     });
-    std::unique_lock lock(this->mu);
-    auto [joined, err] = this->join_locked(lock, entries, sample_rate, false, settings);
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto lock_err = this->lock_for(lock, start)) return {nullptr, lock_err};
+    auto [joined, err] = this->join_locked(
+        lock,
+        entries,
+        sample_rate,
+        false,
+        settings,
+        start
+    );
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
         entries,
@@ -896,6 +1229,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         samples_per_read
     );
     input->settings = settings;
+    input->unapplied = std::move(joined.unapplied);
     this->inputs.push_back(input);
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
@@ -903,7 +1237,9 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<Writer::Entry> &entries,
-    const x::telem::Rate execution_rate
+    const x::telem::Rate execution_rate,
+    const Start &start,
+    std::function<void()> changed
 ) {
     std::vector<pdo::Entry> pdo_entries;
     std::vector<x::telem::SampleValue> stop_values;
@@ -917,16 +1253,43 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     x::defer::defer done([this] {
         this->opens.fetch_sub(1, std::memory_order_acq_rel);
     });
-    std::unique_lock lock(this->mu);
-    auto [joined, err] = this->join_locked(lock, pdo_entries, execution_rate, true, {});
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto lock_err = this->lock_for(lock, start)) return {nullptr, lock_err};
+    auto [joined, err] = this->join_locked(
+        lock,
+        pdo_entries,
+        execution_rate,
+        true,
+        {},
+        start
+    );
     if (err) return {nullptr, err};
+    const auto slaves = slaves_of(pdo_entries, this->image.slaves);
     auto output = std::make_shared<Output>(Output{
         .entries = std::move(pdo_entries),
         .rate = execution_rate,
         .offsets = std::move(joined.offsets),
         .stop_values = std::move(stop_values),
+        .unapplied = std::move(joined.unapplied),
+        .slaves = std::vector<Output::Slave>(slaves.size()),
+        .changed = std::move(changed),
     });
-    this->outputs.push_back(output);
+    {
+        std::scoped_lock lock(this->outputs_mu, this->outage_mu);
+        for (size_t i = 0; i < slaves.size(); ++i) {
+            auto &slave = output->slaves[i];
+            std::tie(slave.position, slave.name) = slaves[i];
+            slave.out = std::ranges::binary_search(
+                this->outage.positions,
+                slave.position
+            );
+            slave.silent = std::ranges::binary_search(
+                this->outage.silent,
+                slave.position
+            );
+        }
+        this->outputs.push_back(output);
+    }
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Writer>(*this, std::move(output)), x::errors::NIL};
 }
@@ -939,24 +1302,70 @@ x::telem::Rate Engine::cycle_rate() const {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::discover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) return {this->slaves, x::errors::NIL};
-    auto [slaves, err] = this->master->scan();
-    if (err) return {{}, err};
-    const auto [count, count_err] = this->master->count_slaves();
-    if (count_err) return {{}, count_err};
-    if (count != slaves.size()) {
-        LOG(INFO) << "[ethercat] " << count << " slaves answer on " << this->iface
-                  << " where " << slaves.size() << " were discovered, rediscovering";
-        return this->rediscover_locked();
+    return this->discover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::discover(const Start &start) {
+    std::unique_lock lock(this->mu, std::defer_lock);
+    if (auto err = this->lock_for(lock, start)) return {{}, err};
+    if (!this->running())
+        report(
+            start,
+            {.message = "Scanning " + this->network_name, .limit = SCAN_STEP_LIMIT}
+        );
+    return this->discover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::discover_locked() {
+    if (this->running()) {
+        this->track_restarts_locked({});
+        return {this->slaves, x::errors::NIL};
     }
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    auto [slaves, err] = this->scan_locked();
+    if (err) return {{}, err};
+    const auto [change, change_err] = this->master->changed();
+    if (change_err) return {{}, change_err};
+    if (change.stale) {
+        LOG(INFO) << "[ethercat] the slaves on " << this->iface
+                  << " changed since the last discovery, rediscovering";
+        return this->rescan_locked(change.restarted);
+    }
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) return {this->slaves, x::errors::NIL};
+    if (this->running()) {
+        this->track_restarts_locked({});
+        return {this->slaves, x::errors::NIL};
+    }
     return this->rediscover_locked();
+}
+
+x::errors::Error
+Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
+    // A wait of one poll is a short hold, such as a notify of the cycle thread.
+    for (int polls = 0; !lock.try_lock(); polls++) {
+        if (polls == 1)
+            report(
+                start,
+                {
+                    .message = "Waiting for another task",
+                    .description = "Another task is using " + this->network_name + ".",
+                    .limit = WAIT_STEP_LIMIT,
+                }
+            );
+        start.blocked = true;
+        if (!start.cancel.running()) return start_canceled_error(this->network_name);
+        if (this->config.host_clock.steady() >= start.deadline)
+            return start_blocked_error(this->network_name);
+        start.cancel.wait_for(LOCK_POLL_INTERVAL);
+    }
+    return x::errors::NIL;
 }
 
 std::pair<std::unique_lock<std::mutex>, x::errors::Error> Engine::lock_stopped() {
@@ -1019,11 +1428,65 @@ Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_in
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rediscover_locked() {
-    this->master->deactivate();
-    auto [slaves, err] = this->master->scan();
+    const auto [change, err] = this->changed_locked();
     if (err) return {{}, err};
-    this->slaves = slaves;
-    return {std::move(slaves), x::errors::NIL};
+    return this->rescan_locked(change.restarted);
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::scan_locked() {
+    auto result = this->master->scan();
+    // A filter that blocks the replies leaves the slaves running.
+    if (const auto &err = result.second;
+        err.matches(errors::NO_SLAVES_FOUND) && !err.matches(errors::REPLIES_BLOCKED)) {
+        this->slaves.clear();
+        this->track_restarts_locked({});
+    }
+    return result;
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::rescan_locked(const std::set<uint16_t> &restarted) {
+    this->master->deactivate();
+    auto [slaves, err] = this->scan_locked();
+    if (err) return {{}, err};
+    this->slaves = std::move(slaves);
+    this->track_restarts_locked(restarted);
+    return {this->slaves, x::errors::NIL};
+}
+
+std::pair<master::Change, x::errors::Error> Engine::changed_locked() {
+    if (!this->master->restarts_visible()) return {{}, x::errors::NIL};
+    auto [change, err] = this->master->changed();
+    // A master that has no scan has nothing to compare.
+    if (err.matches(errors::MASTER_INIT_ERROR)) return {{}, x::errors::NIL};
+    return {std::move(change), err};
+}
+
+Engine::RestartKey Engine::restart_key(const slave::Properties &props) {
+    return {
+        props.vendor_id,
+        props.product_code,
+        props.serial,
+        props.serial == 0 ? props.position : uint16_t{0},
+    };
+}
+
+void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
+    if (!this->master->restarts_visible()) return;
+    const auto now = this->config.host_clock.now();
+    std::lock_guard lock(this->restarts_mu);
+    decltype(this->restarts) found;
+    for (auto &slave: this->slaves) {
+        const auto &props = slave.properties;
+        const auto key = restart_key(props);
+        const auto it = this->restarts.find(key);
+        const auto at = it == this->restarts.end() || restarted.contains(props.position)
+                          ? now
+                          : it->second;
+        found[key] = at;
+        slave.restarted_at = at;
+    }
+    this->restarts = std::move(found);
 }
 
 std::pair<std::vector<pdo::Offset>, x::errors::Error>
