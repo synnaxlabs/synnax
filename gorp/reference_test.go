@@ -12,6 +12,7 @@ package gorp_test
 import (
 	"context"
 	"slices"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,6 +76,14 @@ type refGroup struct {
 }
 
 func (g refGroup) GorpKey() string { return g.Key }
+
+// refPair is keyed by the rack it references.
+type refPair struct {
+	Rack uint32
+	Name string
+}
+
+func (p refPair) GorpKey() string { return strconv.Itoa(int(p.Rack)) + "/" + p.Name }
 
 type refSchematic struct {
 	Key     string
@@ -1180,6 +1189,39 @@ var _ = Describe("Reference", func() {
 			Expect(devices.Retarget(ctx, db, "a", "b")).To(MatchError(ContainSubstring(
 				"owner: status s2 already references device b",
 			)))
+		})
+
+		It("Should refuse a rewrite that changes the key of a holder", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 2)
+			pairs := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refPair]{
+				DB:   db,
+				Name: "pair",
+				References: []gorp.Reference[string, refPair]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refPair, uint32]{
+							Name:     "rack",
+							Table:    "rack",
+							OnDelete: gorp.Cascade,
+							Kind:     gorp.Place,
+							Targets: func(p *refPair) []uint32 {
+								return []uint32{p.Rack}
+							},
+							Retarget: func(p *refPair, _, to uint32) { p.Rack = to },
+						},
+					),
+				},
+			}))
+			Expect(pairs.NewCreate().
+				Entry(&refPair{Rack: 1, Name: "a"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(racks.Retarget(ctx, db, 1, 2)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot retarget rack 1 because the key of pair 1/a holds it",
+				)),
+			))
 		})
 
 		It("Should refuse a rewrite that forms a cycle", func(ctx SpecContext) {
