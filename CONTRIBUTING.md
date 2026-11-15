@@ -44,8 +44,9 @@ request that changed in the last hour, and for a fork without `review/human` tha
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
 `gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
-the gate fails it. To merge one, a maintainer pushes its head to a branch of this
-repository and opens a pull request from that branch, which gets a normal review.
+the gate fails it. To merge one, a maintainer first reads its diff, since CI runs the
+copy with repository secrets. The maintainer then pushes its head to a branch of this
+repository and opens a `review/human` pull request from that branch.
 
 ## Review tiers
 
