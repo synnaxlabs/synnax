@@ -2442,6 +2442,31 @@ TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
 }
 
+/// @brief it should clear the sync managers of a slave below SAFE_OP before it
+/// reconfigures the slave.
+TEST_F(SOEMMasterTest, RecoveryResetsASlaveBelowSafeOpBeforeTheReconfig) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    this->supervise();
+    EXPECT_EQ(
+        this->mock->reset_slaves,
+        (std::vector<std::pair<uint16_t, size_t>>{{1, 0}})
+    );
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+}
+
+/// @brief it should not reconfigure a slave that misses the reset of its sync managers.
+TEST_F(SOEMMasterTest, RecoveryReconfiguresNoSlaveThatMissesTheReset) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->reset_return = 0;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise();
+    EXPECT_EQ(this->mock->reset_slaves.size(), 1);
+    EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
+}
+
 /// @brief it should not reconfigure a slave after the breaker stops.
 TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
     this->initialize_with_slave();

@@ -420,13 +420,13 @@ private:
     void update_lost(uint16_t pos);
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
-    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
-    /// to PRE-OP, not to OP. Takes no step for a slave that rejected a startup
-    /// parameter, so it stays in PRE-OP until the next activation. After a failed clock
-    /// restore, the next one waits from 100 ms, twice as long after each failure up to
-    /// 10 s, and the wait starts again at 100 ms once the slave reaches OP. A wait for
-    /// the clock of a DC slave ends once breaker stops.
+    /// ecatcheck sample: acknowledge an error, request OP, reset and reconfigure, or
+    /// restore a slave that lost power. A slave in SAFE-OP whose clock restore failed
+    /// goes back to PRE-OP, not to OP. Takes no step for a slave that rejected a
+    /// startup parameter, so it stays in PRE-OP until the next activation. After a
+    /// failed clock restore, the next one waits from 100 ms, twice as long after each
+    /// failure up to 10 s, and the wait starts again at 100 ms once the slave reaches
+    /// OP. A wait for the clock of a DC slave ends once breaker stops.
     void recover_slave(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a

@@ -669,7 +669,12 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && !waiting) {
+    } else if (
+        // Some slaves arm their inputs again only from cleared sync managers, as the
+        // first start leaves them, and reach OP with no inputs from a bare reconfig.
+        state > EC_STATE_NONE && !waiting &&
+        this->api->reset_slave(pos, EC_TIMEOUTRET3) == 1
+    ) {
         auto params = this->config(pos).startup_parameters;
         const bool restorable = this->restores_clock(pos);
         if (this->record(pos).hasdc && !restorable)
