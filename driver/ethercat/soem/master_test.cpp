@@ -1192,16 +1192,44 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that answers the read of its
+/// @brief it should give a serial read error for a slave that answers the read of its
 /// CoE serial number with a mailbox error.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+TEST_F(SOEMMasterTest, ScanGivesASerialErrorWhenTheSlaveGivesAMailboxError) {
     auto slave = create_coe_slave(0x5555);
     slave.eep_ser = 0xABCD;
     slave.sdo_read_mailbox_errors.insert({0x1018, 4});
     this->add_slave(slave);
-    const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
-    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
+        "failed to read 0x1018:04: the slave refused the mailbox request"
+    );
+}
+
+/// @brief it should give a serial read error for a slave that aborts the read of its
+/// CoE serial number for a reason that can pass.
+TEST_F(SOEMMasterTest, ScanGivesASerialErrorWhenTheSlaveAbortsTheReadForNow) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0x08000022;
+    this->add_slave(slave);
+    const auto scanned = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_EQ(scanned.properties.serial, 0);
+    EXPECT_EQ(
+        scanned.status.serial_error,
+        "failed to read 0x1018:04: Data cannot be transferred or stored to the "
+        "application because of the present device state"
+    );
+}
+
+/// @brief it should give a serial read error for a slave whose reply to the read of its
+/// CoE serial number is not the reply to that read, as a late reply to an earlier read.
+TEST_F(SOEMMasterTest, ScanGivesASerialErrorForAnUnexpectedReply) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_packet_errors[{0x1018, 4}] = 1;
+    this->add_slave(slave);
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
+        "failed to read 0x1018:04: the slave sent an unexpected reply"
+    );
 }
 
 /// @brief it should not read the CoE serial number of a slave without CoE.

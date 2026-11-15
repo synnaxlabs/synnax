@@ -103,6 +103,10 @@ struct SDOFailure {
     /// @brief returns why the transfer failed, such as "no response".
     [[nodiscard]] std::string reason() const;
 
+    /// @brief whether the slave aborted the transfer for a reason that a retry does not
+    /// change, such as an object that it does not have.
+    [[nodiscard]] bool permanent() const;
+
     bool operator==(const SDOFailure &) const = default;
 };
 

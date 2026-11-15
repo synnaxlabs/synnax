@@ -88,6 +88,12 @@ const x::errors::Error &startup_parameter_error(const uint32_t code) {
     return STARTUP_PARAMETER_REJECTED;
 }
 
+bool SDOFailure::permanent() const {
+    return this->kind == Kind::ABORTED &&
+           std::ranges::find(TEMPORARY_ABORTS, this->abort_code) ==
+               TEMPORARY_ABORTS.end();
+}
+
 std::string SDOFailure::reason() const {
     switch (this->kind) {
         case Kind::NO_REPLY:
