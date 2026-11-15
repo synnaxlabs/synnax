@@ -731,6 +731,26 @@ Channel struct {
 		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
 		Expect(merged).To(ContainSubstring("telem.TimeStamp"))
 	})
+
+	It("Should qualify a dependency that shares the resource name", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/channel/v0.oracle", "Code = int64\n")
+		write("schemas/x/channel.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/channel/v0"
+
+Channel struct {
+    code channel.Code
+
+    @go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/channel"`))
+		Expect(merged).To(ContainSubstring("code channel.Code"))
+	})
 	It("Should project a filter definition and carry its live annotations", func(
 		ctx SpecContext,
 	) {
