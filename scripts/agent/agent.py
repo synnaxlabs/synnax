@@ -355,8 +355,9 @@ def private_env(
 ) -> tuple[dict[str, str], list[Login]]:
     """Returns env with no GitHub token or step output files, and with the CLI state
     of the agent in out, so no later job on the runner can read the session. Each CLI
-    login is a link to the seat's file, so a refresh reaches the other jobs of the seat.
-    Call return_logins when the session ends."""
+    login is a link to the seat's file, so the session reads a refresh by another job.
+    The CLI writes its own refresh by replacing the link, so call return_logins when the
+    session ends."""
     private = {}
     logins = []
     for var, default, name, login_files, other_files in STATE:
@@ -384,9 +385,10 @@ def return_logins(logins: list[Login]) -> None:
     for link, seat, before in logins:
         if link.is_symlink() or link.read_bytes() == before:
             continue
-        staged = seat.with_name(f"{seat.name}.agent")
+        fd, staged = tempfile.mkstemp(dir=seat.parent, prefix=f"{seat.name}.")
+        os.close(fd)
         shutil.copy(link, staged)
-        staged.replace(seat)
+        Path(staged).replace(seat)
 
 
 def encrypt(text: str, *, recipient: Path) -> str:
