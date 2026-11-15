@@ -84,7 +84,6 @@ export const retrieveSlaves = async <C extends Channel>(
     schemas: SLAVE_SCHEMAS,
   });
   PlatformDevice.checkFound(slaveKeys, slaves);
-  for (const slave of slaves) PlatformDevice.checkConfigured(slave);
   const onRack = await client.devices.retrieve({
     make: MAKE,
     model: SLAVE_MODEL,

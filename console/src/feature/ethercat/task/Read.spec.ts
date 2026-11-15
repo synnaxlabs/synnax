@@ -1218,6 +1218,58 @@ describe("Read", () => {
     expect(disabled).toMatchObject({ type: "unresolved", pdo: "Input", channel: 0 });
   });
 
+  it("should show why a channel with no device cannot run", async () => {
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createReadChannel([])],
+    });
+    expect(
+      await screen.findByText("A channel has no device. Pick a device."),
+    ).toBeTruthy();
+  });
+
+  it("should show why a disabled channel with no device stops a start", async () => {
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [{ ...EtherCAT.Task.createReadChannel([]), disabled: true }],
+    });
+    expect(
+      await screen.findByText("A channel has no device. Pick a device."),
+    ).toBeTruthy();
+  });
+
+  describe("a slave that is not configured", () => {
+    const renderUnconfigured = async (): Promise<string> => {
+      const slave = await createSlaveDevice(
+        client,
+        testRack.key,
+        { identifier: "", network: "eth0", pdos: createPDOs() },
+        false,
+      );
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      });
+      return slave.name;
+    };
+
+    it("should show why its channel cannot run", async () => {
+      const name = await renderUnconfigured();
+      expect(
+        await screen.findByText(
+          `${name} is not configured. Configure it to start the task.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should not name its channel without an identifier", async () => {
+      await renderUnconfigured();
+      // The entry name shows once the channel loads the slave.
+      expect(await screen.findAllByText("Status")).not.toHaveLength(0);
+      expect(screen.queryByText("_Status")).toBeNull();
+    });
+  });
+
   it("should show why a channel with no entry cannot run", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     await renderRead({
@@ -2250,22 +2302,6 @@ describe("Read", () => {
     expect(
       await screen.findByText("At least one enabled channel is required"),
     ).toBeTruthy();
-  });
-
-  it("should surface an error when a slave is not configured", async () => {
-    const slave = await createSlaveDevice(
-      client,
-      testRack.key,
-      { identifier: createIdentifier(), network: "eth0", pdos: createPDOs() },
-      false,
-    );
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
-    });
-    await clickDeploy(container);
-    await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /is not configured/);
   });
 
   it("should create the task with one channel", async () => {

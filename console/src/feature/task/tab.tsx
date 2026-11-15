@@ -11,6 +11,7 @@ import { query } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Task as Base } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -23,7 +24,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Sift } from "@/feature/sift";
-import { getIcon } from "@/feature/task/types";
+import { getIcon, ownedChannelsOf } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
@@ -91,6 +92,14 @@ export const TAB: Panel.Tab = {
   Icon,
   restore: async ({ client, resource }) => {
     const corpse = query.requireCorpse(client.tasks.watch(resource.key).getCached());
+    const owned = unique.unique(ownedChannelsOf(corpse.payload));
+    if (owned.length > 0) {
+      const kept = await client.channels.retrieve({ where: { key: { in: owned } } });
+      if (kept.length < owned.length)
+        throw new Error(
+          "The task uses channels that were deleted. Create the task again.",
+        );
+    }
     // The status goes with the instance, not the row: a restored task has
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });
