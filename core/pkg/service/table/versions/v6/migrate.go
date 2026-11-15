@@ -22,7 +22,9 @@ import (
 // entry of the cells map moves into the row cell that references it. A row cell with no
 // config gets an empty text cell, so it keeps its column. A cell that no row references
 // is dropped. A key that more than one row cell references keeps its first cell, and
-// each later cell gets a new key with a copy of the config.
+// each later cell gets a new key with a copy of the config. Each row then holds one
+// cell per column: cells past the last column are dropped, and a short row gets empty
+// text cells with new keys.
 func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	t, err := autoMigrateTable(ctx, old)
 	if err != nil {
@@ -34,8 +36,8 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	}
 	seen := make(set.Set[string])
 	for i, row := range old.Rows {
-		cells := make([]Cell, 0, len(row.Cells))
-		for _, key := range row.Cells {
+		cells := make([]Cell, 0, len(old.Columns))
+		for _, key := range row.Cells[:min(len(row.Cells), len(old.Columns))] {
 			c := Cell{Key: key}
 			if seen.Contains(key) {
 				c.Key = newKey(key, used)
@@ -46,14 +48,23 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 					return Table{}, err
 				}
 			} else {
-				c.Config = CellConfig{Variant: TextCellConfig{}}
-				c.Config.ApplyDefaults()
+				c.Config = emptyConfig()
 			}
 			cells = append(cells, c)
+		}
+		for len(cells) < len(old.Columns) {
+			key := newKey(t.Rows[i].Key, used)
+			cells = append(cells, Cell{Key: key, Config: emptyConfig()})
 		}
 		t.Rows[i].Cells = cells
 	}
 	return t, nil
+}
+
+func emptyConfig() CellConfig {
+	c := CellConfig{Variant: TextCellConfig{}}
+	c.ApplyDefaults()
+	return c
 }
 
 // newKey returns a key derived from base that used does not hold, and adds it to used.

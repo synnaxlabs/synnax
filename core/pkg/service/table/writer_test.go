@@ -140,6 +140,34 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
+			"Should reject a row that does not hold one cell per column",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				t := table.Table{
+					Project: &proj.Key,
+					Name:    "test",
+					Rows: []table.Row{
+						{
+							Key:   "r0",
+							Size:  30,
+							Cells: []table.Cell{cell("a", textCfg(""))},
+						},
+					},
+					Columns: []table.Column{
+						{Key: "c0", Size: 80},
+						{Key: "c1", Size: 80},
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &t)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`row "r0" holds 1 cells, but the table has 2 columns`,
+					)),
+				))
+			},
+		)
+
+		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
@@ -276,6 +304,24 @@ var _ = Describe("Writer", func() {
 			))
 			Expect(retrieve(ctx, s.Key).Rows).To(HaveLen(1))
 		})
+
+		It(
+			"Should reject an action that leaves a row short of a cell",
+			func(ctx SpecContext) {
+				s := seed(ctx)
+				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
+					table.NewAddRowAction(
+						table.AddRowPayload{Index: 1, Key: "r1", Size: 30},
+					),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`row "r1" holds 0 cells, but the table has 2 columns`,
+					)),
+				))
+				Expect(retrieve(ctx, s.Key).Rows).To(HaveLen(1))
+			},
+		)
 
 		It("Should reject an action that duplicates a row key", func(ctx SpecContext) {
 			s := seed(ctx)

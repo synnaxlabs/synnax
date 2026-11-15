@@ -10,6 +10,7 @@
 package v6_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,9 +32,10 @@ var _ = Describe("Migration", func() {
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Table]{DB: db}))
 			c := func(r uint8) *color.Color { return &color.Color{R: r, A: a} }
 			old := v5.Table{
-				Key:  uuid.New(),
-				Name: "t",
-				Rows: []v5.Row{{Key: "r", Cells: []string{"text", "value"}}},
+				Key:     uuid.New(),
+				Name:    "t",
+				Rows:    []v5.Row{{Key: "r", Cells: []string{"text", "value"}}},
+				Columns: []v5.Column{{Key: "c0"}, {Key: "c1"}},
 			}
 			old.Cells = map[string]v5.CellConfig{
 				"text": {Variant: v5.TextCellConfig{FillColor: c(1), TextColor: c(2)}},
@@ -81,37 +83,42 @@ var _ = Describe("MigrateTable", func() {
 	text := func(value string) v5.CellConfig {
 		return v5.CellConfig{Variant: v5.TextCellConfig{Value: value}}
 	}
+	cell := func(key, value string) v6.Cell {
+		return v6.Cell{Key: key, Config: v6.CellConfig{
+			Variant: v6.TextCellConfig{Value: value},
+		}}
+	}
+	empty := func(key string) v6.Cell {
+		c := v6.Cell{Key: key, Config: v6.CellConfig{Variant: v6.TextCellConfig{}}}
+		c.Config.ApplyDefaults()
+		return c
+	}
+	cols := func(n int) []v5.Column {
+		c := make([]v5.Column, n)
+		for i := range c {
+			c[i] = v5.Column{Key: fmt.Sprintf("c%d", i), Size: 72}
+		}
+		return c
+	}
 	It(
 		"Should move each cell config into the row cell that references it",
 		func(ctx SpecContext) {
 			out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
 				Rows: []v5.Row{
 					{Key: "r0", Size: 40, Cells: []string{"a", "b"}},
-					{Key: "r1", Size: 50, Cells: []string{"c"}},
+					{Key: "r1", Size: 50, Cells: []string{"c", "d"}},
 				},
+				Columns: cols(2),
 				Cells: map[string]v5.CellConfig{
 					"a": text("A"),
 					"b": text("B"),
 					"c": text("C"),
+					"d": text("D"),
 				},
 			}))
 			Expect(out.Rows).To(Equal([]v6.Row{
-				{Key: "r0", Size: 40, Cells: []v6.Cell{
-					{
-						Key:    "a",
-						Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}},
-					},
-					{
-						Key:    "b",
-						Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "B"}},
-					},
-				}},
-				{Key: "r1", Size: 50, Cells: []v6.Cell{
-					{
-						Key:    "c",
-						Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "C"}},
-					},
-				}},
+				{Key: "r0", Size: 40, Cells: []v6.Cell{cell("a", "A"), cell("b", "B")}},
+				{Key: "r1", Size: 50, Cells: []v6.Cell{cell("c", "C"), cell("d", "D")}},
 			}))
 		},
 	)
@@ -119,21 +126,14 @@ var _ = Describe("MigrateTable", func() {
 		"Should give a row cell with no config an empty text cell",
 		func(ctx SpecContext) {
 			out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
-				Rows:  []v5.Row{{Key: "r", Cells: []string{"a", "missing", "b"}}},
-				Cells: map[string]v5.CellConfig{"a": text("A"), "b": text("B")},
+				Rows:    []v5.Row{{Key: "r", Cells: []string{"a", "missing", "b"}}},
+				Columns: cols(3),
+				Cells:   map[string]v5.CellConfig{"a": text("A"), "b": text("B")},
 			}))
-			empty := v6.CellConfig{Variant: v6.TextCellConfig{}}
-			empty.ApplyDefaults()
 			Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{
-				{
-					Key:    "a",
-					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}},
-				},
-				{Key: "missing", Config: empty},
-				{
-					Key:    "b",
-					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "B"}},
-				},
+				cell("a", "A"),
+				empty("missing"),
+				cell("b", "B"),
 			}))
 		},
 	)
@@ -143,32 +143,55 @@ var _ = Describe("MigrateTable", func() {
 			out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
 				Rows: []v5.Row{
 					{Key: "r0", Cells: []string{"a", "a-1"}},
-					{Key: "r1", Cells: []string{"a"}},
+					{Key: "r1", Cells: []string{"a", "b"}},
 				},
-				Cells: map[string]v5.CellConfig{"a": text("A"), "a-1": text("B")},
-			}))
-			Expect(out.Rows[0].Cells[0].Key).To(Equal("a"))
-			Expect(out.Rows[0].Cells[1].Key).To(Equal("a-1"))
-			Expect(out.Rows[1].Cells).To(Equal([]v6.Cell{
-				{
-					Key:    "a-2",
-					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}},
+				Columns: cols(2),
+				Cells: map[string]v5.CellConfig{
+					"a":   text("A"),
+					"a-1": text("B"),
+					"b":   text("C"),
 				},
 			}))
+			Expect(
+				out.Rows[0].Cells,
+			).To(Equal([]v6.Cell{cell("a", "A"), cell("a-1", "B")}))
+			Expect(
+				out.Rows[1].Cells,
+			).To(Equal([]v6.Cell{cell("a-2", "A"), cell("b", "C")}))
 		},
 	)
-	It("Should drop a cell that no row references", func(ctx SpecContext) {
+	It("Should drop the cells past the last column", func(ctx SpecContext) {
 		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
-			Rows:  []v5.Row{{Key: "r", Cells: []string{"a"}}},
-			Cells: map[string]v5.CellConfig{"a": text("A"), "orphan": text("O")},
+			Rows:    []v5.Row{{Key: "r", Cells: []string{"a", "b"}}},
+			Columns: cols(1),
+			Cells:   map[string]v5.CellConfig{"a": text("A"), "b": text("B")},
+		}))
+		Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{cell("a", "A")}))
+	})
+	It("Should fill a short row with empty text cells", func(ctx SpecContext) {
+		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
+			Rows:    []v5.Row{{Key: "r", Cells: []string{"a"}}},
+			Columns: cols(3),
+			Cells:   map[string]v5.CellConfig{"a": text("A")},
 		}))
 		Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{
-			{Key: "a", Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}}},
+			cell("a", "A"),
+			empty("r-1"),
+			empty("r-2"),
 		}))
+	})
+	It("Should drop a cell that no row references", func(ctx SpecContext) {
+		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
+			Rows:    []v5.Row{{Key: "r", Cells: []string{"a"}}},
+			Columns: cols(1),
+			Cells:   map[string]v5.CellConfig{"a": text("A"), "orphan": text("O")},
+		}))
+		Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{cell("a", "A")}))
 	})
 	It("Should store the cell color alpha as a byte", func(ctx SpecContext) {
 		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
-			Rows: []v5.Row{{Key: "r", Cells: []string{"a"}}},
+			Rows:    []v5.Row{{Key: "r", Cells: []string{"a"}}},
+			Columns: cols(1),
 			Cells: map[string]v5.CellConfig{
 				"a": {
 					Variant: v5.TextCellConfig{FillColor: &color.Color{R: 1, A: 0.5}},

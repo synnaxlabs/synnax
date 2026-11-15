@@ -605,15 +605,20 @@ describe("Table", () => {
       const c = await renderGrid(tableKey, true);
       press(c.getByText("1"), { x: 5, y: 30 });
       await frame();
+      const NEW = ["new", "new1", "new2"];
       const config = table.cellConfigZ.parse({ variant: "text", value: "cell new" });
       await client.tables.dispatch(tableKey, [
-        table.addRow({ index: 0, size: ROW_SIZE, cells: [{ key: "new", config }] }),
+        table.addRow({
+          index: 0,
+          size: ROW_SIZE,
+          cells: NEW.map((key) => ({ key, config })),
+        }),
       ]);
-      await waitFor(() => expect(c.getByText("cell new")).toBeTruthy());
+      await waitFor(() => expect(c.getAllByText("cell new")).toHaveLength(3));
       fireEvent.pointerMove(window, at({ x: 5, y: 70 }));
       await frame();
       release({ x: 5, y: 70 });
-      await expectStored(tableKey, [["new"], CELLS[1], CELLS[0], CELLS[2]]);
+      await expectStored(tableKey, [NEW, CELLS[1], CELLS[0], CELLS[2]]);
     });
 
     it("should slide the cells to preview where a column lands", async () => {

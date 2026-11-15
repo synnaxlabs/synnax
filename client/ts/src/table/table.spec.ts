@@ -146,6 +146,7 @@ describe("Table", () => {
             ],
           },
         ],
+        columns: [{}],
       });
       const retrieved = await client.tables.retrieve(t.key);
       const cfg = configOf(retrieved, "a");
