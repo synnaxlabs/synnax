@@ -253,6 +253,42 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToContain("struct Color {").
 					ToNotContain("Named")
 			})
+
+			It("Should qualify types from a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@cpp output "x/cpp/color"
+
+					Kind enum {
+						solid = 1
+						gradient = 2
+					}
+
+					Stop struct {
+						position float32
+						kind     Kind
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@cpp output "client/cpp/color"
+
+					Named struct {
+						stop color.Stop
+						kind color.Kind
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, cppPlugin)
+				ExpectContent(resp, "client/cpp/color/types.gen.h").
+					ToContain(
+						`#include "x/cpp/color/types.gen.h"`,
+						"::x::color::Stop stop;",
+						"::x::color::Kind kind = {};",
+					).
+					ToNotContain("enum class Kind")
+			})
 		})
 
 		Context("primitive type mappings", func() {

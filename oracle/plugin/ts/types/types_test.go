@@ -2689,6 +2689,43 @@ var _ = Describe("TS Types Plugin", func() {
 					)
 			})
 
+			It("Should alias an enum default that two modules export", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						name string
+					}
+				`)
+				loader.Add("schemas/synnax/look", `
+					import "schemas/synnax/color"
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						kind color.Kind = color.KindSolid
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
+					ToContain(
+						`import { color as xcolor } from "@synnaxlabs/x";`,
+						"kind: xcolor.kindZ.default(xcolor.Kind.solid),",
+					)
+			})
+
 			It("Should import types from a schema with the same file name", func(
 				ctx SpecContext,
 			) {

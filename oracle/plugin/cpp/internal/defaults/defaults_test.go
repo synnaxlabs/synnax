@@ -76,8 +76,8 @@ var _ = Describe("Renderer", func() {
 		table := testutil.MustGenerateRequest(ctx, source, "task", loader).Resolutions
 		task = MustBeOk(table.Lookup("task", "Task"))
 		renderer = defaults.Renderer{
-			Table:     table,
-			Namespace: "task",
+			Table:    table,
+			FilePath: task.FilePath,
 			TypeName: func(typeRef resolution.TypeRef) string {
 				return typeRef.Name
 			},
@@ -127,15 +127,15 @@ var _ = Describe("Renderer", func() {
 				To(Equal("COLOR_DEEP_RED"))
 		})
 
-		It("Should qualify a variant from another namespace", func() {
-			renderer.Namespace = "other"
+		It("Should qualify a variant from another schema", func() {
+			renderer.FilePath = "other.oracle"
 			Expect(renderer.EnumVariant(variant("Mode", "on"))).
 				To(Equal("::synnax::task::Mode::On"))
 		})
 
-		It("Should include the header of a variant from another namespace", func() {
+		It("Should include the header of a variant from another schema", func() {
 			var included []string
-			renderer.Namespace = "other"
+			renderer.FilePath = "other.oracle"
 			renderer.Include = func(path string) { included = append(included, path) }
 			renderer.EnumVariant(variant("Color", "deep_red"))
 			Expect(included).To(Equal([]string{"client/cpp/task/types.gen.h"}))

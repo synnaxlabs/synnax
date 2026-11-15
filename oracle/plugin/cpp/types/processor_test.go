@@ -36,9 +36,9 @@ var _ = Describe("FieldProcessor", func() {
 		item := req.Resolutions.MustGet("test.Item")
 		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
 		fp := &types.FieldProcessor{
-			Includes:  mgr,
-			Namespace: "test",
-			Table:     req.Resolutions,
+			Includes: mgr,
+			FilePath: item.FilePath,
+			Table:    req.Resolutions,
 		}
 		return fp.ProcessField(f, item)
 	}
