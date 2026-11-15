@@ -114,8 +114,8 @@
    cap, and its name fades past it. */
 .lyra-tags--stepped {
     --lyra-tags-cap: 20rem;
-    --lyra-tags-dot: 1.75rem;
-    --lyra-tags-dot-step: 1.1rem;
+    --lyra-tags-dot: calc(var(--lyra-tag-dot-scale) * 1.75rem);
+    --lyra-tags-dot-step: calc(var(--lyra-tag-dot-scale) * 1.1rem);
     --lyra-tags-dots: 1;
     --lyra-tags-gap: 0px;
 
