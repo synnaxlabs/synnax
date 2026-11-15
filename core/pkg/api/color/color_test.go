@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apicolor "github.com/synnaxlabs/synnax/pkg/api/color"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -21,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -146,6 +148,76 @@ var _ = Describe("Retrieve", func() {
 			SearchTerm: "breaker",
 		}))
 		Expect(res.Nameds).To(Equal([]color.Named{breaker, closed}))
+	})
+})
+
+var _ = Describe("Retrieve by name", func() {
+	var (
+		u     user.User
+		amber color.Named
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeColor,
+		})
+		createColor(ctx, "Valve")
+		amber = createColor(ctx, "amber")
+		createColor(ctx, "Breaker")
+	})
+	names := func(ctx SpecContext, req apicolor.RetrieveRequest) []string {
+		GinkgoHelper()
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), req))
+		return lo.Map(res.Nameds, func(n color.Named, _ int) string { return n.Name })
+	}
+	byName := &apicolor.Order{Field: apicolor.OrderFieldName}
+
+	It("Should keep the named colors whose name the filter matches", func(
+		ctx SpecContext,
+	) {
+		Expect(names(ctx, apicolor.RetrieveRequest{
+			Where: &color.Where{Name: &filter.String{Eq: new("Valve")}},
+		})).To(Equal([]string{"Valve"}))
+	})
+
+	It("Should sort the named colors by name, ignoring case", func(ctx SpecContext) {
+		Expect(names(ctx, apicolor.RetrieveRequest{Order: byName})).
+			To(Equal([]string{"amber", "Breaker", "Valve"}))
+	})
+
+	It("Should sort the named colors by name in descending order", func(
+		ctx SpecContext,
+	) {
+		Expect(names(ctx, apicolor.RetrieveRequest{
+			Order: &apicolor.Order{Field: apicolor.OrderFieldName, Descending: true},
+		})).To(Equal([]string{"Valve", "Breaker", "amber"}))
+	})
+
+	It("Should return a page that starts past the cursor", func(ctx SpecContext) {
+		Expect(names(ctx, apicolor.RetrieveRequest{
+			Order: byName,
+			After: &apicolor.Cursor{Key: amber.Key, Name: new("amber")},
+			Limit: new(uint32(1)),
+		})).To(Equal([]string{"Breaker"}))
+	})
+
+	It("Should return no named colors for a limit of zero", func(ctx SpecContext) {
+		Expect(names(ctx, apicolor.RetrieveRequest{Limit: new(uint32(0))})).
+			To(BeEmpty())
+	})
+
+	It("Should refuse a cursor with no name in an order by name", func(
+		ctx SpecContext,
+	) {
+		Expect(retrieve(AuthedCtx(ctx, u), apicolor.RetrieveRequest{
+			Order: byName,
+			After: &apicolor.Cursor{Key: amber.Key},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"after.name: is required to resume an order by name",
+			)),
+		))
 	})
 })
 

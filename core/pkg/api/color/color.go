@@ -137,6 +137,7 @@ func (s *Service) Dispatch(
 
 // DeleteRequest selects the named colors to delete.
 type DeleteRequest struct {
+	// Keys are the keys of the named colors to delete.
 	Keys []color.Key `json:"keys" msgpack:"keys"`
 }
 
