@@ -42,10 +42,19 @@
     }
 
     /* The close overlays the leading icon, so it paints the tag's face to mask
-       it, outranking the glyph default's transparent fill. */
+       it, outranking the glyph default's transparent fill. It fades on the tag's
+       clock, not the reveal's, so the mask never leads or trails the face. */
     .lyra-btn.lyra-tag__close {
         --pluto-bg: var(--lyra-tag-face);
         --pluto-hover-bg: var(--lyra-tag-face);
         --pluto-active-bg: var(--lyra-tag-face);
+
+        transition: var(--pluto-btn-transition);
+
+        & svg {
+            transition:
+                transform 0.15s ease-in-out,
+                fill 0.15s ease-in-out;
+        }
     }
 }
