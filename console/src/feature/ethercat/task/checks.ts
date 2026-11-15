@@ -224,8 +224,9 @@ interface Problem {
 
 /**
  * @returns why the task cannot start on its slaves: task-wide problems at the channel
- * list, and each problem of an enabled channel at that channel. A channel whose slave
- * is not in slaves is not checked.
+ * list, a problem with the device of each channel at its device, and each other problem
+ * of an enabled channel at that channel. Of a channel whose slave is not in slaves,
+ * only a missing device is checked.
  */
 const problemsOf = (
   pdoType: PDOType,
