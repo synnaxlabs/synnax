@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, useState } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { type position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { Tag } from "@/tag";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -296,28 +298,51 @@ const ShadowTags = ({ value }: { value: string[] }): ReactElement => (
 
 const NAMES = ["Hotfire", "Stand 2", "Pass", "Calibration", "Cold flow", "Anomaly"];
 
-// A trigger that reads as its tags, past a gutter so its dialog never meets the edge.
-interface ChipsProps {
+const RIGHT_EDGE: position.LocationPreference = {
+  targetCorner: { x: "right" },
+  dialogCorner: { x: "right" },
+};
+
+interface ChipsOptions {
+  initial?: string[];
+  // Steps the tags and opens the dialog at the right edge, as the range list does.
+  stepped?: boolean;
+  // Moves the tags down with each tag, so each change places the dialog again.
+  sinks?: boolean;
+}
+
+interface ChipsProps extends ChipsOptions {
   variant: "shadow" | "text";
   width: number;
 }
 
-const Chips = ({ variant, width }: ChipsProps): ReactElement => {
-  const [value, setValue] = useState(NAMES);
+// A trigger that reads as its tags, past a gutter so its dialog never meets the edge.
+const Chips = ({
+  variant,
+  width,
+  initial = NAMES,
+  stepped = false,
+  sinks = false,
+}: ChipsProps): ReactElement => {
+  const [value, setValue] = useState(initial);
+  const frame = (
+    <Dialog.Frame location={stepped ? RIGHT_EDGE : undefined}>
+      {sinks && <div style={{ height: `${value.length * 10}px` }} />}
+      <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
+        <Select.MultipleTrigger variant={variant} aria-label="Labels" />
+        <Select.Dialog>
+          {NAMES.map((name) => (
+            <Select.Item key={name} itemKey={name}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  );
   return (
     <div style={{ width: `${width}px`, marginLeft: "200px" }}>
-      <Dialog.Frame>
-        <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
-          <Select.MultipleTrigger variant={variant} aria-label="Labels" />
-          <Select.Dialog>
-            {NAMES.map((name) => (
-              <Select.Item key={name} itemKey={name}>
-                {name}
-              </Select.Item>
-            ))}
-          </Select.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>
+      {stepped ? <Tag.StepProvider>{frame}</Tag.StepProvider> : frame}
     </div>
   );
 };
@@ -325,8 +350,11 @@ const Chips = ({ variant, width }: ChipsProps): ReactElement => {
 const renderChips = async (
   variant: ChipsProps["variant"],
   width: number,
+  options: ChipsOptions = {},
 ): Promise<HTMLElement> => {
-  const { container } = await renderThemed(<Chips variant={variant} width={width} />);
+  const { container } = await renderThemed(
+    <Chips variant={variant} width={width} {...options} />,
+  );
   return container.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
 };
 
@@ -335,23 +363,47 @@ const chip = (trigger: HTMLElement, name: string): HTMLElement =>
     (tag) => tag.textContent === name,
   )!;
 
+const dialogBox = (): DOMRect =>
+  document.querySelector(".lyra-dialog__dialog")!.getBoundingClientRect();
+
+// Whether the open dialog sits just above or below the element.
+const meets = (el: Element): boolean => {
+  const dialog = dialogBox();
+  const box = el.getBoundingClientRect();
+  const y = Math.min(
+    Math.abs(dialog.top - box.bottom),
+    Math.abs(dialog.bottom - box.top),
+  );
+  return y < 6;
+};
+
 // Whether the open dialog lines up with an edge of the element and sits just above or
 // below it.
 const besides = (el: Element): boolean => {
-  const dialog = document
-    .querySelector(".lyra-dialog__dialog")!
-    .getBoundingClientRect();
+  const dialog = dialogBox();
   const box = el.getBoundingClientRect();
   const x = Math.min(
     Math.abs(dialog.left - box.left),
     Math.abs(dialog.right - box.right),
   );
-  const y = Math.min(
-    Math.abs(dialog.top - box.bottom),
-    Math.abs(dialog.bottom - box.top),
-  );
-  return x < 2 && y < 6;
+  return x < 2 && meets(el);
 };
+
+const inWindow = (): boolean => {
+  const dialog = dialogBox();
+  return dialog.left >= 0 && dialog.right <= window.innerWidth;
+};
+
+// Opens the dialog at the tag and returns its x once it shows.
+const openAt = async (tag: HTMLElement): Promise<number> => {
+  await userEvent.click(tag);
+  const dialog = page.getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return dialogBox().left;
+};
+
+const pick = (name: string): Promise<void> =>
+  userEvent.click(page.getByRole("option", { name, exact: true }));
 
 const renderSearchless = async (
   multiple: boolean,
@@ -637,6 +689,87 @@ describe("Select", () => {
         );
         expect(trigger.contains(hit)).toBe(false);
       }
+    });
+
+    describe("dialog opened at a tag", () => {
+      const VIEWPORT = { width: window.innerWidth, height: window.innerHeight };
+      beforeEach(async () => {
+        await page.viewport(1200, 800);
+      });
+      afterEach(async () => {
+        await page.viewport(VIEWPORT.width, VIEWPORT.height);
+      });
+
+      it("should keep its x but follow its tag down as tags are added", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        for (const name of ["Hotfire", "Stand 2", "Cold flow"]) {
+          await pick(name);
+          await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+          expect(dialogBox().left).toBe(left);
+        }
+      });
+
+      it("should keep its x as tags go", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Calibration"));
+        for (const name of ["Hotfire", "Stand 2"]) {
+          await pick(name);
+          await expect.poll(() => meets(chip(trigger, "Calibration"))).toBe(true);
+          expect(dialogBox().left).toBe(left);
+        }
+      });
+
+      it("should keep its x when its tag folds into the count", async () => {
+        const trigger = await renderChips("shadow", 120, {
+          initial: ["Pass"],
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        await pick("Hotfire");
+        await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+        expect(dialogBox().left).toBe(left);
+        await pick("Stand 2");
+        await pick("Cold flow");
+        await expect
+          .poll(() => chip(trigger, "Pass").hasAttribute("data-hidden"))
+          .toBe(true);
+        expect(dialogBox().left).toBe(left);
+      });
+
+      it("should stay in the window when its tag goes and the window narrows", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        await pick("Pass");
+        await expect.poll(() => chip(trigger, "Pass")).toBeUndefined();
+        expect(dialogBox().left).toBe(left);
+        await page.viewport(300, 800);
+        await expect.poll(inWindow).toBe(true);
+      });
+
+      it("should go back beside its tag when the window resizes", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+          sinks: true,
+        });
+        await openAt(chip(trigger, "Pass"));
+        await pick("Stand 2");
+        await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+        await page.viewport(1100, 800);
+        await expect.poll(() => besides(chip(trigger, "Pass"))).toBe(true);
+      });
     });
   });
 

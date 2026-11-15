@@ -122,6 +122,21 @@ const openDropdown = async (content: ReactNode): Promise<HTMLElement> => {
   return trigger;
 };
 
+/** A dropdown whose trigger grows to the left on a click in the dropdown. */
+const Growing = (): ReactElement => {
+  const [name, setName] = useState("Menu");
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", width: "300px" }}>
+      <Dialog.Frame>
+        <Dialog.Trigger>{name}</Dialog.Trigger>
+        <Dialog.Dialog>
+          <button onClick={() => setName("A much longer menu")}>Grow</button>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </div>
+  );
+};
+
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
 const Pick = (): ReactElement => {
   const { close } = Dialog.useContext();
@@ -253,6 +268,20 @@ describe("Dialog", () => {
       const t = trigger.getBoundingClientRect();
       const d = dialog.getBoundingClientRect();
       expect(d.top >= t.bottom || d.bottom <= t.top).toBe(true);
+    });
+
+    it("should follow its trigger as the trigger moves", async () => {
+      await renderThemed(<Growing />);
+      await userEvent.click(button("Menu"));
+      const dialog = page.getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      const before = dialog.getBoundingClientRect().left;
+      await userEvent.click(button("Grow"));
+      const trigger = button("A much longer menu");
+      await expect
+        .poll(() => dialog.getBoundingClientRect().left)
+        .toBeCloseTo(trigger.getBoundingClientRect().left, 0);
+      expect(dialog.getBoundingClientRect().left).toBeLessThan(before);
     });
 
     it("should cap the height of tall content", async () => {

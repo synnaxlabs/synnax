@@ -93,7 +93,9 @@ export interface ContextValue {
   toggle: () => void;
   /**
    * Opens the dialog against `target`, a part of the trigger such as one of its tags,
-   * or closes it when it is already open there.
+   * or closes it when it is already open there. While open, the dialog keeps the x of
+   * its first placement until the window resizes, so a change to the tags does not
+   * move it sideways.
    */
   toggleAt: (target: HTMLElement) => void;
   visible: boolean;
@@ -257,6 +259,9 @@ export const Frame = ({
   const setVisibleRef = useSyncedRef(setVisible);
   // The part of the trigger the dialog opened against, if not the whole frame.
   const [openedAt, setOpenedAt] = useState<HTMLElement | null>(null);
+  // The x a dialog opened at a tag keeps, and the tag's last box for when it goes.
+  const heldLeft = useRef<number | null>(null);
+  const openedAtBox = useRef<box.Box>(box.ZERO);
   const close = () => setVisibleRef.current(false);
   const open = () => {
     setOpenedAt(null);
@@ -268,6 +273,7 @@ export const Frame = ({
   };
   const toggleAt = (target: HTMLElement) => {
     if (visible && openedAt === target) return close();
+    heldLeft.current = null;
     setOpenedAt(target);
     setVisibleRef.current(true);
   };
@@ -292,10 +298,12 @@ export const Frame = ({
   const calculatePosition = () => {
     const targetEl = anchorEl ?? targetRef.current;
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
-    const target = box.construct(targetEl);
-    // The tag it opened at can go as the dialog changes the value. It stays put then.
-    if (box.areaIsZero(target) && targetEl === openedAt) return;
-    if (box.areaIsZero(target) && variant !== "modal") return close();
+    let target = box.construct(targetEl);
+    const atTag = targetEl === openedAt;
+    // The tag can go or fold into the count as the dialog changes the value.
+    if (atTag && box.areaIsZero(target)) target = openedAtBox.current;
+    else if (atTag) openedAtBox.current = target;
+    else if (box.areaIsZero(target) && variant !== "modal") return close();
 
     // Layout size, not the painted box: the entrance animation scales the dialog.
     const { offsetWidth, offsetHeight } = dialogRef.current;
@@ -344,7 +352,12 @@ export const Frame = ({
     });
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
-    const roundedDialog = box.round(adjustedDialog);
+    let roundedDialog = box.round(adjustedDialog);
+    if (atTag) {
+      const left = heldLeft.current ?? box.left(roundedDialog);
+      heldLeft.current = left;
+      roundedDialog = box.translate(roundedDialog, "x", left - box.left(roundedDialog));
+    }
     if (
       positionsEqual(roundedDialog, prevBox.current) &&
       prevWindowBox.current != null &&
@@ -400,7 +413,10 @@ export const Frame = ({
     return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
   }, [open]);
 
-  useWindowResize(calculatePosition);
+  useWindowResize(() => {
+    heldLeft.current = null;
+    calculatePosition();
+  });
 
   const exclude = (e: MouseEvent) => {
     if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
