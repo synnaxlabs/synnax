@@ -211,18 +211,16 @@ describe("Custom.useRender", () => {
       ]);
     });
 
-    it("should give the drawing the paint attributes of the root", () => {
+    it("should give the drawing the root attributes other than size and paint", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" width="100" height="100" fill="none" stroke-width="2"><rect width="50" height="50"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" width="100" height="100" fill="none" stroke="#000000" stroke-width="2"><rect width="50" height="50"/></svg>',
       });
       renderAttached({ activeState: "inactive", spec }, container);
       const drawing = container.children[0];
-      expect(Array.from(drawing.attributes, ({ name }) => name).sort()).toEqual([
-        "fill",
+      expect(Array.from(drawing.attributes, ({ name }) => name)).toEqual([
         "stroke-width",
       ]);
-      expect(drawing.getAttribute("fill")).toBe("none");
       expect(drawing.getAttribute("stroke-width")).toBe("2");
     });
   });

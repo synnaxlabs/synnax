@@ -222,6 +222,48 @@ describe("Custom.Drawing symbol color", () => {
   });
 });
 
+const ROOT_PAINT_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="red" stroke="blue">' +
+    '<rect class="bare" width="10" height="10"/></svg>',
+  states: [],
+};
+
+const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
+  [
+    "static symbol",
+    <Primitive.Div key="static">
+      <Custom.Drawing spec={ROOT_PAINT_SPEC} />
+    </Primitive.Div>,
+  ],
+  [
+    "enabled actuator",
+    <Toggle.Button key="actuator" enabled>
+      <Custom.Drawing spec={ROOT_PAINT_SPEC} enabled />
+    </Toggle.Button>,
+  ],
+];
+
+describe("Custom.Drawing root paint", () => {
+  it.each(ROOT_PAINT_SYMBOLS)(
+    "should paint the shapes of a %s as the symbol paints its root",
+    async (_, symbol) => {
+      const { container } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>{symbol}</Theming.Provider>,
+      );
+      const svg = container.querySelector("svg");
+      const shape = container.querySelector(".bare");
+      if (svg == null || shape == null) throw new Error("custom symbol not mounted");
+      const paint = (el: Element) => {
+        const { fill, stroke } = getComputedStyle(el);
+        return { fill, stroke };
+      };
+      expect(paint(shape)).toEqual(paint(svg));
+    },
+  );
+});
+
 const HOLD_DELAY = 10_000;
 const HOLD_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +

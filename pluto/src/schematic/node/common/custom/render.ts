@@ -19,14 +19,17 @@ import { Region } from "@/schematic/node/common/region";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
-// The container sizes the drawing, so these root attributes stay behind.
-const VIEWPORT_ATTRIBUTES = new Set([
+// Primitive.SVG sizes the drawing, and the symbol CSS overrides the fill and stroke of
+// the root, so these root attributes stay behind.
+const ROOT_ONLY_ATTRIBUTES = new Set([
   "width",
   "height",
   "viewBox",
   "x",
   "y",
   "preserveAspectRatio",
+  "fill",
+  "stroke",
 ]);
 
 const iterElements = (
@@ -150,8 +153,8 @@ const selectState = ({
 export const isValidSVG = (svg: string): boolean => Region.measure(svg) != null;
 
 // buildDrawing moves the contents of root into one new <g> in the host. The <g> takes
-// the root's paint attributes, so shapes inherit them as they did from the root. The
-// caller re-applies state colors and stroke scaling afterwards.
+// the other root attributes, such as stroke-width. The caller re-applies state colors
+// and stroke scaling afterwards.
 const buildDrawing = (
   host: Element,
   state: RenderState,
@@ -161,7 +164,7 @@ const buildDrawing = (
   state.drawing?.remove();
   const drawing = root.ownerDocument.createElementNS(SVG_NAMESPACE, "g");
   for (const { namespaceURI, name, value } of Array.from(root.attributes))
-    if (namespaceURI !== XMLNS_NAMESPACE && !VIEWPORT_ATTRIBUTES.has(name))
+    if (namespaceURI !== XMLNS_NAMESPACE && !ROOT_ONLY_ATTRIBUTES.has(name))
       drawing.setAttributeNS(namespaceURI, name, value);
   while (root.firstChild != null) drawing.appendChild(root.firstChild);
   host.appendChild(drawing);
