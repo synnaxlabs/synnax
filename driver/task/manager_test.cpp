@@ -1229,6 +1229,8 @@ TEST_F(TaskManagerTest, Timeout) {
     f->release_all();
 }
 
+/// @brief it should write no timeout status for a task that moved to another rack while
+/// its operation was stuck.
 TEST_F(TaskManagerTest, TimeoutForTaskOnOtherRackStaysSilent) {
     auto factory = std::make_unique<TimeoutTaskFactory>();
     auto *f = factory.get();
