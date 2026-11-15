@@ -244,10 +244,11 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
 void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
-        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so a Driver with an empty mirror starts optimistic and
-        // converges as transfers arrive on the stream.
+        // The mirror of an earlier run may hold control that ended during an outage.
+        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
+        // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
+        this->control_states->set({});
         return;
     }
     this->control_states->set(states);
@@ -616,6 +617,7 @@ void Manager::execute_op(
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
+            bool running = false;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -694,15 +696,22 @@ void Manager::execute_op(
                     std::lock_guard entry_lock{entry->mu};
                     deployed = entry->deployed_hash;
                 }
-                // The instance ran on through a lost Core connection, so it keeps its
-                // status too.
-                if (entry->instance != nullptr && deployed == tsk.config_hash) return;
+                const auto latest = this->statuses->latest(tsk.key);
+                running = latest.has_value() && latest->details.running;
+                // An instance that ran on through a lost Core connection keeps its
+                // status too. One whose task stopped, such as on an error, deploys
+                // again.
+                if (entry->instance != nullptr && deployed == tsk.config_hash &&
+                    running)
+                    return;
                 operation.set_task(tsk.name, tsk.config_hash);
                 this->announce_start(tsk.key, operation);
             }
             if (entry->instance != nullptr) {
-                // No start follows a boot deploy, so the old instance reports its stop.
-                entry->instance->stop(op.task.key.is_nil());
+                // A start follows a deploy for a command. At boot, a running instance
+                // reports its own stop, and a stopped one keeps the status that says
+                // why.
+                entry->instance->stop(!running);
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;
