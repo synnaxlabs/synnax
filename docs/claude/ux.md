@@ -319,6 +319,8 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- The placeholder of an empty `shadow` or `text` multiple select is a text button. A
+  click on it opens the select beside it, as a click on a tag does.
 - A click on a tag opens its select beside that tag. While the select is open, a change
   to the tags never moves it sideways. It keeps its first x until the window resizes. If
   the tag goes or folds into the count, the select stays where it is, in the window.

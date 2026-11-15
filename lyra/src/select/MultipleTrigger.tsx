@@ -108,15 +108,17 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
+const PLACEHOLDER_CLASS = CSS.B("select-multiple-trigger-placeholder");
+
 // The parts of a trigger that reads as its tags, each of which opens it.
-const CHIP = `.${CSS.B("tag")}, .${CSS.BE("tags", "more")}`;
+const CHIP = `.${CSS.B("tag")}, .${CSS.BE("tags", "more")}, .${PLACEHOLDER_CLASS}`;
 
 /**
  * The button of a {@link Multiple} selection, showing one removable tag per entry. A
- * shadow or text trigger reads as its tags: each tag and the count opens the dialog
- * beside itself, and the room around them takes no clicks. A shadow trigger's tags
- * have no remove buttons. In a list item, an empty shadow trigger shows its
- * placeholder on hover only.
+ * shadow or text trigger reads as its tags: each tag, the count, and the placeholder
+ * of an empty trigger opens the dialog beside itself, and the room around them takes
+ * no clicks. A shadow trigger's tags have no remove buttons. In a list item, an empty
+ * shadow trigger shows its placeholder on hover only.
  */
 export const MultipleTrigger = <
   K extends record.Key,
@@ -219,23 +221,38 @@ export const MultipleTrigger = <
       grow
       {...itemStatus}
     >
-      {value.length === 0 && (
-        <Text.Text
-          className={CSS.cls(
-            CSS.B("select-multiple-trigger-placeholder"),
-            variant === "shadow" && CSS.M("reveal"),
-          )}
-        >
-          {preview === true ? (
-            "None"
-          ) : (
-            <>
-              {icon}
-              {placeholder}
-            </>
-          )}
-        </Text.Text>
-      )}
+      {value.length === 0 &&
+        (preview !== true && (variant === "shadow" || variant === "text") ? (
+          // A chip like the tags: a text button that hands its click to the trigger.
+          <Button.Button
+            el="div"
+            variant="text"
+            size="tiny"
+            level="p"
+            propagateClick
+            reveal={variant === "shadow"}
+            className={PLACEHOLDER_CLASS}
+          >
+            {icon}
+            {placeholder}
+          </Button.Button>
+        ) : (
+          <Text.Text
+            className={CSS.cls(
+              PLACEHOLDER_CLASS,
+              variant === "shadow" && CSS.M("reveal"),
+            )}
+          >
+            {preview === true ? (
+              "None"
+            ) : (
+              <>
+                {icon}
+                {placeholder}
+              </>
+            )}
+          </Text.Text>
+        ))}
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
       )}

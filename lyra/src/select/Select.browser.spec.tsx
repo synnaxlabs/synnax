@@ -312,7 +312,7 @@ interface ChipsOptions {
 }
 
 interface ChipsProps extends ChipsOptions {
-  variant: "shadow" | "text";
+  variant: "outlined" | "shadow" | "text";
   width: number;
 }
 
@@ -401,6 +401,11 @@ const openAt = async (tag: HTMLElement): Promise<number> => {
   await expect.poll(() => computed(dialog, "opacity")).toBe("1");
   return dialogBox().left;
 };
+
+const placeholderOf = (trigger: HTMLElement): HTMLElement =>
+  trigger.querySelector<HTMLElement>(
+    ":scope > .lyra-select-multiple-trigger-placeholder",
+  )!;
 
 const pick = (name: string): Promise<void> =>
   userEvent.click(page.getByRole("option", { name, exact: true }));
@@ -679,6 +684,32 @@ describe("Select", () => {
       await expect.poll(() => besides(add)).toBe(true);
     });
 
+    it("should light its placeholder as a text button on hover and press", async () => {
+      for (const variant of ["shadow", "text"] as const) {
+        const trigger = await renderChips(variant, 800, { initial: [] });
+        const placeholder = placeholderOf(trigger);
+        expect(placeholder.hasAttribute("tabindex")).toBe(false);
+        expect(computed(placeholder, "font-weight")).toBe(
+          computed(trigger, "font-weight"),
+        );
+        await userEvent.hover(placeholder);
+        expect(computed(placeholder, "background-color")).toBe(
+          resolve("var(--pluto-fill-hover)"),
+        );
+        placeholder.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        await expect
+          .poll(() => computed(placeholder, "background-color"))
+          .toBe(resolve("var(--pluto-fill-press)"));
+        document.dispatchEvent(new MouseEvent("mouseup"));
+        await userEvent.unhover(placeholder);
+      }
+    });
+
+    it("should keep the placeholder of an outlined trigger as text", async () => {
+      const trigger = await renderChips("outlined", 800, { initial: [] });
+      expect(placeholderOf(trigger).classList.contains("lyra-btn")).toBe(false);
+    });
+
     it("should take no clicks in the room around its tags", async () => {
       for (const variant of ["shadow", "text"] as const) {
         const trigger = await renderChips(variant, 800);
@@ -698,6 +729,16 @@ describe("Select", () => {
       });
       afterEach(async () => {
         await page.viewport(VIEWPORT.width, VIEWPORT.height);
+      });
+
+      it("should open beside the placeholder of an empty trigger", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: [],
+          stepped: true,
+        });
+        const placeholder = placeholderOf(trigger);
+        await userEvent.click(placeholder);
+        await expect.poll(() => besides(placeholder)).toBe(true);
       });
 
       it("should keep its x but follow its tag down as tags are added", async () => {
