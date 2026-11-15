@@ -299,6 +299,9 @@ private:
         /// whole share of a slave that is lost or below SAFE-OP, and the output part of
         /// a slave in SAFE-OP.
         uint32_t shortfall = 0;
+        /// @brief the output parts alone. A slave that recovery brings to SAFE-OP gives
+        /// its inputs again before the supervisor sees its new state.
+        uint32_t least_shortfall = 0;
 
         bool operator==(const Outage &) const = default;
     };

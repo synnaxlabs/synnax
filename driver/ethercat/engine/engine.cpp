@@ -507,8 +507,7 @@ void Engine::run() {
                 this->cycle_err = err;
             }
         }
-        // A cycle short by exactly what the slaves out of OP miss drops only their
-        // inputs.
+        // A cycle short by what the slaves out of OP can miss drops only their inputs.
         const Outage *out = nullptr;
         if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
             if (this->outage_version.load(std::memory_order_acquire) !=
@@ -517,7 +516,9 @@ void Engine::run() {
                 outage = this->outage;
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
-            if (this->master->shortfall() == outage.shortfall) {
+            if (const auto missed = this->master->shortfall();
+                missed && *missed >= outage.least_shortfall &&
+                *missed <= outage.shortfall) {
                 out = &outage;
                 latched_at = sent_at + lead;
                 host_timed = true;
@@ -588,11 +589,13 @@ void Engine::supervise() {
             next.positions.push_back(h.position);
             if (h.lost) next.silent.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
-            if (const auto it = shares.find(h.position); it != shares.end())
+            if (const auto it = shares.find(h.position); it != shares.end()) {
+                next.least_shortfall += it->second.outputs;
                 next.shortfall += it->second.outputs +
                                   (!h.lost && h.state == slave::State::SAFE_OP
                                        ? 0
                                        : it->second.inputs);
+            }
         }
         if (!restarted.empty()) {
             const auto now = this->config.host_clock.now();

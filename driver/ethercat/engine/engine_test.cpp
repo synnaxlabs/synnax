@@ -3103,6 +3103,28 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
 }
 
+/// @brief it should keep the samples of the other readers while a lost slave that
+/// recovery brought to SAFE-OP gives its inputs before the supervisor sees it there.
+TEST_F(EngineTest, ShortCycleOfARecoveredSlaveKeepsTheOtherReaders) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(2);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+}
+
 /// @brief it should tell a writer once when its slave leaves OP and once when it
 /// returns, and end the return warning at the next transaction.
 TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {
