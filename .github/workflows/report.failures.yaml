@@ -7,17 +7,14 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-
-# Posts to Slack when a scheduled run fails. Test - HITL and Check - Runners post their
-# own failures, because their messages carry more than a link.
+# Posts to Slack when a scheduled run fails, at most once a day while a workflow keeps
+# failing. Workflows that post their own reports to Slack are not watched.
 name: Report - Failures
 
 on:
   workflow_run:
     workflows:
       - Agent - Bug hunt
-      - Agent - Console QA
-      - Agent - Lint
       - Agent - Nightly
       - Agent - Shepherd
       - Check - Rulesets
@@ -28,31 +25,46 @@ on:
       - Relay - Sweep
       - Report - Agents
       - Report - Sedosaur
-      - Security
       - Sync - Runner webhook ranges
       - Warm - Browsers
       - Warm - Windows
     types:
       - completed
 
-permissions: {}
+permissions:
+  actions: read
 
 jobs:
   report:
     name: Report
     if: >-
-      github.event.workflow_run.event == 'schedule' &&
-      contains(fromJSON('["failure", "timed_out", "startup_failure"]'),
-      github.event.workflow_run.conclusion)
+      github.event.workflow_run.event == 'schedule' && contains(fromJSON('["failure",
+      "timed_out", "startup_failure"]'), github.event.workflow_run.conclusion)
     runs-on: ubuntu-latest
     steps:
       - name: Post the failure to Slack
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
           WORKFLOW: ${{ github.event.workflow_run.name }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          CREATED: ${{ github.event.workflow_run.created_at }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
+          # 23 hours, so a daily workflow still posts each day it fails.
+          since=$(date -u -d "@$(($(date -u -d "$CREATED" +%s) - 82800))" +%FT%TZ)
+          earlier=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+            -X GET -f event=schedule -f created=">=$since" -F per_page=100 |
+            jq --arg created "$CREATED" '[.workflow_runs[]
+              | select(.created_at < $created)
+              | select(.conclusion | IN("failure", "timed_out", "startup_failure"))]
+              | length')
+          if [ "$earlier" -gt 0 ]; then
+            echo "$WORKFLOW already failed in the last 23 hours"
+            exit 0
+          fi
           text="Scheduled run of $WORKFLOW ended in $CONCLUSION: $RUN_URL"
           jq --null-input --arg text "$text" '{text: $text}' |
             curl --fail --silent --show-error \

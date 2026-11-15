@@ -8,17 +8,25 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / "workflows"
-# These post their own failures to Slack.
-SELF_REPORTING = {"Check - Runners", "Test - HITL"}
+# These post their own reports to Slack, failures included.
+SELF_REPORTING = {
+    "Agent - Console QA",
+    "Agent - Lint",
+    "Check - Runners",
+    "Security",
+    "Test - HITL",
+}
 
 
-def load(path: Path) -> dict:
+def load(path: Path) -> dict[Any, Any]:
     # YAML 1.1 reads the bare `on` key as True.
-    return yaml.safe_load(path.read_text())
+    workflow: dict[Any, Any] = yaml.safe_load(path.read_text())
+    return workflow
 
 
 def test_every_scheduled_workflow_reports_its_failures() -> None:
