@@ -72,7 +72,7 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
 namespace {
 /// @brief asserts that the pipeline retries a streamer open failing twice with
 /// open_err, then succeeds.
-void assert_open_retries(const x::errors::Error &open_err) {
+void assert_open_retries(const x::errors::Error &open_err, const int max_retries = 2) {
     auto fr_1 = x::telem::Frame(1);
     fr_1.emplace(1, x::telem::Series(1.0));
     auto fr_2 = x::telem::Frame(1);
@@ -110,7 +110,7 @@ void assert_open_retries(const x::errors::Error &open_err) {
         sink,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
-            .max_retries = 2,
+            .max_retries = max_retries,
         }
     );
 
@@ -127,6 +127,12 @@ void assert_open_retries(const x::errors::Error &open_err) {
 /// @brief it should retry opening streamer on unreachable error and succeed.
 TEST(ControlPipeline, testOpenRetrySuccessful) {
     assert_open_retries(freighter::UNREACHABLE);
+}
+
+/// @brief it should open the streamer again while the Core is unreachable, past the
+/// retry limit of the breaker.
+TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
+    assert_open_retries(freighter::UNREACHABLE, 1);
 }
 
 /// @brief it should wait out an unlicensed Core and succeed once it is licensed.

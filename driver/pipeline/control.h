@@ -53,8 +53,7 @@ public:
 
     /// @brief closes the streamer, returning any error that occurred during normal
     /// operation. If synnax::errors::is_temporarily_unavailable matches the returned
-    /// error, the control pipeline will trigger a breaker (temporary backoff), and then
-    /// retry until the configured number of maximum retries is exceeded. Any other
+    /// error, the control pipeline backs off and retries with no retry limit. Any other
     /// error will be considered permanent and the pipeline will exit.
     virtual x::errors::Error close() = 0;
 
@@ -73,9 +72,8 @@ class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
     /// an error if one occurs. If synnax::errors::is_temporarily_unavailable matches
-    /// the error, the control pipeline will trigger a breaker (temporary backoff), and
-    /// then retry until the configured number of maximum retries is exceeded. Any other
-    /// error is considered permanent and the pipeline will exit.
+    /// the error, the control pipeline backs off and retries with no retry limit. Any
+    /// other error is considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) = 0;
 
@@ -175,5 +173,9 @@ public:
     bool stop() override;
 
     void run() override;
+
+private:
+    /// @brief runs the pipeline once, returning true if it should run again.
+    bool run_once();
 };
 }

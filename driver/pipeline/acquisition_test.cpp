@@ -131,6 +131,49 @@ TEST(AcquisitionPipeline, RetriesWriterOpenOnUnreachable) {
     ASSERT_TRUE(pipeline.stop());
 }
 
+namespace {
+/// @brief asserts that the pipeline opens the writer again while the Core is
+/// unreachable, past the retry limit of the breaker.
+void assert_retries_open_past_limit(const bool open_eagerly) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        source,
+        fast_breaker(1),
+        "",
+        /* err_on_unauthorized */ true,
+        open_eagerly
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 4);
+}
+}
+
+/// @brief it should open the writer again while the Core is unreachable, past the
+/// retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
+    assert_retries_open_past_limit(false);
+}
+
+/// @brief it should open the writer eagerly again while the Core is unreachable, past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesEagerOpenWhileCoreUnreachable) {
+    assert_retries_open_past_limit(true);
+}
+
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, DoesNotRetryWriterOpenOnUnauthorized) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
