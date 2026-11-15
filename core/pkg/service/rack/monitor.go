@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -132,6 +133,12 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
+		if strings.HasPrefix(ch.Key, string(ontology.ResourceTypeTask)) {
+			if ch.Variant == xchange.VariantSet {
+				m.handleTaskStatus(ch.Value)
+			}
+			continue
+		}
 		if !strings.HasPrefix(ch.Key, string(ontology.ResourceTypeRack)) {
 			continue
 		}
@@ -150,6 +157,36 @@ func (m *monitor) handleChange(
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
 		}
 	}
+}
+
+// handleTaskStatus counts a running task status as a report from the rack that runs
+// the task. A Driver that reconnects reports its tasks before its first heartbeat, and
+// a dead rack alert in that gap would overwrite the newer task statuses.
+func (m *monitor) handleTaskStatus(stat status.Status[any]) {
+	fields, _ := stat.Details.(map[string]any)
+	if running, _ := fields["running"].(bool); !running {
+		return
+	}
+	key, ok := rackKeyField(fields["rack"])
+	if !ok || !lo.HasKey(m.mu.racks, key) {
+		return
+	}
+	m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
+}
+
+// rackKeyField returns the rack key that a decoded status details field holds. The
+// decoder picks the integer type from the size of the value.
+func rackKeyField(v any) (Key, bool) {
+	rv := reflect.ValueOf(v)
+	switch {
+	case rv.CanUint():
+		return Key(rv.Uint()), true
+	case rv.CanInt():
+		return Key(rv.Int()), true
+	case rv.CanFloat():
+		return Key(rv.Float()), true
+	}
+	return 0, false
 }
 
 func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
