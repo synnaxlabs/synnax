@@ -58,6 +58,7 @@ const mockOverride: Form.ContextValue = {
   validateAsync: async () => false,
   has: () => false,
   setStatus: () => {},
+  clearStatus: () => {},
   clearStatuses: () => {},
   addCheck: () => () => {},
   focus: () => {},

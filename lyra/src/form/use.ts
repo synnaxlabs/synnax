@@ -228,6 +228,11 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   };
 
+  const clearStatus: ContextValue["clearStatus"] = (path) => {
+    ref.current.clearStatus(String(path));
+    ref.current.notify();
+  };
+
   const clearStatuses = () => {
     ref.current.clearStatus();
     ref.current.notify();
@@ -285,6 +290,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     move,
     batch,
     setStatus,
+    clearStatus,
     clearStatuses,
     addCheck,
     focus,

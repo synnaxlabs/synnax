@@ -169,7 +169,10 @@ describe("Menu", () => {
       await expect
         .poll(() => document.activeElement?.getAttribute("role"))
         .toBe("menu");
-      await userEvent.click(getByText("Canvas"));
+      // The menu covers the left of the canvas.
+      const canvas = getByText("Canvas");
+      const { width } = canvas.element().getBoundingClientRect();
+      await userEvent.click(canvas, { position: { x: width - 4, y: 4 } });
       await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
       expect(document.activeElement).not.toBe(opener);
     });

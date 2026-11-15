@@ -11,7 +11,6 @@ import {
   NotFoundError,
   panel,
   query,
-  type resource,
   UnexpectedError,
   type user,
 } from "@synnaxlabs/client";
@@ -195,29 +194,35 @@ export const useOpenTab = (): OpenTab => {
 };
 
 // The panel a gesture in this window acts on: the scoped one, else the selected one.
-const useActiveID = (): resource.ID | null => {
+const useActiveKey = (): panel.Key | null => {
   const scoped = Panel.useOptionalKey();
   const selected = Session.Panel.useSelectSelected();
-  const key = scoped ?? selected;
-  return key != null ? panel.resourceID(key) : null;
+  return scoped ?? selected ?? null;
 };
 
 /**
  * Reports whether this window can open a tab. A tab landing in a panel that exists is
- * an update on it; with no panel to land in, {@link useOpenTabs} mints one instead.
+ * an update on it, which the owner of a draft needs no access for; with no panel to
+ * land in, {@link useOpenTabs} mints one instead.
  */
 export const useCanOpenTab = (): boolean => {
-  const id = useActiveID();
-  return Access.useGranted(
-    id != null
-      ? { objects: id, action: "update" }
+  const key = useActiveKey();
+  const owned = Panel.useOwned({ key });
+  const granted = Access.useGranted(
+    key != null
+      ? { objects: panel.resourceID(key), action: "update" }
       : { objects: panel.TYPE_RESOURCE_ID, action: "create" },
   );
+  return owned || granted;
 };
 
 /** Reports whether this window can restructure the panel it is acting on. */
-export const useCanEditActive = (): boolean =>
-  Access.useGranted({
-    objects: useActiveID() ?? panel.TYPE_RESOURCE_ID,
+export const useCanEditActive = (): boolean => {
+  const key = useActiveKey();
+  const owned = Panel.useOwned({ key });
+  const granted = Access.useGranted({
+    objects: key != null ? panel.resourceID(key) : panel.TYPE_RESOURCE_ID,
     action: "update",
   });
+  return owned || granted;
+};
