@@ -102,16 +102,25 @@ std::shared_ptr<Manager::Entry> Manager::entry_for(const synnax::task::Key &key)
     return entry;
 }
 
-void Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
+bool Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
     const auto it = this->entries.find(key);
-    if (it == this->entries.end()) return;
+    if (it == this->entries.end()) return false;
     // A claimed entry stays: its worker may act on a stale fetch and install a
     // running instance, which the not-ours start path releases later. This also
     // keeps relevant()'s instance read claim-free.
-    if (!even_if_processing && it->second->processing) return;
-    if (it->second->relevant(this->rack.key)) return;
-    this->statuses->drop(key);
+    if (!even_if_processing && it->second->processing) return false;
+    if (it->second->relevant(this->rack.key)) return false;
     this->entries.erase(it);
+    return true;
+}
+
+void Manager::discard(const synnax::task::Key &key, const bool even_if_processing) {
+    bool removed = false;
+    {
+        std::lock_guard lock{this->mu};
+        removed = this->remove(key, even_if_processing);
+    }
+    if (removed) this->statuses->drop(key);
 }
 
 x::errors::Error Manager::configure_initial_tasks() {
@@ -123,6 +132,7 @@ x::errors::Error Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
+    std::vector<synnax::task::Key> gone;
     {
         std::lock_guard<std::mutex> lock(this->mu);
         // A task deleted or moved during a Core outage sent no event here. Its remove
@@ -131,7 +141,7 @@ x::errors::Error Manager::configure_initial_tasks() {
         for (const auto &[key, _]: this->entries) {
             if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
                 continue;
-            this->statuses->drop(key);
+            gone.push_back(key);
             std::erase_if(this->op_queue, [&](const Op &op) {
                 return op.task_key == key;
             });
@@ -149,6 +159,8 @@ x::errors::Error Manager::configure_initial_tasks() {
         }
     }
     this->cv.notify_all();
+    for (const auto &key: gone)
+        this->statuses->drop(key);
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -293,11 +305,12 @@ void Manager::process_task_set(const x::telem::Series &series) {
                          << parser.error_json().dump();
             continue;
         }
-        std::lock_guard<std::mutex> lock(this->mu);
-        // An untracked task becomes ours only when its row lands on this rack.
-        if (!this->entries.contains(task_key) && rack_key != this->rack.key) continue;
-        const auto entry = this->entry_for(task_key);
         {
+            std::lock_guard<std::mutex> lock(this->mu);
+            // An untracked task becomes ours only when its row lands on this rack.
+            if (!this->entries.contains(task_key) && rack_key != this->rack.key)
+                continue;
+            const auto entry = this->entry_for(task_key);
             std::lock_guard entry_lock{entry->mu};
             entry->row.key = task_key;
             entry->row.rack = rack_key;
@@ -305,7 +318,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
             entry->row.type = type;
             entry->row.config_hash = config_hash;
         }
-        this->remove(task_key);
+        this->discard(task_key);
     }
 }
 
@@ -648,8 +661,7 @@ void Manager::execute_op(
                         status.details.config_hash = hash;
                         operation.answer(status);
                     }
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->discard(op.task_key, true);
                     break;
                 }
                 tsk = std::move(fetched);
@@ -664,8 +676,7 @@ void Manager::execute_op(
                     }
                     this->clear_deploy(entry);
                     this->statuses->drop(op.task_key);
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->discard(op.task_key, true);
                     break;
                 }
                 operation.set_task(tsk.name, tsk.config_hash);
