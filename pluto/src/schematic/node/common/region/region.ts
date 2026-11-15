@@ -81,7 +81,7 @@ const isRendered = (el: Element): boolean => {
 
 /// collectVisualElements returns every painted shape in the tree, skipping shapes that
 /// live inside non-rendering containers (defs, clipPath, mask, ...).
-const collectVisualElements = (svg: Element): SVGElement[] =>
+export const collectVisualElements = (svg: Element): SVGElement[] =>
   VISUAL_ELEMENTS.flatMap((tag) =>
     Array.from(svg.querySelectorAll<SVGElement>(tag)),
   ).filter(isRendered);

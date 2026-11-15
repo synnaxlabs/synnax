@@ -112,6 +112,134 @@ describe("Custom.useRender theme band", () => {
   });
 });
 
+const STALE = color.construct("#e5a50a");
+
+// Shapes whose strokes show: by a region, by their own paint in a region with no
+// stroke, and by their own paint outside every region.
+const SHOWN = [".stroked", ".unset", ".loose"];
+// Shapes whose strokes do not show: by a region, with no stroke of their own, and
+// outside the drawn tree.
+const HIDDEN = [".unstroked", ".bare", ".template"];
+
+const COLORED_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+    '<rect class="stroked" width="10" height="10" stroke="red"/>' +
+    '<rect class="unstroked" width="5" height="5" stroke="none" fill="blue"/>' +
+    '<rect class="unset" width="4" height="4" stroke="red"/>' +
+    '<rect class="loose" width="3" height="3" stroke="red"/>' +
+    '<rect class="bare" width="2" height="2" fill="blue"/>' +
+    '<defs><rect class="template" width="1" height="1" stroke="red"/></defs>' +
+    "</svg>",
+  states: [
+    {
+      key: "base",
+      name: "Base",
+      regions: [
+        {
+          key: "stroked",
+          name: "Stroked",
+          selectors: [".stroked"],
+          strokeColor: STROKE,
+        },
+        {
+          key: "unstroked",
+          name: "Unstroked",
+          selectors: [".unstroked"],
+          strokeColor: color.TRANSPARENT,
+          fillColor: FILL,
+        },
+        { key: "unset", name: "Unset", selectors: [".unset"] },
+      ],
+    },
+  ],
+};
+
+const DISPLAY = "--pluto-symbol-display";
+
+interface ColoredProps {
+  strokeColor?: color.Crude;
+}
+
+const renderColored = async (strokeColor?: color.Crude) => {
+  const { result, rerender } = await renderHook(
+    (props?: ColoredProps) =>
+      Custom.useRender({
+        orientation: "left",
+        activeState: "base",
+        externalScale: 1,
+        spec: COLORED_SPEC,
+        strokeColor: props?.strokeColor,
+      }),
+    { initialProps: { strokeColor } },
+  );
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <Primitive.Div ref={result.current} />
+    </Theming.Provider>,
+  );
+  const query = (selector: string): Element => {
+    const el = container.querySelector(selector);
+    if (el == null) throw new Error(`${selector} not mounted`);
+    return el;
+  };
+  return {
+    stroke: (selector: string): string => computed(query(selector), "stroke"),
+    display: (): string => computed(query("svg"), DISPLAY),
+    rerender,
+  };
+};
+
+const renderColoredBuiltIn = async (strokeColor: color.Crude) => {
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <Primitive.SVG dimensions={{ width: 10, height: 10 }} strokeColor={strokeColor}>
+        <rect width="10" height="10" />
+      </Primitive.SVG>
+    </Theming.Provider>,
+  );
+  const svg = container.querySelector("svg");
+  const rect = container.querySelector("rect");
+  if (svg == null || rect == null) throw new Error("built-in symbol not mounted");
+  return { display: computed(svg, DISPLAY), stroke: computed(rect, "stroke") };
+};
+
+describe("Custom.useRender symbol color", () => {
+  it("should give the root svg the display color of a built-in symbol", async () => {
+    const builtIn = await renderColoredBuiltIn(STALE);
+    const { display } = await renderColored(STALE);
+    expect(display()).toBe(builtIn.display);
+  });
+
+  it.each(SHOWN)("should paint the %s stroke as a built-in symbol", async (shape) => {
+    const builtIn = await renderColoredBuiltIn(STALE);
+    const { stroke } = await renderColored(STALE);
+    expect(stroke(shape)).toBe(builtIn.stroke);
+  });
+
+  it.each(HIDDEN)("should keep the %s stroke hidden", async (shape) => {
+    const plain = await renderColored();
+    const { stroke } = await renderColored(STALE);
+    expect(stroke(shape)).toBe(plain.stroke(shape));
+  });
+
+  it.each([...SHOWN, ...HIDDEN, "svg"])(
+    "should restore the %s stroke when the symbol color clears",
+    async (shape) => {
+      const plain = await renderColored();
+      const { stroke, rerender } = await renderColored(STALE);
+      await rerender({ strokeColor: undefined });
+      expect(stroke(shape)).toBe(plain.stroke(shape));
+    },
+  );
+
+  it("should not stroke a shape with no stroke of its own", async () => {
+    const { stroke } = await renderColored();
+    expect(stroke(".bare")).toBe("none");
+  });
+});
+
 const BODY = '<rect width="40" height="20"/>';
 const MARKER = '<rect class="marker" width="10" height="10"/>';
 

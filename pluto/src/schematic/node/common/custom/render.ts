@@ -33,7 +33,7 @@ const iterElements = (
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
 // as on the tank and the cylinder.
-const setStroke = (el: SVGElement, strokeColor: color.Color | undefined) => {
+const setStroke = (el: SVGElement, strokeColor: color.Crude | undefined) => {
   const rgba = color.rgbaString(strokeColor);
   if (rgba == null) {
     el.classList.remove(CSS.symbolColored);
@@ -71,6 +71,44 @@ const applyState = (
   });
 };
 
+// The root carries the band class as on built-in symbols, so rules that read the
+// display color, such as the toggle states, apply to the drawing.
+const applySymbolColor = (svgElement: SVGSVGElement, symbolColor?: color.Crude) => {
+  svgElement.classList.add(CSS.symbolColored, CSS.B("custom-drawing"));
+  const rgba = color.rgbaString(symbolColor);
+  if (rgba == null) svgElement.style.removeProperty(Primitive.SYMBOL_COLOR);
+  else svgElement.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
+};
+
+const isStoredStrokeShown = (el: Element): boolean => {
+  const stroke = el.getAttribute("stroke");
+  if (stroke == null || stroke === "none") return false;
+  const parsed = color.colorZ.safeParse(stroke);
+  return !parsed.success || color.opacity(parsed.data) > 0;
+};
+
+// A symbol color, such as the stale color, replaces each stroke the drawing shows: the
+// stroke of the shape's region, or its stored stroke when no region sets one. It runs
+// after applyState and overrides it.
+const applySymbolStrokes = (
+  svgElement: Element,
+  state: schematic.symbol.State | undefined,
+  symbolColor: color.Crude | undefined,
+) => {
+  const regionStrokes = new Map<Element, color.Color>();
+  if (state != null)
+    iterElements(state, svgElement, (el, { strokeColor }) => {
+      if (strokeColor != null) regionStrokes.set(el, strokeColor);
+    });
+  Region.collectVisualElements(svgElement).forEach((el) => {
+    const regionStroke = regionStrokes.get(el);
+    const shown =
+      regionStroke != null ? color.opacity(regionStroke) > 0 : isStoredStrokeShown(el);
+    if (symbolColor != null && shown) setStroke(el, symbolColor);
+    else if (regionStroke == null) setStroke(el, undefined);
+  });
+};
+
 export interface UseRenderParams {
   orientation: location.Outer;
   activeState: string;
@@ -78,6 +116,8 @@ export interface UseRenderParams {
   spec?: schematic.symbol.Spec;
   onMount?: (svgElement: SVGSVGElement) => void;
   stateOverrides?: schematic.symbol.State[];
+  /** The color of the whole symbol, such as the stale color. */
+  strokeColor?: color.Crude;
 }
 
 interface RenderState {
@@ -190,7 +230,7 @@ const runRender = (
   params: UseRenderParams,
   state: RenderState,
 ) => {
-  const { orientation, externalScale, spec, onMount } = params;
+  const { orientation, externalScale, spec, onMount, strokeColor } = params;
   if (spec == null) return;
   if (state.prevSvg !== spec.svg) {
     state.prevSvg = spec.svg;
@@ -205,11 +245,13 @@ const runRender = (
   }
   // Markup that failed to parse mounts nothing until it changes.
   if (state.svgElement == null) return;
+  applySymbolColor(state.svgElement, strokeColor);
   const currState = selectState(params);
   if (currState != null) {
     applyState(state.svgElement, currState, state.prevState);
     state.prevState = currState;
   }
+  applySymbolStrokes(state.svgElement, currState, strokeColor);
   applyScale(state, orientation, spec.scale, externalScale);
   applyOrientation(state.svgElement, orientation);
   applyStrokeScaled(state, spec.strokeScaled);
@@ -223,11 +265,12 @@ const runRender = (
 /// simulated remount). The SVG updates when a param it draws changes identity, so copy
 /// the spec on change and never change it in place.
 export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => {
-  const { orientation, externalScale, spec } = params;
+  const { orientation, externalScale, spec, strokeColor } = params;
   const containerRef = useRef<HTMLElement | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
   const currState = selectState(params);
+  const strokeRGBA = color.rgbaString(strokeColor);
 
   useLayoutEffect(() => {
     if (containerRef.current != null)
@@ -241,6 +284,7 @@ export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => 
     spec?.scale,
     spec?.strokeScaled,
     currState,
+    strokeRGBA,
   ]);
 
   return (el) => {
