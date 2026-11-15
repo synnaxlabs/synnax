@@ -14,8 +14,7 @@
     --lyra-tag-dot: 1.5rem;
 }
 
-/* A tag rests on the surface, and keeps that face on hover and press unless it is a
-   click of its own. */
+/* A tag rests on the surface, and keeps that face on hover and press. */
 .lyra-flex.lyra-btn.lyra-tag {
     --pluto-bg: var(--pluto-gray-l0);
     --pluto-hover-bg: var(--pluto-gray-l0);
