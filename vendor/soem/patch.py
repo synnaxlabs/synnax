@@ -121,6 +121,93 @@ FAIL_REFUSED_EEPROM_READ = (
 """,
 )
 
+# A late thread can find the receive timer expired before it reads a frame that came in
+# time. The patch reads each packet that came in, past frames of other indexes, before
+# the wait gives up.
+READ_LATE_FRAMES = (
+    """   } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+""",
+    """   } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+   if (wkc <= EC_NOFRAME)
+   {
+      do
+         wkc = ecx_inframe(port, idx, 0);
+      while (wkc == EC_OTHERFRAME);
+   }
+   if ((port->redstate != ECT_RED_NONE) && (wkc2 <= EC_NOFRAME))
+   {
+      do
+         wkc2 = ecx_inframe(port, idx, 1);
+      while (wkc2 == EC_OTHERFRAME);
+   }
+""",
+)
+
+READ_LATE_SECONDARY_FRAMES = (
+    """         } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+""",
+    """         } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+         if (wkc2 <= EC_NOFRAME)
+         {
+            do
+               wkc2 = ecx_inframe(port, idx, 1);
+            while (wkc2 == EC_OTHERFRAME);
+         }
+""",
+)
+
+# The OSAL requests the 1 ms timer period on its first clock read and never ends it,
+# and ecx_closenic ends it once per close. The patches make each bus session request it
+# in ecx_setupnic and end it in ecx_closenic.
+REQUEST_TIMER_PERIOD_PER_SESSION = (
+    """      printf("interface %s could not open with pcap\\n", ifname);
+      return 0;
+   }
+""",
+    """      printf("interface %s could not open with pcap\\n", ifname);
+      return 0;
+   }
+   if (!secondary)
+   {
+      timeBeginPeriod(1);
+   }
+""",
+)
+
+END_TIMER_PERIOD_PER_SESSION = (
+    """int ecx_closenic(ecx_portt *port)
+{
+   timeEndPeriod(1);
+
+   if (port->sockhandle != NULL)
+   {
+""",
+    """int ecx_closenic(ecx_portt *port)
+{
+   if (port->sockhandle != NULL)
+   {
+      timeEndPeriod(1);
+""",
+)
+
+OSAL_KEEPS_TIMER_PERIOD = (
+    """#include <inttypes.h>
+#include <timeapi.h>
+""",
+    """#include <inttypes.h>
+""",
+)
+
+OSAL_REQUESTS_NO_TIMER_PERIOD = (
+    """   {
+      timeBeginPeriod(1);
+      QueryPerformanceFrequency(&sysfrequency);
+""",
+    """   {
+      QueryPerformanceFrequency(&sysfrequency);
+""",
+)
+
 PATCHES = {
     "ec_coe.c": [
         CHECK_SDO_READ_SUBINDEX,
@@ -129,6 +216,13 @@ PATCHES = {
         CHECK_SDO_NORMAL_WRITE_ABORT,
     ],
     "ec_main.c": [FAIL_REFUSED_EEPROM_READ],
+    "nicdrv.c": [
+        REQUEST_TIMER_PERIOD_PER_SESSION,
+        END_TIMER_PERIOD_PER_SESSION,
+        READ_LATE_FRAMES,
+        READ_LATE_SECONDARY_FRAMES,
+    ],
+    "osal.c": [OSAL_KEEPS_TIMER_PERIOD, OSAL_REQUESTS_NO_TIMER_PERIOD],
 }
 
 source, output = sys.argv[1:]
