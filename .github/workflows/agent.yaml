@@ -69,8 +69,6 @@ on:
         required: false
       CLAUDE_CODE_APP_PRIVATE_KEY:
         required: false
-      CLAUDE_CODE_OAUTH_TOKEN:
-        required: false
       CODEX_APP_ID:
         required: false
       CODEX_APP_PRIVATE_KEY:
