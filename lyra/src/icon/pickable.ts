@@ -58,7 +58,7 @@ import { Device } from "@/icon/Device";
 import { type FC, wrapSVGIcon } from "@/icon/Icon";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
-import { Arc, LinePlot, Range, Schematic, Task } from "@/icon/registry";
+import { Arc, Library, LinePlot, Log, Range, Schematic, Task } from "@/icon/registry";
 import { Tank } from "@/icon/Tank";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
@@ -111,6 +111,18 @@ export const PICKABLE: readonly Pickable[] = [
     name: "Range",
     tags: ["test", "run", "time range", "event", "period"],
     icon: Range,
+  },
+  {
+    key: "log",
+    name: "Log",
+    tags: ["stream", "messages", "events", "text"],
+    icon: Log,
+  },
+  {
+    key: "library",
+    name: "Library",
+    tags: ["ICD", "interface control document", "books", "reference"],
+    icon: Library,
   },
   {
     key: "bar-chart",
