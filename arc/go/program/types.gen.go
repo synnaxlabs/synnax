@@ -14,6 +14,7 @@ package program
 import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Program is a compiled Arc program combining the intermediate representation with
@@ -21,4 +22,12 @@ import (
 type Program struct {
 	ir.IR
 	compiler.Output
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Program) Validate() error {
+	v := validate.New("Program")
+	v.Exec(p.IR.Validate)
+	return v.Error()
 }

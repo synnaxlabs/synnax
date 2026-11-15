@@ -43,6 +43,8 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief what scan() found, which it returns again until deactivate().
     std::vector<slave::DiscoveryResult> scanned;
+    /// @brief why the serial number read of each slave fails in the next new scan only.
+    std::map<uint16_t, std::string> next_serial_errors;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
@@ -56,7 +58,10 @@ class Master final : public master::Master {
     /// @brief the number of starts left that each slave refuses, keyed by position. A
     /// slave in refusing and not here refuses every start.
     std::map<uint16_t, size_t> refusals_left;
-    std::optional<size_t> bus_slaves;
+    /// @brief the positions that changed() reports as restarted until the next scan.
+    std::set<uint16_t> restarted;
+    /// @brief whether restarts_visible() returns false.
+    bool restarts_hidden = false;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
@@ -163,6 +168,15 @@ public:
         this->slave_list.push_back(std::move(result));
     }
 
+    /// @brief takes the slave at position off the bus, as when its power is off.
+    /// add_slave() puts it back. A scan sees the change only after deactivate().
+    void remove_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        std::erase_if(this->slave_list, [position](const auto &s) {
+            return s.properties.position == position;
+        });
+    }
+
     /// @brief replaces the slave at position with props. A scan sees the change only
     /// after deactivate(), as a restarted slave on a real bus.
     void replace_slave(const uint16_t position, slave::Properties props) {
@@ -209,6 +223,13 @@ public:
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.serial_error = error;
+    }
+
+    /// @brief makes the serial number read of the slave at position fail with error in
+    /// the next new scan only.
+    void fail_next_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->next_serial_errors[position] = error;
     }
 
     /// @brief sets whether the slave at position is below PRE-OP when the master reads
@@ -449,24 +470,52 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
-        if (!this->initialized) this->scanned = this->slave_list;
+        if (!this->initialized) {
+            this->scanned = this->slave_list;
+            this->restarted.clear();
+            for (auto &slave: this->scanned)
+                if (const auto it = this->next_serial_errors.find(
+                        slave.properties.position
+                    );
+                    it != this->next_serial_errors.end())
+                    slave.status.serial_error = it->second;
+            this->next_serial_errors.clear();
+        }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
 
-    std::pair<size_t, x::errors::Error> count_slaves() override {
+    std::pair<master::Change, x::errors::Error> changed() override {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("count_slaves");
+        this->calls.emplace_back("changed");
         if (!this->initialized)
-            return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
-        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+            return {{}, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {
+            master::Change{
+                .stale = !this->restarted.empty() ||
+                         this->slave_list.size() != this->scanned.size(),
+                .restarted = this->restarted,
+            },
+            x::errors::NIL
+        };
     }
 
-    /// @brief makes count_slaves() report count instead of the number of added slaves,
-    /// as when a slave is plugged in or removed after discovery.
-    void set_bus_slaves(const std::optional<size_t> count) {
+    bool restarts_visible() const override {
         std::lock_guard lock(this->mu);
-        this->bus_slaves = count;
+        return !this->restarts_hidden;
+    }
+
+    /// @brief makes changed() report the slave at position as restarted until the next
+    /// scan.
+    void restart_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        this->restarted.insert(position);
+    }
+
+    /// @brief makes restarts_visible() return false, as on the IgH master.
+    void hide_restarts() {
+        std::lock_guard lock(this->mu);
+        this->restarts_hidden = true;
     }
 
     /// @brief returns the plan of the latest activate().

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <functional>
 #include <future>
 #include <map>
 #include <memory>
@@ -43,7 +45,7 @@ const std::string
 
 /// @brief a loader for a network with no saved slave settings.
 const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &, const std::string &) {
-    return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
 };
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
 const pdo::Entry IN_I32(0, 0x6000, 2, 32, true, x::telem::INT32_T);
@@ -101,6 +103,21 @@ slave::Properties io_slave(const uint16_t position) {
     };
 }
 
+/// @brief the saved settings of slave.
+SavedSlave saved(const slave::Properties &slave, slave::Config config) {
+    return {
+        .identity =
+            {
+                .position = slave.position,
+                .vendor_id = slave.vendor_id,
+                .product_code = slave.product_code,
+                .serial = slave.serial,
+                .name = slave.name,
+            },
+        .config = std::move(config),
+    };
+}
+
 pdo::Entry on_slave(pdo::Entry entry, const uint16_t position) {
     entry.slave_position = position;
     return entry;
@@ -127,14 +144,11 @@ Config quick_start_config() {
     return cfg;
 }
 
-/// @brief an engine configuration whose slave settings disable the slave at position.
-Config disabling(const uint16_t position) {
+/// @brief an engine configuration whose slave settings disable slave.
+Config disabling(const slave::Properties &slave) {
     Config cfg;
-    cfg.slave_configs = [position] {
-        return std::pair{
-            std::map<uint16_t, slave::Config>{{position, {.enabled = false}}},
-            x::errors::NIL
-        };
+    cfg.slave_configs = [slave] {
+        return std::pair{std::vector{saved(slave, {.enabled = false})}, x::errors::NIL};
     };
     return cfg;
 }
@@ -990,7 +1004,11 @@ TEST_F(EngineTest, RejectedEntryLeavesTheRunningBusUp) {
 /// the process image.
 TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        disabling(io_slave(1))
+    );
     ASSERT_OCCURRED_AS_P(
         this->engine->open_reader(
             {on_slave(IN_I16, 1)},
@@ -1010,8 +1028,8 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     const auto disabled = std::make_shared<std::atomic<bool>>(true);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (disabled->load()) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (disabled->load()) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master, cfg);
@@ -1043,8 +1061,8 @@ TEST_F(EngineTest, ReadsSlaveSettingsAtEachBusStart) {
     const auto disabled = std::make_shared<bool>(false);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (*disabled) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (*disabled) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
@@ -1075,7 +1093,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{},
+            std::vector<SavedSlave>{},
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
@@ -1101,10 +1119,10 @@ TEST_F(EngineTest, SlaveSettingsErrorLeavesARunningBusOpen) {
     cfg.slave_configs = [failing] {
         if (*failing)
             return std::pair{
-                std::map<uint16_t, slave::Config>{},
+                std::vector<SavedSlave>{},
                 x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
             };
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(this->engine->open_reader(
@@ -1133,8 +1151,8 @@ TEST_F(EngineTest, ReadsSlaveSettingsAgainWhenTheBusStopsDuringTheRead) {
     std::promise<void> release;
     Config cfg;
     cfg.slave_configs = [calls, disabled, released = release.get_future().share()] {
-        std::map<uint16_t, slave::Config> configs;
-        if (disabled->load()) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (disabled->load()) configs.push_back(saved(io_slave(1), {.enabled = false}));
         if (calls->fetch_add(1) == 0) released.wait();
         return std::pair{configs, x::errors::NIL};
     };
@@ -1171,8 +1189,8 @@ TEST_F(EngineTest, WriterReadsSlaveSettingsAtEachBusStart) {
     const auto disabled = std::make_shared<bool>(false);
     Config cfg;
     cfg.slave_configs = [disabled] {
-        std::map<uint16_t, slave::Config> configs;
-        if (*disabled) configs[1] = {.enabled = false};
+        std::vector<SavedSlave> configs;
+        if (*disabled) configs.push_back(saved(io_slave(1), {.enabled = false}));
         return std::pair{configs, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
@@ -1201,7 +1219,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{},
+            std::vector<SavedSlave>{},
             x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
         };
     };
@@ -1226,10 +1244,10 @@ TEST_F(EngineTest, SlaveSettingsErrorLetsAWriterOpenOnARunningBus) {
     cfg.slave_configs = [failing] {
         if (*failing)
             return std::pair{
-                std::map<uint16_t, slave::Config>{},
+                std::vector<SavedSlave>{},
                 x::errors::Error(errors::SLAVE_CONFIG_ERROR, "invalid settings")
             };
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto first = ASSERT_NIL_P(this->engine->open_writer(
@@ -1260,7 +1278,7 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     Config cfg;
     cfg.slave_configs = [params] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{{1, {.startup_parameters = params}}},
+            std::vector{saved(io_slave(1), {.startup_parameters = params})},
             x::errors::NIL
         };
     };
@@ -1272,6 +1290,263 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
         this->engine->begin_start(this->cancel)
     ));
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should give a moved slave the settings saved for it, not the settings of
+/// its old position.
+TEST_F(EngineTest, MovedSlaveTakesItsSavedSettings) {
+    auto other = io_slave(1);
+    other.serial = 8;
+    auto moved = io_slave(2);
+    moved.serial = 7;
+    this->master->add_slave(other);
+    this->master->add_slave(moved);
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    auto saved_at_1 = moved;
+    saved_at_1.position = 1;
+    Config cfg;
+    cfg.slave_configs = [saved_at_1, params] {
+        return std::pair{
+            std::vector{saved(saved_at_1, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(this->master->config(2).startup_parameters, params);
+    EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+}
+
+/// @brief it should give a slave whose serial number read got no answer the settings
+/// saved at its position.
+TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
+    this->master->add_slave(io_slave(1));
+    this->master->fail_serial_read(1, "no answer");
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [unit, params] {
+        return std::pair{
+            std::vector{saved(unit, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should give a slave that was below PRE-OP at the scan the settings saved
+/// at its position.
+TEST_F(EngineTest, StartingSlaveTakesTheSettingsAtItsPosition) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    Config cfg;
+    cfg.slave_configs = [unit, params] {
+        return std::pair{
+            std::vector{saved(unit, {.startup_parameters = params})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+namespace {
+/// @brief an engine configuration whose slave settings save two units of one model at
+/// position 1 with different settings: serial 8 disabled, and serial 7 with params.
+Config replaced_unit_config(const std::vector<slave::StartupParameter> &params) {
+    auto cfg = quick_start_config();
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    auto old_unit = unit;
+    old_unit.serial = 8;
+    cfg.slave_configs = [unit, old_unit, params] {
+        return std::pair{
+            std::vector{
+                saved(old_unit, {.enabled = false}),
+                saved(unit, {.startup_parameters = params}),
+            },
+            x::errors::NIL
+        };
+    };
+    return cfg;
+}
+}
+
+/// @brief it should start the bus with the settings of the unit on the bus once its
+/// serial number answers, when two saved devices with different settings find the slave
+/// while its serial number is unread.
+TEST_F(EngineTest, StartScansAgainWhenAConflictHasAnUnreadSerial) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->fail_next_serial_read(1, "no answer");
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config(params)
+    );
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_TRUE(this->master->config(1).enabled);
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+}
+
+/// @brief it should fail the start with the reason when the serial number of a slave
+/// that two saved devices with different settings find never answers.
+TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->fail_serial_read(1, "no answer");
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config({})
+    );
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
+        "with different settings, and the slave did not give its serial number: no "
+        "answer."
+    );
+    EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should fail the start when two saved devices with different settings find
+/// a slave that stays below PRE-OP, and say that the slave is still starting up.
+TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->set_starting(1, true);
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config({})
+    );
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
+        "with different settings, and the slave did not give its serial number: it is "
+        "still starting up."
+    );
+    EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should fail the start at once when two saved devices with no serial number
+/// and different settings find a slave with an unread serial, since a new scan cannot
+/// tell them apart.
+TEST_F(EngineTest, StartFailsAConflictOfDevicesWithNoSerialAtOnce) {
+    this->master->add_slave(io_slave(1));
+    this->master->fail_serial_read(1, "no answer");
+    auto cfg = quick_start_config();
+    auto other = io_slave(1);
+    other.name = "Other";
+    cfg.slave_configs = [other] {
+        return std::pair{
+            std::vector{saved(io_slave(1), {.enabled = false}), saved(other, {})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto [reader, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Other and Slave1 are both saved for slave 1 on eth0 with different settings. "
+        "Give them the same settings, or delete the device that is no longer on the "
+        "bus."
+    );
+    EXPECT_EQ(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should start the bus when a saved slave is not on it, and give the slave
+/// at its saved position the defaults.
+TEST_F(EngineTest, SavedSlaveOffTheBusLeavesTheDefaults) {
+    this->master->add_slave(io_slave(1));
+    auto absent = io_slave(1);
+    absent.serial = 9;
+    Config cfg;
+    cfg.slave_configs = [absent] {
+        return std::pair{
+            std::vector{saved(absent, {.enabled = false})},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_TRUE(this->master->config(1).enabled);
 }
 
 namespace {
@@ -1335,8 +1610,8 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     Config cfg;
     cfg.slave_configs = [] {
         return std::pair{
-            std::map<uint16_t, slave::Config>{
-                {1, {.startup_parameters = measurement(1, 3).at(1)}}
+            std::vector{
+                saved(io_slave(1), {.startup_parameters = measurement(1, 3).at(1)})
             },
             x::errors::NIL
         };
@@ -1456,7 +1731,7 @@ TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
     Config cfg;
     cfg.slave_configs = [calls, released = release.get_future().share()] {
         if (calls->fetch_add(1) == 0) released.wait();
-        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
     };
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
@@ -1783,20 +2058,21 @@ TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
 /// @brief it should give the sync mode advice before the switch advice when the user
 /// picked the sync mode of a slave set up for another program.
 TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
-    Config cfg;
-    cfg.slave_configs = [] {
-        return std::pair{
-            std::map<uint16_t, slave::Config>{
-                {1, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0300}}}
-            },
-            x::errors::NIL
-        };
-    };
-    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     auto shared = io_slave(1);
     shared.settings = x::json::json{
         {"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}
     };
+    Config cfg;
+    cfg.slave_configs = [shared] {
+        return std::pair{
+            std::vector{saved(
+                shared,
+                {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0300}}
+            )},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     this->master->add_slave(shared);
     this->master->refuse(1, DC_SYNC_REFUSAL);
     auto res = this->engine->open_reader(
@@ -2178,6 +2454,265 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should count the time that an open spends before the start, such as the
+/// read of the slave settings, against the start timeout.
+TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->set_activate_duration(x::telem::SECOND * 25);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    auto cfg = quick_start_config();
+    cfg.start_retry.max_retries = 10;
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    cfg.slave_configs = [clock] {
+        clock.sleep(x::telem::SECOND * 25);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Activate failed.");
+    // The first try ends at 50 s, so a second would end at 75 s.
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should fail an open that still waits for the start of another task at the
+/// start timeout.
+TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should fail a writer that still waits for the start of another task at the
+/// start timeout.
+TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    const auto res = this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should end the wait of an open for the start of another task when its
+/// cancel stops.
+TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
+    this->master->hold_activate();
+    std::thread opener([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    x::breaker::Breaker canceled;
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(canceled)
+    );
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+}
+
+/// @brief it should fail an open that reads the slave settings while another open does,
+/// when that other open still starts the bus at the deadline.
+TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
+    Config cfg;
+    cfg.start_timeout = x::telem::MILLISECOND * 100;
+    const auto second_reads = std::make_shared<std::promise<void>>();
+    const auto reads = std::make_shared<std::atomic<int>>(0);
+    cfg.slave_configs =
+        [this, reads, second_reads, second_read = second_reads->get_future().share()] {
+            if (reads->fetch_add(1) == 0)
+                second_read.wait();
+            else {
+                second_reads->set_value();
+                this->master->wait_until_activating();
+            }
+            return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+        };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->hold_activate();
+    std::atomic<int> finished = 0;
+    std::array<x::errors::Error, 2> errs;
+    const auto open = [&](x::errors::Error &err) {
+        err = this->engine
+                  ->open_reader(
+                      {IN_I16},
+                      x::telem::Rate(100),
+                      1,
+                      this->engine->begin_start(this->cancel)
+                  )
+                  .second;
+        finished++;
+    };
+    std::thread first(open, std::ref(errs[0]));
+    std::thread second(open, std::ref(errs[1]));
+    for (int i = 0; i < 5000 && finished.load() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    EXPECT_EQ(finished.load(), 1);
+    this->master->release_activate();
+    first.join();
+    second.join();
+    const auto &failed = errs[0] ? errs[0] : errs[1];
+    ASSERT_OCCURRED_AS(failed, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(failed.data, "Another task is still starting on eth0.");
+    EXPECT_NIL(errs[0] ? errs[1] : errs[0]);
+}
+
+/// @brief it should fail a start whose deadline passed in the read of the slave
+/// settings, before its first try.
+TEST_F(EngineTest, StartWithNoTimeLeftFailsBeforeItsFirstTry) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    Config cfg;
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    cfg.slave_configs = [clock] {
+        clock.sleep(x::telem::MINUTE);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "The start on eth0 ran out of time.");
+    EXPECT_EQ(this->master->call_count("activate"), 0);
+}
+
+/// @brief it should name the other start when a start that waited behind it has no time
+/// left for a try.
+TEST_F(EngineTest, LateStartBehindAnotherStartNamesTheOtherStart) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    auto cfg = quick_start_config();
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    const auto reads = std::make_shared<std::atomic<int>>(0);
+    cfg.slave_configs = [clock, reads] {
+        if (reads->fetch_add(1) == 1) clock.sleep(x::telem::MINUTE);
+        return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    this->master->hold_activate();
+    std::thread first([this] {
+        auto [reader, err] = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        );
+    });
+    this->master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        this->master->release_activate();
+    });
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    releaser.join();
+    first.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still starting on eth0.");
+}
+
+/// @brief it should end the wait between two tries of a failed start when the cancel of
+/// the open stops.
+TEST_F(EngineTest, StartRetryWaitEndsWhenCanceled) {
+    auto cfg = quick_start_config();
+    cfg.start_retry.base_interval = x::telem::MINUTE;
+    cfg.start_retry.max_interval = x::telem::MINUTE;
+    cfg.start_timeout = x::telem::HOUR;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread opener([this, &cancel, &res] {
+        res = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(cancel)
+        );
+    });
+    ASSERT_EVENTUALLY_EQ(this->master->call_count("activate"), 1);
+    const auto stopping = std::chrono::steady_clock::now();
+    cancel.stop();
+    opener.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(5));
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
 /// @brief it should retry activation of the master until it succeeds, then open the
 /// task.
 TEST_F(EngineTest, StartRetriesUntilActivationSucceeds) {
@@ -2260,7 +2795,6 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: expected 3, got 1.");
-    EXPECT_EQ(reader->warning(), "");
 }
 
 /// @brief it should name each slave that is out of OP in the warning of cycles that
@@ -2331,6 +2865,90 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     this->master->set_shortfall(std::nullopt);
     this->master->set_slave_lost(1, false);
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
+}
+
+/// @brief it should tell a writer once when its slave leaves OP and once when it
+/// returns, and end the return warning at the next transaction.
+TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel),
+        [&changes] { ++changes; }
+    ));
+    EXPECT_EQ(writer->warning(), "");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 1);
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 2);
+    EXPECT_EQ(
+        writer->warning(),
+        "Slave 1 (Slave1) returned and took the last commanded values."
+    );
+    { const auto tx = writer->open_tx(); }
+    EXPECT_EQ(writer->warning(), "");
+    EXPECT_EQ(changes.load(), 2);
+}
+
+/// @brief it should not tell a writer that another slave left OP.
+TEST_F(EngineTest, WriterIgnoresAnotherSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel),
+        [&changes] { ++changes; }
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    EXPECT_EQ(writer->warning(), "");
+    EXPECT_EQ(changes.load(), 0);
+}
+
+/// @brief it should name a writer's slave that responds out of OP by its state.
+TEST_F(EngineTest, WriterNamesAResponsiveSlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    std::atomic<int> changes{0};
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel),
+        [&changes] { ++changes; }
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 1);
+    EXPECT_EQ(writer->warning(), "Slave 1 (Slave1) is not in OP.");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_EQ(changes.load(), 2);
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+}
+
+/// @brief it should warn a writer that opens while its slave is out of OP.
+TEST_F(EngineTest, WriterOpenedWhileItsSlaveIsOutOfOPWarns) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{on_slave(OUT_I16, 1), 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
 }
 
 /// @brief it should name a slave that responds out of OP by its state, not as lost.
@@ -2474,6 +3092,85 @@ TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
+/// @brief it should keep the warning of a failed cycle for 10 seconds after the last
+/// warning that saw it, so that a task that keeps dropping keeps one warning.
+TEST_F(EngineTest, FailedCycleWarningHoldsForTenSeconds) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    ASSERT_EQ(this->read_times(*reader, 1).size(), 1);
+    this->master->stall();
+    this->master->wait_until_stalled();
+    // The fake clock ran the bus ahead of the reader before the stall.
+    (void) reader->warning();
+    clock.sleep(x::telem::SECOND * 10);
+    ASSERT_EQ(reader->warning(), "");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed")
+    );
+    this->master->step();
+    this->master->wait_until_stalled();
+    const std::string failed = "Bus cycles failed: process data receive failed.";
+    EXPECT_EQ(reader->warning(), failed);
+    clock.sleep(x::telem::SECOND * 10 - x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), failed);
+    clock.sleep(x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), "");
+    this->master->clear_injected_errors();
+    this->master->resume();
+}
+
+/// @brief it should keep the sentence of a lost slave in the warning for 10 seconds
+/// after the last warning that saw it, so that a slave that keeps dropping out keeps
+/// one warning.
+TEST_F(EngineTest, LostSlaveWarningHoldsForTenSeconds) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    ASSERT_EQ(this->read_times(*reader, 1).size(), 1);
+    this->master->stall();
+    this->master->wait_until_stalled();
+    // The fake clock ran the bus ahead of the reader before the stall.
+    (void) reader->warning();
+    clock.sleep(x::telem::SECOND * 10);
+    ASSERT_EQ(reader->warning(), "");
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->step();
+    this->master->wait_until_stalled();
+    const std::string lost = "Lost contact with slave 1 (Slave1).";
+    EXPECT_EQ(reader->warning(), lost);
+    clock.sleep(x::telem::SECOND * 10 - x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), lost);
+    clock.sleep(x::telem::MILLISECOND);
+    EXPECT_EQ(reader->warning(), "");
+    this->master->set_shortfall(std::nullopt);
+    this->master->set_slave_lost(1, false);
+    this->master->resume();
 }
 
 /// @brief it should give the latest reason of a run of failed cycles in the warning, as
@@ -2755,7 +3452,11 @@ TEST_F(EngineTest, KeepsTheRateWhileASlaveRunsAFastSYNC0) {
 /// slaves.
 TEST_F(EngineTest, HealthReportsEachEnabledSlave) {
     this->master->add_slave(io_slave(1));
-    this->engine = std::make_shared<Engine>("eth0", this->master, disabling(1));
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        disabling(io_slave(1))
+    );
     const auto reader = ASSERT_NIL_P(this->engine->open_reader(
         {IN_I16},
         x::telem::Rate(100),
@@ -2904,7 +3605,7 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 }
 
 /// @brief it should keep the discovered slaves and not reinitialize the master when the
-/// slave count is unchanged.
+/// bus has not changed.
 TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
     ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
@@ -2912,26 +3613,395 @@ TEST_F(EngineTest, DiscoverKeepsDiscoveryWhenTheBusIsUnchanged) {
     EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
 }
 
-/// @brief it should reinitialize the master and discover again when the slave count
-/// changes.
-TEST_F(EngineTest, DiscoverRediscoversWhenASlaveIsPluggedIn) {
+/// @brief it should reinitialize the master and discover again once when a slave
+/// restarts.
+TEST_F(EngineTest, DiscoverRediscoversOnceWhenASlaveRestarts) {
     ASSERT_NIL_P(this->engine->discover());
-    this->master->set_bus_slaves(2);
+    this->master->restart_slave(0);
+    ASSERT_NIL_P(this->engine->discover());
     ASSERT_NIL_P(this->engine->discover());
     EXPECT_EQ(
         this->master->call_log(),
         (std::vector<std::string>{
             "scan",
-            "count_slaves",
+            "changed",
             "scan",
-            "count_slaves",
+            "changed",
             "deactivate",
             "scan",
+            "scan",
+            "changed",
         })
     );
 }
 
-/// @brief it should not count or discover slaves while the bus runs.
+/// @brief it should count the first discovery as a restart of each slave, then move the
+/// restart time of a slave only when it restarts.
+TEST_F(EngineTest, DiscoverGivesEachSlaveTheTimeOfItsLastRestart) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first);
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+    clock.sleep(x::telem::SECOND);
+    slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should stamp a slave that restarted since the last scan when the scan task
+/// rediscovers the bus.
+TEST_F(EngineTest, RediscoverStampsASlaveThatRestartedSinceTheLastScan) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    const auto slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should stamp a slave that restarted since the last scan when a task starts
+/// the bus, and scan the bus again first.
+TEST_F(EngineTest, StartStampsASlaveThatRestartedSinceTheLastScan) {
+    const auto clock = x::loop::fake_clock();
+    this->master->add_slave(io_slave(1));
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    this->master->restart_slave(1);
+    this->master->clear_call_log();
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto calls = this->master->call_log();
+    ASSERT_GE(calls.size(), 3);
+    EXPECT_EQ(
+        std::vector(calls.begin(), calls.begin() + 3),
+        (std::vector<std::string>{"changed", "deactivate", "scan"})
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].restarted_at, first);
+    EXPECT_EQ(slaves[1].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should count a lost slave that comes back in INIT or BOOT while the bus
+/// runs as restarted, as a slave does after a power restart.
+TEST_F(EngineTest, RunningBusCountsASlaveBackInInitOrBootAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto restart = [this](const slave::State state) {
+        this->master->set_slave_lost(1, true);
+        ASSERT_EVENTUALLY_TRUE(
+            this->engine->health().size() == 2 && this->engine->health()[1].lost
+        );
+        this->master->set_slave_state(1, state);
+        this->master->set_slave_lost(1, false);
+        ASSERT_EVENTUALLY_TRUE(
+            this->engine->health().size() == 2 &&
+            this->engine->health()[1].operational()
+        );
+    };
+    const auto back = x::telem::TimeStamp::now();
+    ASSERT_NO_FATAL_FAILURE(restart(slave::State::INIT));
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    const auto first = slaves[1].restarted_at.value();
+    EXPECT_GE(first, back);
+    ASSERT_NO_FATAL_FAILURE(restart(slave::State::BOOT));
+    slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GT(slaves[1].restarted_at.value(), first);
+}
+
+/// @brief it should count a left-out slave that restarts while the bus runs as
+/// restarted once the bus stops.
+TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    this->master->refuse(1, REFUSAL);
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].refusal
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should count a slave that its settings disable and that restarted while
+/// the bus ran as restarted when the bus stops, as the running bus does not check it.
+TEST_F(EngineTest, StopCountsADisabledSlaveThatRestartedAsRestarted) {
+    this->master->add_slave(io_slave(1));
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        disabling(io_slave(1))
+    );
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto back = x::telem::TimeStamp::now();
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should give a slave that is off the bus when the bus stops a new restart
+/// time when a later scan finds it, as it restarts when its power returns.
+TEST_F(EngineTest, StopGivesASlaveOffTheBusANewRestartTimeWhenItReturns) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto off = x::telem::TimeStamp::now();
+    this->master->remove_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto back = x::telem::TimeStamp::now();
+    this->master->add_slave(io_slave(1));
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), off);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should give each slave a new restart time when a scan finds it after the
+/// whole bus was off at a stop.
+TEST_F(EngineTest, StopWithTheWholeBusOffGivesEachSlaveANewRestartTime) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->remove_slave(1);
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+    );
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto back = x::telem::TimeStamp::now();
+    this->master->clear_injected_errors();
+    this->master->add_slave(io_slave(1));
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GE(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should give each slave a new restart time when a scan finds it after a
+/// scan found no slave on the bus.
+TEST_F(EngineTest, DiscoverAfterAnEmptyBusGivesEachSlaveANewRestartTime) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    this->master->inject_scan_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+    );
+    ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::NO_SLAVES_FOUND);
+    const auto back = x::telem::TimeStamp::now();
+    this->master->clear_injected_errors();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_GE(slaves[0].restarted_at.value(), back);
+    EXPECT_GE(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should keep the restart times when a filter on the adapter blocks the
+/// replies of the slaves, as they still run.
+TEST_F(EngineTest, BlockedRepliesKeepTheRestartTimes) {
+    this->master->add_slave(io_slave(1));
+    ASSERT_NIL_P(this->engine->discover());
+    const auto seen = x::telem::TimeStamp::now();
+    this->master->inject_scan_error(
+        x::errors::Error(errors::REPLIES_BLOCKED, "No EtherCAT slaves found on eth0.")
+    );
+    ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::REPLIES_BLOCKED);
+    this->master->clear_injected_errors();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), seen);
+    EXPECT_LT(slaves[1].restarted_at.value(), seen);
+}
+
+/// @brief it should not scan the bus at a stop when the same slaves still answer.
+TEST_F(EngineTest, StopScansOnlyWhenTheSlaveCountChanged) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->clear_call_log();
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    EXPECT_EQ(this->master->call_count("scan"), 0);
+}
+
+/// @brief it should not count a slave of the running bus that changed() reports at stop
+/// as restarted, as SOEM reports a slave stuck in INIT that still answers.
+TEST_F(EngineTest, StopCountsAStuckSlaveOnTheRunningBusAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    this->master->restart_slave(1);
+    reader.reset();
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should not count a lost slave that comes back in SAFE-OP while the bus
+/// runs as restarted, as a slave does after a cable pull.
+TEST_F(EngineTest, RunningBusCountsASlaveBackInSafeOpAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].operational()
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[0].restarted_at.value(), back);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should not count a slave that drops to INIT while it still answers as
+/// restarted.
+TEST_F(EngineTest, RunningBusCountsASlaveInInitThatStillAnswersAsNotRestarted) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto back = x::telem::TimeStamp::now();
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_LT(slaves[1].restarted_at.value(), back);
+}
+
+/// @brief it should count a slave that the last scan did not find as restarted.
+TEST_F(EngineTest, RediscoverCountsANewSlaveAsRestarted) {
+    const auto clock = x::loop::fake_clock();
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    ASSERT_NIL_P(this->engine->discover());
+    clock.sleep(x::telem::SECOND);
+    auto other = io_slave(0);
+    other.product_code = 0x3;
+    this->master->replace_slave(0, other);
+    const auto slaves = ASSERT_NIL_P(this->engine->rediscover());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].restarted_at, first + x::telem::SECOND);
+}
+
+/// @brief it should keep the restart time of each slave across a task start and stop.
+TEST_F(EngineTest, StartAndStopKeepTheRestartTimes) {
+    const auto first = ASSERT_NIL_P(this->engine->discover())[0].restarted_at;
+    ASSERT_TRUE(first.has_value());
+    {
+        const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(this->cancel)
+        ));
+        EXPECT_EQ(ASSERT_NIL_P(this->engine->discover())[0].restarted_at, first);
+    }
+    EXPECT_EQ(ASSERT_NIL_P(this->engine->rediscover())[0].restarted_at, first);
+}
+
+/// @brief it should give no restart time when the master cannot see a restart.
+TEST_F(EngineTest, DiscoverGivesNoRestartTimeWhenTheMasterSeesNone) {
+    this->master->hide_restarts();
+    const auto slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_FALSE(slaves[0].restarted_at.has_value());
+}
+
+/// @brief it should not check the bus or discover slaves while the bus runs.
 TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(this->engine->open_reader(
         {IN_I16},
@@ -2939,11 +4009,11 @@ TEST_F(EngineTest, DiscoverDoesNotRediscoverWhileTheBusRuns) {
         1,
         this->engine->begin_start(this->cancel)
     ));
-    this->master->set_bus_slaves(2);
+    this->master->restart_slave(0);
     this->master->clear_call_log();
     ASSERT_NIL_P(this->engine->discover());
     const auto calls = this->master->call_log();
-    EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
+    EXPECT_EQ(std::ranges::count(calls, "changed"), 0);
 }
 
 /// @brief it should return the slaves that the master discovers.
@@ -2972,7 +4042,15 @@ TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     ASSERT_NIL(this->engine->configure(io_slave(0), standalone));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"deactivate", "scan", "write", "deactivate", "scan"})
+        (std::vector<std::string>{
+            "changed",
+            "deactivate",
+            "scan",
+            "write",
+            "changed",
+            "deactivate",
+            "scan",
+        })
     );
     EXPECT_EQ(
         this->master->written(),
@@ -3077,7 +4155,7 @@ TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
     }));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"deactivate", "scan"})
+        (std::vector<std::string>{"changed", "deactivate", "scan"})
     );
 }
 
@@ -3213,7 +4291,7 @@ TEST_F(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
         std::move(manager),
         [&loads](const std::string &network, const std::string &name) {
             loads.emplace_back(network, name);
-            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+            return std::pair{std::vector<SavedSlave>{}, x::errors::NIL};
         }
     );
     const auto engine = ASSERT_NIL_P(pool.acquire(NPF_INTERFACE));

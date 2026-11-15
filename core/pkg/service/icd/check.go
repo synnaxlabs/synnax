@@ -110,7 +110,6 @@ func (c *checker) checkMessage(path []string, m Message) {
 			fieldPath := pathOf(path, "fields", strconv.Itoa(i))
 			switch v := f.Variant.(type) {
 			case nil:
-				c.Addf(fieldPath, "encoding is required")
 				untyped.Add(i)
 			case TaggedTextField:
 				if v.Tag == "" {
@@ -121,7 +120,6 @@ func (c *checker) checkMessage(path []string, m Message) {
 	case JSONPayload:
 		c.checkJSONFields(pathOf(path, "fields"), p, untyped, unscaled)
 	case nil:
-		c.Addf(path, "format is required")
 		return
 	}
 	keys := make(set.Set[FieldKey], len(bases))
@@ -163,7 +161,6 @@ func (c *checker) checkJSONFields(
 		fieldPath := pathOf(path, strconv.Itoa(i))
 		switch f.Variant.(type) {
 		case nil:
-			c.Addf(fieldPath, "type is required")
 			untyped.Add(i)
 			continue
 		case NumberJSONField:
@@ -344,8 +341,6 @@ func (c *checker) checkIdentifier(
 				f.Name,
 			)
 		}
-	case nil:
-		c.Addf(idPath, "type is required")
 	}
 }
 

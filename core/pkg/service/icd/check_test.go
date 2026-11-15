@@ -123,13 +123,13 @@ var _ = Describe("Check", func() {
 		},
 		Entry("message without a format",
 			icd.ICD{Name: "L", Messages: []icd.Message{{Name: "M"}}},
-			"messages.0.payload", "format is required",
+			"messages.0.payload.format", "format is required",
 		),
 		Entry("text field without an encoding",
 			icd.ICD{Name: "L", Messages: []icd.Message{
 				textMessage("M", icd.TextField{}),
 			}},
-			"messages.0.payload.fields.0", "encoding is required",
+			"messages.0.payload.fields.0.encoding", "encoding is required",
 		),
 		Entry("tagged field without a tag",
 			icd.ICD{Name: "L", Messages: []icd.Message{
@@ -146,14 +146,14 @@ var _ = Describe("Check", func() {
 					Fields: []icd.JSONField{{}},
 				}},
 			}}},
-			"messages.0.payload.fields.0", "type is required",
+			"messages.0.payload.fields.0.type", "type is required",
 		),
 		Entry("identifier without a type",
 			icd.ICD{Name: "L", Messages: []icd.Message{updateBinary(
 				binaryMessage("M", binaryField("a", 0, 8)),
 				func(p *icd.BinaryPayload) { p.Identifier = &icd.Identifier{} },
 			)}},
-			"messages.0.payload.identifier", "type is required",
+			"messages.0.payload.identifier.type", "type is required",
 		),
 	)
 

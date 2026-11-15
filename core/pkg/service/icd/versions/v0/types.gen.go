@@ -178,6 +178,14 @@ func (u Identifier) Type() IdentifierType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Identifier) Validate() error {
+	v := validate.New("Identifier")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // BaseField carries the parts every message field shares.
 type BaseField struct {
 	// Key is the unique identifier for the field within its message.
@@ -458,16 +466,18 @@ func (u *TextField) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u TextField) Validate() error {
+	v := validate.New("TextField")
+	v.Ternary("encoding", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case DelimitedTextField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TaggedTextField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -782,20 +792,22 @@ func (u *JSONField) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u JSONField) Validate() error {
+	v := validate.New("JSONField")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case NumberJSONField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StringJSONField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BooleanJSONField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TimestampJSONField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -874,6 +886,9 @@ func (b *BinaryPayload) ApplyDefaults() {
 // schema constraints.
 func (b BinaryPayload) Validate() error {
 	v := validate.New("BinaryPayload")
+	if b.Identifier != nil {
+		v.Exec(func() error { return validate.PathedError(b.Identifier.Validate(), "identifier") })
+	}
 	for i := range b.Fields {
 		v.Exec(func() error { return validate.PathedError(b.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
@@ -1062,18 +1077,20 @@ func (u *Payload) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Payload) Validate() error {
+	v := validate.New("Payload")
+	v.Ternary("format", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case BinaryPayload:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TextPayload:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case JSONPayload:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Message is the layout of one message a system sends or receives.
