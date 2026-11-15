@@ -12,7 +12,7 @@ import {
   type lineplot,
   type panel,
   project,
-  schematic,
+  type schematic,
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
@@ -147,7 +147,7 @@ describe("Sample project", () => {
     const [time, pt, cmd, state] = names.map(
       (name) => channels.find((ch) => ch.name === name)?.key,
     );
-    const configs = schematic.configsOf(
+    const configs = client.schematics.configsOf(
       await client.schematics.retrieve({ key: sample.schematic }),
     );
     expect(configs.press_vlv).toMatchObject({

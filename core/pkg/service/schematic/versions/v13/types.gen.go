@@ -45,6 +45,9 @@ type Node struct {
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
 	// Config is the symbol the node draws and its settings.
 	Config NodeConfig `json:"config" msgpack:"config"`
+	// Parent is the key of the group box node that contains the node. Absent when the
+	// node is at the top level.
+	Parent *string `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4029,8 +4032,6 @@ func (c CustomStaticNodeConfig) Validate() error {
 // GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
 // of grouped symbols. Groups nest: a member may itself be a group.
 type GroupBoxNodeConfig struct {
-	// Members lists the keys of the symbols the group contains.
-	Members []string `json:"members" msgpack:"members"`
 	// Locked pins the group and its members in place.
 	Locked bool `json:"locked" msgpack:"locked"`
 }

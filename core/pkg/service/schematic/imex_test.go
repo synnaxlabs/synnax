@@ -192,6 +192,18 @@ var _ = Describe("ImEx", func() {
 			Expect(valve.Scale).To(Equal(1.0))
 		})
 
+		It("Should import group members as valid parents", func(ctx SpecContext) {
+			res := importAndRetrieve(
+				ctx,
+				"versions/testdata/import_v11_groups.json",
+				imex.ImportOptions{Parent: proj.ResourceID()},
+			)
+			Expect(res.Nodes).To(HaveLen(3))
+			Expect(res.Nodes[0].Parent).To(BeNil())
+			Expect(res.Nodes[1].Parent).To(HaveValue(Equal("g1")))
+			Expect(res.Nodes[2].Parent).To(HaveValue(Equal("g1")))
+		})
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				_, err := imexSvc.Import(

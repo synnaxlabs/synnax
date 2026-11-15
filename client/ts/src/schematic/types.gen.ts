@@ -1354,11 +1354,6 @@ export interface CustomStaticNodeConfig extends z.infer<
  */
 export const groupBoxNodeConfigZ = z.object({
   variant: z.literal("group_box"),
-  /** members lists the keys of the symbols the group contains. */
-  members: z
-    .string()
-    .array()
-    .default(() => []),
   /** locked pins the group and its members in place. */
   locked: z.boolean().default(false),
 });
@@ -1811,6 +1806,11 @@ export const nodeZ = z.object({
   zIndex: zod.int16.default(0),
   /** config is the symbol the node draws and its settings. */
   config: nodeConfigZ,
+  /**
+   * parent is the key of the group box node that contains the node. Absent when the
+   * node is at the top level.
+   */
+  parent: z.string().optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

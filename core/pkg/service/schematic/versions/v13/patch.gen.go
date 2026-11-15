@@ -58,6 +58,8 @@ func (n *Node) Patch(c patch.Cursor) error {
 			return patch.Value(&n.Config, c)
 		}
 		return n.Config.Patch(c)
+	case "parent":
+		return patch.OptionalValue(&n.Parent, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -5440,8 +5442,6 @@ func (csnc *CustomStaticNodeConfig) Patch(c patch.Cursor) error {
 // Patch applies the path action at c, which is not done, to the value.
 func (gbnc *GroupBoxNodeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
-	case "members":
-		return patch.Value(&gbnc.Members, c.Next())
 	case "locked":
 		return patch.Value(&gbnc.Locked, c.Next())
 	default:

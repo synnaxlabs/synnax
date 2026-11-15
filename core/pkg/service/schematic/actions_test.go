@@ -58,14 +58,9 @@ func electricCfg() schematic.EdgeConfig {
 	}}
 }
 
-// groupCfg constructs a group box config listing the given members.
-func groupCfg(members ...string) schematic.NodeConfig {
-	if members == nil {
-		members = []string{}
-	}
-	return schematic.NodeConfig{
-		Variant: schematic.GroupBoxNodeConfig{Members: members},
-	}
+// groupCfg constructs an unlocked group box config.
+func groupCfg() schematic.NodeConfig {
+	return schematic.NodeConfig{Variant: schematic.GroupBoxNodeConfig{}}
 }
 
 // fields returns the JSON form of v, as a client sends a whole config.
@@ -87,9 +82,15 @@ func configured(n schematic.Node, cfg schematic.NodeConfig) schematic.Node {
 	return n
 }
 
-// groupBox constructs a group box node at the origin listing the given members.
-func groupBox(key string, members ...string) schematic.Node {
-	return configured(node(key, 0, 0), groupCfg(members...))
+// groupBox constructs a group box node at the origin.
+func groupBox(key string) schematic.Node {
+	return configured(node(key, 0, 0), groupCfg())
+}
+
+// in returns n with the given parent.
+func in(n schematic.Node, parent string) schematic.Node {
+	n.Parent = &parent
+	return n
 }
 
 // edge constructs an edge with no config from a source handle to a target handle.
@@ -233,20 +234,6 @@ var _ = Describe("Reducer", func() {
 				}))
 			},
 		)
-		It("Should not change the nodes of the state it was given", func() {
-			state := schematic.Schematic{Nodes: []schematic.Node{
-				configured(node("n1", 0, 0), tankCfg("Old", "")),
-			}}
-			MustSucceed(schematic.Reduce(
-				state,
-				schematic.NewSetNodeAction(schematic.SetNodePayload{
-					Node: configured(node("n1", 5, 5), tankCfg("New", "")),
-				}),
-			))
-			Expect(state.Nodes).To(Equal([]schematic.Node{
-				configured(node("n1", 0, 0), tankCfg("Old", "")),
-			}))
-		})
 	})
 
 	Describe("RemoveNode", func() {
@@ -311,183 +298,59 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("RemoveNode group member cascade", func() {
-		removeNode := func(state schematic.Schematic, key string) schematic.Schematic {
-			GinkgoHelper()
-			return MustSucceed(
-				schematic.Reduce(
-					state,
+	Describe("RemoveNode group children", func() {
+		DescribeTable("Should promote the children of a removed node",
+			func(nodes, expected []schematic.Node, key string) {
+				out := MustSucceed(schematic.Reduce(
+					schematic.Schematic{Nodes: nodes},
 					schematic.NewRemoveNodeAction(
 						schematic.RemoveNodePayload{Key: key},
 					),
-				),
-			)
-		}
-		DescribeTable("splicing",
-			func(nodes, expected []schematic.Node, key string) {
-				out := removeNode(schematic.Schematic{Nodes: nodes}, key)
+				))
 				Expect(out.Nodes).To(Equal(expected))
 			},
 			Entry(
-				"splices the removed member from its group",
-				[]schematic.Node{
-					groupBox("g1", "n1", "n2"),
-					node("n1", 0, 0),
-					node("n2", 0, 0),
-				},
-				[]schematic.Node{groupBox("g1", "n2"), node("n2", 0, 0)},
-				"n1",
+				"to the top level when the group is at the top level",
+				[]schematic.Node{groupBox("g1"), in(node("n1", 0, 0), "g1")},
+				[]schematic.Node{node("n1", 0, 0)},
+				"g1",
 			),
 			Entry(
-				"splices the key from every group that lists it",
+				"to the parent of a nested group",
 				[]schematic.Node{
-					groupBox("g1", "n1", "a"),
-					groupBox("g2", "b", "n1"),
-					node("n1", 0, 0),
+					groupBox("outer"),
+					in(groupBox("inner"), "outer"),
+					in(node("n1", 0, 0), "inner"),
+					in(node("n2", 0, 0), "outer"),
 				},
-				[]schematic.Node{groupBox("g1", "a"), groupBox("g2", "b")},
-				"n1",
-			),
-			Entry("removes duplicate member entries",
-				[]schematic.Node{groupBox("g1", "n1", "n2", "n1"), node("n1", 0, 0)},
-				[]schematic.Node{groupBox("g1", "n2")},
-				"n1",
-			),
-			Entry(
-				"splices a removed group out of the outer group listing it",
 				[]schematic.Node{
-					groupBox("outer", "inner", "x"),
-					groupBox("inner", "m1"),
-					node("m1", 0, 0),
+					groupBox("outer"),
+					in(node("n1", 0, 0), "outer"),
+					in(node("n2", 0, 0), "outer"),
 				},
-				[]schematic.Node{groupBox("outer", "x"), node("m1", 0, 0)},
 				"inner",
 			),
-			Entry("leaves a former member's config untouched when its group is removed",
+			Entry(
+				"and leave grandchildren in their own group",
 				[]schematic.Node{
-					groupBox("g1", "m1"),
-					configured(node("m1", 0, 0), tankCfg("Pump", "")),
+					groupBox("outer"),
+					in(groupBox("inner"), "outer"),
+					in(node("n1", 0, 0), "inner"),
 				},
-				[]schematic.Node{configured(node("m1", 0, 0), tankCfg("Pump", ""))},
-				"g1",
+				[]schematic.Node{groupBox("inner"), in(node("n1", 0, 0), "inner")},
+				"outer",
 			),
-			Entry("only splices the direct group in a nested chain",
+			Entry(
+				"and leave the group alone when a child is removed",
 				[]schematic.Node{
-					groupBox("outer", "mid"),
-					groupBox("mid", "inner"),
-					groupBox("inner", "n1", "n2"),
-					node("n1", 0, 0),
+					groupBox("g1"),
+					in(node("n1", 0, 0), "g1"),
+					in(node("n2", 0, 0), "g1"),
 				},
-				[]schematic.Node{
-					groupBox("outer", "mid"),
-					groupBox("mid", "inner"),
-					groupBox("inner", "n2"),
-				},
+				[]schematic.Node{groupBox("g1"), in(node("n2", 0, 0), "g1")},
 				"n1",
-			),
-			Entry("preserves other group config fields",
-				[]schematic.Node{
-					configured(node("g1", 0, 0), schematic.NodeConfig{
-						Variant: schematic.GroupBoxNodeConfig{
-							Members: []string{"n1", "n2"},
-							Locked:  true,
-						},
-					}),
-					node("n1", 0, 0),
-				},
-				[]schematic.Node{
-					configured(node("g1", 0, 0), schematic.NodeConfig{
-						Variant: schematic.GroupBoxNodeConfig{
-							Members: []string{"n2"},
-							Locked:  true,
-						},
-					}),
-				},
-				"n1",
-			),
-			Entry("leaves groups untouched when the removed node is in no group",
-				[]schematic.Node{groupBox("g1", "n1"), node("loose", 5, 5)},
-				[]schematic.Node{groupBox("g1", "n1")},
-				"loose",
-			),
-			Entry("leaves an empty members list untouched",
-				[]schematic.Node{groupBox("g1"), node("n1", 0, 0)},
-				[]schematic.Node{groupBox("g1")},
-				"n1",
-			),
-			Entry("does not cascade on a no-op removal, even for a listed key",
-				[]schematic.Node{groupBox("g1", "n1", "ghost"), node("n1", 0, 0)},
-				[]schematic.Node{groupBox("g1", "n1", "ghost"), node("n1", 0, 0)},
-				"ghost",
-			),
-			Entry("drops a self-listing group with its node",
-				[]schematic.Node{
-					groupBox("g1", "g1", "n1"),
-					configured(node("n1", 0, 0), tankCfg("Pump", "")),
-				},
-				[]schematic.Node{configured(node("n1", 0, 0), tankCfg("Pump", ""))},
-				"g1",
 			),
 		)
-		It("Should not change the group configs of the state it was given", func() {
-			state := schematic.Schematic{
-				Nodes: []schematic.Node{groupBox("g1", "n1", "n2"), node("n1", 0, 0)},
-			}
-			removeNode(state, "n1")
-			Expect(state.Nodes).To(Equal([]schematic.Node{
-				groupBox("g1", "n1", "n2"),
-				node("n1", 0, 0),
-			}))
-		})
-		It("Should splice a membership cycle when one side is removed", func() {
-			out := removeNode(schematic.Schematic{
-				Nodes: []schematic.Node{groupBox("g1", "g2"), groupBox("g2", "g1")},
-			}, "g1")
-			Expect(out.Nodes).To(Equal([]schematic.Node{groupBox("g2")}))
-		})
-		It("Should converge to the same nodes regardless of removal order", func() {
-			build := func() schematic.Schematic {
-				GinkgoHelper()
-				return schematic.Schematic{Nodes: []schematic.Node{
-					groupBox("g1", "n1"),
-					configured(node("n1", 0, 0), tankCfg("Pump", "")),
-				}}
-			}
-			a := removeNode(removeNode(build(), "n1"), "g1")
-			b := removeNode(removeNode(build(), "g1"), "n1")
-			Expect(a.Nodes).To(BeEmpty())
-			Expect(b.Nodes).To(BeEmpty())
-		})
-		It("Should splice the key from a large fan of groups", func() {
-			nodes := []schematic.Node{node("n1", 0, 0)}
-			expected := make([]schematic.Node, 0, 50)
-			for i := range 50 {
-				key := "g" + strconv.Itoa(i)
-				nodes = append(nodes, groupBox(key, "n1", "other"))
-				expected = append(expected, groupBox(key, "other"))
-			}
-			out := removeNode(schematic.Schematic{Nodes: nodes}, "n1")
-			Expect(out.Nodes).To(Equal(expected))
-		})
-		It("Should let a members write that lands after the removal win", func() {
-			state := removeNode(schematic.Schematic{
-				Nodes: []schematic.Node{
-					groupBox("g1", "n1", "n2"),
-					node("n1", 0, 0),
-					node("n2", 0, 0),
-				},
-			}, "n1")
-			out := MustSucceed(
-				schematic.Reduce(
-					state,
-					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"nodes", "g1", "config", "members"},
-						Value: []any{"n1", "n2", "n3"},
-					}),
-				),
-			)
-			Expect(out.Nodes[0]).To(Equal(groupBox("g1", "n1", "n2", "n3")))
-		})
 	})
 
 	Describe("AddEdge", func() {
@@ -985,6 +848,29 @@ var _ = Describe("Path actions", func() {
 			))
 		})
 
+		It("Should set the parent of a node", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"nodes", "n1", "parent"}, "g1"),
+			))
+			Expect(next.Nodes[0].Parent).To(HaveValue(Equal("g1")))
+		})
+
+		It("Should remove the parent of a node", func() {
+			grouped := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"nodes", "n1", "parent"}, "g1"),
+			))
+			next := MustSucceed(schematic.Reduce(
+				grouped,
+				schematic.NewRemoveAction(schematic.RemovePayload{
+					Path: []string{"nodes", "n1"},
+					Key:  "parent",
+				}),
+			))
+			Expect(next.Nodes[0].Parent).To(BeNil())
+		})
+
 		It("Should reject a field the config does not declare", func() {
 			Expect(schematic.Reduce(
 				state,
@@ -1005,7 +891,7 @@ var _ = Describe("Path actions", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
 					"[Schematic] - a path into "+field+
-						" must go into the config of one entry",
+						" must go into the config of one entry or name the parent of a node",
 				)),
 			))
 		},
@@ -1034,6 +920,11 @@ var _ = Describe("Path actions", func() {
 			"edges",
 		),
 		Entry("a set of every edge", set([]string{"edges"}, []any{}), "edges"),
+		Entry(
+			"a set of an edge's parent",
+			set([]string{"edges", "e1", "parent"}, "g1"),
+			"edges",
+		),
 		Entry(
 			"a remove of a node",
 			schematic.NewRemoveAction(schematic.RemovePayload{

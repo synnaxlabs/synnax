@@ -35,21 +35,24 @@ const ELEMENT_FIELDS: readonly string[] = ["nodes", "edges"] satisfies ElementFi
 
 const CONFIG_FIELD = "config";
 
+const PARENT_FIELD = "parent";
+
 const hasNode = (state: Draft<Schematic>, key: string): boolean =>
   state.nodes.some((n) => n.key === key);
 
 const hasEdge = (state: Draft<Schematic>, key: string): boolean =>
   state.edges.some((e) => e.key === key);
 
-// A path into a node or edge goes into its config. An action on the config of a node or
-// edge that does not exist does nothing.
+// A path into a node or edge goes into its config, or names the parent of a node. An
+// action on a node or edge that does not exist does nothing.
 const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
   const path = patch.pathOf(action);
   if (!ELEMENT_FIELDS.includes(path[0]))
     return actions.applyPath(state, action, schematicZ);
-  if (path.length < 3 || path[2] !== CONFIG_FIELD)
+  if (path[2] !== CONFIG_FIELD && (path[0] !== "nodes" || path[2] !== PARENT_FIELD))
     throw new Error(
-      `[Schematic] - a path into ${path[0]} must go into the config of one entry`,
+      `[Schematic] - a path into ${path[0]} must go into the config of one entry or ` +
+        "name the parent of a node",
     );
   return actions.applyEntryPath(state, action, [path[0]], schematicZ);
 };
@@ -110,19 +113,12 @@ const handlers: Handlers = {
     state.edges = state.edges.filter(
       (e) => e.source.node !== payload.key && e.target.node !== payload.key,
     );
+    const { parent } = oldNode;
     for (const n of state.nodes) {
-      if (n.config.variant !== "group_box") continue;
-      const { members } = n.config;
-      if (!members.includes(payload.key)) continue;
-      const configPath = ["nodes", n.key, CONFIG_FIELD];
-      inverse.push(
-        set({
-          path: [...configPath, "members"],
-          value: [...members],
-          guards: [{ path: [...configPath, "variant"], value: "group_box" }],
-        }),
-      );
-      n.config.members = members.filter((m) => m !== payload.key);
+      if (n.parent !== payload.key) continue;
+      inverse.push(set({ path: ["nodes", n.key, PARENT_FIELD], value: payload.key }));
+      if (parent == null) delete n.parent;
+      else n.parent = parent;
       targets.push(n.key);
     }
     return { inverse, targets };

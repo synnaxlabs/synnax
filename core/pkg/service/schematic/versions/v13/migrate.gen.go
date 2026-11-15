@@ -1287,8 +1287,7 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		}}, nil
 	case v12.GroupBoxNodeConfig:
 		return NodeConfig{Variant: GroupBoxNodeConfig{
-			Members: variant.Members,
-			Locked:  variant.Locked,
+			Locked: variant.Locked,
 		}}, nil
 	default:
 		return NodeConfig{}, errors.Newf("unknown NodeConfig variant %T", variant)

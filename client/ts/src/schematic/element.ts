@@ -16,7 +16,6 @@ import {
   NODE_CONFIG_SCHEMAS,
   type NodeConfig,
   nodeConfigZ,
-  type Schematic,
 } from "@/schematic/types.gen";
 
 /** The config of a node or an edge. No node variant shares a name with an edge one. */
@@ -39,14 +38,3 @@ export type ElementField = "nodes" | "edges";
 /** @returns the list that holds the element the config belongs to. */
 export const fieldOf = (config: ElementConfig): ElementField =>
   config.variant in EDGE_CONFIG_SCHEMAS ? "edges" : "nodes";
-
-/** @returns the config of every node and edge of the schematic, by element key. */
-export const configsOf = ({
-  nodes,
-  edges,
-}: Pick<Schematic, "nodes" | "edges">): Record<string, ElementConfig> => {
-  const configs: Record<string, ElementConfig> = {};
-  for (const n of nodes) configs[n.key] = n.config;
-  for (const e of edges) configs[e.key] = e.config;
-  return configs;
-};

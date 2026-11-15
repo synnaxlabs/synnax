@@ -344,7 +344,7 @@ describe("schematic queries", () => {
       expect(result.current.size).toBe(0);
     });
 
-    it("useParentOf maps members to their group", async () => {
+    it("useParentOf maps grouped nodes to their group", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
@@ -363,9 +363,11 @@ describe("schematic queries", () => {
               node: {
                 key: "g1",
                 position: { x: 0, y: 0 },
-                config: { variant: "group_box", members: ["n1", "n2"] },
+                config: { variant: "group_box" },
               },
             }),
+            schematic.set({ path: ["nodes", "n1", "parent"], value: "g1" }),
+            schematic.set({ path: ["nodes", "n2", "parent"], value: "g1" }),
           ],
         });
       });
@@ -878,11 +880,6 @@ describe("schematic queries", () => {
       return out;
     };
 
-    interface GroupCfg {
-      variant?: string;
-      members?: string[];
-    }
-
     let schem: schematic.Schematic;
     let ScopedWrapper: FC<PropsWithChildren>;
 
@@ -914,9 +911,11 @@ describe("schematic queries", () => {
       expect(selection.slice(1)).toEqual(["n1", "n2"]);
       const groupKey = selection[0];
       await waitFor(() => {
-        const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
-        expect(cfg?.variant).toEqual("group_box");
-        expect(cfg?.members).toEqual(["n1", "n2"]);
+        expect(result.current.configs[groupKey]?.variant).toEqual("group_box");
+        const parents = result.current.nodes
+          .filter((n) => n.key === "n1" || n.key === "n2")
+          .map((n) => n.parent);
+        expect(parents).toEqual([groupKey, groupKey]);
         const groupNode = result.current.nodes.find((n) => n.key === groupKey);
         expect(groupNode?.zIndex).toEqual(-1);
         expect(groupNode?.position).toEqual({ x: -20, y: -40 });
@@ -961,6 +960,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         expect(result.current.configs[groupKey]).toBeUndefined();
         expect(result.current.nodes.some((n) => n.key === groupKey)).toEqual(false);
+        expect(result.current.nodes.every((n) => n.parent == null)).toEqual(true);
       });
     });
 
@@ -1000,8 +1000,12 @@ describe("schematic queries", () => {
     const fetchStoredConfig = async (
       key: schematic.Key,
       elKey: string,
-    ): Promise<schematic.ElementConfig> =>
-      schematic.configsOf(await createTestClient().schematics.retrieve({ key }))[elKey];
+    ): Promise<schematic.ElementConfig> => {
+      const fresh = createTestClient();
+      return fresh.schematics.configsOf(await fresh.schematics.retrieve({ key }))[
+        elKey
+      ];
+    };
 
     it("should show the element's config", async () => {
       const schem = await createTestSchematic(proj.key);
@@ -1148,6 +1152,29 @@ describe("schematic queries", () => {
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         tooltip: ["line"],
       });
+    });
+
+    it("should send no edit once another client removes the element", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key, "e1");
+      await remote.schematics.retrieve({ key: schem.key });
+      await act(async () => {
+        await remote.schematics.dispatch(
+          schem.key,
+          schematic.removeEdge({ key: "e1" }),
+        );
+      });
+      await waitFor(() =>
+        expect(client.schematics.watch(schem.key).getCached()).toMatchObject({
+          edges: [],
+        }),
+      );
+      const send = spyOnSend(client);
+      act(() => result.current.form.set(pipePath.strokeColor, [255, 0, 0, 1]));
+      await act(async () => await result.current.flush());
+      expect(send.mock.calls.some(([target]) => target === "/schematic/dispatch")).toBe(
+        false,
+      );
     });
 
     it("should edit the new element when the element key changes", async () => {

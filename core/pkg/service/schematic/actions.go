@@ -40,42 +40,31 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	i := slices.IndexFunc(state.Nodes, func(n Node) bool { return n.Key == p.Node.Key })
 	if i == -1 {
-		state.Nodes = append(slices.Clone(state.Nodes), p.Node)
+		state.Nodes = append(state.Nodes, p.Node)
 		return state, nil
 	}
-	state.Nodes = slices.Clone(state.Nodes)
 	state.Nodes[i] = p.Node
 	return state, nil
 }
 
-// Handle removes the node with the matching key and the edges that connect to it, and
-// splices the key out of the members of every group box. No-op if no node matches.
+// Handle removes the node with the matching key and the edges that connect to it. The
+// children of a removed group box move to the parent of the group box. No-op if no node
+// matches.
 func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
-	if !hasNode(state, p.Key) {
+	i := slices.IndexFunc(state.Nodes, func(n Node) bool { return n.Key == p.Key })
+	if i == -1 {
 		return state, nil
 	}
-	state.Nodes = slices.DeleteFunc(
-		slices.Clone(state.Nodes),
-		func(n Node) bool { return n.Key == p.Key },
-	)
+	parent := state.Nodes[i].Parent
+	state.Nodes = slices.Delete(state.Nodes, i, i+1)
 	state.Edges = slices.DeleteFunc(
-		slices.Clone(state.Edges),
+		state.Edges,
 		func(e Edge) bool { return e.Source.Node == p.Key || e.Target.Node == p.Key },
 	)
-	for i, n := range state.Nodes {
-		group, ok := n.Config.Variant.(GroupBoxNodeConfig)
-		if !ok {
-			continue
+	for j, n := range state.Nodes {
+		if n.Parent != nil && *n.Parent == p.Key {
+			state.Nodes[j].Parent = parent
 		}
-		members := slices.DeleteFunc(
-			slices.Clone(group.Members),
-			func(m string) bool { return m == p.Key },
-		)
-		if len(members) == len(group.Members) {
-			continue
-		}
-		group.Members = members
-		state.Nodes[i].Config = NodeConfig{Variant: group}
 	}
 	return state, nil
 }
@@ -98,7 +87,7 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	if i == -1 {
 		return state, nil
 	}
-	state.Edges = slices.Delete(slices.Clone(state.Edges), i, i+1)
+	state.Edges = slices.Delete(state.Edges, i, i+1)
 	return state, nil
 }
 
@@ -150,18 +139,22 @@ func apply[A patch.Action](state Schematic, a A) (Schematic, error) {
 }
 
 // checkPath returns an error wrapping validate.ErrValidation unless the path at c names
-// the schematic's name, group, or project, or goes into the config of a node or edge.
+// the schematic's name, group, or project, goes into the config of a node or edge, or
+// names the parent of a node.
 func checkPath(c patch.Cursor) error {
 	switch c.Segment() {
 	case "nodes", "edges":
 		if key := c.Next(); !key.Done() {
-			if field := key.Next(); !field.Done() && field.Segment() == "config" {
+			field := key.Next()
+			if !field.Done() && (field.Segment() == "config" ||
+				c.Segment() == "nodes" && field.Segment() == "parent") {
 				return nil
 			}
 		}
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"[Schematic] - a path into %s must go into the config of one entry",
+			"[Schematic] - a path into %s must go into the config of one entry or "+
+				"name the parent of a node",
 			c.Segment(),
 		)
 	}

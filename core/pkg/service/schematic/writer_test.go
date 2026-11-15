@@ -407,6 +407,101 @@ var _ = Describe("Writer", func() {
 			)
 		})
 
+		Describe("A dispatch to a stored group", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"groups","nodes":[`+
+						`{"key":"g1","config":{"variant":"group_box"}},`+
+						`{"key":"g2","config":{"variant":"group_box"},"parent":"g1"},`+
+						`{"key":"v1","config":{"variant":"valve"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+			setParent := func(key, parent string) schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", key, "parent"},
+					Value: parent,
+				})
+			}
+
+			It("Should accept a parent that is a group box", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+				})).To(Succeed())
+			})
+
+			It("Should promote the children of a removed group", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+					schematic.NewRemoveNodeAction(
+						schematic.RemoveNodePayload{Key: "g2"},
+					),
+				})).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Nodes[1].Key).To(Equal("v1"))
+				Expect(res.Nodes[1].Parent).To(HaveValue(Equal("g1")))
+			})
+
+			DescribeTable("Should be rejected when it",
+				func(ctx SpecContext, a schematic.Action, msg string) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"sets a parent that is not a group box",
+					setParent("g1", "v1"),
+					"nodes.0.parent: v1 is not a group box of the schematic",
+				),
+				Entry(
+					"sets a parent that is not a node",
+					setParent("v1", "ghost"),
+					"nodes.2.parent: ghost is not a group box of the schematic",
+				),
+				Entry(
+					"sets a node as its own parent",
+					setParent("g1", "g1"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+				Entry(
+					"closes a cycle of parents",
+					setParent("g1", "g2"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+			)
+		})
+
+		It("Should reject a create whose parent is not a group box", func(
+			ctx SpecContext,
+		) {
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[`+
+					`{"key":"v0","config":{"variant":"valve"}},`+
+					`{"key":"v1","config":{"variant":"valve"},"parent":"v0"}]}`,
+			), &s)).To(Succeed())
+			s.Project = &proj.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("nodes.1.parent: v0 is not a group box"),
+				),
+			))
+		})
+
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

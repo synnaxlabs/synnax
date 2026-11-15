@@ -1089,7 +1089,6 @@ class GroupBoxNodeConfig(BaseModel):
     """
 
     variant: Literal["group_box"] = "group_box"
-    members: list[str] = Field(default_factory=list)
     locked: bool = False
 
 
@@ -1214,12 +1213,15 @@ class Node(BaseModel):
             render above lower values. Set by the user via send-to-back / bring-to-front
             actions.
         config: Is the symbol the node draws and its settings.
+        parent: Is the key of the group box node that contains the node. Absent when the
+            node is at the top level.
     """
 
     key: str
     position: spatial.XY
     z_index: int = Field(default=0, ge=-32768, le=32767)
     config: NodeConfig
+    parent: str | None = None
 
 
 class Schematic(BaseModel):

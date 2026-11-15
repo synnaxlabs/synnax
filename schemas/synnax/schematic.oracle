@@ -44,6 +44,12 @@ Node struct {
     config   NodeConfig {
         @doc value "is the symbol the node draws and its settings."
     }
+    parent   string?    {
+        @doc value """
+            is the key of the group box node that contains the node. Absent when the
+            node is at the top level.
+        """
+    }
 
     @doc value  "is a diagram node representing a symbol in the schematic."
     @go marshal
@@ -883,10 +889,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for user-defined static symbols."
     }
     group_box {
-        members string[] = [] {
-            @doc value "lists the keys of the symbols the group contains."
-        }
-        locked  bool = false {
+        locked bool = false {
             @doc value "pins the group and its members in place."
         }
 

@@ -225,6 +225,12 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	if err := nv.Config.EncodeOrc(w); err != nil {
 		return err
 	}
+	if nv.Parent != nil {
+		w.Bool(true)
+		w.String(*nv.Parent)
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -242,6 +248,19 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = nv.Config.DecodeOrc(r); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			nv.Parent = &hv
+		}
 	}
 	return nil
 }
@@ -1370,13 +1389,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 	case GroupBoxNodeConfig:
 		w.String("group_box")
-		w.Bool(v.Members != nil)
-		if v.Members != nil {
-			w.Uint32(uint32(len(v.Members)))
-			for i := range v.Members {
-				w.String(v.Members[i])
-			}
-		}
 		w.Bool(v.Locked)
 	default:
 		return errors.Newf("NodeConfig: nil or unknown variant %T", nc.Variant)
@@ -3214,24 +3226,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		nc.Variant = v
 	case "group_box":
 		var v GroupBoxNodeConfig
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Members = make([]string, n)
-				for i := range v.Members {
-					if v.Members[i], err = r.String(); err != nil {
-						return err
-					}
-				}
-			}
-		}
 		if v.Locked, err = r.Bool(); err != nil {
 			return err
 		}

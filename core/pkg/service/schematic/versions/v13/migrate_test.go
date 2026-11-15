@@ -329,10 +329,8 @@ var _ = Describe("Migrate functions", func() {
 
 var _ = Describe("MigrateSchematic config move", func() {
 	var (
-		valve = v12.ValveElementConfig{Orientation: "left", Scale: 2}
-		pipe  = v12.PipeElementConfig{
-			SegmentedEdgeConfig: v12.SegmentedEdgeConfig{Segments: []v12.Segment{}},
-		}
+		valve      = v12.ValveElementConfig{Orientation: "left", Scale: 2}
+		pipe       = v12.PipeElementConfig{Segments: []v12.Segment{}}
 		movedValve = v13.NodeConfig{
 			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
 		}
@@ -494,6 +492,111 @@ var _ = Describe("MigrateSchematic config move", func() {
 		}
 		migrate(ctx, old)
 		Expect(old.Nodes).To(Equal([]v12.Node{node("n1"), node("n2")}))
+	})
+})
+
+var _ = Describe("MigrateSchematic group parents", func() {
+	box := func(members ...string) v12.ElementConfig {
+		return v12.ElementConfig{Variant: v12.GroupBoxElementConfig{Members: members}}
+	}
+	valve := v12.ElementConfig{Variant: v12.ValveElementConfig{Orientation: "left"}}
+	// parents migrates a schematic with a node for each key of order and returns the
+	// parent of each migrated node by key, with "" for no parent.
+	parents := func(
+		ctx SpecContext,
+		order []string,
+		configs map[string]v12.ElementConfig,
+	) map[string]string {
+		GinkgoHelper()
+		old := v12.Schematic{Configs: configs}
+		for _, k := range order {
+			old.Nodes = append(old.Nodes, v12.Node{Key: k})
+		}
+		s := MustSucceed(v13.MigrateSchematic(ctx, old))
+		out := make(map[string]string, len(s.Nodes))
+		for _, n := range s.Nodes {
+			out[n.Key] = ""
+			if n.Parent != nil {
+				out[n.Key] = *n.Parent
+			}
+		}
+		return out
+	}
+
+	It("Should give each member its group as parent", func(ctx SpecContext) {
+		Expect(
+			parents(
+				ctx,
+				[]string{"outer", "inner", "a", "b"},
+				map[string]v12.ElementConfig{
+					"outer": box("inner", "b"),
+					"inner": box("a"),
+					"a":     valve,
+					"b":     valve,
+				},
+			),
+		).To(Equal(map[string]string{
+			"outer": "",
+			"inner": "outer",
+			"a":     "inner",
+			"b":     "outer",
+		}))
+	})
+
+	It("Should skip a member that is not a node", func(ctx SpecContext) {
+		Expect(parents(ctx, []string{"g", "a", "bare"}, map[string]v12.ElementConfig{
+			"g": box("a", "bare", "ghost"),
+			"a": valve,
+		})).To(Equal(map[string]string{"g": "", "a": "g"}))
+	})
+
+	It("Should keep the first group in node order", func(ctx SpecContext) {
+		Expect(parents(ctx, []string{"g2", "g1", "a"}, map[string]v12.ElementConfig{
+			"g1": box("a"),
+			"g2": box("a"),
+			"a":  valve,
+		})).To(Equal(map[string]string{"g1": "", "g2": "", "a": "g2"}))
+	})
+
+	DescribeTable("Should skip a link that closes a cycle",
+		func(
+			ctx SpecContext,
+			order []string,
+			configs map[string]v12.ElementConfig,
+			expected map[string]string,
+		) {
+			Expect(parents(ctx, order, configs)).To(Equal(expected))
+		},
+		Entry(
+			"a group that lists itself",
+			[]string{"g"},
+			map[string]v12.ElementConfig{"g": box("g")},
+			map[string]string{"g": ""},
+		),
+		Entry(
+			"two groups that list each other",
+			[]string{"g1", "g2"},
+			map[string]v12.ElementConfig{"g1": box("g2"), "g2": box("g1")},
+			map[string]string{"g1": "", "g2": "g1"},
+		),
+		Entry(
+			"three groups in a ring",
+			[]string{"g1", "g2", "g3"},
+			map[string]v12.ElementConfig{
+				"g1": box("g2"),
+				"g2": box("g3"),
+				"g3": box("g1"),
+			},
+			map[string]string{"g1": "", "g2": "g1", "g3": "g2"},
+		),
+	)
+
+	It("Should drop the members of a group box", func(ctx SpecContext) {
+		s := MustSucceed(v13.MigrateSchematic(ctx, v12.Schematic{
+			Nodes:   []v12.Node{{Key: "g"}, {Key: "a"}},
+			Configs: map[string]v12.ElementConfig{"g": box("a"), "a": valve},
+		}))
+		Expect(s.Nodes[0].Config.Variant).To(Equal(v13.GroupBoxNodeConfig{}))
 	})
 })
 

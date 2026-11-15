@@ -40,6 +40,8 @@ interface RenderPropertiesParams {
   sessionState?: Partial<Session.Schematic.State>;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
   createConfig?: (key: string) => Record<string, unknown>;
+  /** The group of each grouped node, by node key. */
+  parents?: Record<string, string>;
 }
 
 const renderProperties = async ({
@@ -47,6 +49,7 @@ const renderProperties = async ({
   sessionState,
   onStatuses = () => {},
   createConfig = createValveConfig,
+  parents = {},
 }: RenderPropertiesParams) => {
   const Harness = (): ReactElement => (
     <>
@@ -60,6 +63,7 @@ const renderProperties = async ({
         key,
         position: { x: 0, y: 0 },
         config: schematic.nodeConfigZ.parse(createConfig(key)),
+        parent: parents[key],
       })),
     },
     sessionState: {
@@ -119,7 +123,7 @@ const retrieveConfig = async (
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
   const retrieved = await client.schematics.retrieve(key);
-  return schematic.configsOf(retrieved)[nodeKey];
+  return client.schematics.configsOf(retrieved)[nodeKey];
 };
 
 const pollBothOrientations = async (key: string, rotated: string): Promise<void> => {
@@ -234,20 +238,19 @@ describe("Schematic toolbar Properties", () => {
 
   describe("grouped selection", () => {
     const nodeKeys = ["g1", "n1", "n2", "n3"];
+    const parents = { n1: "g1", n2: "g1" };
     const createGroupedConfig = (key: string): Record<string, unknown> =>
       key === "g1"
-        ? {
-            ...(PSchematic.Node.createConfig({
-              variant: "group_box",
-            }) as unknown as Record<string, unknown>),
-            members: ["n1", "n2"],
-          }
+        ? PSchematic.Node.createConfig({
+            variant: "group_box",
+          })
         : createValveConfig();
 
     it("routes a grouped member plus a loose symbol to the multi form", async () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["n1", "n3"] },
       });
       await screen.findByText("Align");
@@ -262,6 +265,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -276,6 +280,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -294,6 +299,7 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Colors");
@@ -308,6 +314,7 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["g1", "n1", "n2"] },
       });
       await screen.findByText("Align");

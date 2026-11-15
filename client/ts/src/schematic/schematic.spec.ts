@@ -27,10 +27,7 @@ const nodeCfg = (raw: unknown): schematic.NodeConfig =>
 const tank = (extra: object = {}): schematic.NodeConfig =>
   nodeCfg({ variant: "tank", ...extra });
 
-const group = (
-  members: string[],
-  extra: Partial<schematic.GroupBoxNodeConfig> = {},
-): schematic.NodeConfig => nodeCfg({ variant: "group_box", members, ...extra });
+const group = (): schematic.NodeConfig => nodeCfg({ variant: "group_box" });
 
 const node = (
   key: string,
@@ -53,6 +50,9 @@ const edge = (
 
 const setNodes = (...keys: string[]): schematic.Action[] =>
   keys.map((key) => schematic.setNode({ node: node(key) }));
+
+const setParent = (key: string, parent: string): schematic.Action =>
+  schematic.set({ path: ["nodes", key, "parent"], value: parent });
 
 const client = createTestClient();
 
@@ -278,99 +278,77 @@ describe("Schematic", () => {
       ]);
     });
 
-    test("removeNode splices the removed member from its group on the Core", async () => {
+    test("removeNode promotes the children of a group on the Core", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
+        schematic.setNode({ node: node("outer", group()) }),
+        schematic.setNode({ node: { ...node("inner", group()), parent: "outer" } }),
+      ]);
+      await client.schematics.dispatch(schem.key, [setParent("n1", "inner")]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "inner" }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.nodes).toEqual([
+        { ...node("n1"), parent: "outer" },
+        node("outer", group()),
+      ]);
+    });
+
+    test("rejects a parent that is not a group box", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, setNodes("n1", "n2"));
+      await expect(
+        client.schematics.dispatch(schem.key, [setParent("n1", "n2")]),
+      ).rejects.toThrow("nodes.0.parent: n2 is not a group box of the schematic");
+    });
+
+    test("an undo of a group removal restores the parents on the Core", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         ...setNodes("n1", "n2"),
-        schematic.setNode({ node: node("g1", group(["n1", "n2"])) }),
+        schematic.setNode({ node: node("g1", group()) }),
       ]);
       await client.schematics.dispatch(schem.key, [
-        schematic.removeNode({ key: "n1" }),
+        setParent("n1", "g1"),
+        setParent("n2", "g1"),
       ]);
-      const res = await client.schematics.retrieve(schem.key);
-      expect(schematic.configsOf(res).g1).toEqual(group(["n2"]));
-    });
-
-    test("removeNode leaves former members intact when their group is removed", async () => {
-      const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, [
-        schematic.setNode({ node: node("n1", tank({ label: { label: "Pump" } })) }),
-        schematic.setNode({ node: node("g1", group(["n1"])) }),
+      const before = await client.schematics.retrieve(schem.key);
+      const { inverse } = schematic.reduceAll(before, [
+        schematic.removeNode({ key: "g1" }),
       ]);
       await client.schematics.dispatch(schem.key, [
         schematic.removeNode({ key: "g1" }),
       ]);
-      const res = await client.schematics.retrieve(schem.key);
-      expect(res.nodes).toEqual([node("n1", tank({ label: { label: "Pump" } }))]);
-    });
-
-    test("a members write dispatched after the removal wins on the Core", async () => {
-      const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, [
-        ...setNodes("n1"),
-        schematic.setNode({ node: node("g1", group(["n1"])) }),
-      ]);
-      await client.schematics.dispatch(schem.key, [
-        schematic.removeNode({ key: "n1" }),
-      ]);
-      await client.schematics.dispatch(schem.key, [
-        schematic.set({
-          path: ["nodes", "g1", "config", "members"],
-          value: ["n1", "n3"],
-        }),
-      ]);
-      const res = await client.schematics.retrieve(schem.key);
-      expect(schematic.configsOf(res).g1).toEqual(group(["n1", "n3"]));
-    });
-
-    test("an undo of a removal restores the group's members on the Core", async () => {
-      const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, [
-        ...setNodes("n1"),
-        schematic.setNode({ node: node("g1", group(["a", "n1", "b"])) }),
-      ]);
-      const before = await client.schematics.retrieve(schem.key);
-      const { inverse } = schematic.reduceAll(before, [
-        schematic.removeNode({ key: "n1" }),
-      ]);
-      await client.schematics.dispatch(schem.key, [
-        schematic.removeNode({ key: "n1" }),
-      ]);
       await client.schematics.dispatch(schem.key, inverse);
       const res = await client.schematics.retrieve(schem.key);
-      expect(schematic.configsOf(res)).toEqual(schematic.configsOf(before));
+      const byKey = (ns: schematic.Node[]) =>
+        Object.fromEntries(ns.map((n) => [n.key, n]));
+      expect(byKey(res.nodes)).toEqual(byKey(before.nodes));
     });
 
-    test("the client and Core reducers agree across a cascade storm", async () => {
+    test("the client and Core reducers agree across group removals", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
-        schematic.setNode({ node: node("n1", tank({ label: { label: "Pump" } })) }),
-        schematic.setNode({ node: node("n2", tank({ label: { label: "Tank" } })) }),
-        ...setNodes("n3"),
-        schematic.setNode({ node: node("g1", group(["n1", "n2", "n1"])) }),
-        schematic.setNode({ node: node("inner", group(["n1"])) }),
-        schematic.setNode({ node: node("outer", group(["inner"])) }),
-        schematic.setNode({ node: node("lockbox", group(["n2"], { locked: true })) }),
-        schematic.setNode({ node: node("selfy", group(["selfy", "n3"])) }),
-        schematic.setNode({ node: node("cycA", group(["cycB"])) }),
-        schematic.setNode({ node: node("cycB", group(["cycA"])) }),
+        ...setNodes("n1", "n2", "n3"),
+        schematic.setNode({ node: node("outer", group()) }),
+        schematic.setNode({ node: { ...node("mid", group()), parent: "outer" } }),
+        schematic.setNode({ node: { ...node("inner", group()), parent: "mid" } }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        setParent("n1", "inner"),
+        setParent("n2", "mid"),
+        setParent("n3", "outer"),
       ]);
       let local = await client.schematics.retrieve(schem.key);
       const batches: schematic.Action[][] = [
         [schematic.removeNode({ key: "n1" })],
+        [schematic.removeNode({ key: "mid" })],
         [
-          schematic.removeNode({ key: "inner" }),
           schematic.removeNode({ key: "outer" }),
+          schematic.removeNode({ key: "inner" }),
         ],
-        [
-          schematic.set({
-            path: ["nodes", "lockbox", "config", "members"],
-            value: ["n2", "late"],
-          }),
-          schematic.removeNode({ key: "n2" }),
-        ],
-        [schematic.removeNode({ key: "selfy" })],
-        [schematic.removeNode({ key: "cycA" })],
         [schematic.removeNode({ key: "ghost" })],
       ];
       for (const batch of batches) {
@@ -439,6 +417,22 @@ describe("Schematic", () => {
           schematic.set({ path: ["nodes", "n1", "position"], value: { x: 1, y: 1 } }),
         ]),
       ).rejects.toThrow("a path into nodes must go into the config of one entry");
+    });
+
+    test("sets and removes the parent of a node", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        ...setNodes("n1"),
+        schematic.setNode({ node: node("g1", group()) }),
+      ]);
+      await client.schematics.dispatch(schem.key, [setParent("n1", "g1")]);
+      expect((await client.schematics.retrieve(schem.key)).nodes[0].parent).toBe("g1");
+      await client.schematics.dispatch(schem.key, [
+        schematic.remove({ path: ["nodes", "n1"], key: "parent" }),
+      ]);
+      expect(
+        (await client.schematics.retrieve(schem.key)).nodes[0].parent,
+      ).toBeUndefined();
     });
 
     test("setChanged keeps a concurrent edit to another field", async () => {

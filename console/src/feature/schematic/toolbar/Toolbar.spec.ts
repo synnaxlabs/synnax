@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -65,7 +65,7 @@ const pickSymbol = async (name: string): Promise<void> => {
 };
 
 const retrieveConfigs = async (key: string) =>
-  schematic.configsOf(await client.schematics.retrieve(key));
+  client.schematics.configsOf(await client.schematics.retrieve(key));
 
 afterEach(() => {
   vi.restoreAllMocks();

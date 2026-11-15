@@ -133,10 +133,9 @@ class TestNodeConfig:
             NODE.validate_python({"variant": "custom_actuator"})
 
     def test_group_box(self) -> None:
-        """Should keep the members of a group box."""
-        config = NODE.validate_python({"variant": "group_box", "members": ["a", "b"]})
+        """Should default a group box to unlocked."""
+        config = NODE.validate_python({"variant": "group_box"})
         assert isinstance(config, schematic.GroupBoxNodeConfig)
-        assert config.members == ["a", "b"]
         assert config.locked is False
 
 
@@ -233,7 +232,7 @@ class TestClient:
         assert s.name == "From Object"
 
     def test_diagram_round_trip(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should keep nodes and edges with their configs through create and copy."""
+        """Should keep nodes, parents, and edges through create and copy."""
         diagram = sy.Schematic(
             project=project.key,
             name="Diagram",
@@ -248,6 +247,12 @@ class TestClient:
                     position=spatial.XY(x=30, y=40),
                     z_index=2,
                     config=schematic.TankNodeConfig(),
+                    parent="g",
+                ),
+                schematic.Node(
+                    key="g",
+                    position=spatial.XY(x=0, y=0),
+                    config=schematic.GroupBoxNodeConfig(),
                 ),
             ],
             edges=[
@@ -265,6 +270,23 @@ class TestClient:
         for s in (created, retrieved, copied):
             assert s.nodes == diagram.nodes
             assert s.edges == diagram.edges
+
+    def test_create_bad_parent(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should reject a node whose parent is not a group box."""
+        diagram = sy.Schematic(
+            project=project.key,
+            name="Bad Parent",
+            nodes=[
+                schematic.Node(
+                    key="a",
+                    position=spatial.XY(x=0, y=0),
+                    config=schematic.TankNodeConfig(),
+                    parent="ghost",
+                ),
+            ],
+        )
+        with pytest.raises(sy.ValidationError, match="ghost is not a group box"):
+            client.schematics.create(diagram)
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple schematics."""

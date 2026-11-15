@@ -23,7 +23,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/actions.gen";
-import { configsOf, type ElementConfig } from "@/schematic/element";
+import { type ElementConfig } from "@/schematic/element";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -163,7 +163,9 @@ export class Client extends query.Retriever<
   configsOf(schematic: Schematic): Record<string, ElementConfig> {
     let configs = this.configs.get(schematic);
     if (configs == null) {
-      configs = configsOf(schematic);
+      configs = {};
+      for (const n of schematic.nodes) configs[n.key] = n.config;
+      for (const e of schematic.edges) configs[e.key] = e.config;
       this.configs.set(schematic, configs);
     }
     return configs;

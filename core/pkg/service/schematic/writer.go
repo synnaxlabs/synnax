@@ -69,6 +69,9 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if err := validateScales(stored, *s); err != nil {
 		return err
 	}
+	if err := validateParents(*s); err != nil {
+		return err
+	}
 	if err := project.CheckMember(s.Project); err != nil {
 		return err
 	}
@@ -164,6 +167,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
+			// Reduce changes the node list in place, so keep the stored nodes.
+			stored := slices.Clone(prev.Nodes)
 			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
@@ -184,7 +189,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Schematic{}, err
 			}
-			if err = validateScales(prev.Nodes, next); err != nil {
+			if err = validateScales(stored, next); err != nil {
+				return Schematic{}, err
+			}
+			if err = validateParents(next); err != nil {
 				return Schematic{}, err
 			}
 			return next, project.CheckMember(next.Project)
@@ -219,6 +227,42 @@ func validateScales(stored []Node, next Schematic) error {
 			i,
 			scale,
 		)
+	}
+	return nil
+}
+
+// validateParents returns an error wrapping validate.ErrValidation when the parent of a
+// node of s is not a group box node of s, or when the parents of s form a cycle.
+func validateParents(s Schematic) error {
+	parentOf := make(map[string]*string)
+	for _, n := range s.Nodes {
+		if _, ok := n.Config.Variant.(GroupBoxNodeConfig); ok {
+			parentOf[n.Key] = n.Parent
+		}
+	}
+	for i, n := range s.Nodes {
+		if n.Parent == nil {
+			continue
+		}
+		if _, ok := parentOf[*n.Parent]; !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"nodes.%d.parent: %s is not a group box of the schematic",
+				i,
+				*n.Parent,
+			)
+		}
+		// A chain without a cycle has at most one step for each group box.
+		for p, steps := n.Parent, 0; p != nil; p, steps = parentOf[*p], steps+1 {
+			if steps == len(parentOf) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"nodes.%d.parent: the parents of %s form a cycle",
+					i,
+					n.Key,
+				)
+			}
+		}
 	}
 	return nil
 }

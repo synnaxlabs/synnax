@@ -304,6 +304,7 @@ var _ = Describe("Codec", func() {
 				Position: spatial.XY{X: 3.5, Y: 4.5},
 				ZIndex:   6,
 				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+				Parent:   new(string("test_7")),
 			}),
 			Entry("zero values", v13.Node{
 				Key:      "",
@@ -324,6 +325,7 @@ var _ = Describe("Codec", func() {
 						StrokeColor: nil,
 					},
 				}},
+				Parent: nil,
 			}),
 		)
 	})
@@ -977,7 +979,7 @@ var _ = Describe("Codec", func() {
 					},
 				},
 			}}),
-			Entry("group_box variant", v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}),
+			Entry("group_box variant", v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Locked: true}}),
 		)
 	})
 	Describe("ScaleIndicatorConfig", func() {
@@ -1033,18 +1035,19 @@ var _ = Describe("Codec", func() {
 						Position: spatial.XY{X: 6.5, Y: 7.5},
 						ZIndex:   9,
 						Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+						Parent:   new(string("test_10")),
 					},
 				},
 				Edges: []v13.Edge{
 					{
-						Key:    "test_11",
-						Source: v13.Handle{Node: "test_13", Param: "test_14"},
-						Target: v13.Handle{Node: "test_16", Param: "test_17"},
+						Key:    "test_12",
+						Source: v13.Handle{Node: "test_14", Param: "test_15"},
+						Target: v13.Handle{Node: "test_17", Param: "test_18"},
 						Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 					},
 				},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 			}),
 			Entry("zero values", v13.Schematic{
 				Key:     uuid.Nil(),
@@ -1289,6 +1292,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Position: spatial.XY{X: 3.5, Y: 4.5},
 		ZIndex:   6,
 		Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+		Parent:   new(string("test_7")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1349,18 +1353,19 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Position: spatial.XY{X: 6.5, Y: 7.5},
 				ZIndex:   9,
 				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+				Parent:   new(string("test_10")),
 			},
 		},
 		Edges: []v13.Edge{
 			{
-				Key:    "test_11",
-				Source: v13.Handle{Node: "test_13", Param: "test_14"},
-				Target: v13.Handle{Node: "test_16", Param: "test_17"},
+				Key:    "test_12",
+				Source: v13.Handle{Node: "test_14", Param: "test_15"},
+				Target: v13.Handle{Node: "test_17", Param: "test_18"},
 				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 			},
 		},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1679,6 +1684,7 @@ func FuzzDecodeNode(f *testing.F) {
 			Position: spatial.XY{X: 3.5, Y: 4.5},
 			ZIndex:   6,
 			Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+			Parent:   new(string("test_7")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1706,6 +1712,7 @@ func FuzzDecodeNode(f *testing.F) {
 					StrokeColor: nil,
 				},
 			}},
+			Parent: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3097,7 +3104,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}
+		seed := v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Locked: true}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3194,18 +3201,19 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Position: spatial.XY{X: 6.5, Y: 7.5},
 					ZIndex:   9,
 					Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+					Parent:   new(string("test_10")),
 				},
 			},
 			Edges: []v13.Edge{
 				{
-					Key:    "test_11",
-					Source: v13.Handle{Node: "test_13", Param: "test_14"},
-					Target: v13.Handle{Node: "test_16", Param: "test_17"},
+					Key:    "test_12",
+					Source: v13.Handle{Node: "test_14", Param: "test_15"},
+					Target: v13.Handle{Node: "test_17", Param: "test_18"},
 					Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 				},
 			},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

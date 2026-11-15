@@ -11,7 +11,6 @@ import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { type RefObject } from "react";
 
-import { Group } from "@/schematic/group";
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { Synnax } from "@/synnax";
@@ -49,12 +48,16 @@ export const useClipboard = ({
     },
     apply: ({ nodes, edges, remap }) => {
       const actions: schematic.Action[] = [];
-      for (const { node } of nodes)
+      // A pasted node keeps its group only when the group was pasted with it.
+      for (const { node } of nodes) {
+        const { parent, ...rest } = node;
+        const pastedParent = parent == null ? undefined : remap[parent];
         actions.push(
           schematic.setNode({
-            node: { ...node, config: Group.remapMembers(node.config, remap) },
+            node: pastedParent == null ? rest : { ...rest, parent: pastedParent },
           }),
         );
+      }
       for (const { edge } of edges)
         actions.push(schematic.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch(actions);

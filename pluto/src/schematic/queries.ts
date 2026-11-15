@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, query, schematic } from "@synnaxlabs/client";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
 import { compare, verbs } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -76,10 +77,7 @@ export const useAllConfigs = Scope.bindHook(
 // Value equality keeps the map's reference stable across unrelated config edits,
 // so consumers memoizing on it re-run only when group membership changes.
 export const useParentOf = Scope.bindHook(
-  createSelector(
-    (s, _, client) => Group.buildParentOf(client.schematics.configsOf(s)),
-    compare.mapsEqual,
-  ),
+  createSelector(({ nodes }) => Group.buildParentOf(nodes), compare.mapsEqual),
 );
 
 export interface ConfigParams extends KeyParams {
@@ -98,15 +96,18 @@ export const useElementConfig = Scope.bindHook(
   ),
 );
 
+// Null when the element is in neither list, as when another client removed it.
 const useField = Scope.bindHook(
-  createSelector<schematic.ElementField, ConfigParams>((s, { elKey }, client) => {
-    const config = client.schematics.configsOf(s)[elKey];
-    return config == null ? "nodes" : schematic.fieldOf(config);
-  }),
+  createSelector<schematic.ElementField | null, ConfigParams>(
+    (s, { elKey }, client) => {
+      const config = client.schematics.configsOf(s)[elKey];
+      return config == null ? null : schematic.fieldOf(config);
+    },
+  ),
 );
 
 interface FieldConfigParams extends ConfigParams {
-  field: schematic.ElementField;
+  field: schematic.ElementField | null;
 }
 
 const useDocumentConfigForm = Flux.createDocumentForm<
@@ -120,11 +121,20 @@ const useDocumentConfigForm = Flux.createDocumentForm<
   domain: (client) => client.schematics,
   useEnsure,
   toValues: (s, { elKey }) => configOf(s, elKey),
-  pathOf: ({ field, elKey }) => [field, elKey, "config"],
+  pathOf: ({ field, elKey }) => {
+    if (field == null) throw new NotFoundError(`Schematic element ${elKey} not found`);
+    return [field, elKey, "config"];
+  },
 });
 
-const useConfigFormBase = (query: ConfigParams) =>
-  useDocumentConfigForm({ query: { ...query, field: useField(query) } });
+const useConfigFormBase = (query: ConfigParams) => {
+  const field = useField(query);
+  // A removed element has no field. The form keeps the last one, so it keeps its store,
+  // which then holds its last values and sends no edits.
+  const [last, setLast] = useState(field);
+  if (field != null && field !== last) setLast(field);
+  return useDocumentConfigForm({ query: { ...query, field: field ?? last } });
+};
 
 /** A form over one element's config in the cached schematic. */
 export const useConfigForm = Scope.bindHook(useConfigFormBase);
@@ -298,11 +308,7 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
     if (client == null) return null;
     const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
-    const result = Group.createActions({
-      selected,
-      nodes: s.nodes,
-      configs: client.schematics.configsOf(s),
-    });
+    const result = Group.createActions({ selected, nodes: s.nodes });
     if (result == null) return null;
     dispatch(result.actions);
     return result.selection;
@@ -322,7 +328,7 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
     if (client == null) return null;
     const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
-    const result = Group.ungroupActions(selected, client.schematics.configsOf(s));
+    const result = Group.ungroupActions(selected, s.nodes);
     if (result == null) return null;
     dispatch(result.actions);
     return result.freed;
