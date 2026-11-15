@@ -12,6 +12,7 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/color"
+@ts output "client/ts/src/color"
 
 Key = uuid {
     @doc value "is the key of a named color."
@@ -55,6 +56,7 @@ Named struct {
 
     action Move = patch.Move
 
+    @create
     @doc value     """
         is a color with a name. A record that uses it holds its key, so an edit to the
         color changes each user.
