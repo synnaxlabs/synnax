@@ -337,8 +337,7 @@
     }
 
     /* A hovered tag lifts over its neighbors at full width. Its margin gives back the
-       width it gains, so they hold still. */
-    /* Every button sits at z-index 1, so the lifted tag takes 2. */
+       width it gains, so they hold still. Every button sits at z-index 1. */
     .lyra-tags > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
         z-index: 2;
         flex: 0 0 var(--lyra-tag-full);
