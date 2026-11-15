@@ -121,6 +121,7 @@ x::errors::Error Manager::configure_initial_tasks() {
         synnax::task::RetrieveOptions{.include_status = true}
     );
     if (tasks_err) return tasks_err;
+    if (this->boot_run == 0) this->boot_run = this->runs.load();
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
     {
@@ -826,15 +827,19 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.
-    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
-    if (!starting && !tsk.status->details.running) return;
+    const bool loading = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    if (!loading && !tsk.status->details.running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    const std::string cause = this->runs == 1
+    const std::string cause = this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
-    if (starting) {
+    if (loading && status.message == STOPPING_MESSAGE) {
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Stopped task";
+        status.description = cause + " while the task was stopping.";
+    } else if (loading) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to start task";
         status.description = cause +
@@ -863,11 +868,10 @@ void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &oper
                              .retrieve_by_owner<synnax::task::StatusDetails>(
                                  *status.owner
                              );
-    if (err && !err.matches(x::errors::NOT_FOUND)) {
+    // A failed read claims neither, as a task with no stored status does.
+    if (err && !err.matches(x::errors::NOT_FOUND))
         LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
-        return;
-    }
-    if (!err) {
+    else if (!err) {
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }

@@ -513,6 +513,8 @@ private:
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
     /// @brief the number of runs started, which names the current run.
     std::atomic<uint64_t> runs{0};
+    /// @brief the first run that deployed the tasks of this rack, 0 before it.
+    std::atomic<uint64_t> boot_run{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -584,10 +586,11 @@ private:
     /// command.
     void announce_start(const synnax::task::Key &key, Operation &operation);
     /// @brief replaces a status that a previous Driver run or a run before a Core
-    /// outage left stored: "Starting task" with a failed start, and a running task with
-    /// a stopped one. Replaces only a status that this rack wrote, does nothing once
-    /// this run wrote a status for the task, and never starts the task. Call it after
-    /// the boot deploy of the task, unless the deploy was cancelled.
+    /// outage left stored: "Starting task" with a failed start, a stop step with a
+    /// stopped task, and a running task with a stopped one. Replaces only a status that
+    /// this rack wrote, does nothing once this run wrote a status for the task, and
+    /// never starts the task. Call it after the boot deploy of the task, unless the
+    /// deploy was cancelled.
     void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);

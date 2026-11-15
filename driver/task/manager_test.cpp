@@ -679,14 +679,19 @@ protected:
     int runs = 0;
 
     /// @brief starts a manager that reaches the Core through pipe, and runs it again
-    /// after each error, as the rack does.
-    void start_piped_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
+    /// after each error, as the rack does. A paused pipe fails each run until resume.
+    void start_piped_manager(
+        std::unique_ptr<Factory> factory,
+        ManagerConfig cfg = {},
+        const bool paused = false
+    ) {
         pipe = std::make_unique<CorePipe>(test_client_config().port);
         auto conn = test_client_config();
         conn.host = "127.0.0.1";
         conn.port = pipe->port;
         const auto piped = std::make_shared<synnax::Synnax>(conn);
         const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
+        if (paused) pipe->pause();
         manager = std::make_unique<Manager>(piped_rack, piped, std::move(factory), cfg);
         thread = std::thread([this] {
             const auto started = [this] {
@@ -949,6 +954,28 @@ void store_status(
     ASSERT_NIL(client->statuses.set(status));
 }
 
+/// @brief it should take a stop step that a previous Driver run left stored as a stop
+/// that ended, not as a failed start.
+TEST_F(TaskManagerTest, BootEndsAStopLeftLoading) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_LOADING, "Stopping task", false);
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Stopped task"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(s.message, "Stopped task");
+    EXPECT_EQ(s.description, "The Driver restarted while the task was stopping.");
+    EXPECT_FALSE(s.details.running);
+}
+
 /// @brief it should stop a task that a previous Driver run left running, so the
 /// Console does not show it as running with no data.
 TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
@@ -1148,6 +1175,33 @@ TEST_F(TaskManagerTest, RunAfterACoreOutageFailsAStartLeftLoading) {
         "the task again."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
+}
+
+/// @brief it should say that the Driver restarted when its first runs fail before they
+/// deploy, not that the connection dropped.
+TEST_F(TaskManagerTest, BootAfterFailedRunsSaysTheDriverRestarted) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_LOADING, "Starting task", false);
+    start_piped_manager(std::make_unique<QuietEchoTaskFactory>(), {}, true);
+    std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(1));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.message == "Failed to start task";
+        }
+    );
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was starting. Start the task again."
+    );
 }
 
 /// @brief it should stop a task left running when the Core connection dropped, and say
