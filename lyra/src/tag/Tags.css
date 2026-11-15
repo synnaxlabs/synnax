@@ -9,26 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.lyra-tags {
-    --lyra-tags-stack-gap: 3px;
-
-    padding: 0 2rem 0 0.5rem;
-}
-
-/* A group that fits itself sets the stacked attribute and the variable. */
-.lyra-tags[data-stacked] {
-    flex-wrap: nowrap;
-    gap: var(--lyra-tags-stack-gap);
-    overflow: hidden;
-
-    & > .lyra-tag,
-    & > .lyra-tags__more {
-        order: -1;
-    }
-}
-
-/* A folded or stepped group keeps room it does not fill, so a frame around it would
-   show empty space. Its faces take the hover instead. */
+/* A stacked or stepped group drops its frame. Its faces take the hover instead. */
 .lyra-btn.lyra-tags:is([data-stacked], .lyra-tags--stepped) {
     &,
     &[aria-expanded="true"] {
@@ -41,49 +22,14 @@
     }
 }
 
-/* A folded group's count brightens with the group. A stepped one has its own hover. */
-.lyra-btn.lyra-tags[data-stacked] {
-    &:hover > .lyra-tags__more,
-    &[aria-expanded="true"] > .lyra-tags__more {
-        border-color: var(--pluto-gray-l7);
-        color: var(--pluto-gray-l11);
-    }
-}
-
-/* The count gives way last, after every tag, so a narrow group still fits its item. */
-.lyra-tags__more {
-    position: relative;
-    flex-shrink: 1e-6;
-    min-width: 0;
-    overflow: hidden;
-    gap: 0.75rem;
-    border-radius: var(--pluto-border-radius-small);
-    background-color: var(--pluto-gray-l0);
-    height: var(--pluto-height-small);
-    padding: 0 1.5rem;
-    border: var(--pluto-border);
-    color: var(--pluto-gray-l9);
-    white-space: nowrap;
-}
-
-.lyra-tags__dots {
-    display: inline-flex;
-
-    & .lyra-icon {
-        &:not(:first-child) {
-            margin-left: -0.5rem;
-        }
-    }
-}
-
 .lyra-tags__hidden {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
 }
 
-/* A folded or stepped group keeps room it does not fill. Its alignment, not a part that
-   pushes itself to the end, places the space left over. */
+/* A stacked or stepped group keeps room it does not fill. Its alignment, not a part
+   that pushes itself to the end, places the space left over. */
 .lyra-tags:is([data-stacked], .lyra-tags--stepped) > :not(.lyra-tag, .lyra-tags__more) {
     margin-left: 0;
 }
@@ -100,21 +46,22 @@
     display: contents;
 }
 
-/* A stepped group shows the tags its step leaves, then the count. Each tag stops at the
-   cap, and its name fades past it. */
-.lyra-tags--stepped {
-    --lyra-tags-cap: 20rem;
+/* A group shows the tags its step leaves, then the count. It asks for the width of all
+   its tags at full width, so the tags it shows never change its size. */
+.lyra-tags {
     --lyra-tags-dot-step: calc(var(--lyra-tag-dot) * 0.94);
     --lyra-tags-dots: 1;
+    --lyra-tags-full: auto;
     --lyra-tags-gap: 0px;
 
     /* The count's face, which also rings its dots. */
     --lyra-tags-count-face: var(--pluto-gray-l0);
 
     flex-wrap: nowrap;
-    justify-content: flex-end;
-    width: 100%;
+    width: var(--lyra-tags-full);
     min-width: 0;
+    max-width: 100%;
+    padding: 0 2rem 0 0.5rem;
     overflow: hidden;
 
     & > .lyra-tag,
@@ -127,9 +74,8 @@
         flex: 0 0 auto;
         transition: none;
         min-width: 0;
-        max-width: var(--lyra-tags-cap);
 
-        & > .lyra-text {
+        & > .lyra-text:not(.lyra-btn) {
             min-width: 0;
         }
 
@@ -143,10 +89,11 @@
         display: none;
         position: relative;
         flex-shrink: 0;
-        overflow: visible;
-        padding-left: 0.75rem;
+        height: var(--pluto-height-small);
+        padding: 0 1.5rem 0 0.75rem;
+        border: var(--pluto-border);
         border-color: transparent;
-        background: none;
+        white-space: nowrap;
 
         &[data-count] {
             display: flex;
@@ -224,7 +171,7 @@
     /* The count's face reaches back past the first dot, and keeps the gap from the
        last tag. */
     & > .lyra-tag:not([data-hidden]) + .lyra-flex.lyra-btn.lyra-tag[data-dot] {
-        margin-left: calc(1.5rem + 1px - var(--lyra-tags-stack-gap));
+        margin-left: calc(1.5rem - 2px);
     }
 
     /* Its own hover brightens the count as one unit. Its face lies under its dots, so
@@ -242,9 +189,19 @@
     }
 }
 
-/* A hovered or open group is lit too. */
-.lyra-tags--stepped:is(:hover, [aria-expanded="true"]) {
-    --lyra-tags-lit: 1;
+/* A group stepped with a list fills its item, with its tags at the right. Each tag
+   stops at the cap, and its name fades past it. A hovered or open group is lit. */
+.lyra-tags--stepped {
+    justify-content: flex-end;
+    width: 100%;
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        max-width: 20rem;
+    }
+
+    &:is(:hover, [aria-expanded="true"]) {
+        --lyra-tags-lit: 1;
+    }
 }
 
 /* A lit group brightens its outlines and its count's text. */
@@ -265,7 +222,7 @@
 }
 
 /* A tag that loads after its group painted fades in. */
-.lyra-tags--stepped > [data-entering] {
+.lyra-tags > [data-entering] {
     animation: lyra-tags-enter 0.1s ease-out;
 }
 
@@ -275,15 +232,16 @@
     }
 }
 
-/* A group too narrow even for its dots shows nothing. */
-.lyra-tags[data-empty] {
+/* A group too narrow even for its dots shows no tags and no count. It keeps its frame,
+   so a trigger stays in view. */
+.lyra-tags[data-empty] > :is(.lyra-tag, .lyra-tags__more) {
     visibility: hidden;
 }
 
 /* Each stacked tag shrinks, and its face paints 15 px past its box, under the next tag.
    The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
-@container style(--lyra-tags-stacked: true) {
-    .lyra-tags > .lyra-flex.lyra-btn.lyra-tag {
+.lyra-tags:where([data-stacked]) {
+    & > .lyra-flex.lyra-btn.lyra-tag {
         position: relative;
         isolation: isolate;
         flex-shrink: 1;
@@ -323,7 +281,7 @@
 
     /* A hovered tag lifts over its neighbors at full width. Its margin gives back the
        width it gains, so they hold still. Every button sits at z-index 1. */
-    .lyra-tags > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
+    & > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
         z-index: 2;
         flex: 0 0 var(--lyra-tag-full);
         margin-right: calc(var(--lyra-tag-shrunk) - var(--lyra-tag-full));
@@ -337,7 +295,7 @@
         }
     }
 
-    .lyra-tags > .lyra-flex.lyra-btn[data-last] {
+    & > .lyra-flex.lyra-btn[data-last] {
         flex-shrink: 1e-6;
         clip-path: none;
 

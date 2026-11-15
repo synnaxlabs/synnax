@@ -310,6 +310,8 @@ interface ChipsOptions {
   stepped?: boolean;
   // Moves the tags down with each tag, so each change places the dialog again.
   sinks?: boolean;
+  // Gives each tag an icon, as labels have their dots.
+  icon?: Icon.ReactElement;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -324,13 +326,14 @@ const Chips = ({
   initial = NAMES,
   stepped = false,
   sinks = false,
+  icon,
 }: ChipsProps): ReactElement => {
   const [value, setValue] = useState(initial);
   const frame = (
     <Dialog.Frame location={stepped ? RIGHT_EDGE : undefined}>
       {sinks && <div style={{ height: `${value.length * 10}px` }} />}
       <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
-        <Select.MultipleTrigger variant={variant} aria-label="Labels" />
+        <Select.MultipleTrigger variant={variant} icon={icon} aria-label="Labels" />
         <Select.Dialog>
           {NAMES.map((name) => (
             <Select.Item key={name} itemKey={name}>
@@ -665,9 +668,9 @@ describe("Select", () => {
     });
 
     it("should open beside its count", async () => {
-      const trigger = await renderChips("shadow", 200);
+      const trigger = await renderChips("shadow", 150, { icon: <Icon.Label /> });
       const more = (): HTMLElement | null =>
-        trigger.querySelector<HTMLElement>(":scope > .lyra-tags__more");
+        trigger.querySelector<HTMLElement>(":scope > .lyra-tags__more[data-count]");
       await expect.poll(more).not.toBeNull();
       const count = more();
       assert(count != null);

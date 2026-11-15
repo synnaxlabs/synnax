@@ -15,7 +15,6 @@ import {
   type ReactElement,
   type RefObject,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -25,67 +24,32 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
-import { Batch, type Count, describe, Group, type Hidden } from "@/tag/fold";
 import { Steps } from "@/tag/step";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
 export interface TagsProps extends Button.ButtonProps<"div"> {}
 
-const HiddenList = ({ hidden }: { hidden: Hidden[] }): ReactElement => (
-  <div className={CSS.BE("tags", "hidden")}>
-    {hidden.map(({ name, color }) => (
-      <Text.Text key={name} level="small" gap="small">
-        {color != null && <Icon.Circle color={color} />}
-        {name}
-      </Text.Text>
-    ))}
-  </div>
-);
-
-interface MoreProps {
-  hidden: Hidden[];
-  count: Count;
+interface Hidden {
+  name: string;
+  color?: string;
 }
 
-const More = ({ hidden, count }: MoreProps): ReactElement => {
-  const dots = hidden.filter((h) => h.color != null);
-  return (
-    <Tooltip.Dialog>
-      <HiddenList hidden={hidden} />
-      <Text.Text level="small" className={CSS.BE("tags", "more")}>
-        {dots.length > 0 && (
-          <span className={CSS.BE("tags", "dots")}>
-            {dots.slice(0, 3).map(({ name, color }) => (
-              <Icon.Circle key={name} color={color} />
-            ))}
-          </span>
-        )}
-        +{hidden.length}
-        {count === "wide" && dots.length === hidden.length ? " labels" : ""}
-      </Text.Text>
-    </Tooltip.Dialog>
-  );
+// A tag's name, and the color of its dot if it has one.
+const describe = (tag: Element): Hidden => {
+  const icon = tag.querySelector("svg");
+  return {
+    name: tag.textContent ?? "",
+    color: icon == null ? undefined : getComputedStyle(icon).color,
+  };
 };
 
-interface Fold {
-  hidden: Hidden[];
-  count: Count;
+interface GroupProps {
+  groupRef: RefObject<HTMLElement | null>;
 }
 
-const sameFold = (a: Fold, b: Fold): boolean =>
-  a.count === b.count &&
-  a.hidden.length === b.hidden.length &&
-  a.hidden.every(
-    (h, i) => h.name === b.hidden[i].name && h.color === b.hidden[i].color,
-  );
-
-// The tags a stepped group hides, read when the list opens.
-const SteppedHidden = ({
-  groupRef,
-}: {
-  groupRef: RefObject<HTMLElement | null>;
-}): ReactElement => {
+// The tags a group hides, read when the list opens.
+const HiddenList = ({ groupRef }: GroupProps): ReactElement => {
   const [hidden, setHidden] = useState<Hidden[]>([]);
   useLayoutEffect(() => {
     const el = groupRef.current;
@@ -93,19 +57,24 @@ const SteppedHidden = ({
     const tags = Array.from(el.children).filter(
       (c) => c.classList.contains(CSS.B("tag")) && c.hasAttribute("data-hidden"),
     );
-    setHidden(tags.map((t) => describe(t as HTMLElement)));
+    setHidden(tags.map(describe));
   }, [groupRef]);
-  return <HiddenList hidden={hidden} />;
+  return (
+    <div className={CSS.BE("tags", "hidden")}>
+      {hidden.map(({ name, color }) => (
+        <Text.Text key={name} level="small" gap="small">
+          {color != null && <Icon.Circle color={color} />}
+          {name}
+        </Text.Text>
+      ))}
+    </div>
+  );
 };
 
-/** The count of a stepped group. Its styles show the number its step hides. */
-const SteppedMore = ({
-  groupRef,
-}: {
-  groupRef: RefObject<HTMLElement | null>;
-}): ReactElement => (
+/** The count of a group. Its styles show the number its step hides. */
+const More = ({ groupRef }: GroupProps): ReactElement => (
   <Tooltip.Dialog>
-    <SteppedHidden groupRef={groupRef} />
+    <HiddenList groupRef={groupRef} />
     <Text.Text level="small" className={CSS.BE("tags", "more")} />
   </Tooltip.Dialog>
 );
@@ -140,59 +109,46 @@ export const StepProvider = ({ children }: PropsWithChildren): ReactElement => {
 export const Tags = ({
   ref,
   children,
-  onClick,
   variant = "outlined",
   size = "medium",
   className,
   ...rest
 }: TagsProps) => {
-  const steps = useContext(StepContext);
-  const stepped = steps != null;
-  const [batch] = useState(() => (stepped ? null : new Batch()));
-  useEffect(() => () => batch?.dispose(), [batch]);
-  const [fold, setFold] = useState<Fold>({ hidden: [], count: "none" });
+  const shared = useContext(StepContext);
+  // A group outside a provider fits alone.
+  const [own] = useState(() => (shared == null ? new Steps() : null));
   const elRef = useRef<HTMLDivElement | null>(null);
   const combinedRef = useCombinedRefs(ref, elRef);
   useLayoutEffect(() => {
     const el = elRef.current;
-    if (el == null || batch == null) return;
-    const group = new Group(el, size, (hidden, count) => {
-      const next = { hidden, count };
-      setFold((prev) => (sameFold(prev, next) ? prev : next));
-    });
-    batch.add(group);
-    return () => batch.remove(group);
-  }, [batch, size]);
-  useLayoutEffect(() => {
-    const el = elRef.current;
+    const steps = shared ?? own;
     if (el == null || steps == null) return;
+    own?.attach(el);
     steps.add(el);
-    return () => steps.remove(el);
-  }, [steps]);
+    return () => {
+      steps.remove(el);
+      own?.detach();
+    };
+  }, [shared, own]);
   return (
     <Button.Button
       ref={combinedRef}
       className={CSS.cls(
         CSS.B("tags"),
-        stepped && CSS.BM("tags", "stepped"),
+        shared != null && CSS.BM("tags", "stepped"),
         className,
       )}
       el="div"
       variant={variant}
       size={size}
       x
-      onClick={onClick}
       align="center"
       gap="small"
       rounded="small"
       {...rest}
     >
       {children}
-      {stepped ? (
-        <SteppedMore groupRef={elRef} />
-      ) : (
-        fold.count !== "none" && <More hidden={fold.hidden} count={fold.count} />
-      )}
+      <More groupRef={elRef} />
     </Button.Button>
   );
 };

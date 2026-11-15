@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@/css";
-import { cssWidth, type Measure, measure, px, sum } from "@/tag/fold";
 
 const TAG = CSS.B("tag");
 const MORE = CSS.BE("tags", "more");
@@ -21,7 +20,8 @@ const ENTERING = "data-entering";
 const MEASURING = "data-measuring";
 const LIFTED = "data-lifted";
 const HIDDEN = "data-hidden";
-const STACKED = "--lyra-tags-stacked";
+const FULL = "--lyra-tags-full";
+const STACKED = "data-stacked";
 // The room the count takes with its dots, in rem. Fixed, so the step never chases the
 // count's width.
 const COUNT = 12;
@@ -32,6 +32,58 @@ const DOTS = 3;
 // How much of its name, in rem, a stacked tag shows past its icon before it folds.
 const SLIVER = 0.5;
 const ALONE = "data-alone";
+
+/** A tag's full width, and the width before its name: padding, icon, and gap. */
+interface Measure {
+  natural: number;
+  lead: number;
+}
+
+const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
+
+const px = (value: string): number => parseFloat(value) || 0;
+
+// An element's border-box width in its own CSS pixels. Unlike a bounding box, it does
+// not change with the page's zoom.
+const cssWidth = (el: Element): number => {
+  const cs = getComputedStyle(el);
+  const w = px(cs.width);
+  if (cs.boxSizing === "border-box") return w;
+  return (
+    w +
+    px(cs.paddingLeft) +
+    px(cs.paddingRight) +
+    px(cs.borderLeftWidth) +
+    px(cs.borderRightWidth)
+  );
+};
+
+// Where a tag's text starts, from the tag's left, even where the tag clips it.
+const textLeft = (tag: HTMLElement): number | null => {
+  const walker = document.createTreeWalker(tag, NodeFilter.SHOW_TEXT);
+  let first: Node | null = null;
+  let last: Node | null = null;
+  for (let n = walker.nextNode(); n != null; n = walker.nextNode())
+    if ((n.textContent ?? "").trim() !== "") {
+      first ??= n;
+      last = n;
+    }
+  if (first == null || last == null) return null;
+  const range = document.createRange();
+  range.setStartBefore(first);
+  range.setEndAfter(last);
+  return range.getBoundingClientRect().left - tag.getBoundingClientRect().left;
+};
+
+// Reads a tag at full width, in CSS pixels: its group must carry the measuring
+// attribute.
+const measure = (tag: HTMLElement): Measure => {
+  const natural = cssWidth(tag);
+  const left = textLeft(tag);
+  const scale = tag.getBoundingClientRect().width / natural;
+  if (left == null || !(scale > 0)) return { natural, lead: natural };
+  return { natural, lead: left / scale };
+};
 
 /** A group's tags at full width, in CSS pixels. */
 interface Fit {
@@ -70,7 +122,7 @@ const expand = (el: HTMLElement): void => {
   if (more != null) delete more.dataset.count;
   el.removeAttribute(EMPTY);
   el.toggleAttribute(MEASURING, true);
-  el.style.setProperty(STACKED, "false");
+  el.removeAttribute(STACKED);
   tagsOf(el).forEach((t) => {
     t.removeAttribute(HIDDEN);
     t.removeAttribute(DOT);
@@ -160,10 +212,10 @@ const stacks = (
 };
 
 /**
- * Fits the groups of tags of one list together, so they all show the same step: the
- * same number of tags, then a count. A group stacks its tags only when they do not fit
- * at full width, and folds one more tag into the count before any stacked tag passes
- * its floor. A hovered stacked tag lifts over its neighbors at full width.
+ * Fits groups of tags together, so they all show the same step: the same number of
+ * tags, then a count. A group stacks its tags only when they do not fit at full width,
+ * and folds one more tag into the count before any stacked tag passes its floor. A
+ * hovered stacked tag lifts over its neighbors at full width.
  */
 export class Steps {
   private readonly groups = new Set<HTMLElement>();
@@ -182,7 +234,7 @@ export class Steps {
       this.widths.set(el, width);
       return true;
     });
-    if (changed.length > 0) this.flush();
+    if (changed.length > 0) this.flush(true);
   });
   // Groups mount and their tags load as the list scrolls.
   private readonly mutations = new MutationObserver(() => this.request());
@@ -201,7 +253,7 @@ export class Steps {
     this.drop();
     const el = tag?.parentElement;
     if (tag == null || el == null || !this.groups.has(el)) return;
-    if (el.style.getPropertyValue(STACKED) !== "true") return;
+    if (!el.hasAttribute(STACKED)) return;
     if (tag.hasAttribute(LAST) || tag.hasAttribute(DOT)) return;
     const full = this.fits.get(el)?.measures[tagsOf(el).indexOf(tag)];
     if (full == null) return;
@@ -220,7 +272,7 @@ export class Steps {
     this.lifted = null;
   }
 
-  /** Watches the element that holds the groups for changes to their tags. */
+  /** Watches root, which holds the groups or is the one group, for changes to tags. */
   attach(root: HTMLElement): void {
     this.root = root;
     root.addEventListener("pointerover", this.onOver);
@@ -295,10 +347,14 @@ export class Steps {
     });
   }
 
-  private flush(): void {
+  private flush(resizing = false): void {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    // A group fits once its resize reports its width.
+    // A group of a list fits once its resize reports its width, which costs no layout.
+    // A lone group sizes itself to its tags, so it reads its width to fit before it
+    // first paints, rather than resize in its resize callback.
+    const lone = this.root != null && this.groups.has(this.root) ? this.root : null;
+    if (lone != null && !this.widths.has(lone)) this.widths.set(lone, cssWidth(lone));
     const els = [...this.groups].filter((el) => this.widths.has(el));
     const stale = els.filter((el) => this.fits.get(el)?.tags !== signature(el));
     // Tags that load after their group painted fade in, rather than pop.
@@ -317,8 +373,13 @@ export class Steps {
       return fit == null;
     });
     // A new group lays out at full width, so its resize can measure it with no extra
-    // layout. A group already fitted shows all its tags again, then measures.
-    const changed = unseen.filter((el) => el.style.getPropertyValue(STACKED) !== "");
+    // layout. A group that stacks or hides tags shows them all again, then measures.
+    const changed = unseen.filter(
+      (el) =>
+        el.hasAttribute(STACKED) ||
+        el.hasAttribute(EMPTY) ||
+        tagsOf(el).some((t) => t.hasAttribute(HIDDEN)),
+    );
     changed.forEach(expand);
     unseen.forEach((el) => {
       // A hidden group measures once it shows, and its resize refits it.
@@ -361,7 +422,22 @@ export class Steps {
     // A lifted tag gives back the width it had, which a refit may change.
     this.drop();
     const alone = ALONE_COUNT * rem;
-    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count, alone));
+    fitted.forEach((el, i) => {
+      if (el === lone && !this.size(el, fits[i], resizing)) return;
+      write(el, fits[i], shown, widths[i], count, alone);
+    });
+  }
+
+  // Sets the width a lone group asks for: that of all its tags, so the tags it hides
+  // never change its size. In the resize callback, a new width would reach the observer
+  // a frame late with a loop error, so it waits for the next frame. Returns false when
+  // the group has no width yet: it then fits on the next frame too.
+  private size(el: HTMLElement, f: Fit, resizing: boolean): boolean {
+    const size = `${full(f, f.measures.length, 0)}px`;
+    const current = el.style.getPropertyValue(FULL);
+    if (!resizing) set(el, FULL, size);
+    else if (current !== size) this.request();
+    return !resizing || current !== "";
   }
 }
 
@@ -381,7 +457,7 @@ const write = (
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
-  set(el, STACKED, String(overlap));
+  el.toggleAttribute(STACKED, overlap);
   el.toggleAttribute(EMPTY, shown === 0 && f.frame + alone > room);
   set(el, "--lyra-tags-gap", `${f.gap}px`);
   set(el, "--lyra-tags-dots", String(Math.min(DOTS, tags.length - shown)));

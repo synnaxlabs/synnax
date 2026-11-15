@@ -32,16 +32,43 @@ const renderTags = async (): Promise<HTMLElement> => {
   return container.querySelector<HTMLElement>("[data-testid=frame]")!;
 };
 
-const shown = (frame: HTMLElement): string[] =>
-  Array.from(frame.querySelectorAll<HTMLElement>(`.${CSS.B("tag")}`))
-    .filter((tag) => {
-      const style = getComputedStyle(tag);
-      return style.display !== "none" && style.visibility !== "hidden";
-    })
+const count = (frame: HTMLElement): string | null => {
+  const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+  return getComputedStyle(chip).display === "none"
+    ? null
+    : getComputedStyle(chip, "::after")
+        .content.replace(/"\s*"/g, "")
+        .replaceAll('"', "");
+};
+
+const stacked = (frame: HTMLElement): boolean =>
+  frame.querySelector(`.${CSS.B("tags")}`)!.hasAttribute("data-stacked");
+
+// Whether the step has fitted the group.
+const fitted = (frame: HTMLElement): boolean =>
+  frame
+    .querySelector<HTMLElement>(`.${CSS.B("tags")}`)!
+    .style.getPropertyValue("--lyra-tags-gap") !== "";
+
+const visible = (frame: HTMLElement): HTMLElement[] =>
+  Array.from(frame.querySelectorAll<HTMLElement>(`.${CSS.B("tag")}`)).filter(
+    (tag) => getComputedStyle(tag).display !== "none",
+  );
+
+const hasName = (tag: HTMLElement): boolean =>
+  getComputedStyle(tag.querySelector(`.${CSS.B("text")}`)!).display !== "none";
+
+// The tags that show their names.
+const named = (frame: HTMLElement): string[] =>
+  visible(frame)
+    .filter(hasName)
     .map((tag) => tag.textContent ?? "");
 
-const more = (frame: HTMLElement): string | null =>
-  frame.querySelector(`.${CSS.BE("tags", "more")}`)?.textContent ?? null;
+// The tags that show as dots in the count.
+const dots = (frame: HTMLElement): string[] =>
+  visible(frame)
+    .filter((tag) => !hasName(tag))
+    .map((tag) => tag.textContent ?? "");
 
 const overflows = (frame: HTMLElement): boolean => {
   const tags = frame.querySelector(`.${CSS.B("tags")}`)!;
@@ -51,39 +78,79 @@ const overflows = (frame: HTMLElement): boolean => {
 describe("Tags", () => {
   it("should show every tag when they fit", async () => {
     const frame = await renderTags();
-    await expect.poll(() => shown(frame)).toEqual(LABELS);
-    expect(more(frame)).toBeNull();
+    await expect.poll(() => fitted(frame)).toBe(true);
+    expect(named(frame)).toEqual(LABELS);
+    expect(count(frame)).toBeNull();
   });
 
   it("should fold the last tags into a count when the container narrows", async () => {
     const frame = await renderTags();
     frame.style.width = "260px";
-    await expect.poll(() => more(frame)).not.toBeNull();
-    const visible = shown(frame);
-    expect(visible.length).toBeLessThan(LABELS.length);
-    expect(visible).toEqual(LABELS.slice(0, visible.length));
-    expect(more(frame)).toContain(`+${LABELS.length - visible.length}`);
+    await expect.poll(() => count(frame)).not.toBeNull();
+    const step = named(frame);
+    expect(step.length).toBeLessThan(LABELS.length);
+    expect(step).toEqual(LABELS.slice(0, step.length));
+    expect(count(frame)).toBe(`+${LABELS.length - step.length}`);
+    expect(dots(frame)).toEqual(LABELS.slice(step.length, step.length + 3));
     expect(overflows(frame)).toBe(false);
   });
 
   it("should show every tag again when the container widens", async () => {
     const frame = await renderTags();
     frame.style.width = "200px";
-    await expect.poll(() => more(frame)).not.toBeNull();
+    await expect.poll(() => count(frame)).not.toBeNull();
     frame.style.width = "1000px";
-    await expect.poll(() => shown(frame)).toEqual(LABELS);
-    await expect.poll(() => more(frame)).toBeNull();
+    await expect.poll(() => named(frame)).toEqual(LABELS);
+    await expect.poll(() => count(frame)).toBeNull();
   });
 
   it("should fold the same at a width however it got there", async () => {
     const frame = await renderTags();
     frame.style.width = "300px";
-    await expect.poll(() => more(frame)).not.toBeNull();
-    const direct = shown(frame);
+    await expect.poll(() => count(frame)).not.toBeNull();
+    const direct = named(frame);
     frame.style.width = "120px";
-    await expect.poll(() => shown(frame).length).toBeLessThan(direct.length);
+    await expect.poll(() => named(frame).length).toBeLessThan(direct.length);
     frame.style.width = "300px";
-    await expect.poll(() => shown(frame)).toEqual(direct);
+    await expect.poll(() => named(frame)).toEqual(direct);
+  });
+
+  it("should center a tag's close over its dot", async () => {
+    const { container } = await renderThemed(
+      <Tag.Tags>
+        <Tag.Tag color="#3774d0" onClose={() => {}}>
+          Hotfire
+        </Tag.Tag>
+      </Tag.Tags>,
+    );
+    const tag = container.querySelector<HTMLElement>(`.${CSS.B("tag")}`)!;
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    const dot = tag.querySelector(":scope > svg")!;
+    const close = tag.querySelector(`.${CSS.BE("tag", "close")} svg`)!;
+    await expect.poll(() => Math.abs(center(close) - center(dot))).toBeLessThan(2);
+  });
+
+  it("should keep its width as it hides tags", async () => {
+    const { container } = await renderThemed(
+      <div style={{ display: "flex", width: "1000px" }}>
+        <div data-testid="frame" style={{ display: "flex", maxWidth: "260px" }}>
+          <Tag.Tags>
+            {LABELS.map((label) => (
+              <Tag.Tag key={label} color="#3774d0">
+                {label}
+              </Tag.Tag>
+            ))}
+          </Tag.Tags>
+        </div>
+      </div>,
+    );
+    const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
+    await expect.poll(() => count(frame)).not.toBeNull();
+    frame.style.maxWidth = "1000px";
+    await expect.poll(() => named(frame)).toEqual(LABELS);
   });
 });
 
@@ -112,40 +179,6 @@ const renderStepped = async (width: number): Promise<HTMLElement[]> => {
   return Array.from(container.querySelectorAll<HTMLElement>("[data-testid=group]"));
 };
 
-const count = (frame: HTMLElement): string | null => {
-  const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
-  return getComputedStyle(chip).display === "none"
-    ? null
-    : getComputedStyle(chip, "::after")
-        .content.replace(/"\s*"/g, "")
-        .replaceAll('"', "");
-};
-
-const stacked = (frame: HTMLElement): string =>
-  frame
-    .querySelector<HTMLElement>(`.${CSS.B("tags")}`)!
-    .style.getPropertyValue("--lyra-tags-stacked");
-
-const visible = (frame: HTMLElement): HTMLElement[] =>
-  Array.from(frame.querySelectorAll<HTMLElement>(`.${CSS.B("tag")}`)).filter(
-    (tag) => getComputedStyle(tag).display !== "none",
-  );
-
-const hasName = (tag: HTMLElement): boolean =>
-  getComputedStyle(tag.querySelector(`.${CSS.B("text")}`)!).display !== "none";
-
-// The tags that show their names.
-const named = (frame: HTMLElement): string[] =>
-  visible(frame)
-    .filter(hasName)
-    .map((tag) => tag.textContent ?? "");
-
-// The tags that show as dots in the count.
-const dots = (frame: HTMLElement): string[] =>
-  visible(frame)
-    .filter((tag) => !hasName(tag))
-    .map((tag) => tag.textContent ?? "");
-
 // A box to the pixel. The lift's margin may round its neighbors by a fraction of one.
 const box = (el: Element): string => {
   const r = el.getBoundingClientRect();
@@ -155,7 +188,8 @@ const box = (el: Element): string => {
 describe("Stepped tags", () => {
   it("should show every tag at full width when the list has room", async () => {
     const [all, three] = await renderStepped(1000);
-    await expect.poll(() => stacked(all)).toBe("false");
+    await expect.poll(() => fitted(all)).toBe(true);
+    expect(stacked(all)).toBe(false);
     expect(named(all)).toEqual(LABELS);
     expect(named(three)).toEqual(LABELS.slice(0, 3));
     expect(count(all)).toBeNull();
@@ -179,14 +213,14 @@ describe("Stepped tags", () => {
 
   it("should stack only the groups that do not fit at full width", async () => {
     const [all, three] = await renderStepped(330);
-    await expect.poll(() => stacked(all)).toBe("true");
+    await expect.poll(() => stacked(all)).toBe(true);
     expect(named(three)).toEqual(LABELS.slice(0, 3));
-    expect(stacked(three)).toBe("false");
+    expect(stacked(three)).toBe(false);
   });
 
   it("should lift a hovered stacked tag without moving the others", async () => {
     const [all] = await renderStepped(330);
-    await expect.poll(() => stacked(all)).toBe("true");
+    await expect.poll(() => stacked(all)).toBe(true);
     const [first, ...rest] = visible(all);
     const others = (): string[] =>
       [...rest, all.querySelector(`.${CSS.BE("tags", "more")}`)!].map(box);
@@ -215,10 +249,15 @@ describe("Stepped tags", () => {
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
   });
 
-  it("should hide a group too narrow for its dots and total", async () => {
+  it("should hide the tags of a group too narrow for its dots and total", async () => {
     const [all] = await renderStepped(90);
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
-    await expect.poll(() => getComputedStyle(tags).visibility).toBe("hidden");
+    const more = all.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+    await expect.poll(() => getComputedStyle(more).visibility).toBe("hidden");
+    expect(visible(all).every((t) => getComputedStyle(t).visibility === "hidden")).toBe(
+      true,
+    );
+    expect(getComputedStyle(tags).visibility).toBe("visible");
   });
 
   it("should keep a pressed group on the shared step", async () => {

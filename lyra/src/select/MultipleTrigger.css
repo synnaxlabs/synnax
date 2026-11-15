@@ -73,28 +73,12 @@
         --pluto-active-border-color: var(--pluto-gray-l8);
     }
 
-    & > .lyra-tags__more:hover {
-        border-color: var(--pluto-gray-l8);
-        background-color: var(--pluto-fill-hover);
+    /* The count paints its face under its dots. */
+    &:has(> .lyra-tags__more:hover) {
+        --lyra-tags-count-face: var(--pluto-fill-hover);
     }
 
-    & > .lyra-tags__more:active {
-        background-color: var(--pluto-fill-press);
-    }
-
-    /* A stepped count paints its face under its dots instead. */
-    &.lyra-tags--stepped {
-        &:has(> .lyra-tags__more:hover) {
-            --lyra-tags-count-face: var(--pluto-fill-hover);
-        }
-
-        &:has(> .lyra-tags__more:active) {
-            --lyra-tags-count-face: var(--pluto-fill-press);
-        }
-
-        & > .lyra-tags__more:is(:hover, :active) {
-            border-color: transparent;
-            background: none;
-        }
+    &:has(> .lyra-tags__more:active) {
+        --lyra-tags-count-face: var(--pluto-fill-press);
     }
 }
