@@ -2244,6 +2244,19 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     EXPECT_EQ(this->master->shortfall(), 2U);
 }
 
+/// @brief it should give the working counter of each mismatch as it changes.
+TEST_F(SOEMMasterTest, ReceiveGivesTheLatestMismatchedCount) {
+    this->initialize_with_slave();
+    this->activate_master();
+    for (const int wkc: {1, 1, 2, 1}) {
+        this->mock->receive_return = wkc;
+        EXPECT_EQ(
+            this->master->receive().data,
+            "working counter mismatch: expected 3, got " + std::to_string(wkc)
+        );
+    }
+}
+
 /// @brief it should report no shortfall for a working counter above the expected count.
 TEST_F(SOEMMasterTest, ReceiveReportsNoShortfallAboveTheExpectedCount) {
     this->initialize_with_slave();

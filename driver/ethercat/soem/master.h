@@ -151,6 +151,10 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
+        /// @brief the working counter of the latest mismatch, and what receive()
+        /// returns for it. Only the cycle uses them.
+        int mismatched_wkc = -1;
+        x::errors::Error mismatch_err;
         /// @brief what receive() returns on a USB adapter when no frame comes back, but
         /// one did less than a second before. NIL on other adapters.
         x::errors::Error late_frame_err;

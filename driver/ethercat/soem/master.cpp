@@ -516,11 +516,16 @@ x::errors::Error Master::receive() {
     if (wkc != session.expected_wkc) {
         if (wkc < session.expected_wkc)
             session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "working counter mismatch: expected " +
-                std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
-        );
+        if (wkc != session.mismatched_wkc) {
+            session.mismatched_wkc = wkc;
+            session.mismatch_err = x::errors::Error(
+                errors::WORKING_COUNTER_ERROR,
+                "working counter mismatch: expected " +
+                    std::to_string(session.expected_wkc) + ", got " +
+                    std::to_string(wkc)
+            );
+        }
+        return session.mismatch_err;
     }
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
