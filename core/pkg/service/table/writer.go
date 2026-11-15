@@ -63,6 +63,9 @@ func (w Writer) Create(ctx context.Context, t *Table) error {
 	if err := validateUniqueKeys(*t); err != nil {
 		return err
 	}
+	if err := validateRowLengths(*t); err != nil {
+		return err
+	}
 	if err := w.tbl.NewCreate().Exclusive().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -127,6 +130,30 @@ func validateUniqueKeys(t Table) error {
 	if k, ok := duplicateKey(t.Columns, func(c Column) string { return c.Key }); ok {
 		return errors.Wrapf(validate.ErrValidation, "duplicate column key %q", k)
 	}
+	var cells []Cell
+	for _, r := range t.Rows {
+		cells = append(cells, r.Cells...)
+	}
+	if k, ok := duplicateKey(cells, func(c Cell) string { return c.Key }); ok {
+		return errors.Wrapf(validate.ErrValidation, "duplicate cell key %q", k)
+	}
+	return nil
+}
+
+// validateRowLengths returns a validation error unless every row holds one cell per
+// column, since a cell's column is its index in the row.
+func validateRowLengths(t Table) error {
+	for _, r := range t.Rows {
+		if len(r.Cells) != len(t.Columns) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"row %q holds %d cells, but the table has %d columns",
+				r.Key,
+				len(r.Cells),
+				len(t.Columns),
+			)
+		}
+	}
 	return nil
 }
 
@@ -173,6 +200,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 				return Table{}, err
 			}
 			if err = validateUniqueKeys(next); err != nil {
+				return Table{}, err
+			}
+			if err = validateRowLengths(next); err != nil {
 				return Table{}, err
 			}
 			return next, project.CheckMember(next.Project)
