@@ -116,7 +116,7 @@ const count = (frame: HTMLElement): string | null => {
   const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
   return getComputedStyle(chip).display === "none"
     ? null
-    : (chip.dataset.count ?? null);
+    : getComputedStyle(chip, "::after").content.replace(/["\s]/g, "");
 };
 
 const stacked = (frame: HTMLElement): string =>
@@ -124,51 +124,97 @@ const stacked = (frame: HTMLElement): string =>
     .querySelector<HTMLElement>(`.${CSS.B("tags")}`)!
     .style.getPropertyValue("--lyra-tags-stacked");
 
+const visible = (frame: HTMLElement): HTMLElement[] =>
+  Array.from(frame.querySelectorAll<HTMLElement>(`.${CSS.B("tag")}`)).filter(
+    (tag) => getComputedStyle(tag).display !== "none",
+  );
+
+const hasName = (tag: HTMLElement): boolean =>
+  getComputedStyle(tag.querySelector(`.${CSS.B("text")}`)!).display !== "none";
+
+// The tags that show their names.
+const named = (frame: HTMLElement): string[] =>
+  visible(frame)
+    .filter(hasName)
+    .map((tag) => tag.textContent ?? "");
+
+// The tags that show as dots in the count.
+const dots = (frame: HTMLElement): string[] =>
+  visible(frame)
+    .filter((tag) => !hasName(tag))
+    .map((tag) => tag.textContent ?? "");
+
+// A box to the pixel. The lift's margin may round its neighbors by a fraction of one.
+const box = (el: Element): string => {
+  const r = el.getBoundingClientRect();
+  return `${Math.round(r.left)},${Math.round(r.width)}`;
+};
+
 describe("Stepped tags", () => {
   it("should show every tag at full width when the list has room", async () => {
     const [all, three] = await renderStepped(1000);
     await expect.poll(() => stacked(all)).toBe("false");
-    expect(shown(all)).toEqual(LABELS);
-    expect(shown(three)).toEqual(LABELS.slice(0, 3));
+    expect(named(all)).toEqual(LABELS);
+    expect(named(three)).toEqual(LABELS.slice(0, 3));
     expect(count(all)).toBeNull();
   });
 
-  it("should show the same number of tags in every group, and count the rest", async () => {
+  it("should show one step in every group, and count the rest", async () => {
     const [all, three] = await renderStepped(260);
     await expect.poll(() => count(all)).not.toBeNull();
-    const step = shown(all).length;
+    const step = named(all).length;
     expect(step).toBeGreaterThan(0);
-    expect(count(all)).toBe(String(LABELS.length - step));
-    expect(shown(three)).toEqual(LABELS.slice(0, Math.min(3, step)));
+    expect(count(all)).toBe(`+${LABELS.length - step}`);
+    expect(named(three)).toEqual(LABELS.slice(0, Math.min(3, step)));
+  });
+
+  it("should show the first hidden tags as dots in the count", async () => {
+    const [all] = await renderStepped(260);
+    await expect.poll(() => count(all)).not.toBeNull();
+    const step = named(all).length;
+    expect(dots(all)).toEqual(LABELS.slice(step, step + 3));
   });
 
   it("should stack only the groups that do not fit at full width", async () => {
     const [all, three] = await renderStepped(330);
     await expect.poll(() => stacked(all)).toBe("true");
-    expect(shown(three)).toEqual(LABELS.slice(0, 3));
+    expect(named(three)).toEqual(LABELS.slice(0, 3));
     expect(stacked(three)).toBe("false");
+  });
+
+  it("should lift a hovered stacked tag without moving the others", async () => {
+    const [all] = await renderStepped(330);
+    await expect.poll(() => stacked(all)).toBe("true");
+    const [first, ...rest] = visible(all);
+    const others = (): string[] =>
+      [...rest, all.querySelector(`.${CSS.BE("tags", "more")}`)!].map(box);
+    const before = others();
+    const cut = first.getBoundingClientRect().width;
+    await userEvent.hover(first);
+    await expect.poll(() => first.hasAttribute("data-lifted")).toBe(true);
+    const full = parseFloat(first.style.getPropertyValue("--lyra-tag-full"));
+    expect(full).toBeGreaterThan(cut);
+    expect(first.getBoundingClientRect().width).toBeCloseTo(full, 0);
+    expect(others()).toEqual(before);
   });
 
   it("should show the first tags as dots in the count when no tag fits", async () => {
     const [all] = await renderStepped(90);
-    await expect.poll(() => count(all)).toBe(String(LABELS.length));
-    expect(shown(all)).toEqual(LABELS.slice(0, 3));
-    const dots = Array.from(all.querySelectorAll(`.${CSS.B("tag")} .${CSS.B("text")}`))
-      .slice(0, 3)
-      .map((t) => getComputedStyle(t).display);
-    expect(dots).toEqual(["none", "none", "none"]);
+    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
+    expect(named(all)).toEqual([]);
+    expect(dots(all)).toEqual(LABELS.slice(0, 3));
   });
 
   it("should keep a pressed group on the shared step", async () => {
     const [all, three] = await renderStepped(90);
-    await expect.poll(() => count(all)).toBe(String(LABELS.length));
+    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
     // A press renders the group with a new class name, as a dialog trigger does.
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
     await userEvent.click(tags);
     await userEvent.click(tags);
     await new Promise(requestAnimationFrame);
-    expect(shown(all)).toEqual(LABELS.slice(0, 3));
-    expect(shown(three)).toEqual(LABELS.slice(0, 3));
-    expect(count(all)).toBe(String(LABELS.length));
+    expect(dots(all)).toEqual(LABELS.slice(0, 3));
+    expect(dots(three)).toEqual(LABELS.slice(0, 3));
+    expect(count(all)).toBe(`+${LABELS.length}`);
   });
 });

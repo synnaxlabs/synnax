@@ -35,7 +35,7 @@ const STACK_GAP = "--lyra-tags-stack-gap";
 const MORE_WIDE = 18.5;
 const MORE_NARROW = 12;
 // The characters a stacked tag keeps before it folds.
-const FLOOR_CHARS = 2;
+const FLOOR_CHARS = 3;
 
 /** A tag's name, and the color of its dot if it has one. Reads style only. */
 export const describe = (tag: HTMLElement): Hidden => {

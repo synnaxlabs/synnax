@@ -49,7 +49,10 @@
         --pluto-hover-border-color: transparent;
         --pluto-active-border-color: transparent;
     }
+}
 
+/* A folded group's count brightens with the group. A stepped one has its own hover. */
+.lyra-btn.lyra-tags[data-stacked] {
     &:hover > .lyra-tags__more,
     &[aria-expanded="true"] > .lyra-tags__more {
         border-color: var(--pluto-gray-l7);
@@ -108,6 +111,10 @@
    cap, and its name fades past it. */
 .lyra-tags--stepped {
     --lyra-tags-cap: 20rem;
+    --lyra-tags-dot: 1.75rem;
+    --lyra-tags-dot-step: 1.1rem;
+    --lyra-tags-dots: 1;
+    --lyra-tags-gap: 0px;
 
     flex-wrap: nowrap;
     justify-content: flex-end;
@@ -140,19 +147,94 @@
     & > .lyra-tags__more {
         display: none;
         position: relative;
-        z-index: 1;
         flex-shrink: 0;
+        overflow: visible;
+        padding-left: 0.75rem;
+        border-color: transparent;
+        background: none;
 
         &[data-count] {
             display: flex;
         }
 
-        &::after {
-            content: "+" attr(data-count) " labels";
+        /* The face reaches back under the dots. */
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            inset: -1px -1px -1px
+                calc(
+                    -0.75rem - var(--lyra-tags-dot) - (var(--lyra-tags-dots) - 1) *
+                        var(--lyra-tags-dot-step) - var(--lyra-tags-stack-gap)
+                );
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius-small);
+            background-color: var(--pluto-gray-l0);
         }
 
-        &[data-count="1"]::after {
-            content: "+1 label";
+        &::after {
+            content: "+" attr(data-count);
+            color: var(--pluto-gray-l9);
+        }
+    }
+
+    /* The first hidden tags show as dots in the count. Each dot overlaps the one before
+       it, with a ring of the count's face between them. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-dot] {
+        position: static;
+        display: flex;
+        flex-shrink: 0;
+        margin-right: calc(
+            var(--lyra-tags-dot-step) - var(--lyra-tags-dot) - var(--lyra-tags-gap)
+        );
+        padding: 0;
+        border: none;
+
+        /* The dot fills two thirds of its icon. The ring sits just outside it. */
+        background: radial-gradient(
+            circle closest-side,
+            var(--pluto-gray-l0) calc(200% / 3 + 1.5px),
+            transparent calc(200% / 3 + 1.5px)
+        );
+        box-shadow: none;
+        clip-path: none;
+        pointer-events: none;
+
+        &::before {
+            display: none;
+        }
+
+        & > svg {
+            width: var(--lyra-tags-dot);
+            height: var(--lyra-tags-dot);
+        }
+
+        & > .lyra-text {
+            display: none;
+        }
+    }
+
+    /* The count's face reaches back past the first dot, and keeps the gap from the
+       last tag. */
+    & > .lyra-tag:not([data-hidden]) + .lyra-flex.lyra-btn.lyra-tag[data-dot] {
+        margin-left: calc(
+            0.75rem + var(--lyra-tags-dot) - var(--lyra-tags-dot-step) +
+                var(--lyra-tags-stack-gap)
+        );
+    }
+
+    /* Hover brightens the chip as one unit. Its face lies under its dots, so they
+       hover it too. */
+    &.lyra-btn[aria-expanded="true"] > .lyra-tags__more[data-count],
+    & > .lyra-tags__more[data-count]:hover {
+        border-color: transparent;
+
+        &::before {
+            border-color: var(--pluto-gray-l7);
+        }
+
+        &::after {
+            color: var(--pluto-gray-l11);
         }
     }
 }
@@ -173,101 +255,9 @@
     visibility: hidden;
 }
 
-/* With no tags shown, the first three show as dots in the count. Each dot overlaps the
-   one before it, with a ring of the count's face between them. */
-.lyra-tags[data-dots] {
-    --lyra-tags-dot: 1.75rem;
-    --lyra-tags-dot-step: 1.1rem;
-
-    gap: var(--lyra-tags-stack-gap);
-
-    & > .lyra-flex.lyra-btn.lyra-tag:nth-child(-n + 3 of .lyra-tag) {
-        display: flex;
-        margin-right: calc(
-            var(--lyra-tags-dot-step) - var(--lyra-tags-dot) -
-                var(--lyra-tags-stack-gap)
-        );
-        padding: 0;
-        border: none;
-
-        /* The dot fills two thirds of its icon. The ring sits just outside it. */
-        background: radial-gradient(
-            circle closest-side,
-            var(--pluto-gray-l0) calc(200% / 3 + 1.5px),
-            transparent calc(200% / 3 + 1.5px)
-        );
-        box-shadow: none;
-        pointer-events: none;
-
-        &::before {
-            display: none;
-        }
-
-        & > svg {
-            width: var(--lyra-tags-dot);
-            height: var(--lyra-tags-dot);
-        }
-
-        & > .lyra-text {
-            display: none;
-        }
-    }
-
-    /* The count's face reaches back under its dots, and the count follows them at the
-       small gap. */
-    & > .lyra-tags__more[data-count] {
-        --lyra-tags-dots: 1;
-
-        z-index: auto;
-        overflow: visible;
-        padding-left: 0.75rem;
-        border-color: transparent;
-        background: none;
-
-        &::before {
-            content: "";
-            position: absolute;
-            z-index: -1;
-            inset: -1px -1px -1px
-                calc(
-                    -0.75rem - var(--lyra-tags-dot) - (var(--lyra-tags-dots) - 1) *
-                        var(--lyra-tags-dot-step) - var(--lyra-tags-stack-gap)
-                );
-            border: var(--pluto-border);
-            border-radius: var(--pluto-border-radius-small);
-            background-color: var(--pluto-gray-l0);
-        }
-
-        &::after {
-            content: "+" attr(data-count);
-        }
-    }
-
-    &:has(> .lyra-tag:nth-child(2 of .lyra-tag)) > .lyra-tags__more {
-        --lyra-tags-dots: 2;
-    }
-
-    &:has(> .lyra-tag:nth-child(3 of .lyra-tag)) > .lyra-tags__more {
-        --lyra-tags-dots: 3;
-    }
-
-    /* Hover brightens the chip as one unit. */
-    &.lyra-btn:is(:hover, [aria-expanded="true"]) > .lyra-tags__more[data-count] {
-        border-color: transparent;
-
-        &::before {
-            border-color: var(--pluto-gray-l7);
-        }
-    }
-}
-
 /* Each stacked tag shrinks, and its face paints 15 px past its box, under the next tag.
    The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
 @container style(--lyra-tags-stacked: true) {
-    .lyra-tags.lyra-tags--stepped {
-        gap: var(--lyra-tags-stack-gap);
-    }
-
     .lyra-tags > .lyra-flex.lyra-btn.lyra-tag {
         position: relative;
         isolation: isolate;
@@ -305,6 +295,22 @@
         }
     }
 
+    /* A hovered tag lifts over its neighbors at full width. Its margin gives back the
+       width it gains, so they hold still. */
+    .lyra-tags > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
+        z-index: 1;
+        flex: 0 0 var(--lyra-tag-full);
+        margin-right: calc(var(--lyra-tag-shrunk) - var(--lyra-tag-full));
+        color: var(--pluto-gray-l11);
+        clip-path: none;
+        animation: lyra-tags-lift 0.1s ease-out;
+
+        &::before {
+            width: calc(100% + 2px);
+            border-color: var(--pluto-gray-l7);
+        }
+    }
+
     .lyra-tags > .lyra-flex.lyra-btn[data-last] {
         flex-shrink: 1e-6;
         clip-path: none;
@@ -312,5 +318,11 @@
         &::before {
             width: calc(100% + 2px);
         }
+    }
+}
+
+@keyframes lyra-tags-lift {
+    from {
+        opacity: 0.6;
     }
 }

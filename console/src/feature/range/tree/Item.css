@@ -77,14 +77,6 @@
     min-width: 0;
 }
 
-/* How far a hovered item's labels have spread, from 0 to 1. Only it animates, so a
-   resize moves the column at once. */
-@property --console-range-labels-spread {
-    syntax: "<number>";
-    inherits: false;
-    initial-value: 0;
-}
-
 /* One labels column, as wide on every item. It takes the room the names leave, and its
    tags sit at its right. When the item runs short, it shrinks in the same frame, before
    any name passes its floor. */
@@ -95,28 +87,10 @@
     min-width: 0;
     overflow: hidden;
 
-    /* Hover spreads a stacked item's labels into its name. The step stays. */
     & .console-range-item__tags {
-        --console-range-labels-spread: 0;
-        --console-range-labels-width: var(--console-range-labels-room, 0px);
-
-        width: calc(
-            var(--console-range-labels-width) + var(--console-range-labels-spread) *
-                max(
-                    0px,
-                    min(
-                        var(--lyra-tags-fit, 0px) - var(--console-range-labels-width),
-                        24rem
-                    )
-                )
-        );
+        width: var(--console-range-labels-room, 0);
         max-width: 100%;
-        transition: --console-range-labels-spread 0.16s cubic-bezier(0.2, 0, 0, 1);
     }
-}
-
-.console-range-item:hover .console-range-item__labels .console-range-item__tags {
-    --console-range-labels-spread: 1;
 }
 
 .console-range-item__when {

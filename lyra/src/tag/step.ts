@@ -15,16 +15,18 @@ const MORE = CSS.BE("tags", "more");
 // React owns class names and rewrites them on render, so the step marks its state with
 // data attributes instead.
 const LAST = "data-last";
-const DOTS = "data-dots";
+const DOT = "data-dot";
 const EMPTY = "data-empty";
 const ENTERING = "data-entering";
 const MEASURING = "data-measuring";
+const LIFTED = "data-lifted";
 const HIDDEN = "data-hidden";
 const STACKED = "--lyra-tags-stacked";
-const STACK_GAP = "--lyra-tags-stack-gap";
-// The room, in rem, the count takes beside tags, and with its dots alone.
-const COUNT = 13;
-const DOT_COUNT = 10;
+// The room the count takes with its dots, in rem. Fixed, so the step never chases the
+// count's width.
+const COUNT = 11;
+// The dots of the first hidden tags the count shows.
+const DOTS = 3;
 
 /** A group's tags at full width, in CSS pixels. */
 interface Fit {
@@ -34,7 +36,6 @@ interface Fit {
   frame: number;
   fixed: number;
   gap: number;
-  stackGap: number;
 }
 
 const tagsOf = (el: HTMLElement): HTMLElement[] =>
@@ -62,11 +63,13 @@ const moreOf = (el: HTMLElement): HTMLElement | undefined =>
 const expand = (el: HTMLElement): void => {
   const more = moreOf(el);
   if (more != null) delete more.dataset.count;
-  el.removeAttribute(DOTS);
   el.removeAttribute(EMPTY);
   el.toggleAttribute(MEASURING, true);
   el.style.setProperty(STACKED, "false");
-  tagsOf(el).forEach((t) => t.removeAttribute(HIDDEN));
+  tagsOf(el).forEach((t) => {
+    t.removeAttribute(HIDDEN);
+    t.removeAttribute(DOT);
+  });
 };
 
 const fit = (el: HTMLElement): Fit => {
@@ -86,7 +89,6 @@ const fit = (el: HTMLElement): Fit => {
       sum(fixed.map(cssWidth)),
     fixed: fixed.length,
     gap,
-    stackGap: px(cs.getPropertyValue(STACK_GAP)),
   };
 };
 
@@ -100,7 +102,6 @@ interface Template {
   frame: number;
   fixed: number;
   gap: number;
-  stackGap: number;
   rem: number;
 }
 
@@ -121,7 +122,6 @@ const estimate = (el: HTMLElement, t: Template): Fit | null => {
     frame: t.frame,
     fixed: t.fixed,
     gap: t.gap,
-    stackGap: t.stackGap,
   };
 };
 
@@ -133,21 +133,23 @@ const full = (f: Fit, k: number, count: number): number => {
   return f.frame + tags + gaps + (k < n ? f.gap + count : 0);
 };
 
-// The narrowest a group gets with its first k tags stacked: each at its floor, the last
-// at full width.
-const stacked = (f: Fit, k: number, count: number): number => {
-  const n = f.measures.length;
-  const under = sum(f.measures.slice(0, k - 1).map((m) => m.floor));
-  const last = f.measures[k - 1].natural;
-  const gaps = f.stackGap * Math.max(0, k + f.fixed - 1);
-  return f.frame + under + last + gaps + (k < n ? f.gap + count : 0);
+// Whether a group's first k tags fit in room once stacked. Flex shrinks every tag but
+// the last in proportion to its width, and none may pass its floor.
+const stacks = (f: Fit, k: number, count: number, room: number): boolean => {
+  if (k === 0) return true;
+  const under = f.measures.slice(0, k - 1);
+  const total = sum(under.map((m) => m.natural));
+  const over = full(f, k, count) - room;
+  if (over <= 0) return true;
+  if (over >= total) return false;
+  return under.every((m) => m.natural - (over * m.natural) / total >= m.floor);
 };
 
 /**
  * Fits the groups of tags of one list together, so they all show the same step: the
  * same number of tags, then a count. A group stacks its tags only when they do not fit
- * at full width. It sets `--lyra-tags-fit` on each group to the width its step takes
- * without stacking.
+ * at full width, and folds one more tag into the count before any stacked tag passes
+ * its floor. A hovered stacked tag lifts over its neighbors at full width.
  */
 export class Steps {
   private readonly groups = new Set<HTMLElement>();
@@ -157,8 +159,7 @@ export class Steps {
   private template: Template | null = null;
   private early = false;
   private frame = 0;
-  // A resize refits before the frame paints, where reading widths costs no layout. A
-  // hovered group widens alone, and may stop stacking.
+  // A resize refits before the frame paints, where reading widths costs no layout.
   private readonly resize = new ResizeObserver((entries) => {
     const changed = entries.filter((e) => {
       const el = e.target as HTMLElement;
@@ -177,9 +178,39 @@ export class Steps {
     this.request();
   };
 
+  // A hovered stacked tag lifts over its neighbors at full width. Its margin gives back
+  // the width it gains, so they do not move.
+  private lifted: HTMLElement | null = null;
+  private readonly onOver = (e: PointerEvent): void => {
+    const tag = (e.target as Element).closest<HTMLElement>(`.${TAG}`);
+    if (tag === this.lifted) return;
+    this.drop();
+    const el = tag?.parentElement;
+    if (tag == null || el == null || !this.groups.has(el)) return;
+    if (el.style.getPropertyValue(STACKED) !== "true") return;
+    if (tag.hasAttribute(LAST) || tag.hasAttribute(DOT)) return;
+    const full = this.fits.get(el)?.measures[tagsOf(el).indexOf(tag)];
+    if (full == null) return;
+    tag.style.setProperty("--lyra-tag-full", `${full.natural}px`);
+    tag.style.setProperty("--lyra-tag-shrunk", `${cssWidth(tag)}px`);
+    tag.toggleAttribute(LIFTED, true);
+    this.lifted = tag;
+  };
+  private readonly onOut = (e: PointerEvent): void => {
+    const to = e.relatedTarget as Node | null;
+    if (this.lifted != null && (to == null || !this.lifted.contains(to))) this.drop();
+  };
+
+  private drop(): void {
+    this.lifted?.removeAttribute(LIFTED);
+    this.lifted = null;
+  }
+
   /** Watches the element that holds the groups for changes to their tags. */
   attach(root: HTMLElement): void {
     this.root = root;
+    root.addEventListener("pointerover", this.onOver);
+    root.addEventListener("pointerout", this.onOut);
     document.fonts.addEventListener("loadingdone", this.onFonts);
     this.mutations.observe(root, {
       childList: true,
@@ -195,6 +226,9 @@ export class Steps {
     this.frame = 0;
     this.resize.disconnect();
     this.mutations.disconnect();
+    this.root?.removeEventListener("pointerover", this.onOver);
+    this.root?.removeEventListener("pointerout", this.onOut);
+    this.drop();
     document.fonts.removeEventListener("loadingdone", this.onFonts);
   }
 
@@ -285,7 +319,6 @@ export class Steps {
         frame: f.frame,
         fixed: f.fixed,
         gap: f.gap,
-        stackGap: f.stackGap,
         rem: px(getComputedStyle(document.documentElement).fontSize),
       };
       learn(this.template, el, f);
@@ -300,17 +333,18 @@ export class Steps {
     const count = COUNT * rem;
     const fits = fitted.map((el) => this.fits.get(el) as Fit);
     const widths = fitted.map((el) => (this.widths.get(el) ?? 0) + 0.5);
-    // Hovering widens one group's container, so the narrowest is the shared room.
+    // The narrowest group sets the room every group shares.
     const room = Math.min(...widths);
     const most = Math.max(...fits.map((f) => f.measures.length));
     let shown = most;
     while (
       shown > 0 &&
-      !fits.every((f) => stacked(f, Math.min(shown, f.measures.length), count) <= room)
+      !fits.every((f) => stacks(f, Math.min(shown, f.measures.length), count, room))
     )
       shown--;
-    const dots = DOT_COUNT * rem;
-    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count, dots));
+    // A lifted tag gives back the width it had, which a refit may change.
+    this.drop();
+    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count));
   }
 }
 
@@ -325,25 +359,26 @@ const write = (
   step: number,
   room: number,
   count: number,
-  dots: number,
 ): void => {
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
   set(el, STACKED, String(overlap));
-  const fits = `${full(f, shown, count)}px`;
-  if (el.style.getPropertyValue("--lyra-tags-fit") !== fits)
-    el.style.setProperty("--lyra-tags-fit", fits);
-  el.toggleAttribute(DOTS, shown === 0);
-  el.toggleAttribute(EMPTY, shown === 0 && f.frame + dots > room);
+  el.toggleAttribute(EMPTY, shown === 0 && f.frame + count > room);
+  const gaps = `${f.gap}px`;
+  if (el.style.getPropertyValue("--lyra-tags-gap") !== gaps)
+    el.style.setProperty("--lyra-tags-gap", gaps);
+  const dots = String(Math.min(DOTS, tags.length - shown));
+  if (el.style.getPropertyValue("--lyra-tags-dots") !== dots)
+    el.style.setProperty("--lyra-tags-dots", dots);
   tags.forEach((t, i) => {
+    const dot = i >= shown && i < shown + DOTS;
     t.toggleAttribute(HIDDEN, i >= shown);
     t.toggleAttribute(LAST, overlap && i === shown - 1);
+    t.toggleAttribute(DOT, dot);
   });
   const more = moreOf(el);
   if (more == null) return;
-  // A stacked group's count keeps the full gap, clear of the last tag's face.
-  set(more, "margin-left", overlap ? `${f.gap - f.stackGap}px` : "");
   const hidden = shown < tags.length ? String(tags.length - shown) : undefined;
   if (more.dataset.count === hidden) return;
   if (hidden == null) delete more.dataset.count;
