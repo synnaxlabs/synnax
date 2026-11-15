@@ -480,6 +480,8 @@ class Overview(Surface):
 
         :param name: The name for the new child range.
         """
+        # The create modal's Save click goes through the hit test.
+        self.notifications.close_all()
         self._add("Child ranges", "Child range")
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
