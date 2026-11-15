@@ -44,6 +44,8 @@ type monitor struct {
 	alamos.Instrumentation
 	mu struct {
 		racks map[Key]rackState
+		// taskTimes holds the time on the last status seen for each task.
+		taskTimes map[status.Key]telem.TimeStamp
 		sync.Mutex
 	}
 }
@@ -119,6 +121,12 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	m.mu.Lock()
+	// A report during the write ends the outage, so its tasks keep their statuses.
+	statuses = lo.Filter(statuses, func(stat Status, _ int) bool {
+		return m.mu.racks[stat.Details.Rack].lastUpdated == stat.Time
+	})
+	m.mu.Unlock()
 	for _, stat := range statuses {
 		m.Notify(ctx, stat)
 	}
@@ -132,6 +140,14 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
+		if strings.HasPrefix(ch.Key, string(ontology.ResourceTypeTask)) {
+			if ch.Variant == xchange.VariantDelete {
+				delete(m.mu.taskTimes, ch.Key)
+			} else {
+				m.handleTaskStatus(ch.Key, ch.Value)
+			}
+			continue
+		}
 		if !strings.HasPrefix(ch.Key, string(ontology.ResourceTypeRack)) {
 			continue
 		}
@@ -150,6 +166,28 @@ func (m *monitor) handleChange(
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
 		}
 	}
+}
+
+// handleTaskStatus counts a new running task status as a report from the rack that
+// runs the task. A Driver that reconnects reports its tasks before its first heartbeat.
+// A write that keeps the time of the last status seen is not a report.
+func (m *monitor) handleTaskStatus(key status.Key, stat status.Status[any]) {
+	prev, seen := m.mu.taskTimes[key]
+	m.mu.taskTimes[key] = stat.Time
+	if seen && prev == stat.Time {
+		return
+	}
+	fields, _ := stat.Details.(map[string]any)
+	if running, _ := fields["running"].(bool); !running {
+		return
+	}
+	// Details are stored as JSON, so every number decodes as a float64.
+	rack, ok := fields["rack"].(float64)
+	rackKey := Key(rack)
+	if !ok || !lo.HasKey(m.mu.racks, rackKey) {
+		return
+	}
+	m.mu.racks[rackKey] = rackState{lastUpdated: m.svc.Now()}
 }
 
 func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
@@ -182,6 +220,7 @@ func openMonitor(
 	}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
+	s.mu.taskTimes = make(map[status.Key]telem.TimeStamp)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}
