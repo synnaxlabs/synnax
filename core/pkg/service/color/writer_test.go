@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,14 +27,16 @@ import (
 
 var _ = Describe("Writer", func() {
 	var (
-		db  *gorp.DB
-		svc *color.Service
-		tx  gorp.Tx
-		w   color.Writer
-		red xcolor.Color
+		db     *gorp.DB
+		svc    *color.Service
+		groups *group.Service
+		tx     gorp.Tx
+		w      color.Writer
+		red    xcolor.Color
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
@@ -47,6 +51,15 @@ var _ = Describe("Writer", func() {
 			Exec(ctx, tx)).To(Succeed())
 		return n
 	}
+	createGroup := func(ctx SpecContext, scope resource.Type) group.Group {
+		GinkgoHelper()
+		g := group.Group{Name: "Series", Scope: scope}
+		Expect(groups.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+		return g
+	}
+	setGroup := func(v any) color.Action {
+		return color.NewSetAction(color.SetPayload{Path: []string{"group"}, Value: v})
+	}
 
 	Describe("Create", func() {
 		It("Should create a named color with a new key", func(ctx SpecContext) {
@@ -59,6 +72,35 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, &color.Named{Light: red})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("name: required")),
+			))
+		})
+		It("Should create a named color in a palette", func(ctx SpecContext) {
+			g := createGroup(ctx, resource.TypeColor)
+			n := color.Named{Name: "Breaker", Light: red, Group: &g.Key}
+			Expect(w.Create(ctx, &n)).To(Succeed())
+			var palette []color.Named
+			Expect(svc.NewRetrieve().
+				Where(color.MatchGroups(g.Key)).
+				Entries(&palette).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(palette).To(Equal([]color.Named{n}))
+		})
+		It("Should refuse a group of another scope", func(ctx SpecContext) {
+			g := createGroup(ctx, resource.TypeChannel)
+			n := color.Named{Name: "Breaker", Light: red, Group: &g.Key}
+			Expect(w.Create(ctx, &n)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"group: a color cannot sit in a channel group",
+				)),
+			))
+		})
+		It("Should refuse a group that does not exist", func(ctx SpecContext) {
+			k := uuid.New()
+			n := color.Named{Name: "Breaker", Light: red, Group: &k}
+			Expect(w.Create(ctx, &n)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group: group %s does not exist", k)),
 			))
 		})
 		It("Should refuse a named color whose key exists", func(ctx SpecContext) {
@@ -137,6 +179,33 @@ var _ = Describe("Writer", func() {
 				MatchError(ContainSubstring("name: required")),
 			))
 			Expect(retrieve(ctx, n.Key)).To(Equal(n))
+		})
+		It("Should move a named color into a palette and out", func(ctx SpecContext) {
+			g := createGroup(ctx, resource.TypeColor)
+			Expect(w.Apply(ctx, n.Key, setGroup(g.Key))).To(Succeed())
+			Expect(retrieve(ctx, n.Key).Group).To(Equal(&g.Key))
+			Expect(w.Apply(ctx, n.Key, setGroup(nil))).To(Succeed())
+			Expect(retrieve(ctx, n.Key)).To(Equal(n))
+		})
+		It("Should refuse a move into a group of another scope", func(ctx SpecContext) {
+			g := createGroup(ctx, resource.TypeChannel)
+			Expect(w.Apply(ctx, n.Key, setGroup(g.Key))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"group: a color cannot sit in a channel group",
+				)),
+			))
+			Expect(retrieve(ctx, n.Key)).To(Equal(n))
+		})
+		It("Should keep a palette that holds a named color", func(ctx SpecContext) {
+			g := createGroup(ctx, resource.TypeColor)
+			Expect(w.Apply(ctx, n.Key, setGroup(g.Key))).To(Succeed())
+			Expect(groups.NewWriter(tx).Delete(ctx, g.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot delete group Series because it is not empty",
+				)),
+			))
 		})
 		It("Should refuse a create action", func(ctx SpecContext) {
 			Expect(w.Apply(

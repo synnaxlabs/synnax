@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
@@ -50,6 +51,7 @@ var _ = Describe("Codec", func() {
 					B: 12,
 					A: 13,
 				}),
+				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
 			}),
 			Entry("zero values", v0.Named{
 				Key:  uuid.Nil(),
@@ -60,7 +62,8 @@ var _ = Describe("Codec", func() {
 					B: 0,
 					A: 0,
 				},
-				Dark: nil,
+				Dark:  nil,
+				Group: nil,
 			}),
 		)
 	})
@@ -102,6 +105,7 @@ func BenchmarkEncodeDecodeNamed(b *testing.B) {
 			B: 12,
 			A: 13,
 		}),
+		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -152,6 +156,7 @@ func FuzzDecodeNamed(f *testing.F) {
 				B: 12,
 				A: 13,
 			}),
+			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -169,7 +174,8 @@ func FuzzDecodeNamed(f *testing.F) {
 				B: 0,
 				A: 0,
 			},
-			Dark: nil,
+			Dark:  nil,
+			Group: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
