@@ -27,7 +27,7 @@ var _ = Describe("Base", func() {
 			{},
 		}}}
 		jsonPayload := v0.Payload{Variant: v0.JSONPayload{Fields: []v0.JSONField{
-			{Variant: v0.NumberJSONField{JSONBaseField: v0.JSONBaseField{
+			{Variant: v0.FloatJSONField{JSONBaseField: v0.JSONBaseField{
 				BaseField: v0.BaseField{Name: "volts"},
 				Pointer:   "/v",
 			}}},

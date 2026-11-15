@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -44,8 +45,7 @@ type expectedField struct {
 	StartBit        uint16        `json:"start_bit"`
 	BitLength       uint8         `json:"bit_length"`
 	ByteOrder       icd.ByteOrder `json:"byte_order"`
-	Signed          bool          `json:"signed"`
-	Float           bool          `json:"float"`
+	Kind            payload.Kind  `json:"kind"`
 	Scale           float64       `json:"scale"`
 	Offset          float64       `json:"offset"`
 	Units           string        `json:"units"`
@@ -110,8 +110,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 				StartBit:        f.StartBit,
 				BitLength:       f.BitLength,
 				ByteOrder:       f.ByteOrder,
-				Signed:          f.Signed,
-				Float:           f.Float,
+				Kind:            f.Kind,
 				Scale:           f.Scale,
 				Offset:          f.Offset,
 				Units:           f.Units,
@@ -419,7 +418,7 @@ SIG_VALTYPE_ 256 A : 1;
 				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
 				"Engine",
 			)
-			Expect(binaryFields(m)[0].Float).To(BeTrue())
+			Expect(binaryFields(m)[0].Kind).To(Equal(payload.KindFloat))
 		},
 	)
 

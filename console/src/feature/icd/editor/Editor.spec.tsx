@@ -59,8 +59,7 @@ const createBinaryField = (name: string, startBit: number): icd.BinaryField => (
   startBit,
   bitLength: 8,
   byteOrder: "little_endian",
-  signed: false,
-  float: false,
+  kind: "unsigned",
   scale: 1,
   offset: 0,
   units: "",
@@ -79,8 +78,9 @@ const createMessage = (
 const createJSONField = (name: string, pointer: string): icd.JSONField => ({
   key: uuid.create(),
   name,
-  type: "number",
+  type: "float",
   pointer,
+  enumValues: [],
   scale: 1,
   offset: 0,
   units: "",
@@ -260,8 +260,8 @@ describe("ICD editor", () => {
     });
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { name: "Temp", pointer: "/temp", type: "number" },
-        { name: "Speed", pointer: "/speed", type: "number", scale: 1 },
+        { name: "Temp", pointer: "/temp", type: "float" },
+        { name: "Speed", pointer: "/speed", type: "float", scale: 1 },
       ]),
     );
   });
@@ -284,11 +284,11 @@ describe("ICD editor", () => {
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
     ]);
     await renderEditor(ic);
-    fireEvent.click(await screen.findByText("Number"));
+    fireEvent.click(await screen.findByText("Float"));
     fireEvent.click(await screen.findByText("Timestamp (ms)"));
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { type: "timestamp", format: "unix_ms", scale: 1 },
+        { type: "timestamp", timeFormat: "unix_ms", scale: 1 },
       ]),
     );
   });

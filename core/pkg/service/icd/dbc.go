@@ -17,6 +17,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -396,8 +397,13 @@ func (f dbcFile) field(
 		StartBit:  uint16(s.StartBit),
 		BitLength: uint8(s.Size),
 		ByteOrder: byteOrder,
-		Signed:    s.IsSigned && !isFloat,
-		Float:     isFloat,
+		Kind:      payload.KindUnsigned,
+	}
+	switch {
+	case isFloat:
+		field.Kind = payload.KindFloat
+	case s.IsSigned:
+		field.Kind = payload.KindInteger
 	}
 	if lastByte(field) >= int(m.Size) {
 		return BinaryField{}, dataErrorf(

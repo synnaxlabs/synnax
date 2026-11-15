@@ -10,6 +10,7 @@
 package icd
 
 import (
+	"encoding/json"
 	"math"
 	"slices"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"uuid"
 
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -118,6 +120,9 @@ func (c *checker) checkMessage(path []string, m Message) {
 			}
 		}
 	case JSONPayload:
+		if p.Match != nil {
+			c.checkMatch(pathOf(path, "match"), *p.Match)
+		}
 		c.checkJSONFields(pathOf(path, "fields"), p, untyped, unscaled)
 	case nil:
 		return
@@ -163,7 +168,7 @@ func (c *checker) checkJSONFields(
 		case nil:
 			untyped.Add(i)
 			continue
-		case NumberJSONField:
+		case FloatJSONField, IntegerJSONField, UnsignedJSONField:
 		default:
 			unscaled.Add(i)
 		}
@@ -180,6 +185,20 @@ func (c *checker) checkJSONFields(
 			}
 		}
 		reads = append(reads, read{name: b.Name, pointer: pointer})
+	}
+}
+
+func (c *checker) checkMatch(path []string, m JSONMatch) {
+	if _, err := xjson.ParsePointer(m.Pointer); err != nil {
+		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", m.Pointer)
+	}
+	switch m.Value.(type) {
+	case string, float64, float32, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, json.Number:
+	case nil:
+		c.Addf(pathOf(path, "value"), "value is required")
+	default:
+		c.Addf(pathOf(path, "value"), "value must be a string or a number")
 	}
 }
 
@@ -244,7 +263,7 @@ func (c *checker) checkMultiplexor(
 		c.Addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
 	case !ok:
 		c.Addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
-	case mux.Float:
+	case !integral(mux):
 		c.Addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
 	case inCycle(b.Key, binary):
 		c.Addf(pathOf(path, "multiplexor"), "multiplexors form a cycle")
@@ -255,7 +274,7 @@ func (c *checker) checkMultiplexor(
 			"at least one value is required when the field has a multiplexor",
 		)
 	}
-	if !ok || mux.Float || !validBitLength(mux.BitLength) {
+	if !ok || !integral(mux) || !validBitLength(mux.BitLength) {
 		return
 	}
 	for i, v := range b.MultiplexValues {
@@ -331,7 +350,7 @@ func (c *checker) checkIdentifier(
 				pathOf(idPath, "field"),
 				"the identifier field is not in this message",
 			)
-		case f.Float:
+		case !integral(f):
 			c.Addf(pathOf(idPath, "field"), "the identifier must be an integer field")
 		case validBitLength(f.BitLength) && !fits(id.Value, f):
 			c.Addf(
@@ -345,14 +364,17 @@ func (c *checker) checkIdentifier(
 }
 
 func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField) {
+	if f.Kind != payload.KindFloat && !integral(f) {
+		c.Addf(
+			pathOf(path, "kind"),
+			"a binary field must be a float, an integer, or an unsigned integer",
+		)
+	}
 	if !validBitLength(f.BitLength) {
 		return
 	}
-	if f.Float && f.BitLength != 32 && f.BitLength != 64 {
+	if f.Kind == payload.KindFloat && f.BitLength != 32 && f.BitLength != 64 {
 		c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
-	}
-	if f.Float && f.Signed {
-		c.Addf(pathOf(path, "signed"), "a float field cannot also be signed")
 	}
 	if p.Length != nil {
 		if lastByte(f) >= int(*p.Length) {
@@ -506,10 +528,15 @@ func canLength(id CanIdentifier) uint16 {
 	return maxCANLength
 }
 
+// integral reports whether the binary field f holds an integer.
+func integral(f BinaryField) bool {
+	return f.Kind == payload.KindInteger || f.Kind == payload.KindUnsigned
+}
+
 // fits reports whether the integer field f can hold v.
 func fits(v int32, f BinaryField) bool {
 	n := int64(f.BitLength)
-	if !f.Signed {
+	if f.Kind == payload.KindUnsigned {
 		return v >= 0 && (n >= 31 || int64(v) < int64(1)<<n)
 	}
 	if n >= 32 {

@@ -41,7 +41,7 @@ def create_icd(name: str = "ICD") -> sy.ICD:
                             name="temperature",
                             start_bit=8,
                             bit_length=16,
-                            signed=True,
+                            kind="integer",
                             scale=0.1,
                             units="degC",
                         ),
@@ -73,7 +73,7 @@ class TestICD:
         assert temp.name == "temperature"
         assert temp.start_bit == 8
         assert temp.bit_length == 16
-        assert temp.signed
+        assert temp.kind == "integer"
         assert temp.scale == 0.1
         assert temp.units == "degC"
         keys = [msg.key, *(f.key for f in payload.fields)]
@@ -82,10 +82,17 @@ class TestICD:
     def test_create_json(self, client: sy.Synnax) -> None:
         """Should create a JSON message with each field type."""
         fields: list[sy.icd.JSONField] = [
-            sy.icd.NumberJSONField(name="temp", pointer="/temp", scale=0.1),
+            sy.icd.FloatJSONField(name="temp", pointer="/temp", scale=0.1),
+            sy.icd.IntegerJSONField(name="delta", pointer="/delta"),
+            sy.icd.UnsignedJSONField(name="count", pointer="/count"),
             sy.icd.StringJSONField(name="state", pointer="/state"),
             sy.icd.BooleanJSONField(name="armed", pointer="/armed"),
-            sy.icd.TimestampJSONField(name="time", pointer="/ts", format="unix_ms"),
+            sy.icd.TimestampJSONField(
+                name="time", pointer="/ts", time_format="unix_ms"
+            ),
+            sy.icd.JSONJSONField(name="raw", pointer="/raw"),
+            sy.icd.UuidJSONField(name="id", pointer="/id"),
+            sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
         ic = client.icds.create(
             sy.ICD(
@@ -101,15 +108,10 @@ class TestICD:
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
         assert [type(f) for f in payload.fields] == [type(f) for f in fields]
-        assert [f.pointer for f in payload.fields] == [
-            "/temp",
-            "/state",
-            "/armed",
-            "/ts",
-        ]
-        timestamp = payload.fields[3]
+        assert [f.pointer for f in payload.fields] == [f.pointer for f in fields]
+        timestamp = payload.fields[5]
         assert isinstance(timestamp, sy.icd.TimestampJSONField)
-        assert timestamp.format == "unix_ms"
+        assert timestamp.time_format == "unix_ms"
 
     def test_create_text(self, client: sy.Synnax) -> None:
         """Should create a message with a text payload."""

@@ -31,7 +31,7 @@ const createNew = (name: string = "ICD"): icd.New => ({
             name: "temperature",
             startBit: 8,
             bitLength: 16,
-            signed: true,
+            kind: "integer",
             scale: 0.1,
             units: "degC",
           },
@@ -83,7 +83,7 @@ describe("icd", () => {
         name: "temperature",
         startBit: 8,
         bitLength: 16,
-        signed: true,
+        kind: "integer",
         scale: 0.1,
         units: "degC",
       });
@@ -131,10 +131,20 @@ describe("icd", () => {
             payload: {
               format: "json",
               fields: [
-                { type: "number", name: "temp", pointer: "/temp", scale: 0.1 },
+                { type: "float", name: "temp", pointer: "/temp", scale: 0.1 },
+                { type: "integer", name: "delta", pointer: "/delta" },
+                { type: "unsigned", name: "count", pointer: "/count" },
                 { type: "string", name: "state", pointer: "/state" },
                 { type: "boolean", name: "armed", pointer: "/armed" },
-                { type: "timestamp", name: "time", pointer: "/ts", format: "unix_ms" },
+                {
+                  type: "timestamp",
+                  name: "time",
+                  pointer: "/ts",
+                  timeFormat: "unix_ms",
+                },
+                { type: "json", name: "raw", pointer: "/raw" },
+                { type: "uuid", name: "id", pointer: "/id" },
+                { type: "bytes", name: "blob", pointer: "/blob" },
               ],
             },
           },
@@ -144,10 +154,15 @@ describe("icd", () => {
       expect(ic.messages[0].payload).toMatchObject({
         format: "json",
         fields: [
-          { type: "number", pointer: "/temp", scale: 0.1 },
+          { type: "float", pointer: "/temp", scale: 0.1, enumValues: [] },
+          { type: "integer", pointer: "/delta" },
+          { type: "unsigned", pointer: "/count" },
           { type: "string", pointer: "/state", scale: 1 },
           { type: "boolean", pointer: "/armed" },
-          { type: "timestamp", pointer: "/ts", format: "unix_ms" },
+          { type: "timestamp", pointer: "/ts", timeFormat: "unix_ms" },
+          { type: "json", pointer: "/raw" },
+          { type: "uuid", pointer: "/id" },
+          { type: "bytes", pointer: "/blob" },
         ],
       });
     });
@@ -243,7 +258,7 @@ describe("icd", () => {
             payload: {
               format: "json",
               fields: [
-                { type: "number", name: "a", pointer: "/v" },
+                { type: "float", name: "a", pointer: "/v" },
                 { type: "string", name: "b", pointer: "/v/x", scale: 2 },
               ],
             },

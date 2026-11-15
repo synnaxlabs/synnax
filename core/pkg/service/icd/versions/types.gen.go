@@ -89,22 +89,14 @@ type JSONField = v0.JSONField
 // JSONFieldVariant is implemented by every JSONField variant.
 type JSONFieldVariant = v0.JSONFieldVariant
 
-// JSONFieldType is the "type" value that selects a variant of JSONField.
-type JSONFieldType = v0.JSONFieldType
+// FloatJSONField is a JSON number read as a float.
+type FloatJSONField = v0.FloatJSONField
 
-const (
-	// NumberJSONFieldType is a JSON number.
-	NumberJSONFieldType JSONFieldType = v0.NumberJSONFieldType
-	// StringJSONFieldType is a JSON string.
-	StringJSONFieldType JSONFieldType = v0.StringJSONFieldType
-	// BooleanJSONFieldType is a JSON boolean.
-	BooleanJSONFieldType JSONFieldType = v0.BooleanJSONFieldType
-	// TimestampJSONFieldType is a timestamp held in a JSON number or string.
-	TimestampJSONFieldType JSONFieldType = v0.TimestampJSONFieldType
-)
+// IntegerJSONField is a JSON number read as a signed integer.
+type IntegerJSONField = v0.IntegerJSONField
 
-// NumberJSONField is a JSON number.
-type NumberJSONField = v0.NumberJSONField
+// UnsignedJSONField is a JSON number read as an unsigned integer.
+type UnsignedJSONField = v0.UnsignedJSONField
 
 // StringJSONField is a JSON string.
 type StringJSONField = v0.StringJSONField
@@ -114,6 +106,18 @@ type BooleanJSONField = v0.BooleanJSONField
 
 // TimestampJSONField is a timestamp held in a JSON number or string.
 type TimestampJSONField = v0.TimestampJSONField
+
+// JSONJSONField is any JSON value.
+type JSONJSONField = v0.JSONJSONField
+
+// UuidJSONField is a UUID held in a JSON string.
+type UuidJSONField = v0.UuidJSONField
+
+// BytesJSONField is base64 text held in a JSON string.
+type BytesJSONField = v0.BytesJSONField
+
+// JSONMatch selects the JSON documents that belong to a message.
+type JSONMatch = v0.JSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = v0.Payload
