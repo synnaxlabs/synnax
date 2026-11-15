@@ -11,6 +11,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
@@ -172,6 +173,61 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
 /// the retry limit of the breaker.
 TEST(AcquisitionPipeline, RetriesEagerOpenWhileCoreUnreachable) {
     assert_retries_open_past_limit(true);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<ScriptedSource>(std::vector{TEMPORARY});
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        source,
+        fast_breaker(1),
+        "",
+        /* err_on_unauthorized */ true,
+        /* open_eagerly */ true
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            synnax::errors::LICENSE_MISSING,
+            synnax::errors::LICENSE_MISSING,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::LICENSE_MISSING);
+    ASSERT_EQ(writes->size(), 0);
 }
 
 /// @brief it should not retry when a non-unreachable error occurs.

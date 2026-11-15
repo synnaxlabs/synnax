@@ -12,8 +12,6 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/errors/errors.h"
-
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
@@ -113,9 +111,7 @@ bool Acquisition::run_once() {
         auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
         writer_err = writer_err_i;
         if (writer_err) {
-            if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-                this->breaker.wait_unlimited(writer_err))
-                return true;
+            if (this->wait_for_core(writer_err)) return true;
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
@@ -124,6 +120,7 @@ bool Acquisition::run_once() {
         }
         writer = std::move(writer_i);
         writer_opened = true;
+        this->breaker.reset();
     }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
@@ -163,6 +160,7 @@ bool Acquisition::run_once() {
             }
             writer = std::move(writer_i);
             writer_opened = true;
+            this->breaker.reset();
             if (pending_global_auth.has_value()) {
                 Authorities auth{.authorities = {*pending_global_auth}};
                 if (auto err = writer->set_authority(auth)) {
@@ -219,9 +217,7 @@ bool Acquisition::run_once() {
         this->breaker.reset();
     }
     if (writer_opened) writer_err = writer->close();
-    if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait_unlimited(writer_err))
-        return true;
+    if (this->wait_for_core(writer_err)) return true;
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)

@@ -10,8 +10,10 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -133,6 +135,71 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 /// retry limit of the breaker.
 TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
     assert_open_retries(freighter::UNREACHABLE, 1);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(ControlPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0));
+    auto fr_2 = x::telem::Frame(1);
+    fr_2.emplace(1, x::telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    reads->push_back(std::move(fr_1));
+    reads->push_back(std::move(fr_2));
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::make_shared<std::vector<mock::StreamerConfig>>(
+            std::vector{mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
+        )
+    );
+    const auto sink = std::make_shared<mock::Sink>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>(
+            std::vector{x::errors::Error(errors::TEMPORARY_HARDWARE_ERROR)}
+        )
+    );
+    auto control = Control(
+        streamer_factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1,
+        }
+    );
+    control.start();
+    ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
+    control.stop();
+    ASSERT_NIL(sink->stop_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(ControlPipeline, StopsOnLicenseErrorPastLimit) {
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{
+            synnax::errors::LICENSE_MISSING,
+            synnax::errors::LICENSE_MISSING,
+            x::errors::NIL,
+        },
+        std::make_shared<std::vector<mock::StreamerConfig>>()
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        streamer_factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1,
+        }
+    );
+    control.start();
+    ASSERT_EVENTUALLY_FALSE(control.running());
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, synnax::errors::LICENSE_MISSING);
+    ASSERT_EQ(sink->writes->size(), 0);
 }
 
 /// @brief it should wait out an unlicensed Core and succeed once it is licensed.
