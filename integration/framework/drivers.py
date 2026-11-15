@@ -22,8 +22,15 @@ class Process:
     outlives a restart of that Core."""
 
     def __init__(
-        self, *, binary: Path, connection: SynnaxConnection, log_path: Path
+        self,
+        *,
+        binary: Path,
+        connection: SynnaxConnection,
+        log_path: Path,
+        stop_timeout: float = _STOP_TIMEOUT,
     ) -> None:
+        """:param stop_timeout: Seconds stop waits for the Driver before it kills it."""
+        self._stop_timeout = stop_timeout
         self._state = Path(tempfile.mkdtemp(prefix="synnax-driver-"))
         log_path.parent.mkdir(parents=True, exist_ok=True)
         self._log = open(log_path, "wb")
@@ -35,22 +42,28 @@ class Process:
         args += [f"--secure={str(connection.secure).lower()}"]
         args += ["--state-file", str(self._state / "state.json")]
         args += ["--disable-integrations", "ni"]
+        # Unbuffered, so a write to a Driver that exited fails at once.
         self._popen = subprocess.Popen(
-            args, stdin=subprocess.PIPE, stdout=self._log, stderr=subprocess.STDOUT
+            args,
+            stdin=subprocess.PIPE,
+            stdout=self._log,
+            stderr=subprocess.STDOUT,
+            bufsize=0,
         )
 
     def stop(self) -> None:
         """Asks the Driver to stop its tasks and exit, then kills a Driver that does
         not exit in time."""
         stdin = self._popen.stdin
-        if self._popen.poll() is None and stdin is not None:
-            try:
-                stdin.write(b"STOP\n")
-                stdin.flush()
-            except BrokenPipeError:
-                pass
+        assert stdin is not None
         try:
-            self._popen.wait(timeout=_STOP_TIMEOUT)
+            stdin.write(b"STOP\n")
+        except BrokenPipeError:
+            # The Driver already exited.
+            pass
+        stdin.close()
+        try:
+            self._popen.wait(timeout=self._stop_timeout)
         except subprocess.TimeoutExpired:
             self._popen.kill()
             self._popen.wait()

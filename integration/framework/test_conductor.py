@@ -460,9 +460,8 @@ def _positive(value: str) -> int:
     return number
 
 
-def main() -> None:
-    """Main entry point for the test conductor."""
-
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parses the conductor's command line, or sys.argv when argv is None."""
     parser = argparse.ArgumentParser(
         description="Run test sequences",
         epilog="""
@@ -576,11 +575,12 @@ All matching is case-insensitive substring.
         "the same other flags.",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    if is_ci() and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(line_buffering=True)
-    options = RunOptions(
+
+def run_options(args: argparse.Namespace) -> RunOptions:
+    """Returns the options that test cases read from the parsed command line."""
+    return RunOptions(
         logs_streamed=args.logs,
         headed=args.headed,
         slow_mo=args.slow_mo,
@@ -588,6 +588,14 @@ All matching is case-insensitive substring.
         core_binary=args.core_binary,
         driver_binary=args.driver_binary,
     )
+
+
+def main() -> None:
+    """Main entry point for the test conductor."""
+    args = parse_args()
+    if is_ci() and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    options = run_options(args)
     server_log_path = Path(os.environ.get("SYNNAX_SERVER_LOG", server_log.DEFAULT_PATH))
 
     # Create connection object

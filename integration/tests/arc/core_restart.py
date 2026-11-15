@@ -122,10 +122,23 @@ class CoreRestart(TestCase):
     def _status_of(self, key: sy.task.Key) -> sy.task.Status | None:
         return self._scratch.tasks.retrieve(key, include_status=True).status
 
-    def _expect_running(self, key: sy.task.Key, when: str) -> None:
-        status = self._status_of(key)
-        if status is None or status.details is None or not status.details.running:
-            self.fail(f"the Arc task is not running {when}: {status}")
+    def _expect_running(self, key: sy.task.Key, since: sy.TimeStamp) -> None:
+        """Fail unless the Driver writes a running status for the task after since.
+        The Core keeps the status from before its restart, so an older one proves
+        nothing."""
+        last: sy.task.Status | None = None
+
+        def fresh() -> bool | None:
+            nonlocal last
+            last = self._status_of(key)
+            if last is None or last.time <= since:
+                return None
+            if last.details is None or not last.details.running:
+                self.fail(f"the Arc task is not running after the restart: {last}")
+            return True
+
+        if sy.poll(fresh, timeout=STATUS_TIMEOUT, interval=0.1) is None:
+            self.fail(f"the Driver wrote no task status after the restart: {last}")
 
     def _start(self, task: sy.task.Task) -> None:
         task.execute_command("start")
@@ -162,12 +175,13 @@ class CoreRestart(TestCase):
                 w.write({PRESSURE: HIGH})
 
         self.log("Restarting the Core")
+        stopped = sy.TimeStamp.now()
         self._core.restart()
         restarted = sy.TimeStamp.now()
         self._scratch = self._core.core.connection.create_client()
         self._wait_for_driver(since=restarted)
         self.log("The Driver reconnected")
-        self._expect_running(task.key, "after the Driver reconnected")
+        self._expect_running(task.key, since=stopped)
 
         self.log("Dropping the pressure, which only the hold stage reads")
         with self._scratch.open_streamer([HELD, VENTED]) as streamer:
@@ -193,7 +207,7 @@ class CoreRestart(TestCase):
                         "the Arc did not leave the hold stage: "
                         f"{self._status_of(task.key)}"
                     )
-        self._expect_running(task.key, "after it left the hold stage")
+        self._expect_running(task.key, since=stopped)
 
     def _read_until(
         self, streamer: sy.Streamer, channel: str, timeout: sy.TimeSpan
