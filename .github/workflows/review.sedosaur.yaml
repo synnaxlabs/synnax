@@ -10,10 +10,11 @@
 # Reviews a pull request with Sedosaur on a review runner, and posts the review as the
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
-# base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
-# The App token reaches only the steps that write to GitHub. A replay reviews any commit
-# against any base, posts nothing, and keeps only the record. It can take the policy of
-# another ref, so a new policy can be tried on old commits before it merges.
+# base. Claude Code gets only read tools, a checkout of the head, and the CLI login of
+# the runner's seat. The App token reaches only the steps that write to GitHub. A replay
+# reviews any commit against any base, posts nothing, and keeps only the record. It can
+# take the policy of another ref, so a new policy can be tried on old commits before it
+# merges.
 
 name: Review - Sedosaur
 run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
@@ -331,7 +332,6 @@ jobs:
           POLICY_SHA: ${{ steps.policy.outputs.sha }}
           REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
 
       # The trial report compares these records with Greptile's reviews.

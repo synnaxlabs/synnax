@@ -790,33 +790,60 @@ class TestUsage:
 class TestLaunch:
     """Tests the process that runs Claude Code."""
 
-    def test_should_pass_claude_only_its_token(
+    def test_should_pass_claude_only_the_seat_login(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         bindir = tmp_path / "bin"
         bindir.mkdir()
-        fake = bindir / "claude"
-        fake.write_text(
-            "#!/usr/bin/env python3\n"
-            "import json, os, sys\n"
+        executable(
+            bindir / "claude",
+            "import os\n"
+            "home = os.environ['CLAUDE_CONFIG_DIR']\n"
             "print(json.dumps({'args': sys.argv[1:], 'stdin': sys.stdin.read(),"
-            " 'cwd': os.getcwd(), 'env': dict(os.environ)}))\n"
+            " 'cwd': os.getcwd(), 'env': dict(os.environ),"
+            " 'login': open(home + '/.credentials.json').read()}))\n",
         )
-        fake.chmod(0o755)
         monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
         monkeypatch.setenv("GH_TOKEN", "app-token")
-        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "claude-token")
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("seat-login")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(seat))
         work = tmp_path / "work"
         work.mkdir()
         out = json.loads("".join(launch(["claude", "--print"], "Review it.", work)))
         assert out["args"] == ["--print"]
         assert out["stdin"] == "Review it."
         assert Path(out["cwd"]).resolve() == work.resolve()
+        assert out["login"] == "seat-login"
         env = out["env"]
-        assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "claude-token"
         assert env["CLAUDE_CODE_PROMPT_CACHE_TTL"] == "5m"
         assert "GH_TOKEN" not in env
-        assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != os.environ["HOME"]
+        assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != str(seat)
+        assert (seat / ".credentials.json").read_text() == "seat-login"
+
+    def test_should_give_the_seat_a_login_that_claude_refreshed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        executable(
+            bindir / "claude",
+            "import os\n"
+            "home = os.environ['CLAUDE_CONFIG_DIR']\n"
+            "open(home + '/new', 'w').write('refreshed')\n"
+            "os.replace(home + '/new', home + '/.credentials.json')\n"
+            "sys.exit(1)\n",
+        )
+        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("seat-login")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(seat))
+        with pytest.raises(subprocess.CalledProcessError):
+            list(launch(["claude"], "", tmp_path))
+        assert (seat / ".credentials.json").read_text() == "refreshed"
+        assert [p.name for p in seat.iterdir()] == [".credentials.json"]
 
     def test_should_raise_the_exit_code_when_claude_exits_before_it_reads(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -825,7 +852,6 @@ class TestLaunch:
         bindir.mkdir()
         executable(bindir / "claude", "sys.exit(3)\n")
         monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
-        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "claude-token")
         with pytest.raises(subprocess.CalledProcessError) as e:
             list(launch(["claude"], "x" * 1_000_000, tmp_path))
         assert e.value.returncode == 3
@@ -905,7 +931,7 @@ class TestMain:
             "POLICY_DIR": str(tmp_path / "policy"),
             "POLICY_SHA": "policy",
             "HEAD_DIR": str(head),
-            "CLAUDE_CODE_OAUTH_TOKEN": "claude-token",
+            "CLAUDE_CONFIG_DIR": str(tmp_path / "seat"),
         }
         for k, v in env.items():
             monkeypatch.setenv(k, v)
