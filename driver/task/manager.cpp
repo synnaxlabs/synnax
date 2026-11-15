@@ -617,7 +617,7 @@ void Manager::execute_op(
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
-            bool running = false;
+            bool silent = true;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -696,22 +696,24 @@ void Manager::execute_op(
                     std::lock_guard entry_lock{entry->mu};
                     deployed = entry->deployed_hash;
                 }
+                // An instance that lived through a lost Core connection keeps its
+                // status too. One whose task failed on its own, such as a pipeline
+                // that gave up, deploys again.
                 const auto latest = this->statuses->latest(tsk.key);
-                running = latest.has_value() && latest->details.running;
-                // An instance that ran on through a lost Core connection keeps its
-                // status too. One whose task stopped, such as on an error, deploys
-                // again.
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR;
                 if (entry->instance != nullptr && deployed == tsk.config_hash &&
-                    running)
+                    !failed)
                     return;
+                silent = failed;
                 operation.set_task(tsk.name, tsk.config_hash);
                 this->announce_start(tsk.key, operation);
             }
             if (entry->instance != nullptr) {
-                // A start follows a deploy for a command. At boot, a running instance
-                // reports its own stop, and a stopped one keeps the status that says
+                // A start follows a deploy for a command. At boot, a live instance
+                // reports its own stop, and a failed one keeps the error that says
                 // why.
-                entry->instance->stop(!running);
+                entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;
