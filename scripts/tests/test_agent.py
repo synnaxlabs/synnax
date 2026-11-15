@@ -446,6 +446,18 @@ class TestPrivateReport:
         login = Path(private["CODEX_HOME"]) / "auth.json"
         assert login.resolve() == (seat / "auth.json").resolve()
 
+    def test_should_keep_a_claude_login_store_that_the_seat_names(
+        self, tmp_path: Path
+    ) -> None:
+        env = {
+            "CLAUDE_CONFIG_DIR": str(tmp_path / "config"),
+            "CLAUDE_SECURESTORAGE_CONFIG_DIR": str(tmp_path / "store"),
+        }
+        out = tmp_path / "out"
+        out.mkdir()
+        private = private_env(env, out=out)
+        assert private["CLAUDE_SECURESTORAGE_CONFIG_DIR"] == str(tmp_path / "store")
+
 
 class TestDelivery:
     """Tests for image storage, timeouts, and Git authentication."""

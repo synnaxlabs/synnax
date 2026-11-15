@@ -352,14 +352,17 @@ def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
         (codex / "auth.json").symlink_to(seat_codex / "auth.json")
     if (seat_codex / "config.toml").is_file():
         shutil.copy(seat_codex / "config.toml", codex / "config.toml")
+    # Claude Code keeps its login, and the lock that guards a refresh, in this store.
+    store = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
+    seat_claude = (
+        env.get(store, env.get("CLAUDE_CONFIG_DIR")) or Path.home() / ".claude"
+    )
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
     return {
         **kept,
         "CLAUDE_CONFIG_DIR": str(claude),
-        # Claude Code keeps its login, and the lock that guards a refresh, here.
-        "CLAUDE_SECURESTORAGE_CONFIG_DIR": env.get("CLAUDE_CONFIG_DIR")
-        or str(Path.home() / ".claude"),
+        store: str(seat_claude),
         "CODEX_HOME": str(codex),
     }
 
