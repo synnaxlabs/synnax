@@ -9,7 +9,7 @@
 
 import "@/menu/Dialog.css";
 
-import { type ReactNode, use } from "react";
+import { type ReactNode, type Ref, use } from "react";
 
 import { CSS } from "@/css";
 import { Dialog as Base } from "@/dialog";
@@ -26,8 +26,43 @@ export interface DialogProps extends Base.DialogProps {
   filterable?: boolean;
 }
 
+/** Props that give a dialog the surface of a menu. */
+export type SurfaceProps = Required<
+  Pick<
+    Base.DialogProps,
+    "ref" | "className" | "background" | "borderColor" | "rounded" | "pack"
+  >
+>;
+
+/**
+ * @returns props that give a dialog the surface of a menu. In a {@link Sub}, the dialog
+ * opens beside the item of the submenu, with its first item level with it.
+ * @param ref - The dialog's own ref.
+ * @param className - The dialog's own class.
+ */
+export const useSurface = (
+  ref?: Ref<HTMLDivElement>,
+  className?: string,
+): SurfaceProps => {
+  const sub = use(SubContext);
+  const combinedRef = useCombinedRefs(ref, sub?.content);
+  return {
+    ref: combinedRef,
+    background: 2,
+    borderColor: 6,
+    rounded: "large",
+    pack: false,
+    className: CSS.cls(
+      CSS.B("menu-dialog"),
+      sub != null && CSS.BM("menu-dialog", "sub"),
+      sub?.swap === true && CSS.BM("menu-dialog", "swap"),
+      className,
+    ),
+  };
+};
+
 // The surface of an open menu that filters its items. It mounts only while open.
-const Surface = ({
+const Filtering = ({
   ref,
   onKeyDown,
   children,
@@ -72,24 +107,10 @@ export const Dialog = ({
 }: DialogProps): ReactNode => {
   const sub = use(SubContext);
   const { visible } = Base.useContext();
-  const combinedRef = useCombinedRefs(ref, sub?.content);
-  const props: Base.DialogProps = {
-    ref: combinedRef,
-    background: 2,
-    borderColor: 6,
-    rounded: "large",
-    pack: false,
-    className: CSS.cls(
-      CSS.B("menu-dialog"),
-      sub != null && CSS.BM("menu-dialog", "sub"),
-      sub?.swap === true && CSS.BM("menu-dialog", "swap"),
-      className,
-    ),
-    ...rest,
-  };
+  const props: Base.DialogProps = { ...useSurface(ref, className), ...rest };
   const content = <SubContext value={undefined}>{children}</SubContext>;
   if (!filterable || sub != null)
     return <Base.Dialog {...props}>{content}</Base.Dialog>;
   if (!visible) return null;
-  return <Surface {...props}>{content}</Surface>;
+  return <Filtering {...props}>{content}</Filtering>;
 };
