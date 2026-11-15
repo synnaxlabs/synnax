@@ -139,7 +139,7 @@ const buildSVG = (
   else state.baseDims = { width: 100, height: 100 };
 
   const g = doc.createElementNS("http://www.w3.org/2000/svg", "g");
-  g.append(...svgElement.children);
+  while (svgElement.firstChild != null) g.appendChild(svgElement.firstChild);
   svgElement.append(g);
   container.appendChild(svgElement);
   onMount?.(svgElement);
