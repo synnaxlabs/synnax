@@ -51,6 +51,7 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeView},
 	{Type: resource.TypeSecret},
 	{Type: resource.TypeCertificate},
+	{Type: resource.TypeColor},
 }
 
 var (
@@ -109,6 +110,7 @@ var (
 				{Type: resource.TypeView},
 				{Type: resource.TypeSecret},
 				{Type: resource.TypeCertificate},
+				{Type: resource.TypeColor},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
