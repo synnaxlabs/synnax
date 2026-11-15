@@ -54,6 +54,8 @@ class SymbolToolbar:
     def select_group(self, name: str) -> None:
         """Select a symbol group by name."""
         self.show()
+        # Callers click the toolbar next through the hit test.
+        self.notifications.close_all()
         self._select_symbols_tab()
         self.layout.wait_for_visible(self.group_list)
 
@@ -274,6 +276,8 @@ class SymbolToolbar:
         :returns: The data-testid of the newly created symbol node (e.g.,
             "rf__node-{uuid}")
         """
+        # Creating the symbol clicks its Style tab through the hit test.
+        self.notifications.close_all()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         self._add_by_search(symbol_type)
