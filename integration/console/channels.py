@@ -512,15 +512,17 @@ class ChannelClient(ResourceClient):
             raise ValueError(f"Channel {name} not found")
 
         self.layout.delete_with_confirmation(item)
-
-        for i, notification in enumerate(self.notifications.check()):
-            message = notification.message
-            description = notification.description
-            if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(notification_index=i)
-                raise RuntimeError(f"{message} {name}, {description}")
-
-        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        try:
+            self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        except PlaywrightTimeoutError as e:
+            failure = (
+                self.layout.page.get_by_role("status")
+                .filter(has_text="Failed to delete Channel")
+                .filter(has_text=name)
+            )
+            if failure.count() > 0:
+                raise RuntimeError(failure.first.inner_text()) from e
+            raise
         self.hide_channels()
 
     def list_all(self) -> list[str]:
