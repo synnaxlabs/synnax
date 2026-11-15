@@ -240,10 +240,10 @@ describe("Custom.useRender", () => {
       expect(g?.children.length).toBe(2);
     });
 
-    it("should not wrap if g element already exists", () => {
+    it("should wrap SVG content that has a g element in a new g element", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g><circle r="10"/></svg>',
       });
 
       renderAttached(
@@ -257,8 +257,13 @@ describe("Custom.useRender", () => {
       );
 
       const svg = container.querySelector("svg");
-      const gElements = svg?.querySelectorAll("g");
-      expect(gElements?.length).toBe(1);
+      expect(svg?.children.length).toBe(1);
+      const g = svg?.children[0];
+      expect(g?.tagName).toBe("g");
+      expect(Array.from(g?.children ?? [], (child) => child.tagName)).toEqual([
+        "g",
+        "circle",
+      ]);
     });
   });
 
