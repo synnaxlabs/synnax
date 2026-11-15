@@ -115,15 +115,28 @@ var _ = Describe("MigrateTable", func() {
 			}))
 		},
 	)
-	It("Should drop a row cell with no config", func(ctx SpecContext) {
-		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
-			Rows:  []v5.Row{{Key: "r", Cells: []string{"a", "missing", "b"}}},
-			Cells: map[string]v5.CellConfig{"a": text("A"), "b": text("B")},
-		}))
-		Expect(out.Rows[0].Cells).To(HaveLen(2))
-		Expect(out.Rows[0].Cells[0].Key).To(Equal("a"))
-		Expect(out.Rows[0].Cells[1].Key).To(Equal("b"))
-	})
+	It(
+		"Should give a row cell with no config an empty text cell",
+		func(ctx SpecContext) {
+			out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
+				Rows:  []v5.Row{{Key: "r", Cells: []string{"a", "missing", "b"}}},
+				Cells: map[string]v5.CellConfig{"a": text("A"), "b": text("B")},
+			}))
+			empty := v6.CellConfig{Variant: v6.TextCellConfig{}}
+			empty.ApplyDefaults()
+			Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{
+				{
+					Key:    "a",
+					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}},
+				},
+				{Key: "missing", Config: empty},
+				{
+					Key:    "b",
+					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "B"}},
+				},
+			}))
+		},
+	)
 	It(
 		"Should give each later cell that repeats a key a new key",
 		func(ctx SpecContext) {

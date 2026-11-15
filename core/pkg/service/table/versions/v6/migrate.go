@@ -19,10 +19,10 @@ import (
 )
 
 // MigrateTable lifts a v5 table to v6. Every color alpha becomes a 0-255 byte, and each
-// entry of the cells map moves into the row cell that references it. Pluto draws
-// nothing for a row cell with no config, so it is dropped. A cell that no row
-// references is dropped too. A key that more than one row cell references keeps its
-// first cell, and each later cell gets a new key with a copy of the config.
+// entry of the cells map moves into the row cell that references it. A row cell with no
+// config gets an empty text cell, so it keeps its column. A cell that no row references
+// is dropped. A key that more than one row cell references keeps its first cell, and
+// each later cell gets a new key with a copy of the config.
 func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	t, err := autoMigrateTable(ctx, old)
 	if err != nil {
@@ -36,17 +36,18 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	for i, row := range old.Rows {
 		cells := make([]Cell, 0, len(row.Cells))
 		for _, key := range row.Cells {
-			cfg, ok := old.Cells[key]
-			if !ok {
-				continue
-			}
 			c := Cell{Key: key}
 			if seen.Contains(key) {
 				c.Key = newKey(key, used)
 			}
 			seen.Add(c.Key)
-			if c.Config, err = autoMigrateCellConfig(ctx, cfg); err != nil {
-				return Table{}, err
+			if cfg, ok := old.Cells[key]; ok {
+				if c.Config, err = autoMigrateCellConfig(ctx, cfg); err != nil {
+					return Table{}, err
+				}
+			} else {
+				c.Config = CellConfig{Variant: TextCellConfig{}}
+				c.Config.ApplyDefaults()
 			}
 			cells = append(cells, c)
 		}

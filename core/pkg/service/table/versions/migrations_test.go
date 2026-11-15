@@ -72,13 +72,28 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewRetrieve[versions.Key, versions.Table]().
 				Where(gorp.MatchKeys[versions.Key, versions.Table](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Rows).To(HaveLen(2))
-			Expect(got.Rows[0].Key).To(Equal("row-0"))
-			Expect(got.Rows[0].Cells).To(HaveLen(1))
-			Expect(got.Rows[0].Cells[0].Key).To(Equal("a"))
-			Expect(got.Rows[0].Cells[0].Config.Variant).To(HaveField("Value", "A"))
-			Expect(got.Rows[1].Key).To(Equal("row-1"))
-			Expect(got.Rows[1].Cells).To(BeEmpty())
+			text := func(key, value string) versions.Cell {
+				c := versions.Cell{
+					Key: key,
+					Config: versions.CellConfig{
+						Variant: versions.TextCellConfig{Value: value},
+					},
+				}
+				c.Config.ApplyDefaults()
+				return c
+			}
+			Expect(got.Rows).To(Equal([]versions.Row{
+				{
+					Key:   "row-0",
+					Size:  36,
+					Cells: []versions.Cell{text("a", "A"), text("b", "")},
+				},
+				{
+					Key:   "row-1",
+					Size:  40,
+					Cells: []versions.Cell{text("c", ""), text("d", "")},
+				},
+			}))
 			Expect(got.Columns).To(Equal([]versions.Column{
 				{Key: "col-0", Size: 72},
 				{Key: "col-1", Size: 100},
