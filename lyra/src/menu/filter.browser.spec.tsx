@@ -51,23 +51,46 @@ const items = (onChange: (key: string) => void): ReactElement => (
   </Menu.Menu>
 );
 
+// Three groups, where a submenu wraps its item in a frame.
+const GROUPS = (
+  <Menu.Menu>
+    <Menu.Item itemKey="copy">Copy</Menu.Item>
+    <Menu.Divider />
+    <Menu.Item itemKey="rename">Rename</Menu.Item>
+    <Menu.Divider />
+    <Menu.Sub itemKey="paste" textValue="Paste">
+      <Menu.SubTrigger>Paste</Menu.SubTrigger>
+      <Menu.Dialog>
+        <Menu.Menu>
+          <Menu.Item itemKey="plain">Plain</Menu.Item>
+        </Menu.Menu>
+      </Menu.Dialog>
+    </Menu.Sub>
+  </Menu.Menu>
+);
+
 const ContextMenu = ({
   onChange,
+  menu,
 }: {
   onChange: (key: string) => void;
+  menu?: ReactElement;
 }): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
-    <Menu.ContextMenu menu={() => items(onChange)} {...ctx}>
+    <Menu.ContextMenu menu={() => menu ?? items(onChange)} {...ctx}>
       <button onContextMenu={ctx.open}>Opener</button>
     </Menu.ContextMenu>
   );
 };
 
-const openContextMenu = async (onChange = vi.fn()): Promise<HTMLElement> => {
+const openContextMenu = async (
+  onChange = vi.fn(),
+  items?: ReactElement,
+): Promise<HTMLElement> => {
   const { getByText } = await renderThemed(
     <Triggers.Provider>
-      <ContextMenu onChange={onChange} />
+      <ContextMenu onChange={onChange} menu={items} />
     </Triggers.Provider>,
   );
   await userEvent.click(getByText("Opener"), { button: "right" });
@@ -135,6 +158,20 @@ describe("menu filter", () => {
     it("should hide the dividers after the last match", async () => {
       await openContextMenu();
       await userEvent.keyboard("cop");
+      await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(1);
+      expect(displays(".lyra-menu__divider")).toEqual(["none", "none"]);
+    });
+
+    it("should show one divider between two groups that match around a hidden group", async () => {
+      await openContextMenu(vi.fn(), GROUPS);
+      await userEvent.keyboard("p");
+      await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(2);
+      expect(displays(".lyra-menu__divider")).toEqual(["flex", "none"]);
+    });
+
+    it("should hide the dividers before the first match", async () => {
+      await openContextMenu(vi.fn(), GROUPS);
+      await userEvent.keyboard("pa");
       await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(1);
       expect(displays(".lyra-menu__divider")).toEqual(["none", "none"]);
     });
