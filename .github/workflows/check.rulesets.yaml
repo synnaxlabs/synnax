@@ -37,3 +37,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_SERVICE_TOKEN }}
         run: .github/scripts/verify_rulesets.sh
+
+      - name: Post the failure to Slack
+        if: failure() && github.event_name != 'workflow_dispatch'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          text="Rulesets check failed: GitHub differs from .github/rulesets. $RUN_URL"
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
