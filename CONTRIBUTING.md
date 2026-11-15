@@ -44,7 +44,8 @@ request that changed in the last hour, and for a fork without `review/human` tha
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
 `gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
-the gate fails it, and an admin merges it after a person reviews it.
+the gate fails it. To merge one, a maintainer pushes its head to a branch of this
+repository and opens a pull request from that branch, which gets a normal review.
 
 ## Review tiers
 
@@ -82,11 +83,11 @@ that changes only unit tests skips the integration suite. Each entry merges only
 its own CI passes: an entry that fails leaves the queue, and GitHub rebuilds the entries
 behind it. GitHub refuses a queue on a wildcard branch pattern, so a `release/**` merge
 goes in directly, and CI runs again on the pushed commit. The queue also runs the gate
-again. A release runs the integration suite itself. Admins bypass when Sedosaur is down.
-The gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+again. A release runs the integration suite itself. Nobody bypasses the rules on `main`:
+when Sedosaur is down, pull requests wait for it. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
