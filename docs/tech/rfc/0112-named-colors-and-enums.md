@@ -262,9 +262,13 @@ no settings store. In phase 29, the Driver writes range colors
     one value, so an entry is one value. Valves, pumps, and lights keep today's
     threshold, so noisy feedback still reads as on or off. Ranges belong to the `limit`
     type.
-16. **The default enum is on the drawing**: A setting for each drawing is a second place
+16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
+    `float64` holds each integer state code exactly. A value of any channel type adds a
+    type to each entry and a conversion to each match. The trade is real: a string
+    channel cannot drive an enum.
+17. **The default enum is on the drawing**: A setting for each drawing is a second place
     for the same fact.
-17. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
+18. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
     variant.
 
 ## 8 Open questions
