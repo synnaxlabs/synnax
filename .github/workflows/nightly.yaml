@@ -53,6 +53,15 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  # Only this run saves the Go caches of most modules, and a failed run saves some.
+  prune:
+    name: Prune older caches
+    needs: ci
+    if: ${{ !cancelled() }}
+    permissions:
+      actions: write
+    uses: ./.github/workflows/prune.caches.yaml
+
   notify:
     name: Notify Slack
     needs: ci
@@ -110,7 +119,6 @@ jobs:
     permissions:
       actions: read
       contents: write
-      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.yaml
