@@ -383,12 +383,8 @@ const write = (
   const overlap = shown > 0 && full(f, shown, count) > room;
   set(el, STACKED, String(overlap));
   el.toggleAttribute(EMPTY, shown === 0 && f.frame + alone > room);
-  const gaps = `${f.gap}px`;
-  if (el.style.getPropertyValue("--lyra-tags-gap") !== gaps)
-    el.style.setProperty("--lyra-tags-gap", gaps);
-  const dots = String(Math.min(DOTS, tags.length - shown));
-  if (el.style.getPropertyValue("--lyra-tags-dots") !== dots)
-    el.style.setProperty("--lyra-tags-dots", dots);
+  set(el, "--lyra-tags-gap", `${f.gap}px`);
+  set(el, "--lyra-tags-dots", String(Math.min(DOTS, tags.length - shown)));
   tags.forEach((t, i) => {
     const dot = i >= shown && i < shown + DOTS;
     t.toggleAttribute(HIDDEN, i >= shown);
