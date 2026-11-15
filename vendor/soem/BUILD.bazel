@@ -48,30 +48,6 @@ generate(
     tool = ":patch",
 )
 
-generate(
-    name = "win32_nicdrv",
-    srcs = ["SOEM/oshw/win32/nicdrv.c"],
-    outs = ["src_patched/win32/nicdrv.c"],
-    arguments = [
-        "$(execpath SOEM/oshw/win32/nicdrv.c)",
-        "{out}",
-    ],
-    stem = "nicdrv.c",
-    tool = ":patch",
-)
-
-generate(
-    name = "win32_osal",
-    srcs = ["SOEM/osal/win32/osal.c"],
-    outs = ["src_patched/win32/osal.c"],
-    arguments = [
-        "$(execpath SOEM/osal/win32/osal.c)",
-        "{out}",
-    ],
-    stem = "osal.c",
-    tool = ":patch",
-)
-
 # Core SOEM sources (platform-independent)
 SOEM_CORE_SRCS = [
     "SOEM/src/ec_base.c",
@@ -104,11 +80,11 @@ LINUX_PLATFORM_HDRS = [
     "SOEM/oshw/linux/oshw.h",
 ]
 
-# Windows OSAL + OSHW, with the NIC driver and OSAL patched
-WIN32_OSAL_SRCS = ["src_patched/win32/osal.c"]
+# Windows OSAL + OSHW (copies of the SOEM files, so the Driver can fix them)
+WIN32_OSAL_SRCS = ["windows/osal/osal.c"]
 
 WIN32_OSHW_SRCS = [
-    "src_patched/win32/nicdrv.c",
+    "windows/oshw/nicdrv.c",
     "SOEM/oshw/win32/oshw.c",
 ]
 
