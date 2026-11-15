@@ -293,6 +293,35 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should keep the scale when a JSON field becomes another number", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Count", "/n"), scale: 0.1 }]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { type: "integer", scale: 0.1 },
+      ]),
+    );
+  });
+
+  it("should change the type of a JSON field with a blank name", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    await commit("Name", 1, "");
+    await screen.findByText(/^Field 1: name is required/);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("String"));
+    await commit("Name", 1, "State");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "State", type: "string", enumValues: [] },
+      ]),
+    );
+  });
+
   it("should store an edit that leaves a problem", async () => {
     const ic = await createICD([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
