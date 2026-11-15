@@ -657,8 +657,8 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
     if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;
     const auto retry = session.clock_retries.find(pos);
-    const bool waits = retry != session.clock_retries.end() &&
-                       this->cfg.clock.steady() < retry->second.at;
+    const bool waiting = retry != session.clock_retries.end() &&
+                         this->cfg.clock.steady() < retry->second.at;
     if (state == EC_STATE_OPERATIONAL)
         session.clock_retries.erase(pos);
     else if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
@@ -669,15 +669,18 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && !waits) {
+    } else if (state > EC_STATE_NONE && !waiting) {
         auto params = this->config(pos).startup_parameters;
-        const bool restores = this->restores_clock(pos);
-        if (this->record(pos).hasdc && !restores) session.unrestored_clocks.insert(pos);
-        if (restores || !params.empty())
+        const bool restorable = this->restores_clock(pos);
+        if (this->record(pos).hasdc && !restorable)
+            session.unrestored_clocks.insert(pos);
+        if (restorable || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
-                [this, pos, &breaker, params = std::move(params), restores](uint16_t) {
-                    if (!this->write_startup_parameters(pos, params) || !restores)
+                [this, pos, &breaker, params = std::move(params), restorable](
+                    uint16_t
+                ) {
+                    if (!this->write_startup_parameters(pos, params) || !restorable)
                         return;
                     auto &s = this->session.value();
                     const auto err = this->restore_dc(pos, breaker);
