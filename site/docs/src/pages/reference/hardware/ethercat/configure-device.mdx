@@ -493,7 +493,16 @@ Driver updates it every 5 seconds.
 | **Device disconnected**                     | The last scan did not find the module.                                                                                                                   |
 
 When no task uses the network, the status shows what the scan found, such as
-**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**.
+**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**. The scan can also
+show these statuses:
+
+| Status                                               | Meaning                                                                                                                                                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting up**                                      | The module was not ready when the Driver scanned the network. The Driver reads it again on a later scan. If the module stays in this status, restart its power.                        |
+| **Set up for DewesoftX**                             | DewesoftX sets up the module, and Synnax cannot read its data. [Switch the module to Synnax](/reference/hardware/ethercat/dewesoft#set-up-a-module-in-synnax) in the Configure dialog. |
+| **Waiting for a power restart**                      | The module was switched to Synnax. Restart its power to finish the switch. On a module with two EtherCAT buses, first connect Synnax to bus 1 IN.                                      |
+| **Connected to EtherCAT bus 2 IN**                   | In Synnax only mode, the module uses EtherCAT bus 1 IN. Connect Synnax to bus 1 IN.                                                                                                    |
+| **Left Synnax mode**, **Set up for DewesoftX again** | The module was switched to Synnax, and then went to another mode. The description gives the time of the switch. Switch the module to Synnax again in the Configure dialog.             |
 
 <Divider.Divider x />
 
@@ -506,6 +515,7 @@ When no task uses the network, the status shows what the scan found, such as
 | `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.                                                               |
 | `revision`, `serial`          | The revision and serial number of the module, as numbers.                                                     |
 | `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.                                                     |
+| `network_name`                | The name of the port, such as `Ethernet 2` on Windows. Read only.                                             |
 | `position`                    | The position on the network. Starts at 1.                                                                     |
 | `enabled`                     | `false` when the module is [disabled](#disable-a-device).                                                     |
 | `op_modes`                    | The sync modes that the module lists. Read only. See below.                                                   |
