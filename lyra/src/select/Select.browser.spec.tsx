@@ -322,7 +322,8 @@ interface ChipsProps extends ChipsOptions {
   width: number;
 }
 
-// A trigger that reads as its tags, past a gutter so its dialog never meets the edge.
+// A trigger that reads as its tags, past a gutter so its dialog never meets the left
+// edge. The gutter leaves room on the right for a dialog that opens at the count.
 const Chips = ({
   variant,
   width,
@@ -354,7 +355,7 @@ const Chips = ({
     </Dialog.Frame>
   );
   return (
-    <div style={{ width: `${width}px`, marginLeft: "200px" }}>
+    <div style={{ width: `${width}px`, marginLeft: "180px" }}>
       {stepped ? <Tag.StepProvider>{frame}</Tag.StepProvider> : frame}
     </div>
   );
