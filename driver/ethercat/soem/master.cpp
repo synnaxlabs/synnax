@@ -459,11 +459,16 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     start_cycle(this->image());
     // The caller leaves out a refused slave only when the image maps another one.
     if (!unidentified.empty()) return refuse_unidentified();
+    LOG(INFO) << "[DIAG] cycle started, starting DC";
     if (auto err = this->start_dc()) return {.err = err};
+    LOG(INFO) << "[DIAG] DC started, DC time " << this->api->context.DCtime
+              << ", requesting SAFE-OP";
 
     const int timeout = micros(this->cfg.state_change_timeout);
     if (auto safe_op = this->request_state(EC_STATE_SAFE_OP, timeout); safe_op.err)
         return safe_op;
+    LOG(INFO) << "[DIAG] SAFE-OP reached, DC time " << this->api->context.DCtime
+              << ", releasing process data";
     session.process_data_held.store(false, std::memory_order_release);
     // A slave with outputs refuses OP with a sync manager watchdog error until a frame
     // passes it in SAFE-OP.
@@ -477,7 +482,12 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
                 "failed to reach OP: no process data passed the slaves in SAFE-OP"
             )
         };
-    return this->request_state(EC_STATE_OPERATIONAL, timeout);
+    LOG(INFO) << "[DIAG] frames passed in SAFE-OP, DC time "
+              << this->api->context.DCtime << ", requesting OP";
+    auto op = this->request_state(EC_STATE_OPERATIONAL, timeout);
+    LOG(INFO) << "[DIAG] OP request done (err " << op.err.message() << "), DC time "
+              << this->api->context.DCtime;
+    return op;
 }
 
 void Master::deactivate() {

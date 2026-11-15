@@ -402,7 +402,21 @@ void Engine::run() {
                err.matches(errors::WORKING_COUNTER_ERROR);
     };
 
+    const auto diag_start = std::chrono::steady_clock::now();
+    auto diag_last_send = diag_start;
+    const auto diag_on = [&] {
+        return std::chrono::steady_clock::now() - diag_start < std::chrono::seconds(3);
+    };
     const auto send = [&] {
+        if (diag_on()) {
+            const auto now = std::chrono::steady_clock::now();
+            const auto gap = std::chrono::duration_cast<std::chrono::microseconds>(
+                now - diag_last_send
+            );
+            if (gap > std::chrono::milliseconds(5))
+                LOG(INFO) << "[DIAG] send gap " << gap.count() << " us";
+            diag_last_send = now;
+        }
         sent_at = this->config.host_clock.now();
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
@@ -469,6 +483,9 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
+        if (err && diag_on())
+            LOG(INFO) << "[DIAG] cycle error (starting " << starting
+                      << "): " << err.message();
         // After the slaves reach OP, a short frame can miss the reference clock, and
         // SOEM repeats the last DC time.
         const auto dc = (!err || shortfall(err)) ? this->master->dc_time()
@@ -700,6 +717,7 @@ x::errors::Error Engine::start_locked(
                 }
             );
             auto activation = this->master->activate(plan, start_cycle);
+            LOG(INFO) << "[DIAG] activate returned: " << activation.err.message();
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
@@ -802,6 +820,7 @@ x::errors::Error Engine::start_locked(
     for (const auto &[pos, cfg]: plan.slaves)
         if (!cfg.enabled) this->unchecked.insert(pos);
     this->track_restarts_locked({});
+    LOG(INFO) << "[DIAG] start done, clearing starting";
     this->starting.store(false, std::memory_order_release);
     this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
