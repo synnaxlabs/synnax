@@ -110,8 +110,8 @@ lighter step or the base step in dark mode.
 - The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
   goes in the left bar.
 - The islands of a pre-workspace surface, such as login or the project splash, are not
-  the top bar. Their right end is the Core island, then one island with the theme toggle
-  and the Settings gear.
+  the top bar. Their right end is the Core island, then the island of the theme toggle.
+  On the project splash, the Settings gear shares the island of the theme toggle.
 
 ### Toolbar search
 
