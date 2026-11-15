@@ -9,7 +9,7 @@
 
 import "@/menu/Dialog.css";
 
-import { type ReactNode, use, useEffect, useRef } from "react";
+import { type ReactNode, use } from "react";
 
 import { CSS } from "@/css";
 import { Dialog as Base } from "@/dialog";
@@ -25,6 +25,29 @@ export interface DialogProps extends Base.DialogProps {
    */
   filterable?: boolean;
 }
+
+// The surface of an open menu that filters its items. It mounts only while open.
+const Surface = ({
+  ref,
+  onKeyDown,
+  children,
+  ...rest
+}: Base.DialogProps): ReactNode => {
+  const filter = useFilter();
+  const combinedRef = useCombinedRefs(ref, filter.ref);
+  return (
+    <Base.Dialog
+      ref={combinedRef}
+      onKeyDown={(e) => {
+        onKeyDown?.(e);
+        filter.onKeyDown(e);
+      }}
+      {...rest}
+    >
+      <Filtered term={filter.term}>{children}</Filtered>
+    </Base.Dialog>
+  );
+};
 
 /**
  * A menu that opens in a dialog, on the surface of a context menu. It holds menu items,
@@ -45,40 +68,28 @@ export const Dialog = ({
   className,
   children,
   filterable = false,
-  onKeyDown,
   ...rest
 }: DialogProps): ReactNode => {
   const sub = use(SubContext);
   const { visible } = Base.useContext();
-  const keyed = filterable && sub == null;
-  const filter = useFilter(visible);
-  const surfaceRef = useRef<HTMLDivElement>(null);
-  const combinedRef = useCombinedRefs(ref, sub?.content, surfaceRef);
-  useEffect(() => {
-    if (keyed && visible) surfaceRef.current?.focus({ preventScroll: true });
-  }, [keyed, visible]);
-  return (
-    <Base.Dialog
-      ref={combinedRef}
-      background={2}
-      borderColor={6}
-      rounded="large"
-      pack={false}
-      className={CSS.cls(
-        CSS.B("menu-dialog"),
-        sub != null && CSS.BM("menu-dialog", "sub"),
-        sub?.swap === true && CSS.BM("menu-dialog", "swap"),
-        className,
-      )}
-      onKeyDown={(e) => {
-        onKeyDown?.(e);
-        if (keyed) filter.onKeyDown(e);
-      }}
-      {...rest}
-    >
-      <SubContext value={undefined}>
-        <Filtered term={keyed ? filter.term : ""}>{children}</Filtered>
-      </SubContext>
-    </Base.Dialog>
-  );
+  const combinedRef = useCombinedRefs(ref, sub?.content);
+  const props: Base.DialogProps = {
+    ref: combinedRef,
+    background: 2,
+    borderColor: 6,
+    rounded: "large",
+    pack: false,
+    className: CSS.cls(
+      CSS.B("menu-dialog"),
+      sub != null && CSS.BM("menu-dialog", "sub"),
+      sub?.swap === true && CSS.BM("menu-dialog", "swap"),
+      className,
+    ),
+    ...rest,
+  };
+  const content = <SubContext value={undefined}>{children}</SubContext>;
+  if (!filterable || sub != null)
+    return <Base.Dialog {...props}>{content}</Base.Dialog>;
+  if (!visible) return null;
+  return <Surface {...props}>{content}</Surface>;
 };

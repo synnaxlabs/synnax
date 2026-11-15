@@ -15,6 +15,8 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  type RefObject,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -57,38 +59,41 @@ export const useMatches = (text: string): boolean => {
 export interface Filter {
   /** The typed filter, empty when the menu is not filtering. */
   term: string;
+  /** Attach to the menu surface. */
+  ref: RefObject<HTMLDivElement | null>;
   /** Handles the filter and move keys. Pass it to the menu surface. */
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
 }
 
 /**
- * Lets a menu surface filter its items as the user types. The first printable key
- * starts the filter, Backspace edits it, and Escape clears it before it closes the
- * menu. The arrow keys move the focus over the items that show. Keys from a field, or
- * from a submenu, keep their own meaning.
- *
- * @param open - Whether the menu is open. A menu that closes clears its filter.
+ * Lets a menu surface filter its items as the user types. Call it in a part that
+ * mounts only while the menu is open, so each opening starts with no filter. The
+ * surface takes the focus when it mounts unless the focus is already in it. The first
+ * printable key starts the filter, Backspace edits it, and Escape clears it before it
+ * closes the menu. The arrow keys move the focus over the items that show. Keys from a
+ * field, or from a submenu, keep their own meaning.
  */
-export const useFilter = (open: boolean = true): Filter => {
+export const useFilter = (): Filter => {
   const [term, setTerm] = useState("");
-  const [wasOpen, setWasOpen] = useState(open);
-  // Each opening starts with no filter.
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (!open) setTerm("");
-  }
-  const surfaceRef = useRef<HTMLElement | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const editedRef = useRef(false);
+  useEffect(() => {
+    const surface = ref.current;
+    if (surface != null && !surface.contains(document.activeElement))
+      surface.focus({ preventScroll: true });
+  }, []);
   // The focused item can hide, so the first item that shows takes the focus.
   useLayoutEffect(() => {
-    const surface = surfaceRef.current;
-    if (surface == null) return;
+    const surface = ref.current;
+    if (!editedRef.current || surface == null) return;
+    editedRef.current = false;
     const first = surface.querySelector<HTMLElement>(MENU_ITEMS);
     (first ?? surface).focus({ preventScroll: true });
   }, [term]);
   const edit = (e: KeyboardEvent<HTMLElement>, next: string): void => {
     e.preventDefault();
     e.stopPropagation();
-    surfaceRef.current = e.currentTarget;
+    editedRef.current = true;
     setTerm(next);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
@@ -115,7 +120,7 @@ export const useFilter = (open: boolean = true): Filter => {
     const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
     if (index != null) items[index].focus();
   };
-  return { term, onKeyDown };
+  return { term, ref, onKeyDown };
 };
 
 /** Props for {@link Filtered}. */

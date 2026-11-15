@@ -238,7 +238,8 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
-const Internal = ({
+// The surface of an open menu. It mounts only while the menu is open.
+const Surface = ({
   ref,
   menu,
   visible,
@@ -252,14 +253,14 @@ const Internal = ({
   onClick,
   onKeyDown,
   ...rest
-}: ContextMenuProps): ReactNode | null => {
-  const filter = useFilter(visible);
+}: ContextMenuProps): ReactNode => {
+  const filter = useFilter();
+  const combinedRef = useCombinedRefs(ref, filter.ref);
   const menuStyle = { ...xy.css(position), ...style };
-  if (!visible) return null;
   return createPortal(
     <Flex.Box
       className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
-      ref={ref}
+      ref={combinedRef}
       role="menu"
       tabIndex={-1}
       style={menuStyle}
@@ -287,6 +288,9 @@ const Internal = ({
     document.body,
   );
 };
+
+const Internal = (props: ContextMenuProps): ReactNode | null =>
+  props.visible ? <Surface {...props} /> : null;
 
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user
