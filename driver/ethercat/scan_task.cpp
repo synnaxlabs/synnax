@@ -405,7 +405,15 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                         << " on " << key << " gave no serial number ("
                         << slave.status.serial_error << "), rediscovering";
                 rediscovery_needed = true;
-                if (keys[i].empty()) continue;
+                if (keys[i].empty()) {
+                    if (!slave.status.starting)
+                        failures.insert(
+                            "Slave " + std::to_string(slave.properties.position) +
+                            " on " + engine->name() + " gave no serial number (" +
+                            slave.status.serial_error + "). Restart its power."
+                        );
+                    continue;
+                }
             }
             auto [dev, enabled] = this->create_slave_device(
                 slave,

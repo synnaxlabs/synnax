@@ -89,9 +89,18 @@ const x::errors::Error &startup_parameter_error(const uint32_t code) {
 }
 
 bool SDOFailure::permanent() const {
-    return this->kind == Kind::ABORTED &&
-           std::ranges::find(TEMPORARY_ABORTS, this->abort_code) ==
-               TEMPORARY_ABORTS.end();
+    switch (this->kind) {
+        case Kind::NO_REPLY:
+        case Kind::UNEXPECTED_REPLY:
+            return false;
+        case Kind::ABORTED:
+            return std::ranges::find(TEMPORARY_ABORTS, this->abort_code) ==
+                   TEMPORARY_ABORTS.end();
+        case Kind::REPLY_TOO_LARGE:
+        case Kind::MAILBOX_ERROR:
+            return true;
+    }
+    std::unreachable();
 }
 
 std::string SDOFailure::reason() const {

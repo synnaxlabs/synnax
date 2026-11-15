@@ -684,16 +684,24 @@ TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
     EXPECT_EQ(scanned.at(1).key, "ethercat_1_2_777");
 }
 
-/// @brief it should save no new device for a slave whose serial number read fails, and
-/// discover the slaves again every sixth scan.
-TEST_F(EtherCATScanStatusTest, SkipsASlaveWhoseSerialReadFails) {
+/// @brief it should save no new device for a slave whose serial number read fails,
+/// report the slave, and discover the slaves again every sixth scan.
+TEST_F(EtherCATScanStatusTest, SkipsAndReportsASlaveWhoseSerialReadFails) {
     this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
     Devices devices;
     store(devices, "elsewhere", identity(2, 0x2, 777));
-    for (size_t i = 0; i < 13; ++i)
-        EXPECT_TRUE(
-            ASSERT_NIL_P(this->scanner->scan({.count = i, .devices = &devices})).empty()
+    for (size_t i = 0; i < 13; ++i) {
+        const auto [scanned, err] = this->scanner->scan(
+            {.count = i, .devices = &devices}
         );
+        EXPECT_TRUE(scanned.empty());
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "Slave 1 on eth0 gave no serial number (failed to read 0x1018:04: no "
+            "response). Restart its power."
+        );
+    }
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 

@@ -1192,17 +1192,27 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should give a serial read error for a slave that answers the read of its
+/// @brief it should keep the SII serial number of a slave that answers the read of its
 /// CoE serial number with a mailbox error.
-TEST_F(SOEMMasterTest, ScanGivesASerialErrorWhenTheSlaveGivesAMailboxError) {
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
     auto slave = create_coe_slave(0x5555);
     slave.eep_ser = 0xABCD;
     slave.sdo_read_mailbox_errors.insert({0x1018, 4});
     this->add_slave(slave);
-    EXPECT_EQ(
-        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
-        "failed to read 0x1018:04: the slave refused the mailbox request"
-    );
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 and no serial read error to a slave whose CoE
+/// serial number is larger than the read allows, so the scan keys it by position.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSerialIsLargerThanTheRead) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_packet_errors[{0x1018, 4}] = 3;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
 /// @brief it should give a serial read error for a slave that aborts the read of its
