@@ -18,6 +18,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -40,10 +41,10 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults on every channel", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("standard")))
 			Expect(l.Channels[0].TimestampConfig.Format).To(
 				Equal(telem.TimestampFormat("preciseDate")),
@@ -59,7 +60,7 @@ var _ = Describe("Log", func() {
 				Notation:        "scientific",
 				TimestampConfig: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 			}}}
-			l.ApplyDefaults()
+			l = defaults.Fill(l)
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("scientific")))
 			Expect(
 				l.Channels[0].TimestampConfig.Format,
