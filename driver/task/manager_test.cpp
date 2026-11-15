@@ -336,7 +336,7 @@ public:
             .details = {.cmd = cmd.key, .config_hash = sy_task.config_hash},
             .owner = synnax::task::resource_id(sy_task.key),
         };
-        if (cmd.type == STOP_CMD_TYPE) {
+        if (cmd.type == synnax::task::STOP_CMD_TYPE) {
             status.variant = synnax::status::VARIANT_SUCCESS;
             status.message = "stopped";
             this->ctx->set_status(status);
@@ -2104,7 +2104,10 @@ void send_stop(
     const synnax::task::Task &task,
     const std::string &cmd_key = "stop-cmd"
 ) {
-    send_cmd(client, {.task = task.key, .type = STOP_CMD_TYPE, .key = cmd_key});
+    send_cmd(
+        client,
+        {.task = task.key, .type = synnax::task::STOP_CMD_TYPE, .key = cmd_key}
+    );
 }
 
 /// @brief it should cancel a running start when a stop arrives, tell the stop that it
@@ -2141,6 +2144,107 @@ TEST_F(TaskManagerTest, StopCancelsARunningStart) {
     EXPECT_EQ(start_answers[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(start_answers[0].message, "start cancelled");
     EXPECT_EQ(f->starts.load(), 1);
+}
+
+/// @returns the statuses in got with a final variant, by the key of their command.
+std::unordered_map<std::string, int>
+count_finals(const std::vector<synnax::task::Status> &got) {
+    std::unordered_map<std::string, int> finals;
+    for (const auto &s: got)
+        if (!s.details.cmd.empty() && s.variant != synnax::status::VARIANT_LOADING)
+            finals[s.details.cmd]++;
+    return finals;
+}
+
+/// @brief it should answer a start that waits for a busy worker, and the stop that
+/// takes it out of the queue, at once. The start never runs.
+TEST_F(TaskManagerTest, StopAnswersAStartQueuedBehindABusyWorker) {
+    auto factory = std::make_unique<StuckTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.worker_count = 1});
+    auto busy = synnax::task::Task{
+        .rack = rack.key,
+        .name = "busy",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(busy));
+    auto queued = synnax::task::Task{
+        .rack = rack.key,
+        .name = "queued",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(queued));
+    send_start(client, busy, "busy-start");
+    EVENTUALLY([&] { return f->stuck.load(); }, [] { return "configure never ran"; });
+    send_start(client, queued, "queued-start");
+    send_stop(client, queued, "queued-stop");
+    std::vector<synnax::task::Status> got;
+    WAIT_FOR_TASK_STATUS(streamer, queued, [&](const synnax::task::Status &s) {
+        got.push_back(s);
+        const auto finals = count_finals(got);
+        return finals.contains("queued-start") && finals.contains("queued-stop");
+    });
+    f->released = true;
+    for (const auto &s: got) {
+        if (s.details.cmd != "queued-start" && s.details.cmd != "queued-stop") continue;
+        EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(s.message, "Stopped task");
+        EXPECT_EQ(s.description, "The stop cancelled the start.");
+        EXPECT_FALSE(s.details.running);
+    }
+    WAIT_FOR_TASK_STATUS(streamer, busy, [](const synnax::task::Status &s) {
+        return s.details.cmd == "busy-start" && s.message == "started";
+    });
+    const auto after = statuses_until_command(queued);
+    got.insert(got.end(), after.begin(), after.end());
+    const auto finals = count_finals(got);
+    EXPECT_EQ(finals.at("queued-start"), 1);
+    EXPECT_EQ(finals.at("queued-stop"), 1);
+    EXPECT_EQ(f->configures.load(), 1);
+}
+
+/// @brief it should cancel the start that a worker runs and answer a second start of
+/// the task that waits in the queue. Each command gets one final status.
+TEST_F(TaskManagerTest, StopCancelsTheRunningStartAndAnswersTheQueuedOne) {
+    auto factory = std::make_unique<SlowStartTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "running-start");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "running-start";
+    });
+    // A start of another config does not join the running one.
+    send_start(client, task, "queued-start", "other");
+    send_stop(client, task);
+    std::vector<synnax::task::Status> got;
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        got.push_back(s);
+        const auto finals = count_finals(got);
+        return finals.contains("running-start") && finals.contains("queued-start") &&
+               finals.contains("stop-cmd");
+    });
+    f->release_all();
+    const auto after = statuses_until_command(task);
+    got.insert(got.end(), after.begin(), after.end());
+    std::unordered_map<std::string, synnax::task::Status> last;
+    for (const auto &s: got)
+        if (s.variant != synnax::status::VARIANT_LOADING) last[s.details.cmd] = s;
+    EXPECT_EQ(last["running-start"].message, "start cancelled");
+    EXPECT_EQ(last["queued-start"].message, "Stopped task");
+    EXPECT_EQ(last["stop-cmd"].message, "stopped");
+    const auto finals = count_finals(got);
+    EXPECT_EQ(finals.at("running-start"), 1);
+    EXPECT_EQ(finals.at("queued-start"), 1);
+    EXPECT_EQ(finals.at("stop-cmd"), 1);
+    // The marker is the only start after the cancelled one.
+    EXPECT_EQ(f->starts.load(), 2);
+    EXPECT_EQ(f->configures.load(), 1);
 }
 
 /// @brief it should answer a stop that cancelled a configure as a stop, not as a task

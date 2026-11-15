@@ -266,9 +266,6 @@ public:
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
 
-/// @brief the type of a command that stops a task. A stop cancels a start that runs.
-const std::string STOP_CMD_TYPE = "stop";
-
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
@@ -559,6 +556,9 @@ private:
     void process_task_cmd(const x::telem::Series &series);
     /// @brief runs a start command, redeploying first when the config has changed.
     void process_start(const synnax::task::Command &cmd);
+    /// @brief cancels the running start of the task and answers its queued starts,
+    /// then runs the stop. Writes statuses, so call it without mu.
+    void process_stop(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
     /// @brief drops the entry for key and forgets its status, unless the entry is still
