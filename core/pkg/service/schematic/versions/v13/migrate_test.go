@@ -154,14 +154,23 @@ var _ = Describe("Migrate functions", func() {
 			})))
 			return configOf(out, "n").(v13.CapNodeConfig).StrokeColor
 		}),
-		Entry("MigrateElementConfig", func(ctx context.Context) *colorv2.Color {
+		Entry("MigrateNodeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
-			out := MustSucceed(v13.MigrateElementConfig(ctx, v12.ElementConfig{
-				Variant: v12.PipeElementConfig{
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{
+				Variant: v12.CapNodeConfig{
+					StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: half()},
+				},
+			}))
+			return out.Variant.(v13.CapNodeConfig).StrokeColor
+		}),
+		Entry("MigrateEdgeConfig", func(ctx context.Context) *colorv2.Color {
+			GinkgoHelper()
+			out := MustSucceed(v13.MigrateEdgeConfig(ctx, v12.EdgeConfig{
+				Variant: v12.PipeEdgeConfig{
 					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: half()},
 				},
 			}))
-			return out.Variant.(v13.PipeElementConfig).StrokeColor
+			return out.Variant.(v13.PipeEdgeConfig).StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()

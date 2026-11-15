@@ -48,40 +48,296 @@ type Segment = v11.Segment
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig = v11.SegmentedEdgeConfig
 
-// EdgeConfig is the configuration of one edge. The variant selects the visual style of
-// the connection.
-type EdgeConfig = v11.EdgeConfig
-
-// EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant = v11.EdgeConfigVariant
-
 // EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType = v11.EdgeConfigType
+type EdgeConfigType string
 
 const (
 	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = v11.PipeEdgeConfigType
+	PipeEdgeConfigType EdgeConfigType = "pipe"
 	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = v11.ElectricEdgeConfigType
+	ElectricEdgeConfigType EdgeConfigType = "electric"
 	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = v11.SecondaryEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = "secondary"
 	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = v11.JacketedEdgeConfigType
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
 	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = v11.HydraulicEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
 	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = v11.PneumaticEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
 	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = v11.DataEdgeConfigType
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
-type PipeEdgeConfig = v11.PipeEdgeConfig
-type ElectricEdgeConfig = v11.ElectricEdgeConfig
-type SecondaryEdgeConfig = v11.SecondaryEdgeConfig
-type JacketedEdgeConfig = v11.JacketedEdgeConfig
-type HydraulicEdgeConfig = v11.HydraulicEdgeConfig
-type PneumaticEdgeConfig = v11.PneumaticEdgeConfig
-type DataEdgeConfig = v11.DataEdgeConfig
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
+type EdgeConfigVariant interface {
+	isEdgeConfigVariant()
+}
+
+type PipeEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PipeEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PipeEdgeConfig) Validate() error {
+	v := validate.New("PipeEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type ElectricEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (ElectricEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e ElectricEdgeConfig) Validate() error {
+	v := validate.New("ElectricEdgeConfig")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type SecondaryEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecondaryEdgeConfig) Validate() error {
+	v := validate.New("SecondaryEdgeConfig")
+	v.Exec(s.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type JacketedEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (JacketedEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (j JacketedEdgeConfig) Validate() error {
+	v := validate.New("JacketedEdgeConfig")
+	v.Exec(j.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type HydraulicEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HydraulicEdgeConfig) Validate() error {
+	v := validate.New("HydraulicEdgeConfig")
+	v.Exec(h.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type PneumaticEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PneumaticEdgeConfig) Validate() error {
+	v := validate.New("PneumaticEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type DataEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (DataEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DataEdgeConfig) Validate() error {
+	v := validate.New("DataEdgeConfig")
+	v.Exec(d.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
+type EdgeConfig struct {
+	Variant EdgeConfigVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PipeEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
+	case ElectricEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
+	case SecondaryEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
+	case JacketedEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
+	case HydraulicEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
+	case PneumaticEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
+	case DataEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type EdgeConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PipeEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PipeEdgeConfig
+	case ElectricEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricEdgeConfig
+	case SecondaryEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SecondaryEdgeConfig
+	case JacketedEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JacketedEdgeConfig
+	case HydraulicEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HydraulicEdgeConfig
+	case PneumaticEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PneumaticEdgeConfig
+	case DataEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DataEdgeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u EdgeConfig) Validate() error {
+	v := validate.New("EdgeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PipeEdgeConfig:
+		v.Exec(variant.Validate)
+	case ElectricEdgeConfig:
+		v.Exec(variant.Validate)
+	case SecondaryEdgeConfig:
+		v.Exec(variant.Validate)
+	case JacketedEdgeConfig:
+		v.Exec(variant.Validate)
+	case HydraulicEdgeConfig:
+		v.Exec(variant.Validate)
+	case PneumaticEdgeConfig:
+		v.Exec(variant.Validate)
+	case DataEdgeConfig:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
 
 // FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v11.FlexAlignment

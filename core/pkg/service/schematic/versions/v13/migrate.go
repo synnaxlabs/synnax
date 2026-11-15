@@ -32,26 +32,22 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 	if err != nil {
 		return Schematic{}, err
 	}
-	configs := make(map[string]ElementConfig, len(old.Configs))
-	for k, cfg := range old.Configs {
-		c, err := MigrateElementConfig(ctx, cfg)
-		if err != nil {
-			return Schematic{}, err
-		}
-		clearThemeColors(reflect.ValueOf(&c).Elem())
-		configs[k] = c
-	}
 	kept := make(set.Set[string], len(s.Nodes))
 	nodes := s.Nodes[:0]
 	for _, n := range s.Nodes {
-		ok, err := convert[NodeConfig, EdgeConfig](configs, n.Key, &n.Config)
+		var cfg v12.NodeConfig
+		ok, err := convert[v12.EdgeConfig](old.Configs, n.Key, &cfg)
 		if err != nil {
 			return Schematic{}, err
 		}
-		if ok {
-			nodes = append(nodes, n)
-			kept.Add(n.Key)
+		if !ok {
+			continue
 		}
+		if n.Config, err = MigrateNodeConfig(ctx, cfg); err != nil {
+			return Schematic{}, err
+		}
+		nodes = append(nodes, n)
+		kept.Add(n.Key)
 	}
 	s.Nodes = nodes
 	edges := s.Edges[:0]
@@ -59,7 +55,8 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 		if !kept.Contains(e.Source.Node) || !kept.Contains(e.Target.Node) {
 			continue
 		}
-		ok, err := convert[EdgeConfig, NodeConfig](configs, e.Key, &e.Config)
+		var cfg v12.EdgeConfig
+		ok, err := convert[v12.NodeConfig](old.Configs, e.Key, &cfg)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -69,6 +66,8 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 					SegmentedEdgeConfig: SegmentedEdgeConfig{Segments: []Segment{}},
 				},
 			}
+		} else if e.Config, err = MigrateEdgeConfig(ctx, cfg); err != nil {
+			return Schematic{}, err
 		}
 		edges = append(edges, e)
 	}
@@ -88,8 +87,8 @@ func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
 
 // convert decodes the config stored under key into dst. It returns false when no
 // config is stored under key, or when the stored config is of the Other element kind.
-func convert[C, Other any](
-	configs map[string]ElementConfig,
+func convert[Other, C any](
+	configs map[string]v12.ElementConfig,
 	key string,
 	dst *C,
 ) (bool, error) {
@@ -115,12 +114,12 @@ func convert[C, Other any](
 // "the theme picks the color".
 var themeColors = map[reflect.Type][]string{
 	reflect.TypeFor[StalenessConfig](): {"StalenessColor"},
-	reflect.TypeFor[TankElementConfig](): {
+	reflect.TypeFor[TankNodeConfig](): {
 		"StalenessColor", "LevelColor", "AxisColor", "TextColor",
 	},
 	reflect.TypeFor[ScaleIndicatorConfig](): {"LevelColor", "AxisColor", "TextColor"},
-	reflect.TypeFor[ValueElementConfig]():   {"TextColor"},
-	reflect.TypeFor[GaugeElementConfig]():   {"StrokeColor"},
+	reflect.TypeFor[ValueNodeConfig]():      {"TextColor"},
+	reflect.TypeFor[GaugeNodeConfig]():      {"StrokeColor"},
 }
 
 // clearThemeColors sets each color under v that themeColors names and that holds the
@@ -165,12 +164,18 @@ func clearThemeColors(v reflect.Value) {
 // Migration lifts stored schematics from v12 to v13.
 var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSchematic)
 
-// MigrateElementConfig lifts a v12 element config to v13.
-func MigrateElementConfig(
-	ctx context.Context,
-	old v12.ElementConfig,
-) (ElementConfig, error) {
-	return autoMigrateElementConfig(ctx, old)
+// MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors.
+func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
+	cfg, err := autoMigrateNodeConfig(ctx, old)
+	clearThemeColors(reflect.ValueOf(&cfg).Elem())
+	return cfg, err
+}
+
+// MigrateEdgeConfig lifts a v12 edge config to v13. See MigrateSchematic for colors.
+func MigrateEdgeConfig(ctx context.Context, old v12.EdgeConfig) (EdgeConfig, error) {
+	cfg, err := autoMigrateEdgeConfig(ctx, old)
+	clearThemeColors(reflect.ValueOf(&cfg).Elem())
+	return cfg, err
 }
 
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.

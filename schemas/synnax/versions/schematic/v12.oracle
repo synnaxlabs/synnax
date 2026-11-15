@@ -30,7 +30,9 @@ Segment = v9.Segment
 
 SegmentedEdgeConfig = v9.SegmentedEdgeConfig
 
-EdgeConfig = v9.EdgeConfig
+EdgeConfig union on variant extends v9.EdgeConfig {
+    @go migrate
+}
 
 FlexAlignment = v9.FlexAlignment
 
@@ -73,11 +75,11 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig union on variant extends v10.NodeConfig {}
-
-ElementConfig union on variant extends v10.ElementConfig {
+NodeConfig union on variant extends v10.NodeConfig {
     @go migrate
 }
+
+ElementConfig union on variant extends v10.ElementConfig {}
 
 Schematic struct extends v11.Schematic {
     -snapshot
