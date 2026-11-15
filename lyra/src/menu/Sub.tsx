@@ -9,6 +9,7 @@
 
 import "@/menu/Sub.css";
 
+import { xy } from "@synnaxlabs/x";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -39,13 +40,13 @@ const LOCATION: position.LocationPreference = {
 };
 
 // The first item of the content sits level with the item that opens it.
-const alignOffset = (dialog: HTMLElement): number => {
+const alignOffset = (dialog: HTMLElement): xy.XY => {
   const item = dialog.querySelector<HTMLElement>(ITEM);
-  if (item == null) return 0;
+  if (item == null) return xy.ZERO;
   let top = dialog.clientTop;
   for (let el = item; el !== dialog; el = el.offsetParent as HTMLElement)
     top += el.offsetTop;
-  return top;
+  return { x: 0, y: top };
 };
 
 /** Props for {@link Sub}. */

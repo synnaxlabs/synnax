@@ -28,10 +28,10 @@ export interface Params {
   /** The gap between the target and the dialog, on each axis where they meet. */
   offset?: xy.Crude;
   /**
-   * Moves the dialog out past each edge it aligns with on the target: up past a shared
-   * top edge, left past a shared left edge.
+   * Moves the dialog out past each edge it aligns with on the target, on each axis:
+   * up past a shared top edge, left past a shared left edge.
    */
-  alignOffset?: number;
+  alignOffset?: xy.Crude;
   initial?: LocationPreference;
   prefer?: LocationPreference | LocationPreference[];
   disable?: LocationPreference | LocationPreference[];
@@ -179,7 +179,7 @@ interface EvaluateOptionProps extends Option {
   target: box.Box;
   dialog: box.Box;
   offset?: xy.Crude;
-  alignOffset?: number;
+  alignOffset?: xy.Crude;
 }
 
 interface EvaluateOptionReturn extends Return {
@@ -196,8 +196,9 @@ const evaluateOption = ({
   alignOffset = 0,
 }: EvaluateOptionProps): EvaluateOptionReturn => {
   const shift = xy.construct(offset);
-  if (targetCorner.x === dialogCorner.x) shift.x = alignOffset;
-  if (targetCorner.y === dialogCorner.y) shift.y = alignOffset;
+  const align = xy.construct(alignOffset);
+  if (targetCorner.x === dialogCorner.x) shift.x = align.x;
+  if (targetCorner.y === dialogCorner.y) shift.y = align.y;
   const targetPoint = xy.translate(
     box.xyLoc(target, targetCorner),
     targetCorner,

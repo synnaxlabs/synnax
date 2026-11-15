@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, type state as xstate } from "@synnaxlabs/x";
+import { box, location, type state as xstate, type xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -59,7 +59,7 @@ export interface FrameProps extends Omit<
    * @returns how far the dialog moves out past each edge it aligns with on the target,
    * read from the open dialog each time the frame places it.
    */
-  alignOffset?: (dialog: HTMLElement) => number;
+  alignOffset?: (dialog: HTMLElement) => xy.Crude;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;

@@ -620,7 +620,7 @@ describe("position", () => {
         initial: { targetCorner: { y: "top" }, dialogCorner: { y: "top" } },
         prefer: [{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }],
         offset: 3,
-        alignOffset: 5,
+        alignOffset: { x: 0, y: 5 },
       },
       expected: {
         targetCorner: location.TOP_RIGHT,
@@ -638,7 +638,7 @@ describe("position", () => {
         initial: { targetCorner: { y: "top" }, dialogCorner: { y: "top" } },
         prefer: [{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }],
         offset: 3,
-        alignOffset: 5,
+        alignOffset: { x: 0, y: 5 },
       },
       expected: {
         targetCorner: location.TOP_LEFT,
@@ -658,12 +658,32 @@ describe("position", () => {
           { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_LEFT },
         ],
         offset: 3,
-        alignOffset: 5,
+        alignOffset: { x: 5, y: 0 },
       },
       expected: {
         targetCorner: location.BOTTOM_LEFT,
         dialogCorner: location.TOP_LEFT,
         adjustedDialog: box.construct(35, 53, 20, 20),
+      },
+    };
+
+    const ALIGN_OFFSET_ONE_AXIS: Spec = {
+      name: "align offset on one axis leaves a shared edge on the other in place",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { x: "left" }, dialogCorner: { x: "left" } },
+        prefer: [
+          { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_LEFT },
+        ],
+        offset: 3,
+        alignOffset: { x: 0, y: 5 },
+      },
+      expected: {
+        targetCorner: location.BOTTOM_LEFT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(40, 53, 20, 20),
       },
     };
 
@@ -704,6 +724,7 @@ describe("position", () => {
       ALIGN_OFFSET,
       ALIGN_OFFSET_FLIPPED,
       ALIGN_OFFSET_X,
+      ALIGN_OFFSET_ONE_AXIS,
     ];
 
     SPECS.forEach(({ name, params, expected }) =>
