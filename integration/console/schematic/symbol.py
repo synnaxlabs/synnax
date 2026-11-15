@@ -282,4 +282,6 @@ class Symbol(ABC):
 
     def open_properties_tab(self) -> None:
         """Open the symbol Properties tab."""
+        # The setters that follow click the form through the hit test.
+        self.notifications.close_all()
         click_past(self.page.get_by_text("Properties"))
