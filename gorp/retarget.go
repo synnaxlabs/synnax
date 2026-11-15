@@ -27,10 +27,9 @@ import (
 // Retarget fails with a validation error when from equals to, when a reference that
 // holds from has no Retarget, when a holder's key would change, when it would rewrite
 // more entries than the DB's MaxDeleteSize, or when a rewritten holder fails its write
-// check. It fails with
-// query.ErrNotFound when from or to does not exist. It waits for each reference's
-// index to populate, or for ctx to end, and fails with ErrIndexInvalid if one failed
-// to populate.
+// check. It fails with query.ErrNotFound when from or to does not exist. It waits for
+// each reference's index to populate, or for ctx to end, and fails with ErrIndexInvalid
+// if one failed to populate.
 func (t *Table[K, E]) Retarget(ctx context.Context, tx Tx, from, to K) error {
 	checkForNilTx("Table.Retarget", tx)
 	if from == to {
