@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { icd, mqtt } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
-import { waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker } from "@/feature/mqtt/testutil";
+import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   deployAndAwaitTask,
@@ -39,21 +39,19 @@ const createTimeField = (): icd.JSONField =>
   });
 
 interface RenderParams {
-  fields: icd.JSONField[];
+  /** The fields of the topic's message format. Absent renders a task with no topics. */
+  fields?: icd.JSONField[];
   index?: string;
   /** The channel each field is bound to before the deploy. */
   bound?: Record<string, number>;
   properties?: Partial<MQTT.Device.Properties>;
 }
 
-// The form body renders against a configured broker only.
-const renderICDRead = async ({
-  fields,
-  index,
-  bound = {},
-  properties,
-}: RenderParams) => {
-  const dev = await createBroker(client, { properties });
+const createEntry = async (
+  fields: icd.JSONField[],
+  index: string | undefined,
+  bound: Record<string, number>,
+): Promise<MQTT.Task.ICDReadEntry> => {
   const message: icd.Message = {
     key: uuid.create(),
     name: TOPIC,
@@ -67,15 +65,24 @@ const renderICDRead = async ({
     field,
     channel,
   }));
+  return mqtt.icdReadEntryZ.parse({
+    icd: format.key,
+    topic: TOPIC,
+    messages: [{ message: message.key, index, bindings }],
+  });
+};
+
+// The form body renders against a configured broker only.
+const renderICDRead = async ({
+  fields,
+  index,
+  bound = {},
+  properties,
+}: RenderParams = {}) => {
+  const dev = await createBroker(client, { properties });
   const config = MQTT.Task.ICD_READ_SCHEMAS.config.parse({
     device: dev.key,
-    entries: [
-      {
-        icd: format.key,
-        topic: TOPIC,
-        messages: [{ message: message.key, index, bindings }],
-      },
-    ],
+    entries: fields == null ? [] : [await createEntry(fields, index, bound)],
   });
   const draft = await client.tasks.create(
     { name: "MQTT ICD read task", type: MQTT.Task.ICD_READ_TYPE, config },
@@ -93,6 +100,16 @@ const renderICDRead = async ({
   return { ...result, dev, draft, statuses };
 };
 
+const retrieveEntries = async (key: string) =>
+  (await client.tasks.retrieve({ key, schemas: MQTT.Task.ICD_READ_SCHEMAS })).config
+    .entries;
+
+// The add button renders once the form leaves its loading preview.
+const openAddData = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  return within(await screen.findByRole("dialog"));
+};
+
 const deploy = async (container: HTMLElement, key: string) =>
   await deployAndAwaitTask(client, container, key, MQTT.Task.ICD_READ_SCHEMAS);
 
@@ -101,6 +118,73 @@ const retrieveTopicProps = async (key: string) =>
     .read[TOPIC];
 
 describe("MQTT ICD read form", () => {
+  it("should create a format named after the task and add later picks to it", async () => {
+    const TOPICS = [
+      {
+        topic: TOPIC,
+        payload: '{"temperature": 21.5, "label": "ok"}',
+        fields: [
+          { pointer: "/temperature", type: "number", sample: "21.5" },
+          { pointer: "/label", type: "string", sample: '"ok"' },
+        ],
+        retained: true,
+      },
+    ];
+    const { dev, draft } = await renderICDRead();
+    await screen.findByText("Add data to read a topic");
+    const scanner = await openScanner(client, dev.rack);
+    let dialog = await openAddData();
+    await scanner.answer({ data: { topics: TOPICS, truncated: false } });
+    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries;
+    });
+    dialog = await openAddData();
+    await scanner.answer({ data: { topics: TOPICS, truncated: false } });
+    scanner.close();
+    fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const format = await client.icds.retrieve(entry.icd);
+      expect(format.name).toBe("MQTT ICD read task");
+      expect(format.messages).toMatchObject([
+        {
+          key: entry.messages[0].message,
+          name: TOPIC,
+          payload: {
+            format: "json",
+            fields: [
+              { name: "temperature", pointer: "/temperature", type: "float" },
+              { name: "label", pointer: "/label", type: "string" },
+            ],
+          },
+        },
+      ]);
+    });
+    expect(await retrieveEntries(draft.key)).toHaveLength(1);
+  });
+
+  it("should disable and enable a topic through the context menu", async () => {
+    const { draft } = await renderICDRead({
+      fields: [createField("temperature", "float")],
+    });
+    const item = () => screen.findByRole("option", { name: /plant\/oven/ });
+    fireEvent.contextMenu(await item());
+    expect(screen.queryByText("Enable")).toBeNull();
+    fireEvent.click(await screen.findByText("Disable"));
+    await waitFor(async () =>
+      expect((await retrieveEntries(draft.key))[0].disabled).toBe(true),
+    );
+    fireEvent.contextMenu(await item());
+    fireEvent.click(await screen.findByText("Enable"));
+    await waitFor(async () =>
+      expect((await retrieveEntries(draft.key))[0].disabled).toBe(false),
+    );
+  });
+
   describe("deploying against a live Core", () => {
     it("should create and bind an index channel and a data channel", async () => {
       const time = createTimeField();
@@ -155,6 +239,19 @@ describe("MQTT ICD read form", () => {
         ),
       );
       expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a format with no fields", async () => {
+      const { container, statuses } = await renderICDRead({ fields: [] });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: `The message format of ${TOPIC} has no fields`,
+          }),
+        ),
+      );
     });
 
     it("should replace only the channel of a field whose kind changed", async () => {
