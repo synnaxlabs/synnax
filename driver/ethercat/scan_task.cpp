@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "absl/log/log.h"
+#include "absl/log/vlog_is_on.h"
 
 #include "x/cpp/telem/telem.h"
 
@@ -179,14 +180,13 @@ bool set_setup_status(
     const bool reverted = switch_time != x::telem::TimeStamp(0) &&
                           mode.contains("switch") && !mode.at("switch").empty();
     if (props.switched() || unconfirmed) {
-        status.message = "Restart the power of the device";
+        status.message = "Waiting for a power restart";
         if (unconfirmed)
             status.description = "Synnax cannot tell if the switch took effect until "
-                                 "the device restarts.";
-        if (bus == 2) {
-            if (!status.description.empty()) status.description += ' ';
-            status.description += "First, connect Synnax to EtherCAT bus 1 IN.";
-        }
+                                 "the device restarts. ";
+        status.description += bus == 2 ? "Connect Synnax to EtherCAT bus 1 IN, then "
+                                         "restart the power of the device."
+                                       : "Restart the power of the device.";
     } else if (reverted) {
         if (reader.empty()) reader = mode.value("shared_with", "");
         const auto at = utc_minute(switch_time);
@@ -196,8 +196,11 @@ bool set_setup_status(
             .description = reader.empty()
                              ? std::format(
                                    "The device was switched to Synnax at {}, and then "
-                                   "went to a mode that its catalog does not list.",
-                                   at
+                                   "went to {}.",
+                                   at,
+                                   mode.value("unlisted", false)
+                                       ? "a mode that its catalog does not list"
+                                       : "another mode"
                                )
                              : std::format(
                                    "The device was switched to Synnax at {}, and then "
@@ -212,7 +215,9 @@ bool set_setup_status(
         if (!mode.empty())
             status.description += " In Configure, switch the device to Synnax.";
     } else if (bus == 2 && !mode.value("shared", false)) {
-        status.message = "Connect Synnax to EtherCAT bus 1 IN";
+        status.message = "Connected to EtherCAT bus 2 IN";
+        status.description = "In Synnax only mode, the device uses EtherCAT bus 1 IN. "
+                             "Connect Synnax to bus 1 IN.";
     } else
         return false;
     status.variant = synnax::status::VARIANT_WARNING;
@@ -316,6 +321,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::set<std::string> failures;
     std::vector<std::pair<std::string, std::string>> blocked;
     std::set<std::string> kept;
+    std::map<std::string, slave::Properties> stored;
+    if (scan_ctx.devices != nullptr)
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            // A device with invalid properties keeps the fields that parse.
+            stored.emplace(key, parse_properties(dev.properties).first);
+        }
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -365,7 +377,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto health = this->pool->health(key);
-        const auto keys = slave_keys(slaves, key, scan_ctx, kept);
+        const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
         std::set<uint16_t> unidentified;
         for (size_t i = 0; i < slaves.size(); ++i) {
@@ -602,16 +614,9 @@ std::string Scanner::generate_slave_key(
 std::vector<std::string> Scanner::slave_keys(
     const std::vector<slave::DiscoveryResult> &slaves,
     const std::string &master_key,
-    const common::ScannerContext &scan_ctx,
+    const std::map<std::string, slave::Properties> &stored,
     std::set<std::string> &kept
 ) {
-    std::map<std::string, slave::Properties> stored;
-    if (scan_ctx.devices != nullptr)
-        for (const auto &[key, dev]: *scan_ctx.devices) {
-            if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            // A device with invalid properties keeps the fields that parse.
-            stored.emplace(key, parse_properties(dev.properties).first);
-        }
     const auto find = [&](const slave::DiscoveryResult &slave, const bool by_serial) {
         const auto &live = slave.properties;
         const auto it = std::ranges::find_if(stored, [&](const auto &s) {
@@ -845,7 +850,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         this->switch_times[dev.key] = x::telem::TimeStamp::now();
     }
     // configure also returns the error of its scan after the write.
-    if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
+    if (err.matches(errors::STARTUP_PARAMETER_REJECTED)) {
         task_status.variant = synnax::status::VARIANT_WARNING;
         task_status.message = "Switched " + dev.name +
                               " to Synnax until a power restart";
@@ -858,10 +863,25 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         this->ctx->set_status(task_status);
         return;
     }
+    // A save can outlast the write timeout, so no response leaves the save unknown.
+    if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
+        task_status.variant = synnax::status::VARIANT_WARNING;
+        task_status.message = "Switched " + dev.name +
+                              " to Synnax with no confirmed save";
+        task_status.description = std::format(
+            "The device in slot {} did not confirm the save of the switch, so it can "
+            "go back to its saved mode when its power restarts. {}",
+            position,
+            errors::sentence(err.data)
+        );
+        this->ctx->set_status(task_status);
+        return;
+    }
     // The other parameters save the mode. What a save object reads after a save
     // differs by device, so the Driver only logs it.
-    for (const auto &save: written)
-        if (!sets_mode(save)) {
+    if (VLOG_IS_ON(1))
+        for (const auto &save: written) {
+            if (sets_mode(save)) continue;
             const auto [flag, flag_err] = engine->read(
                 position,
                 save.index,

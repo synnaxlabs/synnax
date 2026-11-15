@@ -533,6 +533,7 @@ struct Identity {
     }
 };
 
+namespace details {
 /// @brief returns the indices of saved in order of saved position, then name.
 inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
     std::vector<size_t> order(saved.size());
@@ -542,6 +543,7 @@ inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
         return std::tie(saved[i].position, saved[i].name);
     });
     return order;
+}
 }
 
 /// @brief finds each saved slave on bus. A slave with a serial number is the unit with
@@ -566,7 +568,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
         return !live.status.serial_unread() && s.same_unit(live.properties);
     };
     std::set<uint16_t> units;
-    const auto order = by_position(saved);
+    const auto order = details::by_position(saved);
     for (const auto i: order)
         if (const auto *live = at(saved[i].position);
             saved[i].serial != 0 && live != nullptr && known_unit(saved[i], *live)) {
@@ -606,7 +608,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             x::errors::Error(errors::TOPOLOGY_MISMATCH, message)
         };
     };
-    const auto order = by_position(saved);
+    const auto order = details::by_position(saved);
     for (size_t i = 1; i < order.size(); ++i)
         if (const auto &a = saved[order[i - 1]], &b = saved[order[i]];
             a.position == b.position)

@@ -147,11 +147,12 @@ private:
     /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
     /// new key that no stored device holds. A slave whose serial number the master
     /// could not read takes only the stored device of its model at its position, and
-    /// else gets an empty key. No slave takes a device in kept.
+    /// else gets an empty key. No slave takes a device in kept. stored holds the
+    /// properties of each stored slave device by key.
     [[nodiscard]] static std::vector<std::string> slave_keys(
         const std::vector<slave::DiscoveryResult> &slaves,
         const std::string &master_key,
-        const common::ScannerContext &scan_ctx,
+        const std::map<std::string, slave::Properties> &stored,
         std::set<std::string> &kept
     );
 

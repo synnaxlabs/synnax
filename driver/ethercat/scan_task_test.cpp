@@ -1772,8 +1772,12 @@ TEST_F(EtherCATScanModeTest, AsksForBus1ForAStandaloneSlaveOnBus2) {
     this->set_mode({{"bus", 2}});
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Connect Synnax to EtherCAT bus 1 IN");
-    EXPECT_EQ(status.description, "");
+    EXPECT_EQ(status.message, "Connected to EtherCAT bus 2 IN");
+    EXPECT_EQ(
+        status.description,
+        "In Synnax only mode, the device uses EtherCAT bus 1 IN. Connect Synnax to bus "
+        "1 IN."
+    );
 }
 
 /// @brief it should ask for a power restart of a slave that holds Synnax only but still
@@ -1782,8 +1786,8 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     this->start(false);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Restart the power of the device");
-    EXPECT_EQ(status.description, "");
+    EXPECT_EQ(status.message, "Waiting for a power restart");
+    EXPECT_EQ(status.description, "Restart the power of the device.");
 }
 
 /// @brief returns the slave in Synnax mode with a catalog that marks no entry, as an
@@ -1803,10 +1807,11 @@ TEST_F(EtherCATScanModeTest, AsksForARestartOfAnUnmarkedSlaveUntilItRestarts) {
     ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
     const auto held = this->scan_status();
     EXPECT_EQ(held.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(held.message, "Restart the power of the device");
+    EXPECT_EQ(held.message, "Waiting for a power restart");
     EXPECT_EQ(
         held.description,
-        "Synnax cannot tell if the switch took effect until the device restarts."
+        "Synnax cannot tell if the switch took effect until the device restarts. "
+        "Restart the power of the device."
     );
     EXPECT_EQ(this->scan_status().message, held.message);
     this->master->restart_slave(1);
@@ -1829,8 +1834,11 @@ TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
     this->start(false);
     this->set_mode({{"bus", 2}});
     const auto status = this->scan_status();
-    EXPECT_EQ(status.message, "Restart the power of the device");
-    EXPECT_EQ(status.description, "First, connect Synnax to EtherCAT bus 1 IN.");
+    EXPECT_EQ(status.message, "Waiting for a power restart");
+    EXPECT_EQ(
+        status.description,
+        "Connect Synnax to EtherCAT bus 1 IN, then restart the power of the device."
+    );
 }
 
 /// @brief it should not advise a switch for a slave whose mode the scan did not read.
@@ -1974,7 +1982,10 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveThatLeftSynnaxModeAfterASwitch) {
 /// does not list.
 TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
     this->start(false, 0x6041);
-    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    this->set_mode({
+        {"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}},
+        {"unlisted", true},
+    });
     const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Left Synnax mode");
@@ -1982,6 +1993,20 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnUnlistedMode) {
         status.description,
         "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
         "a mode that its catalog does not list. Switch it to Synnax again in Configure."
+    );
+}
+
+/// @brief it should warn about a switched slave that holds another mode that its
+/// catalog lists, with no program that sets it up.
+TEST_F(EtherCATScanModeTest, WarnsAboutASwitchedSlaveInAnotherListedMode) {
+    this->start(false, 0x6041);
+    this->set_mode({{"switch", {{{"index", 0x8020}, {"sub_index", 9}, {"value", 0}}}}});
+    const auto status = this->scan_switched_at(1'763'070'000'000'000'000);
+    EXPECT_EQ(status.message, "Left Synnax mode");
+    EXPECT_EQ(
+        status.description,
+        "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to "
+        "another mode. Switch it to Synnax again in Configure."
     );
 }
 
@@ -2014,13 +2039,13 @@ TEST_F(EtherCATScanModeTest, SetStandaloneAsksForNoRestartWhenTheEntriesChange) 
     EXPECT_EQ(status.description, "The device in slot 1 runs Synnax only now.");
 }
 
-/// @brief it should report a switch that the slave did not save.
+/// @brief it should report a switch that the slave refused to save.
 TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) {
     this->start(true);
     this->master->fail_write(
         0x8020,
         2,
-        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8020:02")
+        x::errors::Error(errors::STARTUP_PARAMETER_REJECTED, "rejected 0x8020:02")
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
@@ -2029,6 +2054,29 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) 
         status.description,
         "The device in slot 1 did not save the switch, so it goes back to its saved "
         "mode when its power restarts. Rejected 0x8020:02."
+    );
+}
+
+/// @brief it should report a switch whose save got no response as not confirmed, not
+/// as refused.
+TEST_F(EtherCATScanModeTest, SetStandaloneReportsASaveWithNoResponseAsNotConfirmed) {
+    this->start(true);
+    this->master->fail_write(
+        0x8020,
+        2,
+        x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "failed to write 0x8020:02: no response"
+        )
+    );
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Switched Test Slave to Synnax with no confirmed save");
+    EXPECT_EQ(
+        status.description,
+        "The device in slot 1 did not confirm the save of the switch, so it can go back "
+        "to its saved mode when its power restarts. Failed to write 0x8020:02: no "
+        "response."
     );
 }
 
