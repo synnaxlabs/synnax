@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
+import { useCardBackground } from "@/platform/settings/background";
 
 export interface CardProps extends PropsWithChildren {
   title?: string;
@@ -22,24 +23,27 @@ export interface CardProps extends PropsWithChildren {
 }
 
 /** Holds related entries in one card, under an optional title. */
-export const Card = ({ title, flush = false, children }: CardProps): ReactElement => (
-  <Flex.Box y gap="medium">
-    {title != null && <Text.Text level="h5">{title}</Text.Text>}
-    <Flex.Box
-      y
-      empty
-      bordered
-      rounded="medium"
-      background={1}
-      className={CSS.cls(
-        CSS.BE("settings", "card"),
-        flush && CSS.BEM("settings", "card", "flush"),
-      )}
-    >
-      {children}
+export const Card = ({ title, flush = false, children }: CardProps): ReactElement => {
+  const background = useCardBackground();
+  return (
+    <Flex.Box y gap="medium">
+      {title != null && <Text.Text level="h5">{title}</Text.Text>}
+      <Flex.Box
+        y
+        empty
+        bordered
+        rounded="medium"
+        background={background}
+        className={CSS.cls(
+          CSS.BE("settings", "card"),
+          flush && CSS.BEM("settings", "card", "flush"),
+        )}
+      >
+        {children}
+      </Flex.Box>
     </Flex.Box>
-  </Flex.Box>
-);
+  );
+};
 
 export interface EntryProps extends PropsWithChildren {
   label: string;

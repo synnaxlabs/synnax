@@ -36,6 +36,10 @@ provider "aws" {
       owner   = "runners"
     }
   }
+  # A seat writes this tag at a usage limit, so an apply must keep it.
+  ignore_tags {
+    keys = ["limited-until"]
+  }
 }
 
 data "aws_ssm_parameter" "ubuntu" {
@@ -120,6 +124,28 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
         "arn:aws:ssm:*:${local.account}:parameter/runners",
         "arn:aws:ssm:*:${local.account}:parameter/runners/*",
       ]
+    }]
+  })
+}
+
+# Lets a seat record when the usage limit of its login resets, which keeps the fleet
+# controller from starting it until then.
+resource "aws_iam_role_policy" "limited_until" {
+  name = "TagLimitedUntil"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ec2:CreateTags"
+      Resource = "arn:aws:ec2:${var.region}:${local.account}:instance/*"
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/project" = "synnax-agents"
+          "aws:ResourceTag/pool"    = "agent"
+        }
+        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["limited-until"] }
+      }
     }]
   })
 }

@@ -98,7 +98,6 @@ class NITask(TaskPage):
             modal = layout.page.locator(layout.MODAL_SELECTOR)
             fill_configure(
                 modal,
-                notifications=layout.notifications,
                 name=dev_name,
                 identifier=dev_name,
             )
