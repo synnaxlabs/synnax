@@ -173,11 +173,17 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("prompts for a selection when another client removes the selected element", async () => {
-      const { key } = await renderProperties({ nodeKeys: ["n1"] });
+      const statuses: Status.NotificationSpec[] = [];
+      const { key } = await renderProperties({
+        nodeKeys: ["n1"],
+        onStatuses: (s) => statuses.push(...s),
+      });
       await screen.findByRole("tab", { name: "Style" });
       await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
+      // React reports an error caught by a boundary through console.error.
+      const error = vi.spyOn(console, "error");
       await act(async () => {
         await remote.schematics.dispatch(key, schematic.removeNode({ key: "n1" }));
       });
@@ -186,6 +192,8 @@ describe("Schematic toolbar Properties", () => {
           "Select a schematic element to configure its properties",
         ),
       ).toBeDefined();
+      expect(error).not.toHaveBeenCalled();
+      expect(statuses.filter((s) => s.variant === "error")).toEqual([]);
     });
   });
 
