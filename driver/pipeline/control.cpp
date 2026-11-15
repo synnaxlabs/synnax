@@ -42,10 +42,9 @@ Control::Control(
     config(std::move(streamer_config)),
     sink(std::move(sink)) {}
 
-bool Control::stop() {
+void Control::interrupt() {
+    std::lock_guard lock{this->streamer_mu};
     if (this->streamer != nullptr) this->streamer->close_send();
-    const bool was_running = Base::stop();
-    return was_running;
 }
 
 void Control::run() {
@@ -58,7 +57,10 @@ void Control::stopped_with_err(const x::errors::Error &err) {
 
 bool Control::run_once() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
-    this->streamer = std::move(s);
+    {
+        std::lock_guard lock{this->streamer_mu};
+        this->streamer = std::move(s);
+    }
     if (open_err) {
         if (synnax::errors::is_temporarily_unavailable(open_err) &&
             breaker.wait(open_err.message()))

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -135,6 +136,8 @@ class Control final : public Base {
     synnax::framer::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
+    /// @brief protects streamer, which a stop reads from another thread.
+    std::mutex streamer_mu;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
 
@@ -142,6 +145,9 @@ class Control final : public Base {
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
     bool run_once();
+
+    /// @brief ends the read of the open streamer.
+    void interrupt() override;
 
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
@@ -178,10 +184,6 @@ public:
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
-
-    /// @brief stops the control pipeline, blocking until the control thread has exited.
-    /// If the pipeline has already stopped, this method will return immediately.
-    bool stop() override;
 
     void run() override;
 
