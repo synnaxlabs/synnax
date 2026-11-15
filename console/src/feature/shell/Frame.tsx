@@ -13,14 +13,11 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Nebula } from "@synnaxlabs/lyra/nebula";
 import { type ReactElement, type ReactNode } from "react";
 
-import { Nav } from "@/feature/shell/Nav";
+import { Nav, type NavProps } from "@/feature/shell/Nav";
 import { CSS } from "@/platform/css";
-import { type Shell } from "@/platform/shell";
 
-export interface FrameProps {
+export interface FrameProps extends NavProps {
   className?: string;
-  /** Target Core shown in the connection island; omit to hide it. */
-  connection?: Shell.ConnectionCore | null;
   children: ReactNode;
 }
 
@@ -28,13 +25,9 @@ export interface FrameProps {
  * Full-window shell for pre-workspace surfaces: window chrome, halftone nebula,
  * and the centered card that hosts the surface's content.
  */
-export const Frame = ({
-  className,
-  connection,
-  children,
-}: FrameProps): ReactElement => (
+export const Frame = ({ className, children, ...rest }: FrameProps): ReactElement => (
   <Flex.Box y full empty className={CSS.cls(CSS.B("shell"), className)}>
-    <Nav connection={connection} />
+    <Nav {...rest} />
     <Flex.Box
       y
       align="center"
@@ -56,6 +49,25 @@ export const Frame = ({
           {children}
         </Flex.Box>
       </Flex.Box>
+    </Flex.Box>
+  </Flex.Box>
+);
+
+export interface PageProps extends FrameProps {}
+
+/** Full-window shell whose content fills the window below the nav. */
+export const Page = ({ className, children, ...rest }: PageProps): ReactElement => (
+  <Flex.Box y full empty className={CSS.cls(CSS.B("shell"), className)}>
+    <Nav {...rest} />
+    <Flex.Box
+      y
+      grow
+      empty
+      background={1}
+      data-tauri-drag-region
+      className={CSS.BE("shell", "page")}
+    >
+      {children}
     </Flex.Box>
   </Flex.Box>
 );
