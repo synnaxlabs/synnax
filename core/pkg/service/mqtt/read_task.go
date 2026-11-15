@@ -122,12 +122,10 @@ func newReadTopic(
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
 	t := &readTopic{
-		topicSubscription: topicSubscription{
-			topic:           entry.Topic,
-			qos:             qosLevel(entry.Qos),
-			retainedIgnored: entry.RetainedIgnored,
-		},
-		indexField: -1,
+		topic:           entry.Topic,
+		qos:             qosLevel(entry.Qos),
+		retainedIgnored: entry.RetainedIgnored,
+		indexField:      -1,
 	}
 	if err := validateTopic(entry.Topic); err != nil {
 		return nil, err

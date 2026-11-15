@@ -59,11 +59,11 @@ func newICDTopic(
 	if err := validateTopic(entry.Topic); err != nil {
 		return nil, err
 	}
-	t := &icdTopic{topicSubscription: topicSubscription{
+	t := &icdTopic{
 		topic:           entry.Topic,
 		qos:             qosLevel(entry.Qos),
 		retainedIgnored: entry.RetainedIgnored,
-	}}
+	}
 	if len(entry.Messages) == 0 {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "topic %s reads no messages", entry.Topic,
