@@ -22,7 +22,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -61,7 +61,9 @@ const client = createTestClient();
 
 let testRack: rack.Rack;
 
-beforeAll(async () => {
+// The Core marks each device of a rack disconnected once the rack is silent for 5 s, so
+// each test gets a new rack.
+beforeEach(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
