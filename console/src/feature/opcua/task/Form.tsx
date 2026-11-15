@@ -78,6 +78,7 @@ const ChannelListItem = <C extends Channel>({
   const item = PForm.useFieldValue(path);
   const fields = deep.widen<Channel>(path);
   const nodeIdState = PForm.useFieldState(fields.nodeId, { optional: true });
+  PForm.useStatusDisplay(nodeIdState == null ? null : fields.nodeId);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";

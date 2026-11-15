@@ -19,6 +19,7 @@ import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
 import { Embedded } from "@/feature/embedded";
 import { Framer } from "@/feature/framer";
+import { ICD } from "@/feature/icd";
 import { Import } from "@/feature/import";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -42,6 +43,7 @@ const COMMANDS: Command.Command[] = [
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
+  ...ICD.COMMANDS,
   ...Import.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,

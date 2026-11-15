@@ -886,30 +886,31 @@ var _ = Describe("Path actions", func() {
 
 	DescribeTable(
 		"Should reject a path into a node or edge outside its config",
-		func(a schematic.Action, field string) {
+		func(a schematic.Action, msg string) {
 			Expect(schematic.Reduce(state, a)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(
-					"[Schematic] - a path into "+field+
-						" must go into the config of one entry or name the parent of a node",
-				)),
+				MatchError(ContainSubstring(msg)),
 			))
 		},
-		Entry("a set of every node", set([]string{"nodes"}, []any{}), "nodes"),
+		Entry(
+			"a set of every node",
+			set([]string{"nodes"}, []any{}),
+			"[nodes]: the path must go into an editable field of one entry",
+		),
 		Entry(
 			"a set of one node",
 			set([]string{"nodes", "n1"}, map[string]any{"key": "n1"}),
-			"nodes",
+			"[nodes, n1]: the path must go into an editable field of one entry",
 		),
 		Entry(
 			"a set of a node's position",
 			set([]string{"nodes", "n1", "position"}, map[string]any{"x": 1, "y": 1}),
-			"nodes",
+			"[nodes, n1, position]: the path names no editable field",
 		),
 		Entry(
 			"a set of a node's key",
 			set([]string{"nodes", "n1", "key"}, "n9"),
-			"nodes",
+			"[nodes, n1, key]: the path names no editable field",
 		),
 		Entry(
 			"a set of an edge's source",
@@ -917,13 +918,17 @@ var _ = Describe("Path actions", func() {
 				[]string{"edges", "e1", "source"},
 				map[string]any{"node": "n2", "param": "out"},
 			),
-			"edges",
+			"[edges, e1, source]: the path names no editable field",
 		),
-		Entry("a set of every edge", set([]string{"edges"}, []any{}), "edges"),
+		Entry(
+			"a set of every edge",
+			set([]string{"edges"}, []any{}),
+			"[edges]: the path must go into an editable field of one entry",
+		),
 		Entry(
 			"a set of an edge's parent",
 			set([]string{"edges", "e1", "parent"}, "g1"),
-			"edges",
+			"[edges, e1, parent]: the path names no editable field",
 		),
 		Entry(
 			"a remove of a node",
@@ -931,7 +936,7 @@ var _ = Describe("Path actions", func() {
 				Path: []string{"nodes"},
 				Key:  "n1",
 			}),
-			"nodes",
+			"[nodes, n1]: the path must go into an editable field of one entry",
 		),
 		Entry(
 			"an insert of a node",
@@ -939,7 +944,7 @@ var _ = Describe("Path actions", func() {
 				Path:  []string{"nodes"},
 				Value: map[string]any{"key": "n3"},
 			}),
-			"nodes",
+			"[nodes]: the path must go into an editable field of one entry",
 		),
 		Entry(
 			"a move of an edge",
@@ -947,7 +952,7 @@ var _ = Describe("Path actions", func() {
 				Path: []string{"edges"},
 				Key:  "e1",
 			}),
-			"edges",
+			"[edges]: the path must go into an editable field of one entry",
 		),
 	)
 
@@ -974,7 +979,7 @@ var _ = Describe("Path actions", func() {
 	})
 
 	DescribeTable(
-		"Should do nothing to the config of a node or edge that does not exist",
+		"Should do nothing to a node or edge that does not exist",
 		func(a schematic.Action) {
 			Expect(MustSucceed(schematic.Reduce(state, a))).To(Equal(state))
 		},
@@ -1016,6 +1021,17 @@ var _ = Describe("Path actions", func() {
 				Path: []string{"edges", "ghost", "config", "segments"},
 				Key:  "a",
 			}),
+		),
+		Entry(
+			"a set of a field that is not editable",
+			set([]string{"nodes", "ghost", "position"}, map[string]any{"x": 1, "y": 1}),
+		),
+		Entry(
+			"a set of an edge field that is not editable",
+			set(
+				[]string{"edges", "ghost", "source"},
+				map[string]any{"node": "n2", "param": "out"},
+			),
 		),
 	)
 })

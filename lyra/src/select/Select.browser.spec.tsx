@@ -411,6 +411,38 @@ describe("Select", () => {
     });
   });
 
+  describe("menu surface", () => {
+    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+      const onChange = vi.fn();
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Stage</Dialog.Trigger>
+            <Select.Frame<string, undefined> multiple value={[]} onChange={onChange}>
+              <Select.Dialog surface="menu" aria-label="Stage">
+                <Select.List>
+                  {["alpha", "beta"].map((key) => (
+                    <Select.Item<string> key={key} itemKey={key}>
+                      {key}
+                    </Select.Item>
+                  ))}
+                </Select.List>
+              </Select.Dialog>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await userEvent.click(page.getByText("Stage"));
+      const dialog = page.getByRole("dialog", { name: "Stage" });
+      await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+      await userEvent.keyboard("b");
+      expect(document.querySelector(".lyra-menu-filter")).toBeNull();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect.poll(() => onChange).toHaveBeenCalledOnce();
+      expect(onChange.mock.calls[0][0]).toEqual(["alpha"]);
+    });
+  });
+
   describe("surface", () => {
     it("should fill the dialog like a menu", async () => {
       await renderThemed(

@@ -240,10 +240,10 @@ describe("Custom.useRender", () => {
       expect(g?.children.length).toBe(2);
     });
 
-    it("should not wrap if g element already exists", () => {
+    it("should wrap SVG content that has a g element in a new g element", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g><circle r="10"/></svg>',
       });
 
       renderAttached(
@@ -257,8 +257,73 @@ describe("Custom.useRender", () => {
       );
 
       const svg = container.querySelector("svg");
-      const gElements = svg?.querySelectorAll("g");
-      expect(gElements?.length).toBe(1);
+      expect(svg?.children.length).toBe(1);
+      const g = svg?.children[0];
+      expect(g?.tagName).toBe("g");
+      expect(Array.from(g?.children ?? [], (child) => child.tagName)).toEqual([
+        "g",
+        "circle",
+      ]);
+    });
+  });
+
+  describe("hold fill", () => {
+    const HOLD_FILL = ".pluto-symbol-hold__fill";
+
+    it("should add and remove the hold fill as delayed changes", () => {
+      const container = document.createElement("div");
+      const params: Custom.UseRenderParams = {
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      };
+      const { rerender } = renderAttached(params, container);
+      expect(container.querySelector(HOLD_FILL)).toBeNull();
+      rerender({ ...params, delayed: true });
+      expect(container.querySelector(HOLD_FILL)).not.toBeNull();
+      const main = container.querySelector<SVGElement>(".main");
+      expect(main?.style.getPropertyValue(Primitive.SYMBOL_COLOR)).toBe(
+        rgba("#333333"),
+      );
+      rerender({ ...params, delayed: false });
+      expect(container.querySelector(HOLD_FILL)).toBeNull();
+    });
+
+    it("should keep region colors off the hold fill", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="50" stroke="black"/></svg>',
+        states: [
+          {
+            key: "inactive",
+            name: "Inactive",
+            regions: [
+              {
+                key: "main",
+                name: "Main",
+                selectors: ["rect:nth-of-type(1)"],
+                strokeColor: color.construct("#333333"),
+              },
+            ],
+          },
+        ],
+      });
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+          strokeColor: color.construct("#ff0000"),
+          delayed: true,
+        },
+        container,
+      );
+      const [shape, fill] = container.querySelectorAll<SVGElement>("rect");
+      expect(fill.classList.contains("pluto-symbol-hold__fill")).toBe(true);
+      expect(strokeColor(shape)).toBe(rgba("#ff0000"));
+      expect(strokeColor(fill)).toBe("");
     });
   });
 
@@ -634,6 +699,23 @@ describe("Custom.useRender", () => {
       expect(svg.getAttribute("width")).toBe("100");
       expect(svg.getAttribute("height")).toBe("100");
       expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
+    });
+
+    it("should keep only the location class of the current orientation", () => {
+      const container = document.createElement("div");
+      const params: Custom.UseRenderParams = {
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      };
+      const { rerender } = renderAttached(params, container);
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.classList.contains("lyra--location-top")).toBe(true);
+
+      rerender({ ...params, orientation: "bottom" });
+      expect(svg.classList.contains("lyra--location-bottom")).toBe(true);
+      expect(svg.classList.contains("lyra--location-top")).toBe(false);
     });
   });
 

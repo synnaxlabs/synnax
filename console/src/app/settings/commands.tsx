@@ -13,20 +13,15 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { LABELS_SECTION, LICENSE_SECTION, useOpen } from "@/app/settings/tab";
 import { Command } from "@/platform/command";
-import { Panel } from "@/platform/panel";
 
 const OpenCommand = Command.create({
   key: "open_settings",
   name: "Open settings",
   icon: <Icon.Settings />,
-  useVisible: Panel.useCanOpenTab,
   useOnSelect: useOpen,
 });
 
-const useLabelsVisible = (): boolean => {
-  const canOpen = Panel.useCanOpenTab();
-  return Access.useUpdateGranted(label.TYPE_RESOURCE_ID) && canOpen;
-};
+const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
 
 const useOpenLabels = (): (() => void) => useOpen(LABELS_SECTION);
 
@@ -38,10 +33,7 @@ const EditLabelsCommand = Command.create({
   useOnSelect: useOpenLabels,
 });
 
-const useLicenseVisible = (): boolean => {
-  const canOpen = Panel.useCanOpenTab();
-  return Access.useRetrieveGranted(license.RESOURCE_ID) && canOpen;
-};
+const useLicenseVisible = (): boolean => Access.useRetrieveGranted(license.RESOURCE_ID);
 
 const useOpenLicense = (): (() => void) => useOpen(LICENSE_SECTION);
 

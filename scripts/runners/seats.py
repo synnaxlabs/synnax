@@ -10,7 +10,8 @@
 """Starts the agent seats, driven by controller.py's poll cycle. A seat is one EC2
 instance whose runners share an agent login. The runners belong to the organization,
 so the repository's runner list holds none of them, and a seat is found by its
-instance tags. A seat stops itself once idle."""
+instance tags. A seat stops itself once idle, and when its login reaches a usage
+limit."""
 
 import synnax as sy
 
@@ -35,11 +36,21 @@ def seat_labels(tags: dict[str, str]) -> set[str]:
     return {"agent", f"agent-{agent}", f"seat-{seat}"}
 
 
+def limited(tags: dict[str, str], *, now: sy.TimeStamp) -> bool:
+    """Whether the login of a seat is at a usage limit that has not reset by now. The
+    `limited-until` tag holds the reset time in Unix seconds. Agents can write the tag,
+    so a value that is not a whole number counts as no limit."""
+    until = tags.get("limited-until", "")
+    if not until.isdecimal():
+        return False
+    return int(until) > int(now) // int(sy.TimeSpan.SECOND)
+
+
 class Seats:
     """A queued job starts one stopped seat that carries its labels, unless a seat
     that carries them is already up. A seat that is stopping starts once it has
-    stopped. While disabled, each decision is logged once, marked [DISABLED], and no
-    seat starts."""
+    stopped. A seat at a usage limit starts once the limit resets. While disabled,
+    each decision is logged once, marked [DISABLED], and no seat starts."""
 
     def __init__(self, *, aws: AWS, log: Log) -> None:
         self.aws = aws
@@ -56,6 +67,7 @@ class Seats:
             iid: labels
             for iid, info in sorted(found.items())
             if (labels := seat_labels(info["tags"]))
+            and not limited(info["tags"], now=now)
         }
         starting: set[str] = set()
         for job in queued:

@@ -103,6 +103,9 @@ Type enum {
     color            = "color" {
         @doc value "identifies a named color."
     }
+    icd              = "icd" {
+        @doc value "identifies an interface control document."
+    }
 
     @doc value "is the type of the resource."
     @pb

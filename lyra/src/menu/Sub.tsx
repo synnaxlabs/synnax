@@ -25,6 +25,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
+import { FilterContext, useMatches } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
@@ -54,6 +55,8 @@ const alignOffset = (dialog: HTMLElement): xy.XY => {
 export interface SubProps extends PropsWithChildren {
   /** Names the submenu among the items of its menu. */
   itemKey: string;
+  /** The submenu's name as plain text, which the filter of its menu matches. */
+  textValue: string;
 }
 
 /**
@@ -64,14 +67,19 @@ export interface SubProps extends PropsWithChildren {
  *
  * @example
  * <Menu.Menu>
- *   <Menu.Sub itemKey="labels">
+ *   <Menu.Sub itemKey="labels" textValue="Labels">
  *     <Menu.SubTrigger><Icon.Label />Labels</Menu.SubTrigger>
  *     <Menu.Dialog>{items}</Menu.Dialog>
  *   </Menu.Sub>
  * </Menu.Menu>
  */
-export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
+export const Sub = ({
+  itemKey,
+  textValue,
+  children,
+}: SubProps): ReactElement | null => {
   const { open, swap, register, enter, setOpen, frame } = useSubmenusContext();
+  const matches = useMatches(textValue);
   const trigger = useRef<HTMLElement | null>(null);
   const content = useRef<HTMLElement | null>(null);
   const visible = open === itemKey;
@@ -108,6 +116,7 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
     setOpen(null);
   };
   const ctx = { itemKey, trigger, content, swap: swap && visible };
+  if (!matches) return null;
   return (
     <SubContext value={ctx}>
       <Dialog.Frame
@@ -120,7 +129,8 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
-        {children}
+        {/* The filter of the menu matches the submenu, never its content. */}
+        <FilterContext value="">{children}</FilterContext>
       </Dialog.Frame>
     </SubContext>
   );

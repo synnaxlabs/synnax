@@ -31,6 +31,9 @@ The last stdout line is the PR URL for pr and comment, and is also written as `p
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
 opens nothing.
 
+When Claude Code stops at the usage limit of its login, the wrapper writes the reset
+time, in Unix seconds, as the `limited-until` step output and exits with LIMITED.
+
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
 AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
@@ -39,6 +42,7 @@ login authenticates the CLI. pr and comment need a clean checkout.
 
 import argparse
 import base64
+import json
 import os
 import re
 import secrets
@@ -59,6 +63,7 @@ ASSETS_BRANCH = "agent-assets"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 TEMPLATE = Path(".github/pull_request_template.md")
 LINEAR_URL = "https://linear.app/synnax/issue/"
+LIMITED = 75
 # Claude Code otherwise appends a co-author trailer, which the repository rules forbid.
 CLAUDE_SETTINGS = '{"attribution":{"commit":"","pr":""}}'
 
@@ -196,7 +201,8 @@ def instructions(opts: Options, *, out: Path) -> str:
 
 def agent_command(opts: Options, *, prompt: str, out: Path) -> list[str]:
     if opts.agent == "claude":
-        cmd = [opts.bin or "claude", "-p", "--output-format", "text"]
+        cmd = [opts.bin or "claude", "-p", "--output-format", "stream-json"]
+        cmd += ["--verbose"]
         cmd += ["--dangerously-skip-permissions", "--settings", CLAUDE_SETTINGS]
         if opts.max_turns is not None:
             cmd += ["--max-turns", str(opts.max_turns)]
@@ -260,9 +266,9 @@ class Runner:
 
 def run_agent(
     cmd: list[str], *, env: dict[str, str], seconds: float, quiet: bool = False
-) -> str:
-    """Runs the agent in its own process group and returns its stdout. quiet discards
-    its stderr.
+) -> tuple[int, str]:
+    """Runs the agent in its own process group and returns its exit code and stdout.
+    quiet discards its stderr.
 
     On a timeout or an interrupt, kills the whole group, so no build or server it
     started outlives it.
@@ -284,9 +290,53 @@ def run_agent(
             os.killpg(proc.pid, signal.SIGKILL)
         proc.communicate()
         raise
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, cmd[:1])
-    return stdout
+    return proc.returncode, stdout
+
+
+class UsageLimit(Exception):
+    """The agent stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+def claude_result(stream: str) -> tuple[str, bool, int | None]:
+    """Returns the final message of a Claude Code stream-json run, whether the run
+    failed, and the reset time of a usage limit it was rejected by, if any."""
+    message, failed, until = "", True, None
+    for line in stream.splitlines():
+        event = json.loads(line)
+        if event["type"] == "result":
+            message, failed = event.get("result", ""), event["is_error"]
+        elif event["type"] == "rate_limit_event":
+            info = event["rate_limit_info"]
+            until = info.get("resetsAt") if info["status"] == "rejected" else None
+    return message, failed, until
+
+
+def run_cli(
+    opts: Options, cmd: list[str], *, env: dict[str, str], quiet: bool = False
+) -> str:
+    """Runs the agent CLI and returns its final message on stdout.
+
+    Raises UsageLimit when Claude Code fails at a usage limit, and
+    CalledProcessError on any other failure.
+    """
+    code, stdout = run_agent(
+        cmd, env=env, seconds=opts.timeout_minutes * 60, quiet=quiet
+    )
+    if opts.agent != "claude":
+        if code != 0:
+            raise subprocess.CalledProcessError(code, cmd[:1])
+        return stdout
+    message, failed, until = claude_result(stdout)
+    if failed and until is not None:
+        raise UsageLimit(until)
+    if code != 0 or failed:
+        raise subprocess.CalledProcessError(code, cmd[:1], output=message)
+    return message
 
 
 def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
@@ -396,6 +446,15 @@ def git_auth(env: dict[str, str]) -> dict[str, str]:
 
 
 def main(argv: Sequence[str]) -> int:
+    try:
+        return deliver(argv)
+    except UsageLimit as e:
+        write_output(dict(os.environ), name="limited-until", value=str(e.until))
+        print(f"The agent reached the usage limit of its login: {e}", file=sys.stderr)
+        return LIMITED
+
+
+def deliver(argv: Sequence[str]) -> int:
     env = git_identity(dict(os.environ))
     opts = parse(argv, env=env)
     pushes = opts.output != "report"
@@ -450,9 +509,7 @@ def main(argv: Sequence[str]) -> int:
     if opts.recipient is not None:
         try:
             env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_agent(
-                cmd, env=env_private, seconds=opts.timeout_minutes * 60, quiet=True
-            )
+            stdout = run_cli(opts, cmd, env=env_private, quiet=True)
             message = read(out / "last-message.md") or stdout.strip()
             write_output(
                 env, name="report", value=encrypt(message, recipient=opts.recipient)
@@ -464,7 +521,7 @@ def main(argv: Sequence[str]) -> int:
     report = opts.output == "report" and not opts.dry_run
     agent_env = git_auth(env) if report else env
     agent_env = {**agent_env, "AGENT_OUT_DIR": str(out)}
-    stdout = run_agent(cmd, env=agent_env, seconds=opts.timeout_minutes * 60)
+    stdout = run_cli(opts, cmd, env=agent_env)
     message = read(out / "last-message.md") or stdout.strip()
 
     images = find_images(opts, out=out)
