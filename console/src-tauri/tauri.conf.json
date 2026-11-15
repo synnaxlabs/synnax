@@ -27,7 +27,12 @@
       "frameworks": [],
       "providerShortName": null
     },
-    "linux": { "deb": { "depends": [] } }
+    "linux": {
+      "deb": {
+        "depends": ["desktop-file-utils"],
+        "desktopTemplate": "linux/synnax.desktop"
+      }
+    }
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {
