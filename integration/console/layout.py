@@ -515,15 +515,13 @@ class LayoutClient:
         *,
         placeholder: str | None = None,
         exact: bool = False,
-        reopen: Callable[[], None] | None = None,
     ) -> None:
         """Select an item from an open dropdown.
 
         :param text: Visible text of the item to select.
         :param placeholder: Search input placeholder to filter with before selecting.
         :param exact: Match the whole item text, ignoring case, instead of a substring.
-        :param reopen: Re-opens the dropdown. Called before a retry when the dialog
-            closed before the item was found (e.g. a re-render dismissed it).
+        :raises RuntimeError: If the item does not show within 5 seconds.
         """
         name = re.compile(rf"^{re.escape(text)}$", re.IGNORECASE) if exact else text
         target = self.dialog.get_by_role("option", name=name)
@@ -533,58 +531,21 @@ class LayoutClient:
             if placeholder is not None
             else generic
         )
-        loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".lyra-list__scroll--empty")
-        )
-        loading = self.dialog.locator(".lyra-icon--loading")
-
-        def apply_search(refill: bool = False) -> None:
-            # The dropdown renders its search input and options together, so either
-            # one appearing means it is open.
-            generic.or_(target).first.wait_for(state="visible", timeout=5000)
-            # Type only once the first page has settled: a search that races the
-            # initial answer is overwritten by it.
-            loaded.first.wait_for(state="visible", timeout=5000)
-            expect(loading).to_have_count(0, timeout=5000)
-            search_input = specific if specific.count() > 0 else generic
-            if search_input.count() == 0:
-                return
-            if refill:
-                search_input.fill("")
-            if search_input.input_value() != text:
-                search_input.fill(text)
-            sy.sleep(0.1)
-
+        # The dropdown renders its search input and options together, so either one
+        # showing means it is open.
+        generic.or_(target).first.wait_for(state="visible", timeout=5000)
+        search_input = specific if specific.count() > 0 else generic
+        if search_input.count() > 0 and search_input.input_value() != text:
+            search_input.fill(text)
+        item = target.first
         try:
-            apply_search()
-        except (PlaywrightTimeoutError, AssertionError):
-            pass  # The retry loop below waits again and runs the recovery path.
-        last_recovery_error: Exception | None = None
-        for _ in range(5):
-            try:
-                item = target.first
-                item.wait_for(state="visible", timeout=5000)
-                click_past(item)
-                return
-            except Exception:
-                try:
-                    if reopen is not None and self.dialog.count() == 0:
-                        reopen()
-                        apply_search()
-                    else:
-                        # A fresh search replaces a list a late answer overwrote.
-                        apply_search(refill=True)
-                except Exception as e:
-                    # A failed recovery consumes this retry instead of aborting.
-                    last_recovery_error = e
-                    sy.sleep(1)
-                continue
-
-        items = self.dialog.get_by_role("option").all_text_contents()
-        message = f"Could not find item '{text}' in dropdown. Available items: {items}"
-        if last_recovery_error is not None:
-            message += f" (last recovery attempt failed: {last_recovery_error})"
-        raise RuntimeError(message)
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError as e:
+            items = self.dialog.get_by_role("option").all_text_contents()
+            raise RuntimeError(
+                f"Could not find item '{text}' in dropdown. Available items: {items}"
+            ) from e
+        click_past(item)
 
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
