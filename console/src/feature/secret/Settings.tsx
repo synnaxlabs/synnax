@@ -209,7 +209,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
       menu={secretsMenu}
       action={
         canCreate && (
-          <Button.Button variant="outlined" onClick={() => void openCreate()}>
+          <Button.Button variant="filled" onClick={() => void openCreate()}>
             <Icon.Add />
             Create secret
           </Button.Button>

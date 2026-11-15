@@ -198,10 +198,10 @@ describe("User.Members", () => {
     expect(await screen.findByText(name)).toBeTruthy();
   });
 
-  it("should offer Create user only to a user who may create users", async () => {
+  it("should offer Register user only to a user who may create users", async () => {
     const u = await createUser("Operator");
     await renderMembers();
-    expect(await screen.findByRole("button", { name: "Create user" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Register user" })).toBeTruthy();
     cleanup();
     const limited = await createTestClientWithPolicy(client, {
       name: uniqueName("policy"),
@@ -211,7 +211,7 @@ describe("User.Members", () => {
     await awaitGranted(limited, user.TYPE_RESOURCE_ID, "retrieve");
     await renderMembers(limited);
     await search(u.name);
-    expect(screen.queryByRole("button", { name: "Create user" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Register user" })).toBeNull();
   });
 
   it("should not let anyone change the role of the root user or delete them", async () => {

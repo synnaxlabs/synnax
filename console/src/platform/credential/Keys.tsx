@@ -168,6 +168,7 @@ export const Keys = ({ subject }: KeysProps): ReactElement => {
             status={status.keepVariants(create.variant, "loading")}
             onClick={() => create.update({ subject, name })}
           >
+            <Icon.Add />
             Create key
           </Button.Button>
         </Flex.Box>

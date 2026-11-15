@@ -147,7 +147,7 @@ export const Settings = (): ReactElement => {
             className={CSS.BE("label-settings", "search")}
           />
           {canCreate && (
-            <Button.Button variant="outlined" onClick={() => void create()}>
+            <Button.Button variant="filled" onClick={() => void create()}>
               <Icon.Add />
               Create label
             </Button.Button>

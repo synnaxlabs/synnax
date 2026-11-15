@@ -186,9 +186,9 @@ export const Members = (): ReactElement => {
             className={CSS.BE("user-members", "search")}
           />
           {canCreate && (
-            <Button.Button variant="outlined" onClick={() => openRegister()}>
+            <Button.Button variant="filled" onClick={() => openRegister()}>
               <Icon.Add />
-              Create user
+              Register user
             </Button.Button>
           )}
         </Flex.Box>
