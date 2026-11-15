@@ -204,6 +204,54 @@ TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
     ASSERT_NIL(source->stopped_err);
 }
 
+/// @brief a source that reads a frame, fails once with a temporary hardware error, and
+/// then reads a frame on every read.
+class HardwareErrorOnSecondReadSource final : public Source {
+    /// @brief the number of reads so far.
+    size_t reads = 0;
+
+public:
+    /// @brief the error the pipeline stopped with, or nil.
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error
+    read(x::breaker::Breaker &, x::telem::Frame &fr, Authorities &) override {
+        if (++this->reads == 2) return TEMPORARY;
+        fr.emplace(1, x::telem::Series(x::telem::TimeStamp::now()));
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should retry a hardware error during an outage of the Core longer than
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorDuringCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<HardwareErrorOnSecondReadSource>();
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
 /// @brief it should stop with the license error when the Core stays unlicensed past
 /// the retry limit of the breaker.
 TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {

@@ -120,7 +120,6 @@ bool Acquisition::run_once() {
         }
         writer = std::move(writer_i);
         writer_opened = true;
-        this->breaker.reset();
     }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
@@ -160,7 +159,6 @@ bool Acquisition::run_once() {
             }
             writer = std::move(writer_i);
             writer_opened = true;
-            this->breaker.reset();
             if (pending_global_auth.has_value()) {
                 Authorities auth{.authorities = {*pending_global_auth}};
                 if (auto err = writer->set_authority(auth)) {
