@@ -289,6 +289,42 @@ describe("Custom.useRender", () => {
       rerender({ ...params, delayed: false });
       expect(container.querySelector(HOLD_FILL)).toBeNull();
     });
+
+    it("should keep region colors off the hold fill", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="50" stroke="black"/></svg>',
+        states: [
+          {
+            key: "inactive",
+            name: "Inactive",
+            regions: [
+              {
+                key: "main",
+                name: "Main",
+                selectors: ["rect:nth-of-type(1)"],
+                strokeColor: color.construct("#333333"),
+              },
+            ],
+          },
+        ],
+      });
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+          strokeColor: color.construct("#ff0000"),
+          delayed: true,
+        },
+        container,
+      );
+      const [shape, fill] = container.querySelectorAll<SVGElement>("rect");
+      expect(fill.classList.contains("pluto-symbol-hold__fill")).toBe(true);
+      expect(strokeColor(shape)).toBe(rgba("#ff0000"));
+      expect(strokeColor(fill)).toBe("");
+    });
   });
 
   describe("auto-heal", () => {
