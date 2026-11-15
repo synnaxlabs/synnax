@@ -132,6 +132,13 @@ describe("menu filter", () => {
       expect(displays(".lyra-menu__divider")).toEqual(["none", "none"]);
     });
 
+    it("should hide the dividers after the last match", async () => {
+      await openContextMenu();
+      await userEvent.keyboard("cop");
+      await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(1);
+      expect(displays(".lyra-menu__divider")).toEqual(["none", "none"]);
+    });
+
     it("should show one muted line when nothing matches", async () => {
       await openContextMenu();
       await userEvent.keyboard("zz");

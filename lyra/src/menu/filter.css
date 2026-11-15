@@ -40,6 +40,9 @@
 
 /* A divider shows only between items that match. */
 .lyra-menu-filter + .lyra-menu__divider,
-.lyra-menu__divider:has(+ .lyra-menu-filter__empty) {
+.lyra-menu-filter
+    ~ .lyra-menu__divider:not(
+        :has(~ :not(.lyra-menu__divider, .lyra-menu-filter__empty))
+    ) {
     display: none;
 }
