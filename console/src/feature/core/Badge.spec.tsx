@@ -50,6 +50,18 @@ const UNREACHABLE: connection.Status = {
   details: { ...connection.DEFAULT_STATUS.details, reason: "unreachable" },
 };
 
+const AUTH_FAILED: connection.Status = {
+  ...UNREACHABLE,
+  message: "Failed to authenticate",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "auth" },
+};
+
+const INCOMPATIBLE: connection.Status = {
+  ...UNREACHABLE,
+  message: "Core version not supported",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "incompatible" },
+};
+
 describe("Core.Badge", () => {
   beforeEach(() => {
     mocks.engine = "web";
@@ -86,16 +98,17 @@ describe("Core.Badge", () => {
     ).toBeTruthy();
   });
 
-  it("should label a Core that answers without a license as unlicensed", async () => {
-    const { wrapper } = await createStatusConsoleWrapper({
-      client: null,
-      status: UNLICENSED_STATUS,
-    });
+  it.each<[string, connection.Status]>([
+    ["Unreachable", UNREACHABLE],
+    ["Unlicensed", UNLICENSED_STATUS],
+    ["Unauthenticated", AUTH_FAILED],
+    ["Incompatible", INCOMPATIBLE],
+  ])("should label the failed connection %s by its reason", async (label, status) => {
+    const { wrapper } = await createStatusConsoleWrapper({ client: null, status });
     const { container } = render(<Core.Badge />, { wrapper });
     hoverCoreBadge(container);
     const tooltip = await screen.findByRole("tooltip");
-    expect(within(tooltip).getByText("Unlicensed")).toBeTruthy();
-    expect(within(tooltip).queryByText("Unreachable")).toBeNull();
+    expect(within(tooltip).getByText(label)).toBeTruthy();
   });
 
   it("should show the logged-in user's name in the trigger", async () => {
