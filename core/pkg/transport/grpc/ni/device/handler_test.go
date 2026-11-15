@@ -26,6 +26,27 @@ import (
 )
 
 var _ = Describe("Handler", func() {
+	BeforeEach(func() {
+		transport.NIDeviceCreate.BindHandler(func(
+			context.Context,
+			device.CreateRequest,
+		) (device.CreateResponse, error) {
+			return device.CreateResponse{}, nil
+		})
+		transport.NIDeviceUpdate.BindHandler(func(
+			context.Context,
+			device.UpdateRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+		transport.NIDeviceDelete.BindHandler(func(
+			context.Context,
+			device.DeleteRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+	})
+
 	It("Should create devices and return their keys", func(ctx SpecContext) {
 		key := uuid.New()
 		var received device.CreateRequest
@@ -124,12 +145,6 @@ var _ = Describe("Handler", func() {
 	It(
 		"Should reject a port number that does not fit in 16 bits",
 		func(ctx SpecContext) {
-			transport.NIDeviceCreate.BindHandler(func(
-				_ context.Context,
-				req device.CreateRequest,
-			) (device.CreateResponse, error) {
-				return device.CreateResponse(req), nil
-			})
 			pbDev := MustSucceed(devicepb.DeviceToPB(svcdevice.Device{Key: uuid.New()}))
 			pbDev.CounterInput = map[uint32]*devicepb.CounterInputChannels{65536: {}}
 			Expect(grpcdevice.NewNIDeviceCreateServiceClient(conn).Exec(
