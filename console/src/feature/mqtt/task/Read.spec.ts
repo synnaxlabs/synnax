@@ -13,7 +13,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import {
   clickDeploy,
@@ -92,12 +92,6 @@ const renderRead = async (entries: MQTT.Task.ReadEntry[] = []) => {
     taskKey: draft.key,
   });
   return { ...result, dev, draft };
-};
-
-// The add button renders once the form leaves its loading preview.
-const openAddData = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
-  return within(await screen.findByRole("dialog"));
 };
 
 const addEntry = async (): Promise<void> => {

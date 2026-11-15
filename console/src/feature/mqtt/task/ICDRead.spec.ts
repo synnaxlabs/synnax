@@ -11,13 +11,14 @@ import { icd, mqtt } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
+  clickFailedDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -104,12 +105,6 @@ const retrieveEntries = async (key: string) =>
   (await client.tasks.retrieve({ key, schemas: MQTT.Task.ICD_READ_SCHEMAS })).config
     .entries;
 
-// The add button renders once the form leaves its loading preview.
-const openAddData = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
-  return within(await screen.findByRole("dialog"));
-};
-
 const deploy = async (container: HTMLElement, key: string) =>
   await deployAndAwaitTask(client, container, key, MQTT.Task.ICD_READ_SCHEMAS);
 
@@ -173,8 +168,9 @@ describe("MQTT ICD read form", () => {
     });
     const item = () => screen.findByRole("option", { name: /plant\/oven/ });
     fireEvent.contextMenu(await item());
+    const disable = await screen.findByText("Disable");
     expect(screen.queryByText("Enable")).toBeNull();
-    fireEvent.click(await screen.findByText("Disable"));
+    fireEvent.click(disable);
     await waitFor(async () =>
       expect((await retrieveEntries(draft.key))[0].disabled).toBe(true),
     );
@@ -185,7 +181,44 @@ describe("MQTT ICD read form", () => {
     );
   });
 
+  it("should read the time from the first timestamp field on payload timing", async () => {
+    const time = createTimeField();
+    const { draft } = await renderICDRead({
+      fields: [createField("temperature", "float"), time],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+    await waitFor(async () =>
+      expect((await retrieveEntries(draft.key))[0].messages[0].index).toBe(time.key),
+    );
+  });
+
+  it("should rename the message of a topic when the topic changes", async () => {
+    const { draft } = await renderICDRead({
+      fields: [createField("temperature", "float")],
+    });
+    const input = await screen.findByDisplayValue(TOPIC);
+    fireEvent.change(input, { target: { value: "plant/kiln" } });
+    fireEvent.blur(input);
+    const [entry] = await retrieveEntries(draft.key);
+    await waitFor(async () =>
+      expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(
+        "plant/kiln",
+      ),
+    );
+  });
+
   describe("deploying against a live Core", () => {
+    it("should not deploy while the message format holds an invalid edit", async () => {
+      const { container, dev } = await renderICDRead({
+        fields: [createField("temperature", "float")],
+      });
+      const name = await screen.findByLabelText("Name 1");
+      fireEvent.change(name, { target: { value: "" } });
+      fireEvent.blur(name);
+      await clickFailedDeploy(container);
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
     it("should create and bind an index channel and a data channel", async () => {
       const time = createTimeField();
       const temperature = createField("temperature", "float");
