@@ -647,6 +647,26 @@ describe("position", () => {
       },
     };
 
+    const ALIGN_OFFSET_X: Spec = {
+      name: "align offset moves the dialog left past the left edge it shares",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { targetCorner: { x: "left" }, dialogCorner: { x: "left" } },
+        prefer: [
+          { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_LEFT },
+        ],
+        offset: 3,
+        alignOffset: 5,
+      },
+      expected: {
+        targetCorner: location.BOTTOM_LEFT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(35, 53, 20, 20),
+      },
+    };
+
     const SPECS: Spec[] = [
       CENTER,
       TOP_LEFT,
@@ -683,6 +703,7 @@ describe("position", () => {
       ROW_WITH_PREFERRED_SIDE_DISABLED,
       ALIGN_OFFSET,
       ALIGN_OFFSET_FLIPPED,
+      ALIGN_OFFSET_X,
     ];
 
     SPECS.forEach(({ name, params, expected }) =>
