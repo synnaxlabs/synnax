@@ -114,6 +114,9 @@ std::string pdo_error_description(const std::string &error) {
 
 /// @brief the device property that holds the time of the last switch to Synnax only.
 const std::string SWITCHED_AT = "switched_at";
+/// @brief the device property that holds the name of the network that the user knows,
+/// such as "Ethernet 2".
+const std::string NETWORK_NAME = "network_name";
 
 /// @brief returns the time of the last switch to Synnax only in props, or 0 when they
 /// hold none. The Core gives the time back as a double.
@@ -376,6 +379,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             failures.insert(err.data);
             continue;
         }
+        const auto [engine, acquire_err] = this->pool->acquire(key);
+        if (acquire_err) return {{}, acquire_err};
         const auto health = this->pool->health(key);
         const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
@@ -407,6 +412,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 keys[i],
                 health,
                 key,
+                engine->name(),
                 scan_ctx
             );
             rediscovery_needed |= enabled &&
@@ -428,8 +434,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
         if (const auto it = this->unidentified.find(key);
             it != this->unidentified.end() && !it->second.reported.empty()) {
-            const auto [engine, acquire_err] = this->pool->acquire(key);
-            if (acquire_err) return {{}, acquire_err};
             for (const auto position: it->second.reported)
                 failures.insert(
                     "Slave " + std::to_string(position) + " on " + engine->name() +
@@ -475,6 +479,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const std::string &key,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
+    const std::string &network_name,
     const common::ScannerContext &scan_ctx
 ) const {
     const auto &props = slave.properties;
@@ -487,6 +492,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     bool pdos_kept = false;
     if (!sts.starting) {
         auto slave_props = props.to_json();
+        slave_props[NETWORK_NAME] = network_name;
         // An incomplete PDO read keeps the stored PDOs, unless the slave now holds
         // another mode. A failed settings read gives no settings, so the stored ones
         // stay.

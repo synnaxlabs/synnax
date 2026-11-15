@@ -142,43 +142,50 @@ const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
 
-interface DeviceItemProps {
+interface DeviceItemProps extends Pick<Hardware, "formatLocation"> {
   device: device.Device;
   onConfigure: (key: device.Key) => void;
 }
 
-const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
-  <Pane.Item>
-    <Flex.Box y gap="tiny" grow>
-      <Text.Text level="p" weight={500} color={11}>
-        {d.name}
-      </Text.Text>
-      <Text.Text level="small" color={9}>
-        {d.model}
-        {d.location.length > 0 && (
-          <span className={CSS.BE("device-find", "location")}>{d.location}</span>
-        )}
-      </Text.Text>
-    </Flex.Box>
-    {d.configured ? (
-      <Text.Text
-        level="small"
-        color={9}
-        className={CSS.BE("device-find", "configured")}
-      >
-        <Icon.Check />
-        Configured
-      </Text.Text>
-    ) : (
-      <Button.Button size="small" variant="filled" onClick={() => onConfigure(d.key)}>
-        Configure
-      </Button.Button>
-    )}
-    <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
-  </Pane.Item>
-);
+const DeviceItem = ({
+  device: d,
+  formatLocation,
+  onConfigure,
+}: DeviceItemProps): ReactElement => {
+  const location = formatLocation?.(d) ?? d.location;
+  return (
+    <Pane.Item>
+      <Flex.Box y gap="tiny" grow>
+        <Text.Text level="p" weight={500} color={11}>
+          {d.name}
+        </Text.Text>
+        <Text.Text level="small" color={9}>
+          {d.model}
+          {location.length > 0 && (
+            <span className={CSS.BE("device-find", "location")}>{location}</span>
+          )}
+        </Text.Text>
+      </Flex.Box>
+      {d.configured ? (
+        <Text.Text
+          level="small"
+          color={9}
+          className={CSS.BE("device-find", "configured")}
+        >
+          <Icon.Check />
+          Configured
+        </Text.Text>
+      ) : (
+        <Button.Button size="small" variant="filled" onClick={() => onConfigure(d.key)}>
+          Configure
+        </Button.Button>
+      )}
+      <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
+    </Pane.Item>
+  );
+};
 
-interface RackCardProps {
+interface RackCardProps extends Pick<Hardware, "formatLocation"> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   devices: device.Device[];
@@ -191,6 +198,7 @@ const RackCard = ({
   scanner,
   devices,
   name,
+  formatLocation,
   onConfigure,
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
@@ -210,7 +218,12 @@ const RackCard = ({
     </Pane.Header>
     <ScannerState rack={r} scanner={scanner} name={name} />
     {devices.map((d) => (
-      <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
+      <DeviceItem
+        key={d.key}
+        device={d}
+        formatLocation={formatLocation}
+        onConfigure={onConfigure}
+      />
     ))}
     {devices.length === 0 && isScanning(r, scanner) && (
       <State variant="loading" message={`Looking for ${name} hardware`} />
@@ -256,7 +269,7 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks },
+  hardware: { key, name, title, icon, make, scanType, checks, formatLocation },
   rack: rackKey,
   filter,
   onBack,
@@ -330,6 +343,7 @@ export const Find = ({
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
+            formatLocation={formatLocation}
             onConfigure={onConfigure}
           />
         ))}

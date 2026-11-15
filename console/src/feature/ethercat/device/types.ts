@@ -170,6 +170,8 @@ export const slavePropertiesZ = z.object({
   settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
   /** When the Driver last switched the slave to Synnax only, in nanoseconds. */
   switchedAt: z.number().optional(),
+  /** The name of the network that the user knows, such as "Ethernet 2". */
+  networkName: z.string().optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 

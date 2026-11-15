@@ -505,6 +505,16 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     );
 }
 
+/// @brief it should give each slave device the name of its network that the user knows,
+/// and keep the location by network key.
+TEST_F(EtherCATScanStatusTest, GivesEachSlaveTheNameOfItsNetwork) {
+    this->master->set_name("Ethernet 2");
+    const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = 1}));
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices[0].properties.at("network_name"), "Ethernet 2");
+    EXPECT_EQ(devices[0].location, "eth0.Slot 1");
+}
+
 /// @brief it should show the discovery result in the status of a slave while the bus is
 /// stopped.
 TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
