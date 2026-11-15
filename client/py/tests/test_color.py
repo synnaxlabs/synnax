@@ -68,6 +68,19 @@ class TestColorClient:
         res = client.colors.retrieve(search_term=named.name)
         assert named.key in {r.key for r in res}
 
+    def test_retrieve_by_palette(self, client: sy.Synnax) -> None:
+        """Should retrieve the named colors of a palette, or the ones in no palette."""
+        palette = client.groups.create(str(uuid4()), scope="color")
+        in_palette = client.colors.create(
+            color.Named(name=str(uuid4()), light=sy.Color("#FF0000"), group=palette.key)
+        )
+        loose = client.colors.create(name=str(uuid4()), light="#FF0000")
+        assert client.colors.retrieve(groups=palette.key) == [in_palette]
+        ungrouped = client.colors.retrieve(
+            key=[in_palette.key, loose.key], grouped=False
+        )
+        assert ungrouped == [loose]
+
     def test_retrieve_name_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no named color has the name."""
         with pytest.raises(sy.NotFoundError, match="Found no named color"):

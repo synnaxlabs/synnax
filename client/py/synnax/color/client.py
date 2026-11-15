@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.color import actions_gen
 from synnax.color.types_gen import (
     Cursor,
@@ -107,6 +108,8 @@ class Client:
         *,
         key: Key,
         name: filter.StringInput = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -121,6 +124,8 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: str,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -135,6 +140,8 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         name: filter.StringInput = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -151,6 +158,8 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -186,6 +195,9 @@ class Client:
 
         :param key: Keeps named colors with this key.
         :param name: Keeps named colors with this name.
+        :param groups: Keeps named colors in any of these palettes.
+        :param grouped: Keeps only named colors in a palette when True, and only named
+            colors in no palette when False.
         :param and_: Keeps named colors that match every filter in the list.
         :param or_: Keeps named colors that match any filter in the list.
         :param not_: Keeps named colors that do not match the filter.
