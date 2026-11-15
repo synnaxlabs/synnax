@@ -57,13 +57,6 @@
         --pluto-active-bg: var(--pluto-fill-press);
         --pluto-hover-border-color: var(--pluto-gray-l8);
         --pluto-active-border-color: var(--pluto-gray-l8);
-
-        /* Its close shows on hover, over the hovered face. */
-        & .lyra-btn.lyra-tag__close {
-            --pluto-bg: var(--pluto-fill-hover);
-            --pluto-hover-bg: var(--pluto-fill-hover);
-            --pluto-active-bg: var(--pluto-fill-hover);
-        }
     }
 
     & > .lyra-tags__more:hover {
