@@ -685,6 +685,16 @@ var _ = Describe("Path actions", func() {
 			))).To(Equal(create2x2()))
 		})
 
+		It(
+			"Should do nothing to a field of a missing row that is not editable",
+			func() {
+				Expect(table.Reduce(
+					create2x2(),
+					set([]string{"rows", "ghost", "size"}, 40),
+				)).To(Equal(create2x2()))
+			},
+		)
+
 		It("Should set the name", func() {
 			next := MustSucceed(
 				table.Reduce(create2x2(), set([]string{"name"}, "Other")),

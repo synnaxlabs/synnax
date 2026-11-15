@@ -119,9 +119,9 @@ func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return apply(state, patch.Move(p))
 }
 
-// apply applies a path action to the schematic's name, group, or project, or to the
-// config of a node or edge. An action on a node or edge that does not exist does
-// nothing, and any other path into a node or edge is rejected.
+// apply applies a path action to the schematic's name, group, or project, to the config
+// or parent of a node, or to the config of an edge. Any other path fails, except that a
+// path through a node or edge that does not exist does nothing.
 func apply[A patch.Action](state Schematic, a A) (Schematic, error) {
 	c, err := patch.Begin(a)
 	if err != nil {

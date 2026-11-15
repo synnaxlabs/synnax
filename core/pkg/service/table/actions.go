@@ -329,8 +329,8 @@ func (p MovePayload) Handle(state Table) (Table, error) {
 }
 
 // apply applies a path action to the table's name, group, or project, or to the config
-// of a cell. An action on a cell that no row holds does nothing, and any other path
-// into a row is rejected.
+// of a cell. Any other path fails, except that a path through a row or cell that does
+// not exist does nothing.
 func apply[A patch.Action](state Table, a A) (Table, error) {
 	c, err := patch.Begin(a)
 	if err != nil {

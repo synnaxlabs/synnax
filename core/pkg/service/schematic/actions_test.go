@@ -979,7 +979,7 @@ var _ = Describe("Path actions", func() {
 	})
 
 	DescribeTable(
-		"Should do nothing to the config of a node or edge that does not exist",
+		"Should do nothing to a node or edge that does not exist",
 		func(a schematic.Action) {
 			Expect(MustSucceed(schematic.Reduce(state, a))).To(Equal(state))
 		},
@@ -1021,6 +1021,17 @@ var _ = Describe("Path actions", func() {
 				Path: []string{"edges", "ghost", "config", "segments"},
 				Key:  "a",
 			}),
+		),
+		Entry(
+			"a set of a field that is not editable",
+			set([]string{"nodes", "ghost", "position"}, map[string]any{"x": 1, "y": 1}),
+		),
+		Entry(
+			"a set of an edge field that is not editable",
+			set(
+				[]string{"edges", "ghost", "source"},
+				map[string]any{"node": "n2", "param": "out"},
+			),
 		),
 	)
 })
