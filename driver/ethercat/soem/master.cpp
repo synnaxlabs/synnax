@@ -325,7 +325,7 @@ master::Activation Master::activate(
             errors::CYCLIC_ERROR,
             std::string(NO_FRAME) + ". " + this->name() +
                 " is a USB adapter, which can hold frames back. Use a PCIe or onboard "
-                "Ethernet adapter, or a lower sample rate"
+                "Ethernet adapter, or lower the rate of the fastest task on the network"
         );
     return this->start(start_cycle);
 }

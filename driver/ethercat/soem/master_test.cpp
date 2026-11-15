@@ -2222,7 +2222,8 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     EXPECT_EQ(
         late.data,
         "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
-        "frames back. Use a PCIe or onboard Ethernet adapter, or a lower sample rate"
+        "frames back. Use a PCIe or onboard Ethernet adapter, or lower the rate of the "
+        "fastest task on the network"
     );
     clock.skip(x::telem::MILLISECOND);
     this->mock->send_return = 0;
