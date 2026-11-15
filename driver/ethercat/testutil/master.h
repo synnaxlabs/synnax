@@ -168,6 +168,15 @@ public:
         this->slave_list.push_back(std::move(result));
     }
 
+    /// @brief takes the slave at position off the bus, as when its power is off.
+    /// add_slave() puts it back. A scan sees the change only after deactivate().
+    void remove_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        std::erase_if(this->slave_list, [position](const auto &s) {
+            return s.properties.position == position;
+        });
+    }
+
     /// @brief replaces the slave at position with props. A scan sees the change only
     /// after deactivate(), as a restarted slave on a real bus.
     void replace_slave(const uint16_t position, slave::Properties props) {
@@ -206,6 +215,14 @@ public:
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.settings_error = error;
+    }
+
+    /// @brief sets the settings that a scan reads from the slave at position.
+    void set_settings(const uint16_t position, const x::json::json &settings) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.properties.settings = settings;
     }
 
     /// @brief makes the serial number read of the slave at position fail with error.

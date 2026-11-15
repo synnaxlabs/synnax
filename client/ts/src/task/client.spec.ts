@@ -8,8 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
-import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
+import {
+  binary,
+  type record,
+  Series,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+} from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { z } from "zod";
 
 import { framer } from "@/framer";
 import { query } from "@/query";
@@ -106,6 +115,61 @@ describe("task.Client", () => {
         }),
       );
       await expect.poll(cachedMessage).toBe("Task configured");
+    });
+  });
+
+  describe("parse", () => {
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({
+        routingKey: z.string(),
+        severity: z.string().default("high"),
+      }),
+      statusData: z.any().optional(),
+    };
+    const KEY = "3f6b2a1c-7d8e-4f90-a1b2-c3d4e5f6a7b8";
+    const untyped = (tasks: task.Client, config: record.Unknown): task.Task =>
+      tasks.sugar({
+        key: KEY,
+        rack: 0,
+        name: "alert",
+        type: "pagerduty_alert",
+        config,
+        configHash: "",
+        internal: false,
+      });
+
+    it("should fill schema defaults on an untyped task", async () => {
+      const { tasks } = await createStreamedClient();
+      const parsed = tasks.parse(untyped(tasks, { routingKey: "abc" }), schemas);
+      expect(query.isLive(parsed) && parsed.config).toEqual({
+        routingKey: "abc",
+        severity: "high",
+      });
+    });
+
+    it("should return the same instance for the same task and schemas", async () => {
+      const { tasks } = await createStreamedClient();
+      const cached = untyped(tasks, { routingKey: "abc" });
+      expect(tasks.parse(cached, schemas)).toBe(tasks.parse(cached, schemas));
+    });
+
+    it("should return undefined for a task that fails to parse", async () => {
+      const { tasks } = await createStreamedClient();
+      expect(tasks.parse(untyped(tasks, { routingKey: 1 }), schemas)).toBeUndefined();
+    });
+
+    it("should parse the corpse of a deleted task into one stable wrapper", async () => {
+      const { tasks } = await createStreamedClient();
+      const deleted = new query.Deleted(
+        untyped(tasks, { routingKey: "abc" }),
+        TimeStamp.now(),
+      );
+      const parsed = tasks.parse(deleted, schemas);
+      expect(query.Deleted.matches(parsed) && parsed.corpse.config.severity).toBe(
+        "high",
+      );
+      expect(tasks.parse(deleted, schemas)).toBe(parsed);
     });
   });
 

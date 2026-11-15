@@ -86,12 +86,25 @@ struct Config {
 /// last one closes. Opening or closing one never interrupts the others.
 class Engine {
 public:
-    /// @brief the time limit and the cancel of one task start.
+    /// @brief a step of a task start, such as a scan of the network.
+    struct Step {
+        /// @brief what the start does now, in one short line.
+        std::string message;
+        /// @brief why, in full sentences, or empty.
+        std::string description;
+        /// @brief how long the step may run before the task warns.
+        x::telem::TimeSpan limit;
+    };
+
+    /// @brief the time limit, the cancel, and the steps of one task start.
     struct Start {
         /// @brief the time at which the start fails.
         std::chrono::steady_clock::time_point deadline;
         /// @brief ends the start when it stops.
         x::breaker::Breaker &cancel;
+        /// @brief receives each step of the start, or nullptr. The engine calls it with
+        /// its lock held, so it must not block.
+        std::function<void(const Step &)> report;
         /// @brief whether the start waited for another call on the network. The Engine
         /// sets it.
         mutable bool blocked = false;
@@ -109,7 +122,9 @@ private:
     /// @brief the vendor, product, and serial number of a slave, and its position when
     /// it has no serial number.
     using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
-    /// @brief the time of the last restart of each slave in slaves. Guarded by mu.
+    /// @brief guards restarts, which the supervisor writes without mu.
+    std::mutex restarts_mu;
+    /// @brief the time of the last restart of each slave in slaves.
     std::map<RestartKey, x::telem::TimeStamp> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
@@ -123,6 +138,9 @@ private:
     /// Written only while the bus is stopped, so the supervisor reads it without a
     /// lock.
     std::map<uint16_t, LeftOut> left_out;
+    /// @brief the positions of the slaves that the running bus does not check: those it
+    /// started without, and those that their settings disable.
+    std::set<uint16_t> unchecked;
 
     struct Outage;
     /// @brief the entries of one reader and the samples the cycle thread hands it.
@@ -149,6 +167,8 @@ private:
         std::vector<Slave> slaves;
         /// @brief what the reader writes to the slaves.
         Settings settings;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
         x::telem::Rate rate;
         size_t samples_per_read;
         size_t sample_size = 0;
@@ -195,6 +215,8 @@ private:
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
         std::vector<x::telem::SampleValue> stop_values;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
         /// @brief a slave that holds entries of the writer.
         struct Slave {
             uint16_t position = 0;
@@ -237,6 +259,9 @@ private:
     x::breaker::Breaker bus;
     /// @brief the number of times the bus stopped, guarded by mu.
     uint64_t stops = 0;
+    /// @brief the Configure settings of each slave at the last bus start, keyed by
+    /// position and guarded by mu.
+    std::map<uint16_t, slave::Config> device_configs;
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
@@ -318,18 +343,21 @@ private:
     /// @brief scans the stopped bus again. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover_locked();
+    /// @brief scans the bus. When no slave answers, forgets the slaves, so that each
+    /// one gets a new restart time when a scan finds it again. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan_locked();
     /// @brief scans the stopped bus again, with restarted as the slaves that restarted
     /// since the last scan. Requires mu.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rescan_locked(const std::set<uint16_t> &restarted);
-    /// @brief returns the positions of the slaves that restarted since the last scan of
-    /// the master, or none when the master has no scan or cannot see a restart.
-    /// Requires mu.
-    std::pair<std::set<uint16_t>, x::errors::Error> restarted_locked();
+    /// @brief returns how the bus changed since the last scan of the master, or no
+    /// change when the master has no scan or cannot see a restart. Requires mu.
+    std::pair<master::Change, x::errors::Error> changed_locked();
     /// @brief records now as the restart time of each slave in slaves that restarted
     /// names or that the last scan did not find, and gives each slave in slaves its
     /// time. Forgets the slaves that slaves lacks. Requires mu.
     void track_restarts_locked(const std::set<uint16_t> &restarted);
+    [[nodiscard]] static RestartKey restart_key(const slave::Properties &props);
     /// @brief locks mu without waiting behind an open_reader or open_writer.
     /// @returns errors::SLAVE_CONFIG_ERROR at once while a task opens or runs the bus.
     std::pair<std::unique_lock<std::mutex>, x::errors::Error> lock_stopped();
@@ -372,6 +400,9 @@ private:
         uint64_t mhz = 0;
         /// @brief the offset of each entry in the process image.
         std::vector<pdo::Offset> offsets;
+        /// @brief why the bus did not apply the startup parameters of a slave that
+        /// another program sets up, or an empty string.
+        std::string unapplied;
     };
     /// @brief returns the bus rate and the offset of each entry once the bus runs at a
     /// rate that also serves rate as a read rate, or as a write rate when output is
@@ -388,7 +419,8 @@ private:
     );
     /// @brief locks lock, a lock of mu, and polls it so that the wait ends at the
     /// deadline of start or when its cancel stops.
-    /// @returns errors::ACTIVATION_ERROR when the wait ends without the lock.
+    /// @returns x::errors::CANCELLED when the cancel stops, or errors::ACTIVATION_ERROR
+    /// when the deadline passes first.
     [[nodiscard]] x::errors::Error
     lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const;
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> discover_locked();
@@ -456,6 +488,12 @@ public:
         /// after the last call that saw it, so a task that keeps dropping keeps one
         /// warning.
         [[nodiscard]] std::string warning();
+
+        /// @brief returns why the bus did not apply startup parameters when the reader
+        /// opened, in full sentences, or an empty string.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->input->unapplied;
+        }
     };
 
     /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
@@ -502,6 +540,11 @@ public:
         /// Ends the warning of each slave of the writer that returned to OP.
         [[nodiscard]] Transaction open_tx() const;
 
+        /// @brief returns why the bus did not apply startup parameters when the writer
+        /// opened, in full sentences, or an empty string.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->output->unapplied;
+        }
         /// @brief explains, in full sentences, which slaves of the writer are out of
         /// OP, and which returned since the latest open_tx(), or returns an empty
         /// string. Thread-safe.
@@ -523,7 +566,11 @@ public:
 
     /// @brief returns a start that fails Config::start_timeout from now, or when cancel
     /// stops.
-    [[nodiscard]] Start begin_start(x::breaker::Breaker &cancel) const;
+    /// @param report receives each step of the start, or nullptr. It must not block.
+    [[nodiscard]] Start begin_start(
+        x::breaker::Breaker &cancel,
+        std::function<void(const Step &)> report = nullptr
+    ) const;
 
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
@@ -540,8 +587,8 @@ public:
     /// another value, or when the IgH master runs the bus and a slave holds another
     /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
     /// setting on the running bus, or the error that kept the bus from starting.
-    /// errors::ACTIVATION_ERROR when the deadline of start passes or its cancel stops
-    /// before the bus starts.
+    /// errors::ACTIVATION_ERROR when the deadline of start passes before the bus
+    /// starts, and x::errors::CANCELLED when its cancel stops first.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
@@ -560,8 +607,8 @@ public:
     /// @returns errors::RATE_MISMATCH when no bus rate suits every open task, or when a
     /// slave runs DC sync and its fixed bus rate does not suit the writer.
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
-    /// error that kept the bus from starting. errors::ACTIVATION_ERROR as open_reader
-    /// gives it.
+    /// error that kept the bus from starting. errors::ACTIVATION_ERROR and
+    /// x::errors::CANCELLED as open_reader gives them.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate,
@@ -586,8 +633,9 @@ public:
     discover();
 
     /// @brief returns the slaves on the bus as discover() does, for a task start.
-    /// @returns errors::ACTIVATION_ERROR when the deadline of start passes or its
-    /// cancel stops while another task starts the bus.
+    /// @returns errors::ACTIVATION_ERROR when the deadline of start passes while
+    /// another task starts the bus, and x::errors::CANCELLED when its cancel stops
+    /// first.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover(const Start &start);
 
