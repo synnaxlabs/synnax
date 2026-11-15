@@ -368,7 +368,8 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
 }
 
 /// @brief it should start a write task that the Factory configures, with the bus at the
-/// execution rate of the task.
+/// execution rate of the task, and send only the steps that the start reached before it
+/// answers the start.
 TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
     auto cfg = this->create_base_config();
@@ -388,10 +389,30 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     auto [write_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(write_task, nullptr);
-    synnax::task::Command start{.task = task.key, .type = "start"};
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "start_cmd"};
     write_task->exec(start, this->cancel);
-    ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
-    EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto sent = this->ctx->snapshot();
+            return sent.empty() ? std::string() : sent.back().message;
+        },
+        std::string("Started task")
+    );
+    const auto statuses = this->ctx->snapshot();
+    std::vector<std::string> messages;
+    for (const auto &status: statuses) {
+        messages.push_back(status.message);
+        EXPECT_EQ(status.details.cmd, "start_cmd");
+    }
+    // Only the latest step waits to be sent, so the sender can skip the scan.
+    const std::vector<std::string> every{
+        "Scanning eth0",
+        "Starting eth0",
+        "Started task"
+    };
+    const std::vector<std::string> latest{"Starting eth0", "Started task"};
+    ASSERT_TRUE(messages == every || messages == latest) << messages.size();
+    EXPECT_EQ(statuses[statuses.size() - 2].variant, synnax::status::VARIANT_LOADING);
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     write_task->exec(stop, this->cancel);
@@ -443,7 +464,7 @@ TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
     this->mock_master->release_activate();
     starter.join();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(err.data, "Another task is still using eth0.");
     ASSERT_NIL(first->stop());
 }
 

@@ -38,6 +38,18 @@ const x::telem::Rate MAX_CYCLE_RATE(10000);
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long each step of a start may run before the task warns.
+const auto WAIT_STEP_LIMIT = x::telem::SECOND * 10;
+const auto SCAN_STEP_LIMIT = x::telem::SECOND * 10;
+const auto ACTIVATE_STEP_LIMIT = x::telem::SECOND * 30;
+const auto RESET_STEP_LIMIT = x::telem::SECOND * 10;
+/// @brief how long a retry step may run past its wait.
+const auto RETRY_STEP_SLACK = x::telem::SECOND * 10;
+
+/// @brief sends step to the report of start, if it has one.
+void report(const Engine::Start &start, const Engine::Step &step) {
+    if (start.report) start.report(step);
+}
 
 /// @brief returns the error of an open whose cancel stopped before the bus started. The
 /// task answers a start that ends with it as stopped.
@@ -57,11 +69,11 @@ x::errors::Error start_late_error(const std::string &network) {
 }
 
 /// @brief returns the error of a start whose deadline passed while or after it waited
-/// for another start.
+/// for another task.
 x::errors::Error start_blocked_error(const std::string &network) {
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
-        "Another task is still starting on " + network + "."
+        "Another task is still using " + network + "."
     );
 }
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
@@ -668,6 +680,25 @@ x::errors::Error Engine::start_locked(
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
                     it->second.startup_parameters.clear();
+            const auto starting = std::ranges::count_if(
+                this->slaves,
+                [&plan](const slave::DiscoveryResult &s) {
+                    const auto it = plan.slaves.find(s.properties.position);
+                    return it == plan.slaves.end() || it->second.enabled;
+                }
+            );
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "Bringing {} slave{} to OP.",
+                        starting,
+                        starting == 1 ? "" : "s"
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
             auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
@@ -690,6 +721,24 @@ x::errors::Error Engine::start_locked(
                     LOG(WARNING)
                         << "[ethercat] slave " << pos << " on " << this->iface << " "
                         << refusal.reason << ", starting again with it reset";
+                    const auto s = std::ranges::find_if(
+                        this->slaves,
+                        [pos](const auto &d) { return d.properties.position == pos; }
+                    );
+                    report(
+                        start,
+                        {
+                            .message = std::format(
+                                "Resetting slave {} ({})",
+                                pos,
+                                s == this->slaves.end() ? "" : s->properties.name
+                            ),
+                            .description = errors::sentence("It " + refusal.reason) +
+                                           " Starting " + this->network_name +
+                                           " again with it reset.",
+                            .limit = RESET_STEP_LIMIT,
+                        }
+                    );
                     continue;
                 }
                 leaving.insert({pos, refusal});
@@ -736,6 +785,16 @@ x::errors::Error Engine::start_locked(
             return start_error(err, refused, this->left_out);
         LOG(WARNING) << "[ethercat] failed to start " << this->iface
                      << ", trying again in " << wait << ": " << err.message();
+        const auto why = errors::sentence(err.data);
+        report(
+            start,
+            {
+                .message = "Retrying the start",
+                .description = (why.empty() ? "" : why + " ") + "Trying again in " +
+                               wait.to_string() + ".",
+                .limit = wait + RETRY_STEP_SLACK,
+            }
+        );
         start.cancel.wait_for(wait);
     }
     this->slaves = this->image.slaves;
@@ -1128,11 +1187,15 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     };
 }
 
-Engine::Start Engine::begin_start(x::breaker::Breaker &cancel) const {
+Engine::Start Engine::begin_start(
+    x::breaker::Breaker &cancel,
+    std::function<void(const Step &)> report
+) const {
     return {
         .deadline = this->config.host_clock.steady() +
                     this->config.start_timeout.chrono(),
         .cancel = cancel,
+        .report = std::move(report),
     };
 }
 
@@ -1246,6 +1309,11 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::discover(const Start &start) {
     std::unique_lock lock(this->mu, std::defer_lock);
     if (auto err = this->lock_for(lock, start)) return {{}, err};
+    if (!this->running())
+        report(
+            start,
+            {.message = "Scanning " + this->network_name, .limit = SCAN_STEP_LIMIT}
+        );
     return this->discover_locked();
 }
 
@@ -1280,7 +1348,17 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
-    while (!lock.try_lock()) {
+    // A wait of one poll is a short hold, such as a notify of the cycle thread.
+    for (int polls = 0; !lock.try_lock(); polls++) {
+        if (polls == 1)
+            report(
+                start,
+                {
+                    .message = "Waiting for another task",
+                    .description = "Another task is using " + this->network_name + ".",
+                    .limit = WAIT_STEP_LIMIT,
+                }
+            );
         start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
         if (this->config.host_clock.steady() >= start.deadline)
