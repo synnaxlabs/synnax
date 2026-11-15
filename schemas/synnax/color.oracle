@@ -24,6 +24,7 @@ Named struct {
     name  string       {
         @doc value           "is the name of the color."
         @patch
+        @search
         @validate min_length 1
     }
     light color.Color  {
