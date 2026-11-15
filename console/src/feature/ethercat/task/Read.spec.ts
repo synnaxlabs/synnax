@@ -480,13 +480,16 @@ describe("Read", () => {
   it("should not warn of a slave in DewesoftX mode that only disabled channels use", async () => {
     const shared = await createSharedSlave();
     const position = Math.floor(Math.random() * 2 ** 31);
+    const name = uniqueName("slave");
     const other = await createSlaveDevice(client, testRack.key, {
+      name: `${name} a`,
       identifier: createIdentifier(),
       network: "eth0",
       position,
       pdos: createPDOs(),
     });
     const stale = await createSlaveDevice(client, testRack.key, {
+      name: `${name} b`,
       identifier: createIdentifier(),
       network: "eth0",
       position,
@@ -1183,12 +1186,15 @@ describe("Read", () => {
     const position = Math.floor(Math.random() * 2 ** 31);
     const ownRack = await createRack();
     const props = { network: "eth0", position, pdos: createPDOs() };
+    const name = uniqueName("slave");
     const first = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} a`,
       identifier: createIdentifier(),
     });
     const second = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} b`,
       identifier: createIdentifier(),
     });
     await markConnected(first);
