@@ -7,17 +7,21 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Posts to Slack when a scheduled run fails, at most once a day while a workflow keeps
-# failing. Workflows that post their own reports to Slack are not watched.
+# Posts to Slack when a scheduled run fails: on the first failure of a streak, then on
+# the first failure of each UTC day while it lasts. A self-reporting workflow posts its
+# own failures from a job, so this posts for it only when the run did not start.
 name: Report - Failures
 
 on:
   workflow_run:
     workflows:
       - Agent - Bug hunt
+      - Agent - Console QA
+      - Agent - Lint
       - Agent - Nightly
       - Agent - Shepherd
       - Check - Rulesets
+      - Check - Runners
       - CodeQL
       - Dispatch - Agents
       - Fuzz - Go
@@ -25,7 +29,9 @@ on:
       - Relay - Sweep
       - Report - Agents
       - Report - Sedosaur
+      - Security
       - Sync - Runner webhook ranges
+      - Test - HITL
       - Warm - Browsers
       - Warm - Windows
     types:
@@ -52,17 +58,24 @@ jobs:
           CREATED: ${{ github.event.workflow_run.created_at }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SELF_REPORTING: >-
+            ["Agent - Console QA", "Agent - Lint", "Check - Runners", "Test - HITL"]
         run: |
-          # 23 hours, so a daily workflow still posts each day it fails.
-          since=$(date -u -d "@$(($(date -u -d "$CREATED" +%s) - 82800))" +%FT%TZ)
-          earlier=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
-            -X GET -f event=schedule -f created=">=$since" -F per_page=100 |
-            jq --arg created "$CREATED" '[.workflow_runs[]
-              | select(.created_at < $created)
-              | select(.conclusion | IN("failure", "timed_out", "startup_failure"))]
-              | length')
-          if [ "$earlier" -gt 0 ]; then
-            echo "$WORKFLOW already failed in the last 23 hours"
+          self=$(jq --arg name "$WORKFLOW" 'index($name) != null' <<< "$SELF_REPORTING")
+          if [ "$self" = true ] && [ "$CONCLUSION" != startup_failure ]; then
+            echo "$WORKFLOW posts its own failures"
+            exit 0
+          fi
+          # Earlier scheduled runs, newest first.
+          posted=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+            -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
+            jq --arg day "${CREATED:0:10}" '
+              def failed: .conclusion | IN("failure", "timed_out", "startup_failure");
+              .workflow_runs as $runs
+              | ($runs[0] // {} | failed)
+                and any($runs[]; failed and .created_at[:10] == $day)')
+          if [ "$posted" = true ]; then
+            echo "$WORKFLOW already reported a failure today"
             exit 0
           fi
           text="Scheduled run of $WORKFLOW ended in $CONCLUSION: $RUN_URL"

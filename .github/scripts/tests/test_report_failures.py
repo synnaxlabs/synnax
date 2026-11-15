@@ -7,20 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / "workflows"
-# These post their own reports to Slack, failures included.
-SELF_REPORTING = {
-    "Agent - Console QA",
-    "Agent - Lint",
-    "Check - Runners",
-    "Security",
-    "Test - HITL",
-}
 
 
 def load(path: Path) -> dict[Any, Any]:
@@ -33,5 +26,11 @@ def test_every_scheduled_workflow_reports_its_failures() -> None:
     workflows = [load(p) for p in WORKFLOWS.glob("*.y*ml")]
     scheduled = {w["name"] for w in workflows if "schedule" in (w.get(True) or {})}
     report = load(WORKFLOWS / "report.failures.yaml")
-    watched = set(report[True]["workflow_run"]["workflows"])
-    assert scheduled - SELF_REPORTING == watched
+    assert set(report[True]["workflow_run"]["workflows"]) == scheduled
+
+
+def test_self_reporting_workflows_are_watched() -> None:
+    report = load(WORKFLOWS / "report.failures.yaml")
+    env = report["jobs"]["report"]["steps"][0]["env"]
+    self_reporting = set(json.loads(env["SELF_REPORTING"]))
+    assert self_reporting <= set(report[True]["workflow_run"]["workflows"])
