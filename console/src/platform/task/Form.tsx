@@ -22,7 +22,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC, useRef } from "react";
+import { type FC, useRef, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -104,6 +104,9 @@ const Header = () => (
   </div>
 );
 
+/** The form paths that have fields. The status and the task keys have none. */
+const FIELD_PATHS = [formPath.name, formPath.rack, formPath.config].map(String);
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -126,45 +129,57 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const canEdit = Access.useUpdateGranted(task.resourceID(taskKey));
 
     const deployChecked = useRef(false);
+    const [configuring, setConfiguring] = useState(false);
 
     const handleDeploy = () => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        if (canEdit) {
-          if (!(await flush())) return;
-          if (!deployChecked.current) {
-            form.addCheck(formPath.config, deployConfigZ);
-            deployChecked.current = true;
-          }
-          await form.validateAsync();
-          if (form.getStatuses().some(({ variant }) => variant === "error")) return;
-          const { config, name, rack } = form.value();
-          // The form's values are the cached task, and onConfigure changes its config.
-          const [newConfig, newRack] = await onConfigure(
-            client,
-            deep.copy(config),
-            name,
-          );
-          // Another client can edit the task while onConfigure runs, so only the
-          // values onConfigure changed are written.
-          form.batch(() => {
-            PForm.setChanged(form, formPath.config, config, newConfig);
-            if (primitive.isNonZero(newRack))
-              PForm.setChanged(form, formPath.rack, rack, newRack);
-          });
-          if (!(await flush())) return;
-          await client.tasks.settled(taskKey);
+      setConfiguring(true);
+      handleError(
+        async () => await deploy().finally(() => setConfiguring(false)),
+        "Failed to start task",
+      );
+    };
+
+    const deploy = async () => {
+      if (client == null) throw new DisconnectedError();
+      if (canEdit) {
+        if (!(await flush())) return;
+        if (!deployChecked.current) {
+          form.addCheck(formPath.config, deployConfigZ);
+          deployChecked.current = true;
         }
-        // A pinned start runs only the config this form shows. The Driver refuses it
-        // when another client changed the config since.
-        await client.tasks.executeCommand({
-          task: taskKey,
-          type: "start",
-          configHash: form.value().configHash,
-          pinned: true,
+        await form.validateAsync();
+        const errors = form.getStatuses().filter(({ variant }) => variant === "error");
+        // An error on a path with no field would show nowhere.
+        const hidden = errors.filter(
+          ({ key }) => !FIELD_PATHS.some((p) => key != null && deep.pathsMatch(key, p)),
+        );
+        if (hidden.length > 0)
+          throw new Error(
+            hidden.map(({ key, message }) => `${key}: ${message}`).join("\n"),
+          );
+        if (errors.length > 0) return;
+        const { config, name, rack } = form.value();
+        // The form's values are the cached task, and onConfigure changes its config.
+        const [newConfig, newRack] = await onConfigure(client, deep.copy(config), name);
+        // Another client can edit the task while onConfigure runs, so only the
+        // values onConfigure changed are written.
+        form.batch(() => {
+          PForm.setChanged(form, formPath.config, config, newConfig);
+          if (primitive.isNonZero(newRack))
+            PForm.setChanged(form, formPath.rack, rack, newRack);
         });
-        capture("task_started", { type });
-      }, "Failed to start task");
+        if (!(await flush())) return;
+        await client.tasks.settled(taskKey);
+      }
+      // A pinned start runs only the config this form shows. The Driver refuses it
+      // when another client changed the config since.
+      await client.tasks.executeCommand({
+        task: taskKey,
+        type: "start",
+        configHash: form.value().configHash,
+        pinned: true,
+      });
+      capture("task_started", { type });
     };
 
     const handleStop = () => {
@@ -203,7 +218,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               </Errors.SuspenseBoundary>
             </Section.Section>
             {showControls && (
-              <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
+              <Controls.Controls
+                configuring={configuring}
+                onDeploy={handleDeploy}
+                onStop={handleStop}
+              />
             )}
           </PForm.Form>
         </Flex.Box>

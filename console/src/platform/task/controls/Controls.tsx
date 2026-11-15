@@ -81,6 +81,8 @@ const Settings = () => {
 };
 
 export interface ControlsProps extends Flex.BoxProps {
+  /** Whether a deploy runs and has not sent its start command yet. */
+  configuring?: boolean;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -88,7 +90,12 @@ export interface ControlsProps extends Flex.BoxProps {
 }
 
 /** Task controls bar wired to the surrounding task Form context. */
-export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
+export const Controls = ({
+  configuring = false,
+  onDeploy,
+  onStop,
+  ...props
+}: ControlsProps) => {
   const taskStatus = useStatus();
   const running = useIsRunning();
   const key = useKey();
@@ -104,13 +111,25 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
     onStop();
   };
 
+  // The start command goes out only after the config saves, which can take seconds.
+  const shownStatus = configuring
+    ? status.create({
+        name: taskStatus?.name ?? "",
+        variant: "loading",
+        message: "Configuring task",
+      })
+    : taskStatus;
+
   return (
     <Bar
-      status={taskStatus}
+      status={shownStatus}
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      startStopVariant={status.keepVariants(taskStatus?.variant, "loading")}
+      disabled={configuring}
+      startStopVariant={
+        configuring ? undefined : status.keepVariants(taskStatus?.variant, "loading")
+      }
       settings={<Settings />}
       onDeploy={handleDeploy}
       onStop={handleStop}
