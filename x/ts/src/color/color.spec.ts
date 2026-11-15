@@ -172,6 +172,10 @@ describe("color.Color", () => {
       expect(color.isDark("#add8e6")).toBe(false);
     });
 
+    test("a color just below 0.5 luminance is dark", () => {
+      expect(color.isDark("#00ccf8")).toBe(true);
+    });
+
     test("handles RGB array input", () => {
       expect(color.isDark([0, 0, 0])).toBe(true);
       expect(color.isDark([255, 255, 255])).toBe(false);
@@ -209,6 +213,10 @@ describe("color.Color", () => {
 
     test("light blue is light", () => {
       expect(color.isLight("#add8e6")).toBe(true);
+    });
+
+    test("a color just above 0.5 luminance is light", () => {
+      expect(color.isLight("#00ccf9")).toBe(true);
     });
 
     test("handles RGB array input", () => {
