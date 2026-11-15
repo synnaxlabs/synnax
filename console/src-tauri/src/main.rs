@@ -90,6 +90,12 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+            // An AppImage installs no desktop file, so the app registers its scheme.
+            #[cfg(target_os = "linux")]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                app.deep_link().register_all()?;
+            }
             #[cfg(target_os = "macos")]
             let app_handle = app.handle().clone();
             #[cfg(target_os = "macos")]
