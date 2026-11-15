@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -40,14 +42,19 @@ var (
 	node   testutil.Node
 	svc    *service.Layer
 	binder *bind.Service
-	// create, copyTask, dispatch, and retrieve run their routes as the API layer binds
-	// them.
+	// create, copyTask, dispatch, retrieve, importFile, and importBundle run their
+	// routes as the API layer binds them.
 	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
 	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
 	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apitask.RetrieveRequest,
 		apitask.RetrieveResponse,
+	]
+	importFile   freighter.UnaryHandler[apiimex.ImportRequest, apiimex.ImportResponse]
+	importBundle freighter.UnaryHandler[
+		apiproject.ImportRequest,
+		apiproject.ImportResponse,
 	]
 )
 
@@ -71,6 +78,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	copyTask = bind.Write(binder, apiSvc.Copy)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	imexSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: svc.ImEx}))
+	importFile = bind.Write(binder, imexSvc.Import)
+	projectSvc := MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
+		Project: svc.Project,
+		Bundle:  svc.Bundle,
+	}))
+	importBundle = bind.WritePrepared(
+		binder,
+		projectSvc.PrepareImport,
+		projectSvc.Import,
+	)
 })
 
 // createUser creates a user that can do nothing.

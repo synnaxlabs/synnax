@@ -75,13 +75,21 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t2, nil
+		t4, err := v4.MigrateWriteConfig(ctx, t2)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t4, nil
 	case v3.Version:
 		t3, err := imex.DecodeBlob[v3.WriteConfig](data, "http.WriteConfig", version)
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t3, nil
+		t4, err := v4.MigrateWriteConfig(ctx, t3)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t4, nil
 	case v4.Version:
 		return imex.DecodeBlob[WriteConfig](data, "http.WriteConfig", version)
 	}

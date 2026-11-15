@@ -22,7 +22,7 @@ const deployAlertConfigZ = pagerduty.alertZ.extend({
 });
 
 export const deployAlertTaskConfigZ = alertTaskConfigZ.extend({
-  routingKey: z.string().length(32, "Routing key must be 32 characters"),
+  routingKey: z.uuid({ error: "Routing key is required" }),
   alerts: z
     .array(deployAlertConfigZ)
     .refine((alerts) => alerts.some(({ disabled }) => !disabled), {

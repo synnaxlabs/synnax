@@ -959,6 +959,7 @@ func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
+		Include: data.AddInternal,
 	}
 }
 

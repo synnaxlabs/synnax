@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack as clientRack, task } from "@synnaxlabs/client";
+import { device, rack as clientRack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { Device as PDevice } from "@synnaxlabs/pluto";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -162,6 +163,43 @@ describe("useSlavesByKeys", () => {
         [first.key, second.key].sort(),
       ),
     );
+  });
+});
+
+describe("useSlavesOnRack", () => {
+  const setStatus = async (
+    slave: EtherCAT.Device.SlaveDevice,
+    connected: boolean,
+    message: string,
+  ) =>
+    await client.statuses.set({
+      owner: device.resourceID(slave.key),
+      name: slave.name,
+      variant: connected ? "success" : "warning",
+      message,
+      time: TimeStamp.now(),
+      details: { rack: slave.rack, connected },
+    });
+
+  it("should change only when a slave changes whether it is connected", async () => {
+    const slave = await createSlaveDevice(rack.key);
+    const { result } = renderHook(
+      () => ({
+        onRack: EtherCAT.Device.useSlavesOnRack(rack.key),
+        message: PDevice.useResultStatus({ key: slave.key }).data?.message,
+      }),
+      { wrapper },
+    );
+    await act(async () => await setStatus(slave, true, "Device connected"));
+    await waitFor(() => expect(result.current.onRack?.[0]?.connected).toBe(true));
+    const held = result.current.onRack;
+    await act(async () => await setStatus(slave, true, "Device still connected"));
+    await waitFor(() =>
+      expect(result.current.message).toEqual("Device still connected"),
+    );
+    expect(result.current.onRack).toBe(held);
+    await act(async () => await setStatus(slave, false, "Device disconnected"));
+    await waitFor(() => expect(result.current.onRack?.[0]?.connected).toBe(false));
   });
 });
 
@@ -505,6 +543,60 @@ describe("useSetStandalone", () => {
     return { commands, switched };
   };
 
+  it("should scan for devices after a switch, so the device shows it at once", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    const driver = await answerCommandsUntil([scan], "scan");
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.updateAsync({ slave });
+    });
+    const commands = await driver.answered;
+    expect(commands.map((c) => c.type)).toEqual(["set_standalone", "scan"]);
+  });
+
+  it("should tell the user to start the stopped tasks again after a switch", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil([read, scan], "set_standalone", {
+      set_standalone: {
+        message: "Switched the card to Synnax only",
+        description: "The device in slot 1 runs Synnax only now.",
+      },
+    });
+    let answer: task.Status | undefined;
+    const { result } = renderHook(
+      () =>
+        EtherCAT.Device.useSetStandalone({
+          afterSuccess: ({ data }) => {
+            answer = data.answer;
+          },
+        }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.updateAsync({ slave });
+    });
+    await driver.answered;
+    expect(answer?.description).toEqual(
+      "The device in slot 1 runs Synnax only now. Start your tasks again.",
+    );
+  });
+
   it("should start the stopped tasks again when the switch fails", async () => {
     const result = await switchWithAnswers({
       set_standalone: { variant: "error", message: "Slave 3 refused the switch" },
@@ -520,5 +612,56 @@ describe("useSetStandalone", () => {
       stop: { variant: "error", message: "Failed to stop" },
     });
     expect(result).toEqual({ commands: ["read stop", "read start"], switched: false });
+  });
+
+  it("should keep the tasks stopped when the Driver gives no answer to the switch", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    await reportTaskRunning(client, read);
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    const types: string[] = [];
+    const driver = (async () => {
+      try {
+        for (;;) {
+          const frame = await streamer.read();
+          for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+            const cmd = task.commandZ.parse(sample);
+            if (cmd.task !== read.key && cmd.task !== scan.key) continue;
+            types.push(cmd.type);
+            if (cmd.type === "stop") await answerCommand(client, read, cmd);
+            // The Driver goes down during the switch, so the switch gets no answer.
+            if (cmd.type === "set_standalone")
+              await client.statuses.set({
+                owner: clientRack.resourceID(r.key),
+                name: "Rack Status",
+                variant: "error",
+                message: "Driver not running",
+                time: TimeStamp.now(),
+                details: { running: false },
+              });
+            if (cmd.type === "end") return;
+          }
+        }
+      } finally {
+        streamer.close();
+      }
+    })();
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    let switched = true;
+    await act(async () => {
+      switched = await result.current.updateAsync({ slave });
+    });
+    await client.tasks.executeCommand({ task: read.key, type: "end" });
+    await driver;
+    expect(switched).toBe(false);
+    expect(types).toEqual(["stop", "set_standalone", "end"]);
   });
 });

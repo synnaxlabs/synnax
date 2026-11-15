@@ -380,6 +380,26 @@ var _ = Describe("CounterReadMigration", func() {
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
+
+	It("Should log a narrowed divisor and initial count", func(ctx SpecContext) {
+		_, fields := runStored[v2.CounterReadConfig, v3.CounterReadConfig](
+			ctx,
+			"ni_counter_read_config",
+			v3.CounterReadMigration,
+			v2.CounterReadConfig{Key: uuid.New(), Channels: []v2.CIChannel{
+				{Variant: v2.CIFrequencyChannel{
+					BaseCIChannel: v2.BaseCIChannel{Key: "freq"},
+					CustomScale:   noScale,
+					Divisor:       -2,
+				}},
+				{Variant: v2.CIEdgeCountChannel{
+					BaseCIChannel: v2.BaseCIChannel{Key: "edge"},
+					InitialCount:  2.5,
+				}},
+			}},
+		)
+		Expect(fields).To(Equal([]any{"Divisor", "InitialCount"}))
+	})
 })
 
 var _ = Describe("AnalogReadMigration", func() {
@@ -414,6 +434,24 @@ var _ = Describe("AnalogReadMigration", func() {
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
+
+	It("Should log a clamped port and skip a built-in temperature channel",
+		func(ctx SpecContext) {
+			_, fields := runStored[v2.AnalogReadConfig, v3.AnalogReadConfig](
+				ctx,
+				"ni_analog_read_config",
+				v3.AnalogReadMigration,
+				v2.AnalogReadConfig{Key: uuid.New(), Channels: []v2.AIChannel{
+					{Variant: v2.AITempBuiltinChannel{Key: "temp"}},
+					{Variant: v2.AIVoltageChannel{
+						BaseAIChannel: v2.BaseAIChannel{Key: "volt", Port: -1},
+						CustomScale:   noScale,
+					}},
+				}},
+			)
+			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
+		},
+	)
 })
 
 // runStored stores old under namespace, runs migration over it, and returns the

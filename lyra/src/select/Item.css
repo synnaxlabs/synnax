@@ -42,8 +42,9 @@
 
 /* The checkbox's own padding spaces it from the edge and the content, so it cancels
    part of the item's padding and all of its gap. The box then sits as far from the left
-   edge as from the top and bottom. */
-.lyra-select__item--checkable > .lyra-input__checkbox {
+   edge as from the top and bottom. A checkbox in the content, such as a favorite, keeps
+   its place. */
+.lyra-select__item--checkable > .lyra-input__checkbox:first-child {
     margin-inline: -1rem -1.5rem;
 }
 

@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -60,6 +61,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Storage:         node.Storage,
 		RootCredentials: creds,
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
@@ -117,14 +119,66 @@ var _ = Describe("HTTP", func() {
 			},
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
+			Entry(
+				"unary channel count limited",
+				http.MethodPost,
+				"/api/v1/channel/count-limited",
+			),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
 			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
 			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
 			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
+			Entry(
+				"unary NI device create",
+				http.MethodPost,
+				"/api/v1/ni/device/create",
+			),
+			Entry(
+				"unary NI device retrieve",
+				http.MethodPost,
+				"/api/v1/ni/device/retrieve",
+			),
+			Entry(
+				"unary NI device update",
+				http.MethodPost,
+				"/api/v1/ni/device/update",
+			),
+			Entry(
+				"unary NI device delete",
+				http.MethodPost,
+				"/api/v1/ni/device/delete",
+			),
+			Entry(
+				"unary NI chassis create",
+				http.MethodPost,
+				"/api/v1/ni/chassis/create",
+			),
+			Entry(
+				"unary NI chassis retrieve",
+				http.MethodPost,
+				"/api/v1/ni/chassis/retrieve",
+			),
+			Entry(
+				"unary NI chassis update",
+				http.MethodPost,
+				"/api/v1/ni/chassis/update",
+			),
+			Entry(
+				"unary NI chassis delete",
+				http.MethodPost,
+				"/api/v1/ni/chassis/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary secret grant create",
+				http.MethodPost,
+				"/api/v1/secret/grant/create",
+			),
+			Entry("unary certificate set", http.MethodPost, "/api/v1/certificate/set"),
 		)
 
 		DescribeTable("Should not register a route for a deleted edit endpoint",
@@ -183,6 +237,7 @@ var _ = Describe("HTTP", func() {
 				Storage:         node.Storage,
 				RootCredentials: creds,
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
+				SecretsKey:      secret.NewEncryptionKey(),
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
@@ -392,7 +447,7 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/channel/retrieve",
 				withCookie("localhost:9090", cookie),
-				channel.RetrieveRequest{},
+				map[string]int{"unknown": 1},
 			)
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(res.Cookies()).To(BeEmpty())

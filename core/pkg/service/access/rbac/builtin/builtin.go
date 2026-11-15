@@ -24,7 +24,6 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeGroup},
 	{Type: resource.TypeRange},
 	{Type: resource.TypeFramer},
-	{Type: resource.TypeRangeAlias},
 	{Type: resource.TypeUser},
 	{Type: resource.TypeProject},
 	{Type: resource.TypePanel},
@@ -50,6 +49,9 @@ var allObjects = []resource.ID{
 	{Type: resource.TypePolicy},
 	{Type: resource.TypeBuiltin},
 	{Type: resource.TypeView},
+	{Type: resource.TypeSecret},
+	{Type: resource.TypeCertificate},
+	{Type: resource.TypeICD},
 }
 
 var (
@@ -85,7 +87,6 @@ var (
 				{Type: resource.TypeGroup},
 				{Type: resource.TypeRange},
 				{Type: resource.TypeFramer},
-				{Type: resource.TypeRangeAlias},
 				{Type: resource.TypeProject},
 				{Type: resource.TypePanel},
 				{Type: resource.TypeSchematic},
@@ -107,6 +108,9 @@ var (
 				{Type: resource.TypeSchematicSymbol},
 				{Type: resource.TypeStatus},
 				{Type: resource.TypeView},
+				{Type: resource.TypeSecret},
+				{Type: resource.TypeCertificate},
+				{Type: resource.TypeICD},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -163,6 +167,21 @@ var (
 			Name:     "Driver Channel View Access",
 			Objects:  []resource.ID{{Type: resource.TypeChannel}},
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:     "Driver Secret View Access",
+			Objects:  []resource.ID{{Type: resource.TypeSecret}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Driver Certificate Access",
+			Objects: []resource.ID{{Type: resource.TypeCertificate}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+			},
 			Internal: true,
 		},
 		{

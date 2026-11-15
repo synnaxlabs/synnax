@@ -27,14 +27,6 @@
         height: 10rem;
     }
 
-    .console-version-info__download {
-        width: 50rem;
-
-        & > .lyra-text {
-            flex-shrink: 0;
-        }
-    }
-
     .console-version-info__footer-note {
         position: absolute;
         bottom: 3rem;

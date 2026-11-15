@@ -14,7 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -77,9 +77,7 @@ describe("Range.useRename", () => {
       await result.current.updateAsync({ key: local.key, name: renamed });
     });
     await waitFor(() =>
-      expect(nameOf(Session.Range.selectState(store.getState(), local.key))).toBe(
-        renamed,
-      ),
+      expect(nameOf(selectRange(store.getState(), local.key))).toBe(renamed),
     );
     await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
   });
@@ -94,6 +92,6 @@ describe("Range.useRename", () => {
     await waitFor(async () =>
       expect((await client.ranges.retrieve(range.key)).name).toBe(renamed),
     );
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+    expect(selectRange(store.getState(), range.key)).toBeUndefined();
   });
 });

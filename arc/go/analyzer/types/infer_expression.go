@@ -30,12 +30,12 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return InferLogicalOr(ctx.Child(logicalOr))
+		return inferLogicalOr(ctx.Child(logicalOr))
 	}
 	return types.Type{}
 }
 
-func InferLogicalOr(
+func inferLogicalOr(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
 ) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
@@ -258,7 +258,7 @@ func InferMultiplicative(
 	return resultType
 }
 
-func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
+func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		baseType := InferPostfix(ctx.Child(postfix))
 
@@ -287,7 +287,7 @@ func InferFromUnaryExpression(
 		).UnwrapChan()
 	}
 	if power := ctx.AST.PowerExpression(); power != nil {
-		return InferPower(ctx.Child(power))
+		return inferPower(ctx.Child(power))
 	}
 	return types.Type{}
 }

@@ -10,7 +10,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 // The checks still run. Only their timing warnings, which track machine load, go.
-export const STORE_CHECKS = {
+const STORE_CHECKS = {
   immutableCheck: { warnAfter: Infinity },
   serializableCheck: { warnAfter: Infinity },
 };

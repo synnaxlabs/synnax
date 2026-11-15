@@ -28,6 +28,9 @@ const std::string DAQMX_MISSING = "National Instruments NI-DAQmx shared library 
 /// @brief an NI factory whose DAQmx library fails to load once, then loads.
 class FactoryTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<task::MockContext> ctx;
     synnax::task::Task task;
     int dmx_loads = 0;
@@ -46,6 +49,7 @@ protected:
     );
 
     void SetUp() override {
+        this->cancel.start();
         const auto client = std::make_shared<synnax::Synnax>(new_test_client());
         this->ctx = std::make_shared<task::MockContext>(client);
         const auto rack = ASSERT_NIL_P(client->racks.create("ni_factory"));
@@ -93,6 +97,8 @@ protected:
             },
         };
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should fail to configure a read task while DAQmx does not load, and
@@ -101,7 +107,8 @@ TEST_F(FactoryTest, ConfigureFailsUntilDAQmxLoads) {
     const auto [failed, failed_handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        "configure_cmd"
+        "configure_cmd",
+        this->cancel
     );
     EXPECT_TRUE(failed_handled);
     EXPECT_EQ(failed, nullptr);
@@ -114,7 +121,8 @@ TEST_F(FactoryTest, ConfigureFailsUntilDAQmxLoads) {
     const auto [configured, handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        "configure_cmd"
+        "configure_cmd",
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(configured, nullptr);
@@ -128,7 +136,8 @@ TEST_F(FactoryTest, AutoStartReportsMissingDAQmxAtBoot) {
     const auto [tsk, handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        task::NO_COMMAND
+        task::NO_COMMAND,
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);

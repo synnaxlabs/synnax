@@ -1,0 +1,1 @@
+ALTER TABLE "organization" ADD COLUMN "desktop_channels" integer;

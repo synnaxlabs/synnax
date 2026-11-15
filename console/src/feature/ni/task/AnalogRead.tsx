@@ -67,9 +67,8 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const value = PForm.useFieldValue(entry);
   const device = useChannelDevice(entry);
   const { type, channel, disabled } = value;
-  const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
-  const hasTareButton = channel !== 0 && !isSnapshot;
+  const hasTareButton = channel !== 0;
   const canTare = !disabled && isRunning;
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = AI_CHANNEL_TYPE_ICONS[type];

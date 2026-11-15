@@ -47,6 +47,8 @@ export interface NumericProps
   showDragHandle?: boolean;
   /** Clamps the committed value. */
   bounds?: bounds.Crude;
+  /** Whether the input rounds a committed value to a whole number. */
+  integer?: boolean;
   onBlur?: () => void;
   /**
    * A stored sentinel the schema gives a meaning such as "auto". A value equal to it
@@ -76,6 +78,7 @@ export const Numeric = ({
   dragScale,
   selectOnFocus = true,
   bounds: propsBounds = bounds.INFINITE,
+  integer = false,
   onlyChangeOnBlur = false,
   resetValue,
   variant = "outlined",
@@ -121,7 +124,8 @@ export const Numeric = ({
       return;
     }
     const commit = (v: number | null): void => {
-      if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
+      if (v != null)
+        onChange?.(bounds.clamp(boundsRef.current, integer ? Math.round(v) : v));
       else
         setInternalValue(
           valueRef.current == null || Object.is(valueRef.current, emptyValue)

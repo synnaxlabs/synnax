@@ -76,6 +76,16 @@ export interface Product {
   subsystems: Record<string, Subsystem>;
 }
 
+/** A Test - HITL run, whose tests ran on real hardware. */
+export interface Hardware {
+  id: number;
+  url: string;
+  /** The commit it tested, which holds the same shipped code as the release. */
+  sha: string;
+  started_at: string;
+  ended_at: string;
+}
+
 interface Raw {
   run: {
     id: number;
@@ -91,6 +101,8 @@ interface Raw {
     /** Why the manual_passes tests were run by hand. */
     manual_note: string | null;
   };
+  /** Missing from data that predates hardware runs. */
+  hardware?: Hardware | null;
   products: { key: string; name: string }[];
   suites: Suite[];
   tests: [
@@ -104,15 +116,25 @@ interface Raw {
   ][];
 }
 
-// `scripts/reliability.py` uploads the data. Pages that read it are prerendered, so
-// only the docs build fetches it. The origin URL skips the CDN's cached copy.
-const DATA_URL = "https://synnax.nyc3.digitaloceanspaces.com/docs/reliability/run.json";
+// The release train whose data this page reads. `scripts/reliability.py` uploads each
+// train's data to its own key, so an older docs branch keeps the data its page code
+// understands. A refresh for a new release uploads its data first, then moves this to
+// that release's train, since the build fails while the key is missing.
+const TRAIN = "0.61";
+
+// Pages that read the data are prerendered, so only the docs build fetches it. The
+// origin URL skips the CDN's cached copy.
+const ORIGIN = "https://synnax.nyc3.digitaloceanspaces.com";
+const DATA_URL = `${ORIGIN}/docs/reliability/${TRAIN}/run.json`;
 
 const res = await fetch(DATA_URL);
 if (!res.ok) throw new Error(`fetch ${DATA_URL}: ${res.status} ${res.statusText}`);
 const data = (await res.json()) as Raw;
 
 export const run = data.run;
+
+/** The hardware run, if the release had one. */
+export const hardware = data.hardware ?? null;
 
 /** GitHub URL prefix for a repository path at the run's commit. */
 export const blob = `https://github.com/synnaxlabs/synnax/blob/${data.run.sha}/`;
@@ -147,7 +169,7 @@ const allRuns: Run[] = data.tests.map(
 );
 
 // Unit test path -> subsystem, per product. The first match wins, and every path must
-// match one. System tests are always "e2e".
+// match one. System tests are "hardware" when they ran on real hardware, else "e2e".
 const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> = {
   core: [
     ["api", "API", /^core\/pkg\/(api|transport|server)\//],
@@ -160,12 +182,12 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["x", "X", /^((x|alamos)\/go|gorp)\//],
   ],
   arc: [
-    ["parser", "Parser", /^arc\/go\/(parser|text|literal)\//],
+    ["parser", "Parser", /^arc\/(go\/(parser|text|literal)|cpp\/text)\//],
     ["analyzer", "Analyzer", /^arc\/(go\/(analyzer|types|symbol)|cpp\/types)\//],
     [
       "compiler",
       "Compiler",
-      /^arc\/(go\/(compiler|ir|graph|stratifier|program)|cpp\/(ir|program))\//,
+      /^arc\/(go\/(compiler|ir|graph|stratifier|program)|cpp\/(ir|program|graph))\//,
     ],
     ["runtime-go", "Go runtime", /^arc\/go\/runtime\//],
     ["runtime-cpp", "C++ runtime", /^arc\/cpp\/runtime\//],
@@ -208,7 +230,7 @@ const SUBSYSTEMS: Record<string, [key: string, name: string, match: RegExp][]> =
     ["scripts", "Repo scripts", /^(scripts|\.github\/scripts)\//],
     ["docs", "Docs site", /^site\/docs\//],
     ["vite", "Vite plugin", /^configs\/vite\//],
-    ["eslint", "Lint rules", /^configs\/eslint\//],
+    ["lint", "Lint rules", /^configs\/(eslint|stylelint)\//],
   ],
 };
 
@@ -255,7 +277,10 @@ const subsystems = (product: string, own: Test[]): Record<string, Subsystem> => 
   for (const t of own) {
     let key = "e2e";
     let name = "End-to-end";
-    if (t.kind === "unit") {
+    if (t.tags.includes("hardware")) {
+      key = "hardware";
+      name = "Real hardware";
+    } else if (t.kind === "unit") {
       const hit = SUBSYSTEMS[product].find(([, , match]) => match.test(t.path));
       if (hit == null) throw new Error(`no ${product} subsystem for ${t.path}`);
       [key, name] = hit;
@@ -315,3 +340,6 @@ export const systems = Object.values(OS_NAMES).filter((os) =>
 );
 
 export const totals = count(ordered);
+
+/** The tests that ran on real hardware. */
+export const hardwareTotals = count(ordered.filter((t) => t.tags.includes("hardware")));

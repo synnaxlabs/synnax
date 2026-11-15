@@ -31,6 +31,8 @@ const SURFACE_WIDTH = 1000;
 const SURFACE_HEIGHT = 600;
 const COL_SIZE = 72;
 const ROW_SIZE = 36;
+// A value cell that draws its text in a fixed color.
+const VALUE_CONFIG = { variant: "value", level: "h5", textColor: "#000000" } as const;
 
 const expectedOffset = (contentWidth: number, contentHeight: number) => ({
   x: Math.floor((SURFACE_WIDTH - contentWidth - INDICATOR_SIZE) / 2),
@@ -104,9 +106,10 @@ describe("Table", () => {
     const created = await client.tables.create({
       project: project.key,
       name: "center_table",
-      rows: [{ key: "r0", size: ROW_SIZE, cells: ["a"] }],
+      rows: [
+        { key: "r0", size: ROW_SIZE, cells: [{ key: "a", config: VALUE_CONFIG }] },
+      ],
       columns: [{ size: COL_SIZE }],
-      cells: { a: { variant: "value", level: "h5", textColor: "#000000" } },
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -291,9 +294,14 @@ describe("Table", () => {
       const created = await client.tables.create({
         project: project.key,
         name: "undo_table",
-        rows: [{ size: ROW_SIZE, cells: ["a"] }],
+        rows: [
+          {
+            key: "r0",
+            size: ROW_SIZE,
+            cells: [{ key: "a", config: { variant: "text", value: "before" } }],
+          },
+        ],
         columns: [{ size: COL_SIZE }],
-        cells: { a: { variant: "text", value: "before" } },
       });
       await loadTable(wrapper, created.key);
       return created.key;
@@ -317,12 +325,20 @@ describe("Table", () => {
           send.mock.calls.find(([target]) => target === "/table/dispatch")?.[1],
         ).toMatchObject({
           actions: [
-            { type: "set", set: { path: ["cells", "a", "value"], value: "after" } },
+            {
+              type: "set",
+              set: {
+                path: ["rows", "r0", "cells", "a", "config", "value"],
+                value: "after",
+              },
+            },
           ],
         }),
       );
       await waitFor(async () =>
-        expect((await client.tables.retrieve(textKey)).cells.a).toMatchObject({
+        expect(
+          (await client.tables.retrieve(textKey)).rows[0].cells[0].config,
+        ).toMatchObject({
           value: "after",
         }),
       );
@@ -403,18 +419,12 @@ describe("Table", () => {
       cols: number,
       showIndicators: boolean,
     ): Promise<unknown[]> => {
-      const cells: Record<string, table.CellConfig> = {};
       const rowSpecs = Array.from({ length: rows }, (_, r) => ({
         size: ROW_SIZE,
-        cells: Array.from({ length: cols }, (_, c) => {
-          const cellKey = `${r}-${c}`;
-          cells[cellKey] = table.cellConfigZ.parse({
-            variant: "value",
-            level: "h5",
-            textColor: "#000000",
-          });
-          return cellKey;
-        }),
+        cells: Array.from({ length: cols }, (_, c) => ({
+          key: `${r}-${c}`,
+          config: table.cellConfigZ.parse(VALUE_CONFIG),
+        })),
       }));
       const project = await client.projects.create({ name });
       const created = await client.tables.create({
@@ -422,7 +432,6 @@ describe("Table", () => {
         name: `${name}_table`,
         rows: rowSpecs,
         columns: Array.from({ length: cols }, () => ({ size: COL_SIZE })),
-        cells,
       });
       await loadTable(wrapper, created.key);
       const Wrapped = (): ReactElement => (
@@ -525,11 +534,15 @@ describe("Table", () => {
       const created = await client.tables.create({
         project: project.key,
         name: "move_table",
-        rows: CELLS.map((cells, y) => ({ key: `r${y}`, size: ROW_SIZE, cells })),
+        rows: CELLS.map((cells, y) => ({
+          key: `r${y}`,
+          size: ROW_SIZE,
+          cells: cells.map((k) => ({
+            key: k,
+            config: { variant: "text" as const, value: `cell ${k}` },
+          })),
+        })),
         columns: CELLS.map((_, x) => ({ key: `c${x}`, size: COL_SIZE })),
-        cells: Object.fromEntries(
-          CELLS.flat().map((k) => [k, { variant: "text", value: `cell ${k}` }]),
-        ),
       });
       await loadTable(wrapper, created.key);
       return created.key;
@@ -559,7 +572,7 @@ describe("Table", () => {
     const expectStored = async (tableKey: table.Key, cells: string[][]) =>
       await waitFor(async () => {
         const stored = await client.tables.retrieve({ key: tableKey });
-        expect(stored.rows.map((r) => r.cells)).toEqual(cells);
+        expect(stored.rows.map((r) => r.cells.map((c) => c.key))).toEqual(cells);
       });
 
     it("should move a column dragged past its neighbors", async () => {
@@ -592,15 +605,20 @@ describe("Table", () => {
       const c = await renderGrid(tableKey, true);
       press(c.getByText("1"), { x: 5, y: 30 });
       await frame();
+      const NEW = ["new", "new1", "new2"];
       const config = table.cellConfigZ.parse({ variant: "text", value: "cell new" });
       await client.tables.dispatch(tableKey, [
-        table.addRow({ index: 0, size: ROW_SIZE, cells: [{ key: "new", config }] }),
+        table.addRow({
+          index: 0,
+          size: ROW_SIZE,
+          cells: NEW.map((key) => ({ key, config })),
+        }),
       ]);
-      await waitFor(() => expect(c.getByText("cell new")).toBeTruthy());
+      await waitFor(() => expect(c.getAllByText("cell new")).toHaveLength(3));
       fireEvent.pointerMove(window, at({ x: 5, y: 70 }));
       await frame();
       release({ x: 5, y: 70 });
-      await expectStored(tableKey, [["new"], CELLS[1], CELLS[0], CELLS[2]]);
+      await expectStored(tableKey, [NEW, CELLS[1], CELLS[0], CELLS[2]]);
     });
 
     it("should slide the cells to preview where a column lands", async () => {
@@ -749,11 +767,13 @@ describe("Table", () => {
       const created = await client.tables.create({
         project: project.key,
         name: "move_values_table",
-        rows: [{ size: ROW_SIZE, cells: keys }],
+        rows: [
+          {
+            size: ROW_SIZE,
+            cells: keys.map((k) => ({ key: k, config: VALUE_CONFIG })),
+          },
+        ],
         columns: keys.map(() => ({ size: COL_SIZE })),
-        cells: Object.fromEntries(
-          keys.map((k) => [k, { variant: "value", level: "h5", textColor: "#000000" }]),
-        ),
       });
       await loadTable(wrapper, created.key);
       const c = render(
@@ -812,9 +832,8 @@ describe("Table", () => {
       const created = await client.tables.create({
         project: project.key,
         name: "sparse_table",
-        rows: [{ size: ROW_SIZE, cells: ["a"] }],
+        rows: [{ size: ROW_SIZE, cells: [{ key: "a", config: { variant: "value" } }] }],
         columns: [{ size: COL_SIZE }],
-        cells: { a: { variant: "value" } },
       });
       await loadTable(wrapper, created.key);
       const Wrapped = (): ReactElement => (

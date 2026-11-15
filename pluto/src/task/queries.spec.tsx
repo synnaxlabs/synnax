@@ -10,7 +10,7 @@
 import { status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +21,13 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+// A routing key is the key of a secret, which must exist when a config names it.
+const createRoutingKey = async (): Promise<string> =>
+  (await client.secrets.set({ name: "Routing key", source: "stored", value: "rk" }))
+    .key;
+const ROUTING_KEY = await createRoutingKey();
+const OTHER_ROUTING_KEY = await createRoutingKey();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
@@ -181,7 +188,7 @@ describe("queries", () => {
       const testTask = await rack.createTask({
         name: "retrieve_test",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-test" },
+        config: { routingKey: ROUTING_KEY },
       });
 
       const { result } = await renderHookSuspended(
@@ -194,7 +201,7 @@ describe("queries", () => {
       expect(result.current?.key).toEqual(testTask.key);
       expect(result.current?.name).toEqual("retrieve_test");
       expect(result.current?.type).toEqual("pagerduty_alert");
-      expect(result.current?.config).toMatchObject({ routingKey: "rk-test" });
+      expect(result.current?.config).toMatchObject({ routingKey: ROUTING_KEY });
     });
 
     it("should retrieve task with status", async () => {
@@ -319,7 +326,7 @@ describe("queries", () => {
       const testTask = await rack.createTask({
         name: "schema_task",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-schema", autoStart: true },
+        config: { routingKey: ROUTING_KEY, autoStart: true },
       });
 
       const schemas = {
@@ -338,7 +345,7 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.type).toEqual("pagerduty_alert");
-      expect(result.current?.config.routingKey).toEqual("rk-schema");
+      expect(result.current?.config.routingKey).toEqual(ROUTING_KEY);
       expect(result.current?.config.autoStart).toEqual(true);
     });
   });
@@ -360,7 +367,7 @@ describe("queries", () => {
       const created = await rack.createTask({
         name: "untyped_task",
         type: "pagerduty_alert",
-        config: { routingKey: "rk-untyped", autoStart: true },
+        config: { routingKey: ROUTING_KEY, autoStart: true },
       });
       await client.tasks.retrieve(created.key);
       return created;
@@ -373,7 +380,7 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
-      expect(result.current?.config.routingKey).toBe("rk-untyped");
+      expect(result.current?.config.routingKey).toBe(ROUTING_KEY);
     });
 
     it("should keep schema defaults across an untyped streamed update", async () => {
@@ -388,201 +395,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current?.name).toBe("renamed_task"));
       expect(result.current?.config.severity).toBe("critical");
-    });
-  });
-
-  describe("useCreateSnapshot", () => {
-    const createRange = async () =>
-      await client.ranges.create({
-        name: `snapshots-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-
-    it("should create a snapshot of a single task", async () => {
-      const rack = await client.racks.create({
-        name: "snapshotRack",
-      });
-      const originalName = id.create();
-      const originalTask = await rack.createTask({
-        name: originalName,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-original" },
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const snapshot = await client.tasks.retrieve({
-        name: `${originalName} (Snapshot)`,
-      });
-      expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
-      expect(snapshot.snapshot).toBe(true);
-      expect(snapshot.config).toMatchObject({ routingKey: "rk-original" });
-    });
-
-    it("should create snapshots of multiple tasks", async () => {
-      const rack = await client.racks.create({
-        name: "multiSnapshotRack",
-      });
-      const originalName1 = id.create();
-      const originalName2 = id.create();
-      const task1 = await rack.createTask({
-        name: originalName1,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-1" },
-      });
-      const task2 = await rack.createTask({
-        name: originalName2,
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-2" },
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: [
-            { key: task1.key, name: task1.name },
-            { key: task2.key, name: task2.name },
-          ],
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await waitFor(async () => {
-        const firstSnapshotName = `${originalName1} (Snapshot)`;
-        const secondSnapshotName = `${originalName2} (Snapshot)`;
-        const snapshots = await client.tasks.retrieve({
-          name: [firstSnapshotName, secondSnapshotName],
-        });
-        const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
-        const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
-        expect(snapshot1).toBeDefined();
-        expect(snapshot2).toBeDefined();
-        expect(snapshot1?.snapshot).toBe(true);
-        expect(snapshot2?.snapshot).toBe(true);
-        expect(snapshot1?.config).toMatchObject({ routingKey: "rk-1" });
-        expect(snapshot2?.config).toMatchObject({ routingKey: "rk-2" });
-      });
-    });
-
-    it("should place each snapshot in the range", async () => {
-      const rack = await client.racks.create({ name: "rangeRack" });
-      const originalTask = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: {},
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
-      expect(inRange.map(({ name }) => name)).toEqual([
-        `${originalTask.name} (Snapshot)`,
-      ]);
-      expect(inRange[0].range).toEqual(rng.key);
-    });
-
-    it("should preserve task configuration in snapshots", async () => {
-      const rack = await client.racks.create({
-        name: "configRack",
-      });
-      await client.statuses.set({
-        key: "st1",
-        name: "st1",
-        variant: "info",
-        message: "st1",
-      });
-      const complexConfig = {
-        routingKey: "rk-preserved",
-        autoStart: true,
-        alerts: [{ key: "a1", status: "st1" }],
-      };
-      const originalName = id.create();
-      const originalTask = await rack.createTask({
-        name: originalName,
-        type: "pagerduty_alert",
-        config: complexConfig,
-      });
-      const rng = await createRange();
-
-      const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          tasks: { key: originalTask.key, name: originalTask.name },
-          range: rng.key,
-        });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const snapshot = await client.tasks.retrieve({
-        name: `${originalName} (Snapshot)`,
-      });
-      expect(snapshot).toBeDefined();
-      expect(snapshot.config).toMatchObject(complexConfig);
-      expect(snapshot.type).toEqual("pagerduty_alert");
-    });
-  });
-
-  describe("useRange", () => {
-    const renderRange = async (key: task.Key) =>
-      await renderHookSuspended(
-        () => {
-          Task.useEnsure({ key });
-          return Task.useRange({ key });
-        },
-        { wrapper },
-      );
-
-    it("should return the range of a snapshot", async () => {
-      const rack = await client.racks.create({ name: "rangeRack" });
-      const original = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-range" },
-      });
-      const rng = await client.ranges.create({
-        name: `range-${id.create()}`,
-        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
-      });
-      const snapshot = await client.tasks.copy(original.key, "Snapshot", true, rng.key);
-      const { result } = await renderRange(snapshot.key);
-      await waitFor(() => expect(result.current).toEqual(rng.key));
-    });
-
-    it("should return nothing for a task in no range", async () => {
-      const rack = await client.racks.create({ name: "noRangeRack" });
-      const tsk = await rack.createTask({
-        name: id.create(),
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-no-range" },
-      });
-      const { result } = await renderRange(tsk.key);
-      expect(result.current).toBeUndefined();
     });
   });
 
@@ -689,7 +501,7 @@ describe("queries", () => {
       await testRack.createTask({
         name: `form-${id.create()}`,
         type: "pagerduty_alert",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
       });
 
     const renderForm = async (key: task.Key) =>
@@ -703,22 +515,21 @@ describe("queries", () => {
         name: t.name,
         rack: testRack.key,
         type: "pagerduty_alert",
-        config: { routingKey: "dog" },
+        config: { routingKey: ROUTING_KEY },
         configHash: t.configHash,
-        snapshot: false,
       });
     });
 
     it("should show the config hash of an edit once the Core applies it", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
-      act(() => result.current.form.set(path.config.routingKey, "cat"));
+      act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
         expect(await result.current.flush()).toBe(true);
         await client.tasks.settled(t.key);
       });
       const stored = await createTestClient().tasks.retrieve(t.key);
-      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
       expect(stored.configHash).not.toBe(t.configHash);
       expect(result.current.form.get(path.configHash).value).toBe(stored.configHash);
     });
@@ -759,12 +570,14 @@ describe("queries", () => {
       await act(async () => {
         await remote.tasks.dispatch(t.key, [
           task.set({ path: ["name"], value: "written" }),
-          task.set({ path: ["config"], value: { routingKey: "remote" } }),
+          task.set({ path: ["config"], value: { routingKey: OTHER_ROUTING_KEY } }),
         ]);
       });
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toEqual("written");
-        expect(result.current.form.get(path.config.routingKey).value).toEqual("remote");
+        expect(result.current.form.get(path.config.routingKey).value).toEqual(
+          OTHER_ROUTING_KEY,
+        );
       });
       expect(result.current.form.get(path.name).touched).toBe(false);
     });
@@ -775,19 +588,21 @@ describe("queries", () => {
       // The edit sends once its coalesce window ends, which can come before the remote
       // write on a slow machine. The hold keeps the Core from applying it first.
       const { release } = holdRequests(client, "/task/dispatch");
-      act(() => result.current.form.set(path.config.routingKey, "local"));
+      act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
         await createTestClient().tasks.rename(t.key, "renamed");
       });
       await waitFor(() =>
         expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
-      expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
+      expect(result.current.form.get(path.config.routingKey).value).toEqual(
+        OTHER_ROUTING_KEY,
+      );
       release();
       await act(async () => expect(await result.current.flush()).toBe(true));
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");
-      expect(stored.config).toMatchObject({ routingKey: "local" });
+      expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
     });
   });
 
@@ -798,7 +613,7 @@ describe("queries", () => {
       const testRack = await client.racks.create({ name: "test" });
       const t = await testRack.createTask({
         name: "test",
-        config: { routingKey: "rk" },
+        config: { routingKey: ROUTING_KEY },
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);

@@ -19,8 +19,8 @@ type FunctionType struct {
 	Results []ValueType
 }
 
-// Function represents a WASM function
-type Function struct {
+// function represents a WASM function
+type function struct {
 	Locals  []ValueType
 	Body    []byte
 	TypeIdx uint32
@@ -33,8 +33,8 @@ type Import struct {
 	TypeIdx uint32
 }
 
-// Export represents an exported item
-type Export struct {
+// export represents an exported item
+type export struct {
 	Name  string
 	Kind  ExportKind
 	Index uint32
@@ -53,8 +53,8 @@ type Global struct {
 // takes the last one. A host sets the global before it calls the guest.
 const LoopBudgetExport = "loop_budget"
 
-// DataSegment represents a data segment to be placed in linear memory
-type DataSegment struct {
+// dataSegment represents a data segment to be placed in linear memory
+type dataSegment struct {
 	Bytes  []byte
 	Offset uint32
 }
@@ -63,10 +63,10 @@ type DataSegment struct {
 type Module struct {
 	types      []FunctionType
 	imports    []Import
-	functions  []Function
-	exports    []Export
+	functions  []function
+	exports    []export
 	globals    []Global
-	data       []DataSegment
+	data       []dataSegment
 	buf        bytes.Buffer
 	dataOffset uint32
 	memory     bool
@@ -77,9 +77,9 @@ func NewModule() *Module {
 	return &Module{
 		types:     make([]FunctionType, 0),
 		imports:   make([]Import, 0),
-		functions: make([]Function, 0),
-		exports:   make([]Export, 0),
-		data:      make([]DataSegment, 0),
+		functions: make([]function, 0),
+		exports:   make([]export, 0),
+		data:      make([]dataSegment, 0),
 	}
 }
 
@@ -116,7 +116,7 @@ func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) uint32 {
 	// Function index is imports + local functions
 	idx := uint32(len(m.imports) + len(m.functions))
-	m.functions = append(m.functions, Function{
+	m.functions = append(m.functions, function{
 		TypeIdx: typeIdx,
 		Locals:  locals,
 		Body:    body,
@@ -126,7 +126,7 @@ func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) ui
 
 // AddExport adds an export to the module
 func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
-	m.exports = append(m.exports, Export{
+	m.exports = append(m.exports, export{
 		Name:  name,
 		Kind:  kind,
 		Index: index,
@@ -148,7 +148,7 @@ func (m *Module) EnableMemory() {
 // The data will be placed at the current dataOffset, which is then incremented.
 func (m *Module) AddData(bytes []byte) uint32 {
 	offset := m.dataOffset
-	m.data = append(m.data, DataSegment{
+	m.data = append(m.data, dataSegment{
 		Offset: offset,
 		Bytes:  bytes,
 	})
@@ -159,8 +159,8 @@ func (m *Module) AddData(bytes []byte) uint32 {
 // Generate generates the WASM binary
 func (m *Module) Generate() []byte {
 	m.buf.Reset()
-	m.buf.Write(MagicNumber)
-	m.buf.Write(Version)
+	m.buf.Write(magicNumber)
+	m.buf.Write(version)
 	if len(m.types) > 0 {
 		m.writeTypeSection()
 	}
@@ -192,7 +192,7 @@ func (m *Module) writeTypeSection() {
 	var section bytes.Buffer
 	writeUnsignedLEB128(&section, uint64(len(m.types)))
 	for _, ft := range m.types {
-		section.WriteByte(byte(FuncType))
+		section.WriteByte(byte(funcType))
 		writeUnsignedLEB128(&section, uint64(len(ft.Params)))
 		for _, param := range ft.Params {
 			section.WriteByte(byte(param))
@@ -203,7 +203,7 @@ func (m *Module) writeTypeSection() {
 		}
 	}
 
-	m.writeSection(SectionType, section.Bytes())
+	m.writeSection(sectionType, section.Bytes())
 }
 
 func (m *Module) writeImportSection() {
@@ -220,7 +220,7 @@ func (m *Module) writeImportSection() {
 		writeUnsignedLEB128(&section, uint64(imp.TypeIdx))
 	}
 
-	m.writeSection(SectionImport, section.Bytes())
+	m.writeSection(sectionImport, section.Bytes())
 }
 
 func (m *Module) writeFunctionSection() {
@@ -229,7 +229,7 @@ func (m *Module) writeFunctionSection() {
 	for _, fn := range m.functions {
 		writeUnsignedLEB128(&section, uint64(fn.TypeIdx))
 	}
-	m.writeSection(SectionFunc, section.Bytes())
+	m.writeSection(sectionFunc, section.Bytes())
 }
 
 // MaxMemoryPages is the most 64 KiB pages that the linear memory of a module can grow
@@ -243,7 +243,7 @@ func (m *Module) writeMemorySection() {
 	section.WriteByte(1) // limits carry a max
 	writeUnsignedLEB128(&section, 1)
 	writeUnsignedLEB128(&section, MaxMemoryPages)
-	m.writeSection(SectionMemory, section.Bytes())
+	m.writeSection(sectionMemory, section.Bytes())
 }
 
 func (m *Module) writeGlobalSection() {
@@ -260,7 +260,7 @@ func (m *Module) writeGlobalSection() {
 		writeSignedLEB128(&section, g.Init)
 		section.WriteByte(byte(OpEnd))
 	}
-	m.writeSection(SectionGlobal, section.Bytes())
+	m.writeSection(sectionGlobal, section.Bytes())
 }
 
 func (m *Module) writeExportSection() {
@@ -272,7 +272,7 @@ func (m *Module) writeExportSection() {
 		section.WriteByte(byte(exp.Kind))
 		writeUnsignedLEB128(&section, uint64(exp.Index))
 	}
-	m.writeSection(SectionExport, section.Bytes())
+	m.writeSection(sectionExport, section.Bytes())
 }
 
 func (m *Module) writeCodeSection() {
@@ -297,7 +297,7 @@ func (m *Module) writeCodeSection() {
 		writeUnsignedLEB128(&section, uint64(code.Len()))
 		section.Write(code.Bytes())
 	}
-	m.writeSection(SectionCode, section.Bytes())
+	m.writeSection(sectionCode, section.Bytes())
 }
 
 func (m *Module) writeDataSection() {
@@ -315,7 +315,7 @@ func (m *Module) writeDataSection() {
 		writeUnsignedLEB128(&section, uint64(len(seg.Bytes)))
 		section.Write(seg.Bytes)
 	}
-	m.writeSection(SectionData, section.Bytes())
+	m.writeSection(sectionData, section.Bytes())
 }
 
 func (m *Module) writeSection(sectionType byte, data []byte) {

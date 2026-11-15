@@ -49,6 +49,7 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
+import { Section } from "@/platform/section";
 import { Task } from "@/platform/task";
 
 export interface ExtraItemProps<C extends Channel> {
@@ -77,6 +78,7 @@ const ChannelListItem = <C extends Channel>({
   const item = PForm.useFieldValue(path);
   const fields = deep.widen<Channel>(path);
   const nodeIdState = PForm.useFieldState(fields.nodeId, { optional: true });
+  PForm.useStatusDisplay(nodeIdState == null ? null : fields.nodeId);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
@@ -176,7 +178,7 @@ const Header = <C extends Channel>({
       );
     }, "Failed to import channels");
   return (
-    <PHeader.Header className={CSS.B("opc-task-header")}>
+    <Section.Header className={CSS.B("opc-task-header")}>
       <PHeader.Title weight={500} color={10} level="p">
         Channels
       </PHeader.Title>
@@ -202,7 +204,7 @@ const Header = <C extends Channel>({
           <Icon.Export />
         </Button.Button>
       </PHeader.Actions>
-    </PHeader.Header>
+    </Section.Header>
   );
 };
 

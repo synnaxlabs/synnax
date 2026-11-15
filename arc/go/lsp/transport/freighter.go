@@ -31,7 +31,7 @@ type JSONRPCMessage struct {
 
 const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
-var ErrContentLengthExceeded = errors.New(
+var errContentLengthExceeded = errors.New(
 	"[transport] - content length exceeded maximum allowed size",
 )
 
@@ -69,7 +69,7 @@ func (s *streamAdapter) Read(ctx context.Context) (jsonrpc2.Message, int64, erro
 		return nil, 0, err
 	}
 	if len(msg.Content) > s.maxContentLength {
-		return nil, 0, ErrContentLengthExceeded
+		return nil, 0, errContentLengthExceeded
 	}
 	decoded, err := jsonrpc2.DecodeMessage([]byte(msg.Content))
 	if err != nil {
@@ -87,7 +87,7 @@ func (s *streamAdapter) Write(_ context.Context, msg jsonrpc2.Message) (int64, e
 		return 0, err
 	}
 	if len(data) > s.maxContentLength {
-		return 0, ErrContentLengthExceeded
+		return 0, errContentLengthExceeded
 	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()

@@ -10,6 +10,7 @@
 package testutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -67,6 +68,7 @@ func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 }
 
 func assemble(instructions ...any) []byte {
+	var out bytes.Buffer
 	encoder := wasm.NewWriter()
 
 	for i := 0; i < len(instructions); i++ {
@@ -165,11 +167,13 @@ func assemble(instructions ...any) []byte {
 				encoder.WriteOpcode(instr)
 			}
 		case []byte:
-			encoder.WriteBytes(instr)
+			out.Write(encoder.Bytes())
+			out.Write(instr)
+			encoder = wasm.NewWriter()
 		}
 	}
-
-	return encoder.Bytes()
+	out.Write(encoder.Bytes())
+	return out.Bytes()
 }
 
 // opcodeMatcher is a custom Gomega matcher for comparing opcode sequences

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, type state as xstate } from "@synnaxlabs/x";
+import { box, location, type state as xstate, type xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -36,7 +36,8 @@ import { Triggers } from "@/triggers";
  *
  * - `connected`: butts against the trigger and matches its width, but never narrower
  *   than its CSS min-width.
- * - `floating`: sits near the trigger at its own width.
+ * - `floating`: sits near the trigger at its own width, up to
+ *   `--pluto-dialog-max-width`.
  * - `modal`: centers over the page behind a backdrop.
  */
 export type Variant = "connected" | "floating" | "modal";
@@ -55,6 +56,11 @@ export interface FrameProps extends Omit<
   onVisibleChange?: xstate.Setter<boolean>;
   /** Pins the dialog to one corner pairing instead of choosing one that fits. */
   location?: position.LocationPreference;
+  /**
+   * @returns how far the dialog moves out past each edge it aligns with on the target,
+   * read from the open dialog each time the frame places it.
+   */
+  alignOffset?: (dialog: HTMLElement) => xy.Crude;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -149,6 +155,13 @@ export const open = (id: string): void => {
 /** The gap in pixels a dialog keeps from the window edges. */
 const WINDOW_MARGIN = 6;
 
+const contextMenus = (): HTMLElement[] =>
+  Array.from(document.getElementsByClassName(CONTEXT_MENU_CLASS)) as HTMLElement[];
+
+// The content of a submenu portals out of its context menu but still belongs to it.
+const inContextMenu = (target: Element): boolean =>
+  contextMenus().some((menu) => contains(menu, target));
+
 /** Compares width too, since a wider dialog clamps further from the window edge. */
 const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
   if (prev == null) return false;
@@ -215,6 +228,7 @@ const selectModalPosition = (
 export const Frame = ({
   children,
   location: propsLocation,
+  alignOffset,
   onPointerEnter,
   className,
   variant = "floating",
@@ -304,6 +318,7 @@ export const Frame = ({
       prefer,
       initial: propsLocation,
       offset: 3,
+      alignOffset: alignOffset?.(dialogRef.current),
     });
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
@@ -394,6 +409,8 @@ export const Frame = ({
     const dialogEl = dialogRef.current;
     // A dialog with an open child dialog leaves Escape to the child.
     if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null) return;
+    // A context menu over the dialog closes first, unless the dialog opened in it.
+    if (contextMenus().some((menu) => !contains(menu, targetRef.current))) return;
     if (variant !== "modal") {
       close();
       stopPropagation();
@@ -421,8 +438,8 @@ export const Frame = ({
         !(target instanceof Element) ||
         contains(frame, target) ||
         anchor?.contains(target) === true ||
-        // A context menu opened over the dialog acts on it.
-        target.closest(`.${CONTEXT_MENU_CLASS}`) != null
+        // A context menu opened over the dialog acts on it, and so do its submenus.
+        inContextMenu(target)
       )
         return;
       close();

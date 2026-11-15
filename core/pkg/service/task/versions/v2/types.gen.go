@@ -126,6 +126,7 @@ func (r *ReadConfig) SetDefaults() {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.GreaterThanEq("stream_rate", r.StreamRate, 0)
 	return v.Error()
 }
 
@@ -434,4 +435,12 @@ func (u *Scale) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }

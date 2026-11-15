@@ -12,8 +12,9 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	"github.com/synnaxlabs/x/payload"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -102,8 +103,8 @@ var _ = Describe("WriteConfig", func() {
 				cfg.ApplyDefaults()
 				Expect(cfg.RecordKey).To(Equal(v0.RecordKeyChannelName))
 				Expect(cfg.Record.ValuePointer).To(Equal("/value"))
-				Expect(cfg.Record.TimeFormat).To(Equal(http.TimeFormatUnixNs))
-				Expect(cfg.Channels[0].JSONType).To(Equal(http.JSONTypeNumber))
+				Expect(cfg.Record.TimeFormat).To(Equal(payload.TimeFormatUnixNs))
+				Expect(cfg.Channels[0].JSONType).To(Equal(payload.JSONTypeNumber))
 			},
 		)
 
@@ -112,15 +113,17 @@ var _ = Describe("WriteConfig", func() {
 				RecordKey: v0.RecordKeyNone,
 				Record: v0.Record{
 					ValuePointer: "/v",
-					TimeFormat:   http.TimeFormatISO8601,
+					TimeFormat:   payload.TimeFormatISO8601,
 				},
-				Channels: []v0.WriteChannel{{Key: "c", JSONType: http.JSONTypeString}},
+				Channels: []v0.WriteChannel{
+					{Key: "c", JSONType: payload.JSONTypeString},
+				},
 			}
 			cfg.ApplyDefaults()
 			Expect(cfg.RecordKey).To(Equal(v0.RecordKeyNone))
 			Expect(cfg.Record.ValuePointer).To(Equal("/v"))
-			Expect(cfg.Record.TimeFormat).To(Equal(http.TimeFormatISO8601))
-			Expect(cfg.Channels[0].JSONType).To(Equal(http.JSONTypeString))
+			Expect(cfg.Record.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+			Expect(cfg.Channels[0].JSONType).To(Equal(payload.JSONTypeString))
 		})
 	})
 

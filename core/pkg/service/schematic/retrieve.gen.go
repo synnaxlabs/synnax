@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/compare"
 )
 
@@ -37,11 +36,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name     *gorp.SortedIndex[Key, Schematic, string]
-	group    *gorp.KeyReference[Key, Schematic, group.Key]
-	project  *gorp.KeyReference[Key, Schematic, project.Key]
-	rangeVal *gorp.KeyReference[Key, Schematic, ranger.Key]
-	search   *gorp.SearchIndex[Key, Schematic]
+	name    *gorp.SortedIndex[Key, Schematic, string]
+	group   *gorp.KeyReference[Key, Schematic, group.Key]
+	project *gorp.KeyReference[Key, Schematic, project.Key]
+	search  *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -78,18 +76,6 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
-		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, ranger.Key]{
-			Name:     "range",
-			Table:    "range",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Targets: func(e *Schematic) []ranger.Key {
-				if e.Range == nil {
-					return nil
-				}
-				return []ranger.Key{*e.Range}
-			},
-		}),
 		search: gorp.NewSearchIndex[Key, Schematic](
 			"search",
 			func(e *Schematic) []string {
@@ -114,7 +100,6 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 	return []gorp.Reference[Key, Schematic]{
 		i.group,
 		i.project,
-		i.rangeVal,
 	}
 }
 
@@ -209,16 +194,6 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchSnapshot returns a filter for schematics by their
-// Snapshot field.
-func MatchSnapshot(v bool) Filter {
-	return func(Retrieve) gorp.Filter[Key, Schematic] {
-		return gorp.Match(func(_ gorp.Context, e *Schematic) (bool, error) {
-			return e.Snapshot == v, nil
-		})
-	}
-}
-
 // MatchGroups returns a filter for schematics
 // whose Group matches any of the provided
 // values.
@@ -265,23 +240,6 @@ func MatchProjects(vals ...project.Key) Filter {
 func MatchHasProject(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Schematic] {
 		return r.indexes.project.FilterHolding(has)
-	}
-}
-
-// MatchRanges returns a filter for schematics
-// whose Range matches any of the provided
-// values.
-func MatchRanges(vals ...ranger.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Schematic] {
-		return r.indexes.rangeVal.Filter(vals...)
-	}
-}
-
-// MatchHasRange returns a filter for schematics whose
-// Range holds a target when has is true, and holds none when has is false.
-func MatchHasRange(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Schematic] {
-		return r.indexes.rangeVal.FilterHolding(has)
 	}
 }
 

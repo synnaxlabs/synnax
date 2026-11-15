@@ -11,16 +11,16 @@
 
 package versions
 
-import "github.com/synnaxlabs/x/color/versions/v1"
+import "github.com/synnaxlabs/x/color/versions/v2"
 
-// Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
-type Color = v1.Color
+// Color is an RGBA color with every component 0-255.
+type Color = v2.Color
 
 // Stop is a single color stop in a gradient.
-type Stop = v1.Stop
+type Stop = v2.Stop
 
 // Band is a colored range of values starting at a threshold.
-type Band = v1.Band
+type Band = v2.Band
 
 // Scale maps a value to a color through threshold bands.
-type Scale = v1.Scale
+type Scale = v2.Scale

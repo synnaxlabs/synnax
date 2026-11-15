@@ -99,14 +99,14 @@ class TestMain:
 
     def test_should_not_patch_a_train_tagged_on_main(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0")
-        repo.git("branch", "release/core-0.59")
+        repo.git("branch", "release/0.59")
         repo.commit("0.60 work")
         out = repo.resolve("core")
         assert out["version"] == "0.60.0"
         assert out["previous_tag"] == "core/v0.59.0"
 
     def test_should_count_past_an_unreachable_patch(self, repo: Repo) -> None:
-        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.branch("release/0.58", "core/v0.58.2")
         repo.commit("hotfix")
         repo.tag("core/v0.58.3")
         repo.git("checkout", "-q", "main")
@@ -119,11 +119,14 @@ class TestMain:
         [
             "sy-1-feature",
             "",
-            "release/core-0.58.x",
-            "release/Core-0.58",
-            "release/core-0.058",
-            "release/core-00.58",
-            "release/desktop-1.0",
+            "release/0.58.x",
+            "release/0.058",
+            "release/00.58",
+            "release/v0.58",
+            "release/console-0.58",
+            "release/core-0.58",
+            "release/driver-0.58",
+            "release/desktop-1.0.x",
         ],
     )
     @pytest.mark.parametrize("product", ["console", "core", "driver", "ts", "py"])
@@ -134,7 +137,15 @@ class TestMain:
         repo.tag("ts/v0.58.2", "py/v0.58.2")
         result = repo.run(product, prerelease, ref, "", "0.59.0")
         assert result.returncode != 0
-        assert "releases run only from main or release/" in result.stderr
+        assert "releases run only from main or release/X.Y, not" in result.stderr
+
+    @pytest.mark.parametrize("product", ["console", "core", "driver", "ts", "py"])
+    def test_should_reject_a_desktop_release_branch(
+        self, repo: Repo, product: str
+    ) -> None:
+        error = repo.resolve_error(product, ref="release/desktop-1.0", core="0.59.0")
+        assert "release/desktop-1.0 releases only Desktop" in error
+        assert f"Leave {product} out of the run" in error
 
     def test_should_reject_a_bump(self, repo: Repo) -> None:
         assert "takes no bump" in repo.resolve_error("core", bump="patch")
@@ -155,9 +166,9 @@ class TestMain:
 
 
 class TestReleaseBranch:
-    """Tests for patches released from a release/<product>-X.Y branch."""
+    """Tests for patches released from a release/X.Y branch."""
 
-    REF = "release/console-0.58"
+    REF = "release/0.58"
 
     def test_should_release_the_next_patch(self, repo: Repo) -> None:
         repo.branch(self.REF, "console/v0.58.2")
@@ -183,12 +194,14 @@ class TestReleaseBranch:
         assert out["version"] == "0.58.3"
         assert out["latest"] == "false"
 
-    def test_should_take_the_train_from_any_product_branch(self, repo: Repo) -> None:
-        repo.tag("core/v0.59.0", "driver/v0.59.0")
-        repo.branch("release/core-0.58", "core/v0.58.2")
+    @pytest.mark.parametrize("product", ["console", "core", "driver"])
+    def test_should_release_every_product_from_one_branch(
+        self, repo: Repo, product: str
+    ) -> None:
+        repo.tag("console/v0.59.0", "core/v0.59.0", "driver/v0.59.0")
+        repo.branch(self.REF, "core/v0.58.2")
         repo.commit("hotfix")
-        out = repo.resolve("driver", ref="release/core-0.58")
-        assert out["version"] == "0.58.3"
+        assert repo.resolve(product, ref=self.REF)["version"] == "0.58.3"
 
     @pytest.mark.parametrize("prerelease", [False, True])
     def test_should_reject_a_released_commit(
@@ -210,27 +223,27 @@ class TestReleaseBranch:
     def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0")
         repo.commit("more")
-        repo.branch("release/core-0.59")
-        out = repo.resolve("core", ref="release/core-0.59")
+        repo.branch("release/0.59")
+        out = repo.resolve("core", ref="release/0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "core/v0.58.2"
         assert out["latest"] == "true"
 
     def test_should_reject_a_train_main_has_not_opened(self, repo: Repo) -> None:
-        repo.branch("release/console-0.59")
-        error = repo.resolve_error("console", ref="release/console-0.59")
+        repo.branch("release/0.59")
+        error = repo.resolve_error("console", ref="release/0.59")
         assert "no stable release exists on 0.59" in error
 
     def test_should_reject_an_older_tag_at_head(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0")
-        repo.branch("release/core-0.59")
+        repo.branch("release/0.59")
         repo.commit("hotfix")
         repo.tag("core/v0.59.1")
         repo.git("checkout", "-q", "main")
         assert "core/v0.59.0 already names HEAD" in repo.resolve_error("core")
 
     def test_should_reject_a_branch_without_the_last_patch(self, repo: Repo) -> None:
-        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.branch("sy-1-core-hotfix", "core/v0.58.2")
         repo.commit("core hotfix")
         repo.tag("core/v0.58.3")
         repo.branch(self.REF, "console/v0.58.2")
@@ -340,7 +353,7 @@ class TestDesktop:
         [
             "sy-1-feature",
             "",
-            "release/core-0.58",
+            "release/0.58",
             "release/desktop-1.0.x",
             "release/desktop-01.0",
         ],
@@ -464,7 +477,7 @@ class TestPackages:
         repo.tag(f"{product}/v0.58.2")
         error = repo.resolve_error(product)
         assert "releases from main only with the Core" in error
-        assert "release/core-X.Y" in error
+        assert "run from release/X.Y" in error
 
     def test_should_reject_a_core_candidate(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.2")
@@ -474,10 +487,10 @@ class TestPackages:
         self, repo: Repo
     ) -> None:
         repo.tag("core/v0.59.0", "ts/v0.59.0")
-        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.branch("release/0.58", "core/v0.58.2")
         repo.tag("ts/v0.58.4")
         repo.commit("hotfix")
-        out = repo.resolve("ts", ref="release/core-0.58")
+        out = repo.resolve("ts", ref="release/0.58")
         assert out["version"] == "0.58.5"
         assert out["minor"] == "0.58"
         assert out["previous_tag"] == "ts/v0.58.4"
@@ -486,17 +499,17 @@ class TestPackages:
     def test_should_release_with_the_core_from_a_release_branch(
         self, repo: Repo
     ) -> None:
-        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.branch("release/0.58", "core/v0.58.2")
         repo.tag("py/v0.58.4")
         repo.commit("hotfix")
-        ref = "release/core-0.58"
+        ref = "release/0.58"
         assert repo.resolve("core", ref=ref)["version"] == "0.58.3"
         assert repo.resolve("py", ref=ref, core="0.58.3")["version"] == "0.58.5"
 
     def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
         repo.tag("py/v0.58.2", "core/v0.59.0")
-        repo.branch("release/core-0.59")
-        out = repo.resolve("py", ref="release/core-0.59")
+        repo.branch("release/0.59")
+        out = repo.resolve("py", ref="release/0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "py/v0.58.2"
 
@@ -507,8 +520,8 @@ class TestPackages:
     @pytest.mark.parametrize("core", ["", "0.58.3"])
     def test_should_reject_a_train_with_no_core(self, repo: Repo, core: str) -> None:
         repo.tag("ts/v0.58.4")
-        repo.branch("release/console-0.59")
-        error = repo.resolve_error("ts", ref="release/console-0.59", core=core)
+        repo.branch("release/0.59")
+        error = repo.resolve_error("ts", ref="release/0.59", core=core)
         assert "no Core is released on 0.59" in error
 
     def test_should_finish_a_partial_publish_from_main(self, repo: Repo) -> None:
@@ -516,8 +529,8 @@ class TestPackages:
         repo.commit("0.59 work")
         repo.tag("core/v0.59.0", "ts/v0.59.0")
         assert "only with the Core" in repo.resolve_error("ts")
-        repo.branch("release/core-0.59")
-        out = repo.resolve("ts", ref="release/core-0.59")
+        repo.branch("release/0.59")
+        out = repo.resolve("ts", ref="release/0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "ts/v0.58.4"
 
@@ -525,7 +538,7 @@ class TestPackages:
         self, repo: Repo
     ) -> None:
         repo.tag("py/v0.58.2")
-        repo.branch("release/core-0.58")
+        repo.branch("release/0.58")
         repo.commit("hotfix")
         repo.tag("py/v0.58.3")
-        assert repo.resolve("py", ref="release/core-0.58")["version"] == "0.58.3"
+        assert repo.resolve("py", ref="release/0.58")["version"] == "0.58.3"

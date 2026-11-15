@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch, zod } from "@synnaxlabs/x";
+import { color, type patch, zod } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 import { z } from "zod";
 
@@ -20,13 +20,24 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/view/actions.gen";
-import { type Type, type View } from "@/view/types.gen";
+import { rangeLayoutZ, rangeSortZ, type Type, type View } from "@/view/types.gen";
+
+const BASE = {
+  name: z.string(),
+  icon: zod.nullToUndefined(z.string()),
+  color: zod.nullToUndefined(color.colorZ),
+};
 
 // The fields that path actions edit for each type of view, checked for shape only. The
 // Core validates them.
 const DOCUMENTS: Record<Type, z.ZodObject> = {
-  range: z.object({ name: z.string(), where: zod.nullToUndefined(ranger.whereZ) }),
-  status: z.object({ name: z.string(), where: zod.nullToUndefined(status.whereZ) }),
+  range: z.object({
+    ...BASE,
+    where: zod.nullToUndefined(ranger.whereZ),
+    sort: rangeSortZ,
+    layout: rangeLayoutZ,
+  }),
+  status: z.object({ ...BASE, where: zod.nullToUndefined(status.whereZ) }),
 };
 
 const applyPath = (state: Draft<View>, action: patch.Action): HandlerResult =>
@@ -38,8 +49,8 @@ const handlers: Handlers = {
 };
 
 /**
- * Applies actions to a view in order. Path actions edit only the view's name and
- * filter.
+ * Applies actions to a view in order. Path actions edit only the view's name, icon,
+ * color, and filter, and the sort and layout of a range view.
  * @throws {Error} if the view cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);

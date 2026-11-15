@@ -11,7 +11,6 @@ package schematic
 
 import (
 	"context"
-	"maps"
 	"reflect"
 	"slices"
 	"uuid"
@@ -19,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -42,9 +40,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
-// schematic must belong to exactly one of a project and a range. A schematic in a group
-// belongs to the project that holds the group. Create returns an error wrapping
-// validate.ErrValidation when a schematic with s.Key exists.
+// schematic must belong to a project. A schematic in a group belongs to the project
+// that holds the group. Create returns an error wrapping validate.ErrValidation when a
+// schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	return w.create(ctx, s, nil)
 }
@@ -64,14 +62,17 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	var prev Schematic
+	var stored []Node
 	if source != nil {
-		prev = *source
+		stored = source.Nodes
 	}
-	if err := validateScales(prev, *s); err != nil {
+	if err := validateScales(stored, *s); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
+	if err := validateParents(*s); err != nil {
+		return err
+	}
+	if err := project.CheckMember(s.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -96,10 +97,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Schematic) (Schematic, error) {
+		Change(func(_ gorp.Context, e Schematic) Schematic {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -126,14 +127,11 @@ func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 }
 
 // Copy creates a copy of the schematic with the given key and name, and binds it into
-// result. A snapshot copy is no longer editable. The copy sits in no group. When rng is
-// set, the copy belongs to that range. Otherwise it keeps the owner of the original.
+// result. The copy sits in no group and belongs to the project of the original.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
 	name string,
-	snapshot bool,
-	rng *ranger.Key,
 	result *Schematic,
 ) error {
 	if err := w.table.NewRetrieve().
@@ -145,11 +143,7 @@ func (w Writer) Copy(
 	source := *result
 	result.Key = uuid.New()
 	result.Name = name
-	result.Snapshot = snapshot
 	result.Group = nil
-	if rng != nil {
-		result.Project, result.Range = nil, rng
-	}
 	return w.create(ctx, result, &source)
 }
 
@@ -167,29 +161,14 @@ func (w Writer) Delete(
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
 // w. A move into a group also moves the schematic into the project that holds the
 // group, and a move into another project moves it out of its group. Apply attaches the
-// actions of each such move after acts and returns them. Snapshots are immutable except
-// for their name, group, and project: returns validate.ErrValidation if the target is a
-// snapshot and any other action is included. Also returns a validation error, and
-// stores nothing, if the actions leave the schematic invalid.
+// actions of each such move after acts and returns them. It returns a validation error,
+// and stores nothing, if the actions leave the schematic invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
-			if prev.Snapshot {
-				for _, a := range acts {
-					if !editsSnapshot(a) {
-						return prev, errors.Wrapf(
-							validate.ErrValidation,
-							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-							a.Type,
-							key,
-							prev.Name,
-						)
-					}
-				}
-			}
-			// Reduce edits the configs map in place, so keep the stored ones.
-			stored := maps.Clone(prev.Configs)
+			// Reduce changes the node list in place, so keep the stored nodes.
+			stored := slices.Clone(prev.Nodes)
 			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
@@ -210,10 +189,13 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Schematic{}, err
 			}
-			if err = validateScales(Schematic{Configs: stored}, next); err != nil {
+			if err = validateScales(stored, next); err != nil {
 				return Schematic{}, err
 			}
-			return next, project.ValidateOwner(next.Project, next.Range)
+			if err = validateParents(next); err != nil {
+				return Schematic{}, err
+			}
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
@@ -221,34 +203,74 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	return added, nil
 }
 
-// validateScales returns an error wrapping validate.ErrValidation when a config of next
-// carries a scale that is not positive and differs from the scale prev stores for it. A
-// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
-// a stored zero does not block an edit to another field.
-func validateScales(prev, next Schematic) error {
-	for key, cfg := range next.Configs {
-		scale, ok := scaleOf(cfg)
+// validateScales returns an error wrapping validate.ErrValidation when a node config
+// of next carries a scale that is not positive and differs from the scale of the stored
+// node. A zero scale sizes a symbol to nothing. A stored scale that the write keeps
+// passes, so a stored zero does not block an edit to another field.
+func validateScales(stored []Node, next Schematic) error {
+	for i, n := range next.Nodes {
+		scale, ok := scaleOf(n.Config.Variant)
 		if !ok || scale > 0 {
 			continue
 		}
-		if old, stored := prev.Configs[key]; stored {
-			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
+		if j := slices.IndexFunc(
+			stored,
+			func(s Node) bool { return s.Key == n.Key },
+		); j >= 0 {
+			if old, had := scaleOf(stored[j].Config.Variant); had && old == scale {
 				continue
 			}
 		}
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"configs.%s.scale: must be positive, got %v",
-			key,
+			"nodes.%d.config.scale: must be positive, got %v",
+			i,
 			scale,
 		)
 	}
 	return nil
 }
 
-// scaleOf returns the scale that cfg carries, and false when its variant has none.
-func scaleOf(cfg ElementConfig) (float64, bool) {
-	v := reflect.ValueOf(cfg.Variant)
+// validateParents returns an error wrapping validate.ErrValidation when the parent of a
+// node of s is not a group box node of s, or when the parents of s form a cycle.
+func validateParents(s Schematic) error {
+	parentOf := make(map[string]*string)
+	for _, n := range s.Nodes {
+		if _, ok := n.Config.Variant.(GroupBoxNodeConfig); ok {
+			parentOf[n.Key] = n.Parent
+		}
+	}
+	for i, n := range s.Nodes {
+		if n.Parent == nil {
+			continue
+		}
+		if _, ok := parentOf[*n.Parent]; !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"nodes.%d.parent: %s is not a group box of the schematic",
+				i,
+				*n.Parent,
+			)
+		}
+		// A chain without a cycle has at most one step for each group box.
+		for p, steps := n.Parent, 0; p != nil; p, steps = parentOf[*p], steps+1 {
+			if steps == len(parentOf) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"nodes.%d.parent: the parents of %s form a cycle",
+					i,
+					n.Key,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// scaleOf returns the scale that a node config variant carries, and false when it has
+// none.
+func scaleOf(variant NodeConfigVariant) (float64, bool) {
+	v := reflect.ValueOf(variant)
 	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}

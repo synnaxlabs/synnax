@@ -94,6 +94,7 @@ export class Client {
   private readonly table: query.Table<string, Resource>;
   private readonly searches: query.Space<Search, Resource[], string, Resource>;
   private readonly byKey: query.Space<string, Resource, string, Resource>;
+  private readonly byKeys: query.Space<string[], Resource[], string, Resource>;
   private readonly lists: query.Lists<
     ListQuery,
     Resource,
@@ -153,6 +154,17 @@ export class Client {
       keyOf: (key) => key,
       single: true,
     });
+    this.byKeys = cache.queries<string[], Resource[], string, Resource>({
+      name: "resources",
+      table: this.table,
+      fetch: async (keys) => (await this.table.retrieve(keys)).map((r) => r.key),
+      compose: (records, keys) => {
+        const byKey = new Map(records.map((r) => [r.key, r]));
+        return [...new Set(keys)].flatMap((k) => byKey.get(k) ?? []);
+      },
+      keysOf: (keys) => keys,
+      matches: (r, keys) => keys.includes(r.key),
+    });
   }
 
   /**
@@ -165,16 +177,19 @@ export class Client {
   }
 
   /**
-   * Returns the live resource that the ID names, or the live list of the resources that
-   * match the search, closest match first. An empty term lists the resources in order
-   * of type. Renames, creates, and deletes of the types that the client has change
-   * channels for keep the answer current.
+   * Returns the live resource that the ID names, the live resources that a list of IDs
+   * names, in the order of the IDs, or the live list of the resources that match the
+   * search, closest match first. An empty term lists the resources in order of type.
+   * Renames, creates, and deletes of the types that the client has change channels for
+   * keep the answer current.
    */
   watch(id: ID): query.Live<Resource>;
+  watch(ids: ID[]): query.Live<Resource[]>;
   watch(params: SearchParams): query.List<Resource, string>;
   watch(
-    target: ID | SearchParams,
-  ): query.Live<Resource> | query.List<Resource, string> {
+    target: ID | ID[] | SearchParams,
+  ): query.Live<Resource> | query.Live<Resource[]> | query.List<Resource, string> {
+    if (Array.isArray(target)) return this.byKeys.watch(idToString(target));
     if (isID(target)) return this.byKey.watch(idToString(target));
     const { searchTerm, types, limit } = target;
     return this.lists.list({
@@ -185,15 +200,15 @@ export class Client {
   }
 
   /**
-   * Retrieves the ID and name of each resource. The list form returns the resources in
-   * the order of the IDs and leaves out each ID that names no resource.
+   * Retrieves the ID and name of each resource. The list form returns each resource
+   * once, in the order of the IDs, and leaves out each ID that names no resource.
    * @throws {NotFoundError} if the single ID names no resource.
    * @throws {ValidationError} if an ID has an unknown type.
    */
   async retrieve(id: ID): Promise<Resource>;
   async retrieve(ids: ID[]): Promise<Resource[]>;
   async retrieve(ids: ID | ID[]): Promise<Resource | Resource[]> {
-    if (Array.isArray(ids)) return await this.table.retrieve(idToString(ids));
+    if (Array.isArray(ids)) return await this.byKeys.retrieve(idToString(ids));
     return await this.byKey.retrieve(idToString(ids));
   }
 
@@ -217,6 +232,7 @@ export class Client {
             this.searches.refetchMatching(covers);
             this.lists.refetchMatching(covers);
             this.byKey.refetchMatching((k) => unheld.includes(k));
+            this.byKeys.refetchMatching((ks) => ks.some((k) => unheld.includes(k)));
           }
           table.refetch(keys.filter((k) => table.has(k)));
         },

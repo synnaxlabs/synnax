@@ -16,7 +16,12 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import {
+  createIdentifier,
+  createPDOs,
+  createSlaveDevice,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
@@ -226,7 +231,7 @@ describe("EtherCAT device ContextMenuItems", () => {
   });
 
   it("should create the vendor task drafts and open their resource tabs", async () => {
-    const slave = await createSlave(true);
+    const slave = await createSlave(true, { pdos: createPDOs() });
     const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
@@ -243,6 +248,15 @@ describe("EtherCAT device ContextMenuItems", () => {
     if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
     const write = await client.tasks.retrieve({ key: writeTab.resource.key });
     expect(write.type).toBe(EtherCAT.Task.WRITE_TYPE);
+  });
+
+  it("should offer no write task for a slave with no outputs", async () => {
+    const slave = await createSlave(true, {
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    await renderContextMenu([slave]);
+    expect(await screen.findByText("Create read task")).toBeTruthy();
+    expect(screen.queryByText("Create write task")).toBeNull();
   });
 
   it("should disable every selected slave on the Core when Disable is clicked", async () => {
@@ -325,6 +339,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should hide the cycle fields for a mode that takes no cycles", async () => {
       await openConfigure({ opModes: [DC_MODE, PDI_MODE, NO_SYNC0_MODE] });
+      await pickMode(DC_DESCRIPTION);
       expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
       await pickMode("The device sets its own clock ticks.");
       expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
@@ -349,15 +364,17 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should run SM sync in auto on a slave that lists no modes", async () => {
       await openConfigure({ opModes: [] });
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
       expect(
-        screen.getByText("The Driver uses SM sync, because the device lists no modes."),
+        await screen.findByText(
+          "The Driver uses SM sync, because the device lists no modes.",
+        ),
       ).toBeTruthy();
       expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
     });
 
-    it("should run the first mode in auto when there is no SM mode", async () => {
+    it("should show only the first mode in auto when there is no SM mode", async () => {
       await openConfigure({ opModes: [FIXED_MODE, DC_MODE] });
-      expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
       expect(
         await screen.findByText(
@@ -365,9 +382,25 @@ describe("EtherCAT device ContextMenuItems", () => {
             "SM mode. Best for most needs.",
         ),
       ).toBeTruthy();
+      expect(screen.queryByRole("textbox", { name: "SYNC0 cycle" })).toBeNull();
+      expect(screen.queryByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeNull();
     });
 
-    it("should run the mode and cycles that the catalog gives in auto", async () => {
+    it("should show the cycles in auto when its mode needs one typed", async () => {
+      const slave = await openConfigure({ opModes: [NO_CYCLE_MODE] });
+      typeCycle("SYNC0 cycle", "300");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveOpMode(slave.key)).toEqual({
+          index: 0,
+          assignActivate: 0x0300,
+          sync0Cycle: 300_000,
+          sync1Cycle: 0,
+        }),
+      );
+    });
+
+    it("should run the mode that the catalog gives in auto", async () => {
       await openConfigure({
         opModes: [SM_MODE, DC_MODE],
         settings: {
@@ -388,12 +421,6 @@ describe("EtherCAT device ContextMenuItems", () => {
           },
         },
       });
-      expect(
-        screen.getByText(
-          "SYNC0 ticks every 1μs. SYNC1 ticks every 1s. The cycle turns on SYNC1, " +
-            "which the mode leaves off.",
-        ),
-      ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
       expect(
         await screen.findByText(
@@ -420,24 +447,26 @@ describe("EtherCAT device ContextMenuItems", () => {
           },
         },
       });
-      const auto = screen.getAllByText(
-        "The Driver uses SM sync, because the device lists it. Best for most needs.",
-      );
-      expect(auto.length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+      expect(
+        await screen.findByText(
+          "The Driver uses SM sync, because the device lists it. Best for most needs.",
+        ),
+      ).toBeTruthy();
     });
 
     it.each(MODE_TEXTS)(
       "should describe the clock ticks of a mode with $name",
       async ({ mode, option, help }) => {
         await openConfigure({ opModes: [mode] });
+        await pickMode(option);
         expect(screen.getByText(help)).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
-        expect(await screen.findByText(option)).toBeTruthy();
       },
     );
 
     it("should keep a cycle to the nanosecond", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC0 cycle", "62.5");
       const sync0 = screen.getByRole("textbox", { name: "SYNC0 cycle" });
       expect(sync0).toHaveProperty("value", "62μs 500ns");
@@ -455,6 +484,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should put a cycle back to the mode's own when Auto is clicked", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC0 cycle", "300");
       expect(screen.getByText("SYNC0 ticks every 300μs. SYNC1 is off.")).toBeTruthy();
       fireEvent.click(getIconButton(document.body, "auto"));
@@ -478,6 +508,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should say when a SYNC1 cycle turns on SYNC1", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC1 cycle", "1000000");
       expect(
         screen.getByText("The cycle turns on SYNC1, which the mode leaves off.", {
@@ -497,6 +528,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should not save a SYNC1 cycle that is not a multiple of SYNC0", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC0 cycle", "300");
       typeCycle("SYNC1 cycle", "1000");
       expect(
@@ -510,6 +542,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should check SYNC1 against the fixed SYNC0 cycle of the mode", async () => {
       const slave = await openConfigure({ opModes: [FIXED_MODE] });
+      await pickMode("Clock ticks: SYNC0 every 300μs.");
       typeCycle("SYNC1 cycle", "1000");
       expect(
         screen.getByText("SYNC1 cycle must be a multiple of the SYNC0 cycle"),
@@ -522,6 +555,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should not save a SYNC0 cycle over the limit of its register", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC0 cycle", "5000000");
       expect(
         screen.getByText("SYNC0 cycle of 5s is over the limit of 4s 294ms 967μs 295ns"),
@@ -534,6 +568,7 @@ describe("EtherCAT device ContextMenuItems", () => {
 
     it("should not save a SYNC1 cycle over the limit of its register", async () => {
       const slave = await openConfigure({ opModes: [DC_MODE] });
+      await pickMode(DC_DESCRIPTION);
       typeCycle("SYNC0 cycle", "1000000");
       typeCycle("SYNC1 cycle", "6000000");
       expect(
@@ -548,6 +583,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     it("should not save a SYNC1 shift that puts SYNC1 before SYNC0", async () => {
       const mode = { ...createMode("DC (shift)", 0x0700), sync1Shift: -1000 };
       const slave = await openConfigure({ opModes: [mode] });
+      await pickMode("Clock ticks: SYNC0 each bus cycle, SYNC1 with each SYNC0 tick.");
       typeCycle("SYNC0 cycle", "300");
       expect(
         screen.getByText("SYNC1 shift of -1μs is under the limit of 0s"),

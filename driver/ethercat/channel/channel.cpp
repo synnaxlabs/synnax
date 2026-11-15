@@ -198,6 +198,48 @@ void check_stop_value(
         v != std::trunc(v))
         reject(std::format("a whole number from {} to {}", min, max));
 }
+
+/// @brief whether the slave sends integer samples at the input entry.
+bool sends_integers(const slave::Properties &slave, const pdo::Entry &entry) {
+    static const std::vector INTEGER_TYPES = {
+        x::telem::INT64_T,
+        x::telem::INT32_T,
+        x::telem::INT16_T,
+        x::telem::INT8_T,
+        x::telem::UINT64_T,
+        x::telem::UINT32_T,
+        x::telem::UINT16_T,
+        x::telem::UINT8_T,
+    };
+    const auto pdo = slave.find_pdo(entry.index, entry.sub_index, true);
+    return pdo && pdo->data_type.matches(INTEGER_TYPES);
+}
+
+/// @brief returns the calibration that the catalog of slave gives the input entry, and
+/// the data type in which the entry encodes samples, or nullopt when it gives none.
+std::optional<std::pair<Calibration, x::telem::DataType>>
+find_calibration(const slave::Properties &slave, const pdo::Entry &entry) {
+    if (!slave.settings || !slave.settings->contains("channels")) return std::nullopt;
+    for (const auto &channel: slave.settings->at("channels"))
+        for (const auto &e: channel.value("entries", x::json::json::array())) {
+            if (e.value("index", 0) != entry.index ||
+                e.value("sub_index", 0) != entry.sub_index ||
+                !e.contains("calibration"))
+                continue;
+            const auto &c = e.at("calibration");
+            return std::pair{
+                Calibration{
+                    .index = c.at("index").get<uint16_t>(),
+                    .gain_sub_index = c.at("gain_sub_index").get<uint8_t>(),
+                    .offset_sub_index = c.at("offset_sub_index").get<uint8_t>(),
+                    .divisor = c.at("divisor").get<double>(),
+                    .raw_offset = c.value("raw_offset", false),
+                },
+                x::telem::DataType(c.at("data_type").get<std::string>()),
+            };
+        }
+    return std::nullopt;
+}
 }
 
 std::unique_ptr<Input> make_input(
@@ -212,11 +254,36 @@ std::unique_ptr<Input> make_input(
     const auto &c = std::get<::synnax::ethercat::EntryReadChannel>(cfg);
     const auto entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, "");
     if (!entry) return nullptr;
-    return std::make_unique<Input>(Input{
+    auto input = std::make_unique<Input>(Input{
         .entry = *entry,
         .synnax_key = c.channel,
         .scale = c.scale,
     });
+    // Newer firmware sends floats, which are physical values already.
+    if (!c.calibrated || !sends_integers(slave, *entry)) return input;
+    const auto found = find_calibration(slave, *entry);
+    if (!found) {
+        parser.field_err(
+            "calibrated",
+            "the catalog gives no calibration for entry " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                slave.name
+        );
+        return nullptr;
+    }
+    if (found->second.density() * 8 != entry->bit_length) {
+        parser.field_err(
+            "index",
+            "the catalog gives " + found->second.name() + " samples for entry " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                slave.name + ", but the entry holds " +
+                std::to_string(entry->bit_length) + " bits"
+        );
+        return nullptr;
+    }
+    input->calibration = found->first;
+    input->entry.data_type = found->second;
+    return input;
 }
 
 std::unique_ptr<Output> make_output(

@@ -32,10 +32,11 @@ using Objects = std::map<std::pair<uint16_t, uint8_t>, uint32_t>;
 constexpr uint32_t FIVE_VOLTS = 0x40A00000;
 
 /// @brief returns the objects of the 6xSTG on the station when it holds mode in ECAT0
-/// App (0x8020:09) and power_on in PowerONdefault (0x8020:02): those two, and the
-/// settings and the range, filter, and excitation tables of its six inputs. Input 1 is
-/// a full bridge at 5 V excitation, on its third range. Each input holds the objects of
-/// input 1 at its own indices.
+/// App (0x8020:09) and power_on in PowerONdefault (0x8020:02): those two, a sample rate
+/// of 1 kS/s (0x8020:01), the digital filter on (0x8020:0D), and the settings and the
+/// range, filter, and excitation tables of its six inputs. Input 1 is a full bridge at
+/// 5 V excitation, on its third range. Each input holds the objects of input 1 at its
+/// own indices.
 inline Objects stg_objects(const uint32_t mode, const uint32_t power_on = 1) {
     const Objects input_1{
         {{0x8040, 1}, 6},           {{0x8040, 2}, 0},   {{0x8040, 3}, 2},
@@ -47,7 +48,12 @@ inline Objects stg_objects(const uint32_t mode, const uint32_t power_on = 1) {
         {{0x8060, 2}, 10000},       {{0x8060, 3}, 500}, {{0x8070, 2}, 240},
         {{0x8070, 3}, 42},          {{0x8070, 4}, 120},
     };
-    Objects objects{{{0x8020, 9}, mode}, {{0x8020, 2}, power_on}};
+    Objects objects{
+        {{0x8020, 9}, mode},
+        {{0x8020, 2}, power_on},
+        {{0x8020, 1}, 12},
+        {{0x8020, 13}, 0},
+    };
     for (uint16_t input = 0; input < 6; input++)
         for (const auto &[address, value]: input_1)
             objects[{

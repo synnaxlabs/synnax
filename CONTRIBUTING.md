@@ -18,8 +18,8 @@ made before the hooks, run `pnpm prepare` once. Hooks in `.git/hooks` no longer 
 
 `main` is the only long-lived branch and is always releasable. A branch is named after
 its Linear issue (`sy-4892-review-tiers`) and returns to `main` by pull request. A
-hotfix lands on `main` first, then a cherry-pick PR targets `release/<product>-X.Y`. A
-person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
+hotfix lands on `main` first, then a cherry-pick PR targets `release/X.Y`. A person
+dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
 
 - Title: `SY-####: Sentence case description`, or a prefix such as `[docs]` with no
   issue.
@@ -44,7 +44,9 @@ request that changed in the last hour, and for a fork without `review/human` tha
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
 `gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
-the gate fails it, and an admin merges it after a person reviews it.
+the gate fails it. To merge one, a maintainer first reads its diff, since CI runs the
+copy with repository secrets. The maintainer then pushes its head to a branch of this
+repository and opens a `review/human` pull request from that branch.
 
 ## Review tiers
 
@@ -63,14 +65,15 @@ requests changes, and confirms a stored shape change carries a migration.
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
 Sedosaur confidence score below 5/5 fails it: push a fix, then comment
-`@sedosaur review`. A review starts when a PR opens or leaves draft, and when a member
-or an agent mentions `@sedosaur` in a comment. A push, a new base, or a reply alone
-starts none. Sedosaur reacts with a rocket when it takes the request. A head never gets
-a second review on one base once one succeeds, and a request after a push that leaves
-the diff the same, as a merge of the base does, gets the last review at once. To make
+`@sedosaur review`. A finding marked follow-up does not lower the score: file an issue
+for it, or fix it. A review starts when a PR opens or leaves draft, and when a member or
+an agent mentions `@sedosaur` in a comment. A push, a new base, or a reply alone starts
+none. Sedosaur reacts with a rocket when it takes the request. A head never gets a
+second review on one base once one succeeds, and a request after a push that leaves the
+diff the same, as a merge of the base does, gets the last review at once. To make
 Sedosaur stop reporting a finding, a member replies `@sedosaur dismiss` and a reason on
 its thread. Sedosaur resolves the thread, later reviews of the PR leave the finding out,
-and the head scores 5/5 once no finding of its review is left. The review reads no other
+and the head scores 5/5 once only follow-ups are left. The review reads no other
 replies. The gate does not wait for a human approval on either tier. A pull request
 Dependabot opened and wrote every commit of passes the gate without a review. `OK` is
 the CI workflow's last job: it fails when any check the PR's paths select failed. A
@@ -81,17 +84,18 @@ that changes only unit tests skips the integration suite. Each entry merges only
 its own CI passes: an entry that fails leaves the queue, and GitHub rebuilds the entries
 behind it. GitHub refuses a queue on a wildcard branch pattern, so a `release/**` merge
 goes in directly, and CI runs again on the pushed commit. The queue also runs the gate
-again. A release runs the integration suite itself. Admins bypass when Sedosaur is down.
-The gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+again. A release runs the integration suite itself. Nobody bypasses the rules on `main`:
+when Sedosaur is down, pull requests wait for it. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
-already on `main` do not block. The rule waits for the CodeQL scan of each language, so
-every pull request scans all of them. GitHub does not apply the rule to a merge queue
-group.
+already on `main` do not block. The rule waits for a CodeQL analysis of each language. A
+pull request scans every language, except that it uploads an empty analysis for C++ or
+Rust when it changes no input of that language. GitHub does not apply the rule to a
+merge queue group.
 
 ## Size
 

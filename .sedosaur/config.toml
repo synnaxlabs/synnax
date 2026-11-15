@@ -21,10 +21,12 @@ excluded = ["**/pnpm-lock.yaml", "**/uv.lock", "**/go.sum", "**/MODULE.bazel.loc
 # files it leaves out.
 diff_chars = 300_000
 
-# The highest score a review can give while it has a finding of the severity.
+# The highest score a review can give while it has a blocking finding of the severity. A
+# review with no blocking finding scores 5.
 [caps]
 P0 = 2
 P1 = 4
+P2 = 4
 
 # Documents of the repository that the reviewer applies. A document with `paths` applies
 # only when the pull request changes a file that matches one of its globs. Rules written
@@ -126,28 +128,29 @@ path = "scripts/AGENTS.md"
 description = "Repository scripts"
 paths = ["scripts/**"]
 
-# Focused passes that run beside the pass with the rules when no earlier commit in the
-# history of the head has a review. They see the pull request and its diff, but not the
-# rules.
+# Focused passes that run beside the pass with the rules on the first review of a pull
+# request. They see the pull request and its diff, but not the rules.
 [[lens]]
 name = "Interleavings"
 effort = "medium"
 focus = """
-Trace the concurrent and repeated paths through the changed code: two callers at once, a
-read before a lock and a read after it, a retry, a cancel, a timeout, a stop or close
-while work still runs, and events that arrive in another order. For each one, follow the
-state to the end and name what ends up wrong.
+Trace the concurrent and repeated paths that real callers make through the changed code:
+two callers at once, a read before a lock and a read after it, a retry, a cancel, a
+timeout, a stop or close while work still runs, and events that arrive in another order.
+First read the lock, transaction, or queue that guards the state. For each path that it
+does not serialize, follow the state to the end, and name what ends up wrong and the
+trigger that makes it.
 """
 
 [[lens]]
 name = "Edge values"
 effort = "medium"
 focus = """
-Give each changed function the values at its edges: empty, zero, blank or
-whitespace-only strings, missing fields, the exact boundary of each range or comparison,
-the largest sizes and the caps that cut them, other numeric types and their defaults,
-and duplicate or reordered entries. Check the platform edges too: Windows file rules,
-and what runs only in CI.
+Give each changed function the values at its edges that a caller or a user can send:
+empty, zero, blank or whitespace-only strings, missing fields, the exact boundary of
+each range or comparison, the largest sizes and the caps that cut them, other numeric
+types and their defaults, and duplicate or reordered entries. Check the platform edges
+too: Windows file rules, and what runs only in CI.
 """
 
 [[lens]]

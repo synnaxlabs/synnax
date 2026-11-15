@@ -28,16 +28,31 @@ class TestTable:
         t = table.Table.model_validate(
             {
                 "name": "Readings",
-                "rows": [{"key": "r", "cells": ["a", "b"]}],
+                "rows": [
+                    {
+                        "key": "r",
+                        "cells": [
+                            {
+                                "key": "a",
+                                "config": {"variant": "text", "value": "Pressure"},
+                            },
+                            {
+                                "key": "b",
+                                "config": {
+                                    "variant": "value",
+                                    "channel": 1,
+                                    "units": "psi",
+                                },
+                            },
+                        ],
+                    }
+                ],
                 "columns": [{"key": "c1"}, {"key": "c2", "size": 100}],
-                "cells": {
-                    "a": {"variant": "text", "value": "Pressure"},
-                    "b": {"variant": "value", "channel": 1, "units": "psi"},
-                },
             }
         )
-        assert isinstance(t.cells["a"], table.TextCellConfig)
-        assert isinstance(t.cells["b"], table.ValueCellConfig)
+        a, b = t.rows[0].cells
+        assert isinstance(a.config, table.TextCellConfig)
+        assert isinstance(b.config, table.ValueCellConfig)
         assert t.rows[0].size == 36
         assert t.columns[0].size == 72
         assert table.Table.model_validate_json(t.model_dump_json()) == t
@@ -73,24 +88,23 @@ class TestClient:
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should persist the rows, columns, and cells of a table."""
-        row = table.Row(cells=["a", "b"])
+        row = table.Row(
+            cells=[
+                table.Cell(key="a", config=table.TextCellConfig(value="Pressure")),
+                table.Cell(key="b", config=table.ValueCellConfig(units="psi")),
+            ]
+        )
         t = client.tables.create(
             table.Table(
                 name="Full Table",
                 rows=[row],
                 columns=[table.Column(), table.Column(size=120)],
-                cells={
-                    "a": table.TextCellConfig(value="Pressure"),
-                    "b": table.ValueCellConfig(units="psi"),
-                },
                 project=project.key,
             ),
         )
         retrieved = client.tables.retrieve(key=t.key)
         assert retrieved.rows == [row]
         assert retrieved.columns[1].size == 120
-        assert retrieved.cells["a"] == table.TextCellConfig(value="Pressure")
-        assert retrieved.cells["b"] == table.ValueCellConfig(units="psi")
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple tables."""
@@ -117,17 +131,6 @@ class TestClient:
         client.tables.create(name="Other", project=other.key)
         retrieved = client.tables.retrieve(projects=[project.key])
         assert {r.key for r in retrieved} == {a.key, b.key}
-
-    def test_retrieve_by_range_without_tables(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should return no tables when the range owns none."""
-        client.tables.create(name="Project Owned", project=project.key)
-        rng = client.ranges.create(
-            name="Empty Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        assert client.tables.retrieve(ranges=[rng.key]) == []
 
     def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should filter the tables by group."""

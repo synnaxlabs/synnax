@@ -247,6 +247,17 @@ var _ = Describe("Compiler", func() {
 				To(MatchError(ContainSubstring("unreachable")))
 		})
 
+		It("should compile a function that shares the loop budget's name", func(
+			ctx SpecContext,
+		) {
+			output := MustSucceed(compile(ctx, `
+			func loop_budget() {
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			MustSucceed(mod.ExportedFunction("loop_budget").Call(ctx))
+		})
+
 		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
 			func dog() {b i64} i64 {

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <array>
+#include <bit>
 #include <cmath>
 #include <memory>
 #include <set>
@@ -17,13 +19,16 @@
 
 #include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slaves.h"
+#include "driver/ethercat/steps.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/transform/transform.h"
 
@@ -135,17 +140,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             ch.ch = synnax_channels[i];
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
-            if (!ch.scaled()) continue;
+            if (!ch.scaled() && !ch.calibration) continue;
             if (!ch.ch.data_type.matches(FLOAT_TYPES)) {
                 cfg.field_err(
                     "channels",
                     "channel " + ch.ch.name + " is " + ch.ch.data_type.name() +
-                        ", but a scaled channel must be float32 or float64. Pick a "
-                        "float channel."
+                        ", but a " + (ch.scaled() ? "scaled" : "calibrated") +
+                        " channel must be float32 or float64. Pick a float channel."
                 );
                 continue;
             }
-            this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
+            if (ch.scaled()) this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
         }
     }
 
@@ -184,20 +189,76 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
+    std::unique_ptr<StartSteps> steps;
     std::unique_ptr<engine::Engine::Reader> reader;
+    /// @brief the calibration of each calibrated channel, from the gain and offset that
+    /// its slave held at start().
+    transform::Scale calibrations;
     /// @brief the bus cycle time of each sample in the latest read.
     x::telem::Series times;
 
+    /// @brief reads the gain and offset of each calibrated channel from its slave on
+    /// the running bus.
+    x::errors::Error calibrate() {
+        for (const auto &ch: this->cfg.channels) {
+            if (!ch->calibration) continue;
+            const auto &c = *ch->calibration;
+            std::array<float, 2> values{};
+            const std::array sub_indexes{c.gain_sub_index, c.offset_sub_index};
+            for (size_t i = 0; i < values.size(); i++) {
+                auto [bits, err] = this->engine->read(
+                    ch->entry.slave_position,
+                    c.index,
+                    sub_indexes[i]
+                );
+                if (err) {
+                    err.data = errors::sentence(
+                        "Failed to read the calibration of channel " + ch->ch.name +
+                        ": " + err.data
+                    );
+                    return err;
+                }
+                values[i] = std::bit_cast<float>(bits);
+            }
+            const auto [slope, offset] = c.line(values[0], values[1]);
+            this->calibrations.add(
+                ch->ch.key,
+                transform::UnaryLinearScale(slope, offset, ch->ch.data_type)
+            );
+        }
+        return x::errors::NIL;
+    }
+
 public:
-    explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
+    /// @param steps sends the steps of each start of the task.
+    explicit ReadTaskSource(
+        std::shared_ptr<engine::Engine> eng,
+        ReadTaskConfig cfg,
+        std::unique_ptr<StartSteps> steps = std::make_unique<StartSteps>()
+    ):
         cfg(std::move(cfg)),
         engine(std::move(eng)),
+        steps(std::move(steps)),
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
-    x::errors::Error start() override {
-        const auto [slaves, discover_err] = this->engine->discover();
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
+        const auto start = this->engine->begin_start(
+            cancel,
+            this->steps->begin(cmd_key)
+        );
+        // The task answers the start once this returns, so no step may follow.
+        x::defer::defer flushed([this] { this->steps->flush(); });
+        const auto [slaves, discover_err] = this->engine->discover(start);
         if (discover_err) return discover_err;
-        if (auto err = this->cfg.slaves.validate(slaves)) return err;
+        const auto [moves, bind_err] = this->cfg.slaves.bind(slaves);
+        if (bind_err) return bind_err;
+        for (const auto &ch: this->cfg.channels)
+            ch->entry.slave_position = moves.at(ch->entry.slave_position);
+        engine::Settings settings;
+        for (auto &[pos, params]: this->cfg.settings)
+            settings[moves.at(pos)] = std::move(params);
+        this->cfg.settings = std::move(settings);
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
@@ -208,10 +269,16 @@ public:
             entries,
             this->cfg.sample_rate,
             this->cfg.samples_per_chan,
+            start,
             this->cfg.settings
         );
         if (err) return err;
         this->reader = std::move(rdr);
+        this->calibrations = transform::Scale();
+        if (auto calibration_err = this->calibrate()) {
+            this->reader.reset();
+            return calibration_err;
+        }
         return x::errors::NIL;
     }
 
@@ -238,12 +305,19 @@ public:
             fr.clear();
             return res;
         }
-        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {
                 .message = "Dropped samples",
                 .description = std::move(description),
             };
+        else
+            res.warning = unapplied_warning(this->reader->unapplied());
+        if (this->times.empty()) {
+            fr.clear();
+            return res;
+        }
+        if (res.error = this->calibrations.transform(fr); res.error) return res;
+        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
             fr.series->at(i).write(this->times);
         return res;

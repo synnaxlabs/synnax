@@ -71,7 +71,7 @@ const Internal = ({
   close,
   icon,
   initialProperties,
-  onCreateTask,
+  onCreateReadTask,
   onBack,
 }: InternalProps) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
@@ -99,7 +99,7 @@ const Internal = ({
     });
     if (!saved) return;
     capture("device_configured", { make: device.make });
-    if (createTask) onCreateTask?.(device.key);
+    if (createTask) onCreateReadTask?.(device.key);
     close();
   };
 
@@ -148,7 +148,7 @@ const Internal = ({
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
-          {onCreateTask != null && (
+          {onCreateReadTask != null && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               onClick={() => void save(true)}

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -80,6 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Username: rootUsername,
 			Password: "p",
 		},
+		SecretsKey: secret.NewEncryptionKey(),
 	}))
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel

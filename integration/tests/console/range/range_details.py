@@ -12,25 +12,17 @@ from urllib.parse import urlparse
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Schematic
-from framework.hardware_case import HardwareCase
 from x import random_name
 
 
-class RangeDetails(HardwareCase, ConsoleCase):
-    """Test Range Details: child range context menu, metadata, and snapshot
-    operations.
-    """
+class RangeDetails(ConsoleCase):
+    """Test Range Details: child range context menu and metadata operations."""
 
     suffix: str
     parent_range_name: str
     child_1_name: str
     child_2_name: str
     child_3_name: str
-    schematic_snapshot_name: str
-    schematic_name: str
-    task_name: str
-    task_snapshot_name: str
 
     def setup(self) -> None:
         super().setup()
@@ -39,37 +31,10 @@ class RangeDetails(HardwareCase, ConsoleCase):
         self.child_1_name = f"Child1_{self.suffix}"
         self.child_2_name = f"Child2_{self.suffix}"
         self.child_3_name = f"Child3_{self.suffix}"
-        self.schematic_name = f"SnapshotSchematic_{self.suffix}"
-        self.task_name = f"SnapshotTask_{self.suffix}"
 
         self.console.ranges.toolbar.show()
 
         self.console.ranges.create(self.parent_range_name, persisted=True)
-
-        # Create a schematic for the first snapshot.
-        schematic = self.console.pages.create(Schematic, self.schematic_name)
-        schematic.close()
-
-        # Create a sim task directly in Synnax
-        task = self.client.tasks.create(
-            name=self.task_name,
-            type="ni_analog_read",
-            config=sy.ni.AnalogReadConfig(),
-        )
-        self.track_test_tasks([task])
-
-        self.console.ranges.favorite(self.parent_range_name)
-        self.console.ranges.set_active(self.parent_range_name)
-        self.console.ranges.snapshot_to_active_range(
-            self.schematic_name, range_name=self.parent_range_name
-        )
-        self.console.ranges.snapshot_to_active_range(
-            self.task_name, range_name=self.parent_range_name
-        )
-        self.console.pages.delete(self.schematic_name)
-        self.schematic_snapshot_name = f"{self.schematic_name} (Snapshot)"
-        self.task_snapshot_name = f"{self.task_name} (Snapshot)"
-        self.console.notifications.close_all()
 
         # Open parent overview BEFORE creating children. Child ranges show the
         # parent name in their explorer breadcrumb, so has_text filtering would
@@ -115,12 +80,6 @@ class RangeDetails(HardwareCase, ConsoleCase):
         self.test_copy_metadata_value()
         self.test_open_metadata_link()
         self.test_delete_metadata()
-
-        # Snapshots
-        self.test_navigate_to_snapshot()
-        self.test_navigate_to_task_snapshot()
-        self.test_remove_snapshot()
-        self.test_remove_task_snapshot()
 
     def test_rename_child_range(self) -> None:
         """Test renaming a child range via context menu."""
@@ -259,38 +218,6 @@ class RangeDetails(HardwareCase, ConsoleCase):
         self.console.ranges.overview.delete_metadata("test_key")
 
         self.console.ranges.overview.wait_for_metadata_removed("test_key")
-
-    def test_navigate_to_snapshot(self) -> None:
-        """Test navigating to a snapshot by clicking on it."""
-        self.log("Testing: Navigate to snapshot")
-        self._open_parent_overview()
-        self.console.ranges.overview.open_snapshot(self.schematic_snapshot_name)
-        self.console.layout.wait_for_tab(self.schematic_snapshot_name)
-        self.console.layout.close_tab(self.schematic_snapshot_name)
-
-    def test_navigate_to_task_snapshot(self) -> None:
-        """Test navigating to a task snapshot by clicking on it."""
-        self.log("Testing: Navigate to task snapshot")
-        self._open_parent_overview()
-        self.console.ranges.overview.open_snapshot(self.task_snapshot_name)
-        self.console.layout.wait_for_tab(self.task_snapshot_name)
-        self.console.layout.close_tab(self.task_snapshot_name)
-
-    def test_remove_snapshot(self) -> None:
-        """Test removing a schematic snapshot from the range details page."""
-        self.log("Testing: Remove snapshot")
-        self._open_parent_overview()
-        self.console.ranges.overview.delete_snapshot(self.schematic_snapshot_name)
-        self.console.ranges.overview.wait_for_snapshot_removed(
-            self.schematic_snapshot_name
-        )
-
-    def test_remove_task_snapshot(self) -> None:
-        """Test removing a task snapshot from the range details page."""
-        self.log("Testing: Remove task snapshot")
-        self._open_parent_overview()
-        self.console.ranges.overview.delete_snapshot(self.task_snapshot_name)
-        self.console.ranges.overview.wait_for_snapshot_removed(self.task_snapshot_name)
 
     def _open_parent_overview(self) -> None:
         """Navigate to the parent range overview if not already showing."""

@@ -85,7 +85,6 @@ var _ = Describe("Actions", func() {
 			},
 			Entry("type", "type"),
 			Entry("key", "key"),
-			Entry("snapshot", "snapshot"),
 			Entry("config hash", "config_hash"),
 			Entry("config, which its store edits", "config"),
 		)

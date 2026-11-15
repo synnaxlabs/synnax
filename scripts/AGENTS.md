@@ -75,10 +75,12 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 ## Versioning and release
 
 - `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page
-  data from a CI run and uploads it to DigitalOcean Spaces. Redeploy the docs to publish
-  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`.
-  `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
-  hand and passed; `--manual-note <text>` says why, on the page.
+  data from a CI run and uploads it to DigitalOcean Spaces, under the release's train.
+  Redeploy the docs to publish it. Needs `gh` auth, `DO_SPACES_KEY`, and
+  `DO_SPACES_SECRET`. `--hitl <run-url>` adds the tests of a `Test - HITL` run of the
+  same code, which ran on real hardware. `--manual-pass <skip reason>` notes that the
+  tests skipped for that reason were run by hand and passed; `--manual-note <text>` says
+  why, on the page.
 
 ## Bazel
 
@@ -110,13 +112,23 @@ disabling a sanitizer wholesale.
 The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
-and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
+and stops. Its own uv project and CI job. A pool in `pools.py` must use the label the
 workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
 instance.
 
-Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
-Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
-the scripts by hand on the box.
+`seats.py` starts a stopped agent seat (`infra/agent-runner`) when a job that asks for
+its labels queues. It finds a seat by its instance tags, because the seat runners belong
+to the organization. A seat stops itself when it is idle.
+
+Deploy with the `Deploy - Runners` workflow. Its checkboxes select the controller, a
+Core release or dev build, a backup of the Core, and the runner agents, and the steps
+run in one fixed order. It copies the `RUNNERS_*` repo secrets into Parameter Store and
+runs `deploy.ps1` and `core.ps1` on the box over SSM. Never start the scripts by hand on
+the box.
+
+`agent.py` runs on each runner. From the box, `agent_deploy.py` starts each stopped
+runner and installs `agent_boot.py` on all of them. The scaler stops the idle runners
+again. `agent_boot.py` downloads the agent at the deployed commit on each start.
 
 The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
 controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.

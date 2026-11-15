@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { DataType, json, record } from "@synnaxlabs/x";
+import { DataType, json, payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -52,7 +52,13 @@ const validateEnabled =
       const result = strict.safeParse(item);
       if (result.success) return;
       for (const { message, path } of result.error.issues)
-        ctx.issues.push({ code: "custom", input: item, message, path: [i, ...path] });
+        ctx.issues.push({
+          continue: true,
+          code: "custom",
+          input: item,
+          message,
+          path: [i, ...path],
+        });
     });
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -65,11 +71,12 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-const validateEnumLabels = (ctx: z.core.ParsePayload<mqtt.EnumEntry[]>) => {
+const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
   const seen = new Set<string>();
   ctx.value.forEach(({ label }, i) => {
     if (seen.has(label))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate enum label "${label}"`,
@@ -81,7 +88,7 @@ const validateEnumLabels = (ctx: z.core.ParsePayload<mqtt.EnumEntry[]>) => {
 
 const deployReadFieldZ = mqtt.readFieldZ.extend({
   pointer: json.pointerZ,
-  enumValues: mqtt.enumEntryZ
+  enumValues: payload.enumEntryZ
     .array()
     .check(validateEnumLabels)
     .default(() => []),
@@ -100,6 +107,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
     if (field.disabled) return;
     if (mixed && isVariable(field))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message:
@@ -108,6 +116,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
       });
     if (pointers.has(field.pointer))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" is already used by another field`,
@@ -118,6 +127,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
       field.key === value.index || DataType.TIMESTAMP.equals(field.dataType);
     if (isTimestamp && field.timeFormat == null)
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: "A timestamp field requires a time format",
@@ -156,6 +166,7 @@ type Item =
 const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: `At least one ${label} must be enabled`,
@@ -171,6 +182,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
     if (name === "") return;
     if (seen[item.type].has(key))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate ${field} "${name}"`,
@@ -195,8 +207,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface ChannelField extends mqtt.ChannelField {}
@@ -211,6 +221,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { value } = ctx;
   if (value.enumValues.length > 0 && value.jsonType !== "string")
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: value,
       message: "Enum values require the string JSON type",
@@ -220,6 +231,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   value.enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Duplicate enum value ${entry.value}`,
@@ -239,6 +251,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   if (channel.pointer === "") {
     if (fields.length > 0)
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message:
@@ -252,6 +265,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
     if (field.pointer === "") return;
     if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" overlaps another field`,
@@ -298,8 +312,6 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export interface WritePayload extends task.Payload<WriteSchemas> {}
-
 export const EDGE_TYPE = `${PREFIX}_sparkplug_edge`;
 
 export interface EdgeTag extends mqtt.EdgeTag {}
@@ -320,6 +332,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
 const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: "At least one tag must be enabled",
@@ -330,6 +343,7 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
     if (disabled || name === "") return;
     if (seen.has(name))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate name "${name}"`,
@@ -354,8 +368,6 @@ export const EDGE_SCHEMAS = {
 
 export type EdgeSchemas = typeof EDGE_SCHEMAS;
 
-export interface EdgePayload extends task.Payload<EdgeSchemas> {}
-
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
@@ -364,7 +376,7 @@ export const BROWSE_COMMAND_TYPE = "browse";
 
 const browsedFieldZ = z.object({
   pointer: z.string(),
-  type: mqtt.jsonTypeZ,
+  type: payload.jsonTypeZ,
   /** The start of the JSON text of the value. */
   sample: z.string(),
 });

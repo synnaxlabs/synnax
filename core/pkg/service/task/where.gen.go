@@ -136,17 +136,6 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchInternal(*l.Eq))
 		}
 	}
-	if l := w.Snapshot; l != nil {
-		if l.Eq == nil {
-			return nil, validate.PathedError(filter.ErrNoOperator, "snapshot")
-		}
-		if l.Eq != nil {
-			fs = append(fs, MatchSnapshot(*l.Eq))
-		}
-	}
-	if l := w.Ranges; l != nil {
-		fs = append(fs, MatchRanges(l...))
-	}
 	if l := w.Arcs; l != nil {
 		fs = append(fs, MatchArcs(l...))
 	}

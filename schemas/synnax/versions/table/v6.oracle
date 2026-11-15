@@ -1,0 +1,48 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/x/versions/color/v2"
+import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+FlexAlignment = v2.FlexAlignment
+
+CellConfig union on variant extends v2.CellConfig {}
+
+Cell struct {
+    key    string     {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    config CellConfig {
+        @doc value "is the content the cell draws and its settings."
+    }
+
+    @doc value  "is one cell of a row, with its key and config."
+    @go marshal
+}
+
+Row struct extends v3.Row {
+    cells Cell[] = [] {
+        @doc value "are the cells of the row, from left to right."
+    }
+
+    @doc value "is a single row in a table, with a key, height, and cells."
+}
+
+Column = v3.Column
+
+Table struct extends v5.Table {
+    -cells
+}

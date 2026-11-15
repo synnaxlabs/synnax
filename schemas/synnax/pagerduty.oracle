@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/secret"
 import "schemas/synnax/status"
 import "schemas/synnax/task"
 
@@ -45,10 +46,23 @@ Alert struct {
 }
 
 TaskConfig struct extends task.StartConfig {
-    routing_key string = "" {
-        @doc value "is the PagerDuty Events API v2 routing key."
+    routing_key       secret.Key? {
+        @doc value     """
+            is the secret that holds the PagerDuty Events API v2 routing key.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
-    alerts      Alert[] {
+    plain_routing_key string?     {
+        @doc value  """
+            is the routing key in plain text, which only configs from before secrets
+            carry. A write moves it into a new secret and clears it.
+        """
+        @go marshal omit
+        @py omit
+        @ts omit
+    }
+    alerts            Alert[]     {
         @doc value "are the alerts the task evaluates."
     }
 

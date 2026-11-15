@@ -8,11 +8,13 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "chassis",
     hdrs = [
         "json.gen.h",
+        "proto.gen.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
@@ -20,7 +22,23 @@ cc_library(
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/status",
+        "//core/pkg/api/ni/chassis:chassis_grpc",
+        "//core/pkg/service/ni/chassis:chassis_grpc",
+        "//x/cpp/errors",
+        "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/mem",
+        "//x/cpp/pb",
         "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "chassis_test",
+    srcs = ["chassis_test.cpp"],
+    deps = [
+        ":chassis",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )

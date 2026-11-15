@@ -10,7 +10,8 @@
 import { status } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { TimeSpan } from "@synnaxlabs/x";
+import { Size, TimeSpan } from "@synnaxlabs/x";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import {
   createContext,
@@ -29,6 +30,7 @@ import {
   useTarget,
 } from "@/platform/version/check";
 import { CoreNotice } from "@/platform/version/CoreNotice";
+import { Session } from "@/session";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -39,24 +41,30 @@ export type Check =
   | Blocked
   | { variant: "success"; available: Available | null };
 
-/**
- * Downloads and installs an update that the Provider found, and sends the download
- * events to onEvent. Rejects when the checks started again after they found the update,
- * or when the download or the install fails.
- */
-export type Install = (
-  update: Update,
-  onEvent: (event: DownloadEvent) => void,
-) => Promise<void>;
+/** The download and install of an update. */
+export interface Download {
+  variant: "idle" | "loading" | "error";
+  total: Size;
+  progress: Size;
+  status?: status.Status;
+}
+
+const IDLE: Download = {
+  variant: "idle",
+  total: Size.bytes(0),
+  progress: Size.bytes(0),
+};
 
 interface ContextValue {
   check: Check;
-  install: Install;
+  download: Download;
+  start: (update: Update) => void;
 }
 
 const Context = createContext<ContextValue>({
   check: { variant: "success", available: null },
-  install: async () => {
+  download: IDLE,
+  start: () => {
     throw new Error("Version.Provider is missing");
   },
 });
@@ -86,7 +94,7 @@ interface Installing {
  * The checks also stop when an insecure connection blocks a downgrade. A change of the
  * Core, its version, or the grant starts the checks again. The found update stays open
  * for {@link useCheck} until the checks start again or the Provider unmounts, and while
- * {@link useInstall} installs it. A status also tells a user who may take the Console
+ * {@link useDownload} installs it. A status also tells a user who may take the Console
  * past the Core about a newer Core release.
  */
 export const Provider = ({
@@ -96,11 +104,14 @@ export const Provider = ({
   const addStatus = Status.useAdder();
   const target = useTarget();
   const [check, setCheck] = useState<Check>({ variant: "loading" });
+  const [download, setDownload] = useState<Download>(IDLE);
   const held = useRef<Update | null>(null);
   const installing = useRef<Installing | null>(null);
   useAsyncEffect(
     async (signal) => {
       setCheck({ variant: "loading" });
+      // A failed download belongs to the update that the last checks found.
+      setDownload((d) => (d.variant === "error" ? IDLE : d));
       // Not held.current: a newer run can set it before this cleanup runs.
       let found: Available | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -151,11 +162,12 @@ export const Provider = ({
     },
     [target?.endpoint, target?.version, target?.latestGranted],
   );
-  const install: Install = async (update, onEvent) => {
+  const install = async (
+    update: Update,
+    onEvent: (event: DownloadEvent) => void,
+  ): Promise<void> => {
     if (held.current !== update)
-      throw new Error(
-        "The Core changed before the update started. Close this dialog and update again.",
-      );
+      throw new Error("The Core changed before the update started. Update again.");
     const current: Installing = { update, released: false };
     installing.current = current;
     let failed = false;
@@ -172,8 +184,41 @@ export const Provider = ({
     if (failed)
       throw error instanceof Error ? error : new Error(String(error), { cause: error });
   };
+  const start = (update: Update): void =>
+    void (async () => {
+      setDownload({ ...IDLE, variant: "loading" });
+      try {
+        await install(update, (prog) => {
+          switch (prog.event) {
+            case "Started":
+              setDownload((p) => ({
+                ...p,
+                total: Size.bytes(prog.data.contentLength ?? 0),
+              }));
+              break;
+            case "Progress":
+              setDownload((p) => ({
+                ...p,
+                progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+              }));
+              break;
+            case "Finished":
+              setDownload((p) => ({ ...p, progress: p.total }));
+              break;
+          }
+        });
+        if (Session.Runtime.ENGINE === "tauri") await relaunch();
+      } catch (error) {
+        const st = status.fromException(error, "Failed to update Console");
+        addStatus(st);
+        // Once the checks drop the update, its error no longer applies.
+        if (held.current === update)
+          setDownload((p) => ({ ...p, variant: "error", status: st }));
+        else setDownload(IDLE);
+      }
+    })();
   return (
-    <Context value={{ check, install }}>
+    <Context value={{ check, download, start }}>
       <CoreNotice target={target} />
       {children}
     </Context>
@@ -186,5 +231,17 @@ export const Provider = ({
  */
 export const useCheck = (): Check => use(Context).check;
 
-/** @returns the function that installs an update that the nearest Provider found. */
-export const useInstall = (): Install => use(Context).install;
+export interface UseDownloadReturn {
+  download: Download;
+  /** Downloads and installs an update that the Provider found, then restarts. */
+  start: (update: Update) => void;
+}
+
+/**
+ * @returns the download of the nearest Provider, which every caller in the window
+ * shares, and the function that starts it.
+ */
+export const useDownload = (): UseDownloadReturn => {
+  const { download, start } = use(Context);
+  return { download, start };
+};

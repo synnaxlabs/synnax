@@ -44,6 +44,11 @@ func (e ruleError) Unwrap() error { return e.error }
 
 func (ruleError) Is(target error) bool { return target == ErrValidation }
 
+// Errorf returns a validation error whose message is the formatted text alone.
+func Errorf(format string, args ...any) error {
+	return ruleError{errors.Newf(format, args...)}
+}
+
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
@@ -81,20 +86,20 @@ func (v *Validator) NotNil(field string, value any) bool {
 }
 
 // Positive returns true and attaches an error to v if the value is not greater than
-// zero or is NaN.
+// zero or is not finite.
 func (v *Validator) Positive[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, isNaN(value) || value <= 0, "must be positive")
+	return v.Ternary(field, nonFinite(value) || value <= 0, "must be positive")
 }
 
 // InBounds returns true and attaches an error to v if the value is outside the
-// half-open interval [lower, upper) or is NaN.
+// half-open interval [lower, upper) or is not finite.
 func (v *Validator) InBounds[T types.Numeric](
 	field string,
 	value, lower, upper T,
 ) bool {
 	return v.Ternaryf(
 		field,
-		isNaN(value) || value < lower || value >= upper,
+		nonFinite(value) || value < lower || value >= upper,
 		"must be in bounds [%v, %v)",
 		lower,
 		upper,
@@ -102,7 +107,7 @@ func (v *Validator) InBounds[T types.Numeric](
 }
 
 // GreaterThan returns true and attaches an error to v if the value is not greater than
-// the threshold or is NaN.
+// the threshold or is not finite.
 func (v *Validator) GreaterThan[T types.Numeric](
 	field string,
 	value T,
@@ -110,14 +115,14 @@ func (v *Validator) GreaterThan[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		isNaN(value) || value <= threshold,
+		nonFinite(value) || value <= threshold,
 		"must be greater than %v",
 		threshold,
 	)
 }
 
 // GreaterThanEq returns true and attaches an error to v if the value is less than the
-// threshold or is NaN.
+// threshold or is not finite.
 func (v *Validator) GreaterThanEq[T types.Numeric](
 	field string,
 	value T,
@@ -125,14 +130,14 @@ func (v *Validator) GreaterThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		isNaN(value) || value < threshold,
+		nonFinite(value) || value < threshold,
 		"must be greater than or equal to %v",
 		threshold,
 	)
 }
 
 // LessThanEq returns true and attaches an error to v if the value is greater than the
-// threshold or is NaN.
+// threshold or is not finite.
 func (v *Validator) LessThanEq[T types.Numeric](
 	field string,
 	value T,
@@ -140,13 +145,16 @@ func (v *Validator) LessThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		isNaN(value) || value > threshold,
+		nonFinite(value) || value > threshold,
 		"must be less than or equal to %v",
 		threshold,
 	)
 }
 
-func isNaN[T types.Numeric](value T) bool { return math.IsNaN(float64(value)) }
+func nonFinite[T types.Numeric](value T) bool {
+	f := float64(value)
+	return math.IsNaN(f) || math.IsInf(f, 0)
+}
 
 // NonZero returns true and attaches an error to v if the value is zero.
 func (v *Validator) NonZero[T comparable](field string, value T) bool {

@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { Sift } from "@/feature/sift";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Task } from "@/platform/task";
 
@@ -35,6 +36,8 @@ export interface Network extends PlatformDevice.Network, Menus {}
 
 export interface Hardware extends PlatformDevice.Hardware, Menus {
   useCreateRead: Task.UseCreate;
+  /** Creates a write task, for an integration whose devices can have outputs. */
+  useCreateWrite?: Task.UseCreate;
 }
 
 export type Integration = Network | Hardware;
@@ -49,6 +52,7 @@ export const NETWORK: Network[] = [
   { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
   { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
   { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.Device.ContextMenuItems },
+  { ...Sift.Device.NETWORK, ContextMenuItems: Sift.Device.ContextMenuItems },
 ];
 
 export const HARDWARE: Hardware[] = [
@@ -67,6 +71,7 @@ export const HARDWARE: Hardware[] = [
     ...EtherCAT.Device.HARDWARE,
     ContextMenuItems: EtherCAT.Device.ContextMenuItems,
     useCreateRead: EtherCAT.Task.useCreateRead,
+    useCreateWrite: EtherCAT.Task.useCreateWrite,
   },
 ];
 

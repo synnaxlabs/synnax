@@ -17,7 +17,7 @@ import {
   deep,
   type direction,
   location,
-  type notation,
+  notation,
   primitive,
 } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -36,12 +36,20 @@ export const colorFallbacks = {
   textColor: VisScale.textColorFallback,
 } satisfies ColorFallbacks;
 
-const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
-  bounds: { lower: 0, upper: 10 },
-};
 const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 1, upper: 100 },
 };
+
+const PrecisionInput = Component.renderProp(
+  ({ value, onChange }: Input.Control<number | undefined>): ReactElement => (
+    <Input.Numeric
+      value={value ?? 2}
+      onChange={onChange}
+      integer
+      bounds={notation.PRECISION_BOUNDS}
+    />
+  ),
+);
 
 const NotationSelect = Component.renderProp(
   ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
@@ -113,12 +121,9 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
         <Base.Field path={root.notation} label="Notation" padHelpText={false}>
           {NotationSelect}
         </Base.Field>
-        <Base.NumericField
-          path={root.precision}
-          label="Precision"
-          padHelpText={false}
-          inputProps={PRECISION_INPUT_PROPS}
-        />
+        <Base.Field path={root.precision} label="Precision" padHelpText={false}>
+          {PrecisionInput}
+        </Base.Field>
         <NodeForm.UnitsField path={root.units} />
       </Base.Section>
       <Base.Section title="Staleness">

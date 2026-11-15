@@ -11,28 +11,17 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import channel, rack as rack_, status as status_
+from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
 from synnax.resource import ID
+from x import filter
 
 Key: TypeAlias = UUID
-
-
-class InputPorts(BaseModel):
-    """Holds the channels that a device reads into.
-
-    Attributes:
-        index: Is the index channel of the channels that read the ports.
-        channels: Maps a port to the channel that holds its samples.
-    """
-
-    index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, channel.Key] = Field(default_factory=dict)
 
 
 class CommandStatePair(BaseModel):
@@ -43,8 +32,132 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    state: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class AnalogInputPorts(BaseModel):
+    """Holds the channels that a device reads analog input into.
+
+    Attributes:
+        index: Is the index channel of the analog input channels.
+        temperature: Is the channel that holds the built-in temperature of the device.
+        channels: Maps a port number to the channel that holds its samples.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    temperature: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    channels: dict[
+        Annotated[int, Field(ge=0, le=65535)],
+        Annotated[channel_.Key, Field(ge=0, le=4294967295)],
+    ] = Field(default_factory=dict)
+
+
+class AnalogOutputChannels(BaseModel):
+    """Holds the channels of one analog output port.
+
+    Attributes:
+        state_index: Is the index channel of the state channel.
+        command: Is the channel that commands the port.
+        state: Is the channel that holds the state of the port.
+    """
+
+    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class CounterInputChannels(BaseModel):
+    """Holds the channels of one counter input.
+
+    Attributes:
+        index: Is the index channel of the counter.
+        channel: Is the channel that holds the samples of the counter.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class DigitalInputChannels(BaseModel):
+    """Holds the channels of one digital input port.
+
+    Attributes:
+        index: Is the index channel of the port.
+        lines: Maps a line number to the channel that holds its samples.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    lines: dict[
+        Annotated[int, Field(ge=0, le=255)],
+        Annotated[channel_.Key, Field(ge=0, le=4294967295)],
+    ] = Field(default_factory=dict)
+
+
+class Identity(BaseModel):
+    """Holds the device fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the device is connected to.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
+        model: Is the product name of the device.
+        chassis: Is the chassis that holds the device. Absent for a standalone device.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    serial: str = ""
+    resource_name: str
+    model: str
+    chassis: chassis_.Key | None = None
+
+
+class Where(BaseModel):
+    """Is a filter that selects NI devices.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        serial: Selects by serial.
+        resource_name: Selects by resource_name.
+        model: Selects by model.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    serial: filter.String | None = None
+    resource_name: filter.String | None = None
+    model: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "serial": filter.StringInput,
+        "resource_name": filter.StringInput,
+        "model": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
 
 
 class StatusDetails(BaseModel):
@@ -59,19 +172,82 @@ class StatusDetails(BaseModel):
     device: Key
 
 
-class OutputPorts(BaseModel):
-    """Holds the channels that a device writes through.
+class Cursor(BaseModel):
+    """Is a position in an order of devices: the sort value and the key of a device.
+
+    Attributes:
+        key: Is the key of the device at the position.
+    """
+
+    key: Key
+
+
+class DigitalOutputChannels(BaseModel):
+    """Holds the channels of one digital output port.
 
     Attributes:
         state_index: Is the index channel of the state channels.
-        channels: Maps a port to the channels that write to it.
+        lines: Maps a line number to the channels that write to it.
     """
 
-    state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, CommandStatePair] = Field(default_factory=dict)
+    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    lines: dict[Annotated[int, Field(ge=0, le=255)], CommandStatePair] = Field(
+        default_factory=dict
+    )
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve devices.
+
+    Attributes:
+        where: Selects the devices to retrieve. An absent where selects all of them.
+        search_term: Keeps the devices that match the term, closest match first.
+        after: Starts the devices strictly past this position in their order.
+        limit: Is the most devices to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
+
+
+class Configuration(BaseModel):
+    """Holds the device fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the device.
+        identifier: Is the prefix of the device's channel names. The device is
+            unconfigured while it is empty.
+        analog_input: Are the channels of the analog input ports.
+        analog_output: Maps an analog output port number to its channels.
+        counter_input: Maps a counter number to its channels.
+        digital_input: Maps a digital port number to its input channels.
+        digital_output: Maps a digital port number to its output channels.
+    """
+
+    name: str
+    identifier: str = ""
+    analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
+    analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
+        Field(default_factory=dict)
+    )
+    counter_input: dict[Annotated[int, Field(ge=0, le=65535)], CounterInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_input: dict[Annotated[int, Field(ge=0, le=65535)], DigitalInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_output: dict[
+        Annotated[int, Field(ge=0, le=65535)], DigitalOutputChannels
+    ] = Field(default_factory=dict)
 
 
 class Device(BaseModel):
@@ -81,41 +257,81 @@ class Device(BaseModel):
         key: Uniquely identifies the device.
         rack: Is the key of the rack the device is connected to.
         name: Is a human-readable name for the device.
-        serial: Is the serial number of the device, or its NI-MAX resource name when it
-            is simulated.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
         model: Is the product name of the device.
-        alias: Is the DAQmx alias of the device.
-        simulated: Is true when the device is simulated in NI-MAX.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         analog_input: Are the channels of the analog input ports.
-        analog_output: Are the channels of the analog output ports.
-        counter_input: Are the channels of the counter input ports.
-        digital_input: Are the channels of the digital input lines.
-        digital_output: Are the channels of the digital output lines.
+        analog_output: Maps an analog output port number to its channels.
+        counter_input: Maps a counter number to its channels.
+        digital_input: Maps a digital port number to its input channels.
+        digital_output: Maps a digital port number to its output channels.
         status: Is the current operational status of the device.
     """
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str
-    serial: str
+    serial: str = ""
+    resource_name: str
     model: str
-    alias: str
-    simulated: bool = False
     chassis: chassis_.Key | None = None
     identifier: str = ""
-    analog_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    analog_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
-    counter_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
+    analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
+    analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
+        Field(default_factory=dict)
+    )
+    counter_input: dict[Annotated[int, Field(ge=0, le=65535)], CounterInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_input: dict[Annotated[int, Field(ge=0, le=65535)], DigitalInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_output: dict[
+        Annotated[int, Field(ge=0, le=65535)], DigitalOutputChannels
+    ] = Field(default_factory=dict)
     status: Status | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a device.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the devices a RetrieveRequest selects.
+
+    Attributes:
+        devices: Are the devices the request selects.
+    """
+
+    devices: list[Device] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="ni_device")

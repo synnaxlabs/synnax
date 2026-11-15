@@ -50,29 +50,3 @@ func (a *Alert) HashContent(h *content.Hash) {
 	h.String(a.Class)
 	h.Bool(a.Disabled)
 }
-
-// Patch applies the path action at c, which is not done, to the value.
-func (tc *TaskConfig) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&tc.StartConfig.KeyedConfig.Key, c.Next())
-	case "auto_start":
-		return patch.Value(&tc.StartConfig.AutoStart, c.Next())
-	case "routing_key":
-		return patch.Value(&tc.RoutingKey, c.Next())
-	case "alerts":
-		return patch.List(&tc.Alerts, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (tc *TaskConfig) HashContent(h *content.Hash) {
-	h.Bool(tc.StartConfig.AutoStart)
-	h.String(tc.RoutingKey)
-	h.Len(len(tc.Alerts))
-	for i0 := range tc.Alerts {
-		tc.Alerts[i0].HashContent(h)
-	}
-}

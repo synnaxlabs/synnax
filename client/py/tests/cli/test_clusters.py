@@ -19,7 +19,6 @@ from keyring.errors import KeyringError
 import synnax as sy
 from synnax.cli import connect, console
 from synnax.cli.flow import Context
-from synnax.cli.login import run as login
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, Cluster, Clusters, File
 from synnax.options import Options
 from tests.memory_keyring import MemoryKeyring
@@ -170,7 +169,7 @@ class TestLogin:
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
         mock = console.Mock(responses=[host, port, username, password, False])
-        login(Context(console=mock), clusters)
+        connect.login(Context(console=mock), clusters)
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")
@@ -188,10 +187,14 @@ class TestLogin:
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
         responses = [host, port, username, password, False]
-        login(Context(console=console.Mock(responses=list(responses))), clusters)
+        connect.login(
+            Context(console=console.Mock(responses=list(responses))), clusters
+        )
         first = clusters.get()
         assert first is not None
-        login(Context(console=console.Mock(responses=list(responses))), clusters)
+        connect.login(
+            Context(console=console.Mock(responses=list(responses))), clusters
+        )
         second = clusters.get()
         assert second is not None
         assert second.options.api_key != first.options.api_key
@@ -209,7 +212,7 @@ class TestLogin:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        login(
+        connect.login(
             Context(
                 console=console.Mock(responses=[host, port, username, password, False])
             ),
@@ -221,7 +224,7 @@ class TestLogin:
         other = client.users.create(
             username=other_username, password="password123", role=empty_role.key
         )
-        login(
+        connect.login(
             Context(
                 console=console.Mock(
                     responses=[host, port, other_username, "password123", False]

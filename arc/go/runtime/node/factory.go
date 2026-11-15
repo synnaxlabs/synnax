@@ -38,12 +38,12 @@ type Factory interface {
 	Create(Config) (Node, error)
 }
 
-// ModuleNamer is an optional interface that factories can implement to declare which
+// moduleNamer is an optional interface that factories can implement to declare which
 // module they belong to (e.g. "control", "time"). When the CompoundFactory encounters a
 // qualified node type like "time.interval", it skips factories whose module name
 // doesn't match the prefix. Factories that don't implement this interface are always
 // considered.
-type ModuleNamer interface{ ModuleName() string }
+type moduleNamer interface{ ModuleName() string }
 
 // CompoundFactory tries each factory in order until one succeeds. A factory that
 // returns query.ErrNotFound is skipped; any other error is returned immediately.
@@ -68,9 +68,9 @@ func (f CompoundFactory) create(cfg Config, modulePrefix string) (Node, error) {
 	for _, factory := range f {
 		// When the IR node has a module prefix (e.g. "control" from
 		// "control.set_authority"), skip factories belonging to a different module.
-		// Factories that don't implement ModuleNamer are always considered.
+		// Factories that don't implement moduleNamer are always considered.
 		if modulePrefix != "" {
-			if namer, ok := factory.(ModuleNamer); ok {
+			if namer, ok := factory.(moduleNamer); ok {
 				if name := namer.ModuleName(); name != "" && name != modulePrefix {
 					continue
 				}

@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"sync"
 	"testing"
+	"uuid"
 
 	"github.com/PagerDuty/go-pagerduty"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,9 +23,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -40,6 +46,8 @@ var (
 	db        *gorp.DB
 	statusSvc *status.Service
 	tasks     *gorp.Table[task.Key, task.Task]
+	secretSvc *secret.Service
+	alertSvc  *pd.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -51,16 +59,77 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
-	// Task statuses reference their task, so the task table must be open.
+	// Task statuses and configs reference their task, so the task table must be open.
 	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{
 		DB:   db,
 		Name: string(resource.TypeTask),
+	}))
+	secretSvc = secrettestutil.OpenService(ctx, db)
+	alertSvc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+		DB:     db,
+		Secret: secretSvc,
 	}))
 })
 
 func createTask(ctx context.Context, t task.Task) task.Task {
 	GinkgoHelper()
 	Expect(tasks.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
+	return t
+}
+
+// createRoutingKey creates a stored secret that holds value and returns its key.
+func createRoutingKey(ctx context.Context, value string) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{
+		Base: secret.Base{Name: "Routing key"},
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
+	return s.Base().Key
+}
+
+// replaceRoutingKey replaces the value of the secret with the given key.
+func replaceRoutingKey(ctx context.Context, key secret.Key, value string) {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.StoredSecret{
+		Base: secret.Base{Key: key, Name: "Routing key"},
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
+}
+
+// storeTask stores the row and the config of an alert task named name, as the task
+// service does, and returns the task as the Driver receives it. It creates each status
+// that an alert watches and that does not exist yet.
+func storeTask(ctx context.Context, name string, cfg pd.TaskConfig) task.Task {
+	GinkgoHelper()
+	for _, a := range cfg.Alerts {
+		err := statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](a.Status)).
+			Exec(ctx, db)
+		if errors.Is(err, query.ErrNotFound) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     a.Status,
+					Name:    a.Status,
+					Variant: status.VariantLoading,
+					Time:    telem.Now(),
+				})
+			})).To(Succeed())
+		} else {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	t := createTask(ctx, task.Task{Key: uuid.New(), Name: name, Type: pd.AlertTaskType})
+	rec := MustSucceed(
+		alertSvc.Alert.Prepare(ctx, db, t.Key, t.Name, encodeConfig(cfg)),
+	)
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rec.Write(ctx, tx)
+	})).To(Succeed())
+	t.Config = MustSucceed(rec.Data())
 	return t
 }
 

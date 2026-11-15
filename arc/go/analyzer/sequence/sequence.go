@@ -372,10 +372,7 @@ func warnLateDeclarations[T antlr.ParserRuleContext, I interface {
 			continue
 		}
 		if sawStep {
-			ctx.Diagnostics.Add(diagnostics.Warningf(
-				decl,
-				"declare variables at the top of a stage or sequence",
-			).WithCode(codes.DeclarationAfterStep))
+			ctx.Diagnostics.Add(codes.DeclarationAfterStep.At(decl))
 		}
 	}
 }

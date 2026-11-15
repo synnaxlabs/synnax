@@ -39,6 +39,9 @@ STGS = (2, 3)
 DO = 4
 """The position of the 32xDO that the write test drives."""
 
+RESCANNED = 6
+"""The position of the 32xDO that the first scan test deletes from the Core."""
+
 STG_DC: dict[str, JsonValue] = {
     "index": 1,
     "assign_activate": 0x0300,
@@ -99,6 +102,8 @@ def create_read_task(
     name: str,
     sample_rate: sy.Rate,
     stream_rate: sy.Rate,
+    auto_start: bool = False,
+    startup_parameters: list[sy.ethercat.SlaveStartupParameters] | None = None,
 ) -> sy.ethercat.ReadTask:
     """Returns a task that reads u1 to u4 of the first 6xSTG into `hitl_ethercat_u1`
     to `hitl_ethercat_u4`, and the cycle counter of each 6xSTG into
@@ -126,7 +131,12 @@ def create_read_task(
             )
         )
     return sy.ethercat.ReadTask(
-        name=name, sample_rate=sample_rate, stream_rate=stream_rate, channels=channels
+        name=name,
+        sample_rate=sample_rate,
+        stream_rate=stream_rate,
+        channels=channels,
+        auto_start=auto_start,
+        startup_parameters=startup_parameters,
     )
 
 

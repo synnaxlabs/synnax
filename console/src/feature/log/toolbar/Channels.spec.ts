@@ -31,8 +31,7 @@ const createChannel = async (
 const entry = (
   channelKey: channel.Key,
   overrides: Partial<log.ChannelEntry> = {},
-): log.ChannelEntry =>
-  log.channelEntryZ.parse({ channel: channelKey, color: color.ZERO, ...overrides });
+): log.ChannelEntry => log.channelEntryZ.parse({ channel: channelKey, ...overrides });
 
 const roles = new RoleClients(client);
 
@@ -94,6 +93,28 @@ describe("log/toolbar/Channels", () => {
       expect(
         (await client.logs.retrieve({ key })).channels[0].precision,
       ).toBeUndefined(),
+    );
+  });
+
+  it("rounds a typed fractional precision to a whole number", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "4.6" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).channels[0].precision).toBe(5),
+    );
+  });
+
+  it("clamps a typed precision to 17", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "40" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).channels[0].precision).toBe(17),
     );
   });
 
@@ -200,6 +221,32 @@ describe("log/toolbar/Channels", () => {
     await screen.findByRole("option", otherOption);
     expect(screen.getByPlaceholderText("Search channels...")).toBe(search);
     expect(search).toHaveProperty("value", prefix);
+  });
+
+  describe("color", () => {
+    const swatchColor = async (): Promise<string> => {
+      const [row] = await waitFor(() => {
+        const rows = channelRows();
+        expect(rows).toHaveLength(1);
+        return rows;
+      });
+      const swatch = row.querySelector<HTMLElement>(".lyra-color-swatch");
+      return swatch?.style.getPropertyValue("--pluto-swatch-color") ?? "";
+    };
+
+    it("shows the text color of the log when a channel has no color", async () => {
+      await renderChannels([entry(await createChannel())]);
+      const auto = await swatchColor();
+      expect(auto).not.toBe("");
+      expect(auto).not.toBe("#00000000");
+    });
+
+    it("shows a zero color as transparent black", async () => {
+      await renderChannels([
+        entry(await createChannel(), { color: color.construct("#00000000") }),
+      ]);
+      expect(await swatchColor()).toBe("#00000000");
+    });
   });
 
   it("removes the row of a deleted channel", async () => {

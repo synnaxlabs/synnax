@@ -305,9 +305,6 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		}
 		return
 	}
-	if tsk.Snapshot {
-		return
-	}
 	if tsk.Rack != d.rack.Key {
 		// The task moved racks: the start deploys it on the new rack, and doubles
 		// as the teardown signal for the instance this driver still holds. The
@@ -551,7 +548,7 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return d.cfg.Task.NewRetrieve().
-			Where(task.And(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false))).
+			Where(task.MatchRacks(d.rack.Key)).
 			Entries(&tasks).
 			Exec(ctx, snap)
 	}); err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // generatedLangs are the language domains whose omission rules the analyzer validates.
@@ -454,4 +455,55 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 			}
 		}
 	}
+}
+
+// validatePatternRules errors on a field or a type that sets a pattern rule when its
+// type chain already sets one, since one value cannot carry both patterns.
+func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			chain := validation.TypeChain(
+				resolution.TypeRef{Name: t.QualifiedName},
+				table,
+			)
+			if hasPattern(t.Domains) && len(chain) > 0 &&
+				validation.TypeRules(chain[1:]).Pattern != nil {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a pattern rule, but its type already sets one",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			// An inherited field is checked by its parent, unless the parent types it
+			// with a type parameter that this struct substitutes.
+			generic := set.New[string]()
+			for _, ext := range form.Extends {
+				if parent, _, ok := resolution.Dealias(ext, table); ok {
+					for _, f := range resolution.UnifiedFields(parent, table) {
+						if f.Type.IsTypeParam() {
+							generic.Add(f.Name)
+						}
+					}
+				}
+			}
+			for _, f := range resolution.UnifiedFields(t, table) {
+				_, declared := form.Field(f.Name)
+				if !hasPattern(f.Domains) || (!declared && !generic.Contains(f.Name)) {
+					continue
+				}
+				chain := validation.TypeChain(f.Type, table)
+				if validation.TypeRules(chain).Pattern != nil {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s has a pattern rule, but its type already sets one",
+						t.QualifiedName, f.Name,
+					))
+				}
+			}
+		}
+	}
+}
+
+func hasPattern(domains map[string]resolution.Domain) bool {
+	return validation.Parse(domains["validate"]).Pattern != nil
 }

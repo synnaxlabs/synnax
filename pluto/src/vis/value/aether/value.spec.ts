@@ -335,6 +335,26 @@ describe("value/aether/Value", () => {
       expect(styles).toContain(color.hex(THEME.colors.gray.l11));
       expect(styles).not.toContain(color.hex(illegible));
     });
+
+    it("should swap a custom color below a 1.5 contrast ratio", () => {
+      const low = THEME.colors.gray.l4;
+      expect(color.contrast(THEME.colors.gray.l0, low)).toBeLessThan(1.5);
+      const { component, recorder } = setup({ value: "1", state: { color: low } });
+      recorder.clear();
+      component.render({});
+      const styles = fillStyles(recorder);
+      expect(styles).toContain(color.hex(THEME.colors.gray.l11));
+      expect(styles).not.toContain(color.hex(low));
+    });
+
+    it("should honor a custom color above a 1.5 contrast ratio", () => {
+      const high = THEME.colors.gray.l6;
+      expect(color.contrast(THEME.colors.gray.l0, high)).toBeGreaterThan(1.5);
+      const { component, recorder } = setup({ value: "1", state: { color: high } });
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).toContain(color.hex(high));
+    });
   });
 
   describe("staleness", () => {
@@ -430,13 +450,6 @@ describe("value/aether/Value", () => {
       component.render({});
       expect(drawCalls(recorder, "fillRect")).toHaveLength(1);
       expect(fillStyles(recorder)).toContain(color.hex(bg));
-    });
-
-    it("should skip the background fill when the color is zero", () => {
-      const { component, recorder } = setup({ value: "1", background: color.ZERO });
-      recorder.clear();
-      component.render({});
-      expect(drawCalls(recorder, "fillRect")).toHaveLength(0);
     });
 
     it("should not fill a background when no background source is configured", () => {

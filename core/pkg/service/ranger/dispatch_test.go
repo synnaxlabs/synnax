@@ -62,7 +62,7 @@ var _ = Describe("Dispatch", func() {
 		res := retrieve(ctx, hotFire.Key)
 		Expect(res.Name).To(Equal("Cold flow"))
 		Expect(res.TimeRange).To(Equal(telem.NewRangeSeconds(1, 9)))
-		Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+		Expect(res.Color).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {

@@ -58,8 +58,16 @@ const modeZ = z.object({
   index: z.number(),
   subIndex: z.number(),
   value: z.number(),
+  /** Whether the catalog lists no entry for the value. */
+  unlisted: z.boolean().optional(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),
+  /** The software that sets up the slave while Synnax still reads its data. */
+  sharedWith: z.string().optional(),
+  /** The software that sets up the slave and alone reads the data that it sends. */
+  onlyReadBy: z.string().optional(),
+  /** The EtherCAT bus of the slave that Synnax is on, when the slave has two. */
+  bus: z.union([z.literal(1), z.literal(2)]).optional(),
   /** The sync mode that the mode needs. */
   opMode: opModeChoiceZ.optional(),
   /** The writes that make the slave standalone. Empty when it is. */
@@ -72,6 +80,8 @@ const readBindingZ = z.object({
   subIndex: z.number(),
   /** The channel holds the scaled samples of the entry. */
   scaled: z.boolean().default(false),
+  /** The channel holds the calibrated samples of the entry. */
+  calibrated: z.boolean().default(false),
   channel: z.number(),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
@@ -111,7 +121,7 @@ const readBindingsZ = z
   .array(readBindingZ)
   .or(
     bindingMapZ<ReadBinding>("scaled", (bindings, address, scaled, channel) =>
-      bindings.push({ ...address, scaled, channel }),
+      bindings.push({ ...address, scaled, calibrated: false, channel }),
     ),
   );
 
@@ -160,6 +170,10 @@ export const slavePropertiesZ = z.object({
   startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
   settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
+  /** When the Driver last switched the slave to Synnax only, in nanoseconds. */
+  switchedAt: z.number().optional(),
+  /** The name of the network that the user knows, such as "Ethernet 2". */
+  networkName: z.string().optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -187,6 +201,16 @@ export interface SlaveDevice extends device.Device<
   typeof makeZ,
   typeof modelZ
 > {}
+
+/** A slave with whether it is connected in place of its status. */
+export interface SlaveOnRack extends Omit<SlaveDevice, "status"> {
+  connected: boolean;
+}
+
+export const toSlaveOnRack = ({ status, ...slave }: SlaveDevice): SlaveOnRack => ({
+  ...slave,
+  connected: status?.details.connected === true,
+});
 
 export const SLAVE_SCHEMAS = {
   properties: slavePropertiesZ,

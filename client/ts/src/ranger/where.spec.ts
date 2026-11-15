@@ -126,6 +126,28 @@ describe("compareCursors", () => {
     ]);
   });
 
+  it("should order by end time, then by key", () => {
+    const order: ranger.Order = { field: "time_range_end", descending: false };
+    const at = (key: string, start: number, end: number): ranger.Payload =>
+      ranger.payloadZ.parse({
+        key,
+        name: "a",
+        timeRange: { start: TimeStamp.seconds(start), end: TimeStamp.seconds(end) },
+      });
+    const late = cursor(at(low, 1, 9), order);
+    const tie = cursor(at(high, 2, 5), order);
+    const early = cursor(at(low, 3, 5), order);
+    expect(late).toEqual({ key: low, timeRangeEnd: TimeStamp.seconds(9) });
+    expect([late, tie, early].sort((a, b) => compareCursors(a, b, order))).toEqual([
+      early,
+      tie,
+      late,
+    ]);
+    expect(() => compareCursors({ key: low }, late, order)).toThrow(
+      "a cursor has no time_range_end",
+    );
+  });
+
   it("should return 0 for the same position", () => {
     const order: ranger.Order = { field: "name", descending: false };
     const a = cursor(record(low, "a", 1), order);

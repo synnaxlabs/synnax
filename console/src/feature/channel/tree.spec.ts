@@ -30,7 +30,6 @@ import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
-import { createTestRange } from "@/platform/range/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createHostItems,
@@ -276,51 +275,6 @@ describe("channel/tree", () => {
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
     });
 
-    it("renames the real channel name while an alias is shown", async () => {
-      const ch = await createChannel();
-      const host = hostChannels(ch);
-      const rng = await createTestRange(client);
-      const { store } = await renderChannelTree(host);
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-      const alias = uniqueName("alias");
-      await client.ranges.setAlias(rng.key, ch.key, alias);
-      await screen.findByText(alias);
-      await openTreeRowContextMenu(alias);
-      fireEvent.click(await screen.findByText("Rename"));
-      // The row shows the alias, but the edit targets the channel's real name.
-      const editor = await awaitTextEditingElement();
-      expect(editor.innerText).toBe(ch.name);
-      const renamed = uniqueName("renamed");
-      commitTextEdit(editor, renamed);
-      await waitFor(async () =>
-        expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
-      );
-      // The alias comes back once the edit closes.
-      expect(await screen.findByText(alias)).toBeTruthy();
-    });
-
-    it("sets and removes an alias under the active range", async () => {
-      const ch = await createChannel();
-      const host = hostChannels(ch);
-      const rng = await createTestRange(client);
-      const { store } = await renderChannelTree(host);
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-      await openTreeRowContextMenu(ch.name);
-      fireEvent.click(await screen.findByText(`Set alias under ${rng.name}`));
-      const editor = await awaitTextEditingElement();
-      const alias = uniqueName("alias");
-      commitTextEdit(editor, alias);
-      await waitFor(async () =>
-        expect(await client.ranges.retrieveAlias(rng.key, ch.key)).toBe(alias),
-      );
-      await openTreeRowContextMenu(alias);
-      fireEvent.click(await screen.findByText(`Remove alias under ${rng.name}`));
-      await waitFor(async () => {
-        const aliases = await client.ranges.retrieveAliases(rng.key, [ch.key]);
-        expect(aliases[ch.key]).toBeUndefined();
-      });
-    });
-
     it("opens the calculation editor for a calculated channel", async () => {
       const calc = await createChannel({
         isIndex: false,
@@ -346,20 +300,17 @@ describe("channel/tree", () => {
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
-    it("withholds rename and aliasing from an internal channel", async () => {
+    it("withholds rename from an internal channel", async () => {
       const ch = await retrieveInternalChannel();
-      const rng = await createTestRange(client);
       assertDefined(Item.ContextMenu);
-      const { store } = await renderTreeContextMenu(Item.ContextMenu, {
+      await renderTreeContextMenu(Item.ContextMenu, {
         client,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       // Delete shares the update permission the rename item needs, so its presence
-      // proves the gate resolved before the absences below are read.
+      // proves the gate resolved before the absence below is read.
       expect(await screen.findByText("Delete")).toBeTruthy();
       expect(screen.queryByText("Rename")).toBeNull();
-      expect(screen.queryByText(/Set alias under/)).toBeNull();
     });
   });
 });
@@ -383,7 +334,7 @@ describe("copy properties", () => {
 });
 
 describe("permission to write the channel", () => {
-  it("should withhold rename, grouping, aliasing, and delete from a viewer", async () => {
+  it("should withhold rename, grouping, and delete from a viewer", async () => {
     const ch = await createChannel();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
@@ -393,7 +344,6 @@ describe("permission to write the channel", () => {
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Group selection")).toBeNull();
-    expect(screen.queryByText("Set Alias")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
   });
 });

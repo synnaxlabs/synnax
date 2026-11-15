@@ -14,10 +14,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
+
+type textMarshaler struct {
+	text string
+	err  error
+}
+
+func (t textMarshaler) MarshalText() ([]byte, error) { return []byte(t.text), t.err }
 
 var _ = Describe("String", func() {
 	Describe("Basic Parsing", func() {
@@ -222,6 +230,22 @@ var _ = Describe("String", func() {
 			Specify("custom bool type", func() {
 				result := MustSucceed(zyn.String().Dump(MyBool(true)))
 				Expect(result).To(Equal("true"))
+			})
+
+			Specify("text marshaler", func() {
+				result := MustSucceed(zyn.String().Dump(textMarshaler{text: "hi"}))
+				Expect(result).To(Equal("hi"))
+			})
+
+			Specify("text marshaler pointer", func() {
+				result := MustSucceed(zyn.String().Dump(&textMarshaler{text: "hi"}))
+				Expect(result).To(Equal("hi"))
+			})
+
+			Specify("text marshaler error", func() {
+				err := errors.New("cannot marshal")
+				Expect(zyn.String().Dump(textMarshaler{err: err})).Error().
+					To(MatchError(err))
 			})
 		})
 

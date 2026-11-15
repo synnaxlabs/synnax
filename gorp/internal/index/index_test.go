@@ -253,61 +253,65 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should walk in ascending value order", func() {
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{1, 2, 3, 4, 5}))
 		})
 
 		It("Should walk in descending value order", func() {
-			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 3, 2, 1}))
+			Expect(keys(s.Walk(true, nil, 0, nil))).To(Equal([]int{5, 4, 3, 2, 1}))
 		})
 
 		It("Should return the value of each entry", func() {
-			Expect(s.Walk(false, nil, 2)).To(Equal([]entry{
+			Expect(s.Walk(false, nil, 2, nil)).To(Equal([]entry{
 				{Key: 1, Value: 10},
 				{Key: 2, Value: 20},
 			}))
 		})
 
 		It("Should stop at the limit", func() {
-			Expect(keys(s.Walk(false, nil, 2))).To(Equal([]int{1, 2}))
-			Expect(keys(s.Walk(true, nil, 2))).To(Equal([]int{5, 4}))
+			Expect(keys(s.Walk(false, nil, 2, nil))).To(Equal([]int{1, 2}))
+			Expect(keys(s.Walk(true, nil, 2, nil))).To(Equal([]int{5, 4}))
 		})
 
 		It("Should return nil for a negative limit", func() {
-			Expect(s.Walk(false, nil, -1)).To(BeNil())
+			Expect(s.Walk(false, nil, -1, nil)).To(BeNil())
 		})
 
 		It("Should resume strictly past the cursor", func() {
 			after := entry{Key: 2, Value: 20}
-			Expect(keys(s.Walk(false, &after, 2))).To(Equal([]int{3, 4}))
-			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{1}))
+			Expect(keys(s.Walk(false, &after, 2, nil))).To(Equal([]int{3, 4}))
+			Expect(keys(s.Walk(true, &after, 0, nil))).To(Equal([]int{1}))
 		})
 
 		It("Should resume past a cursor that names no entry", func() {
 			after := entry{Key: 9, Value: 25}
-			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{3, 4, 5}))
-			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{2, 1}))
+			Expect(keys(s.Walk(false, &after, 0, nil))).To(Equal([]int{3, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0, nil))).To(Equal([]int{2, 1}))
 		})
 
 		It("Should order entries with equal values by key", func() {
 			s.Set(7, 30)
 			s.Set(0, 30)
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 3, 7, 4, 5}))
-			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 7, 3, 0, 2, 1}))
+			Expect(
+				keys(s.Walk(false, nil, 0, nil)),
+			).To(Equal([]int{1, 2, 0, 3, 7, 4, 5}))
+			Expect(
+				keys(s.Walk(true, nil, 0, nil)),
+			).To(Equal([]int{5, 4, 7, 3, 0, 2, 1}))
 		})
 
 		It("Should resume between entries with equal values", func() {
 			s.Set(7, 30)
 			s.Set(0, 30)
 			after := entry{Key: 3, Value: 30}
-			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{7, 4, 5}))
-			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{0, 2, 1}))
+			Expect(keys(s.Walk(false, &after, 0, nil))).To(Equal([]int{7, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0, nil))).To(Equal([]int{0, 2, 1}))
 		})
 
 		It("Should keep value order through committed writes", func() {
 			s.Set(1, 35)
 			s.Set(6, 0)
 			s.Delete(4)
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 1, 5}))
+			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{6, 2, 3, 1, 5}))
 		})
 
 		It("Should remove the moved entry among equal values", func() {
@@ -315,16 +319,16 @@ var _ = Describe("Index", func() {
 			s.Set(0, 30)
 			s.Set(3, 45)
 			s.Delete(7)
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 4, 3, 5}))
+			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{1, 2, 0, 4, 3, 5}))
 		})
 
 		It("Should not see staged changes", func() {
 			txn := &scope{}
 			s.Stage(txn, 6, 0)
 			s.StageDelete(txn, 1)
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{1, 2, 3, 4, 5}))
 			txn.end(true)
-			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{6, 2, 3, 4, 5}))
 		})
 
 		It("Should return nil when the load failed", func() {
@@ -333,7 +337,7 @@ var _ = Describe("Index", func() {
 			insert(2, 20)
 			insert(1, 10)
 			finish(errLoad)
-			Expect(failed.Walk(false, nil, 0)).To(BeNil())
+			Expect(failed.Walk(false, nil, 0, nil)).To(BeNil())
 			Expect(failed.Order([]int{1, 2}, false, nil)).To(BeNil())
 		})
 
@@ -341,7 +345,89 @@ var _ = Describe("Index", func() {
 			empty := index.NewSorted[*scope, int, int](cmp.Compare[int])
 			_, finish := empty.Populate()
 			finish(nil)
-			Expect(empty.Walk(false, nil, 0)).To(BeNil())
+			Expect(empty.Walk(false, nil, 0, nil)).To(BeNil())
+		})
+
+		It("Should skip the keys that in rejects", func() {
+			odd := func(k int) bool { return k%2 == 1 }
+			Expect(keys(s.Walk(false, nil, 2, odd))).To(Equal([]int{1, 3}))
+			Expect(keys(s.Walk(true, nil, 0, odd))).To(Equal([]int{5, 3, 1}))
+		})
+
+		Describe("Range", func() {
+			bound := func(v int, exclusive bool) *index.Bound[int] {
+				return &index.Bound[int]{Value: v, Exclusive: exclusive}
+			}
+
+			DescribeTable(
+				"Should return the keys between the bounds",
+				func(lower, upper *index.Bound[int], expected []int) {
+					Expect(s.Range(nil, lower, upper)).To(ConsistOf(expected))
+					Expect(s.Count(lower, upper)).To(Equal(len(expected)))
+					Expect(s.Keep(nil, []int{6, 5, 4, 3, 2, 1}, lower, upper)).
+						To(ConsistOf(expected))
+				},
+				Entry("an inclusive range", bound(20, false), bound(40, false),
+					[]int{2, 3, 4}),
+				Entry("an exclusive range", bound(20, true), bound(40, true), []int{3}),
+				Entry("an open lower end", nil, bound(20, false), []int{1, 2}),
+				Entry("an open upper end", bound(40, true), nil, []int{5}),
+				Entry("an empty range", bound(40, false), bound(20, false), []int{}),
+			)
+
+			DescribeTable(
+				"InRange should report whether a value lies between the bounds",
+				func(value int, lower, upper *index.Bound[int], expected bool) {
+					Expect(index.InRange(value, lower, upper)).To(Equal(expected))
+				},
+				Entry("an inclusive lower end", 20, bound(20, false), nil, true),
+				Entry("an exclusive lower end", 20, bound(20, true), nil, false),
+				Entry("an inclusive upper end", 40, nil, bound(40, false), true),
+				Entry("an exclusive upper end", 40, nil, bound(40, true), false),
+				Entry("a value below the range", 10, bound(20, false), bound(40, false),
+					false),
+				Entry("a value above the range", 50, bound(20, false), bound(40, false),
+					false),
+				Entry("no bounds", 7, nil, nil, true),
+			)
+
+			It("Should apply the changes of its scope", func() {
+				txn := &scope{}
+				s.Stage(txn, 1, 35)
+				s.Stage(txn, 6, 60)
+				s.StageDelete(txn, 3)
+				Expect(s.Range(txn, bound(20, false), nil)).To(ConsistOf(1, 2, 4, 5, 6))
+				Expect(s.Range(nil, bound(20, false), nil)).To(ConsistOf(2, 3, 4, 5))
+				Expect(s.Keep(txn, []int{1, 2, 3, 6, 7}, bound(20, false), nil)).
+					To(ConsistOf(1, 2, 6))
+			})
+
+			It("Should return the keys of a scope in its commit", func() {
+				txn := &scope{}
+				s.Stage(txn, 1, 35)
+				s.Stage(txn, 6, 60)
+				Expect(s.CommittingRange(bound(30, false), bound(40, false))).
+					To(BeEmpty())
+				txn.committing = true
+				Expect(s.CommittingRange(bound(30, false), bound(40, false))).
+					To(ConsistOf(1))
+				Expect(s.Keep(nil, []int{1, 2, 3}, bound(30, false), bound(40, false))).
+					To(ConsistOf(1, 3))
+			})
+
+			It("Should return the load error", func() {
+				failed := index.NewSorted[*scope, int, int](cmp.Compare[int])
+				_, finish := failed.Populate()
+				finish(errLoad)
+				Expect(failed.Range(nil, nil, nil)).Error().To(MatchError(errLoad))
+			})
+		})
+
+		It("Should count the committed entries", func() {
+			txn := &scope{}
+			s.Stage(txn, 6, 60)
+			s.Delete(1)
+			Expect(s.Len()).To(Equal(4))
 		})
 
 		Describe("Order", func() {

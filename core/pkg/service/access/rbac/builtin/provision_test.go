@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -58,6 +59,56 @@ var _ = Describe("Provision", func() {
 		Expect(r.Name).To(Equal("Driver"))
 		Expect(r.Internal).To(BeTrue())
 	})
+
+	DescribeTable(
+		"Should grant access to secrets and certificates",
+		func(
+			ctx SpecContext,
+			name string,
+			typ resource.Type,
+			actions []access.Action,
+		) {
+			provision(ctx)
+			var p policy.Policy
+			Expect(policySvc.NewRetrieve().
+				Where(policy.MatchNames(name)).
+				Entry(&p).
+				Exec(ctx, db)).To(Succeed())
+			Expect(p.Objects).To(ContainElement(resource.ID{Type: typ}))
+			Expect(p.Actions).To(Equal(actions))
+		},
+		Entry("Owner secrets", "Owner", resource.TypeSecret, access.AllActions),
+		Entry(
+			"Engineer certificates",
+			"Engineer Edit Access",
+			resource.TypeCertificate,
+			access.AllActions,
+		),
+		Entry(
+			"Operator secrets",
+			"Operator View Access",
+			resource.TypeSecret,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Viewer certificates",
+			"Viewer",
+			resource.TypeCertificate,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Driver secrets",
+			"Driver Secret View Access",
+			resource.TypeSecret,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Driver certificates",
+			"Driver Certificate Access",
+			resource.TypeCertificate,
+			[]access.Action{access.ActionCreate, access.ActionRetrieve},
+		),
+	)
 
 	It("Should keep the same keys when it runs again", func(ctx SpecContext) {
 		Expect(provision(ctx)).To(Equal(provision(ctx)))

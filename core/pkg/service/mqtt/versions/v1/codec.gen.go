@@ -17,6 +17,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -113,7 +114,7 @@ func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		cf.JSONType = JSONType(rawV)
+		cf.JSONType = payload.JSONType(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
@@ -138,13 +139,13 @@ func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv TimeFormat
+			var hv payload.TimeFormat
 			{
 				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = TimeFormat(rawV)
+				hv = payload.TimeFormat(rawV)
 			}
 			cf.TimeFormat = &hv
 		}
@@ -159,7 +160,7 @@ func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			cf.EnumValues = make([]EnumEntry, n)
+			cf.EnumValues = make([]payload.EnumEntry, n)
 			for i := range cf.EnumValues {
 				if err = cf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
@@ -294,25 +295,6 @@ func (et *EdgeTag) DecodeOrc(r *orc.Reader) error {
 			}
 			et.CommandChannelName = &hv
 		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ee EnumEntry) EncodeOrc(w *orc.Writer) error {
-	w.String(ee.Label)
-	w.Float64(float64(ee.Value))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ee *EnumEntry) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if ee.Label, err = r.String(); err != nil {
-		return err
-	}
-	if ee.Value, err = r.Float64(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -559,13 +541,13 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv TimeFormat
+			var hv payload.TimeFormat
 			{
 				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = TimeFormat(rawV)
+				hv = payload.TimeFormat(rawV)
 			}
 			rf.TimeFormat = &hv
 		}
@@ -580,7 +562,7 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rf.EnumValues = make([]EnumEntry, n)
+			rf.EnumValues = make([]payload.EnumEntry, n)
 			for i := range rf.EnumValues {
 				if err = rf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
@@ -719,7 +701,7 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.JSONType = JSONType(rawV)
+			v.JSONType = payload.JSONType(rawV)
 		}
 		{
 			b, err := r.ReadWithLen()
@@ -741,7 +723,7 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.Generator = GeneratorType(rawV)
+			v.Generator = payload.GeneratorType(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -749,13 +731,13 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv TimeFormat
+				var hv payload.TimeFormat
 				{
 					rawV, err := r.String()
 					if err != nil {
 						return err
 					}
-					hv = TimeFormat(rawV)
+					hv = payload.TimeFormat(rawV)
 				}
 				v.TimeFormat = &hv
 			}

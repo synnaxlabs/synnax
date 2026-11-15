@@ -331,13 +331,10 @@ func (p SplitTabPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle adjusts the size ratio of the split at the given path. Errors when
-// the split path does not resolve, when it resolves to a leaf, or when size
-// is outside [0, 1].
+// Handle adjusts the size ratio of the split at the given path. Errors when the split
+// path does not resolve or when it resolves to a leaf. Panel.Validate rejects a size
+// outside [0, 1].
 func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
-	if p.Size < 0 || p.Size > 1 {
-		return Panel{}, errInvalidSize
-	}
 	updated, err := updateAt(
 		state.Root,
 		pathDirections(p.Split),

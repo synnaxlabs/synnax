@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -52,6 +53,9 @@ public:
     /// outside Windows.
     virtual std::optional<std::string> adapter_name(const char *ifname) = 0;
 
+    /// @brief returns true when the adapter of ifname is on USB. Always false on macOS.
+    virtual bool on_usb(const char *ifname) = 0;
+
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
 
@@ -83,6 +87,10 @@ public:
     /// @brief returns the number of slaves that answer a broadcast read, or a value
     /// below 1 when none answers.
     virtual int count_bus_slaves() = 0;
+
+    /// @brief requests INIT for a slave and clears its sync managers and FMMUs, as
+    /// config_init does for every slave. Returns 1 when the slave takes each write.
+    virtual int reset_slave(uint16_t slave, int timeout) = 0;
 
     /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
     /// configuration, returning the state it reached.
@@ -197,6 +205,8 @@ public:
 
     std::optional<std::string> adapter_name(const char *ifname) override;
 
+    bool on_usb(const char *ifname) override;
+
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
     void close() override { ecx_close(&this->context); }
@@ -296,6 +306,35 @@ public:
             data.data(),
             timeout
         );
+    }
+
+    int reset_slave(uint16_t slave, int timeout) override {
+        const uint16_t address = this->context.slavelist[slave].configadr;
+        std::array<uint8_t, 4 * sizeof(ec_smt)> sync_managers{};
+        std::array<uint8_t, 3 * sizeof(ec_fmmut)> fmmus{};
+        return ecx_FPWRw(
+                   &this->context.port,
+                   address,
+                   ECT_REG_ALCTL,
+                   htoes(EC_STATE_INIT),
+                   timeout
+               ) == 1 &&
+               ecx_FPWR(
+                   &this->context.port,
+                   address,
+                   ECT_REG_SM0,
+                   sync_managers.size(),
+                   sync_managers.data(),
+                   timeout
+               ) == 1 &&
+               ecx_FPWR(
+                   &this->context.port,
+                   address,
+                   ECT_REG_FMMU0,
+                   fmmus.size(),
+                   fmmus.data(),
+                   timeout
+               ) == 1;
     }
 
     int reconfig_slave(uint16_t slave, int timeout) override {

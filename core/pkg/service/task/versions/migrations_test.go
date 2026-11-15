@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -76,7 +78,11 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				},
 			)
 
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			secrets := secrettestutil.OpenService(ctx, db)
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB:     db,
+				Secret: secrets,
+			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:      db,
@@ -94,7 +100,16 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
-			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-ancient"))
+			Expect(migrated.Config["routing_key"]).To(BeAssignableToTypeOf(""))
+			routingKey := uuid.MustParse(migrated.Config["routing_key"].(string))
+			Expect(secrets.Reveal(ctx, db, routingKey)).
+				To(HaveKeyWithValue(routingKey, []byte("rk-ancient")))
+			var routingSecret secret.Secret
+			Expect(secrets.NewRetrieve().
+				Where(secret.MatchKeys(routingKey)).
+				Entry(&routingSecret).
+				Exec(ctx, db)).To(Succeed())
+			Expect(routingSecret.Base().Name).To(Equal("Ancient Task routing key"))
 
 			By("Deleting the legacy-prefix row")
 			Expect(db.Get(ctx, legacyRow)).Error().To(MatchError(query.ErrNotFound))

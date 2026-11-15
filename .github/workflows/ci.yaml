@@ -160,6 +160,8 @@ jobs:
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
@@ -170,26 +172,35 @@ jobs:
         with:
           version: latest-known
 
-      # Compares against the same base as the filter.
+      # The first parent of a pull request's merge checkout is its current base.
+      - name: Find the base
+        id: base
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          base=$GROUP_BASE
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base=$(git rev-parse HEAD^1)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
       - name: Find the jobs a CI edit selects
         id: ci
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           jobs=$(uv run --locked --project .github/scripts \
-            python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/changed_jobs.py "$BASE")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
       - name: Find whether the change touches only unit tests
         id: spec
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           spec_only=$(uv run --locked --project .github/scripts \
-            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/spec_only.py "$BASE")
           echo "$spec_only"
           echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 
@@ -270,6 +281,7 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: arc-cpp
       directories: arc/cpp
       macos: *full
       rust: true
@@ -277,6 +289,7 @@ jobs:
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   arc-go:
@@ -339,12 +352,14 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: client-cpp
       directories: client/cpp client/clib
       macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py:
@@ -430,6 +445,7 @@ jobs:
       directory: core
       macos: *full
       shards: 3
+      warmed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -513,6 +529,8 @@ jobs:
       inputs.full || needs.changes.outputs.docs == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
+    with:
+      strict: *full
     secrets:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
@@ -544,6 +562,7 @@ jobs:
       apt_packages: libsystemd-dev
       clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: driver
       directories: driver
       macos: *full
       rust: true
@@ -552,6 +571,7 @@ jobs:
       test_tags: -hardware
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   # The EtherCAT bus runs on its own thread, and a streamer can set its channels
@@ -642,8 +662,6 @@ jobs:
           version: latest-known
 
       - name: Check names that are public without need
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: uv run --project scripts scripts/check_exports_py.py
 
   format:
@@ -687,11 +705,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: freighter-cpp
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-go:
@@ -853,8 +873,6 @@ jobs:
         run: pnpm knip
 
       - name: Check exports that only their own module's specs use
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: python3 scripts/check_exports_ts.py
 
   lint-integration:
@@ -1137,11 +1155,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: x-cpp
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-go:
@@ -1206,6 +1226,7 @@ jobs:
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners
   # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
+  # A job that no runner takes ends as cancelled, and counts as failed.
   fail-fast:
     name: Fail fast
     if: github.event_name == 'merge_group'
@@ -1226,7 +1247,8 @@ jobs:
               continue
             fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out") | .name' <<< "$jobs")
+              or .conclusion == "timed_out" or .conclusion == "cancelled")
+              | .name' <<< "$jobs")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."

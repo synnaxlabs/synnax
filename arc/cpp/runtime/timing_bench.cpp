@@ -26,6 +26,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/runtime.h"
+#include "arc/cpp/runtime/testutil/module.h"
 #include "arc/cpp/runtime/testutil/timing.h"
 #include "arc/cpp/types/types.h"
 
@@ -139,7 +140,7 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     };
     const auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(sched),
         loop::create(loop_cfg),
