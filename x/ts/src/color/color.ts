@@ -215,7 +215,7 @@ export const setOpacity = (color: Crude, opacity: number): Color => {
  */
 const luminance = (color: Crude): number => {
   const [r, g, b] = construct(color).map(toLinear);
-  return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 
 /** Converts an sRGB byte to a linear-light 0-1 value. */
