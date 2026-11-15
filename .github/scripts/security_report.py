@@ -17,9 +17,9 @@ decrypts each report with the GPG private key in REPORT_PRIVATE_KEY. Writes the 
 to <out>/report.md. --publish also files it as a Linear issue in the SY team, when it
 holds a finding or a failed scan, and posts the count and the issue link to Slack. If
 Linear fails, posts the count and the run link to Slack and raises. Prints each scan's
-count and no finding, because logs on a public repository are public, so a failed
-filing keeps only the count: run the workflow again for the report.
-Exits non-zero when a scan or an agent failed.
+count and no finding, because logs on a public repository are public, so a failed filing
+keeps only the count: run the workflow again for the report. Exits non-zero when a scan
+or an agent failed.
 
 Environment for --publish: LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET, SLACK_WEBHOOK_URL,
 and RUN_URL.

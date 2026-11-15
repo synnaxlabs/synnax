@@ -51,7 +51,12 @@ jobs:
       id-token: write
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: &agent_secrets
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `authn`.
       output: report
@@ -63,7 +68,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `api`.
       output: report
@@ -75,7 +80,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `tls`.
       output: report
@@ -87,7 +92,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `files`.
       output: report
@@ -99,7 +104,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `driver`.
       output: report
@@ -111,7 +116,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `console`.
       output: report
@@ -123,7 +128,7 @@ jobs:
     permissions: *review
     needs: key
     uses: ./.github/workflows/agent.yaml
-    secrets: inherit
+    secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `ci`.
       output: report
