@@ -37,32 +37,16 @@ class Overview(Surface):
         self.explorer = explorer
 
     def open(self, name: str) -> None:
-        """Open the range overview/details page from the explorer.
+        """Open the range overview from the explorer, or focus its open tab.
 
-        Clicking an explorer row places the range's overview layout, which opens
-        a new overview tab or focuses an existing one. When an overview tab for
-        the range is already open, the row click does not reliably switch the
-        active tab to it (the explorer tab can stay focused), leaving the
-        overview's Name field hidden. Focus an already-open tab directly when
-        present, fall back to the row click otherwise, and retry until the
-        overview for this range is showing.
+        :param name: The name of the range.
         """
         if self.is_showing(name):
             return
         item = self.explorer.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        for attempt in range(3):
-            tab = self.layout.get_tab(name)
-            if tab.count() > 0:
-                tab.click()
-            else:
-                item.click()
-            try:
-                self.wait_for(name)
-                return
-            except PlaywrightTimeoutError:
-                if attempt == 2:
-                    raise
+        item.click()
+        self.wait_for(name)
 
     def wait_for(self, name: str) -> None:
         """Wait for the range overview to show a specific range."""
