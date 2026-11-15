@@ -23,6 +23,15 @@ var _ = Describe("ReadConfig", func() {
 	})
 })
 
+var _ = Describe("ICDReadConfig", func() {
+	Describe("CustomTypeName", func() {
+		It("Should return the MQTT ICD read config gorp type name", func() {
+			Expect(v1.ICDReadConfig{}.CustomTypeName()).
+				To(Equal("mqtt_icd_read_config"))
+		})
+	})
+})
+
 var _ = Describe("WriteConfig", func() {
 	Describe("CustomTypeName", func() {
 		It("Should return the MQTT write config gorp type name", func() {
