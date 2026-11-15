@@ -9,6 +9,7 @@
 
 
 import synnax as sy
+from console.notifications import click_past
 from console.schematic.symbol import Symbol, option_text
 
 
@@ -49,7 +50,7 @@ class StateIndicator(Symbol):
         if channel_name is not None:
             self.set_label(channel_name)
             self.open_properties_tab()
-            self.page.get_by_text("Telemetry").click()
+            click_past(self.page.get_by_text("Telemetry"))
             self.set_channel(section="State", channel_name=channel_name)
 
         if options is not None and len(options) > 0:

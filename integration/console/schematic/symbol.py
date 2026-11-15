@@ -273,7 +273,7 @@ class Symbol(ABC):
         self.click()
         self.open_properties_tab()
         if tab:
-            self.page.get_by_text(tab).last.click()
+            click_past(self.page.get_by_text(tab).last)
         return {}
 
     def open_properties_tab(self) -> None:

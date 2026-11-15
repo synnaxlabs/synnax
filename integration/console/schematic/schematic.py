@@ -376,7 +376,7 @@ class Schematic(ConsolePage):
         item = symbols.locator(".console-schematic-symbols__button").filter(
             has=self.page.locator("small").get_by_text(name, exact=True)
         )
-        item.first.click(timeout=5000)
+        click_past(item.first)
         self.layout.wait_for_hidden(self.page.locator(".console-schematic__change"))
 
     def set_authority(self, authority: int) -> None:
