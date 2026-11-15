@@ -132,24 +132,6 @@
     display: none;
 }
 
-/* The start, shown on hover once its column hides. */
-.console-range-item::after {
-    position: absolute;
-    z-index: 10;
-    top: calc(100% - 0.5rem);
-    right: 6rem;
-    display: none;
-    padding: 0.5rem 1rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius-small);
-    background: var(--pluto-gray-l1);
-    color: var(--pluto-gray-l10);
-    font-size: var(--pluto-small-size);
-    white-space: nowrap;
-    content: attr(data-start);
-    pointer-events: none;
-}
-
 /* A narrow list hides the labels. */
 @container range-list (width < 80rem) {
     .console-range-item__labels {
@@ -171,20 +153,12 @@
     }
 }
 
-/* Then the start column hides, the start shows on hover, the star shows
-   only on hover or when set, and the indent halves. Only the name and the duration
-   share the item, so the name gives way rather than push the item out. */
+/* Then the start column hides, the star shows only on hover or when set, and the indent
+   halves. Only the name and the duration share the item, so the name gives way rather
+   than push the item out. */
 @container range-list (width < 69rem) {
     .console-range-item__start {
         display: none;
-    }
-
-    .console-range-item[data-start]:hover {
-        z-index: 10;
-
-        &::after {
-            display: block;
-        }
     }
 
     .console-range-item:not(:hover) .console-range-item__favorite:not(:has(:checked)) {

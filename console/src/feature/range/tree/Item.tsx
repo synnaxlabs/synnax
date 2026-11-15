@@ -22,6 +22,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -256,11 +257,10 @@ const compactStart = (start: TimeStamp, now: TimeStamp): string => {
   });
 };
 
-// The start an item shows on hover once its column hides.
-const startHint = (timeRange: TimeRange): string | undefined => {
-  if (!scheduled(timeRange)) return undefined;
-  const day = Telem.Text.describeDay(timeRange.start, TimeStamp.now());
-  return `Starts ${day} ${Telem.Text.formatTime(timeRange.start, TimeSpan.MINUTE)}`;
+// Whether the start column of a time cell shows.
+const startShown = (when: HTMLElement): boolean => {
+  const start = when.querySelector(`.${CSS.BE("range-item", "start")}`);
+  return start != null && getComputedStyle(start).display !== "none";
 };
 
 /** The start of a range and how long it ran, or how long it has run so far. */
@@ -269,6 +269,7 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
   const { start, end } = range.timeRange.makeValid();
   const stage = Ranger.getStage(range.timeRange, now);
   const day = Telem.Text.describeDay(start, now);
+  const full = `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`;
   let span: ReactElement;
   if (stage === "in_progress")
     span = (
@@ -306,30 +307,33 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
         {start.span(end).toString("semantic")}
       </Text.Text>
     );
+  const startable = scheduled(range.timeRange);
   return (
-    <Flex.Box
-      x
-      align="center"
-      gap="small"
-      role="group"
-      aria-label="Time range"
-      className={CSS.BE("range-item", "when")}
-    >
-      {/* A range with no start keeps the empty column, so the columns line up. */}
-      <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
-        {scheduled(range.timeRange) && (
-          <>
-            <span className={CSS.BE("range-item", "start-full")}>
-              {`${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
-            </span>
-            <span className={CSS.BE("range-item", "start-compact")}>
-              {compactStart(start, now)}
-            </span>
-          </>
-        )}
-      </Text.Text>
-      {span}
-    </Flex.Box>
+    // Once the start column hides, the cell shows the start on hover.
+    <Tooltip.Dialog hide={(when) => !startable || startShown(when)}>
+      {`Starts ${full}`}
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        role="group"
+        aria-label="Time range"
+        className={CSS.BE("range-item", "when")}
+      >
+        {/* A range with no start keeps the empty column, so the columns line up. */}
+        <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
+          {startable && (
+            <>
+              <span className={CSS.BE("range-item", "start-full")}>{full}</span>
+              <span className={CSS.BE("range-item", "start-compact")}>
+                {compactStart(start, now)}
+              </span>
+            </>
+          )}
+        </Text.Text>
+        {span}
+      </Flex.Box>
+    </Tooltip.Dialog>
   );
 };
 
@@ -356,7 +360,6 @@ const Base = ({
       role="listitem"
       className={CSS.cls(CSS.B("range-item"), className)}
       aria-label={range.name}
-      data-start={startHint(range.timeRange)}
       checkable
       onActivate={() => open(itemKey)}
     >
