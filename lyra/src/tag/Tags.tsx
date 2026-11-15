@@ -11,6 +11,7 @@ import "@/tag/Tags.css";
 
 import {
   createContext,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
   type RefObject,
@@ -28,7 +29,14 @@ import { Steps } from "@/tag/step";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
-export interface TagsProps extends Button.ButtonProps<"div"> {}
+export interface TagsProps extends Button.ButtonProps<"div"> {
+  /**
+   * Called on a click on the count. With it, the group is a row of buttons: only its
+   * tags, count, and buttons take the pointer, and each tag and the count takes the
+   * outlined button's hover and press.
+   */
+  onCountClick?: (e: MouseEvent<HTMLElement>) => void;
+}
 
 interface Hidden {
   name: string;
@@ -71,11 +79,25 @@ const HiddenList = ({ groupRef }: GroupProps): ReactElement => {
   );
 };
 
+interface MoreProps extends GroupProps, Pick<TagsProps, "onCountClick"> {}
+
 /** The count of a group. Its styles show the number its step hides. */
-const More = ({ groupRef }: GroupProps): ReactElement => (
+const More = ({ groupRef, onCountClick }: MoreProps): ReactElement => (
   <Tooltip.Dialog>
     <HiddenList groupRef={groupRef} />
-    <Text.Text level="small" className={CSS.BE("tags", "more")} />
+    <Text.Text
+      level="small"
+      className={CSS.BE("tags", "more")}
+      // A count that acts keeps its click from the group, as a tag does.
+      onClick={
+        onCountClick == null
+          ? undefined
+          : (e: MouseEvent<HTMLElement>) => {
+              e.stopPropagation();
+              onCountClick(e);
+            }
+      }
+    />
   </Tooltip.Dialog>
 );
 
@@ -112,6 +134,7 @@ export const Tags = ({
   variant = "outlined",
   size = "medium",
   className,
+  onCountClick,
   ...rest
 }: TagsProps) => {
   const shared = useContext(StepContext);
@@ -136,6 +159,7 @@ export const Tags = ({
       className={CSS.cls(
         CSS.B("tags"),
         shared != null && CSS.BM("tags", "stepped"),
+        onCountClick != null && CSS.BM("tags", "parts"),
         className,
       )}
       el="div"
@@ -148,7 +172,7 @@ export const Tags = ({
       {...rest}
     >
       {children}
-      <More groupRef={elRef} />
+      <More groupRef={elRef} onCountClick={onCountClick} />
     </Button.Button>
   );
 };

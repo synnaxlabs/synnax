@@ -34,6 +34,38 @@
     margin-left: 0;
 }
 
+/* A group of buttons takes the pointer only on its parts, and the room around them
+   stays at rest. Each tag and the count takes the outlined button's hover and press.
+   Four classes outrank the hover of the group's variant. */
+.lyra-flex.lyra-btn.lyra-tags.lyra-tags--parts {
+    --pluto-hover-bg: var(--pluto-bg);
+    --pluto-active-bg: var(--pluto-bg);
+    --pluto-hover-border-color: var(--pluto-border-color);
+    --pluto-active-border-color: var(--pluto-border-color);
+
+    pointer-events: none;
+
+    & > :is(.lyra-btn:not([data-dot]), .lyra-tags__more) {
+        pointer-events: auto;
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-hover-border-color: var(--pluto-gray-l8);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+    }
+
+    /* The count paints its face under its dots. */
+    &:has(> .lyra-tags__more:hover) {
+        --lyra-tags-count-face: var(--pluto-fill-hover);
+    }
+
+    &:has(> .lyra-tags__more:active) {
+        --lyra-tags-count-face: var(--pluto-fill-press);
+    }
+}
+
 /* Tags at full width while a group measures them. */
 .lyra-tags[data-measuring] > .lyra-flex.lyra-btn.lyra-tag {
     flex-shrink: 0;

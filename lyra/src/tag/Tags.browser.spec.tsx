@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
@@ -131,6 +131,27 @@ describe("Tags", () => {
     const dot = tag.querySelector(":scope > svg")!;
     const close = tag.querySelector(`.${CSS.BE("tag", "close")} svg`)!;
     await expect.poll(() => Math.abs(center(close) - center(dot))).toBeLessThan(2);
+  });
+
+  it("should hand a click on its count to onCountClick alone", async () => {
+    const onClick = vi.fn();
+    const onCountClick = vi.fn();
+    const { container } = await renderThemed(
+      <div data-testid="frame" style={{ display: "flex", width: "260px" }}>
+        <Tag.Tags onClick={onClick} onCountClick={onCountClick}>
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>,
+    );
+    const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
+    await expect.poll(() => count(frame)).not.toBeNull();
+    await userEvent.click(frame.querySelector(`.${CSS.BE("tags", "more")}`)!);
+    expect(onCountClick).toHaveBeenCalledOnce();
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("should keep its width as it hides tags", async () => {

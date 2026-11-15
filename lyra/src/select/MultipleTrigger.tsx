@@ -51,6 +51,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   itemKey,
   icon,
   onDragStart,
+  onClick,
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
@@ -61,6 +62,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   return (
     <Tag.Tag
       onClose={onSelect}
+      onClick={onClick}
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
@@ -109,9 +111,6 @@ export const staticCanDrop = <K extends record.Key>(
 };
 
 const PLACEHOLDER_CLASS = CSS.B("select-multiple-trigger-placeholder");
-
-// The parts of a trigger that reads as its tags, each of which opens it.
-const CHIP = `.${CSS.B("tag")}, .${CSS.BE("tags", "more")}, .${PLACEHOLDER_CLASS}`;
 
 /**
  * The button of a {@link Multiple} selection, showing one removable tag per entry. A
@@ -172,12 +171,11 @@ export const MultipleTrigger = <
   const itemStatus = Input.useItemStatus({});
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void =>
     preventEnterWhileOpen(e, visible);
-  const handleClick = (e: MouseEvent<HTMLElement>): void => {
-    const chip = variant === "outlined" ? null : (e.target as Element).closest(CHIP);
-    if (chip instanceof HTMLElement && chip.parentElement === e.currentTarget)
-      return toggleAt(chip);
-    toggle();
-  };
+  // A shadow or text trigger reads as its tags, and each part opens it beside itself.
+  const openAt =
+    variant === "shadow" || variant === "text"
+      ? (e: MouseEvent<HTMLElement>): void => toggleAt(e.currentTarget)
+      : undefined;
 
   if (hideTags) {
     if (preview === true) return null;
@@ -207,7 +205,8 @@ export const MultipleTrigger = <
       role="button"
       tabIndex={showAddButton || preview === true ? undefined : 0}
       aria-label={ariaLabel}
-      onClick={handleClick}
+      onClick={toggle}
+      onCountClick={openAt}
       onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(
@@ -223,12 +222,11 @@ export const MultipleTrigger = <
     >
       {value.length === 0 &&
         (preview !== true && (variant === "shadow" || variant === "text") ? (
-          // A chip like the tags: a text button that hands its click to the trigger.
           <Button.Button
             el="div"
             variant="text"
             size="small"
-            propagateClick
+            onClick={openAt}
             reveal={variant === "shadow"}
             className={PLACEHOLDER_CLASS}
           >
@@ -253,7 +251,14 @@ export const MultipleTrigger = <
           </Text.Text>
         ))}
       {value.map((v) =>
-        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
+        children({
+          key: v,
+          itemKey: v,
+          onDragStart: onTagDragStart,
+          onClick: openAt,
+          icon,
+          renderIcon,
+        }),
       )}
       {variant === "outlined" && preview !== true && (
         <Caret.Animated
@@ -265,11 +270,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button
-          ref={triggerRef}
-          variant="text"
-          onClick={(e) => toggleAt(e.currentTarget)}
-        >
+        <Button.Button ref={triggerRef} variant="text" onClick={openAt}>
           <Icon.Add color={9} />
         </Button.Button>
       )}
