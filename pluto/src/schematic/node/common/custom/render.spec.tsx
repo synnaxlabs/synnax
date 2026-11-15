@@ -635,6 +635,23 @@ describe("Custom.useRender", () => {
       expect(svg.getAttribute("height")).toBe("100");
       expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
     });
+
+    it("should keep only the location class of the current orientation", () => {
+      const container = document.createElement("div");
+      const params: Custom.UseRenderParams = {
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      };
+      const { rerender } = renderAttached(params, container);
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.classList.contains("lyra--location-top")).toBe(true);
+
+      rerender({ ...params, orientation: "bottom" });
+      expect(svg.classList.contains("lyra--location-bottom")).toBe(true);
+      expect(svg.classList.contains("lyra--location-top")).toBe(false);
+    });
   });
 
   describe("stroke scaling", () => {
