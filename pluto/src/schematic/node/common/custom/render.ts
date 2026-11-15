@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { color, dimensions, direction, type location } from "@synnaxlabs/x";
+import { color, dimensions, direction, location } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -113,7 +113,7 @@ export const isValidSVG = (svg: string): boolean => Region.parseSVG(svg) != null
 // buildSVG records the parsed element's base dimensions, ensures its contents are
 // wrapped in a single <g>, mounts it into the container, and notifies onMount. The
 // element starts from raw markup, so every derived attribute (state colors, dimensions,
-// stroke scaling) must be re-applied by the caller afterwards.
+// orientation, stroke scaling) must be re-applied by the caller afterwards.
 const buildSVG = (
   container: HTMLElement,
   state: RenderState,
@@ -174,6 +174,12 @@ const applyScale = (
   );
 };
 
+// The location class turns the drawing, as on built-in symbols.
+const applyOrientation = (svgElement: SVGSVGElement, orientation: location.Outer) =>
+  location.OUTER_LOCATIONS.forEach((loc) =>
+    svgElement.classList.toggle(CSS.loc(loc), loc === orientation),
+  );
+
 const applyStrokeScaled = (state: RenderState, strokeScaled: boolean) => {
   if (state.svgElement == null) return;
   const pathElements = state.svgElement.querySelectorAll(
@@ -212,6 +218,7 @@ const runRender = (
     state.prevState = currState;
   }
   applyScale(state, orientation, spec.scale, externalScale);
+  applyOrientation(state.svgElement, orientation);
   applyStrokeScaled(state, spec.strokeScaled);
 };
 

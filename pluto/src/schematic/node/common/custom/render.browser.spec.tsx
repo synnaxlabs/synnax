@@ -10,13 +10,19 @@
 import { type schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { color, location, type xy } from "@synnaxlabs/x";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type RefCallback,
+} from "react";
 import { describe, expect, it } from "vitest";
 import { render, renderHook } from "vitest-browser-react";
 
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 
 const STROKE = color.construct("#cfd1d4");
 const FILL = color.construct("#ffffff");
@@ -103,5 +109,73 @@ describe("Custom.useRender theme band", () => {
       const { fill } = await renderCustom(theme);
       expect(fill).toBe(resolve(color.hex(FILL), "fill"));
     });
+  });
+});
+
+// A 40 by 20 drawing with a 10 by 10 marker in its top left corner.
+const ORIENTED_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20"/><rect class="marker" width="10" height="10"/></svg>',
+  states: [],
+};
+
+// Where the marker's center lands as a fraction of the symbol's box, turned as a
+// built-in symbol turns.
+const MARKER_CENTERS: Record<location.Outer, xy.XY> = {
+  left: { x: 0.125, y: 0.25 },
+  right: { x: 0.875, y: 0.75 },
+  top: { x: 0.25, y: 0.875 },
+  bottom: { x: 0.75, y: 0.125 },
+};
+
+interface ContainerProps {
+  ref: RefCallback<HTMLElement>;
+  orientation: location.Outer;
+}
+
+const CONTAINERS: [string, FC<ContainerProps>][] = [
+  ["static", Primitive.Div],
+  ["actuator", Toggle.Button],
+];
+
+const renderMarkerCenter = async (
+  Container: FC<ContainerProps>,
+  orientation: location.Outer,
+): Promise<xy.XY> => {
+  const { result } = await renderHook(() =>
+    Custom.useRender({
+      orientation,
+      activeState: "base",
+      externalScale: 1,
+      spec: ORIENTED_SPEC,
+    }),
+  );
+  const { container } = await render(
+    <Container ref={result.current} orientation={orientation} />,
+  );
+  const svg = container.querySelector("svg");
+  const marker = container.querySelector(".marker");
+  if (svg == null || !(marker instanceof SVGGraphicsElement))
+    throw new Error("custom symbol not mounted");
+  const matrix = marker.getScreenCTM();
+  if (matrix == null) throw new Error("marker has no screen matrix");
+  const center = new DOMPoint(5, 5).matrixTransform(matrix);
+  const box = svg.getBoundingClientRect();
+  return {
+    x: (center.x - box.left) / box.width,
+    y: (center.y - box.top) / box.height,
+  };
+};
+
+describe("Custom.useRender orientation", () => {
+  describe.each(CONTAINERS)("%s symbol", (_, Container) => {
+    it.each(location.OUTER_LOCATIONS)(
+      "should turn the drawing to %s",
+      async (orientation) => {
+        const center = await renderMarkerCenter(Container, orientation);
+        expect(center.x).toBeCloseTo(MARKER_CENTERS[orientation].x, 3);
+        expect(center.y).toBeCloseTo(MARKER_CENTERS[orientation].y, 3);
+      },
+    );
   });
 });
