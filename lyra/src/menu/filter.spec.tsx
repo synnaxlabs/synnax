@@ -43,19 +43,19 @@ const ITEMS = (
   </Menu.Menu>
 );
 
-const ContextMenu = (): ReactElement => {
+const ContextMenu = ({ items }: { items: ReactElement }): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
-    <Menu.ContextMenu menu={() => ITEMS} {...ctx}>
+    <Menu.ContextMenu menu={() => items} {...ctx}>
       <button onContextMenu={ctx.open}>Opener</button>
     </Menu.ContextMenu>
   );
 };
 
-const open = (): HTMLElement => {
+const open = (items: ReactElement = ITEMS): HTMLElement => {
   render(
     <Triggers.Provider>
-      <ContextMenu />
+      <ContextMenu items={items} />
     </Triggers.Provider>,
   );
   const opener = screen.getByText("Opener");
@@ -110,6 +110,21 @@ describe("menu filter", () => {
       type("fav");
       expect(screen.getAllByRole("menuitem")).toHaveLength(1);
       expect(screen.getByRole("menuitem").textContent).toBe("");
+    });
+
+    it("should hide a copy item whose text does not match", () => {
+      open(
+        <Menu.Menu>
+          <Menu.CopyItem itemKey="copy" text="hello">
+            Copy name
+          </Menu.CopyItem>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>,
+      );
+      type("cop");
+      expect(shown()).toEqual([" Copy name"]);
+      type("x");
+      expect(shown()).toEqual([]);
     });
 
     it("should match a submenu on the text of its item", () => {

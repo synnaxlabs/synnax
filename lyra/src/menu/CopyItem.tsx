@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { nodeText, useMatches } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 
 /** Props for {@link CopyItem}. */
@@ -27,9 +28,11 @@ export const CopyItem = ({
   className,
   itemKey,
   ...rest
-}: CopyItemProps): ReactElement => {
+}: CopyItemProps): ReactElement | null => {
   const { onClick: ctxOnClick, level = "p", gap, background } = useContext();
+  const matches = useMatches(nodeText(rest.children));
   const handleClick: Button.ButtonProps["onClick"] = () => ctxOnClick(itemKey);
+  if (!matches) return null;
   return (
     <Button.Copy
       level={level}
