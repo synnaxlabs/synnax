@@ -209,10 +209,91 @@ func copyModules(edits ...edit) string {
 }
 
 const (
-	libGo     = "testdata/a/lib/lib.go"
-	libTestGo = "testdata/a/lib/lib_test.go"
-	userGo    = "testdata/b/user/user.go"
+	libGo      = "testdata/a/lib/lib.go"
+	libTestGo  = "testdata/a/lib/lib_test.go"
+	userGo     = "testdata/b/user/user.go"
+	userTestGo = "testdata/b/user/user_test.go"
+	shallowGo  = "testdata/c/shallow/shallow.go"
 )
+
+const closer = `
+
+type Closer interface{ Close() }
+
+type File struct{}
+
+func (File) Close() {}
+`
+
+var _ = Describe("Check through interfaces", func() {
+	DescribeTable("Should judge a method by the interfaces it satisfies",
+		func(ctx SpecContext, edits []edit, name string, kept bool) {
+			dir := copyModules(edits...)
+			findings := summarize(MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: []string{
+					filepath.Join(dir, "testdata/a"),
+					filepath.Join(dir, "testdata/b"),
+				},
+				GOOS: []string{"linux"},
+			})))
+			method := finding{File: "lib.go", Kind: "method", Name: name}
+			if kept {
+				Expect(findings).ToNot(ContainElement(method))
+			} else {
+				Expect(findings).To(ContainElement(method))
+			}
+		},
+		Entry(
+			"keep one that another package calls through a value of the interface",
+			[]edit{
+				{libGo, "func Used() {}\n", "func Used() {}\n" + closer +
+					"\nfunc OpenFile() Closer { return File{} }\n"},
+				{userGo, "lib.Used()", "lib.Used()\n\tlib.OpenFile().Close()"},
+			},
+			"Close", true,
+		),
+		Entry(
+			"keep one that an unexported interface of a dependency module asserts",
+			[]edit{
+				{libGo, "type Pong struct{}", "type Named struct{}\n\n" +
+					"func (Named) Name() string { return \"\" }\n\ntype Pong struct{}"},
+				{userGo, "shallow.Run(lib.Pong{})", "shallow.Run(lib.Named{})"},
+				{shallowGo, "\tif p, ok", "\tif n, ok := v.(namer); ok {\n" +
+					"\t\t_ = n.Name()\n\t}\n\tif p, ok"},
+				{
+					shallowGo,
+					"// Run keeps",
+					"type namer interface{ Name() string }\n\n" +
+						"// Run keeps",
+				},
+			},
+			"Name", true,
+		),
+		Entry(
+			"report one whose interface only another package's tests name",
+			[]edit{
+				{libGo, "func Used() {}\n", "func Used() {}\n" + closer},
+				{userTestGo, "_ = lib.OtherTests", "_ = lib.OtherTests\n\t" +
+					"_ lib.Closer = lib.File{}"},
+			},
+			"Close", false,
+		),
+		Entry(
+			"report one whose interface only its own package's external test declares",
+			[]edit{
+				{libGo, "func Used() {}\n", "func Used() {}\n\n" +
+					"type File struct{}\n\nfunc (File) Close() {}\n"},
+				{
+					libTestGo,
+					"var _ = lib.Tested",
+					"type closer interface{ Close() }\n\n" +
+						"var (\n\t_        = lib.Tested\n\t_ closer = lib.File{}\n)",
+				},
+			},
+			"Close", false,
+		),
+	)
+})
 
 var _ = Describe("Check with a base", func() {
 	DescribeTable("Should return only the findings that the base lacks",
@@ -329,6 +410,20 @@ var _ = Describe("Check with a base", func() {
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(`gate usage "dead"`)),
+			))
+		},
+	)
+
+	It(
+		"Should return a validation error for a gate of an unknown module",
+		func(ctx SpecContext) {
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Gated:   []exports.Gate{{Module: "testdata/a/", Usage: "unused"}},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("gate module testdata/a/")),
 			))
 		},
 	)

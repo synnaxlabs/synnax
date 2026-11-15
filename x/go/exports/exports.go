@@ -157,7 +157,8 @@ func module(modules []string, file string) (string, error) {
 //   - an identifier that generated code or another package's non-test code uses, or
 //     that another package's tests use when it lives in a test helper package;
 //   - a method that another package can call through an interface it satisfies, one
-//     that another package declares or that another package's non-test code names;
+//     that another package declares or that another package's non-test code names or
+//     holds a value of;
 //   - a method that template data can reach;
 //   - a type that the API of a kept identifier carries;
 //   - every constant of a const block when one of them is kept.
@@ -165,7 +166,7 @@ func module(modules []string, file string) (string, error) {
 // Check skips generated files, test files, main packages, versions/vN packages, and
 // methods of unexported types. It returns validate.ErrValidation when cfg has no
 // modules, no GOOS values, an absolute module directory beside a base, or a gate of an
-// unknown usage, and an error when a package fails to load.
+// unknown usage or module, and an error when a package fails to load.
 func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 	if len(cfg.Modules) == 0 {
 		return nil, errors.Wrap(
@@ -179,9 +180,7 @@ func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 			"exports: goos must be non-empty",
 		)
 	}
-	if cfg.Base == "" {
-		return check(ctx, cfg)
-	}
+	known := set.New(slices.Concat(cfg.Modules, cfg.Workspace)...)
 	for _, g := range cfg.Gated {
 		if g.Usage != unused && g.Usage != testsOnly {
 			return nil, errors.Wrapf(
@@ -190,6 +189,16 @@ func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 				g.Usage, unused, testsOnly,
 			)
 		}
+		if !known.Contains(g.Module) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"exports: gate module %s must be one of the modules or workspace",
+				g.Module,
+			)
+		}
+	}
+	if cfg.Base == "" {
+		return check(ctx, cfg)
 	}
 	for _, m := range slices.Concat(cfg.Modules, cfg.Workspace) {
 		if filepath.IsAbs(m) {
@@ -370,6 +379,7 @@ func load(
 		Context: ctx,
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
 			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports |
+			packages.NeedModule |
 			// Type checking every dependency from source costs less than compiling
 			// export data for it.
 			packages.NeedDeps,

@@ -37,7 +37,7 @@ type interfaces struct {
 	// embedders holds, for each named type, the named struct types that embed it.
 	embedders map[*types.TypeName][]*types.Named
 	// crossed holds the keys of the interfaces that another package's non-test code
-	// names.
+	// names or holds a value of, and of the interfaces they embed.
 	crossed set.Set[string]
 }
 
@@ -56,14 +56,33 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 	declared := func(tn *types.TypeName) iface {
 		i := iface{it: tn.Type().Underlying().(*types.Interface)}
 		if tn.Pkg() != nil {
-			i.pkg = tn.Pkg().Path()
+			i.pkg = strings.TrimSuffix(tn.Pkg().Path(), "_test")
 			i.key = key(fset.Position(tn.Pos()), tn)
 		}
 		return i
 	}
-	roots := set.Set[*types.Package]{}
-	for _, p := range pkgs {
-		roots.Add(p.Types)
+	// A package of a local module can call a method through its unexported interfaces,
+	// whether or not it is a root.
+	local := set.Set[*types.Package]{}
+	packages.Visit(pkgs, nil, func(p *packages.Package) {
+		m := p.Module
+		if m != nil && (m.Main || m.Replace != nil && m.Replace.Version == "") {
+			local.Add(p.Types)
+		}
+	})
+	var cross func(*types.Named)
+	cross = func(named *types.Named) {
+		tn := named.Origin().Obj()
+		k := key(fset.Position(tn.Pos()), tn)
+		if ifaces.crossed.Contains(k) {
+			return
+		}
+		ifaces.crossed.Add(k)
+		for e := range named.Underlying().(*types.Interface).EmbeddedTypes() {
+			if en, ok := types.Unalias(e).(*types.Named); ok && types.IsInterface(en) {
+				cross(en)
+			}
+		}
 	}
 	seen := set.Set[*types.Package]{}
 	var walk func(*types.Package)
@@ -74,8 +93,8 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 		seen.Add(tp)
 		for _, name := range tp.Scope().Names() {
 			tn, ok := tp.Scope().Lookup(name).(*types.TypeName)
-			// An unexported interface of a dependency keeps no method exported.
-			if !ok || (!roots.Contains(tp) && !tn.Exported()) {
+			// An unexported interface of a downloaded module keeps no method exported.
+			if !ok || (!local.Contains(tp) && !tn.Exported()) {
 				continue
 			}
 			if _, ok := tn.Type().Underlying().(*types.Interface); !ok {
@@ -96,7 +115,7 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 		walk(p.Types)
 		ifaces.indexEmbedders(p.Types)
 		user := strings.TrimSuffix(p.PkgPath, "_test")
-		for _, tv := range p.TypesInfo.Types {
+		for expr, tv := range p.TypesInfo.Types {
 			if tv.Type == nil {
 				continue
 			}
@@ -104,20 +123,16 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 			if !ok {
 				continue
 			}
-			if named, ok := tv.Type.(*types.Named); ok {
-				index(ifaces.plain, declared(named.Origin().Obj()))
-			} else {
+			named, ok := types.Unalias(tv.Type).(*types.Named)
+			if !ok {
 				index(ifaces.plain, iface{it: it, pkg: user})
-			}
-		}
-		for id, obj := range p.TypesInfo.Uses {
-			tn, ok := obj.(*types.TypeName)
-			if !ok || tn.Pkg() == nil || tn.Pkg().Path() == user ||
-				strings.HasSuffix(fset.Position(id.Pos()).Filename, "_test.go") {
 				continue
 			}
-			if _, ok := tn.Type().Underlying().(*types.Interface); ok {
-				ifaces.crossed.Add(key(fset.Position(tn.Pos()), origin(tn)))
+			index(ifaces.plain, declared(named.Origin().Obj()))
+			tn := named.Obj()
+			if tn.Pkg() != nil && tn.Pkg().Path() != user &&
+				!strings.HasSuffix(fset.Position(expr.Pos()).Filename, "_test.go") {
+				cross(named)
 			}
 		}
 	}
@@ -125,7 +140,8 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 }
 
 // dispatches reports whether i can call a method of package pkg from another package:
-// another package declares i, or another package's non-test code names it.
+// another package declares i, or another package's non-test code names it or holds a
+// value of it.
 func (ifaces interfaces) dispatches(i iface, pkg string) bool {
 	return i.pkg != pkg || ifaces.crossed.Contains(i.key)
 }
