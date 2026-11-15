@@ -79,6 +79,8 @@ case $action in
         aws ssm start-session --target "$id" \
             --document-name AWS-StartInteractiveCommand \
             --parameters "{\"command\":[\"sudo -iu runner bash -c '$login'\"]}"
+        # Check - Runners records the new state when it next finds the seat running.
+        aws ec2 delete-tags --resources "$id" --tags Key=auth Key=auth-checked
         ;;
     *)
         echo "Unknown action $action: use register or login" >&2

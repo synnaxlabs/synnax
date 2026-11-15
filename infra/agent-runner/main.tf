@@ -36,9 +36,10 @@ provider "aws" {
       owner   = "runners"
     }
   }
-  # A seat writes this tag at a usage limit, so an apply must keep it.
+  # A seat writes limited-until at a usage limit, and Check - Runners writes the
+  # sign-in state, so an apply must keep these tags.
   ignore_tags {
-    keys = ["limited-until"]
+    keys = ["limited-until", "auth", "auth-checked"]
   }
 }
 

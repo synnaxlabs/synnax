@@ -119,10 +119,27 @@ def ask(
         sleep(POLL_SECONDS)
     answers = {}
     for i in invocations:
+        # An undelivered invocation has no plugins.
+        if i["Status"] != "Success":
+            continue
         answer = i["CommandPlugins"][0]["Output"].strip()
-        if i["Status"] == "Success" and answer in ANSWERS:
+        if answer in ANSWERS:
             answers[i["InstanceId"]] = answer
     return answers
+
+
+def online(aws: Aws) -> set[str]:
+    """The instances whose SSM agent is online. send-command rejects the whole call
+    when it names any other instance, such as a seat that has just started."""
+    found = aws(
+        [
+            "ssm",
+            "describe-instance-information",
+            "--filters",
+            "Key=PingStatus,Values=Online",
+        ]
+    )
+    return {i["InstanceId"] for i in found["InstanceInformationList"]}
 
 
 def check(
@@ -131,9 +148,10 @@ def check(
     """Returns whether no seat is signed out, and one line for each seat."""
     found = seats(aws)
     checked = f"{now:%Y-%m-%dT%H:%MZ}"
+    reachable = [s for s in found if s.running and s.id in online(aws)]
     answers: dict[str, str] = {}
-    for agent in sorted({s.agent for s in found if s.running}):
-        ids = [s.id for s in found if s.running and s.agent == agent]
+    for agent in sorted({s.agent for s in reachable}):
+        ids = [s.id for s in reachable if s.agent == agent]
         answers |= ask(aws, agent=agent, ids=ids, sleep=sleep)
     lines = []
     signed_out = False

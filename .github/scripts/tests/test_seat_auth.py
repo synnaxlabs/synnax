@@ -33,10 +33,13 @@ class FakeAws:
     def __init__(
         self,
         instances: list[dict[str, Any]],
-        answers: dict[str, tuple[str, str]] | None = None,
+        answers: dict[str, tuple[str, ...]] | None = None,
+        *,
+        offline: tuple[str, ...] = (),
     ) -> None:
         self.instances = instances
         self.answers = answers or {}
+        self.offline = offline
         self.calls: list[list[str]] = []
         self.commands: dict[str, list[str]] = {}
         self.polls: dict[str, int] = {}
@@ -46,6 +49,13 @@ class FakeAws:
         match args[:2]:
             case ["ec2", "describe-instances"]:
                 return {"Reservations": [{"Instances": self.instances}]}
+            case ["ssm", "describe-instance-information"]:
+                ids = [i["InstanceId"] for i in self.instances]
+                return {
+                    "InstanceInformationList": [
+                        {"InstanceId": iid} for iid in ids if iid not in self.offline
+                    ]
+                }
             case ["ssm", "send-command"]:
                 command = f"command-{len(self.commands)}"
                 ids = args[args.index("--instance-ids") + 1 :]
@@ -61,7 +71,9 @@ class FakeAws:
                         {
                             "InstanceId": iid,
                             "Status": self.answers[iid][0],
-                            "CommandPlugins": [{"Output": self.answers[iid][1]}],
+                            "CommandPlugins": [
+                                {"Output": out} for out in self.answers[iid][1:]
+                            ],
                         }
                         for iid in self.commands[command]
                     ]
@@ -112,7 +124,7 @@ def test_stopped_seat_reports_its_recorded_state() -> None:
     ok, lines = run(aws)
     assert not ok
     assert lines == ["claude-1: signed-out as of 2026-11-14T08:17Z"]
-    assert [c[:2] for c in aws.calls] == [["ec2", "describe-instances"]]
+    assert not any(c[:2] == ["ssm", "send-command"] for c in aws.calls)
 
 
 def test_signed_in_seats_pass() -> None:
@@ -158,7 +170,8 @@ def test_seat_without_an_answer_keeps_its_recorded_state() -> None:
             instance("i-1", "claude-1", auth="signed-in", auth_checked="earlier"),
             instance("i-2", "claude-2"),
         ],
-        {"i-1": ("Failed", ""), "i-2": ("Success", "")},
+        # An undelivered invocation has no plugins.
+        {"i-1": ("Failed",), "i-2": ("Success", "")},
     )
     ok, lines = run(aws)
     assert ok
@@ -169,3 +182,20 @@ def test_seat_without_an_answer_keeps_its_recorded_state() -> None:
         "claude-2: not checked yet",
     ]
     assert aws.tagged() == []
+
+
+def test_seat_with_ssm_offline_is_not_asked() -> None:
+    aws = FakeAws(
+        [instance("i-1", "claude-1"), instance("i-2", "claude-2")],
+        {"i-2": ("Success", "signed-in")},
+        offline=("i-1",),
+    )
+    ok, lines = run(aws)
+    assert ok
+    assert lines == [
+        "claude-1: running, but gave no answer",
+        "claude-1: not checked yet",
+        "claude-2: signed-in as of 2026-11-15T10:17Z",
+    ]
+    sends = [c for c in aws.calls if c[:2] == ["ssm", "send-command"]]
+    assert sends[0][-1:] == ["i-2"]
