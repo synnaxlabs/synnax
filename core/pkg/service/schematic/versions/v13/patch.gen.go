@@ -2666,8 +2666,8 @@ func (oprnc *OffPageReferenceNodeConfig) Patch(c patch.Cursor) error {
 		}
 		oprnc.Page = &next
 		return nil
-	case "dbl_click_nav_disabled":
-		return patch.Value(&oprnc.DblClickNavDisabled, c.Next())
+	case "double_click_navigation_disabled":
+		return patch.Value(&oprnc.DoubleClickNavigationDisabled, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2697,8 +2697,8 @@ func (pnc *PolygonNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "rotation":
 		return patch.Value(&pnc.Rotation, c.Next())
-	case "corner_rounding":
-		return patch.Value(&pnc.CornerRounding, c.Next())
+	case "border_radius":
+		return patch.Value(&pnc.BorderRadius, c.Next())
 	case "stroke_color":
 		return patch.OptionalValue(&pnc.StrokeColor, c.Next())
 	case "fill_color":
@@ -3057,9 +3057,9 @@ func (tbnc *TextBoxNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "text_color":
 		return patch.OptionalValue(&tbnc.TextColor, c.Next())
-	case "width":
-		return patch.Defaulted(&tbnc.Width, c.Next(), func(def *TextBoxNodeConfig) {
-			tbnc.Width = def.Width
+	case "inline_size":
+		return patch.Defaulted(&tbnc.InlineSize, c.Next(), func(def *TextBoxNodeConfig) {
+			tbnc.InlineSize = def.InlineSize
 		})
 	case "align":
 		return patch.Defaulted(&tbnc.Align, c.Next(), func(def *TextBoxNodeConfig) {
