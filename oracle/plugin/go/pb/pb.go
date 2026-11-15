@@ -273,13 +273,13 @@ func (p *Plugin) generateFile(
 	enums []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
-	namespace := ""
+	var namespace, filePath string
 	if len(structs) > 0 {
-		namespace = structs[0].Namespace
+		namespace, filePath = structs[0].Namespace, structs[0].FilePath
 	} else if len(typeDefs) > 0 {
-		namespace = typeDefs[0].Namespace
+		namespace, filePath = typeDefs[0].Namespace, typeDefs[0].FilePath
 	} else if len(unions) > 0 {
-		namespace = unions[0].Namespace
+		namespace, filePath = unions[0].Namespace, unions[0].FilePath
 	}
 
 	parentGoPath := strings.TrimSuffix(outputPath, "/pb")
@@ -289,6 +289,7 @@ func (p *Plugin) generateFile(
 		OutputPath:            outputPath,
 		ParentGoPath:          parentGoPath,
 		Namespace:             namespace,
+		filePath:              filePath,
 		Translators:           make([]translatorData, 0, len(structs)),
 		GenericTranslators:    make([]genericTranslatorData, 0),
 		EnumTranslators:       make([]enumTranslatorData, 0),
@@ -611,7 +612,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 		name = u.Name
 	}
 	pbPath := output.GetPBPath(u)
-	if u.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
+	if u.FilePath != data.filePath || (pbPath != "" && pbPath != data.OutputPath) {
 		if importPath, err := resolveGoImportPath(pbPath, data.repoRoot); err == nil {
 			alias := strings.ToLower(u.Namespace) + "pb"
 			data.AddInternal(alias, importPath)
@@ -1728,7 +1729,7 @@ func (p *Plugin) generateEnumConversion(
 // it, which also prefixes the enum's ToPB and FromPB translators. It registers the
 // import or the local translator the name needs.
 func (p *Plugin) enumPBName(resolved resolution.Type, data *templateData) string {
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.filePath {
 		pbPath := enum.FindPBOutputPath(resolved, data.table)
 		if pbPath != "" {
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
@@ -1785,7 +1786,7 @@ func (p *Plugin) generateTypeDefConversion(
 
 	typedefPrefix := ""
 	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace ||
+	if resolved.FilePath != data.filePath ||
 		(goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
@@ -2007,7 +2008,7 @@ func (p *Plugin) qualifiedDistinctGoName(
 ) (string, bool) {
 	prefix := ""
 	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace ||
+	if resolved.FilePath != data.filePath ||
 		(goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput == "" {
 			return "", false
@@ -2238,7 +2239,7 @@ func (p *Plugin) resolvePBTranslatorInfo(
 		translatorStructName = pbStruct.Name
 	}
 
-	if pbStruct.Namespace != data.Namespace ||
+	if pbStruct.FilePath != data.filePath ||
 		(pbPath != "" && pbPath != data.OutputPath) {
 		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 		if err == nil {
@@ -2366,6 +2367,7 @@ type templateData struct {
 	Package               string
 	OutputPath            string
 	Namespace             string
+	filePath              string
 	repoRoot              string
 	parentAlias           string
 	DelegationTranslators []delegationTranslatorData

@@ -2849,6 +2849,41 @@ var _ = Describe("Go PB Plugin", func() {
 					).To(ConsistOf("arc/go/text/pb/translator.gen.go"))
 				},
 			)
+
+			It(
+				"Should import enum translators from a schema with the same file name",
+				func(
+					ctx SpecContext,
+				) {
+					loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+					@pb
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+					loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+					@pb
+
+					Named struct {
+						kind color.Kind
+					}
+				`)
+					resp := MustGenerateMulti(ctx, loader, pbPlugin)
+					ExpectContent(resp, "core/pkg/service/color/pb/translator.gen.go").
+						ToContain(
+							`colorpb "github.com/synnaxlabs/synnax/x/go/color/pb"`,
+							"colorpb.KindToPB(r.Kind)",
+							"colorpb.KindFromPB(pb.Kind)",
+						).
+						ToNotContain("func KindToPB(")
+				},
+			)
 		})
 
 		Context("enum-only @pb schema", func() {
