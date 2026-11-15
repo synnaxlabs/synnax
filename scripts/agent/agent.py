@@ -339,23 +339,50 @@ def run_cli(
     return message
 
 
-def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
+# Per CLI: the variable that names its state directory, the default directory under the
+# home, the private directory under out, the login files, and the other files it needs.
+STATE = (
+    ("CLAUDE_CONFIG_DIR", ".claude", "claude", (".credentials.json",), ()),
+    ("CODEX_HOME", ".codex", "codex", ("auth.json",), ("config.toml",)),
+)
+
+# A private copy of a login file, the seat file it came from, and its contents then.
+Login = tuple[Path, Path, bytes]
+
+
+def private_env(
+    env: dict[str, str], *, out: Path
+) -> tuple[dict[str, str], list[Login]]:
     """Returns env with no GitHub token or step output files, and with the CLI state
     of the agent in out, so no later job on the runner can read the session. The CLI
-    logins of the runner carry over."""
-    dirs = {
-        "CLAUDE_CONFIG_DIR": (".claude", out / "claude", (".credentials.json",)),
-        "CODEX_HOME": (".codex", out / "codex", ("auth.json", "config.toml")),
-    }
-    for var, (default, private, names) in dirs.items():
-        private.mkdir()
+    logins of the runner carry over, and return_logins gives them back."""
+    private = {}
+    logins = []
+    for var, default, name, login_files, other_files in STATE:
+        private[var] = out / name
+        private[var].mkdir()
         home = Path(env.get(var) or Path.home() / default)
-        for name in names:
-            if (home / name).is_file():
-                shutil.copy(home / name, private / name)
+        for file in (*login_files, *other_files):
+            if (home / file).is_file():
+                shutil.copy(home / file, private[var] / file)
+                if file in login_files:
+                    copy = private[var] / file
+                    logins.append((copy, home / file, copy.read_bytes()))
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
-    return {**kept, **{var: str(private) for var, (_, private, _) in dirs.items()}}
+    return {**kept, **{var: str(path) for var, path in private.items()}}, logins
+
+
+def return_logins(logins: list[Login]) -> None:
+    """Writes each login that the private session changed, such as a refreshed OAuth
+    token, back to the seat. A refresh can spend the seat's refresh token, so the seat
+    must keep the new one."""
+    for copy, seat, before in logins:
+        if copy.read_bytes() == before:
+            continue
+        staged = seat.with_name(f"{seat.name}.agent")
+        shutil.copy(copy, staged)
+        staged.replace(seat)
 
 
 def encrypt(text: str, *, recipient: Path) -> str:
@@ -512,14 +539,18 @@ def deliver(argv: Sequence[str]) -> int:
     prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out=out)}"
     cmd = agent_command(opts, prompt=prompt, out=out)
     if opts.recipient is not None:
+        logins: list[Login] = []
         try:
-            env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_cli(opts, cmd, env=env_private, quiet=True)
+            env_private, logins = private_env(env, out=out)
+            stdout = run_cli(
+                opts, cmd, env={**env_private, "AGENT_OUT_DIR": str(out)}, quiet=True
+            )
             message = read(out / "last-message.md") or stdout.strip()
             write_output(
                 env, name="report", value=encrypt(message, recipient=opts.recipient)
             )
         finally:
+            return_logins(logins)
             shutil.rmtree(out)
         return 0
     # A report agent delivers its own work, so it gets Git push access as the App.

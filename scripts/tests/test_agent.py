@@ -28,7 +28,9 @@ from agent.agent import (
     instructions,
     main,
     parse,
+    private_env,
     render_body,
+    return_logins,
     run_agent,
     skill_prompt,
     stored_names,
@@ -371,6 +373,7 @@ printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
     "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
 login=$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+echo refreshed > "$CLAUDE_CONFIG_DIR/.credentials.json"
 """
 
 
@@ -430,6 +433,21 @@ class TestPrivateReport:
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
         assert not (tmp_path / "summary").exists()
+        assert (login / ".credentials.json").read_text() == "refreshed\n"
+
+    def test_should_keep_a_seat_login_that_another_job_refreshed(
+        self, tmp_path: Path
+    ) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        _, logins = private_env(env, out=out)
+        (seat / ".credentials.json").write_text("other job")
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "other job"
 
 
 class TestDelivery:
