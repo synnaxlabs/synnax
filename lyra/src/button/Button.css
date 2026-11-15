@@ -69,6 +69,7 @@
             .lyra-menu-item,
             .lyra-tabs__tab,
             .lyra-dialog__trigger,
+            .lyra-select-multiple-trigger-placeholder,
             .lyra-select-btns *
         )
     ) {

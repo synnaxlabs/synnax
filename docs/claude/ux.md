@@ -335,8 +335,24 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- The placeholder of an empty `shadow` or `text` multiple select is a text button. A
+  click on it opens the select beside it, as a click on a tag does. The placeholder and
+  the add button take the select's size, medium by default, so they stand a step above
+  the small tags. A list item passes small, so the item keeps one height.
+- A tag or count that opens a select rests at l0, and fills l2 on hover and l3 on press.
+  Its outline goes from l6 to l8.
+- A click on a tag opens its select beside that tag. While the select is open, a change
+  to the tags never moves it sideways. It keeps its first x until the window resizes. If
+  the tag goes or folds into the count, the select stays where it is, in the window.
+- A group of tags that runs short stacks its tags, then folds the last ones into a
+  count: the dots of the first hidden tags, then "+N". With no tag shown, the count
+  reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
+  nothing.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
+- A value in a list item or a property panel shows no caret, at rest, on hover, or while
+  open, so a `shadow` select has none. Selects in toolbars, forms, and settings always
+  show their caret. A select that shows only its icon has none.
 - An option with a description shows the icon beside the name and the description under
   the name, through `Select.ItemDescription`. The dropdown is wide enough for each
   description on one line. Only a narrow window wraps it, and it is never cut.
