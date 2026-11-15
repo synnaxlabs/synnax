@@ -1,0 +1,45 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# A run restores only the newest Go cache of a module, so the older ones only evict
+# other caches.
+name: Prune - Caches
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    # Two runs at once would delete the same cache, and the second delete fails.
+    concurrency:
+      group: prune-caches
+      cancel-in-progress: false
+    permissions:
+      actions: write
+    steps:
+      # A key ends in the hash of its inputs and the ID of the run that saved it. The
+      # rest names the tool, the OS, and the module.
+      - name: Delete all but the newest cache of each module
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          OLDER: |-
+            map(select(.key | test("^go-(lint|ginkgo|test)-")))
+            | group_by(.key | sub("-[0-9a-f]{64}-[0-9]+$"; ""))[]
+            | sort_by(.createdAt)[:-1][]
+            | .id
+        run: |
+          gh cache list --ref refs/heads/main --key go- --limit 1000 \
+            --json id,key,createdAt --jq "$OLDER" | xargs -r -n1 gh cache delete
