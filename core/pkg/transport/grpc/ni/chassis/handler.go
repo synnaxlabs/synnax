@@ -60,24 +60,13 @@ type (
 )
 
 var (
-	_ grpc.Translator[chassis.CreateRequest, *CreateRequest]          = createRequestTranslator{}
-	_ grpc.Translator[chassis.CreateResponse, *CreateResponse]        = createResponseTranslator{}
-	_ grpc.Translator[chassis.RetrieveRequest, *pb.RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[chassis.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[chassis.UpdateRequest, *UpdateRequest]          = updateRequestTranslator{}
-	_ grpc.Translator[chassis.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.BackwardTranslator[chassis.CreateRequest, *CreateRequest]         = createRequestTranslator{}
+	_ grpc.ForwardTranslator[chassis.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.BackwardTranslator[chassis.RetrieveRequest, *pb.RetrieveRequest]  = retrieveRequestTranslator{}
+	_ grpc.ForwardTranslator[chassis.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.BackwardTranslator[chassis.UpdateRequest, *UpdateRequest]         = updateRequestTranslator{}
+	_ grpc.BackwardTranslator[chassis.DeleteRequest, *DeleteRequest]         = deleteRequestTranslator{}
 )
-
-func (createRequestTranslator) Forward(
-	_ context.Context,
-	req chassis.CreateRequest,
-) (*CreateRequest, error) {
-	list, err := chassispb.ChassisListToPB(req.Chassis)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateRequest{Chassis: list}, nil
-}
 
 func (createRequestTranslator) Backward(
 	_ context.Context,
@@ -101,24 +90,6 @@ func (createResponseTranslator) Forward(
 	return &CreateResponse{Chassis: list}, nil
 }
 
-func (createResponseTranslator) Backward(
-	_ context.Context,
-	res *CreateResponse,
-) (chassis.CreateResponse, error) {
-	list, err := chassispb.ChassisListFromPB(res.Chassis)
-	if err != nil {
-		return chassis.CreateResponse{}, err
-	}
-	return chassis.CreateResponse{Chassis: list}, nil
-}
-
-func (retrieveRequestTranslator) Forward(
-	_ context.Context,
-	req chassis.RetrieveRequest,
-) (*pb.RetrieveRequest, error) {
-	return pb.RetrieveRequestToPB(req)
-}
-
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	req *pb.RetrieveRequest,
@@ -131,24 +102,6 @@ func (retrieveResponseTranslator) Forward(
 	res chassis.RetrieveResponse,
 ) (*pb.RetrieveResponse, error) {
 	return pb.RetrieveResponseToPB(res)
-}
-
-func (retrieveResponseTranslator) Backward(
-	_ context.Context,
-	res *pb.RetrieveResponse,
-) (chassis.RetrieveResponse, error) {
-	return pb.RetrieveResponseFromPB(res)
-}
-
-func (updateRequestTranslator) Forward(
-	_ context.Context,
-	req chassis.UpdateRequest,
-) (*UpdateRequest, error) {
-	update, err := chassispb.UpdateToPB(req.Update)
-	if err != nil {
-		return nil, err
-	}
-	return &UpdateRequest{Key: req.Key.String(), Update: update}, nil
 }
 
 func (updateRequestTranslator) Backward(
@@ -164,18 +117,6 @@ func (updateRequestTranslator) Backward(
 		return chassis.UpdateRequest{}, err
 	}
 	return chassis.UpdateRequest{Key: key, Update: update}, nil
-}
-
-func (deleteRequestTranslator) Forward(
-	_ context.Context,
-	req chassis.DeleteRequest,
-) (*DeleteRequest, error) {
-	return &DeleteRequest{
-		Keys: lo.Map(
-			req.Keys,
-			func(k svcchassis.Key, _ int) string { return k.String() },
-		),
-	}, nil
 }
 
 func (deleteRequestTranslator) Backward(

@@ -26,6 +26,27 @@ import (
 )
 
 var _ = Describe("Handler", func() {
+	BeforeEach(func() {
+		transport.NIChassisCreate.BindHandler(func(
+			context.Context,
+			chassis.CreateRequest,
+		) (chassis.CreateResponse, error) {
+			return chassis.CreateResponse{}, nil
+		})
+		transport.NIChassisUpdate.BindHandler(func(
+			context.Context,
+			chassis.UpdateRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+		transport.NIChassisDelete.BindHandler(func(
+			context.Context,
+			chassis.DeleteRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+	})
+
 	It("Should create chassis and return their keys", func(ctx SpecContext) {
 		key := uuid.New()
 		var received chassis.CreateRequest
@@ -115,6 +136,42 @@ var _ = Describe("Handler", func() {
 		Expect(grpcchassis.NewNIChassisDeleteServiceClient(conn).Exec(
 			ctx,
 			&grpcchassis.DeleteRequest{Keys: []string{"not-a-uuid"}},
+		)).Error().To(MatchError(ContainSubstring("invalid uuid")))
+	})
+
+	It("Should reject a created chassis with an invalid key", func(ctx SpecContext) {
+		Expect(grpcchassis.NewNIChassisCreateServiceClient(conn).Exec(
+			ctx,
+			&grpcchassis.CreateRequest{
+				Chassis: []*chassispb.Chassis{{Key: "not-a-uuid"}},
+			},
+		)).Error().To(MatchError(ContainSubstring("invalid uuid")))
+	})
+
+	It(
+		"Should reject a created chassis whose status variant is unknown",
+		func(ctx SpecContext) {
+			transport.NIChassisCreate.BindHandler(func(
+				_ context.Context,
+				req chassis.CreateRequest,
+			) (chassis.CreateResponse, error) {
+				req.Chassis[0].Status = &svcchassis.Status{Variant: "bogus"}
+				return chassis.CreateResponse(req), nil
+			})
+			pbChassis := MustSucceed(chassispb.ChassisToPB(svcchassis.Chassis{
+				Key: uuid.New(),
+			}))
+			Expect(grpcchassis.NewNIChassisCreateServiceClient(conn).Exec(
+				ctx,
+				&grpcchassis.CreateRequest{Chassis: []*chassispb.Chassis{pbChassis}},
+			)).Error().To(MatchError(ContainSubstring("unrecognized status.Variant")))
+		},
+	)
+
+	It("Should reject an update with an invalid chassis key", func(ctx SpecContext) {
+		Expect(grpcchassis.NewNIChassisUpdateServiceClient(conn).Exec(
+			ctx,
+			&grpcchassis.UpdateRequest{Key: "not-a-uuid"},
 		)).Error().To(MatchError(ContainSubstring("invalid uuid")))
 	})
 })
