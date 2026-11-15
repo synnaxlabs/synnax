@@ -58,6 +58,7 @@ bool Control::run_once() {
         this->sink->stopped_with_err(open_err);
         return false;
     }
+    this->breaker.reset_unlimited();
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {

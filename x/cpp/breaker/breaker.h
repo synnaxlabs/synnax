@@ -246,6 +246,15 @@ public:
     /// called, but stop() has not been called yet.
     [[nodiscard]] bool running() const { return this->is_running; }
 
+    /// @brief resets the retry count and the retry interval of wait_unlimited(), and
+    /// keeps those of wait(). Call it once the failure that wait_unlimited() waits out
+    /// has cleared.
+    void reset_unlimited() {
+        std::lock_guard lock(this->mu);
+        this->unlimited_retries = 0;
+        this->unlimited_interval = this->config.base_interval;
+    }
+
     /// @brief resets the retry count and the retry interval on the breaker, allowing it
     /// to be re-used. It's typically to call this method after the breaker has been
     /// triggered, but the request has succeeded.
