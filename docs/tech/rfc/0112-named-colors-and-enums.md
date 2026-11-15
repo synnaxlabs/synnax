@@ -80,7 +80,7 @@ color (control, gauge, scale, redline, picker presets) reads the series colors.
 `color.Ref` is one union, `named` (a `color.Named` key) or `fixed` (a `color.Color` in
 its `value` field), in every field that takes a color. Both live in
 `schemas/synnax/color.oracle`, beside the value type in `schemas/x/color.oracle`.
-`client/py/synnax/color` re-exports the value type, so `sy.color`
+`client/py/synnax/color` re-exports each public name of `x.color`, so `sy.color`
 (`client/py/synnax/__init__.py:125`) keeps working. A delete of a named color that is
 not a built-in is never refused. The `named` key declares `@ref on_delete inline` once,
 inside the union. Before Gorp removes the color, a generated function for each reference
