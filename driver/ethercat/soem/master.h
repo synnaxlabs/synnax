@@ -154,6 +154,9 @@ class Master final : public master::Master {
         /// @brief the working counter of the latest mismatch, and what receive()
         /// returns for it. Only the cycle uses them.
         int mismatched_wkc = -1;
+        // DIAG, never merge.
+        std::optional<std::chrono::steady_clock::time_point> diag_since;
+        bool diag_dropped = false;
         x::errors::Error mismatch_err;
         /// @brief what receive() returns on a USB adapter when no frame comes back, but
         /// one did less than a second before. NIL on other adapters.

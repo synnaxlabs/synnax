@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <functional>
 #include <iterator>
@@ -586,6 +588,23 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::lock_guard lock(this->mailbox_mu);
+    // DIAG, never merge: SYNNAX_DIAG_DROP_SLAVE=<position>,<seconds> drops that slave
+    // to INIT once, that many seconds after the first check of the run.
+    if (auto &session = this->session.value(); !session.diag_dropped) {
+        const auto now = this->cfg.clock.steady();
+        if (!session.diag_since) session.diag_since = now;
+        int pos = 0;
+        double seconds = 0;
+        if (const char *v = std::getenv("SYNNAX_DIAG_DROP_SLAVE");
+            v != nullptr && std::sscanf(v, "%d,%lf", &pos, &seconds) == 2 && pos >= 1 &&
+            pos <= this->api->context.slavecount &&
+            now - *session.diag_since >= std::chrono::duration<double>(seconds)) {
+            session.diag_dropped = true;
+            LOG(WARNING) << "[ethercat] DIAG: dropping slave " << pos << " to INIT";
+            this->record(pos).state = EC_STATE_INIT;
+            this->api->writestate(pos);
+        }
+    }
     this->api->readstate();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
