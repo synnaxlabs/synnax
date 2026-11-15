@@ -95,6 +95,9 @@ Type enum {
     certificate      = "certificate" {
         @doc value "identifies a certificate."
     }
+    color            = "color" {
+        @doc value "identifies a named color."
+    }
 
     @doc value "is the type of the resource."
 }

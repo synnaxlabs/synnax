@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -211,7 +212,9 @@ type Layer struct {
 	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label  *label.Service
+	Label *label.Service
+	// Color stores named colors.
+	Color  *color.Service
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
@@ -363,6 +366,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("label"),
 		DB:              cfg.Distribution.DB,
 	}); !ok(err, l.Label) {
+		return nil, err
+	}
+	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
+		Instrumentation: cfg.Child("color"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Color) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(

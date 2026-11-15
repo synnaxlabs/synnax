@@ -143,6 +143,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     certificate.DELETE_CHANNEL_NAME,
   ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  color: null,
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
   ethercat_slave: null,
