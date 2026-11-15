@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,6 +36,15 @@ var _ = Describe("Named", func() {
 	Describe("GorpKey", func() {
 		It("Should return the key of the named color", func() {
 			Expect(named.GorpKey()).To(Equal(key))
+		})
+	})
+
+	Describe("ResourceID", func() {
+		It("Should return the color resource with the key", func() {
+			Expect(named.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeColor,
+				Key:  key.String(),
+			}))
 		})
 	})
 

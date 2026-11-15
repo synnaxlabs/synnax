@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -54,6 +55,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Named]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -63,7 +65,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{indexes: newIndexes()}
+	s = &Service{
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Named]{
@@ -80,6 +85,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close releases the resources of the service.
 func (s *Service) Close() error { return s.closer.Close() }
 
+// Changes returns the changes that c made to named colors.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Named] {
+	return s.table.Changes(ctx, c)
+}
+
+// Actions returns the action batches that writers attach to their transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 // NewRetrieve opens a query for named colors.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
@@ -87,5 +103,5 @@ func (s *Service) NewRetrieve() Retrieve {
 
 // NewWriter opens a Writer that changes named colors in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, table: s.table}
+	return Writer{tx: tx, table: s.table, dispatcher: s.state.Dispatcher()}
 }

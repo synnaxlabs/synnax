@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/color"
@@ -23,6 +24,7 @@ Named struct {
     }
     name  string       {
         @doc value           "is the name of the color."
+        @index sorted
         @patch
         @search
         @validate min_length 1
@@ -61,6 +63,14 @@ Named struct {
     @go migrate
     @resource type "color"
     @retrieve
+}
+
+Where filter Named {
+    key
+    name
+
+    @doc value         "is a filter that selects named colors."
+    @go request_output "core/pkg/api/color"
 }
 
 Ref union on type {
