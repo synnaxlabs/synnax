@@ -13,14 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import {
-  edgeZ,
-  elementConfigZ,
-  keyZ,
-  nodeZ,
-  type Schematic,
-  schematicZ,
-} from "@/schematic/types.gen";
+import { edgeZ, keyZ, nodeZ, type Schematic, schematicZ } from "@/schematic/types.gen";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -42,19 +35,18 @@ export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
  * SetNode inserts the node if no node with the same key exists, otherwise replaces the
- * existing node in place. A present config replaces the entry stored under the node's
- * key in the schematic configs map.
+ * existing node and its config in place.
  */
 export const setNodePayloadZ = z.object({
   node: nodeZ,
-  config: zod.nullToUndefined(elementConfigZ),
 });
 
 export type SetNodePayload = z.infer<typeof setNodePayloadZ>;
 
 /**
- * RemoveNode removes the node, its config, and the edges that connect to it and their
- * configs. No-op when no node has the key.
+ * RemoveNode removes the node and the edges that connect to it. The children of a
+ * removed group box move to the parent of the group box. No-op when no node has the
+ * key.
  */
 export const removeNodePayloadZ = z.object({
   key: z.string(),
@@ -72,7 +64,7 @@ export const addEdgePayloadZ = z.object({
 
 export type AddEdgePayload = z.infer<typeof addEdgePayloadZ>;
 
-/** RemoveEdge removes the edge with the given key and its config, if present. */
+/** RemoveEdge removes the edge with the given key, if present. */
 export const removeEdgePayloadZ = z.object({
   key: z.string(),
 });
@@ -80,19 +72,8 @@ export const removeEdgePayloadZ = z.object({
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
 /**
- * SetConfig replaces the config entry stored under the given node or edge key. No-op
- * when no node or edge has the key.
- */
-export const setConfigPayloadZ = z.object({
-  key: z.string(),
-  config: elementConfigZ,
-});
-
-export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
-
-/**
- * Set replaces the value at a path in the schematic's name or element configs. No-op
- * when no node or edge has the config's key.
+ * Set replaces the value at a path in the schematic's name, group, or project, or in
+ * the config of a node or edge. No-op when no node or edge has the key.
  */
 export const setPayloadZ = patch.setZ;
 
@@ -100,23 +81,24 @@ export type SetPayload = patch.Set;
 
 /**
  * Remove removes an entry from a list or a field from an object in the schematic's
- * element configs. No-op when no node or edge has the config's key.
+ * group or project, or in the config of a node or edge. No-op when no node or edge has
+ * the key.
  */
 export const removePayloadZ = patch.removeZ;
 
 export type RemovePayload = patch.Remove;
 
 /**
- * Insert adds an entry to a list in the schematic's element configs. No-op when no node
- * or edge has the config's key.
+ * Insert adds an entry to a list in the config of a node or edge. No-op when no node or
+ * edge has the key.
  */
 export const insertPayloadZ = patch.insertZ;
 
 export type InsertPayload = patch.Insert;
 
 /**
- * Move moves an entry in a list in the schematic's element configs. No-op when no node
- * or edge has the config's key.
+ * Move moves an entry in a list in the config of a node or edge. No-op when no node or
+ * edge has the key.
  */
 export const movePayloadZ = patch.moveZ;
 
@@ -129,7 +111,6 @@ export type Action =
   | { type: "remove_node"; removeNode: RemoveNodePayload }
   | { type: "add_edge"; addEdge: AddEdgePayload }
   | { type: "remove_edge"; removeEdge: RemoveEdgePayload }
-  | { type: "set_config"; setConfig: SetConfigPayload }
   | { type: "set"; set: SetPayload }
   | { type: "remove"; remove: RemovePayload }
   | { type: "insert"; insert: InsertPayload }
@@ -145,7 +126,6 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("add_edge"), addEdge: addEdgePayloadZ }),
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
-  z.object({ type: z.literal("set_config"), setConfig: setConfigPayloadZ }),
   z.object({ type: z.literal("set"), set: setPayloadZ }),
   z.object({ type: z.literal("remove"), remove: removePayloadZ }),
   z.object({ type: z.literal("insert"), insert: insertPayloadZ }),
@@ -196,13 +176,6 @@ export const removeEdge = (payload: z.input<typeof removeEdgePayloadZ>): Action 
   }),
 });
 
-export const setConfig = (payload: z.input<typeof setConfigPayloadZ>): Action => ({
-  type: "set_config",
-  setConfig: zod.parse(setConfigPayloadZ, payload, {
-    label: "schematic set_config action payload",
-  }),
-});
-
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
   set: zod.parse(setPayloadZ, payload, {
@@ -245,7 +218,6 @@ export interface Handlers {
   removeNode: (state: Draft<Schematic>, payload: RemoveNodePayload) => HandlerResult;
   addEdge: (state: Draft<Schematic>, payload: AddEdgePayload) => HandlerResult;
   removeEdge: (state: Draft<Schematic>, payload: RemoveEdgePayload) => HandlerResult;
-  setConfig: (state: Draft<Schematic>, payload: SetConfigPayload) => HandlerResult;
   set: (state: Draft<Schematic>, payload: SetPayload) => HandlerResult;
   remove: (state: Draft<Schematic>, payload: RemovePayload) => HandlerResult;
   insert: (state: Draft<Schematic>, payload: InsertPayload) => HandlerResult;
@@ -267,8 +239,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.addEdge(state, action.addEdge);
       case "remove_edge":
         return handlers.removeEdge(state, action.removeEdge);
-      case "set_config":
-        return handlers.setConfig(state, action.setConfig);
       case "set":
         return handlers.set(state, action.set);
       case "remove":

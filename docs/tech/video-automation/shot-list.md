@@ -97,8 +97,8 @@ All on reference/get-started/sample-project.mdx.
 ## console/users
 
 - `console/users/register` (reference/enterprise/users.mdx) -> on the Users page of
-  Settings, click "Create user" -> fill name, username, and password and pick a role in
-  the dialog -> submit -> the new user appears in the table.
+  Settings, click "Register user" -> fill name, username, and password and pick a role
+  in the dialog -> submit -> the new user appears in the table.
 - `console/users/modal-change-role` (reference/enterprise/users.mdx) -> on the Users
   page of Settings, open the role select of an existing user -> pick a new role -> the
   select shows it -> requires a pre-seeded non-root user.

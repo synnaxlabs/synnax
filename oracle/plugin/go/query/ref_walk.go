@@ -33,7 +33,8 @@ const (
 	stepArray
 	// stepVariant switches a union to one of its variants.
 	stepVariant
-	// stepLeaf reads the @ref field itself.
+	// stepLeaf reads the @ref field itself, or the value it reaches when field is
+	// empty.
 	stepLeaf
 )
 
@@ -338,6 +339,9 @@ type nestedRef struct {
 	// DetachBody is the body of the reference's Detach function, empty when the
 	// reference cannot drop a target.
 	DetachBody string
+	// InlineBody is the body of the reference's Inline function, empty unless OnDelete
+	// is "Inline".
+	InlineBody string
 	// usesSlices is true when the generated code calls the slices package.
 	usesSlices bool
 }
@@ -425,6 +429,10 @@ func (rd *renderer) walk(
 	for _, n := range nodes {
 		switch n.step.kind {
 		case stepLeaf:
+			if n.step.field == "" {
+				leaf(b, expr)
+				continue
+			}
 			leaf(b, expr+"."+n.step.field)
 		case stepField:
 			next := expr + "." + n.step.field
@@ -700,6 +708,77 @@ func renderRetarget(info *refInfo, r *resolver.Resolver, ctx *resolver.Context) 
 	info.RetargetBody = rd.retargetBody(leaf, mode)
 }
 
+// inlineBody returns the code that replaces each union in e whose variant holds the
+// target t with the variant that the target's Inline method returns.
+func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
+	fail := func(reason string) (string, error) {
+		return "", errors.Newf(
+			"@ref field %s %s, so it cannot inline",
+			ref.path,
+			reason,
+		)
+	}
+	type variantLeaf struct{ variant, field string }
+	var (
+		heads  [][]refStep
+		union  string
+		leaves []variantLeaf
+	)
+	for _, s := range ref.sites {
+		at := len(s.steps) - 2
+		if s.mode != leafRequired {
+			return fail("is not required")
+		}
+		if at < 1 || s.steps[at].kind != stepVariant {
+			return fail("is not a field of a union variant that a field holds")
+		}
+		v := s.steps[at]
+		if union == "" {
+			union = v.union.QualifiedName
+		} else if union != v.union.QualifiedName {
+			return fail("sits in different unions")
+		}
+		leaf := variantLeaf{variant: rd.variantGoType(v), field: s.steps[at+1].field}
+		if !slices.Contains(leaves, leaf) {
+			leaves = append(leaves, leaf)
+		}
+		heads = append(
+			heads,
+			append(slices.Clone(s.steps[:at]), refStep{kind: stepLeaf}),
+		)
+	}
+	var b strings.Builder
+	fmt.Fprintf(
+		&b,
+		"var target %s\nif err := gorp.NewRetrieve[%s, %s]().\n"+
+			"Where(gorp.MatchKeys[%s, %s](t)).\nEntry(&target).\n"+
+			"Exec(ctx, tx); err != nil {\nreturn err\n}\n",
+		rd.info.TargetGoType,
+		rd.info.ElemGoType,
+		rd.info.TargetGoType,
+		rd.info.ElemGoType,
+		rd.info.TargetGoType,
+	)
+	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
+		for _, l := range leaves {
+			v := rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n"+
+					"%s.Variant = target.Inline()\n}\n",
+				v,
+				expr,
+				l.variant,
+				v,
+				l.field,
+				expr,
+			)
+		}
+	})
+	b.WriteString("return nil\n")
+	return b.String(), nil
+}
+
 // sameReference reports whether a and b declare the same reference.
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
@@ -773,11 +852,14 @@ func renderNestedRefs(
 			EntryType:   entryType,
 			TargetsBody: rd.targetsBody(ref),
 		}
-		detach, err := rd.detachBody(ref)
+		if info.OnDelete == "Inline" {
+			nr.InlineBody, err = rd.inlineBody(ref)
+		} else {
+			nr.DetachBody, err = rd.detachBody(ref)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
-		nr.DetachBody = detach
 		steps := make([][]refStep, len(ref.sites))
 		for i, s := range ref.sites {
 			steps[i] = s.steps
@@ -856,4 +938,11 @@ func extractReferencesInfo(
 		return referencesInfo{}, err
 	}
 	return referencesInfo{GoName: goName, KeyType: keyType, Refs: refs}, nil
+}
+
+// inlines reports whether any of refs inlines its deleted targets.
+func inlines(refs []nestedRef) bool {
+	return slices.ContainsFunc(refs, func(ref nestedRef) bool {
+		return ref.InlineBody != ""
+	})
 }

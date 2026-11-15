@@ -22,6 +22,7 @@ import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
+import { User } from "@/user";
 
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
@@ -83,13 +84,31 @@ export interface KeyParams {
   key: panel.Key;
 }
 
-const useCanEditBase = ({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.resourceID(key));
+const useResultOwner = createResultSelector(({ owner }) => owner ?? null);
+
+export interface OwnedParams {
+  key: panel.Key | null;
+}
+
+/**
+ * Reports whether the panel is a draft of the signed-in user, who can edit it without
+ * update access. False while the panel or the user loads, and for a null key.
+ */
+export const useOwned = ({ key }: OwnedParams): boolean => {
+  const owner = useResultOwner(key == null ? null : { key }).data;
+  const self = User.useResultKey({}).data;
+  return owner != null && owner === self;
+};
+
+const useCanEditBase = ({ key }: KeyParams): boolean => {
+  const granted = Access.useUpdateGranted(panel.resourceID(key));
+  return useOwned({ key }) || granted;
+};
 
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
  * closing a tab to resizing a split, reduces to one dispatch against the panel
- * document, so a single update grant answers all of them.
+ * document, so update access or owning the draft answers all of them.
  */
 export const useCanEdit = Scope.bindHook(useCanEditBase);
 

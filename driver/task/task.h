@@ -260,14 +260,23 @@ public:
         last = op;
         return joined;
     }
+
+    /// @brief forgets the last cancelled operation of task. Call it once the task is
+    /// deleted.
+    void forget(const synnax::task::Key &task) {
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->cancelled.find(task);
+        if (it == this->cancelled.end()) return;
+        const auto op = this->operations.find(it->second->cmd.key);
+        if (op != this->operations.end() && op->second == it->second)
+            this->operations.erase(op);
+        this->cancelled.erase(it);
+    }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
-
-/// @brief the type of a command that stops a task. A stop cancels a start that runs.
-const std::string STOP_CMD_TYPE = "stop";
 
 class Factory {
 public:
@@ -431,6 +440,10 @@ public:
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
 
+    /// @returns true once a stop left a stuck worker running. The worker still uses
+    /// this Manager, so the Manager must not be freed.
+    [[nodiscard]] bool worker_detached() const { return this->detached; }
+
 private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
@@ -512,10 +525,15 @@ private:
     std::vector<Worker> workers;
     /// @brief thread that checks the step limits of running operations.
     std::thread monitor_thread;
+    /// @brief true once stop_workers detached a worker that did not finish.
+    std::atomic<bool> detached{false};
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
     /// @brief the number of runs started, which names the current run.
     std::atomic<uint64_t> runs{0};
+    /// @brief the first run that served, 0 before it. A run up to it deploys the tasks
+    /// that the previous Driver left.
+    std::atomic<uint64_t> boot_run{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -559,6 +577,9 @@ private:
     void process_task_cmd(const x::telem::Series &series);
     /// @brief runs a start command, redeploying first when the config has changed.
     void process_start(const synnax::task::Command &cmd);
+    /// @brief cancels the running start of the task and answers its queued starts,
+    /// then runs the stop. Writes statuses, so call it without mu.
+    void process_stop(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
     /// @brief drops the entry for key and forgets its status, unless the entry is still
@@ -584,10 +605,11 @@ private:
     /// command.
     void announce_start(const synnax::task::Key &key, Operation &operation);
     /// @brief replaces a status that a previous Driver run or a run before a Core
-    /// outage left stored: "Starting task" with a failed start, and a running task with
-    /// a stopped one. Replaces only a status that this rack wrote, does nothing once
-    /// this run wrote a status for the task, and never starts the task. Call it after
-    /// the boot deploy of the task, unless the deploy was cancelled.
+    /// outage left stored: "Starting task" with a failed start, a stop step with a
+    /// stopped task, and a running task with a stopped one. Replaces only a status that
+    /// this rack wrote, does nothing once this run wrote a status for the task, and
+    /// never starts the task. Call it after the boot deploy of the task, unless the
+    /// deploy was cancelled.
     void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);

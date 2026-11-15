@@ -87,78 +87,94 @@ const createSchematic = (ch: Channels): schematic.New => ({
   key: KEYS.schematic,
   name: "Tank",
   nodes: [
-    { key: "press_vlv", position: { x: 155, y: 180 } },
-    { key: "tank", position: { x: 300, y: 0 } },
-    { key: "vent_vlv", position: VENT_VLV_POSITION },
+    {
+      key: "press_vlv",
+      position: { x: 155, y: 180 },
+      config: {
+        variant: "valve",
+        label: { label: "Press valve" },
+        commandChannel: ch[PRESS_VLV_CMD],
+        stateChannel: ch[PRESS_VLV_STATE],
+      },
+    },
+    {
+      key: "tank",
+      position: { x: 300, y: 0 },
+      config: {
+        variant: "tank",
+        label: { label: "Tank" },
+        channel: ch[TANK_PT],
+        bounds: { lower: 0, upper: 500 },
+      },
+    },
+    {
+      key: "vent_vlv",
+      position: VENT_VLV_POSITION,
+      config: {
+        variant: "valve",
+        label: { label: "Vent valve" },
+        commandChannel: ch[VENT_VLV_CMD],
+        stateChannel: ch[VENT_VLV_STATE],
+      },
+    },
     {
       key: "vent",
       position: {
         x: 590,
         y: VENT_VLV_POSITION.y + VALVE_HANDLE_Y - VENT_HANDLE_Y,
       },
+      config: { variant: "vent" },
     },
-    { key: "tank_pt", position: { x: 310, y: 244 } },
-    { key: "start", position: { x: 270, y: 292 } },
-    { key: "abort", position: { x: 394, y: 292 } },
+    {
+      key: "tank_pt",
+      position: { x: 310, y: 244 },
+      config: {
+        variant: "value",
+        label: { label: "Tank pressure" },
+        channel: ch[TANK_PT],
+        units: "psi",
+        precision: 1,
+      },
+    },
+    {
+      key: "start",
+      position: { x: 270, y: 292 },
+      config: {
+        variant: "button",
+        label: { label: "Start" },
+        commandChannel: ch[START_CMD],
+      },
+    },
+    {
+      key: "abort",
+      position: { x: 394, y: 292 },
+      config: {
+        variant: "button",
+        label: { label: "Abort" },
+        commandChannel: ch[ABORT_CMD],
+      },
+    },
   ],
   edges: [
     {
       key: "press_vlv_to_tank",
       source: { node: "press_vlv", param: "2" },
       target: { node: "tank", param: "5" },
+      config: { variant: "pipe" },
     },
     {
       key: "tank_to_vent_vlv",
       source: { node: "tank", param: "3" },
       target: { node: "vent_vlv", param: "1" },
+      config: { variant: "pipe" },
     },
     {
       key: "vent_vlv_to_vent",
       source: { node: "vent_vlv", param: "2" },
       target: { node: "vent", param: "1" },
+      config: { variant: "pipe" },
     },
   ],
-  configs: {
-    press_vlv: {
-      variant: "valve",
-      label: { label: "Press valve" },
-      commandChannel: ch[PRESS_VLV_CMD],
-      stateChannel: ch[PRESS_VLV_STATE],
-    },
-    tank: {
-      variant: "tank",
-      label: { label: "Tank" },
-      channel: ch[TANK_PT],
-      bounds: { lower: 0, upper: 500 },
-    },
-    vent_vlv: {
-      variant: "valve",
-      label: { label: "Vent valve" },
-      commandChannel: ch[VENT_VLV_CMD],
-      stateChannel: ch[VENT_VLV_STATE],
-    },
-    vent: { variant: "vent" },
-    tank_pt: {
-      variant: "value",
-      label: { label: "Tank pressure" },
-      channel: ch[TANK_PT],
-      units: "psi",
-      precision: 1,
-    },
-    start: {
-      variant: "button",
-      label: { label: "Start" },
-      commandChannel: ch[START_CMD],
-    },
-    abort: {
-      variant: "button",
-      label: { label: "Abort" },
-      commandChannel: ch[ABORT_CMD],
-    },
-    press_vlv_to_tank: { variant: "pipe" },
-    tank_to_vent_vlv: { variant: "pipe" },
-    vent_vlv_to_vent: { variant: "pipe" },
-  },
 });
 
 const createLinePlot = (ch: Channels): lineplot.New => ({

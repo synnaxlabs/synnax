@@ -47,45 +47,28 @@ export const naturalLanguageJoin = (
  * ```typescript
  * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
  * createShortIdentifiers("Alice 123");
- * // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * // ["a1", "a_1", "a123", "a_123", "ali123", "ali_123"]
  * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
 export const createShortIdentifiers = (name: string): string[] => {
-  const words = name.split(" ");
+  const words = name
+    .split(" ")
+    .filter((word) => word !== "")
+    .map((word) => word.toLowerCase().replace(/-/g, "_"));
   const identifiers = new Set<string>();
-
-  const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials.replace(/-/g, "_"));
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
-
-  const regex = /\d+/g;
-  const hasNumbers = name.match(regex);
-
-  if (hasNumbers)
-    words.forEach((word, index) => {
-      if (regex.test(word)) {
-        const abbreviatedWords = words
-          .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
-          .join("");
-        identifiers.add(abbreviatedWords.replace(/-/g, "_"));
-        identifiers.add(
-          abbreviatedWords.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_"),
-        ); // Insert underscores
-      }
-    });
-
-  const wordAbbreviations = words.map((word) =>
-    (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
-  );
-  identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
-  identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
-
-  const filteredIdentifiers = Array.from(identifiers).filter(
+  const add = (parts: string[]) => {
+    identifiers.add(parts.join(""));
+    identifiers.add(parts.join("_"));
+  };
+  add(words.map((word) => word.charAt(0)));
+  words.forEach((word, index) => {
+    if (/\d/.test(word)) add(words.map((w, i) => (i === index ? w : w.charAt(0))));
+  });
+  add(words.map((word) => word.substring(0, 3)));
+  return Array.from(identifiers).filter(
     (id) => id.length >= 2 && id.length <= 12 && /^[a-zA-Z]\w*$/.test(id),
   );
-
-  return filteredIdentifiers;
 };
 
 /**

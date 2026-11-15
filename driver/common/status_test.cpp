@@ -509,7 +509,9 @@ TEST(TestStatusWindow, testCloseDropsPending) {
 TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    const auto window = 20 * x::telem::MILLISECOND;
+    // A wide window absorbs a loaded host pausing a writer between starting the window
+    // and stamping the status.
+    const auto window = 100 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
     // A tight loop of changes often takes the lock at the end of a window before the
     // flusher does, then queues the next change.
@@ -601,25 +603,6 @@ TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
-}
-
-/// @brief it should report a cancel error as a failure while the start still runs.
-TEST(TestHandleConfigErr, testCancelErrorOfARunningStart) {
-    x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    cancel.start();
-    auto [tsk, handled] = handle_config_err(
-        ctx,
-        task,
-        {ConfigureResult{}, x::errors::Error(x::errors::CANCELLED, "bus start")},
-        "start_cmd",
-        cancel
-    );
-    cancel.stop();
-    EXPECT_TRUE(handled);
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
 }
 
 /// @brief a config error should list each field error on its own line.

@@ -25,6 +25,9 @@ export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
 /** The key of the Labels section. */
 export const LABELS_SECTION = "labels";
 
+/** The key of the License section. */
+export const LICENSE_SECTION = "license";
+
 /**
  * Returns a function that opens the Settings tab in a draft of the user, or selects it
  * when a draft holds it. The tab shows the given section, else the section the window

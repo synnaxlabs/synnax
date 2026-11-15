@@ -9,5 +9,4 @@
 
 export * from "@/color/color";
 export * from "@/color/gradient";
-export * from "@/color/palette";
 export * from "@/color/types.gen";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type task } from "@synnaxlabs/client";
+import { type channel, type device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv } from "@synnaxlabs/x";
 
@@ -59,5 +59,21 @@ const OWNED_CHANNELS: Record<string, (config: unknown) => channel.Key[]> = {
  * @returns the keys of the channels that the Start of the task creates. A task of a
  * type that names channels it does not own, such as a Sift upload, returns none.
  */
-export const ownedChannelsOf = ({ type, config }: task.Task): channel.Key[] =>
+export const ownedChannelsOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): channel.Key[] =>
   OWNED_CHANNELS[type]?.(config) ?? [];
+
+// The task types whose restore checks that the devices their configs name exist.
+const DEVICES: Record<string, (config: unknown) => device.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.devicesOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.devicesOf,
+};
+
+/** @returns the keys of the devices that the config of the task names. */
+export const devicesOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): device.Key[] =>
+  DEVICES[type]?.(config) ?? [];

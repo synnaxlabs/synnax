@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/license/Activate";
-export * from "@/feature/license/commands";
 export * from "@/feature/license/Guard";
 export * from "@/feature/license/Info";
-export * from "@/feature/license/useInfoModal";
 export * from "@/platform/license/external";

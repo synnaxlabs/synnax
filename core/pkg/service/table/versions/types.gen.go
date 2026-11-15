@@ -30,8 +30,8 @@ const (
 	FlexAlignmentStretch FlexAlignment = v6.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = v6.CellConfig
 
 // CellConfigVariant is implemented by every CellConfig variant.
@@ -53,7 +53,10 @@ type TextCellConfig = v6.TextCellConfig
 // ValueCellConfig is the configuration for live telemetry value cells.
 type ValueCellConfig = v6.ValueCellConfig
 
-// Row is a single row in a table, with a key, height, and ordered cell keys.
+// Cell is one cell of a row, with its key and config.
+type Cell = v6.Cell
+
+// Row is a single row in a table, with a key, height, and cells.
 type Row = v6.Row
 
 // Column is a single column in a table, with a key and width.

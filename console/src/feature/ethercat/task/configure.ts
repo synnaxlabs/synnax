@@ -10,6 +10,7 @@
 import { channel, type ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
+import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
 import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
 import { isShared } from "@/feature/ethercat/device/setup";
 import {
@@ -17,6 +18,7 @@ import {
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  toSlaveOnRack,
 } from "@/feature/ethercat/device/types";
 import { type CheckedConfig, checkSlaves } from "@/feature/ethercat/task/checks";
 import {
@@ -84,7 +86,6 @@ export const retrieveSlaves = async <C extends Channel>(
     schemas: SLAVE_SCHEMAS,
   });
   PlatformDevice.checkFound(slaveKeys, slaves);
-  for (const slave of slaves) PlatformDevice.checkConfigured(slave);
   const onRack = await client.devices.retrieve({
     make: MAKE,
     model: SLAVE_MODEL,
@@ -92,7 +93,7 @@ export const retrieveSlaves = async <C extends Channel>(
     schemas: SLAVE_SCHEMAS,
     includeStatus: true,
   });
-  checkSlaves(pdoType, config, slaves, onRack);
+  checkSlaves(pdoType, config, slaves, onRack.map(toSlaveOnRack));
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(
@@ -127,7 +128,7 @@ export const fillStartupParameters = (
     const parameters: ethercat.StartupParameter[] = [];
     for (const input of inputs)
       if (entries.some((e) => input.entries.some((a) => sameAddress(a, e))))
-        parameters.push(...fill(input.settings, prior));
+        parameters.push(...fill(input.settings, prior).values);
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;
@@ -158,18 +159,8 @@ const checkIndexFree = async (
   slave: SlaveDevice,
   index: channel.Channel,
 ): Promise<void> => {
-  const identifier = channel.escapeInvalidName(slave.properties.identifier);
-  const other = (await client.devices.retrieve({})).find(
-    ({ key, properties }) =>
-      key !== slave.key &&
-      typeof properties?.identifier === "string" &&
-      channel.escapeInvalidName(properties.identifier) === identifier,
-  );
-  if (other != null)
-    throw new Error(
-      `Device ${other.name} has an identifier that gives the same channel names as ` +
-        `${slave.properties.identifier}. Change the identifier of one of them.`,
-    );
+  const other = findClash(slave, await client.devices.retrieve({}));
+  if (other != null) throw new Error(clashProblem(slave, other));
   const others = (
     await client.devices.retrieve({
       make: MAKE,

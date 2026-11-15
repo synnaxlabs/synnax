@@ -40,6 +40,8 @@ interface RenderPropertiesParams {
   sessionState?: Partial<Session.Schematic.State>;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
   createConfig?: (key: string) => Record<string, unknown>;
+  /** The group of each grouped node, by node key. */
+  parents?: Record<string, string>;
 }
 
 const renderProperties = async ({
@@ -47,9 +49,8 @@ const renderProperties = async ({
   sessionState,
   onStatuses = () => {},
   createConfig = createValveConfig,
+  parents = {},
 }: RenderPropertiesParams) => {
-  const configs: Record<string, unknown> = {};
-  nodeKeys.forEach((key) => (configs[key] = createConfig(key)));
   const Harness = (): ReactElement => (
     <>
       <Toolbar />
@@ -58,8 +59,12 @@ const renderProperties = async ({
   );
   return await renderSchematic(Harness, {
     schematic: {
-      nodes: nodeKeys.map((key) => ({ key, position: { x: 0, y: 0 } })),
-      configs: configs as schematic.New["configs"],
+      nodes: nodeKeys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: schematic.nodeConfigZ.parse(createConfig(key)),
+        parent: parents[key],
+      })),
     },
     sessionState: {
       editable: true,
@@ -118,7 +123,7 @@ const retrieveConfig = async (
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
   const retrieved = await client.schematics.retrieve(key);
-  return retrieved.configs[nodeKey];
+  return client.schematics.configsOf(retrieved)[nodeKey];
 };
 
 const pollBothOrientations = async (key: string, rotated: string): Promise<void> => {
@@ -156,7 +161,10 @@ describe("Schematic toolbar Properties", () => {
       await act(async () => {
         await remote.schematics.dispatch(
           key,
-          schematic.set({ path: ["configs", "n1", "label", "label"], value: "Remote" }),
+          schematic.set({
+            path: ["nodes", "n1", "config", "label", "label"],
+            value: "Remote",
+          }),
         );
       });
       await waitFor(() =>
@@ -165,11 +173,17 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("prompts for a selection when another client removes the selected element", async () => {
-      const { key } = await renderProperties({ nodeKeys: ["n1"] });
+      const statuses: Status.NotificationSpec[] = [];
+      const { key } = await renderProperties({
+        nodeKeys: ["n1"],
+        onStatuses: (s) => statuses.push(...s),
+      });
       await screen.findByRole("tab", { name: "Style" });
       await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
+      // React reports an error caught by a boundary through console.error.
+      const error = vi.spyOn(console, "error");
       await act(async () => {
         await remote.schematics.dispatch(key, schematic.removeNode({ key: "n1" }));
       });
@@ -178,6 +192,8 @@ describe("Schematic toolbar Properties", () => {
           "Select a schematic element to configure its properties",
         ),
       ).toBeDefined();
+      expect(error).not.toHaveBeenCalled();
+      expect(statuses.filter((s) => s.variant === "error")).toEqual([]);
     });
   });
 
@@ -230,20 +246,19 @@ describe("Schematic toolbar Properties", () => {
 
   describe("grouped selection", () => {
     const nodeKeys = ["g1", "n1", "n2", "n3"];
+    const parents = { n1: "g1", n2: "g1" };
     const createGroupedConfig = (key: string): Record<string, unknown> =>
       key === "g1"
-        ? {
-            ...(PSchematic.Node.createConfig({
-              variant: "group_box",
-            }) as unknown as Record<string, unknown>),
-            members: ["n1", "n2"],
-          }
+        ? PSchematic.Node.createConfig({
+            variant: "group_box",
+          })
         : createValveConfig();
 
     it("routes a grouped member plus a loose symbol to the multi form", async () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["n1", "n3"] },
       });
       await screen.findByText("Align");
@@ -258,6 +273,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -272,6 +288,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -290,6 +307,7 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Colors");
@@ -304,6 +322,7 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["g1", "n1", "n2"] },
       });
       await screen.findByText("Align");
@@ -337,7 +356,7 @@ describe("Schematic toolbar Properties", () => {
         ).toMatchObject({
           actions: ["n1", "n2"].map((key) => ({
             type: "set",
-            set: { path: ["configs", key, "stroke_color"] },
+            set: { path: ["nodes", key, "config", "stroke_color"] },
           })),
         }),
       );

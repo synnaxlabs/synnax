@@ -757,3 +757,30 @@ var _ = Describe("Dispatch of a move", func() {
 		),
 	)
 })
+
+var _ = Describe("OwnedTables and OwnedPlaces", func() {
+	It("Should name the table of a draft and the table of its project", func(
+		ctx SpecContext,
+	) {
+		u := newUser(ctx)
+		tx := DeferClose(db.OpenTx())
+		p := panel.Panel{
+			Key:     uuid.New(),
+			Name:    "draft",
+			Project: &proj.Key,
+			Owner:   &u.Key,
+		}
+		Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		var tables, places []string
+		for _, c := range gorp.ChangesOf(tx) {
+			tables = append(tables, c.Record.Table)
+			for _, l := range c.Added {
+				if l.Kind == gorp.Place {
+					places = append(places, l.Target.Table)
+				}
+			}
+		}
+		Expect(tables).To(ConsistOf(apipanel.OwnedTables()))
+		Expect(places).To(ConsistOf(apipanel.OwnedPlaces()))
+	})
+})
