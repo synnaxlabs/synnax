@@ -113,9 +113,12 @@ const ScrollTo = <K extends record.Key>({
 const FreshContext = createContext<ReadonlySet<record.Key>>(new Set());
 FreshContext.displayName = "Settings.Fresh";
 
-/** Returns the class of an item created in this table, which fades it in. */
-export const useFreshClass = (key: record.Key): string | undefined =>
-  use(FreshContext).has(key) ? CSS.BE("settings-table", "fresh") : undefined;
+/** Returns the class of an item in a {@link Table}. An item created in it fades in. */
+export const useItemClass = (key: record.Key): string =>
+  CSS.cls(
+    CSS.BE("settings-table", "item"),
+    use(FreshContext).has(key) && CSS.BE("settings-table", "fresh"),
+  );
 
 /** Lays out the fields of a new item on the columns of its {@link Table}. */
 export const CreateFrame = ({ children }: PropsWithChildren): ReactElement => (

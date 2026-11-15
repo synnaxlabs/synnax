@@ -120,6 +120,9 @@ describe("User.KeySettings", () => {
     await type("Key name", name);
     fireEvent.click(findButton("Create"));
     await screen.findByText(`Copy the key for ${name}`);
+    // Copying the token is the main action, so its button carries a label.
+    const copy = screen.getByRole("button", { name: "Copy API key" });
+    expect(copy.textContent?.trim()).toBe("Copy");
     fireEvent.click(findButton("Done"));
     await screen.findByText(name);
     const keys = await client.auth.retrieveKeys([user.resourceID(u.key)]);

@@ -84,7 +84,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const canUpdate = Access.useUpdateGranted(secret.resourceID(itemKey));
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
-  const fresh = PlatformSettings.useFreshClass(itemKey);
+  const itemClass = PlatformSettings.useItemClass(itemKey);
   if (s == null) return null;
   return (
     <Select.Item<secret.Key>
@@ -93,7 +93,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
       checkable
       align="center"
       aria-label={s.name}
-      className={CSS.cls(CSS.BE("secret-settings", "item"), fresh)}
+      className={CSS.cls(CSS.BE("secret-settings", "item"), itemClass)}
     >
       <List.Cells>
         <List.Cell>

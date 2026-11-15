@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { certificate, label, user } from "@synnaxlabs/client";
+import { certificate, label, panel, user } from "@synnaxlabs/client";
 import {
   CERTIFICATE,
   createTestClient,
@@ -32,6 +32,7 @@ import { Settings } from "@/app/settings";
 import { renderSettings } from "@/app/settings/testutil";
 import { renderPalette } from "@/feature/command/testutil";
 import { findCommand } from "@/platform/command/testutil";
+import { Panel } from "@/platform/panel";
 import {
   createPanelWrapper,
   createServerPanel,
@@ -189,15 +190,17 @@ describe("Settings", () => {
   it("should withhold Show license info without a license grant", async () => {
     const gate = findCommand(Settings.COMMANDS, "Show license info").useVisible;
     assertDefined(gate);
-    const limited = await createLimitedClient();
+    // The user can open tabs, so only the missing license grant hides the command.
+    const limited = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [panel.TYPE_RESOURCE_ID],
+      actions: ["create"],
+    });
     const { result } = await renderHookWithConsole(
-      () => ({
-        visible: gate(),
-        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
-      }),
+      () => ({ visible: gate(), canOpen: Panel.useCanOpenTab() }),
       { client: limited },
     );
-    await waitFor(() => expect(result.current.loaded).toBe(true));
+    await waitFor(() => expect(result.current.canOpen).toBe(true));
     expect(result.current.visible).toBe(false);
   });
 

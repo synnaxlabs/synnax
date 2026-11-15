@@ -55,7 +55,7 @@
 }
 
 /* Items move to their new place when one is added or removed above them. */
-.console-settings-table .lyra-list__item {
+.console-settings-table__item {
     transition: transform 0.15s ease-in-out;
 }
 
@@ -90,7 +90,7 @@
         animation-duration: 1ms;
     }
 
-    .console-settings-table .lyra-list__item {
+    .console-settings-table__item {
         transition: none;
     }
 }

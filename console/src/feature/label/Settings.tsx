@@ -36,14 +36,14 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
   const name = Form.useField<string>(path.name, { ctx: form });
   const swatch = Form.useField<color.Crude, color.Color>(path.color, { ctx: form });
   const canUpdate = Access.useUpdateGranted(label.resourceID(itemKey));
-  const fresh = PlatformSettings.useFreshClass(itemKey);
+  const itemClass = PlatformSettings.useItemClass(itemKey);
   return (
     <Select.Item<label.Key>
       {...props}
       checkable
       align="center"
       aria-label={name.value}
-      className={CSS.cls(CSS.BE("label-settings", "item"), fresh)}
+      className={CSS.cls(CSS.BE("label-settings", "item"), itemClass)}
     >
       <List.Cells>
         <List.Cell>

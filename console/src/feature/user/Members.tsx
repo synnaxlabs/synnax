@@ -34,6 +34,7 @@ const COLUMNS: List.Column[] = [
 const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
+  const itemClass = PlatformSettings.useItemClass(itemKey);
   const { data: selfKey } = User.useResultKey({});
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
@@ -50,7 +51,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
       checkable
       align="center"
       aria-label={item.name}
-      className={CSS.BE("user-members", "item")}
+      className={CSS.cls(CSS.BE("user-members", "item"), itemClass)}
     >
       <List.Cells>
         <List.Cell>

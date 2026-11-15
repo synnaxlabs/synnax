@@ -38,7 +38,7 @@ interface KeyItemProps extends List.ItemProps<auth.APIKeyKey> {
 
 const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
   const k = List.useItem<auth.APIKeyKey, auth.APIKey>(rest.itemKey);
-  const fresh = Settings.useFreshClass(rest.itemKey);
+  const itemClass = Settings.useItemClass(rest.itemKey);
   if (k == null) return null;
   return (
     <Select.Item<auth.APIKeyKey>
@@ -46,7 +46,7 @@ const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
       checkable
       align="center"
       aria-label={keyName(k)}
-      className={fresh}
+      className={itemClass}
     >
       <List.Cells>
         <List.Cell>

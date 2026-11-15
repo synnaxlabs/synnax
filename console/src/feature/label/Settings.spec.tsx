@@ -103,6 +103,25 @@ describe("Label.Settings", () => {
     expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", "");
   });
 
+  it("should list a new label first until the page closes", async () => {
+    const prefix = uniqueName("order");
+    await createLabel(`${prefix}-a`);
+    await renderLabels();
+    await search(prefix);
+    await clickAndSettle("Create label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: `${prefix}-z` },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+    const names = screen
+      .getAllByRole("option")
+      .map((o) => o.getAttribute("aria-label"));
+    expect(names).toEqual([`${prefix}-z`, `${prefix}-a`]);
+  });
+
   it("should rename a label from its menu", async () => {
     const l = await createLabel();
     await renderLabels();
