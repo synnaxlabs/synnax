@@ -306,7 +306,7 @@ func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
-		return ref.IsSlice && ref.OnDelete == "Detach"
+		return ref.IsSlice
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
@@ -580,6 +580,7 @@ func extractRetrieveInfo(
 				// The variant walk names the index after the field, ignoring @go name.
 				info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
 			} else {
+				renderRetarget(&info, r, ctx)
 				refs = append(refs, info)
 			}
 			filters = append(filters, filterInfo{
@@ -939,6 +940,9 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
+			Retarget: func(e *{{$ret.GoName}}, from, to {{$ref.TargetType}}) {
+				{{$ref.RetargetBody -}}
+			},
 		}),
 {{- end}}
 {{- range $ref := $ret.NestedRefs}}
@@ -1304,5 +1308,8 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 				{{.DetachBody -}}
 			},
 {{- end}}
+			Retarget: func(e *{{.EntryType}}, from, to {{.TargetType}}) {
+				{{.RetargetBody -}}
+			},
 		}){{end}}`),
 )

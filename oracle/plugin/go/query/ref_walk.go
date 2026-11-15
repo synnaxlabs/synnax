@@ -326,8 +326,8 @@ func leafModeOf(f resolution.Field, isSlice bool) leafMode {
 	}
 }
 
-// nestedRef is a reference that the walk found, with the Go code of its Targets and
-// Detach functions.
+// nestedRef is a reference that the walk found, with the Go code of its Targets,
+// Detach, and Retarget functions.
 type nestedRef struct {
 	refInfo
 	// KeyType and EntryType are the Go types of the key and of the holding entry.
@@ -616,6 +616,90 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	return b.String(), nil
 }
 
+// retargetBody returns the code that moves e from the target from to the target to
+// through every leaf under nodes. A slice that already holds to drops from instead.
+func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
+	var b strings.Builder
+	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
+		switch mode {
+		case leafRequired, leafZero:
+			fmt.Fprintf(
+				b,
+				"if %s == from {\n%s\n}\n",
+				rd.operand(expr),
+				rd.assign(expr),
+			)
+		case leafOptional:
+			assign := "*" + expr + " = to"
+			if rd.info.IsID {
+				assign = rd.assign(expr)
+			}
+			fmt.Fprintf(
+				b,
+				"if %s != nil && %s == from {\n%s\n}\n",
+				expr,
+				rd.operand("*"+expr),
+				assign,
+			)
+		case leafSlice:
+			rd.usesSlices = true
+			k, i := rd.nextVar("k"), rd.nextVar("i")
+			elem := fmt.Sprintf("%s[%s]", expr, i)
+			fmt.Fprintf(
+				b,
+				"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+					"return %[4]s == to\n}) {\n"+
+					"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+					"return %[4]s == from\n})\n"+
+					"} else {\nfor %[5]s := range %[1]s {\n"+
+					"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
+				expr,
+				k,
+				rd.info.ElemGoType,
+				rd.operand(k),
+				i,
+				rd.operand(elem),
+				rd.assign(elem),
+			)
+		}
+	})
+	return b.String()
+}
+
+// operand returns the target of expr in a form that can sit in an if condition, where
+// a bare composite literal does not parse.
+func (rd *renderer) operand(expr string) string {
+	if rd.info.IsID {
+		return "(" + rd.target(expr) + ")"
+	}
+	return rd.target(expr)
+}
+
+// assign returns the statement that points the field at expr to the target to. A
+// resource ID changes only its key, as from and to share a table.
+func (rd *renderer) assign(expr string) string {
+	if rd.info.IsID {
+		return expr + ".Key = to.Key"
+	}
+	return expr + " = to"
+}
+
+// renderRetarget sets the RetargetBody of info, a reference on a top-level field.
+func renderRetarget(info *refInfo, r *resolver.Resolver, ctx *resolver.Context) {
+	mode := leafRequired
+	switch {
+	case info.IsSlice:
+		mode = leafSlice
+	case info.IsOptional:
+		mode = leafOptional
+	case info.Zero != "":
+		mode = leafZero
+	}
+	rd := &renderer{r: r, ctx: ctx, info: *info}
+	leaf := []*stepNode{{step: refStep{kind: stepLeaf, field: info.GoName}}}
+	info.RetargetBody = rd.retargetBody(leaf, mode)
+}
+
 // sameReference reports whether a and b declare the same reference.
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
@@ -693,7 +777,13 @@ func renderNestedRefs(
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
-		nr.DetachBody, nr.usesSlices = detach, rd.usesSlices
+		nr.DetachBody = detach
+		steps := make([][]refStep, len(ref.sites))
+		for i, s := range ref.sites {
+			steps[i] = s.steps
+		}
+		nr.RetargetBody = rd.retargetBody(buildTree(steps), mode)
+		nr.usesSlices = rd.usesSlices
 		out = append(out, nr)
 	}
 	return out, nil
