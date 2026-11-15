@@ -1,13 +1,13 @@
 {
-  "description": "A missing value takes the field's default, and a field with none fails.",
+  "description": "A missing value takes the field's default, scaled like a document value, and a field with none fails.",
   "payload": {
     "format": "json",
     "fields": [
       {
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "temp",
-        "scale": 1,
-        "offset": 0,
+        "scale": 2,
+        "offset": 1,
         "units": "",
         "pointer": "/temp",
         "type": "float",
@@ -96,7 +96,7 @@
       "document": {
         "id": 1
       },
-      "samples": [20.5, 4, "idle", 1, 1000, 1]
+      "samples": [42, 4, "idle", 1, 1000, 1]
     },
     {
       "document": {
@@ -107,7 +107,7 @@
         "ts": 5,
         "id": 2
       },
-      "samples": [1, 2, "run", 0, 5000000, 2]
+      "samples": [3, 2, "run", 0, 5000000, 2]
     },
     {
       "document": {

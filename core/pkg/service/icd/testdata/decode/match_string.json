@@ -1,5 +1,5 @@
 {
-  "description": "A string match rule selects documents by their type field.",
+  "description": "A string match rule selects documents by their type field, before it reads any other field.",
   "payload": {
     "format": "json",
     "fields": [
@@ -51,6 +51,19 @@
         "temp": 3
       },
       "unmatched": true
+    },
+    {
+      "document": {
+        "type": "event"
+      },
+      "unmatched": true
+    },
+    {
+      "document": {
+        "type": "st\u0061tus",
+        "temp": 4
+      },
+      "samples": [4]
     }
   ]
 }

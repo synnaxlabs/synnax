@@ -15,6 +15,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"uuid"
@@ -68,6 +69,7 @@ func decodeEntries() []TableEntry {
 
 // sampleJSON is the JSON form of one sample of dt, as the fixtures write it.
 func sampleJSON(dt telem.DataType, data []byte) any {
+	GinkgoHelper()
 	if dt.IsVariable() {
 		data = data[4:]
 	}
@@ -115,34 +117,34 @@ var _ = Describe("JSON", func() {
 		bindings := lo.Map(f.Bindings, func(b binding, _ int) codec.Binding {
 			return codec.Binding{Field: b.Field, DataType: b.DataType}
 		})
-		dec, err := codec.NewJSON(f.Payload, bindings)
 		if f.Error != "" {
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(f.Error)))
+			Expect(codec.NewJSON(f.Payload, bindings)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(f.Error)),
+			))
 			return
 		}
-		Expect(err).ToNot(HaveOccurred())
+		dec := MustSucceed(codec.NewJSON(f.Payload, bindings))
 		Expect(f.Cases).ToNot(BeEmpty())
 		for i, c := range f.Cases {
-			By("case " + string(rune('0'+i)))
+			By("case " + strconv.Itoa(i))
 			doc := []byte(c.Document)
 			if c.Text != nil {
 				doc = []byte(*c.Text)
 			}
 			samples := make([][]byte, len(bindings))
-			ok, err := dec.Decode(doc, samples)
 			switch {
 			case c.Error != "":
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(ContainSubstring(c.Error)))
+				Expect(dec.Decode(doc, samples)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(c.Error)),
+				))
 				Expect(samples).To(HaveEach(BeEmpty()))
 			case c.Unmatched:
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ok).To(BeFalse())
+				Expect(dec.Decode(doc, samples)).To(BeFalse())
 				Expect(samples).To(HaveEach(BeEmpty()))
 			default:
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ok).To(BeTrue())
+				Expect(dec.Decode(doc, samples)).To(BeTrue())
 				Expect(c.Samples).To(HaveLen(len(bindings)))
 				for k, b := range bindings {
 					actual := MustSucceed(
