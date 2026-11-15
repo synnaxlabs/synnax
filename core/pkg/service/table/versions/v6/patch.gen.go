@@ -16,8 +16,6 @@ import "github.com/synnaxlabs/x/patch"
 // Patch applies the path action at c, which is not done, to the value.
 func (cv *Cell) Patch(c patch.Cursor) error {
 	switch c.Segment() {
-	case "key":
-		return patch.Value(&cv.Key, c.Next())
 	case "config":
 		if c = c.Next(); c.Done() {
 			return patch.Value(&cv.Config, c)
@@ -34,14 +32,8 @@ func (cv *Cell) PatchKey() string { return cv.Key }
 // Patch applies the path action at c, which is not done, to the value.
 func (r *Row) Patch(c patch.Cursor) error {
 	switch c.Segment() {
-	case "key":
-		return patch.Value(&r.Key, c.Next())
-	case "size":
-		return patch.Defaulted(&r.Size, c.Next(), func(def *Row) {
-			r.Size = def.Size
-		})
 	case "cells":
-		return patch.List(&r.Cells, c.Next())
+		return patch.EntryFields(&r.Cells, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -56,7 +48,7 @@ func (t *Table) Patch(c patch.Cursor) error {
 	case "name":
 		return patch.Value(&t.Name, c.Next())
 	case "rows":
-		return patch.List(&t.Rows, c.Next())
+		return patch.EntryFields(&t.Rows, c.Next())
 	case "group":
 		return patch.OptionalValue(&t.Group, c.Next())
 	case "project":

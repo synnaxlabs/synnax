@@ -9,7 +9,8 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type deep } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -67,6 +68,12 @@ export const ListAndDetails = <C extends Channel>({
     path,
     createChannel: handleCreateChannel,
     onSelect: setSelected,
+  });
+  // The list shows a status at its own path. Selecting a channel shows its details,
+  // where its fields show their statuses.
+  Form.useFocusHandler(path, (target) => {
+    if (target === String(path)) return;
+    setSelected([deep.element(target, String(path).split(".").length)]);
   });
   const isPreview = useIsPreview();
   const detailsPath = selected.length > 0 ? path[selected[0]] : null;

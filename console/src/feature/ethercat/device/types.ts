@@ -202,6 +202,16 @@ export interface SlaveDevice extends device.Device<
   typeof modelZ
 > {}
 
+/** A slave with whether it is connected in place of its status. */
+export interface SlaveOnRack extends Omit<SlaveDevice, "status"> {
+  connected: boolean;
+}
+
+export const toSlaveOnRack = ({ status, ...slave }: SlaveDevice): SlaveOnRack => ({
+  ...slave,
+  connected: status?.details.connected === true,
+});
+
 export const SLAVE_SCHEMAS = {
   properties: slavePropertiesZ,
   make: makeZ,
