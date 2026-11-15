@@ -91,6 +91,8 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   validateAsync: (path?: deep.Target<unknown>) => Promise<boolean>;
   has: (path: deep.Target<unknown>) => boolean;
   setStatus: (path: deep.Target<unknown>, status: Status.Crude) => void;
+  /** Clears the status at the path, leaving the statuses at other paths. */
+  clearStatus: (path: deep.Target<unknown>) => void;
   clearStatuses: () => void;
   /**
    * Adds a schema that validates the value at the path with every validation. Its

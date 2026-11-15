@@ -193,6 +193,28 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
+		"Should widen the receiver when the type name would collide with a loop index",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Item struct {
+				name string = "a"
+			}
+
+			Index struct {
+				items Item[] = []
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (in *Index) ApplyDefaults() {",
+				"in.Items[i].ApplyDefaults()",
+			)
+		},
+	)
+
+	It(
 		"Should generate ApplyDefaults on a struct that extends a base",
 		func(ctx SpecContext) {
 			source := `
