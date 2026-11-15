@@ -167,6 +167,8 @@ private:
         std::vector<Slave> slaves;
         /// @brief what the reader writes to the slaves.
         Settings settings;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
         x::telem::Rate rate;
         size_t samples_per_read;
         size_t sample_size = 0;
@@ -213,6 +215,8 @@ private:
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
         std::vector<x::telem::SampleValue> stop_values;
+        /// @brief the startup parameters that the bus did not apply, as sentences.
+        std::string unapplied;
         /// @brief a slave that holds entries of the writer.
         struct Slave {
             uint16_t position = 0;
@@ -255,6 +259,9 @@ private:
     x::breaker::Breaker bus;
     /// @brief the number of times the bus stopped, guarded by mu.
     uint64_t stops = 0;
+    /// @brief the Configure settings of each slave at the last bus start, keyed by
+    /// position and guarded by mu.
+    std::map<uint16_t, slave::Config> device_configs;
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
@@ -393,6 +400,9 @@ private:
         uint64_t mhz = 0;
         /// @brief the offset of each entry in the process image.
         std::vector<pdo::Offset> offsets;
+        /// @brief why the bus did not apply the startup parameters of a slave that
+        /// another program sets up, or an empty string.
+        std::string unapplied;
     };
     /// @brief returns the bus rate and the offset of each entry once the bus runs at a
     /// rate that also serves rate as a read rate, or as a write rate when output is
@@ -478,6 +488,12 @@ public:
         /// after the last call that saw it, so a task that keeps dropping keeps one
         /// warning.
         [[nodiscard]] std::string warning();
+
+        /// @brief returns why the bus did not apply startup parameters when the reader
+        /// opened, in full sentences, or an empty string.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->input->unapplied;
+        }
     };
 
     /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
@@ -524,6 +540,11 @@ public:
         /// Ends the warning of each slave of the writer that returned to OP.
         [[nodiscard]] Transaction open_tx() const;
 
+        /// @brief returns why the bus did not apply startup parameters when the writer
+        /// opened, in full sentences, or an empty string.
+        [[nodiscard]] const std::string &unapplied() const {
+            return this->output->unapplied;
+        }
         /// @brief explains, in full sentences, which slaves of the writer are out of
         /// OP, and which returned since the latest open_tx(), or returns an empty
         /// string. Thread-safe.

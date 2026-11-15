@@ -158,13 +158,13 @@ public:
         return x::errors::NIL;
     }
 
-    common::Warning held_warning() override {
-        auto description = this->writer->warning();
-        if (description.empty()) return {};
-        return {
-            .message = "Interrupted outputs",
-            .description = std::move(description)
-        };
+    [[nodiscard]] common::Warning held_warning() override {
+        if (auto description = this->writer->warning(); !description.empty())
+            return {
+                .message = "Interrupted outputs",
+                .description = std::move(description)
+            };
+        return unapplied_warning(this->writer->unapplied());
     }
 
     x::errors::Error write(x::telem::Frame &frame) override {

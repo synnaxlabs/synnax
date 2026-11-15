@@ -310,6 +310,8 @@ public:
                 .message = "Dropped samples",
                 .description = std::move(description),
             };
+        else
+            res.warning = unapplied_warning(this->reader->unapplied());
         if (this->times.empty()) {
             fr.clear();
             return res;
