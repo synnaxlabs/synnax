@@ -37,7 +37,8 @@ import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
-const SCAN_COMMAND = "scan";
+/** The command that makes a scan task scan for devices now. */
+export const SCAN_COMMAND = "scan";
 const SCAN_TIMEOUT = TimeSpan.seconds(15);
 
 const scanDisabledZ = task.scanConfigZ.pick({ disabled: true });

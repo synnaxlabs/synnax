@@ -505,6 +505,25 @@ describe("useSetStandalone", () => {
     return { commands, switched };
   };
 
+  it("should scan for devices after a switch, so the device shows it at once", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    const driver = await answerCommandsUntil([scan], "scan");
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.updateAsync({ slave });
+    });
+    const commands = await driver.answered;
+    expect(commands.map((c) => c.type)).toEqual(["set_standalone", "scan"]);
+  });
+
   it("should tell the user to start the stopped tasks again after a switch", async () => {
     const r = await client.racks.create({ name: uniqueName("ecat_rack") });
     const slave = await createSlaveDevice(r.key, { network: "eth0" });

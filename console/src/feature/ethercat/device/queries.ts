@@ -24,6 +24,7 @@ import {
   SCAN_TYPE,
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
@@ -197,6 +198,8 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
       await restart();
       throw status.toError(res);
     }
+    // The scan task writes the properties and status of each device at a scan.
+    await scanTask.executeCommand({ type: PlatformDevice.SCAN_COMMAND });
     if (tasks.length === 0) return { ...data, answer: res };
     const description = `${res.description} Start your tasks again.`.trimStart();
     return { ...data, answer: { ...res, description } };
