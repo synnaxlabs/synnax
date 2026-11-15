@@ -260,11 +260,10 @@ jobs:
           Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
           Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
-      # The Ubuntu image ships toolchains these tests never use, and Ginkgo keeps every
-      # --race --cover test binary of the Core until its last suite ends, which
-      # overflows the disk they leave free. go test deletes each binary after its run.
+      # The Ubuntu image ships toolchains these tests never use. A --race --cover build
+      # of the Core and its restored cache overflow the disk they leave free.
       - name: Free disk space
-        if: runner.os == 'Linux' && !inputs.cached
+        if: runner.os == 'Linux'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
