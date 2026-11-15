@@ -2583,6 +2583,37 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should fail the start when a pass that leaves out a slave ends too late
+/// for one more try before the start timeout.
+TEST_F(EngineTest, StartLeavesOutNoSlaveAfterTheStartTimeout) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->add_slave(io_slave(1));
+    this->master->set_activate_duration(x::telem::SECOND * 25);
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL);
+    auto cfg = quick_start_config();
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        res.second.data,
+        "Failed to reach SAFE-OP: refused SAFE-OP: Invalid input configuration. The "
+        "Driver left out slave 1 because it refused SAFE-OP: Invalid input "
+        "configuration. If the mode of the device changed, restart its power."
+    );
+    // The pass that leaves out slave 1 ends at 50 s, so one more try would end at 75 s.
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should count the time that an open spends before the start, such as the
 /// read of the slave settings, against the start timeout.
 TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {

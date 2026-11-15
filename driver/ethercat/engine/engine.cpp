@@ -777,7 +777,14 @@ x::errors::Error Engine::start_locked(
                             .name = s.properties.name,
                             .refusal = it->second,
                         };
-                continue;
+                const auto now = clock.steady();
+                longest_try = std::max(
+                    longest_try,
+                    x::telem::TimeSpan(now - try_started)
+                );
+                // The deadline check below fails a pass whose next try cannot end in
+                // time.
+                if (now + longest_try.chrono() <= start.deadline) continue;
             }
         }
         const auto now = clock.steady();
