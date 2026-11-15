@@ -14,12 +14,12 @@ import {
   type record,
   type TimeSpan,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { useContext } from "@/form/Context";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
+import { useStatusDisplay } from "@/form/useStatusDisplay";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
@@ -68,12 +68,10 @@ export const Field = <I = string | number, O = I>({
 }: FieldProps<I, O>): ReactElement | null => {
   // A hidden field may bind a path its config lacks.
   const field = useField<I, O>(path, { onChange, optional: !visible });
-  const { addField } = useContext();
-  const key = String(path);
-  const shown = field != null && visible;
-  useEffect(() => (shown ? addField(path) : undefined), [addField, path, shown]);
+  useStatusDisplay(field != null && visible ? path : null);
   const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
+  const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;

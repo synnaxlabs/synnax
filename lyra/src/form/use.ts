@@ -236,7 +236,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const focusHandlersRef = useInitializerRef(
     () => new Map<string, (path: string) => void>(),
   );
-  const fieldsRef = useInitializerRef(() => new Map<string, number>());
+  const statusDisplaysRef = useInitializerRef(() => new Map<string, number>());
 
   const focus: ContextValue["focus"] = (target, opts) => {
     const path = String(target);
@@ -248,21 +248,21 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
         handler(path);
         return true;
       }
-      // A field shows only the status at its own path.
-      if (n === parts.length && fieldsRef.current.has(path)) return true;
+      // A status display shows only the status at its own path.
+      if (n === parts.length && statusDisplaysRef.current.has(path)) return true;
     }
     if (opts?.optional === true) return false;
     throw new Error(`Field ${path} does not take focus`);
   };
 
-  const addField: ContextValue["addField"] = (target) => {
+  const addStatusDisplay: ContextValue["addStatusDisplay"] = (target) => {
     const path = String(target);
-    const fields = fieldsRef.current;
-    fields.set(path, (fields.get(path) ?? 0) + 1);
+    const displays = statusDisplaysRef.current;
+    displays.set(path, (displays.get(path) ?? 0) + 1);
     return () => {
-      const count = (fields.get(path) ?? 1) - 1;
-      if (count === 0) fields.delete(path);
-      else fields.set(path, count);
+      const count = (displays.get(path) ?? 1) - 1;
+      if (count === 0) displays.delete(path);
+      else displays.set(path, count);
     };
   };
 
@@ -313,7 +313,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     addCheck,
     focus,
     addFocusHandler,
-    addField,
+    addStatusDisplay,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

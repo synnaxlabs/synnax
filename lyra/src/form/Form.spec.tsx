@@ -483,6 +483,20 @@ describe("Form", () => {
       const { result } = renderHook(() => Form.useContext(), { wrapper });
       expect(result.current.focus(path.name, { optional: true })).toBe(false);
     });
+    it("should take focus at a status display only while it is mounted", () => {
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useStatusDisplay(path.nested);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      const ctx = result.current;
+      expect(ctx.focus(path.nested, { optional: true })).toBe(true);
+      expect(ctx.focus(path.nested.ssn, { optional: true })).toBe(false);
+      unmount();
+      expect(ctx.focus(path.nested, { optional: true })).toBe(false);
+    });
     it("should keep a newer handler when an older one is removed", () => {
       const { result } = renderHook(() => Form.useContext(), { wrapper });
       const older = vi.fn();

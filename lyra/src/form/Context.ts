@@ -108,11 +108,11 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   addCheck: (path: deep.Target<unknown>, schema: z.ZodType) => destructor.Destructor;
   /**
    * Asks the part of the form that shows the path to take focus: a handler at the path,
-   * else a field at the path, else the nearest handler above the path. A handler
-   * decides what focus means: a select can open its list, and a list can select the
-   * entry that the path names.
+   * else a status display at the path, else the nearest handler above the path. A
+   * handler decides what focus means: a select can open its list, and a list can select
+   * the entry that the path names.
    *
-   * @returns whether a handler or a field took focus.
+   * @returns whether a handler or a status display took focus.
    * @throws {Error} if nothing takes focus and the call is not optional.
    */
   focus: (path: deep.Target<unknown>, opts?: FocusOptions) => boolean;
@@ -127,12 +127,12 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
     handler: (path: string) => void,
   ) => destructor.Destructor;
   /**
-   * Adds a field that shows the status at the path, so {@link ContextValue.focus} finds
-   * it.
+   * Adds a status display: a part of the form that shows the status at the path, so
+   * {@link ContextValue.focus} finds it.
    *
-   * @returns a function that removes the field.
+   * @returns a function that removes the status display.
    */
-  addField: (path: deep.Target<unknown>) => destructor.Destructor;
+  addStatusDisplay: (path: deep.Target<unknown>) => destructor.Destructor;
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];
