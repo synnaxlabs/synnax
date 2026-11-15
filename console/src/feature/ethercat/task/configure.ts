@@ -126,7 +126,7 @@ export const fillStartupParameters = (
     const parameters: ethercat.StartupParameter[] = [];
     for (const input of inputs)
       if (entries.some((e) => input.entries.some((a) => sameAddress(a, e))))
-        parameters.push(...fill(input.settings, prior));
+        parameters.push(...fill(input.settings, prior).values);
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;

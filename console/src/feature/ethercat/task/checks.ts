@@ -118,7 +118,7 @@ const settingProblem = (
   const input = findInput(slave.properties.settings, ch);
   if (input == null) return null;
   const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
-  const [problem] = check(input, fill(input.settings, prior));
+  const [problem] = check(input, fill(input.settings, prior).values);
   if (problem == null) return null;
   const address = ethercat.formatAddress(ch);
   return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
