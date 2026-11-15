@@ -12,11 +12,13 @@ import { cssWidth, type Measure, measure, px, sum } from "@/tag/fold";
 
 const TAG = CSS.B("tag");
 const MORE = CSS.BE("tags", "more");
-const LAST = CSS.BE("tags", "last");
-const DOTS = CSS.BM("tags", "dots");
-const EMPTY = CSS.BM("tags", "empty");
-const ENTERING = CSS.BM("tags", "entering");
-const MEASURING = CSS.BM("tags", "measuring");
+// React owns class names and rewrites them on render, so the step marks its state with
+// data attributes instead.
+const LAST = "data-last";
+const DOTS = "data-dots";
+const EMPTY = "data-empty";
+const ENTERING = "data-entering";
+const MEASURING = "data-measuring";
 const HIDDEN = "data-hidden";
 const STACKED = "--lyra-tags-stacked";
 const STACK_GAP = "--lyra-tags-stack-gap";
@@ -60,8 +62,9 @@ const moreOf = (el: HTMLElement): HTMLElement | undefined =>
 const expand = (el: HTMLElement): void => {
   const more = moreOf(el);
   if (more != null) delete more.dataset.count;
-  el.classList.remove(DOTS, EMPTY);
-  el.classList.add(MEASURING);
+  el.removeAttribute(DOTS);
+  el.removeAttribute(EMPTY);
+  el.toggleAttribute(MEASURING, true);
   el.style.setProperty(STACKED, "false");
   tagsOf(el).forEach((t) => t.removeAttribute(HIDDEN));
 };
@@ -255,7 +258,7 @@ export class Steps {
       const before = this.fits.get(el)?.tags.split("\n");
       if (before == null) return;
       tagsOf(el).forEach((t) => {
-        if (!before.includes(t.textContent ?? "")) t.classList.add(ENTERING);
+        if (!before.includes(t.textContent ?? "")) t.toggleAttribute(ENTERING, true);
       });
     });
     const template = this.template;
@@ -273,7 +276,7 @@ export class Steps {
       // A hidden group measures once it shows, and its resize refits it.
       if (cssWidth(el) > 0) this.fits.set(el, fit(el));
     });
-    changed.forEach((el) => el.classList.remove(MEASURING));
+    changed.forEach((el) => el.removeAttribute(MEASURING));
     unseen.forEach((el) => {
       const f = this.fits.get(el);
       if (f == null || f.measures.length === 0) return;
@@ -331,11 +334,11 @@ const write = (
   const fits = `${full(f, shown, count)}px`;
   if (el.style.getPropertyValue("--lyra-tags-fit") !== fits)
     el.style.setProperty("--lyra-tags-fit", fits);
-  el.classList.toggle(DOTS, shown === 0);
-  el.classList.toggle(EMPTY, shown === 0 && f.frame + dots > room);
+  el.toggleAttribute(DOTS, shown === 0);
+  el.toggleAttribute(EMPTY, shown === 0 && f.frame + dots > room);
   tags.forEach((t, i) => {
     t.toggleAttribute(HIDDEN, i >= shown);
-    t.classList.toggle(LAST, overlap && i === shown - 1);
+    t.toggleAttribute(LAST, overlap && i === shown - 1);
   });
   const more = moreOf(el);
   if (more == null) return;

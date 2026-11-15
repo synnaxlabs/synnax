@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { renderThemed } from "@/styletest";
@@ -156,5 +157,18 @@ describe("Stepped tags", () => {
       .slice(0, 3)
       .map((t) => getComputedStyle(t).display);
     expect(dots).toEqual(["none", "none", "none"]);
+  });
+
+  it("should keep a pressed group on the shared step", async () => {
+    const [all, three] = await renderStepped(90);
+    await expect.poll(() => count(all)).toBe(String(LABELS.length));
+    // A press renders the group with a new class name, as a dialog trigger does.
+    const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+    await userEvent.click(tags);
+    await userEvent.click(tags);
+    await new Promise(requestAnimationFrame);
+    expect(shown(all)).toEqual(LABELS.slice(0, 3));
+    expect(shown(three)).toEqual(LABELS.slice(0, 3));
+    expect(count(all)).toBe(String(LABELS.length));
   });
 });

@@ -23,9 +23,11 @@ export interface Hidden {
 
 const TAG = CSS.B("tag");
 const MORE = CSS.BE("tags", "more");
-const STACKED = CSS.BM("tags", "stacked");
-const LAST = CSS.BE("tags", "last");
-const MEASURING = CSS.BM("tags", "measuring");
+// React owns class names and rewrites them on render, so the fold marks its state with
+// data attributes instead.
+const STACKED = "data-stacked";
+const LAST = "data-last";
+const MEASURING = "data-measuring";
 const STACKED_VAR = "--lyra-tags-stacked";
 const STACK_GAP = "--lyra-tags-stack-gap";
 // The room the count takes, in rem: with the word "labels" when tags show beside it,
@@ -206,9 +208,9 @@ export class Group {
       maxWidth: "none",
       flexShrink: "0",
     });
-    el.classList.remove(STACKED);
+    el.removeAttribute(STACKED);
     el.style.setProperty(STACKED_VAR, "false");
-    el.classList.add(MEASURING);
+    el.toggleAttribute(MEASURING, true);
     tags.forEach((tag) => (tag.style.display = ""));
     if (more != null) more.style.display = "none";
   }
@@ -236,7 +238,7 @@ export class Group {
     const { more } = this.parts();
     if (this.saved != null) Object.assign(el.style, this.saved);
     this.saved = null;
-    el.classList.remove(MEASURING);
+    el.removeAttribute(MEASURING);
     if (more != null) more.style.display = "";
   }
 
@@ -298,13 +300,13 @@ export class Group {
   write(plan: Plan): void {
     const { el } = this;
     const { tags, more } = this.parts();
-    el.classList.toggle(STACKED, plan.stacked);
+    el.toggleAttribute(STACKED, plan.stacked);
     el.style.setProperty(STACKED_VAR, String(plan.stacked));
     // The count unmounts on the next render. Until then, it must not take room.
     if (more != null) more.style.display = plan.count === "none" ? "none" : "";
     tags.forEach((tag, i) => {
       tag.style.display = i < plan.shown ? "" : "none";
-      tag.classList.toggle(LAST, plan.stacked && i === plan.shown - 1);
+      tag.toggleAttribute(LAST, plan.stacked && i === plan.shown - 1);
     });
     this.onHidden(tags.slice(plan.shown).map(describe), plan.count);
   }
