@@ -457,8 +457,10 @@ const write = (
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
+  // With no tags shown, the count names the total where it has room, else shows "+N".
+  const total = shown === 0 && f.frame + alone <= room;
   el.toggleAttribute(STACKED, overlap);
-  el.toggleAttribute(EMPTY, shown === 0 && f.frame + alone > room);
+  el.toggleAttribute(EMPTY, shown === 0 && f.frame + count > room);
   set(el, "--lyra-tags-gap", `${f.gap}px`);
   set(el, "--lyra-tags-dots", String(Math.min(DOTS, tags.length - shown)));
   tags.forEach((t, i) => {
@@ -469,7 +471,7 @@ const write = (
   });
   const more = moreOf(el);
   if (more == null) return;
-  more.toggleAttribute(ALONE, shown === 0);
+  more.toggleAttribute(ALONE, total);
   const hidden = shown < tags.length ? String(tags.length - shown) : undefined;
   if (more.dataset.count === hidden) return;
   if (hidden == null) delete more.dataset.count;

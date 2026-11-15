@@ -70,6 +70,19 @@ const dots = (frame: HTMLElement): string[] =>
     .filter((tag) => !hasName(tag))
     .map((tag) => tag.textContent ?? "");
 
+// Whether the count's face, which reaches back under its dots, starts inside its group.
+const faceInside = (frame: HTMLElement): boolean => {
+  const tags = frame.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+  const more = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+  const face =
+    more.getBoundingClientRect().left +
+    parseFloat(getComputedStyle(more, "::before").left);
+  const inner =
+    tags.getBoundingClientRect().left +
+    parseFloat(getComputedStyle(tags).borderLeftWidth);
+  return face >= inner - 0.5;
+};
+
 const overflows = (frame: HTMLElement): boolean => {
   const tags = frame.querySelector(`.${CSS.B("tags")}`)!;
   return tags.getBoundingClientRect().right > frame.getBoundingClientRect().right + 0.5;
@@ -114,6 +127,17 @@ describe("Tags", () => {
     frame.style.width = "300px";
     await expect.poll(() => named(frame)).toEqual(direct);
   });
+
+  it.each([110, 160])(
+    "should keep the count's face inside the group with no tag shown at %ipx",
+    async (width) => {
+      const frame = await renderTags();
+      frame.style.width = `${width}px`;
+      await expect.poll(() => named(frame)).toEqual([]);
+      await expect.poll(() => count(frame)).not.toBeNull();
+      expect(faceInside(frame)).toBe(true);
+    },
+  );
 
   it("should center a tag's close over its dot", async () => {
     const { container } = await renderThemed(
@@ -270,8 +294,16 @@ describe("Stepped tags", () => {
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
   });
 
-  it("should hide the tags of a group too narrow for its dots and total", async () => {
-    const [all] = await renderStepped(90);
+  it("should show the first tags as dots and a count when the total does not fit", async () => {
+    const [all] = await renderStepped(110);
+    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
+    expect(named(all)).toEqual([]);
+    expect(dots(all)).toEqual(LABELS.slice(0, 3));
+    expect(overflows(all)).toBe(false);
+  });
+
+  it("should hide the tags of a group too narrow for its dots and count", async () => {
+    const [all] = await renderStepped(60);
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
     const more = all.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
     await expect.poll(() => getComputedStyle(more).visibility).toBe("hidden");

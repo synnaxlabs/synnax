@@ -206,6 +206,11 @@
         margin-left: calc(1.5rem - 2px);
     }
 
+    /* With no tag before it, the count's face starts where a first tag would. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-dot]:first-child {
+        margin-left: calc(1.5rem + 2px);
+    }
+
     /* Its own hover brightens the count as one unit. Its face lies under its dots, so
        they hover it too. */
     & > .lyra-tags__more[data-count]:hover {
