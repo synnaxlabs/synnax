@@ -437,7 +437,7 @@ const validateTopics = (ctx: z.core.ParsePayload<ICDReadEntry[]>) => {
     });
   const seen = new Set<string>();
   ctx.value.forEach(({ disabled, topic }, i) => {
-    if (disabled) return;
+    if (disabled || topic === "") return;
     if (seen.has(topic))
       ctx.issues.push({
         code: "custom",

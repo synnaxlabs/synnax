@@ -1005,6 +1005,16 @@ describe("deployICDReadConfigZ", () => {
     ]);
   });
 
+  it("should not report two empty topics as a repeat", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry(""), icdEntry("")),
+    );
+    expect(issuesOf(result)).toEqual([
+      { message: "Topic is required", path: "entries.0.topic" },
+      { message: "Topic is required", path: "entries.1.topic" },
+    ]);
+  });
+
   it("should reject a wildcard topic", () => {
     const result = MQTT.Task.deployICDReadConfigZ.safeParse(
       icdConfig(icdEntry("plant/+/temp")),
