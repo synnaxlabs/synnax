@@ -46,7 +46,7 @@ export const nodeText = (node: ReactNode): string => {
 
 /**
  * @returns whether an item with the given text shows under the filter of its menu.
- * @param text - The item's text. Defaults to the plain text of its children.
+ * @param text - The item's text.
  */
 export const useMatches = (text: string): boolean => {
   const term = useFilterContext();
