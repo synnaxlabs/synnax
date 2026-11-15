@@ -41,6 +41,9 @@ one job. Pick the step by its job:
 Non-modal dialogs and menus use `--pluto-gray-l1-l2`, halfway between l1 and l2. Modals
 keep the modal surface.
 
+A card on an l1 page uses l0, the same as the shell islands. Settings on the project
+splash is one: its page is l1, so its nav and cards are l0.
+
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
 outlined button) has fill l2 and border l4, and its caret has the disabled text color.
@@ -106,6 +109,9 @@ lighter step or the base step in dark mode.
   docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
 - The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
   goes in the left bar.
+- The islands of a pre-workspace surface, such as login or the project splash, are not
+  the top bar. Their right end is the Core island, then the island of the theme toggle.
+  On the project splash, the Settings gear shares the island of the theme toggle.
 
 ### Toolbar search
 
