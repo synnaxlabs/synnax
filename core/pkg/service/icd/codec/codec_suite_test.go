@@ -19,7 +19,7 @@ import (
 
 func TestCodec(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Codec Suite")
+	RunSpecs(t, "Codec Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
