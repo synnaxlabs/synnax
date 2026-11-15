@@ -774,6 +774,32 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
                 list
             );
         }
+        // DIAG: SYNNAX_DIAG_RESET_ESC=1 clears the sync managers and FMMUs of the slave
+        // before the reconfig, as the first start does for every slave.
+        if (const char *v = std::getenv("SYNNAX_DIAG_RESET_ESC");
+            v != nullptr && v[0] == '1') {
+            this->record(pos).state = EC_STATE_INIT;
+            this->api->writestate(pos);
+            std::string errs;
+            for (uint16_t sm = 0; sm < 4; ++sm)
+                if (const auto err = this->write_dc_register<uint64_t>(
+                        pos,
+                        static_cast<uint16_t>(0x0800 + 8 * sm),
+                        0
+                    ))
+                    errs += err.data + "; ";
+            for (uint16_t f = 0; f < 6; ++f)
+                if (const auto err = this->write_dc_register<uint64_t>(
+                        pos,
+                        static_cast<uint16_t>(0x0600 + 8 * f),
+                        0
+                    ))
+                    errs += err.data + "; ";
+            LOG(
+                WARNING
+            ) << "[ethercat] DIAG cleared the sync managers and FMMUs of slave "
+              << pos << ": " << (errs.empty() ? "ok" : errs);
+        }
         const auto reached = this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         LOG(WARNING) << std::format(
             "[ethercat] DIAG reconfig slave {} reached 0x{:02X}, startup failed {}, "
