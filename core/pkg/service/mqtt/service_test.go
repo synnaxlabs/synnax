@@ -95,6 +95,7 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring(s.Type() + newer)))
 			},
 			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),
+			Entry("icd read", func(s *mqtt.Service) config.Store { return s.ICDRead }),
 			Entry("write", func(s *mqtt.Service) config.Store { return s.Write }),
 			Entry("scan", func(s *mqtt.Service) config.Store { return s.Scan }),
 			Entry("edge", func(s *mqtt.Service) config.Store { return s.Edge }),

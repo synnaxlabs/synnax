@@ -116,7 +116,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field temp"
+      "error": "field temp: unknown enum label \"x\""
     },
     {
       "document": {
@@ -127,7 +127,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "1.5 is not an integer"
+      "error": "field count: 1.5 is not an integer"
     },
     {
       "document": {
@@ -138,7 +138,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field total"
+      "error": "field total: -1 is negative"
     },
     {
       "document": {
@@ -149,7 +149,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "expected a boolean"
+      "error": "field armed: expected a boolean, got number 1"
     },
     {
       "document": {
@@ -160,7 +160,7 @@
         "level": "MID",
         "raw": 1
       },
-      "error": "unknown enum label"
+      "error": "field level: unknown enum label \"MID\""
     },
     {
       "document": {
@@ -171,11 +171,11 @@
         "level": 1,
         "raw": 2.5
       },
-      "error": "2.5 is not an integer"
+      "error": "field raw: 2.5 is not an integer"
     },
     {
       "text": "not json",
-      "error": "invalid"
+      "error": "invalid character 'o' in literal null"
     }
   ]
 }

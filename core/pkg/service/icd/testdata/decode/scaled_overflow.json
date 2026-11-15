@@ -25,7 +25,7 @@
       "document": {
         "v": 1e308
       },
-      "error": "not finite"
+      "error": "field v: +Inf is not finite"
     }
   ]
 }

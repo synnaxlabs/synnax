@@ -100,7 +100,7 @@
         "id": "nope",
         "blob": ""
       },
-      "error": "invalid UUID"
+      "error": "field id: invalid UUID \"nope\""
     }
   ]
 }

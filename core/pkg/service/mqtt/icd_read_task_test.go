@@ -33,19 +33,9 @@ import (
 // jsonField returns a JSON field of an ICD message.
 func jsonField(name, pointer string, v icd.JSONFieldVariant) icd.JSONField {
 	base := icd.JSONBaseField{Key: uuid.New(), Name: name, Scale: 1, Pointer: pointer}
-	switch f := v.(type) {
-	case icd.FloatJSONField:
-		f.JSONBaseField = base
-		return icd.JSONField{Variant: f}
-	case icd.StringJSONField:
-		f.JSONBaseField = base
-		return icd.JSONField{Variant: f}
-	case icd.TimestampJSONField:
-		f.JSONBaseField = base
-		return icd.JSONField{Variant: f}
-	}
-	Fail("unknown JSON field variant")
-	return icd.JSONField{}
+	f := icd.JSONField{Variant: v}
+	f.SetBase(base)
+	return f
 }
 
 func jsonMessage(
@@ -227,10 +217,10 @@ var _ = Describe("ICD read task", func() {
 			return err
 		}
 
-		// format is an ICD message with a timestamp and two floats, and channels on two
-		// indexes to bind them to.
+		// format is an ICD of a Status message with a timestamp and two floats and an
+		// Event message with one float, and channels on two indexes to bind them to.
 		type format struct {
-			m          icd.Message
+			m, n       icd.Message
 			ic         icd.ICD
 			idx, other channel.Channel
 			data       []channel.Channel
@@ -244,11 +234,15 @@ var _ = Describe("ICD read task", func() {
 				jsonField("temp", "/temp", icd.FloatJSONField{}),
 				jsonField("pressure", "/pressure", icd.FloatJSONField{}),
 			)
+			n := jsonMessage("Event", nil,
+				jsonField("code", "/code", icd.FloatJSONField{}),
+			)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 			_, other := createIndexed(ctx, telem.Float64T)
 			return format{
 				m:     m,
-				ic:    createICD(ctx, m),
+				n:     n,
+				ic:    createICD(ctx, m, n),
 				idx:   idx,
 				other: other[0],
 				data:  data,
@@ -289,7 +283,7 @@ var _ = Describe("ICD read task", func() {
 			Entry("a channel that does not exist", func(f format) []map[string]any {
 				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
 				return status(f, readMessage(f.m, missing))
-			}, "does not exist"),
+			}, "message Status: channel 1073741824 does not exist"),
 			Entry("channels on two indexes", func(f format) []map[string]any {
 				return status(f, readMessage(
 					f.m, binding(f.m, 1, f.data[0]), binding(f.m, 2, f.other),
@@ -325,18 +319,27 @@ var _ = Describe("ICD read task", func() {
 					icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
 				}
 			}, "write to the same channel"),
+			Entry("two messages on one index", func(f format) []map[string]any {
+				return []map[string]any{icdEntry(
+					"plant/status", f.ic,
+					readMessage(f.m, binding(f.m, 1, f.data[0])),
+					readMessage(f.n, binding(f.n, 0, f.data[1])),
+				)}
+			}, "write to the same channel"),
 		)
 
 		It("Should reject an ICD that does not exist", func(ctx SpecContext) {
 			m := jsonMessage("Status", nil, jsonField("t", "/t", icd.FloatJSONField{}))
 			_, data := createIndexed(ctx, telem.Float64T)
+			missing := icd.ICD{Key: uuid.New()}
 			entry := icdEntry(
-				"plant/status", icd.ICD{Key: uuid.New()},
-				readMessage(m, binding(m, 0, data[0])),
+				"plant/status", missing, readMessage(m, binding(m, 0, data[0])),
 			)
 			Expect(configureErr(ctx, readConfig(dev, entry))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("does not exist")),
+				MatchError(ContainSubstring(
+					"icd: ICD %s does not exist", missing.Key,
+				)),
 			))
 		})
 

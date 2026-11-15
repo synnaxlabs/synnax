@@ -79,20 +79,21 @@ type topicSubscription struct {
 	retainedIgnored bool
 }
 
-func (s topicSubscription) subscribed() topicSubscription { return s }
+func (s topicSubscription) subscription() topicSubscription { return s }
 
 // topicSample holds the samples that one message on a topic gives.
 type topicSample struct {
 	// index is the index channel of keys. Zero for virtual channels.
-	index  channel.Key
-	keys   channel.Keys
+	index channel.Key
+	keys  channel.Keys
+	// series can share memory that the next convert of the topic overwrites.
 	series []telem.Series
 	stamp  telem.TimeStamp
 }
 
 // topicReader converts the messages of one subscribed topic into samples.
 type topicReader interface {
-	subscribed() topicSubscription
+	subscription() topicSubscription
 	convert(msg message) (topicSample, error)
 }
 
@@ -440,7 +441,7 @@ func (r *reader) subscribe(ctx context.Context) error {
 		return err
 	}
 	for _, t := range r.topics {
-		sub := t.subscribed()
+		sub := t.subscription()
 		if err := r.attachment.subscribe(ctx, sub.topic, sub.qos); err != nil {
 			return err
 		}
@@ -639,7 +640,7 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if !ok {
 		return
 	}
-	sub := t.subscribed()
+	sub := t.subscription()
 	if msg.retained && sub.retainedIgnored {
 		return
 	}

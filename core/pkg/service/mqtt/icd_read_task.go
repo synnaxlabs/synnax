@@ -203,10 +203,7 @@ func (m *icdMessage) sample(received telem.TimeStamp) topicSample {
 			s.stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
 			continue
 		}
-		s.series = append(s.series, telem.Series{
-			DataType: m.dataTypes[i],
-			Data:     append([]byte(nil), data...),
-		})
+		s.series = append(s.series, telem.Series{DataType: m.dataTypes[i], Data: data})
 	}
 	if m.index != 0 {
 		s.series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(s.stamp))
@@ -279,7 +276,7 @@ func (f *Factory) configureICDRead(
 		ins:        f.cfg.Child(t.Key.String()),
 	}
 	var (
-		// written names the topic that writes to each channel.
+		// written names the message that writes to each channel.
 		written    = make(map[channel.Key]string)
 		writerKeys channel.Keys
 		indexes    channel.Keys
@@ -304,26 +301,23 @@ func (f *Factory) configureICDRead(
 			)
 		}
 		src.topics[topic.topic] = topic
-		// Two topics on one index would race for the rising order of its timestamps.
-		// The messages of one topic share the order of the topic.
+		// Two messages on one index would race for the rising order of its timestamps,
+		// or write frames that lack the channels of the other.
 		for _, m := range topic.messages {
+			name := "message " + m.name + " of topic " + topic.topic
 			for _, key := range m.keys {
-				other, ok := written[key]
-				if key == m.index && other == topic.topic {
-					continue
-				}
-				if ok {
+				if other, ok := written[key]; ok {
 					return nil, cfg.AutoStart, errors.Wrapf(
 						validate.ErrValidation,
-						"entries: topics %s and %s write to the same channel %d",
-						other, topic.topic, key,
+						"entries: %s and %s write to the same channel %d",
+						other, name, key,
 					)
 				}
-				written[key] = topic.topic
+				written[key] = name
 				writerKeys = append(writerKeys, key)
-				if key == m.index {
-					indexes = append(indexes, key)
-				}
+			}
+			if m.index != 0 {
+				indexes = append(indexes, m.index)
 			}
 		}
 	}
