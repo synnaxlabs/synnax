@@ -67,8 +67,8 @@
 }
 
 .console-shell__card.console--wide {
-    width: min(960px, 100vw - 24rem);
-    height: min(640px, 100vh - 24rem);
+    width: clamp(420px, 100vw - 24rem, 960px);
+    height: clamp(480px, 100vh - 24rem, 640px);
 }
 
 /* Keeps sub-250ms transients faint by fading them in. */

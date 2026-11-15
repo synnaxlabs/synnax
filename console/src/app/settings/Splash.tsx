@@ -11,12 +11,17 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import { type ReactElement, Suspense } from "react";
 
-import { Settings } from "@/app/settings/Settings";
 import { type Project } from "@/feature/project";
 import { Shell } from "@/feature/shell";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
+
+const Settings = Panel.lazyComponent(
+  () => import("@/app/settings/Settings"),
+  "Settings",
+);
 
 /** Settings in place of the project splash, for a session with no project. */
 export const Splash = ({ onBack }: Project.SettingsProps): ReactElement => {
@@ -30,7 +35,9 @@ export const Splash = ({ onBack }: Project.SettingsProps): ReactElement => {
             Projects
           </Button.Button>
         </Header.Header>
-        <Settings />
+        <Suspense fallback={null}>
+          <Settings />
+        </Suspense>
       </Flex.Box>
     </Shell.Frame>
   );

@@ -28,10 +28,10 @@ export interface GuardProps extends PropsWithChildren {
   Settings?: ComponentType<SettingsProps>;
 }
 
-export const Guard = ({ children, Settings }: GuardProps): ReactNode => {
-  const selected = Session.Project.useSelectIsAnySelected();
+type UnselectedProps = Pick<GuardProps, "Settings">;
+
+const Unselected = ({ Settings }: UnselectedProps): ReactNode => {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  if (selected) return children;
   if (Settings != null && settingsOpen)
     return <Settings onBack={() => setSettingsOpen(false)} />;
   return (
@@ -39,4 +39,10 @@ export const Guard = ({ children, Settings }: GuardProps): ReactNode => {
       onOpenSettings={Settings != null ? () => setSettingsOpen(true) : undefined}
     />
   );
+};
+
+export const Guard = ({ children, Settings }: GuardProps): ReactNode => {
+  const selected = Session.Project.useSelectIsAnySelected();
+  if (selected) return children;
+  return <Unselected Settings={Settings} />;
 };
