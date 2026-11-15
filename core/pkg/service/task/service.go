@@ -281,56 +281,53 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	if err != nil {
 		return err
 	}
-	var (
-		tasks    []Task
-		reported []*Status
-	)
-	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if err = s.NewRetrieve().Where(MatchRacks(rackKey)).
+	// The read and the write share one transaction, so no status written after the read
+	// is overwritten.
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var tasks []Task
+		if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 			Entries(&tasks).
-			Exec(ctx, snap); err != nil {
+			Exec(ctx, tx); err != nil {
 			return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 		}
-		reported, err = s.cfg.Status.Join[StatusDetails](
+		reported, err := s.cfg.Status.Join[StatusDetails](
 			ctx,
-			snap,
+			tx,
 			ResourceIDsFromTasks(tasks),
 		)
-		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
-	}); err != nil {
-		return err
-	}
-	statuses := make([]Status, 0, len(tasks))
-	for i, tsk := range tasks {
-		// A task without a status has never reported running, so it gets no copy.
-		prev := reported[i]
-		if prev == nil || !prev.Details.Running {
-			continue
+		if err != nil {
+			return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 		}
-		// A silent rack does not undo the deploy the Driver reported, so the config
-		// hash is carried across.
-		statuses = append(statuses, Status{
-			Key:     prev.Key,
-			Owner:   prev.Owner,
-			Time:    telem.Now(),
-			Name:    tsk.Name,
-			Variant: rackStat.Variant,
-			Message: "Task stopped responding",
-			Description: fmt.Sprintf(
-				"The Core lost contact with the Driver on %s while the task was "+
-					"running.",
-				rackStat.Name,
-			),
-			Details: StatusDetails{
-				ConfigHash: prev.Details.ConfigHash,
-				Rack:       rackKey,
-			},
-		})
-	}
-	if len(statuses) == 0 {
-		return nil
-	}
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		statuses := make([]Status, 0, len(tasks))
+		for i, tsk := range tasks {
+			// A task without a status has never reported running, so it gets no copy.
+			prev := reported[i]
+			if prev == nil || !prev.Details.Running {
+				continue
+			}
+			// A silent rack does not undo the deploy the Driver reported, so the config
+			// hash is carried across.
+			statuses = append(statuses, Status{
+				Key:     prev.Key,
+				Owner:   prev.Owner,
+				Time:    telem.Now(),
+				Name:    tsk.Name,
+				Variant: rackStat.Variant,
+				Message: "Task stopped responding",
+				Description: fmt.Sprintf(
+					"The Core lost contact with the Driver on %s while the task was "+
+						"running.",
+					rackStat.Name,
+				),
+				Details: StatusDetails{
+					ConfigHash: prev.Details.ConfigHash,
+					Rack:       rackKey,
+				},
+			})
+		}
+		if len(statuses) == 0 {
+			return nil
+		}
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	})
 }
