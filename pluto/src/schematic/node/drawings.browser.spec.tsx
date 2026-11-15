@@ -53,6 +53,7 @@ const PAINT = [
   "stroke-dasharray",
   "vector-effect",
 ];
+const TEXT = ["font", "text-anchor", "dominant-baseline"];
 
 interface DrawingProps {
   orientation: location.Outer;
@@ -138,7 +139,7 @@ const geometry = (el: Element): string =>
     .join(" ");
 
 // Font hinting changes glyph widths on each platform, so text records its anchor and
-// font, not its box.
+// the properties that place and size its glyphs, not its box.
 const place = (el: Element, origin: DOMRect, style: CSSStyleDeclaration): string => {
   if (!(el instanceof SVGTextElement)) return box(el, origin);
   const matrix = el.getScreenCTM();
@@ -148,7 +149,7 @@ const place = (el: Element, origin: DOMRect, style: CSSStyleDeclaration): string
     el.y.baseVal.getItem(0).value,
   ).matrixTransform(matrix);
   const anchor = [x - origin.left, y - origin.top].map(round).join(" ");
-  return `${anchor} ${style.fontSize} ${style.fontFamily}`;
+  return [anchor, ...TEXT.map((p) => style.getPropertyValue(p))].join(" ");
 };
 
 const paint = (el: Element, origin: DOMRect): string => {
