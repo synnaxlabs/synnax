@@ -2645,6 +2645,86 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should alias a name that two modules export", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Color struct {
+						r uint8
+
+						@ts hand
+						@ts include "x/ts/src/color/color"
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						light color.Color
+					}
+				`)
+				loader.Add("schemas/synnax/look", `
+					import "schemas/synnax/color"
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						raw  color.Color
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
+					ToContain(
+						`import { color as xcolor } from "@synnaxlabs/x";`,
+						`import { color } from "@/color";`,
+						"fill: color.namedZ,",
+						"raw: xcolor.colorZ,",
+					)
+				ExpectContent(resp, "client/ts/src/color/types.gen.ts").
+					ToContain(`import { colorZ } from "@synnaxlabs/x";`)
+			})
+
+			It("Should fail when two modules end in the name", func(ctx SpecContext) {
+				loader.Add("schemas/a/color", `
+					@ts output "client/ts/src/a/color"
+
+					Color struct {
+						r uint8
+					}
+				`)
+				loader.Add("schemas/b/color", `
+					@ts output "client/ts/src/b/color"
+
+					Named struct {
+						name string
+					}
+				`)
+				req := MustGenerateRequest(ctx, `
+					import "schemas/a/color"
+					import "schemas/b/color"
+
+					@ts output "client/ts/src/look"
+
+					Look struct {
+						fill color.Named
+						raw  color.Color
+					}
+				`, "look", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					"failed to generate client/ts/src/look: unresolvable import " +
+						"name conflicts in client/ts/src/look: " +
+						"map[color:[@/a/color @/b/color]]",
+				))
+			})
+		})
+
 		Context("reference into an ancestor namespace", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/ranger", `

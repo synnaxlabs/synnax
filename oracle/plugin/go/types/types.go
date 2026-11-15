@@ -456,13 +456,13 @@ func generateGoFile(
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
-	// Two versions of one dependency derive the same alias. Rebind them by version
-	// and render again.
+	// Two versions of one dependency, or two packages with one name, derive the same
+	// alias. Rebind them and render again.
 	var conflicted []string
 	for _, paths := range conflicts {
 		conflicted = append(conflicted, paths...)
 	}
-	overrides := naming.VersionAliases(
+	overrides := naming.ImportAliases(
 		conflicted, resolveGoImportPath(outputPath, repoRoot),
 	)
 	content, conflicts, err = renderGoFile(

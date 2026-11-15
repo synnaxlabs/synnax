@@ -257,8 +257,10 @@ func (p *Plugin) generateFile(
 	if namespace != "" {
 		allNamespaceTypes := table.TypesInNamespace(namespace)
 		existingQNames := make(set.Set[string])
+		files := make(set.Set[string])
 		for _, t := range combinedTypes {
 			existingQNames.Add(t.QualifiedName)
+			files.Add(t.FilePath)
 		}
 		for _, t := range allNamespaceTypes {
 			// Synthetic inline variant payloads flatten into their variant
@@ -266,9 +268,11 @@ func (p *Plugin) generateFile(
 			if existingQNames.Contains(t.QualifiedName) || t.Synthetic {
 				continue
 			}
-			// Types routed to a different file by a per-type @cpp output
-			// override belong to that file, not this one.
-			if p := output.GetPath(t, "cpp"); p != "" && p != outputPath {
+			// A type belongs to the file its @cpp output names. One with no output
+			// belongs here only when its schema does, since two schemas with one file
+			// name share a namespace.
+			if p := output.GetPath(t, "cpp"); p != outputPath &&
+				(p != "" || !files.Contains(t.FilePath)) {
 				continue
 			}
 			combinedTypes = append(combinedTypes, t)

@@ -226,6 +226,35 @@ var _ = Describe("C++ Types Plugin", func() {
 			})
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should leave out the types of a schema with no C++ output", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@cpp output "x/cpp/color"
+					@go output  "x/go/color"
+
+					Color struct {
+						r uint8
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+
+					Named struct {
+						light color.Color
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, cppPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+				ExpectContent(resp, "x/cpp/color/types.gen.h").
+					ToContain("struct Color {").
+					ToNotContain("Named")
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct C++ type",
 				func(ctx SpecContext, oracleType, expectedFieldDecl string) {

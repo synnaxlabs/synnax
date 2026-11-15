@@ -289,6 +289,8 @@ func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	return false
 }
 
+// generateFile renders one types file. When two modules export a name that the file
+// imports, it renders the file again with aliases.
 func (p *Plugin) generateFile(
 	namespace string,
 	outputPath string,
@@ -298,10 +300,44 @@ func (p *Plugin) generateFile(
 	unions []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
+	content, conflicts, err := p.renderFile(
+		namespace, outputPath, structs, enums, typeDefs, unions, req, nil,
+	)
+	if err != nil || len(conflicts) == 0 {
+		return content, err
+	}
+	aliases := imports.Aliases(conflicts)
+	content, conflicts, err = p.renderFile(
+		namespace, outputPath, structs, enums, typeDefs, unions, req, aliases,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(conflicts) > 0 {
+		return nil, errors.Newf(
+			"unresolvable import name conflicts in %s: %v", outputPath, conflicts,
+		)
+	}
+	return content, nil
+}
+
+// renderFile renders one types file, importing each name that aliases holds under its
+// alias. It returns the names that two modules export to the file.
+func (p *Plugin) renderFile(
+	namespace string,
+	outputPath string,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
+	unions []resolution.Type,
+	req *plugin.Request,
+	aliases map[imports.Key]string,
+) ([]byte, map[string][]string, error) {
 	data := &templateData{
 		Namespace:       namespace,
 		OutputPath:      outputPath,
 		Request:         req,
+		aliases:         aliases,
 		Enums:           make([]enumData, 0, len(enums)),
 		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:     make([]sortedDeclData, 0),
@@ -408,18 +444,18 @@ func (p *Plugin) generateFile(
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(data.missingIncludes) > 0 {
 		missing := data.missingIncludes.Slice()
 		slices.Sort(missing)
-		return nil, errors.Newf(
+		return nil, nil, errors.Newf(
 			"types with no generated TypeScript declaration need a @ts include "+
 				"module: %s",
 			strings.Join(missing, ", "),
 		)
 	}
-	return buf.Bytes(), nil
+	return buf.Bytes(), data.Conflicts(), nil
 }
 
 func findFieldTypeOverride(
@@ -1302,13 +1338,19 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 	}
 	ident := casing.CamelAcronym(namespace)
 	if strings.HasPrefix(data.OutputPath, outputPath+"/") {
-		data.AddNamespaceImport(
-			paths.CalculateImport(data.OutputPath, outputPath+"/types.gen"),
-			ident,
-		)
+		path := paths.CalculateImport(data.OutputPath, outputPath+"/types.gen")
+		if alias, ok := data.aliases[imports.Key{Path: path, Name: ident}]; ok {
+			ident = alias
+		}
+		data.AddNamespaceImport(path, ident)
 		return ident
 	}
-	data.AddImport(paths.CalculateImport(data.OutputPath, outputPath), ident)
+	path := paths.CalculateImport(data.OutputPath, outputPath)
+	if alias, ok := data.aliases[imports.Key{Path: path, Name: ident}]; ok {
+		data.AddAliasedImport(path, ident, alias)
+		return alias
+	}
+	data.AddImport(path, ident)
 	return ident
 }
 
@@ -3092,6 +3134,8 @@ type templateData struct {
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no `@ts include` module.
 	missingIncludes set.Set[string]
+	// aliases holds the alias of each imported name that two modules export.
+	aliases map[imports.Key]string
 }
 
 type sortedDeclData struct {
