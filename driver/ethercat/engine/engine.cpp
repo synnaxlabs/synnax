@@ -620,7 +620,10 @@ void Engine::supervise() {
                     restarted.end()) {
                     LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
                               << this->iface << " restarted";
-                    this->restarts[restart_key(s.properties)] = now;
+                    this->restarts[restart_key(s.properties)] = {
+                        .at = now,
+                        .position = s.properties.position,
+                    };
                 }
         }
         std::ranges::sort(next.positions);
@@ -1418,18 +1421,25 @@ Engine::configure(const slave::Properties &slave, const Parameters &parameters) 
     if (lock_err) return lock_err;
     const auto [slaves, err] = this->rediscover_locked();
     if (err) return err;
-    const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
-        const auto &p = s.properties;
-        return p.vendor_id == slave.vendor_id && p.product_code == slave.product_code &&
-               p.serial == slave.serial &&
-               (slave.serial != 0 || p.position == slave.position);
-    });
-    if (found == slaves.end())
+    const slave::Identity identity{
+        .position = slave.position,
+        .vendor_id = slave.vendor_id,
+        .product_code = slave.product_code,
+        .serial = slave.serial,
+        .name = slave.name,
+    };
+    const auto position = slave::locate({identity}, slaves).front();
+    if (!position)
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
             slave.name + " is not on " + this->network_name +
                 ". Check its power and cabling."
         );
+    const auto found = std::ranges::find(
+        slaves,
+        *position,
+        [](const slave::DiscoveryResult &s) { return s.properties.position; }
+    );
     const auto [params, params_err] = parameters(*found);
     if (params_err) return params_err;
     if (params.empty()) return x::errors::NIL;
@@ -1496,12 +1506,29 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
     decltype(this->restarts) found;
     for (auto &slave: this->slaves) {
         const auto &props = slave.properties;
-        const auto key = restart_key(props);
-        const auto it = this->restarts.find(key);
+        auto key = restart_key(props);
+        auto it = this->restarts.find(key);
+        const bool unread = slave.status.serial_unread();
+        // An unread serial number differs from the read one, so a slave with one, or
+        // with one at its last discovery, is the slave of its model at its position.
+        if (unread || it == this->restarts.end())
+            if (const auto earlier = std::ranges::find_if(
+                    this->restarts,
+                    [&props, unread](const auto &entry) {
+                        return (unread || entry.second.unread) &&
+                               std::get<0>(entry.first) == props.vendor_id &&
+                               std::get<1>(entry.first) == props.product_code &&
+                               entry.second.position == props.position;
+                    }
+                );
+                earlier != this->restarts.end()) {
+                if (unread) key = earlier->first;
+                it = earlier;
+            }
         const auto at = it == this->restarts.end() || restarted.contains(props.position)
                           ? now
-                          : it->second;
-        found[key] = at;
+                          : it->second.at;
+        found[key] = {.at = at, .position = props.position, .unread = unread};
         slave.restarted_at = at;
     }
     this->restarts = std::move(found);

@@ -744,15 +744,11 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
         if (serial != 0) slave.properties.serial = serial;
         return;
     }
-    // A slave that answers the read with an error, such as an SDO abort or a mailbox
-    // error, has no CoE serial number. An emergency is no answer.
-    bool answered = false;
-    ec_errort err{};
-    while (this->api->poperror(err))
-        answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
-    if (!answered)
-        slave.status.serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, 0)
-                                        .data;
+    const auto failure = pop_sdo_failure(*this->api);
+    // Only a slave that refuses the read for good has no CoE serial number.
+    if (failure.permanent()) return;
+    slave.status
+        .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, failure).data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {

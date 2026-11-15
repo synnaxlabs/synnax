@@ -117,6 +117,23 @@ describe("Device.useFindModal", () => {
     expect(screen.queryByText(rejected.name)).toBeNull();
   });
 
+  it("should show the location that the hardware gives a found device", async () => {
+    const hardware: Device.Hardware = {
+      ...createHardware(),
+      formatLocation: (d) => `${d.location} given`,
+    };
+    const rack = await createRunningRack(client, hardware.key);
+    const dev = await createTestDevice(client, {
+      make: hardware.make,
+      configured: false,
+      rack: rack.key,
+      location: "en5.Slot 3",
+    });
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    await screen.findByText(dev.name);
+    expect(screen.getByText("en5.Slot 3 given")).toBeTruthy();
+  });
+
   it("should say the integration is off when a running Driver does not have it", async () => {
     const hardware = createHardware();
     await createRunningRack(client, uniqueName("integration"));

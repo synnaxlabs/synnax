@@ -124,8 +124,16 @@ private:
     using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
     /// @brief guards restarts, which the supervisor writes without mu.
     std::mutex restarts_mu;
-    /// @brief the time of the last restart of each slave in slaves.
-    std::map<RestartKey, x::telem::TimeStamp> restarts;
+    /// @brief the last restart of a slave, and its position at its last discovery.
+    struct Restart {
+        x::telem::TimeStamp at;
+        uint16_t position = 0;
+        /// @brief whether the serial number read of the slave failed at its last
+        /// discovery.
+        bool unread = false;
+    };
+    /// @brief the last restart of each slave in slaves.
+    std::map<RestartKey, Restart> restarts;
     /// @brief the process data of the running bus. Written only while the bus is
     /// stopped, so the cycle thread reads it without a lock.
     master::Image image;
