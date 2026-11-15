@@ -13,9 +13,9 @@
     flex-shrink: 0;
     width: 40rem;
     padding: 4rem 2rem;
+    margin: 2rem 0 2rem 2rem;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-right: var(--pluto-border);
 }
 
 .console-settings__nav-group + .console-settings__nav-group {
@@ -31,4 +31,12 @@
     min-width: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+}
+
+.console-settings__content {
+    gap: 6rem;
+    width: 100%;
+    max-width: 170rem;
+    padding: 8rem 6rem;
+    margin: 0 auto;
 }

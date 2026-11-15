@@ -10,7 +10,7 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/users/register`: click "Create user" on the Users page of Settings,
+ * Docs `console/users/register`: click "Register user" on the Users page of Settings,
  * fill the form and pick a role, and submit; the new user appears in the table.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
@@ -25,7 +25,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(1800);
 
-    await capture.clickButton(session, "Create user");
+    await capture.clickButton(session, "Register user");
     const name = page.getByPlaceholder("Richard Feynman").first();
     await session.waitFor(name);
     await session.hold(600);
