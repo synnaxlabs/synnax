@@ -32,12 +32,11 @@ var _ = Describe("Writer", func() {
 		s := table.Table{
 			Project: &proj.Key,
 			Name:    "test",
-			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a", "b"}}},
+			Rows: []table.Row{{Key: "r0", Size: 30, Cells: []table.Cell{
+				cell("a", textCfg("A")),
+				cell("b", textCfg("B")),
+			}}},
 			Columns: []table.Column{{Key: "c0", Size: 80}, {Key: "c1", Size: 100}},
-			Cells: map[string]table.CellConfig{
-				"a": textCfg("A"),
-				"b": textCfg("B"),
-			},
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &s)
@@ -60,11 +59,8 @@ var _ = Describe("Writer", func() {
 			t := table.Table{
 				Project: &proj.Key,
 				Name:    "test",
-				Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
+				Rows:    []table.Row{row("r0", 30, textCfg("hello"), "a")},
 				Columns: []table.Column{{Key: "c0", Size: 80}},
-				Cells: map[string]table.CellConfig{
-					"a": textCfg("hello"),
-				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil()))
@@ -315,7 +311,7 @@ var _ = Describe("Writer", func() {
 				res := retrieve(ctx, s.Key)
 				Expect(res.Name).To(Equal("multi"))
 				Expect(res.Rows).To(HaveLen(2))
-				Expect(res.Cells["c"]).To(Equal(valueCfg("psi")))
+				Expect(configOf(res, "c")).To(Equal(valueCfg("psi")))
 			},
 		)
 

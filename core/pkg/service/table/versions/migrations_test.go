@@ -72,15 +72,17 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewRetrieve[versions.Key, versions.Table]().
 				Where(gorp.MatchKeys[versions.Key, versions.Table](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Rows).To(Equal([]versions.Row{
-				{Key: "row-0", Size: 36, Cells: []string{"a", "b"}},
-				{Key: "row-1", Size: 40, Cells: []string{"c", "d"}},
-			}))
+			Expect(got.Rows).To(HaveLen(2))
+			Expect(got.Rows[0].Key).To(Equal("row-0"))
+			Expect(got.Rows[0].Cells).To(HaveLen(1))
+			Expect(got.Rows[0].Cells[0].Key).To(Equal("a"))
+			Expect(got.Rows[0].Cells[0].Config.Variant).To(HaveField("Value", "A"))
+			Expect(got.Rows[1].Key).To(Equal("row-1"))
+			Expect(got.Rows[1].Cells).To(BeEmpty())
 			Expect(got.Columns).To(Equal([]versions.Column{
 				{Key: "col-0", Size: 72},
 				{Key: "col-1", Size: 100},
 			}))
-			Expect(got.Cells).To(HaveKey("a"))
 			Expect(got.Validate()).To(Succeed())
 		},
 	)
@@ -103,7 +105,7 @@ var _ = Describe("Migrations", func() {
 			"v61_table_owner",
 			"v62_table_delete_range_owned",
 			"v62_table_drop_range",
-			"v61_color_alpha_byte",
+			"v62_color_bytes_cells_in_rows",
 		}))
 	})
 })

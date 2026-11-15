@@ -23,6 +23,27 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (c Cell) EncodeOrc(w *orc.Writer) error {
+	w.String(c.Key)
+	if err := c.Config.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (c *Cell) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if c.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = c.Config.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := cc.Variant.(type) {
 	case TextCellConfig:
@@ -245,6 +266,52 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (rv Row) EncodeOrc(w *orc.Writer) error {
+	w.String(rv.Key)
+	w.Float64(float64(rv.Size))
+	w.Bool(rv.Cells != nil)
+	if rv.Cells != nil {
+		w.Uint32(uint32(len(rv.Cells)))
+		for i := range rv.Cells {
+			if err := rv.Cells[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Row) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Size, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.Cells = make([]Cell, n)
+			for i := range rv.Cells {
+				if err = rv.Cells[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Table) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
 	w.String(t.Name)
@@ -262,16 +329,6 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 		w.Uint32(uint32(len(t.Columns)))
 		for i := range t.Columns {
 			if err := t.Columns[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	w.Bool(t.Cells != nil)
-	if t.Cells != nil {
-		w.Uint32(uint32(len(t.Cells)))
-		for key, val := range t.Cells {
-			w.String(key)
-			if err := val.EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -333,30 +390,6 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 				if err = t.Columns[i].DecodeOrc(r); err != nil {
 					return err
 				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			t.Cells = make(map[string]CellConfig, n)
-			for range n {
-				var key string
-				var val CellConfig
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				if err = val.DecodeOrc(r); err != nil {
-					return err
-				}
-				t.Cells[key] = val
 			}
 		}
 	}

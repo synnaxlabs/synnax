@@ -110,6 +110,7 @@ export const Row = memo(
           <VariantCell
             key={cellKey}
             resourceKey={resourceKey}
+            row={itemKey}
             cellKey={cellKey}
             x={cellXs[i]}
             y={y}
@@ -130,6 +131,7 @@ Row.displayName = "Row";
 
 interface VariantCellProps {
   resourceKey: table.Key;
+  row: string;
   cellKey: string;
   x: number;
   y: number;
@@ -153,6 +155,7 @@ interface VariantCellProps {
 const VariantCell = memo(
   ({
     resourceKey,
+    row,
     cellKey,
     x,
     y,
@@ -164,7 +167,7 @@ const VariantCell = memo(
     shiftX,
     shiftY,
   }: VariantCellProps): ReactElement | null => {
-    const cell = useCell({ key: resourceKey, cellKey });
+    const cell = useCell({ key: resourceKey, row, cellKey });
     const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
     const b = box.construct(
@@ -176,7 +179,7 @@ const VariantCell = memo(
     const handleChange = (next: table.CellConfig) => {
       dispatch({
         key: resourceKey,
-        actions: table.setChanged({ key: cellKey, base: cell, next }),
+        actions: table.setChanged({ row, key: cellKey, base: cell, next }),
       });
     };
     const Spec = Cell.resolveSpec(cell.variant);

@@ -16,10 +16,37 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 )
 
-// MigrateTable lifts a v5 table to v6, which stores every color alpha as a 0-255 byte.
+// MigrateTable lifts a v5 table to v6. Every color alpha becomes a 0-255 byte, and each
+// entry of the cells map moves into the row cell that references it. Pluto draws
+// nothing for a row cell with no config, so it is dropped. A cell that no row
+// references is dropped too.
 func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
-	return autoMigrateTable(ctx, old)
+	t, err := autoMigrateTable(ctx, old)
+	if err != nil {
+		return Table{}, err
+	}
+	for i, row := range old.Rows {
+		cells := make([]Cell, 0, len(row.Cells))
+		for _, key := range row.Cells {
+			cfg, ok := old.Cells[key]
+			if !ok {
+				continue
+			}
+			c := Cell{Key: key}
+			if c.Config, err = autoMigrateCellConfig(ctx, cfg); err != nil {
+				return Table{}, err
+			}
+			cells = append(cells, c)
+		}
+		t.Rows[i].Cells = cells
+	}
+	return t, nil
+}
+
+// MigrateRow copies the row. MigrateTable sets its cells from the cells map.
+func MigrateRow(ctx context.Context, old v5.Row) (Row, error) {
+	return autoMigrateRow(ctx, old)
 }
 
 // Migration lifts stored tables from v5 to v6.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateTable)
+var Migration = migrate.NewEntry("v62_color_bytes_cells_in_rows", MigrateTable)
