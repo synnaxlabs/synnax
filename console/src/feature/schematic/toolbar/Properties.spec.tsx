@@ -307,6 +307,7 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: ["g1", "n1", "n2"] },
       });
       await screen.findByText("Align");
