@@ -320,7 +320,9 @@ bound, a log precision, or the line plot X channel.
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
-  click on it opens the select beside it, as a click on a tag does.
+  click on it opens the select beside it, as a click on a tag does. The placeholder and
+  the add button take the select's size, medium by default, so they stand a step above
+  the small tags. A list item passes small, so the item keeps one height.
 - A click on a tag opens its select beside that tag. While the select is open, a change
   to the tags never moves it sideways. It keeps its first x until the window resizes. If
   the tag goes or folds into the count, the select stays where it is, in the window.

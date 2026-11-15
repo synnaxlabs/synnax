@@ -12,6 +12,7 @@ import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest"
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
+import { type Component } from "@/component";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -312,6 +313,8 @@ interface ChipsOptions {
   sinks?: boolean;
   // Gives each tag an icon, as labels have their dots.
   icon?: Icon.ReactElement;
+  // The size of the trigger's own buttons.
+  size?: Component.Size;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -327,13 +330,19 @@ const Chips = ({
   stepped = false,
   sinks = false,
   icon,
+  size,
 }: ChipsProps): ReactElement => {
   const [value, setValue] = useState(initial);
   const frame = (
     <Dialog.Frame location={stepped ? RIGHT_EDGE : undefined}>
       {sinks && <div style={{ height: `${value.length * 10}px` }} />}
       <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
-        <Select.MultipleTrigger variant={variant} icon={icon} aria-label="Labels" />
+        <Select.MultipleTrigger
+          variant={variant}
+          icon={icon}
+          size={size}
+          aria-label="Labels"
+        />
         <Select.Dialog>
           {NAMES.map((name) => (
             <Select.Item key={name} itemKey={name}>
@@ -709,31 +718,40 @@ describe("Select", () => {
       }
     });
 
-    it.each(["shadow", "text"] as const)(
-      "should size the placeholder of a %s trigger as a small text button, as tall as a tag",
-      async (variant) => {
+    it.each([
+      ["shadow", undefined, "medium"],
+      ["text", undefined, "medium"],
+      ["shadow", "small", "small"],
+      ["text", "small", "small"],
+    ] as const)(
+      "should size the placeholder of a %s trigger of size %s as a %s text button",
+      async (variant, size, expected) => {
         await renderThemed(
-          <Button.Button variant="text" size="small">
-            Small
+          <Button.Button variant="text" size={expected}>
+            Reference
           </Button.Button>,
         );
-        const small = page.getByRole("button", { name: "Small" }).element();
-        const trigger = (): HTMLElement =>
-          document.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
-        await renderChips(variant, 800, { initial: [] });
-        const placeholder = placeholderOf(trigger());
+        const reference = page.getByRole("button", { name: "Reference" }).element();
+        const trigger = await renderChips(variant, 800, { initial: [], size });
+        const placeholder = placeholderOf(trigger);
         for (const property of ["height", "font-size", "padding-left", "padding-right"])
-          expect(computed(placeholder, property)).toBe(computed(small, property));
-        const { height } = trigger().getBoundingClientRect();
-        await userEvent.click(placeholder);
-        await pick("Pass");
-        await expect.poll(() => chip(trigger(), "Pass")).toBeDefined();
-        expect(computed(chip(trigger(), "Pass"), "height")).toBe(
-          computed(small, "height"),
-        );
-        expect(trigger().getBoundingClientRect().height).toBe(height);
+          expect(computed(placeholder, property)).toBe(computed(reference, property));
       },
     );
+
+    it("should keep a small trigger as tall as its tags when the first tag comes", async () => {
+      const trigger = (): HTMLElement =>
+        document.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
+      await renderChips("shadow", 800, { initial: [], size: "small" });
+      const placeholder = placeholderOf(trigger());
+      const placeholderHeight = computed(placeholder, "height");
+      const { height } = trigger().getBoundingClientRect();
+      await userEvent.click(placeholder);
+      await pick("Pass");
+      await expect.poll(() => chip(trigger(), "Pass")).toBeDefined();
+      expect(computed(chip(trigger(), "Pass"), "height")).toBe(placeholderHeight);
+      expect(trigger().getBoundingClientRect().height).toBe(height);
+    });
 
     it("should keep the placeholder of an outlined trigger as text", async () => {
       const trigger = await renderChips("outlined", 800, { initial: [] });

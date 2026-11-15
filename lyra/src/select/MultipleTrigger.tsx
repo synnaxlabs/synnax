@@ -81,7 +81,10 @@ const multipleTag = renderProp(MultipleTag);
 export interface MultipleTriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
-> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview" | "className"> {
+> extends Pick<
+  Button.ButtonProps,
+  "variant" | "disabled" | "preview" | "className" | "size"
+> {
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   /** Builds the haul item for an entry dragged out of the trigger. */
@@ -135,6 +138,7 @@ export const MultipleTrigger = <
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
   className,
+  size,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
   const { setSelected } = useContext<K>();
@@ -225,7 +229,7 @@ export const MultipleTrigger = <
           <Button.Button
             el="div"
             variant="text"
-            size="small"
+            size={size}
             onClick={openAt}
             reveal={variant === "shadow"}
             className={PLACEHOLDER_CLASS}
@@ -270,7 +274,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button ref={triggerRef} variant="text" onClick={openAt}>
+        <Button.Button ref={triggerRef} variant="text" size={size} onClick={openAt}>
           <Icon.Add color={9} />
         </Button.Button>
       )}

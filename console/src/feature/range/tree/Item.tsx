@@ -190,6 +190,7 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
         onChange={handleChange}
         triggerProps={{
           variant: "shadow",
+          size: "small",
           className: CSS.BE("range-item", "tags"),
           "aria-label": "Labels",
         }}
