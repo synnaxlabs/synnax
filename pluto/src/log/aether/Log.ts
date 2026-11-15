@@ -38,7 +38,7 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 // A piece of a link on one row. A link that wraps has a piece on each of its rows.
-const linkZ = z.object({ region: box.box, url: z.string() });
+const linkZ = link.linkZ.extend({ region: box.box });
 
 interface Link extends z.infer<typeof linkZ> {}
 
@@ -651,14 +651,15 @@ export class Log
       if (row.entry !== entry) [entry, spans] = [row.entry, link.find(row.whole)];
       const hang = hasHangingMinus(row) ? 1 : 0;
       const rowEnd = row.start + row.value.length;
-      return spans.flatMap(({ start, end, url }) => {
+      return spans.flatMap(({ start, end, kind, target }) => {
         const from = Math.max(start, row.start) - row.start;
         const to = Math.min(end, rowEnd) - row.start;
         if (from >= to) return [];
         const column = row.prefix.length + columnsOf(row.value.slice(0, from)) - hang;
         const x = left + column * charWidth;
         const width = columnsOf(row.value.slice(from, to)) * charWidth;
-        return [{ url, region: box.construct(x, top + i * lh, width, lh) }];
+        const region = box.construct(x, top + i * lh, width, lh);
+        return [{ kind, target, region }];
       });
     });
   }

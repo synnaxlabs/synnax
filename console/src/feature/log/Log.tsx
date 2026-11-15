@@ -46,7 +46,7 @@ const Internal: Panel.Content = () => {
       onHold={handleHold}
       position={position}
       onLeave={handleLeave}
-      onLinkOpen={Runtime.openExternal}
+      onLinkOpen={Runtime.openLink}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action

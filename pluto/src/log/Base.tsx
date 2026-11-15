@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, runtime, strings } from "@synnaxlabs/x";
+import { box, type link, runtime, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -74,8 +74,8 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   /** When set, the context menu offers undo and redo for the host document. */
   undoRedo?: Menu.UndoRedoItemsProps;
   enableTriggers?: Triggers.Condition;
-  /** Called with the URL of a link on a click with Control or Meta */
-  onLinkOpen?: (url: string) => void | Promise<void>;
+  /** Called with the link on a click with Meta on macOS, or Control elsewhere. */
+  onLinkOpen?: (link: link.Link) => void | Promise<void>;
 }
 
 export const Base = ({
@@ -156,14 +156,14 @@ export const Base = ({
   };
 
   const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
-    links.find((link) => box.contains(link.region, { x, y }));
+    links.find((piece) => box.contains(piece.region, { x, y }));
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    const link = e[LINK_KEY] ? linkAt(e) : undefined;
-    if (link != null)
+    const piece = e[LINK_KEY] ? linkAt(e) : undefined;
+    if (piece != null)
       return handleError(
-        async () => await onLinkOpen?.(link.url),
+        async () => await onLinkOpen?.({ kind: piece.kind, target: piece.target }),
         "Failed to open link",
       );
     const idx = mouseYToEntryIndex(e.clientY);
