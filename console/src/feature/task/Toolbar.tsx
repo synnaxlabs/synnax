@@ -87,15 +87,35 @@ const deleteEach = async (
   return failures;
 };
 
+interface Owned {
+  channels: channel.Channel[];
+  /** The indexes of the channels that the tasks do not own. */
+  indexes: channel.Channel[];
+}
+
+const retrieveOwned = async (
+  channels: channel.Client | undefined,
+  keys: channel.Key[],
+): Promise<Owned> => {
+  if (channels == null || keys.length === 0) return { channels: [], indexes: [] };
+  const owned = await channels.retrieve({ where: { key: { in: keys } } });
+  const indexKeys = unique
+    .unique(owned.map(({ index }) => index))
+    .filter((key) => key !== 0 && !keys.includes(key));
+  const indexes =
+    indexKeys.length === 0
+      ? []
+      : await channels.retrieve({ where: { key: { in: indexKeys } } });
+  return { channels: owned, indexes };
+};
+
+const CHANNELS_DESCRIPTION =
+  "Their recorded data is deleted too. A channel that another task uses stays. Arc " +
+  "automations are not checked.";
+
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
-  const confirmDeleteChannels = Modals.useConfirmDelete({
-    type: "Channel",
-    description:
-      "A channel that another task uses stays. Arc automations are not checked. This " +
-      "action cannot be undone.",
-  });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -124,7 +144,6 @@ const Content = () => {
       setSelected([]);
       if (keys.length === 0) return false;
       const rows = getItem(array.toArray(keys));
-      if (!(await confirmDelete(rows))) return false;
       const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
       if (arcKeys.length > 0) deleteArcs(arcKeys);
       const taskKeys = rows
@@ -140,38 +159,45 @@ const Content = () => {
   // The Core refuses to delete a channel that a task uses, and an index that a channel
   // uses, so the tasks go first, then the channels, then their indexes.
   const handleDelete = (keys: task.Key[]) => {
-    const owned = unique.unique(getItem(keys).flatMap(ownedChannelsOf));
-    handleError(async () => {
-      if (!(await deleteTasks(keys)) || client == null || owned.length === 0) return;
-      const channels = await client.channels.retrieve({
-        where: { key: { in: owned } },
-      });
-      const indexKeys = unique
-        .unique(channels.map(({ index }) => index))
-        .filter((key) => key !== 0 && !owned.includes(key));
-      const indexes =
-        indexKeys.length === 0
-          ? []
-          : await client.channels.retrieve({ where: { key: { in: indexKeys } } });
-      const offered = [...channels, ...indexes];
-      if (offered.length === 0 || !(await confirmDeleteChannels(offered))) return;
-      const failures = [
-        ...(await deleteEach(
-          client.channels,
-          channels.map(({ key }) => key),
-        )),
-        ...(await deleteEach(
-          client.channels,
-          indexes.map(({ key }) => key),
-        )),
-      ];
-      if (failures.length > 0)
-        addStatus({
-          variant: "warning",
-          message: `Kept ${pluralize("channel", failures.length, true)}`,
-          description: failures.map(({ message }) => message).join("\n"),
-        });
-    }, "Failed to delete channels");
+    const rows = getItem(keys);
+    const ownedKeys = unique.unique(rows.flatMap(ownedChannelsOf));
+    handleError(
+      async () => {
+        const { channels, indexes } = await retrieveOwned(client?.channels, ownedKeys);
+        const count = channels.length + indexes.length;
+        let withChannels = false;
+        if (count === 0) {
+          if (!(await confirmDelete(rows))) return;
+        } else {
+          const answer = await confirmDelete(rows, {
+            label: `Also delete the ${pluralize("channel", count, true)} ${
+              rows.length === 1 ? "it" : "they"
+            } created`,
+            description: CHANNELS_DESCRIPTION,
+          });
+          if (answer == null) return;
+          withChannels = answer.option;
+        }
+        if (!(await deleteTasks(keys)) || !withChannels || client == null) return;
+        const failures = [
+          ...(await deleteEach(
+            client.channels,
+            channels.map(({ key }) => key),
+          )),
+          ...(await deleteEach(
+            client.channels,
+            indexes.map(({ key }) => key),
+          )),
+        ];
+        if (failures.length > 0)
+          addStatus({
+            variant: "warning",
+            message: `Kept ${pluralize("channel", failures.length, true)}`,
+            description: failures.map(({ message }) => message).join("\n"),
+          });
+      },
+      `Failed to delete ${pluralize("task", keys.length)}`,
+    );
   };
 
   const { capture } = Analytics.use();
