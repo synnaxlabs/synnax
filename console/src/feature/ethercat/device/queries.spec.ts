@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack as clientRack, task } from "@synnaxlabs/client";
+import { device, rack as clientRack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Device as PDevice } from "@synnaxlabs/pluto";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -162,6 +163,43 @@ describe("useSlavesByKeys", () => {
         [first.key, second.key].sort(),
       ),
     );
+  });
+});
+
+describe("useSlavesOnRack", () => {
+  const setStatus = async (
+    slave: EtherCAT.Device.SlaveDevice,
+    connected: boolean,
+    message: string,
+  ) =>
+    await client.statuses.set({
+      owner: device.resourceID(slave.key),
+      name: slave.name,
+      variant: connected ? "success" : "warning",
+      message,
+      time: TimeStamp.now(),
+      details: { rack: slave.rack, connected },
+    });
+
+  it("should change only when a slave changes whether it is connected", async () => {
+    const slave = await createSlaveDevice(rack.key);
+    const { result } = renderHook(
+      () => ({
+        onRack: EtherCAT.Device.useSlavesOnRack(rack.key),
+        message: PDevice.useResultStatus({ key: slave.key }).data?.message,
+      }),
+      { wrapper },
+    );
+    await act(async () => await setStatus(slave, true, "Device connected"));
+    await waitFor(() => expect(result.current.onRack?.[0]?.connected).toBe(true));
+    const held = result.current.onRack;
+    await act(async () => await setStatus(slave, true, "Device still connected"));
+    await waitFor(() =>
+      expect(result.current.message).toEqual("Device still connected"),
+    );
+    expect(result.current.onRack).toBe(held);
+    await act(async () => await setStatus(slave, false, "Device disconnected"));
+    await waitFor(() => expect(result.current.onRack?.[0]?.connected).toBe(false));
   });
 });
 

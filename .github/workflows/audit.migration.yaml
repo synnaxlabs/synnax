@@ -102,7 +102,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      id-token: write
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ needs.prompt.outputs.prompt }}

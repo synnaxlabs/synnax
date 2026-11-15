@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -204,6 +205,8 @@ type Layer struct {
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
 	LinePlot *lineplot.Service
+	// ICD is for working with interface control documents.
+	ICD *icd.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
 	// Table is for working with table visualizations.
@@ -720,6 +723,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+	}); !ok(err, l.ICD) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
@@ -937,6 +948,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeColor:           l.Color.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeICD:             l.ICD.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),

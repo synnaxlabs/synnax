@@ -66,7 +66,7 @@ interface ItemsProps {
 
 /** A submenu that holds menu items. */
 const Move = ({ onPick }: ItemsProps): ReactElement => (
-  <Menu.Sub itemKey="move">
+  <Menu.Sub itemKey="move" textValue="Move">
     <Menu.SubTrigger>Move</Menu.SubTrigger>
     <Menu.Dialog aria-label="Move">
       <Menu.Menu onChange={onPick}>
@@ -79,15 +79,15 @@ const Move = ({ onPick }: ItemsProps): ReactElement => (
 
 const Items = ({ onPick }: ItemsProps): ReactElement => (
   <Menu.Menu>
-    <Menu.Sub itemKey="labels">
+    <Menu.Sub itemKey="labels" textValue="Labels">
       <Menu.SubTrigger>Labels</Menu.SubTrigger>
       <Options name="Labels" search />
     </Menu.Sub>
-    <Menu.Sub itemKey="stage">
+    <Menu.Sub itemKey="stage" textValue="Stage">
       <Menu.SubTrigger>Stage</Menu.SubTrigger>
       <Options name="Stage" />
     </Menu.Sub>
-    <Menu.Sub itemKey="time">
+    <Menu.Sub itemKey="time" textValue="Time">
       <Menu.SubTrigger>Time</Menu.SubTrigger>
       <Options name="Time" />
     </Menu.Sub>

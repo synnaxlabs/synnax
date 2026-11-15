@@ -50,7 +50,7 @@ case "$TIER" in
 esac
 
 if [ "$FORK" = true ]; then
-    report failure "Sedosaur does not review forks, so an admin merges this one"
+    report failure "Sedosaur does not review forks: reopen it from a branch here"
 fi
 
 # Only a review of the head counts. A push after the review needs a new request. When

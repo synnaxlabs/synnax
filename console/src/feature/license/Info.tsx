@@ -23,6 +23,7 @@ import { Handoff } from "@/feature/license/Handoff";
 import { KeyInput } from "@/feature/license/KeyInput";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
+import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
 interface Standing {
@@ -50,28 +51,31 @@ interface StatProps {
   captionStatus?: status.Variant;
 }
 
-const Stat = ({ label, value, caption, captionStatus }: StatProps): ReactElement => (
-  <Flex.Box
-    y
-    gap="tiny"
-    bordered
-    rounded
-    background={1}
-    className={CSS.BE("license-info", "stat")}
-  >
-    <Text.Text level="small" color={9}>
-      {label}
-    </Text.Text>
-    <Text.Text level="h3" weight={500} overflow="nowrap">
-      {value}
-    </Text.Text>
-    {caption != null && (
-      <Text.Text level="small" color={9} status={captionStatus}>
-        {caption}
+const Stat = ({ label, value, caption, captionStatus }: StatProps): ReactElement => {
+  const background = Settings.useCardBackground();
+  return (
+    <Flex.Box
+      y
+      gap="tiny"
+      bordered
+      rounded
+      background={background}
+      className={CSS.BE("license-info", "stat")}
+    >
+      <Text.Text level="small" color={9}>
+        {label}
       </Text.Text>
-    )}
-  </Flex.Box>
-);
+      <Text.Text level="h3" weight={500} overflow="nowrap">
+        {value}
+      </Text.Text>
+      {caption != null && (
+        <Text.Text level="small" color={9} status={captionStatus}>
+          {caption}
+        </Text.Text>
+      )}
+    </Flex.Box>
+  );
+};
 
 interface StatsProps {
   license: license.License;

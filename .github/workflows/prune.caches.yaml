@@ -1,0 +1,51 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# A run restores only the newest Go cache of a module and the newest CodeQL overlay
+# database of a language, so the older ones only evict other caches.
+name: Prune - Caches
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  older:
+    name: Older caches
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      # A Go key ends in the hash of its inputs and the ID of the run that saved it. A
+      # CodeQL key ends in the commit, the run ID, and the attempt. The rest names what
+      # a run restores by.
+      - name: Delete all but the newest cache of each kind
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          OLDER: |-
+            map(select(.key | test(
+              "^(go-(lint|ginkgo|test)|codeql-overlay-base-database)-"
+            )))
+            | group_by(.key | sub("-[0-9a-f]{40,64}-[0-9]+(-[0-9]+)?$"; ""))[]
+            | sort_by(.createdAt)[:-1][]
+            | .id
+        # GitHub evicts older caches too, so one can be gone before its delete.
+        shell: bash
+        run: |
+          gh cache list --ref refs/heads/main --limit 1000 \
+            --json id,key,createdAt --jq "$OLDER" |
+            while read -r id; do
+              if ! error=$(gh api -X DELETE "repos/$GH_REPO/actions/caches/$id" 2>&1)
+              then
+                grep -q "HTTP 404" <<< "$error" || { echo "$error"; exit 1; }
+              fi
+            done

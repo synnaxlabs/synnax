@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { actions, channel, DataType, query } from "@synnaxlabs/client";
-import { control, deep, primitive, TimeSpan, verbs } from "@synnaxlabs/x";
+import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -137,9 +137,11 @@ const { useResult: useResultCountLimitedQuery, useRefresh: useRefreshCountLimite
     retryUnreachable: true,
   });
 
+const COUNT_REFRESH_DEBOUNCE = TimeSpan.milliseconds(100);
+
 /**
- * @returns how many channels count against the license channel limit, fetched again on
- * each channel change.
+ * @returns how many channels count against the license channel limit, fetched again
+ * after channel changes.
  */
 export const useResultCountLimited = (): Flux.Result<number> => {
   const client = Synnax.use();
@@ -148,9 +150,14 @@ export const useResultCountLimited = (): Flux.Result<number> => {
     if (client == null) return;
     // The cache keeps the count of an earlier mount, which missed the changes since.
     refresh({});
-    return client.channels.store.subscribeBatch((events) => {
-      if (events.some(query.isChange)) refresh({});
+    const debounced = scheduler.debounce(() => refresh({}), COUNT_REFRESH_DEBOUNCE);
+    const release = client.channels.store.subscribeBatch((events) => {
+      if (events.some(query.isChange)) debounced();
     });
+    return () => {
+      debounced.cancel();
+      release();
+    };
   }, [client, refresh]);
   return useResultCountLimitedQuery({});
 };

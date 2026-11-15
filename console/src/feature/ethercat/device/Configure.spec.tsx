@@ -182,35 +182,38 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
   });
 
   it("should save the name and identifier and keep the sync mode", async () => {
+    const identifier = createIdentifier();
     const slave = await setup();
     const name = uniqueName("renamed");
     fireEvent.change(nameInput(), { target: { value: name } });
-    fireEvent.change(identifierInput(), { target: { value: "slave_2" } });
+    fireEvent.change(identifierInput(), { target: { value: identifier } });
     await save();
     await waitFor(async () => {
       const updated = await retrieve(slave.key);
       expect(updated.name).toEqual(name);
-      expect(updated.properties.identifier).toEqual("slave_2");
+      expect(updated.properties.identifier).toEqual(identifier);
       expect(updated.properties.opMode).toEqual(OP_MODE);
     });
     await waitFor(() => expect(screen.queryByText("General")).toBeNull());
   });
 
   it("should keep the time of the last switch to Synnax", async () => {
+    const identifier = createIdentifier();
     const switchedAt = 1_763_070_000_000_000_000;
     const slave = await setup({ switchedAt });
-    fireEvent.change(identifierInput(), { target: { value: "slave_2" } });
+    fireEvent.change(identifierInput(), { target: { value: identifier } });
     await save();
     await waitFor(async () => {
       const updated = await retrieve(slave.key);
-      expect(updated.properties.identifier).toEqual("slave_2");
+      expect(updated.properties.identifier).toEqual(identifier);
       expect(updated.properties.switchedAt).toEqual(switchedAt);
     });
   });
 
   it("should mark a new slave configured", async () => {
+    const identifier = createIdentifier();
     const slave = await setup({ configured: false });
-    fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
+    fireEvent.change(identifierInput(), { target: { value: identifier } });
     await save();
     await waitFor(async () =>
       expect((await retrieve(slave.key)).configured).toBe(true),
@@ -222,6 +225,25 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     fireEvent.change(identifierInput(), { target: { value: "1x" } });
     await save();
     await screen.findByText(IDENTIFIER_FORMAT_ERROR);
+    const unchanged = await retrieve(slave.key);
+    expect(unchanged.properties.identifier).toEqual(slave.properties.identifier);
+  });
+
+  it("should not save an identifier that gives the channel names of another slave", async () => {
+    // An identifier holds at most 12 characters.
+    const base = createIdentifier().slice(0, 10);
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const other = await createSlaveDevice(client, rack.key, {
+      identifier: `${base}-a`,
+      position: 4,
+    });
+    const slave = await setup();
+    fireEvent.change(identifierInput(), { target: { value: `${base}_a` } });
+    await save();
+    await screen.findByText(
+      `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
+        "names. Pick another identifier.",
+    );
     const unchanged = await retrieve(slave.key);
     expect(unchanged.properties.identifier).toEqual(slave.properties.identifier);
   });
@@ -251,9 +273,10 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
   });
 
   it("should report the make of a slave it configures for the first time", async () => {
+    const identifier = createIdentifier();
     const analytics = createTestSink();
     await setup({ configured: false, analytics });
-    fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
+    fireEvent.change(identifierInput(), { target: { value: identifier } });
     await save();
     await waitFor(() =>
       expect(analytics.capture).toHaveBeenCalledWith("device_configured", {
@@ -1169,25 +1192,27 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
 
   describe("actions", () => {
     it("should create a read task for a new slave only after it saves", async () => {
+      const identifier = createIdentifier();
       const slave = await setup({
         configured: false,
         useOpen: useConfigureWithActionsModal,
         inputs: [STRAIN_ENTRY],
       });
-      fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
+      fireEvent.change(identifierInput(), { target: { value: identifier } });
       await save("Save and create read task");
       await waitFor(() => expect(onCreateReadTask).toHaveBeenCalledWith(slave.key));
       expect((await retrieve(slave.key)).configured).toBe(true);
     });
 
     it("should create a write task for a new slave with outputs", async () => {
+      const identifier = createIdentifier();
       const slave = await setup({
         configured: false,
         useOpen: useConfigureWithActionsModal,
         outputs: [CONTROL_ENTRY],
       });
       expect(screen.queryByText("Save and create read task")).toBeNull();
-      fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
+      fireEvent.change(identifierInput(), { target: { value: identifier } });
       await save("Save and create write task");
       await waitFor(() => expect(onCreateWriteTask).toHaveBeenCalledWith(slave.key));
       expect(onCreateReadTask).not.toHaveBeenCalled();

@@ -48,6 +48,7 @@ export const TYPES = [
   "secret",
   "certificate",
   "color",
+  "icd",
 ] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;

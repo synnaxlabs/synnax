@@ -81,7 +81,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ matrix.prompt }}
