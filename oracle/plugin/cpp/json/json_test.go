@@ -1413,6 +1413,40 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should qualify the codecs of a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@cpp output "x/cpp/color"
+
+					Base struct { key string }
+					Solid struct { hex string }
+
+					Fill union on type {
+						solid Solid
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@cpp output "client/cpp/color"
+
+					Named struct extends color.Base {
+						fill color.Fill
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, jsonPlugin)
+				ExpectContent(resp, "client/cpp/color/json.gen.h").
+					ToContain(
+						`#include "x/cpp/color/json.gen.h"`,
+						"= ::x::color::Base::parse(parser);",
+						`::x::color::parse_fill(parser.child("fill"))`,
+						`j["fill"] = ::x::color::to_json(this->fill);`,
+					)
+			})
+		})
+
 		Context("parent omitted in C++", func() {
 			It("Should serialize an inline variant's inherited fields", func(
 				ctx SpecContext,
