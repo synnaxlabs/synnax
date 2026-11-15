@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -833,6 +834,154 @@ var _ = Describe("Rack", Ordered, func() {
 				}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 			},
 		)
+
+		Describe("Task status", func() {
+			newTaskStatusKey := func() status.Key {
+				return ontology.ID{
+					Type: ontology.ResourceTypeTask,
+					Key:  uuid.New().String(),
+				}.String()
+			}
+			setTaskStatus := func(
+				ctx context.Context,
+				key status.Key,
+				at telem.TimeStamp,
+				message string,
+				details map[string]any,
+			) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     key,
+						Name:    "reported task",
+						Time:    at,
+						Variant: status.VariantSuccess,
+						Message: message,
+						Details: details,
+					})
+				})).To(Succeed())
+			}
+			// countAlerts counts the alerts for the rack with the key that r holds.
+			countAlerts := func(r *rack.Rack) *atomic.Int32 {
+				var alerts atomic.Int32
+				DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) {
+					if s.Details.Rack == r.Key {
+						alerts.Add(1)
+					}
+				}))
+				return &alerts
+			}
+
+			DescribeTable(
+				"Should count a task status as a report only when it runs on the rack",
+				func(
+					ctx SpecContext,
+					details func(r rack.Key) map[string]any,
+					alive bool,
+				) {
+					r := rack.Rack{Name: CurrentSpecReport().LeafNodeText}
+					alerts := countAlerts(&r)
+					now := telem.Now()
+					frozenNow.Store(int64(now))
+					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					key := newTaskStatusKey()
+					for range 4 {
+						now = now.Add(svc.HealthCheckInterval / 2)
+						frozenNow.Store(int64(now))
+						setTaskStatus(ctx, key, now, "Task started", details(r.Key))
+					}
+					if !alive {
+						Eventually(alerts.Load).Should(BeEquivalentTo(1))
+						return
+					}
+					Consistently(alerts.Load, 100*time.Millisecond, 5*time.Millisecond).
+						Should(BeZero())
+				},
+				Entry(
+					"a running task",
+					func(r rack.Key) map[string]any {
+						return map[string]any{"running": true, "rack": r}
+					},
+					true,
+				),
+				Entry(
+					"a stopped task",
+					func(r rack.Key) map[string]any {
+						return map[string]any{"running": false, "rack": r}
+					},
+					false,
+				),
+				Entry(
+					"a running task without a rack",
+					func(rack.Key) map[string]any {
+						return map[string]any{"running": true}
+					},
+					false,
+				),
+				Entry(
+					"a running task on an unknown rack",
+					func(r rack.Key) map[string]any {
+						return map[string]any{"running": true, "rack": r + 1000}
+					},
+					false,
+				),
+			)
+
+			It(
+				"Should not alert when a task of the rack reports during the outage write",
+				func(ctx SpecContext) {
+					r := rack.Rack{Name: "reporting task rack"}
+					alerts := countAlerts(&r)
+					now := telem.Now()
+					frozenNow.Store(int64(now))
+					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					key := newTaskStatusKey()
+					var reported atomic.Bool
+					DeferCleanup(stat.Observe().OnChange(func(
+						ctx context.Context,
+						t gorp.TxReader[status.Key, status.Status[any]],
+					) {
+						for ch := range t {
+							if ch.Key != r.OntologyID().String() ||
+								ch.Value.Variant != status.VariantWarning ||
+								!reported.CompareAndSwap(false, true) {
+								continue
+							}
+							setTaskStatus(
+								ctx,
+								key,
+								now,
+								"Task started",
+								map[string]any{"running": true, "rack": r.Key},
+							)
+						}
+					}))
+					frozenNow.Store(int64(now.Add(svc.HealthCheckInterval)))
+					Eventually(reported.Load).Should(BeTrue())
+					Consistently(alerts.Load, 100*time.Millisecond, 5*time.Millisecond).
+						Should(BeZero())
+				},
+			)
+
+			It(
+				"Should not count a rewrite of a running task status as a report",
+				func(ctx SpecContext) {
+					r := rack.Rack{Name: "rewritten task rack"}
+					alerts := countAlerts(&r)
+					start := telem.Now()
+					frozenNow.Store(int64(start))
+					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					key := newTaskStatusKey()
+					details := map[string]any{"running": true, "rack": r.Key}
+					frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
+					setTaskStatus(ctx, key, start, "Task started", details)
+					frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
+					setTaskStatus(ctx, key, start, "Task still started", details)
+					frozenNow.Store(int64(start.Add(16 * telem.Millisecond)))
+					Eventually(alerts.Load).Should(BeEquivalentTo(1))
+				},
+			)
+		})
 
 		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dampening test rack"}
