@@ -12,7 +12,7 @@ with --agents, the encrypted agent reports.
 
 Usage: security_report.py <out> [--agents] [--publish]
 
---agents reads AGENT_REPORTS, the JSON of the agent jobs' results and outputs, and
+--agents reads AGENT_JOB_<AREA>, the JSON of each agent job's result and outputs, and
 decrypts each report with the GPG private key in REPORT_PRIVATE_KEY. Writes the report
 to <out>/report.md. --publish also files it as a Linear issue in the SY team, when it
 holds a finding or a failed scan, and posts the count and the issue link to Slack. If
@@ -188,16 +188,18 @@ def render(scans: list[Scan], run_url: str) -> str:
     lines = [f"Findings: {total}.", ""]
     if run_url:
         lines += [f"Run: {run_url}", ""]
+    ends = []
     for scan in scans:
         lines += render_scan(scan)
+        ends.append((scan.name, len("\n".join(lines))))
     report = "\n".join(lines)
     if len(report) <= LIMIT:
         return report
     cut = report.rfind("\n", 0, LIMIT - 200)
-    omitted = report[cut:].count("\n- ")
+    first = next(name for name, end in ends if end > cut)
     return (
         f"{report[:cut]}\n\nThe report stops at the size limit of a Linear issue. "
-        f"It omits {len(report) - cut} characters and {omitted} listed findings."
+        f"It omits {len(report) - cut} characters, from the {first} section on."
     )
 
 
@@ -284,9 +286,14 @@ def main(
     scans = read_scans(args.out)
     if not scans:
         sys.exit(f"{args.out} holds no scan")
+    # The agent reports have no size cap, so they go after the bounded scanner sections.
     if args.agents:
-        jobs = json.loads(os.environ["AGENT_REPORTS"])
-        scans = read_agents(jobs, os.environ["REPORT_PRIVATE_KEY"]) + scans
+        jobs = {
+            name.removeprefix("AGENT_JOB_").lower(): json.loads(value)
+            for name, value in os.environ.items()
+            if name.startswith("AGENT_JOB_")
+        }
+        scans += read_agents(jobs, os.environ["REPORT_PRIVATE_KEY"])
     report = render(scans, os.environ.get("RUN_URL", ""))
     (args.out / "report.md").write_text(report)
     for scan in scans:

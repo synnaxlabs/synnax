@@ -11,8 +11,9 @@
 # Linear issue. The repository is public, so its logs and artifacts are too: no step
 # prints a finding, and the report leaves the job only through Linear. Slack gets the
 # count and the link. One agent reviews each area of .github/agents/security-review.md
-# in parallel and encrypts its report to the SECURITY_REPORT_PUBLIC_KEY variable. A
-# matrix would keep only one leg's output, so each area is a job.
+# and encrypts its report to the SECURITY_REPORT_PUBLIC_KEY variable. The agents run as
+# agent runners come free, so a small pool makes the run take hours. A matrix would
+# keep only one leg's output, so each area is a job.
 
 name: Security
 
@@ -28,28 +29,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # An agent with no recipient prints its report, which would make the findings public.
-  key:
-    name: Require the report key
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: Require the report key
-        env:
-          KEY: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
-        run: |
-          if [ -z "$KEY" ]; then
-            echo "::error::Set the SECURITY_REPORT_PUBLIC_KEY variable."
-            exit 1
-          fi
-
   authn:
     name: Review (authn)
     permissions: &review
       contents: read
       id-token: write
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: &agent_secrets
       CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
@@ -61,78 +45,79 @@ jobs:
       prompt: Follow `.github/agents/security-review.md`. Your area is `authn`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   api:
     name: Review (api)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `api`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   tls:
     name: Review (tls)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `tls`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   files:
     name: Review (files)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `files`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   driver:
     name: Review (driver)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `driver`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   console:
     name: Review (console)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `console`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   ci:
     name: Review (ci)
     permissions: *review
-    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: *agent_secrets
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `ci`.
       output: report
       recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      private: true
       timeout-minutes: 240
 
   scan:
@@ -175,7 +160,13 @@ jobs:
 
       - name: File the report
         env:
-          AGENT_REPORTS: ${{ toJSON(needs) }}
+          AGENT_JOB_AUTHN: ${{ toJSON(needs.authn) }}
+          AGENT_JOB_API: ${{ toJSON(needs.api) }}
+          AGENT_JOB_TLS: ${{ toJSON(needs.tls) }}
+          AGENT_JOB_FILES: ${{ toJSON(needs.files) }}
+          AGENT_JOB_DRIVER: ${{ toJSON(needs.driver) }}
+          AGENT_JOB_CONSOLE: ${{ toJSON(needs.console) }}
+          AGENT_JOB_CI: ${{ toJSON(needs.ci) }}
           REPORT_PRIVATE_KEY: ${{ secrets.SECURITY_REPORT_PRIVATE_KEY }}
           LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
           LINEAR_CLIENT_SECRET: ${{ secrets.LINEAR_CLIENT_SECRET }}

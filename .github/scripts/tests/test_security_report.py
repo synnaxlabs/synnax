@@ -89,7 +89,7 @@ class TestMain:
         assert "- And 5 more." in report
 
     def test_should_cut_a_report_at_the_size_limit(self, tmp_path: Path) -> None:
-        """Should keep the report within the limit and count what it omits."""
+        """Should keep the report within the limit and name the sections it cuts."""
         for n in range(200):
             results = [result(f"r{n}", "error", f"{n}.go", m) for m in range(1, 26)]
             write_scan(tmp_path, f"scan{n:03}", 0, *results)
@@ -97,7 +97,8 @@ class TestMain:
         report = (tmp_path / "report.md").read_text()
         assert report.startswith("Findings: 5000.")
         assert "## scan199" not in report
-        assert report.endswith("listed findings.")
+        assert len(report) <= 60_000
+        assert report.endswith(" section on.")
 
     def test_should_reject_a_directory_with_no_scan(self, tmp_path: Path) -> None:
         """Should not report a clean audit when no scan ran."""
@@ -247,7 +248,8 @@ class TestAgents:
             # A report gpg cannot decrypt, as after a key rotation.
             "ci": {"result": "success", "outputs": {"report": "not a message"}},
         }
-        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
         monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
         write_scan(tmp_path, "zizmor", 0)
         assert main([str(tmp_path), "--agents"]) == 1
@@ -273,7 +275,8 @@ class TestAgents:
             [*encrypt, "report@example.com"], input=report, text=True
         )
         jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
-        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
         monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
         write_scan(tmp_path, "zizmor", 0)
         assert main([str(tmp_path), "--agents"]) == 1
@@ -294,7 +297,8 @@ class TestAgents:
             text=True,
         )
         jobs = {"authn": {"result": "success", "outputs": {"report": armor}}}
-        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
         monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
         write_scan(tmp_path, "zizmor", 0)
         assert main([str(tmp_path), "--agents"]) == 0
@@ -305,10 +309,33 @@ class TestAgents:
     ) -> None:
         """Should keep the scanner results when the private key does not import."""
         jobs = {"authn": {"result": "success", "outputs": {"report": "x"}}}
-        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        for area, job in jobs.items():
+            monkeypatch.setenv(f"AGENT_JOB_{area.upper()}", json.dumps(job))
         monkeypatch.setenv("REPORT_PRIVATE_KEY", "not a key")
         write_scan(tmp_path, "gitleaks", 0, result("private-key", "error", "k.pem", 1))
         assert main([str(tmp_path), "--agents"]) == 1
         text = (tmp_path / "report.md").read_text()
         assert "## agent-authn: failed" in text
         assert "## gitleaks: 1 findings" in text
+
+    def test_should_cut_the_agent_reports_before_the_scans(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should keep every scanner section when the agent reports pass the limit."""
+        gpg, private = key
+        report = "No findings.\n\n" + "I read a file.\n" * 5000
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        job = {"result": "success", "outputs": {"report": armor}}
+        monkeypatch.setenv("AGENT_JOB_AUTHN", json.dumps(job))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
+        assert main([str(tmp_path), "--agents"]) == 0
+        text = (tmp_path / "report.md").read_text()
+        assert "## zizmor: 1 findings" in text
+        assert text.endswith("from the agent-authn section on.")
