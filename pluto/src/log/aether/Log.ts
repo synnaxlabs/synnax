@@ -153,8 +153,8 @@ interface Row {
   entry: number;
   prefix: string;
   value: string;
-  // The whole value of the entry, and the index in it where value starts.
-  whole: string;
+  // The links in the value of the entry, and the index in it where value starts.
+  spans: link.Span[];
   start: number;
   channelKey: string;
   first: boolean;
@@ -166,6 +166,7 @@ interface EntryLayout {
   entry: number;
   prefix: string;
   value: string;
+  spans: link.Span[];
   channelKey: string;
   indent: string;
   columns: number;
@@ -551,11 +552,12 @@ export class Log
   }
 
   private layoutEntry(entry: number): EntryLayout {
-    const { prefix, value, channelKey } = this.formatEntry(this.entries[entry]);
+    const { prefix, value: raw, channelKey } = this.formatEntry(this.entries[entry]);
+    const { text: value, spans } = link.parse(raw);
     const width = box.width(this.state.region) - CONTENT_PADDING * 2 - SCROLLBAR_WIDTH;
     const fullColumns = Math.floor(width / this.internal.charWidth);
     const columns = fullColumns - prefix.length;
-    const base = { entry, prefix, value, channelKey };
+    const base = { entry, prefix, value, spans, channelKey };
     const wide = WIDE.test(value);
     const startsOf = (cols: number): number[] => this.wrapStarts(entry, value, cols);
     const rowsOf = (cols: number): { rows: number; starts?: number[] } => {
@@ -608,7 +610,7 @@ export class Log
       entry,
       prefix: row === 0 ? prefix : indent,
       value: row < lead ? "" : value.slice(start, end),
-      whole: value,
+      spans: layout.spans,
       start,
       channelKey,
       first: row === 0,
@@ -630,7 +632,7 @@ export class Log
       entry,
       prefix,
       value: "",
-      whole: "",
+      spans: [],
       start: 0,
       channelKey: "",
       first: false,
@@ -643,15 +645,10 @@ export class Log
     const { charWidth, selectionOffsetY } = this.internal;
     const left = box.left(this.state.region) + CONTENT_PADDING;
     const top = box.top(this.state.region) + CONTENT_PADDING + selectionOffsetY;
-    // The rows of an entry sit together, so one scan of its value serves them all.
-    let entry = -1;
-    let spans: link.Span[] = [];
     return rows.map((row, i) => {
-      if (row.day) return [];
-      if (row.entry !== entry) [entry, spans] = [row.entry, link.find(row.whole)];
       const hang = hasHangingMinus(row) ? 1 : 0;
       const rowEnd = row.start + row.value.length;
-      return spans.flatMap(({ start, end, kind, target }) => {
+      return row.spans.flatMap(({ start, end, kind, target }) => {
         const from = Math.max(start, row.start) - row.start;
         const to = Math.min(end, rowEnd) - row.start;
         if (from >= to) return [];

@@ -22,8 +22,10 @@ const urlRegex = new RegExp(
 
 export const is = (string: string): boolean => urlRegex.test(string);
 
-// Punctuation at the end belongs to the sentence around a link.
-const tailPattern = /[^\s"'<>]*[^\s"'<>.,;:!?)\]}]/.source;
+// End punctuation and an unmatched parenthesis belong to the sentence around a link.
+const groupPattern = /\([^\s"'<>()]*\)/.source;
+const charPattern = `(?:[^\\s"'<>()]|${groupPattern})`;
+const tailPattern = `${charPattern}*(?:[^\\s"'<>().,;:!?\\]}]|${groupPattern})`;
 const urlPattern = `(?:(?:https?|synnax):\\/\\/|\\bwww\\.)${tailPattern}`;
 const octetPattern = /(?:25[0-5]|2[0-4]\d|1?\d?\d)/.source;
 // An address stands alone, so v1.2.3.4, tcp://1.2.3.4, and 1.2.3.0/24 hold none.
@@ -52,21 +54,38 @@ export interface Span extends Link {
   end: number;
 }
 
-/**
- * @returns each link in the text, in order. An address or a www name gets a scheme. A
- * closing parenthesis stays in a link only when the link opens it.
- */
-export const find = (text: string): Span[] =>
+const find = (text: string): Span[] =>
   Array.from(text.matchAll(embeddedRegex), (match): Span => {
     const { 1: url, 2: addressLead, 3: address, 4: pathLead, 5: path, index } = match;
     const start = index + (addressLead ?? pathLead ?? "").length;
-    const body = url ?? address ?? path;
-    let end = start + body.length;
-    let open = body.split("(").length - body.split(")").length;
-    for (; open > 0 && text[end] === ")"; open--) end++;
-    const raw = text.slice(start, end);
+    const raw = url ?? address ?? path;
     let scheme = "";
     if (address != null) scheme = "http://";
     else if (raw.startsWith("www.")) scheme = "https://";
-    return { start, end, kind: path == null ? "url" : "path", target: scheme + raw };
+    const kind = path == null ? "url" : "path";
+    return { start, end: start + raw.length, kind, target: scheme + raw };
   });
+
+const labelRegex = /\[([^[\]]+)\]\($/;
+
+/** A text as it shows, and the links in it. */
+export interface Parsed {
+  text: string;
+  spans: Span[];
+}
+
+/** @returns the text with each Markdown link as its label, and the links in it. */
+export const parse = (raw: string): Parsed => {
+  const spans: Span[] = [];
+  let text = "";
+  let last = 0;
+  for (const { start, end, kind, target } of find(raw)) {
+    let [from, to, shown] = [start, end, raw.slice(start, end)];
+    const label = raw[end] === ")" ? labelRegex.exec(raw.slice(last, start)) : null;
+    if (label != null) [from, to, shown] = [last + label.index, end + 1, label[1]];
+    text += raw.slice(last, from) + shown;
+    spans.push({ start: text.length - shown.length, end: text.length, kind, target });
+    last = to;
+  }
+  return { text: text + raw.slice(last), spans };
+};
