@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -39,6 +40,7 @@ export const Actuator = ({
   className,
   stateOverrides,
   strokeColor,
+  onClickDelay = 0,
   ...rest
 }: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
@@ -50,6 +52,7 @@ export const Actuator = ({
     spec,
     stateOverrides,
     strokeColor,
+    delayed: !new TimeSpan(onClickDelay).isZero,
   });
   const svg = spec?.svg;
   const invalid = svg != null && !Custom.isValidSVG(svg);
@@ -77,6 +80,7 @@ export const Actuator = ({
       enabled={enabled}
       triggered={triggered}
       orientation={orientation}
+      onClickDelay={onClickDelay}
       {...rest}
     >
       <Handle.Boundary orientation={orientation}>

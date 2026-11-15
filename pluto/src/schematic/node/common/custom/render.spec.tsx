@@ -267,6 +267,30 @@ describe("Custom.useRender", () => {
     });
   });
 
+  describe("hold fill", () => {
+    const HOLD_FILL = ".pluto-symbol-hold__fill";
+
+    it("should add and remove the hold fill as delayed changes", () => {
+      const container = document.createElement("div");
+      const params: Custom.UseRenderParams = {
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      };
+      const { rerender } = renderAttached(params, container);
+      expect(container.querySelector(HOLD_FILL)).toBeNull();
+      rerender({ ...params, delayed: true });
+      expect(container.querySelector(HOLD_FILL)).not.toBeNull();
+      const main = container.querySelector<SVGElement>(".main");
+      expect(main?.style.getPropertyValue(Primitive.SYMBOL_COLOR)).toBe(
+        rgba("#333333"),
+      );
+      rerender({ ...params, delayed: false });
+      expect(container.querySelector(HOLD_FILL)).toBeNull();
+    });
+  });
+
   describe("auto-heal", () => {
     it("should mount SVG when ref attaches after the resolving render", () => {
       const container = document.createElement("div");

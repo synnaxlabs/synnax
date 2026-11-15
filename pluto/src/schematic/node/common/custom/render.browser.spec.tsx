@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, location, type xy } from "@synnaxlabs/x";
+import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
 import {
   type FC,
   type PropsWithChildren,
@@ -20,6 +20,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { render, renderHook } from "vitest-browser-react";
 
+import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -237,6 +238,98 @@ describe("Custom.useRender symbol color", () => {
   it("should not stroke a shape with no stroke of its own", async () => {
     const { stroke } = await renderColored();
     expect(stroke(".bare")).toBe("none");
+  });
+});
+
+const HOLD_DELAY = 10_000;
+const HOLD_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+  '<rect width="10" height="10" stroke="red" fill="none"/></svg>';
+
+const BUILT_IN_HOLD = (
+  <Toggle.Button onClickDelay={HOLD_DELAY}>
+    <Primitive.SVG dimensions={{ width: 10, height: 10 }} strokeColor={STALE}>
+      <rect width="10" height="10" />
+    </Primitive.SVG>
+  </Toggle.Button>
+);
+
+const renderHeld = async (symbol: ReactElement): Promise<Element> => {
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>{symbol}</Theming.Provider>,
+  );
+  const button = container.querySelector("button");
+  if (button == null) throw new Error("toggle not rendered");
+  button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+  await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
+  return button;
+};
+
+const renderCustomHeld = async (): Promise<Element> => {
+  const { result } = await renderHook(() =>
+    Custom.useRender({
+      orientation: "left",
+      activeState: "base",
+      externalScale: 1,
+      spec: { ...SPEC, svg: HOLD_SVG, states: [] },
+      strokeColor: STALE,
+      delayed: true,
+    }),
+  );
+  return await renderHeld(
+    <Toggle.Button
+      ref={result.current}
+      className={CSS.BM("symbol", "custom")}
+      onClickDelay={HOLD_DELAY}
+    />,
+  );
+};
+
+const findHoldFill = (button: Element): SVGGraphicsElement => {
+  const fill = button.querySelector(".pluto-symbol-hold__fill");
+  if (!(fill instanceof SVGGraphicsElement)) throw new Error("hold fill not drawn");
+  return fill;
+};
+
+interface HoldFillPaint {
+  display: string;
+  animation: string;
+  box: xy.XY & dimensions.Dimensions;
+}
+
+const readHoldFill = (button: Element): HoldFillPaint => {
+  const fill = findHoldFill(button);
+  const { x, y, width, height } = fill.getBBox();
+  return {
+    display: computed(fill, "display"),
+    animation: computed(fill, "animation-name"),
+    box: { x, y, width, height },
+  };
+};
+
+// The element the fill's mask draws, so the fill paints only inside its shapes.
+const findMaskSource = (fill: Element): Element | null => {
+  const doc = fill.ownerDocument;
+  const maskID = /url\(#(.+)\)/.exec(fill.getAttribute("mask") ?? "")?.[1] ?? "";
+  const href = doc.getElementById(maskID)?.querySelector("use")?.getAttribute("href");
+  return doc.getElementById(href?.slice(1) ?? "");
+};
+
+describe("Custom.useRender hold fill", () => {
+  it("should fill the drawing while held, as a built-in symbol does", async () => {
+    const builtIn = readHoldFill(await renderHeld(BUILT_IN_HOLD));
+    const button = await renderCustomHeld();
+    expect(readHoldFill(button)).toEqual(builtIn);
+    const source = findMaskSource(findHoldFill(button));
+    expect(source?.querySelector("rect[stroke=red]")).not.toBeNull();
+  });
+
+  it("should not draw a box over a held custom actuator", async () => {
+    const builtIn = await renderHeld(BUILT_IN_HOLD);
+    const custom = await renderCustomHeld();
+    expect(getComputedStyle(custom, "::after").content).toBe(
+      getComputedStyle(builtIn, "::after").content,
+    );
   });
 });
 

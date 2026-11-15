@@ -116,32 +116,6 @@
         fill: none;
     }
 
-    /* A custom symbol's SVG is injected, so its hold fill stays a box over the
-       button. Built-in symbols draw the fill inside their shapes below. */
-    &.pluto-symbol-primitive-toggle--delayed.pluto-symbol--custom {
-        position: relative;
-
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-
-            /* An image, not a color: the keyframe owns background-color for the dim. */
-            background-image: linear-gradient(
-                oklch(from var(--pluto-symbol-display) l c h / 20%),
-                oklch(from var(--pluto-symbol-display) l c h / 20%)
-            );
-            clip-path: inset(0 100% 0 0);
-            pointer-events: none;
-        }
-
-        &.pluto--pressed::after {
-            animation: delay var(--pluto-toggle-delay) linear;
-            clip-path: inset(0 0 0 0);
-        }
-    }
-
     &.pluto--pressed .pluto-symbol-hold__fill {
         display: inline;
         animation: symbol-hold var(--pluto-toggle-delay) linear;

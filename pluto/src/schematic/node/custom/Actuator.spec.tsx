@@ -61,6 +61,17 @@ describe("Actuator", () => {
     });
   });
 
+  it("should fill its drawing while held when its click is delayed", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    const { container } = render(
+      <Actuator specKey={symbol.key} onClickDelay={1000} />,
+      { wrapper },
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".pluto-symbol-hold__fill")).not.toBeNull();
+    });
+  });
+
   it("should mount the symbol once valid markup replaces it", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
