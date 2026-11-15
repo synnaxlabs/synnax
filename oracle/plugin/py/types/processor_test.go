@@ -30,8 +30,14 @@ var _ = Describe("FieldProcessor", func() {
 	) (*types.FieldProcessor, resolution.Type) {
 		GinkgoHelper()
 		req := MustGenerateRequest(ctx, source, "test", loader)
-		fp := types.NewFieldProcessor("test", "client/py/synnax/test", req.Resolutions)
-		return fp, req.Resolutions.MustGet("test.Item")
+		item := req.Resolutions.MustGet("test.Item")
+		fp := types.NewFieldProcessor(
+			"test",
+			item.FilePath,
+			"client/py/synnax/test",
+			req.Resolutions,
+		)
+		return fp, item
 	}
 
 	field := func(item resolution.Type, name string) resolution.Field {
