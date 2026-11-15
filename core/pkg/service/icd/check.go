@@ -10,7 +10,6 @@
 package icd
 
 import (
-	"encoding/json"
 	"math"
 	"slices"
 	"strconv"
@@ -194,7 +193,7 @@ func (c *checker) checkMatch(path []string, m JSONMatch) {
 	}
 	switch m.Value.(type) {
 	case string, float64, float32, int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64, json.Number:
+		uint, uint8, uint16, uint32, uint64:
 	case nil:
 		c.Addf(pathOf(path, "value"), "value is required")
 	default:
