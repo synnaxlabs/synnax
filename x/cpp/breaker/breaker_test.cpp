@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -80,6 +81,41 @@ TEST(BreakerTests, testInfiniteRetries) {
     EXPECT_EQ(retries, past_default_max);
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
+}
+
+/// @brief it should retry past the maximum retry count on an unlimited wait, and keep
+/// the full retry limit for the limited waits that follow.
+TEST(BreakerTests, UnlimitedWaitIgnoresTheRetryLimit) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    ASSERT_TRUE(b.start());
+    for (int i = 0; i < 5; i++)
+        EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    EXPECT_EQ(b.retry_count(), 0);
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_FALSE(b.wait("limited"));
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should restart the back-off of unlimited waits on reset_unlimited(), and
+/// keep the retry count of limited waits.
+TEST(BreakerTests, ResetUnlimitedKeepsTheRetryCount) {
+    auto b = Breaker(Config{"my-breaker", telem::MILLISECOND, 2, 1000, telem::MINUTE});
+    ASSERT_TRUE(b.start());
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    b.reset_unlimited();
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    EXPECT_EQ(b.retry_count(), 1);
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should return false from an unlimited wait on a stopped breaker.
+TEST(BreakerTests, UnlimitedWaitReturnsFalseWhenStopped) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    EXPECT_FALSE(b.wait_unlimited(errors::UNKNOWN));
 }
 
 /// @brief it should return false when attempting to start a breaker that was
