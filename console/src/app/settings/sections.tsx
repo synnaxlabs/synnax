@@ -110,7 +110,7 @@ const ACCOUNT: Settings.Group = {
         {
           key: "api_keys",
           name: "API keys",
-          icon: <Icon.Lock />,
+          icon: <Icon.APIKey />,
           Content: User.KeySettings,
         },
       ],

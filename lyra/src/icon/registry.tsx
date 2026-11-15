@@ -84,6 +84,7 @@ import {
   LuLock,
   LuLockOpen,
   LuPipette,
+  LuSquareAsterisk,
   LuSquareFunction,
   LuUngroup,
 } from "react-icons/lu";
@@ -372,7 +373,8 @@ export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
 export const License = wrapSVGIcon(LuBadgeCheck, "license");
 export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
-export const Secret = wrapSVGIcon(LuKeyRound, "secret");
+export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
+export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
@@ -650,6 +652,7 @@ const icons = {
   Lock,
   Unlock,
   Secret,
+  APIKey,
   Certificate,
   Project,
   Box,
