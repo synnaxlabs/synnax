@@ -9,7 +9,14 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, icd, mqtt, type Synnax, ValidationError } from "@synnaxlabs/client";
+import {
+  channel,
+  DisconnectedError,
+  icd,
+  mqtt,
+  type Synnax,
+  ValidationError,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -339,7 +346,7 @@ const TopicItem = (props: List.ItemRenderProps<string>) => {
       {...props}
       justify="between"
       align="center"
-      className={CSS.cls(CSS.B("mqtt-topic-item"), disabled === true && CSS.M("off"))}
+      className={CSS.cls(disabled === true && CSS.M("off"))}
     >
       <TopicLabel topic={topic} />
       <Task.EnabledCheckbox path={path.disabled} />
@@ -365,14 +372,14 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
   const isPreview = Task.useIsPreview();
   const discover = useDiscoverModal();
   const menuProps = Menu.useContextMenu();
-  const { data, remove } = PForm.useFieldList(root.config.entries);
+  const { data, push, remove } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
   const [selected, setSelected] = useState<string[]>([]);
   const current = selected.find((key) => data.includes(key)) ?? data.at(0);
 
   const handleAdd = () =>
     handleError(async () => {
-      if (client == null) return;
+      if (client == null) throw new DisconnectedError();
       const messages = format?.get(PICD.formPath.messages).value ?? [];
       const held = entries.map((e): Draft => ({
         type: "plain",
@@ -383,7 +390,7 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
       if (drafts == null || drafts.length === 0) return;
       const taskName = ctx.get(root.name).value;
       const added = await addTopics({ client, taskName, entries, drafts });
-      ctx.set(root.config.entries, [...entries, ...added]);
+      push(added);
       const first = entries.find((e) => e.topic === drafts[0].topic) ?? added[0];
       setSelected([first.key]);
     }, "Failed to add data");
@@ -508,7 +515,10 @@ const getInitialValues: Task.GetInitialValues<ICDReadSchemas> = ({
   return { name: "MQTT ICD read task", type: ICD_READ_TYPE, config: cfg };
 };
 
-/** @returns the fields of the entry's message format, or why it cannot be read. */
+/**
+ * @returns the fields of the entry's message format.
+ * @throws {ValidationError} if the task cannot read the format.
+ */
 const formatFields = async (
   client: Synnax,
   entry: ICDReadEntry,
