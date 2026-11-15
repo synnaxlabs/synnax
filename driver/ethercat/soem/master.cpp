@@ -516,6 +516,10 @@ x::errors::Error Master::receive() {
     this->frames.fetch_add(1, std::memory_order_release);
 
     if (wkc != session.expected_wkc) {
+        session.diag_mismatches.fetch_add(1, std::memory_order_relaxed);
+        for (int m = session.diag_min_wkc.load(std::memory_order_relaxed);
+             wkc < m && !session.diag_min_wkc.compare_exchange_weak(m, wkc);)
+            ;
         if (wkc < session.expected_wkc)
             session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
         return x::errors::Error(
@@ -596,12 +600,15 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             pos <= this->api->context.slavecount &&
             now - *session.diag_since >= std::chrono::duration<double>(seconds)) {
             session.diag_dropped = true;
+            session.diag_pos = static_cast<uint16_t>(pos);
+            session.diag_drop_at = now;
             LOG(WARNING) << "[ethercat] DIAG: dropping slave " << pos << " to INIT";
             this->record(pos).state = EC_STATE_INIT;
             this->api->writestate(pos);
         }
     }
     this->api->readstate();
+    this->diag_log();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         if (this->record(i).group != ENABLED_GROUP) continue;
@@ -630,6 +637,47 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
         }
     }
     return health;
+}
+
+void Master::diag_log() {
+    auto &session = this->session.value();
+    const auto mismatches = session.diag_mismatches.exchange(0);
+    const auto min_wkc = session.diag_min_wkc.exchange(1 << 30);
+    if (!session.diag_drop_at ||
+        this->cfg.clock.steady() - *session.diag_drop_at > std::chrono::seconds(6))
+        return;
+    const auto pos = session.diag_pos;
+    const auto reg = [&]<typename T>(const uint16_t address, T) {
+        const auto [v, err] = this->read_dc_register<T>(pos, address);
+        return err ? std::string("ERR") : std::format("0x{:X}", v);
+    };
+    std::string inputs;
+    const auto *in = this->record(pos).inputs;
+    for (uint32_t b = 0;
+         in != nullptr && b < std::min<uint32_t>(this->record(pos).Ibytes, 12);
+         ++b)
+        inputs += std::format("{:02X} ", in[b]);
+    LOG(WARNING) << std::format(
+        "[ethercat] DIAG slave {}: state 0x{:02X} AL 0x{:04X} | wkc expected {} "
+        "mismatches {} min {} | SM2 {} SM3 {} | 0x0980 {} 0x098E {} 0x0990 {} 0x0910 "
+        "{} 0x092C {} 0x09A0 {} | Ibytes {} inputs {}",
+        pos,
+        this->record(pos).state,
+        this->record(pos).ALstatuscode,
+        session.expected_wkc,
+        mismatches,
+        min_wkc == (1 << 30) ? -1 : min_wkc,
+        reg(0x0810, uint64_t{}),
+        reg(0x0818, uint64_t{}),
+        reg(0x0980, uint16_t{}),
+        reg(0x098E, uint8_t{}),
+        reg(0x0990, uint64_t{}),
+        reg(0x0910, uint64_t{}),
+        reg(0x092C, uint32_t{}),
+        reg(0x09A0, uint32_t{}),
+        this->record(pos).Ibytes,
+        inputs
+    );
 }
 
 void Master::recover(const x::breaker::Breaker &breaker) {
@@ -707,7 +755,35 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
                                CLOCK_RETRY.interval(retry.failures).chrono();
                 }
             );
-        this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
+        {
+            std::string list;
+            for (const auto &p: this->config(pos).startup_parameters)
+                list += std::format(
+                    "0x{:04X}:{:02X}={} ",
+                    p.index,
+                    p.sub_index,
+                    p.value
+                );
+            LOG(WARNING) << std::format(
+                "[ethercat] DIAG reconfig slave {} from state 0x{:02X}: restores clock "
+                "{}, {} startup parameters: {}",
+                pos,
+                state,
+                restores,
+                this->config(pos).startup_parameters.size(),
+                list
+            );
+        }
+        const auto reached = this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
+        LOG(WARNING) << std::format(
+            "[ethercat] DIAG reconfig slave {} reached 0x{:02X}, startup failed {}, "
+            "clock error '{}'",
+            pos,
+            reached,
+            session.startup_failures.contains(pos),
+            session.dc_restore_errors.contains(pos) ? session.dc_restore_errors[pos]
+                                                    : ""
+        );
         this->api->set_PO2SOconfig(pos, nullptr);
         if (session.startup_failures.contains(pos)) {
             this->record(pos).state = EC_STATE_PRE_OP;

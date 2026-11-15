@@ -160,6 +160,13 @@ class Master final : public master::Master {
         std::optional<std::chrono::steady_clock::time_point> diag_since;
         /// @brief DIAG: whether check() dropped the slave of SYNNAX_DIAG_DROP_SLAVE.
         bool diag_dropped = false;
+        /// @brief DIAG: the dropped slave and when check() dropped it.
+        uint16_t diag_pos = 0;
+        std::optional<std::chrono::steady_clock::time_point> diag_drop_at;
+        /// @brief DIAG: receives with a working counter mismatch, and the least
+        /// working counter, since the last check.
+        std::atomic<int> diag_mismatches{0};
+        std::atomic<int> diag_min_wkc{1 << 30};
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
@@ -428,6 +435,9 @@ private:
     /// 10 s, and the wait starts again at 100 ms once the slave reaches OP. A wait for
     /// the clock of a DC slave ends once breaker stops.
     void recover_slave(uint16_t pos, const x::breaker::Breaker &breaker);
+
+    /// @brief DIAG: logs the registers and inputs of the dropped slave for 6 s.
+    void diag_log();
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
