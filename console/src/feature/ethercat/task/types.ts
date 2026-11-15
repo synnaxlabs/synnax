@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, type task } from "@synnaxlabs/client";
-import { DataType, id, primitive } from "@synnaxlabs/x";
+import { channel, type device, ethercat, type task } from "@synnaxlabs/client";
+import { DataType, id, primitive, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Address, findInput } from "@/feature/ethercat/device/settings";
@@ -111,6 +111,20 @@ export const writeChannelsOf = (config: unknown): channel.Key[] => {
   return parsed.data.channels
     .flatMap(({ cmdChannel, stateChannel }) => [cmdChannel, stateChannel])
     .filter(primitive.isNonZero);
+};
+
+const devicesZ = z.object({ channels: z.array(z.object({ device: z.string() })) });
+
+/**
+ * @returns the keys of the slaves that the channels of a read or write task config use,
+ * or none when the config does not hold channels.
+ */
+export const devicesOf = (config: unknown): device.Key[] => {
+  const parsed = devicesZ.safeParse(config);
+  if (!parsed.success) return [];
+  return unique
+    .unique(parsed.data.channels.map(({ device }) => device))
+    .filter((key) => key !== "");
 };
 
 export type EntryReadChannel = ethercat.EntryReadChannel;

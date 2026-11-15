@@ -21,11 +21,15 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
+
+#include "core/pkg/api/ni/chassis/pb/ni_chassis.pb.h"
+#include "core/pkg/service/ni/chassis/pb/ni_chassis.pb.h"
 
 namespace synnax::ni::chassis {
 
@@ -54,6 +58,12 @@ struct Identity {
 
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Identity;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<Identity, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Identity &pb);
 };
 
 /// @brief Configuration holds the chassis fields that the user owns.
@@ -63,6 +73,12 @@ struct Configuration {
 
     static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Configuration;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Configuration, x::errors::Error>
+    to_proto() const;
+    static std::pair<Configuration, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Configuration &pb);
 };
 
 /// @brief Where is a filter that selects NI chassis.
@@ -113,6 +129,12 @@ struct Where {
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Where;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Where &pb);
 };
 
 /// @brief StatusDetails identifies the chassis and rack that a status pertains to.
@@ -124,6 +146,12 @@ struct StatusDetails {
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::StatusDetails &pb);
 };
 
 /// @brief Cursor is a position in an order of chassis: the sort value and the key of a
@@ -134,6 +162,12 @@ struct Cursor {
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_chassis::pb::Cursor;
+    [[nodiscard]] std::pair<::api::ni_chassis::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::ni_chassis::pb::Cursor &pb);
 };
 
 /// @brief IdentityUpdate writes the fields that the scanner owns.
@@ -142,6 +176,12 @@ struct IdentityUpdate : public Identity {
 
     static IdentityUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Identity;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<IdentityUpdate, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Identity &pb);
 };
 
 /// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
@@ -151,6 +191,12 @@ struct ConfigurationUpdate : public Configuration {
 
     static ConfigurationUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Configuration;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Configuration, x::errors::Error>
+    to_proto() const;
+    static std::pair<ConfigurationUpdate, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Configuration &pb);
 };
 
 /// @brief Update is a write to one field group of a chassis.
@@ -158,6 +204,10 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
+[[nodiscard]] std::pair<::service::ni_chassis::pb::Update, x::errors::Error>
+to_proto(const Update &value);
+std::pair<Update, x::errors::Error>
+update_from_proto(const ::service::ni_chassis::pb::Update &pb);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
@@ -200,6 +250,12 @@ struct RetrieveRequest {
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_chassis::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ni_chassis::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::ni_chassis::pb::RetrieveRequest &pb);
 };
 
 /// @brief Chassis is an NI chassis that holds device modules.
@@ -222,6 +278,12 @@ struct Chassis {
 
     static Chassis parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_chassis::pb::Chassis;
+    [[nodiscard]] std::pair<::service::ni_chassis::pb::Chassis, x::errors::Error>
+    to_proto() const;
+    static std::pair<Chassis, x::errors::Error>
+    from_proto(const ::service::ni_chassis::pb::Chassis &pb);
 };
 
 /// @brief RetrieveResponse holds the chassis a RetrieveRequest selects.
@@ -231,6 +293,12 @@ struct RetrieveResponse {
 
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_chassis::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ni_chassis::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::ni_chassis::pb::RetrieveResponse &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("ni_chassis", "");

@@ -9,7 +9,7 @@
 
 import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
+import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -17,6 +17,8 @@ import {
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  type SlaveOnRack,
+  toSlaveOnRack,
 } from "@/feature/ethercat/device/types";
 import {
   type Channel,
@@ -28,19 +30,28 @@ import { Device as PlatformDevice } from "@/platform/device";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves, useResult: useResultSlaves } =
-  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+const {
+  use: useSlaves,
+  useResult: useResultSlaves,
+  createResultSelector,
+} = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
   useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
+// A status heartbeat changes no slave unless it connects or disconnects.
+const useResultSlavesOnRack = createResultSelector(
+  (slaves) => slaves.map(toSlaveOnRack),
+  deep.equal,
+);
+
 /**
- * The slaves on the rack with their statuses, or undefined until they resolve, on
- * failure, or without a rack.
+ * The slaves on the rack, or undefined until they resolve, on failure, or without a
+ * rack.
  */
-export const useSlavesOnRack = (rack: number | undefined): SlaveDevice[] | undefined =>
-  useResultSlaves(
+export const useSlavesOnRack = (rack: number | undefined): SlaveOnRack[] | undefined =>
+  useResultSlavesOnRack(
     rack == null
       ? null
       : {

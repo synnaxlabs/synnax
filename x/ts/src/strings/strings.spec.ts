@@ -69,6 +69,18 @@ describe("createShortIdentifiers", () => {
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
 
+  it("should split identifiers only between words", () =>
+    expect(strings.createShortIdentifiers("IOLITEr 32xDO BUS1")).toEqual([
+      "i3b",
+      "i_3_b",
+      "i32xdob",
+      "i_32xdo_b",
+      "i3bus1",
+      "i_3_bus1",
+      "iol32xbus",
+      "iol_32x_bus",
+    ]));
+
   it("should leave out identifiers with characters other than letters, digits, and underscores", () =>
     expect(
       strings.createShortIdentifiers("IOLITE GATE LATCH v2.00 BUS1"),
