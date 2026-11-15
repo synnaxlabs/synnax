@@ -1726,6 +1726,45 @@ var _ = Describe("C++ PB Plugin", func() {
 			)
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should qualify translators from a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@cpp output "x/cpp/color"
+					@pb output "x/go/color/pb"
+
+					Side enum {
+						left  = "left"
+						right = "right"
+					}
+
+					Stop struct {
+						position float32
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@cpp output "client/cpp/color"
+					@pb output "core/pkg/service/color/pb"
+
+					Named struct {
+						side color.Side
+						stop color.Stop
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+				ExpectContent(resp, "client/cpp/color/proto.gen.h").
+					ToContain(
+						`#include "x/cpp/color/proto.gen.h"`,
+						"::x::color::side_to_pb(this->side)",
+						"::x::color::side_from_pb(pb.side())",
+						"::x::color::Stop::from_proto(pb.stop())",
+					)
+			})
+		})
+
 		Context("map field conversion", func() {
 			It("Should handle map fields with mutable accessor", func(ctx SpecContext) {
 				source := `

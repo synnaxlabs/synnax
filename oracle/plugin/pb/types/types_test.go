@@ -1163,6 +1163,39 @@ var _ = Describe("Plugin", func() {
 				},
 			)
 		})
+
+		Context("schemas with the same file name", func() {
+			It("Should import the enum of a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+					@pb
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+					@pb
+
+					Named struct {
+						kind color.Kind
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, p)
+				ExpectContent(resp, "core/pkg/service/color/pb/color.proto").
+					ToContain(
+						`import "x/go/color/pb/color.proto";`,
+						".x.color.pb.Kind kind = 1;",
+					).
+					ToNotContain("enum Kind")
+			})
+		})
 	})
 })
 
