@@ -2687,8 +2687,42 @@ var _ = Describe("TS Types Plugin", func() {
 						"fill: color.namedZ,",
 						"raw: xcolor.colorZ,",
 					)
+			})
+
+			It("Should import types from a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@ts output "x/ts/src/color"
+
+					Color struct {
+						r uint8
+
+						@ts hand
+						@ts include "x/ts/src/color/color"
+					}
+
+					Stop struct {
+						position float32
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@ts output "client/ts/src/color"
+
+					Named struct {
+						light color.Color
+						stop  color.Stop
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, typesPlugin)
 				ExpectContent(resp, "client/ts/src/color/types.gen.ts").
-					ToContain(`import { colorZ } from "@synnaxlabs/x";`)
+					ToContain(
+						`import { color } from "@synnaxlabs/x";`,
+						"light: color.colorZ,",
+						"stop: color.stopZ,",
+					)
 			})
 
 			It("Should fail when two modules end in the name", func(ctx SpecContext) {

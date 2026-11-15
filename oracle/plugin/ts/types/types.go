@@ -124,6 +124,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			content, err := p.generateFile(
 				structs[0].Namespace,
+				structs[0].FilePath,
 				outputPath,
 				structs,
 				enums,
@@ -171,6 +172,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			)
 			content, err := p.generateFile(
 				namespace,
+				unions[0].FilePath,
 				outputPath,
 				nil,
 				enums,
@@ -199,6 +201,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		content, err := p.generateFile(
 			enums[0].Namespace,
+			enums[0].FilePath,
 			outputPath,
 			nil,
 			enums,
@@ -234,6 +237,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			content, err := p.generateFile(
 				typeDefs[0].Namespace,
+				typeDefs[0].FilePath,
 				outputPath,
 				nil,
 				enums,
@@ -293,6 +297,7 @@ func hasNonPrimitiveDependency(typ resolution.Type) bool {
 // imports, it renders the file again with aliases.
 func (p *Plugin) generateFile(
 	namespace string,
+	filePath string,
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -301,14 +306,14 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	content, conflicts, err := p.renderFile(
-		namespace, outputPath, structs, enums, typeDefs, unions, req, nil,
+		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, nil,
 	)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
 	aliases := imports.Aliases(conflicts)
 	content, conflicts, err = p.renderFile(
-		namespace, outputPath, structs, enums, typeDefs, unions, req, aliases,
+		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, aliases,
 	)
 	if err != nil {
 		return nil, err
@@ -325,6 +330,7 @@ func (p *Plugin) generateFile(
 // alias. It returns the names that two modules export to the file.
 func (p *Plugin) renderFile(
 	namespace string,
+	filePath string,
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -335,6 +341,7 @@ func (p *Plugin) renderFile(
 ) ([]byte, map[string][]string, error) {
 	data := &templateData{
 		Namespace:       namespace,
+		FilePath:        filePath,
 		OutputPath:      outputPath,
 		Request:         req,
 		aliases:         aliases,
@@ -965,7 +972,7 @@ func (p *Plugin) processStruct(
 			schemaName := casing.CamelAcronym(parentTSName) + "Z"
 			importLocalHand(parentType, schemaName, data)
 
-			if parentType.Namespace != data.Namespace {
+			if parentType.FilePath != data.FilePath {
 				ns := importNamespace(
 					parentType.Namespace,
 					output.GetPath(parentType, "ts"),
@@ -1405,7 +1412,7 @@ func parentSchemaName(
 	parent, _ := ref.Resolve(table)
 	name := casing.CamelAcronym(domain.GetName(parent, "ts")) + "Z"
 	importLocalHand(parent, name, data)
-	if parent.Namespace != data.Namespace {
+	if parent.FilePath != data.FilePath {
 		ns := importNamespace(parent.Namespace, output.GetPath(parent, "ts"), data)
 		name = ns + "." + name
 	}
@@ -1456,7 +1463,7 @@ func (p *Plugin) createNewRefForField(
 		return "", false
 	}
 	newName := "New"
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		newName = ns + ".New"
 	}
@@ -1489,7 +1496,7 @@ func (p *Plugin) detailsSchemaRef(
 		data,
 	)
 	prefix := ""
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		prefix = ns + "."
 	}
@@ -1653,7 +1660,7 @@ func enumNames(
 	declared, _ := ref.Resolve(table)
 	typeName = domain.GetName(declared, "ts")
 	schema = casing.CamelAcronym(typeName) + "Z"
-	if declared.Namespace == data.Namespace {
+	if declared.FilePath == data.FilePath {
 		return typeName, schema, true
 	}
 	outputPath := output.GetPath(declared, "ts")
@@ -2147,7 +2154,7 @@ func (p *Plugin) typeRefToZodInternal(
 				schemaName += "()"
 			}
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2159,7 +2166,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.EnumForm:
 		enumName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				enum.FindOutputPath(resolved, table, "ts"),
@@ -2171,7 +2178,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.DistinctForm:
 		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2184,7 +2191,7 @@ func (p *Plugin) typeRefToZodInternal(
 	case resolution.AliasForm:
 		if !form.IsGeneric() {
 			schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-			if resolved.Namespace != data.Namespace {
+			if resolved.FilePath != data.FilePath {
 				ns := importNamespace(
 					resolved.Namespace,
 					output.GetPath(resolved, "ts"),
@@ -2204,7 +2211,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.UnionForm:
 		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2313,21 +2320,21 @@ func (p *Plugin) typeRefToTSInternal(
 				),
 			)
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
 		}
 		return typeName
 
 	case resolution.EnumForm:
 		enumName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, enumName)
 		}
 		return enumName
 
 	case resolution.DistinctForm:
 		distinctName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2352,14 +2359,14 @@ func (p *Plugin) typeRefToTSInternal(
 				),
 			)
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
 		}
 		return typeName
 
 	case resolution.UnionForm:
 		typeName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
 		}
 		return typeName
@@ -2576,7 +2583,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 	}
 
 	var prefix string
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		prefix = resolved.Namespace + "."
 	}
 
@@ -2647,7 +2654,7 @@ func isInXPackage(outputPath string) bool {
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. A missing module is recorded so generation fails.
 func importLocalHand(typ resolution.Type, ident string, data *templateData) {
-	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "ts") {
+	if typ.FilePath != data.FilePath || !omit.IsSkipped(typ, "ts") {
 		return
 	}
 	module := domain.GetStringFromType(typ, "ts", "include")
@@ -3113,7 +3120,7 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
-	if ev.Type.Namespace != data.Namespace {
+	if ev.Type.FilePath != data.FilePath {
 		variantRef = fmt.Sprintf("%s.%s", ev.Type.Namespace, variantRef)
 	}
 	return variantRef
@@ -3131,6 +3138,9 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
+	// FilePath is the schema file that this file renders. A type is local when it comes
+	// from this file: two schemas with one file name share a namespace.
+	FilePath string
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no `@ts include` module.
 	missingIncludes set.Set[string]

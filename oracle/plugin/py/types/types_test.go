@@ -2436,6 +2436,44 @@ var _ = Describe("Python Types Plugin", func() {
 				})
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should import types from a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@py output "x/py/x/color"
+
+					Color struct {
+						r uint8
+
+						@py hand
+						@py include "x/py/x/color/color"
+					}
+
+					Stop struct {
+						position float32
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@py output "client/py/synnax/color"
+
+					Named struct {
+						light color.Color
+						stop  color.Stop
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				ExpectContent(resp, "client/py/synnax/color/types_gen.py").
+					ToContain(
+						"from x import color",
+						"light: color.Color",
+						"stop: color.Stop",
+					)
+			})
+		})
+
 		Context("cross-namespace references", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/status", `
