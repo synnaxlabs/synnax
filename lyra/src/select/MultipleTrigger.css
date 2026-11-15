@@ -12,8 +12,12 @@
 /* The placeholder is lyra-text too, so a bare class ties with its color and loses
    when its stylesheet loads first, in a build. */
 .lyra-text.lyra-select-multiple-trigger-placeholder {
-    padding: 0 1rem;
     color: var(--pluto-text-placeholder);
+}
+
+/* A placeholder that is a button takes the padding of its size. */
+.lyra-text.lyra-select-multiple-trigger-placeholder:not(.lyra-btn) {
+    padding: 0 1rem;
 }
 
 /* A status colors the trigger, and the placeholder takes that color. */

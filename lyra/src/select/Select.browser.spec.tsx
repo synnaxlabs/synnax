@@ -11,6 +11,7 @@ import { type ReactElement, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -704,6 +705,32 @@ describe("Select", () => {
         await userEvent.unhover(placeholder);
       }
     });
+
+    it.each(["shadow", "text"] as const)(
+      "should size the placeholder of a %s trigger as a small text button, as tall as a tag",
+      async (variant) => {
+        await renderThemed(
+          <Button.Button variant="text" size="small">
+            Small
+          </Button.Button>,
+        );
+        const small = page.getByRole("button", { name: "Small" }).element();
+        const trigger = (): HTMLElement =>
+          document.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
+        await renderChips(variant, 800, { initial: [] });
+        const placeholder = placeholderOf(trigger());
+        for (const property of ["height", "font-size", "padding-left", "padding-right"])
+          expect(computed(placeholder, property)).toBe(computed(small, property));
+        const { height } = trigger().getBoundingClientRect();
+        await userEvent.click(placeholder);
+        await pick("Pass");
+        await expect.poll(() => chip(trigger(), "Pass")).toBeDefined();
+        expect(computed(chip(trigger(), "Pass"), "height")).toBe(
+          computed(small, "height"),
+        );
+        expect(trigger().getBoundingClientRect().height).toBe(height);
+      },
+    );
 
     it("should keep the placeholder of an outlined trigger as text", async () => {
       const trigger = await renderChips("outlined", 800, { initial: [] });

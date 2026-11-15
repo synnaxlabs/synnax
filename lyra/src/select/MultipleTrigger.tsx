@@ -227,8 +227,7 @@ export const MultipleTrigger = <
           <Button.Button
             el="div"
             variant="text"
-            size="tiny"
-            level="p"
+            size="small"
             propagateClick
             reveal={variant === "shadow"}
             className={PLACEHOLDER_CLASS}
