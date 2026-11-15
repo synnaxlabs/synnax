@@ -12,6 +12,7 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/color"
+@py output "client/py/synnax/color"
 
 Key = uuid {
     @doc value "is the key of a named color."
