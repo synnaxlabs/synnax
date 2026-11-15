@@ -44,6 +44,11 @@ class TestColorClient:
         with pytest.raises(sy.ValidationError, match="name and a light color"):
             client.colors.create(**kwargs)
 
+    def test_create_one(self, client: sy.Synnax) -> None:
+        """Should create a single named color and return it."""
+        named = color.Named(name=str(uuid4()), light=sy.Color("#00FF00"))
+        assert client.colors.create(named) == named
+
     def test_create_many(self, client: sy.Synnax) -> None:
         """Should create a list of named colors and return a list."""
         colors = [
@@ -52,15 +57,101 @@ class TestColorClient:
         created = client.colors.create(colors)
         assert [n.key for n in created] == [n.key for n in colors]
 
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a named color whose key exists and keep the stored one."""
+        named = client.colors.create(name=str(uuid4()), light="#FF0000")
+        with pytest.raises(
+            sy.ValidationError, match=f"color {named.key} already exists"
+        ):
+            client.colors.create(named.model_copy(update={"name": str(uuid4())}))
+        assert client.colors.retrieve(key=named.key).name == named.name
+
     def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a named color by its key."""
         named = client.colors.create(name=str(uuid4()), light="#FF0000")
         assert client.colors.retrieve(key=named.key) == named
 
+    def test_retrieve_by_keys(self, client: sy.Synnax) -> None:
+        """Should retrieve several named colors by their keys."""
+        a = client.colors.create(name=str(uuid4()), light="#FF0000")
+        b = client.colors.create(name=str(uuid4()), light="#FF0000")
+        res = client.colors.retrieve(keys=[a.key, b.key])
+        assert {n.key for n in res} == {a.key, b.key}
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep the named colors that match the where and the other filters."""
+        a = client.colors.create(name=str(uuid4()), light="#FF0000")
+        b = client.colors.create(name=str(uuid4()), light="#FF0000")
+        where = color.Where(not_=color.Where(key=sy.filter.Set[color.Key](eq=a.key)))
+        res = client.colors.retrieve(where=where, names=[a.name, b.name])
+        assert [n.key for n in res] == [b.key]
+
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should retrieve a named color by its name."""
         named = client.colors.create(name=str(uuid4()), light="#FF0000")
         assert client.colors.retrieve(name=named.name) == named
+
+    def test_retrieve_by_names(self, client: sy.Synnax) -> None:
+        """Should retrieve several named colors by their names."""
+        a = client.colors.create(name=str(uuid4()), light="#FF0000")
+        b = client.colors.create(name=str(uuid4()), light="#FF0000")
+        res = client.colors.retrieve(names=[a.name, b.name])
+        assert {n.key for n in res} == {a.key, b.key}
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the named colors that match any filter in or_."""
+        a = client.colors.create(name=str(uuid4()), light="#FF0000")
+        b = client.colors.create(name=str(uuid4()), light="#FF0000")
+        res = client.colors.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert sorted(n.key for n in res) == sorted([a.key, b.key])
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return one named color for any filter when one is set."""
+        named = client.colors.create(name=str(uuid4()), light="#FF0000")
+        found = client.colors.retrieve(name={"starts_with": named.name}, one=True)
+        assert found == named
+        assert client.colors.retrieve(keys=[named.key], one=True) == named
+
+    @pytest.mark.parametrize(
+        "page",
+        [{"limit": 1}, {"after": color.Cursor(key=uuid4())}],
+    )
+    def test_retrieve_one_with_page(
+        self, client: sy.Synnax, page: dict[str, object]
+    ) -> None:
+        """Should reject one beside a limit or a cursor, since a page could hide a
+        match."""
+        with pytest.raises(sy.ValidationError, match="cannot set a limit or a cursor"):
+            client.colors.retrieve(  # type: ignore[call-overload]
+                name={"starts_with": "a"}, one=True, **page
+            )
+
+    def test_retrieve_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise MultipleFoundError when several named colors share the
+        name."""
+        name = str(uuid4())
+        client.colors.create(name=name, light="#FF0000")
+        client.colors.create(name=name, light="#00FF00")
+        with pytest.raises(sy.MultipleFoundError):
+            client.colors.retrieve(name=name)
+
+    def test_retrieve_order_and_after(self, client: sy.Synnax) -> None:
+        """Should page through the matching named colors in name order from a
+        cursor."""
+        prefix = uuid4()
+        created = client.colors.create(
+            [
+                color.Named(name=f"{prefix} {n}", light=sy.Color("#FF0000"))
+                for n in "CAB"
+            ]
+        )
+        keys = [n.key for n in created]
+        order = color.Order(field="name")
+        first = client.colors.retrieve(key=keys, order=order, limit=2)
+        assert [n.name for n in first] == [f"{prefix} A", f"{prefix} B"]
+        after = color.Cursor(key=first[-1].key, name=first[-1].name)
+        second = client.colors.retrieve(key=keys, order=order, after=after)
+        assert [n.name for n in second] == [f"{prefix} C"]
 
     def test_retrieve_by_search_term(self, client: sy.Synnax) -> None:
         """Should retrieve named colors whose names match a search term."""
@@ -114,3 +205,7 @@ class TestColorClient:
         client.colors.delete(named.key)
         with pytest.raises(sy.NotFoundError):
             client.colors.retrieve(key=named.key)
+
+    def test_delete_missing(self, client: sy.Synnax) -> None:
+        """Should not fail on a key with no named color."""
+        client.colors.delete(uuid4())
