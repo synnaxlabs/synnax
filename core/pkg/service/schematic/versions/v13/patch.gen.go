@@ -30,6 +30,36 @@ func (e *Edge) Patch(c patch.Cursor) error {
 func (e *Edge) PatchKey() string { return e.Key }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (lc *LabelConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "label":
+		return patch.Value(&lc.Label, c.Next())
+	case "level":
+		return patch.Defaulted(&lc.Level, c.Next(), func(def *LabelConfig) {
+			lc.Level = def.Level
+		})
+	case "orientation":
+		return patch.Defaulted(&lc.Orientation, c.Next(), func(def *LabelConfig) {
+			lc.Orientation = def.Orientation
+		})
+	case "direction":
+		return patch.Defaulted(&lc.Direction, c.Next(), func(def *LabelConfig) {
+			lc.Direction = def.Direction
+		})
+	case "max_inline_size":
+		return patch.Defaulted(&lc.MaxInlineSize, c.Next(), func(def *LabelConfig) {
+			lc.MaxInlineSize = def.MaxInlineSize
+		})
+	case "align":
+		return patch.Defaulted(&lc.Align, c.Next(), func(def *LabelConfig) {
+			lc.Align = def.Align
+		})
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (n *Node) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "config":
@@ -2359,7 +2389,9 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 			bnc.Size = def.Size
 		})
 	case "level":
-		return patch.OptionalValue(&bnc.Level, c.Next())
+		return patch.Defaulted(&bnc.Level, c.Next(), func(def *ButtonNodeConfig) {
+			bnc.Level = def.Level
+		})
 	case "on_click_delay":
 		return patch.Value(&bnc.OnClickDelay, c.Next())
 	case "command_channel":
@@ -2507,6 +2539,10 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 	case "size":
 		return patch.Defaulted(&inc.Size, c.Next(), func(def *InputNodeConfig) {
 			inc.Size = def.Size
+		})
+	case "level":
+		return patch.Defaulted(&inc.Level, c.Next(), func(def *InputNodeConfig) {
+			inc.Level = def.Level
 		})
 	case "command_channel":
 		return patch.OptionalValue(&inc.CommandChannel, c.Next())
@@ -2708,6 +2744,10 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SelectNodeConfig) {
 			snc.Size = def.Size
 		})
+	case "level":
+		return patch.Defaulted(&snc.Level, c.Next(), func(def *SelectNodeConfig) {
+			snc.Level = def.Level
+		})
 	case "command_channel":
 		return patch.OptionalValue(&snc.CommandChannel, c.Next())
 	case "state_channel":
@@ -2845,6 +2885,10 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SetpointNodeConfig) {
 			snc.Size = def.Size
 		})
+	case "level":
+		return patch.Defaulted(&snc.Level, c.Next(), func(def *SetpointNodeConfig) {
+			snc.Level = def.Level
+		})
 	case "command_channel":
 		return patch.OptionalValue(&snc.CommandChannel, c.Next())
 	case "state_channel":
@@ -2919,6 +2963,10 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 	case "size":
 		return patch.Defaulted(&sinc.Size, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.Size = def.Size
+		})
+	case "level":
+		return patch.Defaulted(&sinc.Level, c.Next(), func(def *StateIndicatorNodeConfig) {
+			sinc.Level = def.Level
 		})
 	default:
 		return c.UnknownField()

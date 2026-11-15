@@ -116,7 +116,7 @@ class LabelConfig(BaseModel):
     level: text.Level = "h5"
     orientation: spatial.Location = "top"
     direction: spatial.Direction = "x"
-    max_inline_size: float = 150
+    max_inline_size: int = Field(default=150, ge=1, le=65535)
     align: FlexAlignment = "center"
 
 
@@ -591,7 +591,7 @@ class ButtonNodeConfig(LabeledConfig):
 
     variant: Literal["button"] = "button"
     size: ComponentSize = "medium"
-    level: text.Level | None = None
+    level: text.Level = "h4"
     on_click_delay: float = 0
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     mode: ButtonMode = "fire"
@@ -631,6 +631,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["input"] = "input"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -689,6 +690,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["select"] = "select"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     fill_color: color_.Color | None = None
@@ -715,6 +717,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["setpoint"] = "setpoint"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -735,6 +738,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     inline_size: float = 100
     options: list[StateMapping] = Field(default_factory=list)
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
 
 
 class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):

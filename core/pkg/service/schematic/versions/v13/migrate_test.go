@@ -11,6 +11,7 @@ package v13_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"math"
 	"uuid"
 
@@ -27,6 +28,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 // withElements gives each config key of s a node, or an edge between two capped anchor
@@ -349,7 +351,11 @@ var _ = Describe("MigrateSchematic config move", func() {
 		valve      = v12.ValveElementConfig{Orientation: "left", Scale: 2}
 		pipe       = v12.PipeElementConfig{Segments: []v12.Segment{}}
 		movedValve = v13.NodeConfig{
-			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
+			Variant: v13.ValveNodeConfig{
+				Label:       v13.LabelConfig{MaxInlineSize: 1},
+				Orientation: "left",
+				Scale:       2,
+			},
 		}
 		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
 			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
@@ -693,6 +699,174 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(configOf(got, "box")).To(HaveField("StrokeWidth", BeZero()))
+	})
+})
+
+// migrateNode migrates a v12 node config decoded from raw.
+func migrateNode(ctx SpecContext, raw map[string]any) v13.NodeConfigVariant {
+	GinkgoHelper()
+	var cfg v12.NodeConfig
+	Expect(json.Unmarshal(MustSucceed(json.Marshal(raw)), &cfg)).To(Succeed())
+	return MustSucceed(v13.MigrateNodeConfig(ctx, cfg)).Variant
+}
+
+var _ = Describe("MigrateNodeConfig text", func() {
+	It("Should set a saved button's level and keep its wrap width", func(
+		ctx SpecContext,
+	) {
+		Expect(migrateNode(ctx, map[string]any{
+			"variant": "button",
+			"size":    "large",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		})).To(SatisfyAll(
+			HaveField("Level", Equal(text.LevelH5)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(80)),
+		))
+	})
+
+	DescribeTable("Should keep the wrap width of a saved symbol",
+		func(ctx SpecContext, variant string, label map[string]any, width uint16) {
+			Expect(migrateNode(ctx, map[string]any{
+				"variant": variant,
+				"label":   label,
+			})).To(SatisfyAll(
+				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
+				HaveField("LabeledConfig.Label.Label", Equal("P1")),
+			))
+		},
+		Entry("a button with no width", "button",
+			map[string]any{"label": "P1"}, uint16(65535)),
+		Entry("a button with a width of 0", "button",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a button with the default", "button",
+			map[string]any{"label": "P1", "max_inline_size": 150.0}, uint16(65535)),
+		Entry("a button with a negative width", "button",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a button with a chosen width", "button",
+			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
+		Entry("a value with no width", "value",
+			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a value with a negative width", "value",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a cap with a fractional width", "cap",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a valve with a width of 0", "valve",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a relief valve with a fractional width", "relief_valve",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+	)
+
+	DescribeTable("Should keep the rendered text size of a saved state indicator",
+		func(ctx SpecContext, size string, level text.Level) {
+			Expect(migrateNode(ctx, map[string]any{
+				"variant": "state_indicator",
+				"size":    size,
+			})).To(HaveField("Level", Equal(level)))
+		},
+		Entry("tiny", "tiny", text.LevelSmall),
+		Entry("small", "small", text.LevelH5),
+		Entry("medium", "medium", text.LevelH4),
+		Entry("large", "large", text.LevelH3),
+		Entry("huge", "huge", text.LevelH2),
+	)
+
+	DescribeTable("Should keep the rendered text size of a saved symbol",
+		func(ctx SpecContext, size string, level text.Level) {
+			for _, variant := range []string{"button", "input", "select", "setpoint"} {
+				Expect(migrateNode(ctx, map[string]any{
+					"variant": variant,
+					"size":    size,
+				})).To(HaveField("Level", Equal(level)), variant)
+			}
+		},
+		Entry("tiny", "tiny", text.LevelTiny),
+		Entry("small", "small", text.LevelSmall),
+		Entry("medium", "medium", text.LevelP),
+		Entry("large", "large", text.LevelH5),
+		Entry("huge", "huge", text.LevelH2),
+	)
+
+	It("Should keep a level that a saved button stores", func(ctx SpecContext) {
+		Expect(migrateNode(ctx, map[string]any{
+			"variant": "button",
+			"size":    "large",
+			"level":   "h3",
+		})).To(HaveField("Level", Equal(text.LevelH3)))
+	})
+
+	It("Should replace an invalid level that a saved button stores", func(
+		ctx SpecContext,
+	) {
+		Expect(migrateNode(ctx, map[string]any{
+			"variant": "button",
+			"size":    "large",
+			"level":   "",
+		})).To(HaveField("Level", Equal(text.LevelH5)))
+	})
+
+	It("Should migrate a saved label through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"b": {Variant: v12.ButtonElementConfig{
+					LabeledConfig: v12.LabeledConfig{
+						Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 150},
+					},
+					Size: v12.ComponentSizeHuge,
+				}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "b")).To(SatisfyAll(
+			HaveField("Level", Equal(text.LevelH2)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(65535)),
+		))
+	})
+})
+
+var _ = Describe("MigrateLabelConfig", func() {
+	DescribeTable("Should round and clamp the wrap width", func(
+		ctx SpecContext,
+		in float64,
+		out uint16,
+	) {
+		cfg := MustSucceed(v13.MigrateLabelConfig(
+			ctx,
+			v12.LabelConfig{Label: "P1", MaxInlineSize: in},
+		))
+		Expect(cfg.MaxInlineSize).To(Equal(out))
+		Expect(cfg.Label).To(Equal("P1"))
+	},
+		Entry("whole", 80.0, uint16(80)),
+		Entry("round up", 80.6, uint16(81)),
+		Entry("round down", 80.4, uint16(80)),
+		Entry("below 1", 0.3, uint16(1)),
+		Entry("negative", -20.0, uint16(65535)),
+		Entry("negative infinite", math.Inf(-1), uint16(65535)),
+		Entry("too large", 1e9, uint16(65535)),
+		Entry("infinite", math.Inf(1), uint16(65535)),
+		Entry("zero", 0.0, uint16(1)),
+		Entry("NaN", math.NaN(), uint16(150)),
+	)
+})
+
+var _ = Describe("MigrateLabeledConfig", func() {
+	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
+		cfg := MustSucceed(v13.MigrateLabeledConfig(ctx, v12.LabeledConfig{
+			Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 80.6},
+		}))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(81))
+		Expect(cfg.Label.Label).To(Equal("P1"))
 	})
 })
 
