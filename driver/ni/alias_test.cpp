@@ -171,18 +171,23 @@ TEST(FindAlias, ReturnsNotFoundWithNoDevices) {
 }
 
 namespace {
-/// @brief asserts that find_alias returns the error of the failing call, not
-/// NOT_FOUND, and closes every handle it opened.
+/// @brief asserts that find_alias returns the error of the failing call and closes
+/// every handle it opened.
 void assert_fails_on(const std::string &call) {
     const auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{
         {.resource_name = "7C2D9E0F", .alias = "SY2Mod1"},
     });
     api->failing_call = call;
     syscfg::SugaredAPI syscfg(api);
-    const auto [alias, err] = find_alias(syscfg, "7C2D9E0F");
-    ASSERT_TRUE(err) << call;
-    ASSERT_FALSE(err.matches(x::errors::NOT_FOUND)) << call;
-    ASSERT_EQ(api->open_handles, 0) << call;
+    SCOPED_TRACE(call);
+    ASSERT_OCCURRED_AS_P(
+        find_alias(syscfg, "7C2D9E0F"),
+        x::errors::Error(
+            "failed to retrieve error message for status code " +
+            std::to_string(NISysCfg_Timeout)
+        )
+    );
+    ASSERT_EQ(api->open_handles, 0);
 }
 }
 
