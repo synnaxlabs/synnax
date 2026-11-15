@@ -227,6 +227,106 @@ var _ = Describe("ICD read task", func() {
 			return err
 		}
 
+		// format is an ICD message with a timestamp and two floats, and channels on two
+		// indexes to bind them to.
+		type format struct {
+			m          icd.Message
+			ic         icd.ICD
+			idx, other channel.Channel
+			data       []channel.Channel
+		}
+
+		createFormat := func(ctx context.Context) format {
+			m := jsonMessage("Status", nil,
+				jsonField("ts", "/ts", icd.TimestampJSONField{
+					TimeFormat: payload.TimeFormatUnixSec,
+				}),
+				jsonField("temp", "/temp", icd.FloatJSONField{}),
+				jsonField("pressure", "/pressure", icd.FloatJSONField{}),
+			)
+			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+			_, other := createIndexed(ctx, telem.Float64T)
+			return format{
+				m:     m,
+				ic:    createICD(ctx, m),
+				idx:   idx,
+				other: other[0],
+				data:  data,
+			}
+		}
+
+		type entries = func(f format) []map[string]any
+
+		// status reads the message of f on plant/status.
+		status := func(f format, read map[string]any) []map[string]any {
+			return []map[string]any{icdEntry("plant/status", f.ic, read)}
+		}
+
+		DescribeTable("Should reject an invalid entry",
+			func(ctx SpecContext, build entries, msg string) {
+				cfg := readConfig(dev, build(createFormat(ctx))...)
+				Expect(configureErr(ctx, cfg)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("a topic with a wildcard", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+				return []map[string]any{icdEntry("plant/+", f.ic, read)}
+			}, "must not hold the wildcards + or #"),
+			Entry("a topic that reads no message", func(f format) []map[string]any {
+				return []map[string]any{icdEntry("plant/status", f.ic)}
+			}, "topic plant/status reads no messages"),
+			Entry("a message that the ICD lacks", func(f format) []map[string]any {
+				other := jsonMessage(
+					"Other", nil, jsonField("v", "/v", icd.FloatJSONField{}),
+				)
+				return status(f, readMessage(other, binding(other, 0, f.data[0])))
+			}, "does not exist in ICD Plant"),
+			Entry("a message that binds no field", func(f format) []map[string]any {
+				return status(f, readMessage(f.m))
+			}, "message Status binds no fields"),
+			Entry("a channel that does not exist", func(f format) []map[string]any {
+				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
+				return status(f, readMessage(f.m, missing))
+			}, "does not exist"),
+			Entry("channels on two indexes", func(f format) []map[string]any {
+				return status(f, readMessage(
+					f.m, binding(f.m, 1, f.data[0]), binding(f.m, 2, f.other),
+				))
+			}, "every channel must share one index channel"),
+			Entry("an index field on a data channel", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 0, f.data[0]))
+				read["index"] = fieldKey(f.m, 0)
+				return status(f, read)
+			}, "the index field must write to an index channel"),
+			Entry("a data field on an index channel", func(f format) []map[string]any {
+				return status(f, readMessage(f.m, binding(f.m, 1, f.idx)))
+			}, "only the index field can write to an index channel"),
+			Entry("an index field with no channel", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+				read["index"] = fieldKey(f.m, 0)
+				return status(f, read)
+			}, "the index field has no channel"),
+			Entry("only disabled entries", func(f format) []map[string]any {
+				list := status(f, readMessage(f.m, binding(f.m, 1, f.data[0])))
+				list[0]["disabled"] = true
+				return list
+			}, "the task has no enabled entries"),
+			Entry("a topic read twice", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+				second := icdEntry("plant/status", f.ic, read)
+				second["key"] = "second"
+				return append(status(f, read), second)
+			}, "topic plant/status appears more than once"),
+			Entry("two topics on one channel", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+				return []map[string]any{
+					icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
+				}
+			}, "write to the same channel"),
+		)
+
 		It("Should reject an ICD that does not exist", func(ctx SpecContext) {
 			m := jsonMessage("Status", nil, jsonField("t", "/t", icd.FloatJSONField{}))
 			_, data := createIndexed(ctx, telem.Float64T)
