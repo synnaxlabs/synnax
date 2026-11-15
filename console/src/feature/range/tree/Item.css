@@ -93,6 +93,11 @@
     }
 }
 
+/* Only its tags take a click, so a click on the room around them opens the item. */
+.console-range-item__labels:has(.console-range-item__tags) {
+    pointer-events: none;
+}
+
 /* A hovered item lights its labels. */
 .console-range-item:hover .console-range-item__labels {
     --lyra-tags-lit: 1;
