@@ -798,52 +798,37 @@ class TestLaunch:
         executable(
             bindir / "claude",
             "import os\n"
-            "home = os.environ['CLAUDE_CONFIG_DIR']\n"
             "print(json.dumps({'args': sys.argv[1:], 'stdin': sys.stdin.read(),"
-            " 'cwd': os.getcwd(), 'env': dict(os.environ),"
-            " 'login': open(home + '/.credentials.json').read()}))\n",
+            " 'cwd': os.getcwd(), 'env': dict(os.environ)}))\n",
         )
         monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
         monkeypatch.setenv("GH_TOKEN", "app-token")
-        seat = tmp_path / "seat"
-        seat.mkdir()
-        (seat / ".credentials.json").write_text("seat-login")
-        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(seat))
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+        monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
         work = tmp_path / "work"
         work.mkdir()
         out = json.loads("".join(launch(["claude", "--print"], "Review it.", work)))
         assert out["args"] == ["--print"]
         assert out["stdin"] == "Review it."
         assert Path(out["cwd"]).resolve() == work.resolve()
-        assert out["login"] == "seat-login"
         env = out["env"]
+        assert env["CLAUDE_CONFIG_DIR"] == str(tmp_path / "home" / ".claude")
         assert env["CLAUDE_CODE_PROMPT_CACHE_TTL"] == "5m"
         assert "GH_TOKEN" not in env
-        assert env["HOME"] == env["CLAUDE_CONFIG_DIR"] != str(seat)
-        assert (seat / ".credentials.json").read_text() == "seat-login"
+        assert env["HOME"] != str(tmp_path / "home")
 
-    def test_should_give_the_seat_a_login_that_claude_refreshed(
+    def test_should_pass_claude_the_seat_config_directory(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         bindir = tmp_path / "bin"
         bindir.mkdir()
         executable(
-            bindir / "claude",
-            "import os\n"
-            "home = os.environ['CLAUDE_CONFIG_DIR']\n"
-            "open(home + '/new', 'w').write('refreshed')\n"
-            "os.replace(home + '/new', home + '/.credentials.json')\n"
-            "sys.exit(1)\n",
+            bindir / "claude", "import os\nprint(json.dumps(dict(os.environ)))\n"
         )
         monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
-        seat = tmp_path / "seat"
-        seat.mkdir()
-        (seat / ".credentials.json").write_text("seat-login")
-        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(seat))
-        with pytest.raises(subprocess.CalledProcessError):
-            list(launch(["claude"], "", tmp_path))
-        assert (seat / ".credentials.json").read_text() == "refreshed"
-        assert [p.name for p in seat.iterdir()] == [".credentials.json"]
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "seat"))
+        env = json.loads("".join(launch(["claude"], "", tmp_path)))
+        assert env["CLAUDE_CONFIG_DIR"] == str(tmp_path / "seat")
 
     def test_should_raise_the_exit_code_when_claude_exits_before_it_reads(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

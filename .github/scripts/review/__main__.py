@@ -19,7 +19,7 @@ Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEA
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
 `run` also takes POLICY_DIR, a trusted checkout that holds `.sedosaur/`, and POLICY_SHA,
 the commit its policy comes from; HEAD_DIR, a checkout of the head; and REPLAY, `true`
-for a review that posts nothing. Claude Code gets only the login of the seat, in
+for a review that posts nothing. Claude Code signs in with the login of the seat, in
 CLAUDE_CONFIG_DIR or `~/.claude`. A replay needs no CHECK_RUN.
 
 `run` writes a record of the review: when it ran, the pull request, the commits, the
@@ -39,7 +39,6 @@ import dataclasses
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -71,44 +70,35 @@ _HUNK = re.compile(r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
 
 def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
-    seat = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-    login = seat / ".credentials.json"
+    seat = os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude"
     with tempfile.TemporaryDirectory() as home:
-        link = Path(home) / ".credentials.json"
-        link.symlink_to(login)
         env = {
             "PATH": os.environ["PATH"],
             "HOME": home,
-            "CLAUDE_CONFIG_DIR": home,
+            # Every pass on the seat shares its login, so each reads a token that
+            # another refreshed.
+            "CLAUDE_CONFIG_DIR": str(seat),
             # A subscription writes the one-hour cache, at 1.6 times the price of the
             # five-minute one. The turns of a review come seconds apart, and no other
             # review shares its cache, so the hour is never used.
             "CLAUDE_CODE_PROMPT_CACHE_TTL": "5m",
         }
-        try:
-            with subprocess.Popen(
-                args,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                cwd=cwd,
-                env=env,
-                text=True,
-            ) as proc:
-                assert proc.stdin is not None
-                assert proc.stdout is not None
-                # The exit code tells why Claude Code stopped reading its stdin.
-                with contextlib.suppress(BrokenPipeError):
-                    proc.stdin.write(stdin)
-                with contextlib.suppress(BrokenPipeError):
-                    proc.stdin.close()
-                yield from proc.stdout
-        finally:
-            # Claude Code replaces the link when it refreshes the token. The refresh can
-            # spend the refresh token of the seat, so the seat takes the new login.
-            if not link.is_symlink():
-                staged = seat / f".credentials.json.{os.getpid()}"
-                shutil.copy(link, staged)
-                staged.replace(login)
+        with subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+            text=True,
+        ) as proc:
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            # The exit code tells why Claude Code stopped reading its stdin.
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.write(stdin)
+            with contextlib.suppress(BrokenPipeError):
+                proc.stdin.close()
+            yield from proc.stdout
         if proc.returncode:
             raise subprocess.CalledProcessError(proc.returncode, args)
 
