@@ -51,7 +51,7 @@ export const EmptyContent = ({
   resourceName,
   emptyContent,
 }: EmptyContentProps): ReactNode => {
-  const term = useTerm();
+  const term = useTerm().trim();
   if (term === "" && emptyContent != null && typeof emptyContent !== "string")
     return emptyContent;
   let text = emptyContent ?? `No ${plural(resourceName)} found`;

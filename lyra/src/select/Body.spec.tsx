@@ -94,6 +94,26 @@ describe("Select.Single dialog body", () => {
     expect(c.getByText("No results discovered")).toBeTruthy();
   });
 
+  it("should ignore spaces around a search term", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={[]}
+        onChange={vi.fn()}
+        onSearch={vi.fn()}
+        resourceName="result"
+        emptyContent="No results discovered"
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
+    );
+    const search = c.getByPlaceholderText("Search results...");
+    fireEvent.change(search, { target: { value: "  " } });
+    expect(c.getByText("No results discovered")).toBeTruthy();
+    fireEvent.change(search, { target: { value: "STG " } });
+    expect(c.getByText('No results match "STG"')).toBeTruthy();
+  });
+
   describe("list height", () => {
     const renderDialog = (data: string[], itemHeight: number) =>
       render(
