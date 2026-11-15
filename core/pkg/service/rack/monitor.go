@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -182,26 +181,13 @@ func (m *monitor) handleTaskStatus(key status.Key, stat status.Status[any]) {
 	if running, _ := fields["running"].(bool); !running {
 		return
 	}
-	rackKey, ok := rackKeyField(fields["rack"])
+	// Details are stored as JSON, so every number decodes as a float64.
+	rack, ok := fields["rack"].(float64)
+	rackKey := Key(rack)
 	if !ok || !lo.HasKey(m.mu.racks, rackKey) {
 		return
 	}
 	m.mu.racks[rackKey] = rackState{lastUpdated: m.svc.Now()}
-}
-
-// rackKeyField returns the rack key that a decoded status details field holds. The
-// decoder picks the integer type from the size of the value.
-func rackKeyField(v any) (Key, bool) {
-	rv := reflect.ValueOf(v)
-	switch {
-	case rv.CanUint():
-		return Key(rv.Uint()), true
-	case rv.CanInt():
-		return Key(rv.Int()), true
-	case rv.CanFloat():
-		return Key(rv.Float()), true
-	}
-	return 0, false
 }
 
 func parseKeyFromOntologyIDString(s status.Key) (Key, error) {

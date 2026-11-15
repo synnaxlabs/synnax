@@ -964,6 +964,29 @@ var _ = Describe("Rack", Ordered, func() {
 			)
 
 			It(
+				"Should count a task status written again after its delete as a report",
+				func(ctx SpecContext) {
+					r := rack.Rack{Name: "recreated task rack"}
+					alerts := countAlerts(&r)
+					start := telem.Now()
+					frozenNow.Store(int64(start))
+					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					key := newTaskStatusKey()
+					details := map[string]any{"running": true, "rack": r.Key}
+					frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
+					setTaskStatus(ctx, key, start, "Task started", details)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Delete(ctx, key)
+					})).To(Succeed())
+					frozenNow.Store(int64(start.Add(12 * telem.Millisecond)))
+					setTaskStatus(ctx, key, start, "Task started", details)
+					frozenNow.Store(int64(start.Add(16 * telem.Millisecond)))
+					Consistently(alerts.Load, 100*time.Millisecond, 5*time.Millisecond).
+						Should(BeZero())
+				},
+			)
+
+			It(
 				"Should not count a rewrite of a running task status as a report",
 				func(ctx SpecContext) {
 					r := rack.Rack{Name: "rewritten task rack"}
