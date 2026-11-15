@@ -45,6 +45,15 @@ describe("Settings", () => {
       ).toEqual([1, 0, 0]);
     });
 
+    it("should start a float32 field from the text of the value the card holds", () => {
+      const held = fields.map((f) =>
+        sameAddress(f, EXCITATION) ? { ...f, value: Math.fround(19.796932) } : f,
+      );
+      expect(Settings.fill(held, []).map(({ value }) => value)).toEqual([
+        0, 0, 19.796932,
+      ]);
+    });
+
     it("should drop a value at an address that no field names", () => {
       const settings = Settings.fill(fields, [
         { index: 0x8041, subIndex: 1, value: 6 },

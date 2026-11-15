@@ -81,7 +81,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const names =
-    slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.outputs, ch) != null
+    slave?.configured === true &&
+    hasEntry(ch) &&
+    entryAt(slave.properties.pdos.outputs, ch) != null
       ? writeChannelNames(slave, ch)
       : undefined;
   return (
