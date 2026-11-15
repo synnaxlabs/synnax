@@ -15,6 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { useCardBackground } from "@/platform/settings/background";
 import { type Group } from "@/platform/settings/section";
 import { Session } from "@/session";
 
@@ -45,6 +46,7 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
   const visible = useVisibleGroups(groups);
   const sections = visible.flatMap((group) => group.sections);
   const selected = Session.Nav.useSelectSettingsSection();
+  const background = useCardBackground();
   const dispatch = Session.useDispatch();
   const setSelected = (section: string): void => {
     dispatch(Session.Nav.selectSettingsSection({ section }));
@@ -58,7 +60,7 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
         empty
         bordered
         rounded="huge"
-        background={1}
+        background={background}
         className={CSS.BE("settings", "nav")}
       >
         <Menu.Menu value={section?.key} onChange={setSelected}>

@@ -81,6 +81,8 @@ const (
 	TypeSecret Type = versions.TypeSecret
 	// TypeCertificate identifies a certificate.
 	TypeCertificate Type = versions.TypeCertificate
+	// TypeICD identifies an interface control document.
+	TypeICD Type = versions.TypeICD
 )
 
 // ID is a unique identifier for a Resource. An example:
