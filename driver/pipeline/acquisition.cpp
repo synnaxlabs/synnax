@@ -71,14 +71,16 @@ Acquisition::Acquisition(
     err_on_unauthorized(err_on_unauthorized) {}
 
 void Acquisition::run() {
-    while (this->run_once()) {}
+    x::telem::Frame fr(0);
+    Authorities authorities;
+    while (this->run_once(fr, authorities)) {}
 }
 
 void Acquisition::stopped_with_err(const x::errors::Error &err) {
     this->source->stopped_with_err(err);
 }
 
-bool Acquisition::run_once() {
+bool Acquisition::run_once(x::telem::Frame &fr, Authorities &authorities) {
     this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
     auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
     if (writer_err) {
@@ -91,49 +93,51 @@ bool Acquisition::run_once() {
     this->breaker.reset_unlimited();
     this->source->writer_opened();
     x::errors::Error source_err;
-    x::telem::Frame fr(0);
-    Authorities authorities;
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
-        fr.clear();
-        authorities.keys.clear();
-        authorities.authorities.clear();
-        auto source_err_i = this->source->read(this->breaker, fr, authorities);
-        if (source_err_i) {
-            source_err = source_err_i;
-            if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
-                LOG(ERROR) << "[acquisition] failed to read source: "
-                           << source_err.message();
-            // With a temporary error, we just continue the loop. With any other
-            // error we break and shut things down.
-            if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
-                this->breaker.wait(source_err.message()))
-                continue;
-            break;
-        }
-        if (source_err) source_err = x::errors::NIL;
         if (fr.empty() && authorities.empty()) {
-            this->breaker.reset();
-            continue;
+            auto source_err_i = this->source->read(this->breaker, fr, authorities);
+            if (source_err_i) {
+                fr.clear();
+                authorities = Authorities{};
+                source_err = source_err_i;
+                if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
+                    LOG(ERROR) << "[acquisition] failed to read source: "
+                               << source_err.message();
+                // With a temporary error, we just continue the loop. With any other
+                // error we break and shut things down.
+                if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
+                    this->breaker.wait(source_err.message()))
+                    continue;
+                break;
+            }
+            if (source_err) source_err = x::errors::NIL;
+            if (fr.empty() && authorities.empty()) {
+                this->breaker.reset();
+                continue;
+            }
+            if (auto err = authorities.validate()) {
+                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
+                authorities = Authorities{};
+                break;
+            }
         }
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
-            if (auto err = authorities.validate()) {
-                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
-                break;
-            }
             if (auto err = writer->set_authority(authorities)) {
                 LOG(ERROR) << "[acquisition] failed to set authority: "
                            << err.message();
                 break;
             }
+            authorities = Authorities{};
         }
         if (!fr.empty()) {
             if (auto err = writer->write(fr)) {
                 LOG(ERROR) << "[acquisition] failed to write frame" << err;
                 break;
             }
+            fr.clear();
         }
         this->breaker.reset();
     }

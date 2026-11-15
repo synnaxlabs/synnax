@@ -181,9 +181,13 @@ class Acquisition final : public Base {
     void interrupt() override { this->source->interrupt(); }
 
     /// @brief runs the pipeline until it stops.
+    /// @param fr the frame read but not yet written. A run writes it before it reads
+    /// the source again, and leaves it in place when its write fails.
+    /// @param authorities the authority changes read but not yet set, held the same
+    /// way.
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
-    bool run_once();
+    bool run_once(x::telem::Frame &fr, Authorities &authorities);
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax
