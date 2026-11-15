@@ -88,8 +88,10 @@ const SwitchNote = ({
   });
   // The note shows the setup of the last scan until the next one.
   const switched = variant === "success" && data != null;
+  // The Driver writes the switch to the device, so it must reach the device.
+  const reached = slave.status?.details.connected === true;
   const action =
-    switchable && !switched ? (
+    switchable && reached && !switched ? (
       <Button.Button
         size="small"
         status={status.keepVariants(variant, "loading")}
