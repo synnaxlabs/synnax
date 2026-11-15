@@ -97,6 +97,8 @@ type Reference[K Key, E Entry[K]] interface {
 	detachTarget(e *E, target Target) bool
 	// canDetach reports whether the reference has a Detach.
 	canDetach() bool
+	// retargetTarget moves e from the target from to the target to.
+	retargetTarget(e *E, from, to Target)
 	// check validates the targets that e holds against tx, for a write of e to t.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	// links appends the links that e holds to out.
@@ -216,6 +218,9 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)
+	// Retarget moves e from the target with key from to the target with key to. Without
+	// it, Table.Retarget fails when e holds from.
+	Retarget func(e *E, from, to T)
 	// Kind is the kind of the link from e to each of its targets.
 	//
 	// [REQUIRED]
@@ -249,6 +254,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		detachable:  cfg.Detach != nil,
 		targetsOf:   cfg.Targets,
 		detach:      cfg.Detach,
+		retarget:    cfg.Retarget,
 		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
@@ -285,6 +291,9 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target Target)
+	// Retarget moves e from the target from to the target to. Without it,
+	// Table.Retarget fails when e holds from.
+	Retarget func(e *E, from, to Target)
 	// Kind is the kind of the link from e to each of its targets.
 	//
 	// [REQUIRED]
@@ -319,6 +328,7 @@ func NewTargetReference[K Key, E Entry[K]](
 		detachable:  cfg.Detach != nil,
 		targetsOf:   cfg.Targets,
 		detach:      cfg.Detach,
+		retarget:    cfg.Retarget,
 		format:      func(t Target) Target { return t },
 		parse:       func(t Target) (Target, bool) { return t, true },
 		store:       index.NewMulti[*txState, K, Target](),
@@ -330,6 +340,7 @@ type reference[K Key, E Entry[K], T comparable] struct {
 	referenceSpec
 	targetsOf func(e *E) []T
 	detach    func(e *E, target T)
+	retarget  func(e *E, from, to T)
 	// format returns the Target of t.
 	format func(t T) Target
 	// parse returns the value of target, or false when the reference cannot hold it.
@@ -411,6 +422,16 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 		r.detach(e, t)
 	}
 	return true
+}
+
+func (r *reference[K, E, T]) canRetarget() bool { return r.retarget != nil }
+
+func (r *reference[K, E, T]) retargetTarget(e *E, from, to Target) {
+	// Both parse, as Table.Retarget formats them from keys of the table that the
+	// reference found e through.
+	f, _ := r.parse(from)
+	t, _ := r.parse(to)
+	r.retarget(e, f, t)
 }
 
 // Get returns the keys of the entries that hold any of targets, with the changes staged
