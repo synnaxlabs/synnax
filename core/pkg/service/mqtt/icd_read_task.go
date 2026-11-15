@@ -203,10 +203,7 @@ func (m *icdMessage) sample(received telem.TimeStamp) topicSample {
 			s.stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
 			continue
 		}
-		s.series = append(s.series, telem.Series{
-			DataType: m.dataTypes[i],
-			Data:     append([]byte(nil), data...),
-		})
+		s.series = append(s.series, telem.Series{DataType: m.dataTypes[i], Data: data})
 	}
 	if m.index != 0 {
 		s.series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(s.stamp))

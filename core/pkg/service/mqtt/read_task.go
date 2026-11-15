@@ -84,8 +84,9 @@ func (s topicSubscription) subscription() topicSubscription { return s }
 // topicSample holds the samples that one message on a topic gives.
 type topicSample struct {
 	// index is the index channel of keys. Zero for virtual channels.
-	index  channel.Key
-	keys   channel.Keys
+	index channel.Key
+	keys  channel.Keys
+	// series can share memory that the next convert of the topic overwrites.
 	series []telem.Series
 	stamp  telem.TimeStamp
 }
