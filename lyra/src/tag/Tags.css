@@ -118,6 +118,9 @@
     --lyra-tags-dots: 1;
     --lyra-tags-gap: 0px;
 
+    /* The count's face, which also rings its dots. */
+    --lyra-tags-count-face: var(--pluto-gray-l0);
+
     flex-wrap: nowrap;
     justify-content: flex-end;
     width: 100%;
@@ -169,7 +172,7 @@
                 calc(-1.5rem - 2px - var(--lyra-tags-dots) * var(--lyra-tags-dot-step));
             border: var(--pluto-border);
             border-radius: var(--pluto-border-radius-small);
-            background-color: var(--pluto-gray-l0);
+            background-color: var(--lyra-tags-count-face);
         }
 
         &::before,
@@ -220,7 +223,7 @@
             height: var(--lyra-tag-dot);
             margin: 0;
             border-radius: 50%;
-            box-shadow: 0 0 0 1.5px var(--pluto-gray-l0);
+            box-shadow: 0 0 0 1.5px var(--lyra-tags-count-face);
         }
 
         & > .lyra-text {

@@ -69,19 +69,18 @@
     }
 
     /* A stepped count paints its face under its dots instead. */
-    &.lyra-tags--stepped > .lyra-tags__more {
-        &:hover,
-        &:active {
+    &.lyra-tags--stepped {
+        &:has(> .lyra-tags__more:hover) {
+            --lyra-tags-count-face: var(--pluto-fill-hover);
+        }
+
+        &:has(> .lyra-tags__more:active) {
+            --lyra-tags-count-face: var(--pluto-fill-press);
+        }
+
+        & > .lyra-tags__more:is(:hover, :active) {
             border-color: transparent;
             background: none;
-        }
-
-        &:hover::before {
-            background-color: var(--pluto-fill-hover);
-        }
-
-        &:active::before {
-            background-color: var(--pluto-fill-press);
         }
     }
 }
