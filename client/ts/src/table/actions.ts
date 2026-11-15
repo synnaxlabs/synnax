@@ -295,8 +295,8 @@ const reduce = createReduceAll(handlers);
 
 // The handlers put the objects of an action into the state, where a later action in
 // the batch edits them in place. A copy keeps the caller's actions unchanged.
-export const reduceAll = (state: Table, batch: Action[]) =>
-  reduce(state, structuredClone(batch));
+export const reduceAll = (state: Table, actions: Action[]) =>
+  reduce(state, structuredClone(actions));
 
 export interface SetChangedArgs {
   /** The key of the row that holds the cell. */
