@@ -10,6 +10,7 @@
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
+from console.notifications import click_past
 
 
 class ArcClient(ResourceClient):
@@ -160,10 +161,9 @@ class ArcClient(ResourceClient):
         :param rack_name: The name of the rack to select.
         """
         controls = self._get_controls()
-        rack_select = controls.locator(".console-rack-select")
+        rack_select = controls.locator(".console-rack-select__trigger")
         rack_select.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        rack_select.click()
+        click_past(rack_select)
         self.layout.select_from_dropdown(rack_name, placeholder="Search")
 
     def deploy(self) -> None:
@@ -175,14 +175,13 @@ class ArcClient(ResourceClient):
         """
         for attempt in range(2):
             controls = self._get_controls()
-            self.notifications.close_all()
             redeploy_btn = controls.locator(".console-task-redeploy--visible button")
             if redeploy_btn.count() > 0:
-                redeploy_btn.click()
+                click_past(redeploy_btn)
             else:
                 play_btn = controls.locator("button:has(.lyra-icon--play)")
                 play_btn.wait_for(state="visible", timeout=5000)
-                play_btn.click()
+                click_past(play_btn)
             started = controls.locator("text=Started task")
             try:
                 started.wait_for(state="visible", timeout=30000)
@@ -229,8 +228,7 @@ class ArcClient(ResourceClient):
         controls = self._get_controls()
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        stop_btn.click()
+        click_past(stop_btn)
         controls.locator("text=Stopped task").wait_for(state="visible", timeout=30000)
 
     def is_running(self) -> bool:
