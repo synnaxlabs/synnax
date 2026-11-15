@@ -33,10 +33,13 @@ one job. Pick the step by its job:
 
 | Steps        | Band    | Jobs                                               |
 | ------------ | ------- | -------------------------------------------------- |
-| l0, l1, l2   | Surface | canvas; panes and cards; dialogs, menus, toolbars  |
+| l0, l1, l2   | Surface | canvas; panes and cards; toolbars                  |
 | l3, l4, l5   | Fill    | rest; hover; press                                 |
 | l6, l7, l8   | Border  | separator; control border; strong border           |
 | l9, l10, l11 | Text    | secondary text and icons; body text; emphatic text |
+
+Non-modal dialogs and menus use `--pluto-gray-l1-l2`, halfway between l1 and l2. Modals
+keep the modal surface.
 
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
@@ -58,7 +61,8 @@ lighter step or the base step in dark mode.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
   and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
   tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
-  bars, and page sections use large. Do not add a step.
+  bars, and page sections use large. The Settings section list uses huge. Do not add a
+  step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 
@@ -295,13 +299,15 @@ bound, a log precision, or the line plot X channel.
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
   its values.
 - The filter menu, its submenus, and the pickers of a filter chip use the context menu
-  surface: l2, an l6 border, the large radius, 6 px padding, and the overlay shadow.
+  surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
+- Menus and non-modal dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
+  bordered search and its framed list.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
   submenu, the items it crosses do not light or open.
-- A submenu opens with its first item level with its parent item, edge to edge with the
-  menu. It fades in when it opens first, and it replaces another submenu with no
-  animation.
+- A submenu opens with its first item level with its parent item, and laps 4 px over the
+  edge of the menu on either side. It fades in when it opens first, and it replaces
+  another submenu with no animation.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
 - The search in a submenu is a line of text over a hairline, with no box.
@@ -321,6 +327,9 @@ bound, a log precision, or the line plot X channel.
   description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
+- A role select shows each role's icon (`Access.Role.icon`) beside its name, in the
+  dropdown and on the closed select. Its floating dropdown stops at 60rem
+  (`--pluto-dialog-max-width`), so long descriptions wrap.
 - A select that shows only its icon is a square button, never a wide box.
 - A device select shows the selected device's status as a badge at the end of the
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
@@ -409,10 +418,23 @@ bound, a log precision, or the line plot X channel.
 
 - A task's channel list is a record table: one item per channel, built from
   `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- The Users page of Settings is a record table with checkable items, like the range
+  explorer: the name, then a role select in place. A right click opens the menu of the
+  selected users. A "You" badge follows the current user's name.
 - The Labels page of Settings is a record table with checkable items, like the range
   explorer: a color swatch, then the name. Click the swatch to recolor. A right click
   opens the menu of the selected labels. You create a label from the page or from any
   label field.
+- Secrets and certificates are two record tables in Settings, not a toolbar. A secret
+  shows where its value comes from and a "Used by" count that opens what uses it. A
+  certificate shows when it is valid.
+- The Settings lists share `Settings.Table`: search and a filled create button above,
+  headings, checkable items, and a right-click menu.
+- Create in place when every field you set is a column, such as a label or a secret. The
+  create item opens at the top with check and X buttons, and Enter and Esc. It stays
+  open and empty after each create, and the new item fades in under it.
+- Use a modal when the item needs a field the list does not show, such as a user's
+  password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

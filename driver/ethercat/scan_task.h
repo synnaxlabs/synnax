@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -18,6 +19,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/ethercat/ethercat.h"
@@ -109,6 +111,22 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
+    /// @brief the positions of the slaves with no identity on one interface.
+    struct Unidentified {
+        /// @brief the slaves with no identity at the last rediscovery.
+        std::set<uint16_t> seen;
+        /// @brief the slaves with no identity at each of the last two rediscoveries.
+        /// A restart clears by the next rediscovery, so only these are reported.
+        std::set<uint16_t> reported;
+    };
+    /// @brief the slaves with no identity on each interface.
+    std::unordered_map<std::string, Unidentified> unidentified;
+    /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
+    mutable std::mutex switch_mu;
+    /// @brief the time of the last switch to Synnax only of each slave, keyed by device
+    /// key. Each scan writes it to the properties of the device, so that the scan is
+    /// their only writer.
+    std::unordered_map<std::string, x::telem::TimeStamp> switch_times;
 
     /// @brief creates the slave device with key for the given slave, and returns
     /// whether its saved config enables it. The status names any invalid property, and
@@ -127,7 +145,9 @@ private:
     /// number, or with serial number 0, its network and position. Else a slave with a
     /// serial number takes the stored device of its model at its position saved with
     /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
-    /// new key that no stored device holds. No slave takes a device in kept.
+    /// new key that no stored device holds. A slave whose serial number the master
+    /// could not read takes only the stored device of its model at its position, and
+    /// else gets an empty key. No slave takes a device in kept.
     [[nodiscard]] static std::vector<std::string> slave_keys(
         const std::vector<slave::DiscoveryResult> &slaves,
         const std::string &master_key,
@@ -149,7 +169,7 @@ private:
     void test_interface(const synnax::task::Command &cmd) const;
 
     /// @brief handles the set_standalone command.
-    void set_standalone(const synnax::task::Command &cmd) const;
+    void set_standalone(const synnax::task::Command &cmd);
 };
 
 }

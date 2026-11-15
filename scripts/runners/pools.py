@@ -25,8 +25,6 @@ class Spec(NamedTuple):
     channel: str
     # Whether the scaler starts and stops its runners.
     scaled: bool = True
-    # Whether the repository's runner list leaves out its runners.
-    unlisted: bool = False
 
 
 POOLS: dict[Pool, Spec] = {
@@ -35,8 +33,6 @@ POOLS: dict[Pool, Spec] = {
     "windows-test-bot": Spec(title="Windows Test", channel="win_test"),
     "ubuntu-test-bot": Spec(title="Ubuntu Test", channel="ubuntu_test"),
     "macos-build-bot": Spec(title="macOS Build", channel="macos_build", scaled=False),
-    "review": Spec(title="Review", channel="review", scaled=False, unlisted=True),
-    "hitl": Spec(title="HITL", channel="hitl", scaled=False, unlisted=True),
 }
 
 
@@ -65,15 +61,11 @@ def pool_channel(name: str, *, metric: str) -> str:
 
 
 def count_channels() -> dict[str, sy.DataType]:
-    """The count channels of every pool and the total. An unlisted pool has only its
-    queue."""
-    names = [
-        pool_channel(spec.channel, metric=metric)
-        for spec in POOLS.values()
-        for metric in ((QUEUED,) if spec.unlisted else COUNTS)
-    ]
-    names += [pool_channel(TOTAL, metric=metric) for metric in COUNTS]
-    return dict.fromkeys(names, sy.DataType.INT32)
+    return {
+        pool_channel(name, metric=metric): sy.DataType.INT32
+        for name in NAMES
+        for metric in COUNTS
+    }
 
 
 def wait_channels() -> dict[str, sy.DataType]:
@@ -94,7 +86,7 @@ def pool_counts(
         values[pool_channel(spec.channel, metric=QUEUED)] = queued.get(pool, 0)
     for runner, state in status.items():
         own = pool_of(labels.get(runner, set()))
-        if own is None or POOLS[own].unlisted:
+        if own is None:
             continue
         if runner in booting:
             metric = STARTING
@@ -107,8 +99,7 @@ def pool_counts(
         values[pool_channel(POOLS[own].channel, metric=metric)] += 1
     for metric in COUNTS:
         values[pool_channel(TOTAL, metric=metric)] = sum(
-            values.get(pool_channel(spec.channel, metric=metric), 0)
-            for spec in POOLS.values()
+            values[pool_channel(spec.channel, metric=metric)] for spec in POOLS.values()
         )
     return values
 

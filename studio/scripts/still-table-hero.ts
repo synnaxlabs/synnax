@@ -112,18 +112,14 @@ const SECTION_FILL = "#80808033";
 /** A gray legible on both themes, a step quieter than the labels. */
 const UNITS_COLOR = "#8a8f98";
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** sensorTable lays out every reading with its label, live value, and units. */
 const sensorTable = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
-  const reading = ([label, name, kind]: Reading): string[] => {
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
+  const reading = ([label, name, kind]: Reading): Cell[] => {
     const key = keys.get(name);
     if (key == null) throw new Error(`the stand has no channel "${name}"`);
     const { units, bands } = KINDS[kind];
@@ -166,7 +162,6 @@ const sensorTable = (keys: Map<string, channel.Key>): table.New => {
     name: NAME,
     columns: [...COLUMNS, ...COLUMNS].map((size) => ({ size })),
     rows,
-    cells,
   };
 };
 

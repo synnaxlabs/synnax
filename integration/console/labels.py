@@ -39,15 +39,12 @@ class LabelClient(ResourceClient):
             label.
         """
         self._show_page()
-        self.page.get_by_role("button", name="Create label", exact=True).click()
-        modal = self.page.locator(self.layout.MODAL_SELECTOR).first
-        name_input = modal.get_by_placeholder("Label name", exact=True)
-        name_input.wait_for(state="visible", timeout=5000)
+        item = self.layout.open_settings_create("Create label")
+        name_input = item.get_by_placeholder("Label name", exact=True)
         if color is not None:
-            pick_color(self.page, modal.get_by_label("Label color"), hex_color=color)
+            pick_color(self.page, item.get_by_label("Label color"), hex_color=color)
         name_input.fill(name)
-        modal.get_by_role("button", name="Create").click()
-        modal.wait_for(state="hidden", timeout=5000)
+        self.layout.submit_settings_create(item, name_input)
         self._get_item(name)
 
     def exists(self, name: str) -> bool:

@@ -32,8 +32,11 @@ const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => 
   const keys = Object.keys(configs);
   return await renderSchematic(Toolbar, {
     schematic: {
-      nodes: keys.map((key) => ({ key, position: { x: 0, y: 0 } })),
-      configs,
+      nodes: keys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: configs[key],
+      })),
     },
     sessionState: {
       editable: true,
@@ -62,7 +65,7 @@ const pickSymbol = async (name: string): Promise<void> => {
 };
 
 const retrieveConfigs = async (key: string) =>
-  (await client.schematics.retrieve(key)).configs;
+  client.schematics.configsOf(await client.schematics.retrieve(key));
 
 afterEach(() => {
   vi.restoreAllMocks();

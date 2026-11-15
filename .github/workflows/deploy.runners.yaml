@@ -11,8 +11,27 @@ name: Deploy - Runners
 
 on:
   workflow_dispatch:
+    inputs:
+      controller:
+        description: Deploy the controller
+        type: boolean
+      core:
+        description: Deploy the Core
+        type: boolean
+      core_source:
+        description: >-
+          The Core to deploy, as a release version or the URL of a run or job that built
+          it. Empty deploys the pinned release.
+        type: string
+      backup:
+        description: Back up the Core
+        type: boolean
+      agents:
+        description: Deploy the runner agents
+        type: boolean
 
 permissions:
+  actions: read
   contents: read
   id-token: write
 
@@ -20,6 +39,10 @@ concurrency: deploy-runners
 
 env:
   INSTANCE: i-0daf42c1631de819a
+  COMMENT: Deploy runners at ${{ github.sha }}
+  TIMEOUT: 1800
+  # The release that a Core deploy with no source installs.
+  PINNED_CORE: 0.61.0
 
 jobs:
   deploy:
@@ -27,8 +50,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: runners
     steps:
+      - name: Check the selection
+        if: ${{ !(inputs.controller || inputs.core || inputs.backup || inputs.agents) }}
+        run: |
+          echo "::error::Select at least one part to deploy."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            scripts/runners
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
@@ -37,56 +70,86 @@ jobs:
           aws-region: us-east-1
 
       - name: Store secrets
+        if: inputs.controller || inputs.agents
         env:
+          CONTROLLER: ${{ inputs.controller }}
+          AGENTS: ${{ inputs.agents }}
           GH_APP_ID_VALUE: ${{ secrets.RUNNERS_GH_APP_ID }}
           GH_APP_KEY_VALUE: ${{ secrets.RUNNERS_GH_APP_KEY }}
           GH_WEBHOOK_SECRET_VALUE: ${{ secrets.RUNNERS_GH_WEBHOOK_SECRET }}
           SYNNAX_PASSWORD_VALUE: ${{ secrets.RUNNERS_SYNNAX_PASSWORD }}
+          AGENT_API_KEY_VALUE: ${{ secrets.RUNNERS_AGENT_API_KEY }}
         run: |
           put() {
-            aws ssm put-parameter --name "/runners/$1" --type SecureString \
+            aws ssm put-parameter --name "$1" --type SecureString \
               --overwrite --value="$2" > /dev/null
           }
-          put gh-app-id "$GH_APP_ID_VALUE"
-          put gh-app-key "$GH_APP_KEY_VALUE"
-          put gh-webhook-secret "$GH_WEBHOOK_SECRET_VALUE"
-          put synnax-password "$SYNNAX_PASSWORD_VALUE"
+          if [[ $CONTROLLER == true ]]; then
+            put /runners/gh-app-id "$GH_APP_ID_VALUE"
+            put /runners/gh-app-key "$GH_APP_KEY_VALUE"
+            put /runners/gh-webhook-secret "$GH_WEBHOOK_SECRET_VALUE"
+            put /runners/synnax-password "$SYNNAX_PASSWORD_VALUE"
+          fi
+          # Runners cannot read /runners, so their key has its own path.
+          if [[ $AGENTS == true ]]; then
+            put /runner-agents/api-key "$AGENT_API_KEY_VALUE"
+          fi
 
-      - name: Deploy
-        working-directory: scripts/runners
+      - name: Download the Core
+        if: inputs.core
+        env:
+          CORE: ${{ inputs.core_source || env.PINNED_CORE }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          files=$(for f in *.py; do printf "'%s'\n" "$f"; done | paste -sd, -)
-          script=$(printf "\$Sha = %s\n\$Files = @(%s)\n" "'$GITHUB_SHA'" "$files"
-            cat deploy.ps1)
-          encoded=$(printf '%s' "$script" | iconv -t UTF-16LE | base64 -w0)
-          command="powershell -NoProfile -EncodedCommand $encoded"
-          id=$(aws ssm send-command --instance-ids "$INSTANCE" \
-            --document-name AWS-RunPowerShellScript \
-            --comment "Deploy runners at $GITHUB_SHA" \
-            --parameters "{\"commands\":[\"$command\"]}" \
-            --query Command.CommandId --output text)
-          deadline=$((SECONDS + 900))
-          while :; do
-            if out=$(aws ssm get-command-invocation --command-id "$id" \
-              --instance-id "$INSTANCE" --query Status --output text 2>&1); then
-              status=$out
-            # SSM answers this until the invocation reaches the instance.
-            elif [[ $out == *InvocationDoesNotExist* ]]; then
-              status=Pending
-            else
-              echo "$out" >&2
-              exit 1
-            fi
-            case $status in
-              Pending | InProgress | Delayed) ;;
-              *) break ;;
-            esac
-            if ((SECONDS >= deadline)); then
-              echo "Command $id is still $status after 15 minutes" >&2
-              exit 1
-            fi
-            sleep 10
-          done
-          aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE" \
-            --query '[StandardOutputContent,StandardErrorContent]' --output text
-          [[ $status == Success ]]
+          lines=$(.github/scripts/runner_core_source.sh "$CORE")
+          mapfile -t source <<< "$lines"
+          .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 \
+            Step=download "${source[@]}"
+
+      - name: Download the scripts
+        if: inputs.controller || inputs.agents
+        run: |
+          files=$(cd scripts/runners && printf '%s\n' *.py | paste -sd, -)
+          .github/scripts/run_ssm_powershell.sh scripts/runners/deploy.ps1 \
+            Step=download "Sha=$GITHUB_SHA" "Files=$files"
+
+      - name: Stop the agents
+        id: stop_agents
+        if: inputs.agents
+        run: >-
+          .github/scripts/run_ssm_powershell.sh scripts/runners/deploy.ps1
+          Step=stop-agents
+
+      - name: Stop the controller
+        id: stop_controller
+        if: inputs.controller
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/deploy.ps1 Step=stop
+
+      - name: Shut down the Core
+        id: stop_core
+        if: inputs.core || inputs.backup
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=stop
+
+      - name: Back up
+        if: inputs.backup
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=backup
+
+      - name: Install
+        if: inputs.core
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=install
+
+      - name: Restart the Core
+        if: always() && steps.stop_core.conclusion != 'skipped'
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/core.ps1 Step=start
+
+      - name: Deploy the controller
+        if: always() && steps.stop_controller.conclusion != 'skipped'
+        run: .github/scripts/run_ssm_powershell.sh scripts/runners/deploy.ps1 Step=start
+
+      - name: Deploy the agents
+        if: always() && steps.stop_agents.conclusion != 'skipped'
+        run: |
+          aws ssm put-parameter --name /runner-agents/commit --type String \
+            --overwrite --value "$GITHUB_SHA" > /dev/null
+          .github/scripts/run_ssm_powershell.sh scripts/runners/deploy.ps1 \
+            Step=deploy-agents "Sha=$GITHUB_SHA"

@@ -98,7 +98,9 @@ public:
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<size_t, x::errors::Error> count_slaves() override;
+    std::pair<master::Change, x::errors::Error> changed() override;
+
+    [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, but ignores the period and runs
     /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
@@ -120,6 +122,9 @@ public:
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    /// @brief does nothing: the IgH master brings slaves back to OP by itself.
+    void recover(const x::breaker::Breaker &) override {}
 
     /// @brief does what master::Master::write does, but on a running bus writes
     /// nothing, since IgH takes startup parameters only before activation. It does not

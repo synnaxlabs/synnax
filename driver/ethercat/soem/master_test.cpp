@@ -14,7 +14,9 @@
 #include <cstdlib>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -57,6 +59,35 @@ const dc::OpMode DC_SECOND{
     .assign_activate = 0x0700,
     .sync0_cycle = 1000000000,
 };
+
+/// @brief a host clock whose time moves forward only while a loop sleeps on it, for as
+/// long as the sleep takes, or on a skip. A spec then sets the time between two checks.
+struct SkippingClock {
+    std::shared_ptr<std::atomic<int64_t>>
+        elapsed = std::make_shared<std::atomic<int64_t>>(0);
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
+    [[nodiscard]] x::loop::HostClock host() const {
+        return x::loop::HostClock(
+            x::loop::Clock{
+                .now =
+                    [start = this->start, elapsed = this->elapsed] {
+                        return start + std::chrono::nanoseconds(elapsed->load());
+                    },
+                .sleep =
+                    [elapsed = this->elapsed](const x::telem::TimeSpan span) {
+                        std::this_thread::sleep_for(span.chrono());
+                        elapsed->fetch_add(span.nanoseconds());
+                    },
+            }
+        );
+    }
+
+    /// @brief moves the time forward by span at once.
+    void skip(const x::telem::TimeSpan span) const {
+        this->elapsed->fetch_add(span.nanoseconds());
+    }
+};
 }
 
 class SOEMMasterTest : public ::testing::Test {
@@ -76,14 +107,19 @@ protected:
     std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
-        // A loaded Windows host can take tens of milliseconds to cycle two frames.
+        // A loaded Windows host can take over 100 ms to cycle two frames.
         this->create_master(x::telem::SECOND);
         this->brk.start();
     }
 
     /// @brief replaces the master with one on a new mock that gives the DC clocks
-    /// dc_settle_timeout to settle.
-    void create_master(const x::telem::TimeSpan dc_settle_timeout) {
+    /// dc_settle_timeout to settle and the slaves state_change_timeout to change state,
+    /// which includes the wait for two frames in SAFE-OP. The master waits on clock.
+    void create_master(
+        const x::telem::TimeSpan dc_settle_timeout,
+        const x::telem::TimeSpan state_change_timeout = x::telem::SECOND,
+        const x::loop::HostClock &clock = {}
+    ) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(
@@ -91,9 +127,10 @@ protected:
             "eth0",
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
-                .state_change_timeout = x::telem::MILLISECOND * 100,
+                .state_change_timeout = state_change_timeout,
                 .init_timeout = x::telem::MILLISECOND * 100,
                 .dc_settle_timeout = dc_settle_timeout,
+                .clock = clock,
             }
         );
     }
@@ -215,21 +252,29 @@ protected:
         return this->activation.err;
     }
 
-    /// @brief checks the slaves while a bus cycle exchanges process data on its own
+    /// @brief runs one supervisor pass: check(), then recover().
+    /// @returns what check() returns.
+    std::vector<slave::Health> supervise() {
+        auto health = this->master->check(this->brk);
+        this->master->recover(this->brk);
+        return health;
+    }
+
+    /// @brief runs supervise() while a bus cycle exchanges process data on its own
     /// thread.
-    std::vector<slave::Health> check_while_cycling() {
+    std::vector<slave::Health> supervise_while_cycling() {
         std::atomic<bool> cycling = true;
         std::thread cycle([&] { this->cycle(cycling); });
-        auto health = this->master->check(this->brk);
+        auto health = this->supervise();
         cycling = false;
         cycle.join();
         return health;
     }
 
-    /// @brief checks a DC slave that came back from a power loss with a clock that does
-    /// not settle in 10 s, and stops the breaker 100 ms into the check. A bus cycle
-    /// exchanges process data during the check when cycling is true.
-    /// @returns how long the check took.
+    /// @brief runs supervise() on a DC slave that came back from a power loss with a
+    /// clock that does not settle in 10 s, and stops the breaker 100 ms in. A bus cycle
+    /// exchanges process data meanwhile when cycling is true.
+    /// @returns how long supervise() took.
     std::chrono::steady_clock::duration stop_during_restore(const bool cycling) {
         this->create_master(x::telem::SECOND * 10);
         this->initialize_with_dc_slave({DC_ONLY});
@@ -243,7 +288,7 @@ protected:
             this->brk.stop();
         });
         const auto start = std::chrono::steady_clock::now();
-        this->master->check(this->brk);
+        this->supervise();
         const auto elapsed = std::chrono::steady_clock::now() - start;
         stop.join();
         running = false;
@@ -446,13 +491,39 @@ TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
     );
 }
 
-/// @brief it should return the number of slaves that answer on the bus.
-TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
+/// @brief it should report a change once another number of slaves answers.
+TEST_F(SOEMMasterTest, ChangedOnceAnotherNumberOfSlavesAnswers) {
     this->initialize_with_slave();
-    this->mock->bus_slaves = 3;
-    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 3);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
     this->mock->bus_slaves = 0;
-    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
+    EXPECT_TRUE(ASSERT_NIL_P(this->master->changed()).stale);
+}
+
+/// @brief it should report a change once a slave falls below its state at the scan, as
+/// after a restart.
+TEST_F(SOEMMasterTest, ChangedOnceASlaveRestarts) {
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    EXPECT_TRUE(this->master->restarts_visible());
+    const auto unchanged = ASSERT_NIL_P(this->master->changed());
+    EXPECT_FALSE(unchanged.stale);
+    EXPECT_TRUE(unchanged.restarted.empty());
+    this->mock->slave_infos[1].bus_state = EC_STATE_INIT;
+    const auto change = ASSERT_NIL_P(this->master->changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_EQ(change.restarted, std::set<uint16_t>{2});
+}
+
+/// @brief it should report no change for a slave that stays below PRE-OP from the scan
+/// on, so that the scan is not repeated for it.
+TEST_F(SOEMMasterTest, ChangedNotForASlaveThatStaysInInit) {
+    this->add_default_slave();
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    this->mock->slave_infos[0].bus_state = EC_STATE_INIT;
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_EQ(slaves[0].status.state, slave::State::INIT);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master->changed()).stale);
 }
 
 /// @brief it should name and type each PDO entry from the CoE object dictionary of the
@@ -1049,6 +1120,140 @@ TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
     EXPECT_FALSE(slaves[0].properties.settings.has_value());
 }
 
+/// @brief returns a slave in PRE-OP with CoE whose SII serial number is 0 and whose
+/// CoE identity object holds serial.
+MockSlaveInfo create_coe_slave(const uint32_t serial) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = 0x1234;
+    slave.eep_id = 0x5678;
+    slave.name = "CoESlave";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x1018, 4}, serial}};
+    return slave;
+}
+
+/// @brief it should read nothing through the mailbox of a slave below PRE-OP, and mark
+/// it as starting.
+TEST_F(SOEMMasterTest, ScanMarksASlaveBelowPreOpAsStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (const uint16_t state: {EC_STATE_INIT, EC_STATE_BOOT}) {
+        auto slave = create_coe_slave(0x5555);
+        slave.eep_ser = state;
+        slave.bus_state = state;
+        this->add_slave(slave);
+    }
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_EQ(slaves.size(), 3);
+    for (const auto &slave: {slaves[0], slaves[1]}) {
+        EXPECT_TRUE(slave.status.starting);
+        EXPECT_EQ(
+            slave.properties.serial,
+            slave.properties.position == 1 ? EC_STATE_INIT : EC_STATE_BOOT
+        );
+        EXPECT_TRUE(slave.status.serial_error.empty());
+        EXPECT_TRUE(slave.status.settings_error.empty());
+    }
+    EXPECT_FALSE(slaves[2].status.starting);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
+/// @brief it should read the serial number of a slave from its CoE identity object.
+TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
+    this->add_slave(create_coe_slave(0x5555));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave whose CoE identity object has
+/// no serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave whose CoE serial number is
+/// 0.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should keep the SII serial number of a slave that aborts the read of its
+/// CoE serial number.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should keep the SII serial number of a slave that answers the read of its
+/// CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_read_mailbox_errors.insert({0x1018, 4});
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should not read the CoE serial number of a slave without CoE.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialOfASlaveWithoutCoE) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    slave.mbx_proto = 0;
+    this->add_slave(slave);
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+}
+
+/// @brief it should report a read of the serial number of a slave that gets no answer.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoAnswer) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
+}
+
+/// @brief it should give serial number 0 to a slave with the identity of a slave
+/// before it, so that each serial number names one slave.
+TEST_F(SOEMMasterTest, ScanGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x5555));
+    this->add_slave(create_coe_slave(0x6666));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+    EXPECT_EQ(slaves[2].properties.serial, 0x6666);
+}
+
+/// @brief it should keep the serial numbers of two products with one serial number.
+TEST_F(SOEMMasterTest, ScanKeepsOneSerialNumberOnTwoProducts) {
+    this->add_slave(create_coe_slave(0x5555));
+    auto other = create_coe_slave(0x5555);
+    other.eep_id = 0x9999;
+    this->add_slave(other);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0x5555);
+}
+
 ////////////////////// Activation //////////////////////
 
 /// @brief it should activate a scanned bus.
@@ -1119,6 +1324,7 @@ TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
 /// without the error flag, even if an old AL status code remains.
 TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1391,7 +1597,9 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
-    ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_ERROR);
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(err.data, "failed to reach OP: slave 1 (TestSlave) is in SAFE-OP");
 }
 
 /// @brief it should start the bus cycle once send() works and before it requests SAFE-
@@ -1418,7 +1626,8 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->mock->ibytes = 4;
     this->mock->context.slavelist[1].hasdc = 1;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
-    ASSERT_NIL(this->activate());
+    // The cycle thread can start after SAFE-OP on a loaded host.
+    ASSERT_NIL(this->activate([this] { ASSERT_NIL(this->master->send()); }));
     EXPECT_GT(this->mock->sync_dc_count, 0);
     ASSERT_FALSE(this->mock->send_states.empty());
     for (const auto state: this->mock->send_states)
@@ -1446,6 +1655,7 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
 /// @brief it should fail a send before SAFE-OP and the receive after it when the
 /// reference clock frame does not come back, so no caller reads a stale DC time.
 TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1475,6 +1685,7 @@ TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
 /// @brief it should fail activation without a request for OP when no frame passes the
 /// slaves in SAFE-OP, since a slave with outputs refuses OP until one does.
 TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
+    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1932,6 +2143,27 @@ TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
     EXPECT_EQ(this->image.dc_sync, (std::vector{regs, regs}));
 }
 
+/// @brief it should name the first slave with a clock as the reference clock.
+TEST_F(SOEMMasterTest, ImageNamesTheFirstSlaveWithAClockAsTheReferenceClock) {
+    MockSlaveInfo plain;
+    plain.state = EC_STATE_PRE_OP;
+    this->add_slave(plain);
+    MockSlaveInfo dc = plain;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    ASSERT_NIL_P(this->master->scan());
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->image.reference_clock, 2);
+}
+
+/// @brief it should name no reference clock when no slave has a clock.
+TEST_F(SOEMMasterTest, ImageNamesNoReferenceClockWithoutDC) {
+    this->initialize_with_slave();
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->image.reference_clock, std::nullopt);
+}
+
 /// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
 TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
     this->initialize_with_dc_slave(
@@ -1965,7 +2197,40 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = -1;
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+}
+
+/// @brief it should say that a USB adapter can hold frames back when no frame comes
+/// back, but only while a frame came back less than a second before, even when the
+/// sends fail.
+TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
+    this->mock->usb_interfaces.insert("eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    this->mock->receive_return = -1;
+    clock.skip(x::telem::SECOND - x::telem::MILLISECOND);
+    ASSERT_NIL(this->master->send());
+    const auto late = this->master->receive();
+    ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
+    EXPECT_EQ(
+        late.data,
+        "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
+        "frames back. Use a PCIe or onboard Ethernet adapter, or lower the rate of the "
+        "fastest task on the network"
+    );
+    clock.skip(x::telem::MILLISECOND);
+    this->mock->send_return = 0;
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    const auto dead = this->master->receive();
+    ASSERT_OCCURRED_AS(dead, errors::CYCLIC_ERROR);
+    EXPECT_EQ(dead.data, "process data receive failed");
 }
 
 /// @brief it should fail a receive whose working counter is not the expected count.
@@ -1976,7 +2241,20 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
-    EXPECT_EQ(this->master->shortfall(), 2);
+    EXPECT_EQ(this->master->shortfall(), 2U);
+}
+
+/// @brief it should give the working counter of each mismatch as it changes.
+TEST_F(SOEMMasterTest, ReceiveGivesTheLatestMismatchedCount) {
+    this->initialize_with_slave();
+    this->activate_master();
+    for (const int wkc: {1, 1, 2, 1}) {
+        this->mock->receive_return = wkc;
+        EXPECT_EQ(
+            this->master->receive().data,
+            "working counter mismatch: expected 3, got " + std::to_string(wkc)
+        );
+    }
 }
 
 /// @brief it should report no shortfall for a working counter above the expected count.
@@ -2006,7 +2284,11 @@ TEST_F(SOEMMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     this->activate_master();
     EXPECT_EQ(
         this->image.working_counter_shares,
-        (std::map<uint16_t, uint32_t>{{1, 3}, {2, 1}, {3, 2}})
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 2, .inputs = 1}},
+            {2, {.inputs = 1}},
+            {3, {.outputs = 2}},
+        })
     );
 }
 
@@ -2105,13 +2387,15 @@ TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
-/// @brief it should report the state a slave was in before the check tries to recover
-/// it.
-TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
+/// @brief it should leave a slave out of OP until recover() runs.
+TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStep) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
+    EXPECT_TRUE(this->mock->written_slaves.empty());
+    this->master->recover(this->brk);
     EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::SAFE_OP);
 }
 
@@ -2122,7 +2406,7 @@ TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
     this->mock->slave_infos[0].ALstatuscode = 0x001B;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
@@ -2141,7 +2425,7 @@ TEST_F(SOEMMasterTest, CheckRequestsOpFromSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_OPERATIONAL}})
@@ -2154,8 +2438,33 @@ TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+}
+
+/// @brief it should clear the sync managers of a slave below SAFE_OP before it
+/// reconfigures the slave.
+TEST_F(SOEMMasterTest, RecoveryResetsASlaveBelowSafeOpBeforeTheReconfig) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    this->supervise();
+    EXPECT_EQ(
+        this->mock->reset_slaves,
+        (std::vector<std::pair<uint16_t, size_t>>{{1, 0}})
+    );
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+}
+
+/// @brief it should not reconfigure a slave that misses the reset of its sync managers.
+TEST_F(SOEMMasterTest, RecoveryReconfiguresNoSlaveThatMissesTheReset) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->reset_return = 0;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise();
+    EXPECT_EQ(this->mock->reset_slaves.size(), 1);
+    EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
 }
 
 /// @brief it should not reconfigure a slave after the breaker stops.
@@ -2164,7 +2473,7 @@ TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->brk.stop();
-    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::INIT);
+    EXPECT_EQ(this->supervise()[0].state, slave::State::INIT);
     EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
 }
 
@@ -2175,8 +2484,8 @@ TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
     this->mock->slave_infos[0].state = EC_STATE_NONE;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_NONE;
     this->mock->recover_return = 0;
-    EXPECT_TRUE(this->master->check(this->brk)[0].lost);
-    EXPECT_TRUE(this->master->check(this->brk)[0].lost);
+    EXPECT_TRUE(this->supervise()[0].lost);
+    EXPECT_TRUE(this->supervise()[0].lost);
     EXPECT_EQ(this->mock->recovered_slaves, (std::vector<uint16_t>{1, 1}));
 }
 
@@ -2187,7 +2496,7 @@ TEST_F(SOEMMasterTest, CheckKeepsStatesOnDroppedStateRead) {
     ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->dropped_state_reads = 1;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 2);
     for (const auto &h: health) {
         EXPECT_EQ(h.state, slave::State::OP);
@@ -2205,7 +2514,7 @@ TEST_F(SOEMMasterTest, CheckReportsTheStateReadAgainAfterDroppedStateRead) {
     this->mock->dropped_state_reads = 1;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP +
                                                              EC_STATE_ERROR;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
@@ -2219,7 +2528,7 @@ TEST_F(SOEMMasterTest, CheckReadsSlaveAgainOnceBreakerStops) {
     this->activate_master();
     this->mock->dropped_state_reads = 1;
     this->brk.stop();
-    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::OP);
+    EXPECT_EQ(this->supervise()[0].state, slave::State::OP);
 }
 
 /// @brief it should recover a lost slave and clear its lost flag.
@@ -2228,7 +2537,7 @@ TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_NONE;
     this->mock->context.slavelist[1].islost = 1;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->recovered_slaves, std::vector<uint16_t>{1});
     EXPECT_FALSE(this->mock->context.slavelist[1].islost);
 }
@@ -2240,7 +2549,7 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->context.slavelist[1].islost = 1;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_TRUE(this->mock->recovered_slaves.empty());
     EXPECT_FALSE(this->mock->context.slavelist[1].islost);
 }
@@ -2254,7 +2563,7 @@ TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].position, 1);
     EXPECT_TRUE(this->mock->written_slaves.empty());
@@ -2271,7 +2580,7 @@ TEST_F(SOEMMasterTest, CheckRestoresTheClockOfADCSlaveThatLostPower) {
     this->mock->register_values[{1, 0x0920}] = 9'000'000'000;
     this->mock->register_values[{2, 0x0918}] = 2'000;
     this->mock->register_values[{2, 0x0910}] = 5'000'000'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const std::vector<RegisterWrite> expected = {
         {.slave = 2, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
         {.slave = 2, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
@@ -2310,7 +2619,7 @@ TEST_F(SOEMMasterTest, CheckRestoresTheReferenceClockFromTheNextDCSlave) {
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->mock->register_values[{2, 0x0918}] = 1'000'000;
     this->mock->register_values[{2, 0x0920}] = 9'000'000'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const std::vector<RegisterWrite> expected = {
         {.slave = 1, .address = 0x0980, .value = 0, .size = 1, .mapped = true},
         {.slave = 1, .address = 0x0981, .value = 0, .size = 1, .mapped = true},
@@ -2334,7 +2643,7 @@ TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame)
     this->mock->register_writes.clear();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), (5 * x::telem::MILLISECOND).nanoseconds());
@@ -2362,7 +2671,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheResetClockOfAReturningReferenceClock) {
     this->mock->context.DCtime = 1'000;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const auto error = this->written_offset(1) - (7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
 }
@@ -2377,7 +2686,7 @@ TEST_F(SOEMMasterTest, CheckRestoresEveryDCSlaveAfterTheWholeBusLostPower) {
     this->mock->slave_infos[1].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->mock->register_values[{2, 0x0918}] = 5'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
     const auto first = this->written_offset(1);
     const auto error = first - (7'000'000'000 - 2'000);
@@ -2397,7 +2706,7 @@ TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveWhoseRestoreFailed) {
     this->mock->unwritable_slaves.insert(1);
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->mock->register_values[{2, 0x0918}] = 5'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 2}));
     const auto error = this->written_offset(2) - (7'000'000'000 - 5'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
@@ -2410,10 +2719,10 @@ TEST_F(SOEMMasterTest, CheckHoldsADCSlaveInPreOpWhenItsClockCannotBeRestored) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->latch_return = 0;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->slave_infos[0].state, EC_STATE_SAFE_OP);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
@@ -2431,13 +2740,25 @@ TEST_F(SOEMMasterTest, CheckReportsALatchFrameThatGotNoReply) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->latch_return = EC_NOFRAME;
-    this->master->check(this->brk);
-    const auto health = this->master->check(this->brk);
+    this->supervise();
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(
         health[0].dc_restore_error,
         "the frame that latches the receive times got no reply"
     );
+}
+
+/// @brief it should send the frame that latches the receive times only once, since a
+/// resend latches them again after the host time that the master read.
+TEST_F(SOEMMasterTest, CheckGivesTheLatchFrameOneTry) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise_while_cycling();
+    ASSERT_EQ(this->mock->latch_count, 1);
+    // SOEM sends a frame again only when its timeout is longer than EC_TIMEOUTRET.
+    EXPECT_EQ(this->mock->latch_timeout, EC_TIMEOUTRET);
 }
 
 /// @brief it should request PRE-OP and never OP on each check of a slave whose clock
@@ -2447,10 +2768,10 @@ TEST_F(SOEMMasterTest, CheckKeepsASlaveWhoseClockRestoreFailedOutOfOp) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->latch_return = 0;
-    this->master->check(this->brk);
+    this->supervise();
     this->mock->slave_infos[0].bus_state = EC_STATE_SAFE_OP;
-    this->master->check(this->brk);
-    this->master->check(this->brk);
+    this->supervise();
+    this->supervise();
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{
@@ -2469,14 +2790,14 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
     this->mock->unanswered_reads.insert({1, 0x0918});
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     EXPECT_TRUE(
         std::ranges::none_of(this->mock->register_writes, [](const RegisterWrite &w) {
             return w.address == 0x0920;
         })
     );
     EXPECT_EQ(
-        this->master->check(this->brk)[1].dc_restore_error,
+        this->supervise()[1].dc_restore_error,
         "slave 1 (16xAO) did not reply to a read of DC register 0x0918"
     );
 }
@@ -2484,18 +2805,21 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
 /// @brief it should stop reporting a restore failure once the clock of the slave is
 /// restored.
 TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
     this->mock->latch_return = 0;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(
-        this->master->check(this->brk)[1].dc_restore_error,
+        this->supervise()[1].dc_restore_error,
         "no slave latched its receive time"
     );
     this->mock->latch_return = 1;
-    this->check_while_cycling();
-    const auto health = this->master->check(this->brk);
+    clock.skip(x::telem::MILLISECOND * 100);
+    this->supervise_while_cycling();
+    const auto health = this->supervise();
     EXPECT_FALSE(health[1].faulted);
     EXPECT_TRUE(health[1].dc_restore_error.empty());
 }
@@ -2512,7 +2836,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
@@ -2523,7 +2847,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
 TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
     EXPECT_LT(this->stop_during_restore(true), std::chrono::seconds(1));
     EXPECT_EQ(
-        this->master->check(this->brk)[0].dc_restore_error,
+        this->supervise()[0].dc_restore_error,
         "the bus stopped before the clocks "
         "settled"
     );
@@ -2534,7 +2858,7 @@ TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
 TEST_F(SOEMMasterTest, CheckEndsAFrameWaitOfAClockRestoreOnceTheBreakerStops) {
     EXPECT_LT(this->stop_during_restore(false), std::chrono::seconds(1));
     EXPECT_EQ(
-        this->master->check(this->brk)[0].dc_restore_error,
+        this->supervise()[0].dc_restore_error,
         "the bus stopped before the clocks "
         "settled"
     );
@@ -2546,10 +2870,103 @@ TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveWithoutDC) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
     EXPECT_TRUE(this->mock->register_writes.empty());
     EXPECT_EQ(this->mock->latch_count, 0);
+}
+
+/// @brief it should restore no clock on a slave with a clock that is not the reference
+/// clock and runs in no DC mode.
+TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveOutsideADCMode) {
+    this->activate_two_dc_slaves({SM});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->supervise();
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{2});
+    EXPECT_TRUE(this->mock->register_writes.empty());
+    EXPECT_EQ(this->mock->latch_count, 0);
+}
+
+/// @brief it should not set the reference clock from a slave whose clock came back
+/// without a restore.
+TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveThatCameBackWithoutARestore) {
+    this->activate_two_dc_slaves({SM});
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[1].state = EC_STATE_INIT;
+    this->supervise();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->slave_infos[1].state = EC_STATE_OPERATIONAL;
+    this->mock->unanswered_reads.insert({2, 0x0918});
+    this->supervise_while_cycling();
+    EXPECT_TRUE(this->supervise()[0].dc_restore_error.empty());
+}
+
+/// @brief it should wait 100 ms before the next clock restore of a slave whose restore
+/// failed, and twice as long after each next failure.
+TEST_F(SOEMMasterTest, CheckWaitsLongerBeforeEachClockRestoreThatFails) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->latch_return = 0;
+    const auto restores_after = [&](const x::telem::TimeSpan wait) {
+        const int before = this->mock->latch_count;
+        this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+        clock.skip(wait - x::telem::MILLISECOND);
+        this->supervise();
+        EXPECT_EQ(this->mock->latch_count, before);
+        clock.skip(x::telem::MILLISECOND);
+        this->supervise();
+        EXPECT_EQ(this->mock->latch_count, before + 1);
+    };
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise();
+    EXPECT_EQ(this->mock->latch_count, 1);
+    restores_after(x::telem::MILLISECOND * 100);
+    restores_after(x::telem::MILLISECOND * 200);
+    restores_after(x::telem::MILLISECOND * 400);
+}
+
+/// @brief it should wait at most 10 s between the clock restores of a slave whose
+/// restores fail.
+TEST_F(SOEMMasterTest, CheckWaitsAtMostTenSecondsBetweenClockRestores) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->latch_return = 0;
+    for (int i = 0; i < 10; ++i) {
+        this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+        this->supervise();
+        clock.skip(x::telem::SECOND * 10);
+    }
+    EXPECT_EQ(this->mock->latch_count, 10);
+}
+
+/// @brief it should restore the clock of a slave at once after the slave reaches OP,
+/// and wait 100 ms after the next failure.
+TEST_F(SOEMMasterTest, CheckStartsTheClockRestoreWaitAgainOnceASlaveReachesOp) {
+    const SkippingClock clock;
+    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->activate_master();
+    this->mock->latch_return = 0;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise();
+    clock.skip(x::telem::MILLISECOND * 100);
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    this->supervise();
+    EXPECT_EQ(this->mock->latch_count, 2);
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->supervise();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->supervise();
+    EXPECT_EQ(this->mock->latch_count, 3);
+    clock.skip(x::telem::MILLISECOND * 100);
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    this->supervise();
+    EXPECT_EQ(this->mock->latch_count, 4);
 }
 
 ////////////////////// Deactivation //////////////////////
@@ -2584,8 +3001,8 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
         "eth0",
         Config{
             .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::MILLISECOND * 100,
-            .init_timeout = x::telem::MILLISECOND * 300,
+            .state_change_timeout = x::telem::SECOND,
+            .init_timeout = x::telem::MILLISECOND * 1500,
         }
     );
     this->initialize_with_slave();
@@ -2593,7 +3010,10 @@ TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
     this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
     const auto start = std::chrono::steady_clock::now();
     this->master->deactivate();
-    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+    EXPECT_GE(
+        std::chrono::steady_clock::now() - start,
+        std::chrono::milliseconds(1500)
+    );
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in
@@ -2621,8 +3041,8 @@ TEST_F(SOEMMasterTest, DeactivateDropsTheSavedDCTime) {
     this->mock->receive_return = 2;
     ASSERT_NIL(this->activate());
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
-    const auto health = this->master->check(this->brk);
+    this->supervise();
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(
         health[0].dc_restore_error,
@@ -2637,13 +3057,13 @@ TEST_F(SOEMMasterTest, DeactivateClearsTheRestoreFailures) {
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->latch_return = 0;
-    this->master->check(this->brk);
-    ASSERT_TRUE(this->master->check(this->brk)[0].faulted);
+    this->supervise();
+    ASSERT_TRUE(this->supervise()[0].faulted);
     this->master->deactivate();
     this->mock->latch_return = 1;
     ASSERT_NIL_P(this->master->scan());
     this->activate_master();
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_FALSE(health[0].faulted);
     EXPECT_TRUE(health[0].dc_restore_error.empty());
@@ -2713,6 +3133,18 @@ TEST_F(SOEMMasterTest, CoEDiscoveryKeepsPaddingAndPDOName) {
     EXPECT_EQ(inputs[1].bit_length, 7);
     EXPECT_EQ(inputs[2].sub_index, 17);
     EXPECT_EQ(inputs[2].pdo_name, "Channel 1");
+}
+
+/// @brief it should report a serial read with no reply after a failed SDO info read of
+/// the slave, and with an emergency from the slave during the read.
+TEST_F(SOEMMasterTest, ScanReportsASerialReadWithNoReplyAfterOtherErrors) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->slave_infos[0].oe_entries.clear();
+    this->mock->slave_infos[0].sdo_read_aborts[{0x1018, 4}] = 0;
+    this->mock->slave_infos[0].sdo_read_emergencies.insert({0x1018, 4});
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
 }
 
 /// @brief it should leave the PDO name empty when the CoE object has no name.
@@ -2916,6 +3348,83 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
     );
 }
 
+/// @brief it should keep the CoE serial number of a slave that it discovers again
+/// after its startup parameters.
+TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {
+    this->add_slave(create_coe_slave(0x5555));
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0x5555);
+}
+
+/// @brief it should read the CoE serial number of a parameterized slave that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAParameterizedSlaveThatWasStarting) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
+}
+
+/// @brief it should read again a slave with no startup parameters that was below
+/// PRE-OP at the scan and is in PRE-OP at activation.
+TEST_F(SOEMMasterTest, ActivateReadsAStartingSlaveWithNoStartupParameters) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->statecheck_overrides.clear();
+    this->mock->slave_infos[0].bus_state.reset();
+    this->activate_master();
+    const auto activated = ASSERT_NIL_P(this->master->scan())[0];
+    EXPECT_FALSE(activated.status.starting);
+    EXPECT_EQ(activated.properties.serial, 0x5555);
+}
+
+/// @brief it should give serial number 0 to a slave that the activation reads with the
+/// serial number of a slave before it.
+TEST_F(SOEMMasterTest, ActivateGivesADuplicateSerialNumberToTheFirstSlave) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    for (int i = 0; i < 2; i++) {
+        auto slave = create_coe_slave(0x5555);
+        slave.bus_state = EC_STATE_INIT;
+        this->add_slave(slave);
+    }
+    ASSERT_NIL_P(this->master->scan());
+    this->mock->statecheck_overrides.clear();
+    for (auto &info: this->mock->slave_infos)
+        info.bus_state.reset();
+    this->activate_master();
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+}
+
+/// @brief it should keep the failed serial read of a parameterized slave after
+/// activation.
+TEST_F(SOEMMasterTest, ActivateKeepsTheFailedSerialReadOfAParameterizedSlave) {
+    auto slave = create_coe_slave(0x5555);
+    slave.sdo_read_aborts[{0x1018, 4}] = 0;
+    this->add_slave(slave);
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->activate_master();
+    EXPECT_EQ(
+        ASSERT_NIL_P(this->master->scan())[0].status.serial_error,
+        "failed to read 0x1018:04: no response"
+    );
+}
+
 /// @brief it should fail activation and stop writing when a slave aborts a startup
 /// parameter.
 TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
@@ -2923,7 +3432,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER, RANGE}}}};
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     const auto err = this->activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -2940,10 +3449,39 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+        "slave 1 (TestSlave) failed to write startup parameter 0x8000:19: no response"
     );
+}
+
+/// @brief it should fail activation with a retryable error when a slave that is still
+/// starting aborts a startup parameter.
+TEST_F(SOEMMasterTest, ActivateRetriesWhenStartupParameterAbortIsTemporary) {
+    this->initialize_with_slave();
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x19}] = 0x08000022;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
+}
+
+/// @brief it should fail activation with a retryable error when one slave aborts a
+/// startup parameter and another gives no response.
+TEST_F(SOEMMasterTest, ActivateRetriesWhenOneStartupParameterGetsNoResponse) {
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->configs = {
+        {1, {.startup_parameters = {FILTER}}},
+        {2, {.startup_parameters = {RANGE}}},
+    };
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[1].sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
 }
 
 /// @brief it should not blame an abort of another object for a failed startup parameter
@@ -2957,7 +3495,7 @@ TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+        "slave 1 (TestSlave) failed to write startup parameter 0x8000:19: no response"
     );
 }
 
@@ -3031,7 +3569,7 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->sdo_writes.size(), 2);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
 }
@@ -3059,7 +3597,7 @@ TEST_F(SOEMMasterTest, WriteReachesTheRunningBusAndReplaysOnRecovery) {
     );
     this->mock->sdo_writes.clear();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(
         this->mock->sdo_writes,
         (std::vector<MockAPI::SDOWrite>{
@@ -3092,7 +3630,7 @@ TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
         "Slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high."
     );
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_FALSE(health[0].faulted);
     EXPECT_TRUE(health[0].startup_error.empty());
@@ -3118,6 +3656,88 @@ TEST_F(SOEMMasterTest, ReadReturnsTheAbortOfAMissingObject) {
     );
 }
 
+/// @brief it should report a read that got no reply as NO_REPLY.
+TEST_F(SOEMMasterTest, ReadReportsAReadThatGotNoReply) {
+    this->initialize_with_slave();
+    this->mock->slave_infos[0].sdo_read_aborts[{0x8040, 0x15}] = 0;
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, coe::NO_REPLY);
+    EXPECT_EQ(err.data, "failed to read 0x8040:15: no response");
+}
+
+/// @brief it should report a reply that is not the SDO response as an unexpected
+/// reply, not as no reply.
+TEST_F(SOEMMasterTest, ReadReportsAnUnexpectedReply) {
+    this->initialize_with_slave();
+    this->mock->slave_infos[0].sdo_read_packet_errors[{0x8040, 0x15}] = 1;
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(coe::NO_REPLY));
+    EXPECT_EQ(err.data, "failed to read 0x8040:15: the slave sent an unexpected reply");
+}
+
+/// @brief it should report a reply larger than the read allows.
+TEST_F(SOEMMasterTest, ReadReportsAReplyLargerThanTheRead) {
+    this->initialize_with_slave();
+    this->mock->slave_infos[0].sdo_read_packet_errors[{0x8040, 0x15}] = 3;
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: the reply is larger than the read allows"
+    );
+}
+
+/// @brief it should report a read that the slave refused with a mailbox error, not as
+/// no reply.
+TEST_F(SOEMMasterTest, ReadReportsAMailboxError) {
+    this->initialize_with_slave();
+    this->mock->slave_infos[0].sdo_read_mailbox_errors.insert({0x8040, 0x15});
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(coe::NO_REPLY));
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: the slave refused the mailbox request"
+    );
+}
+
+/// @brief it should not blame a mailbox error from before the read for a read that got
+/// no reply.
+TEST_F(SOEMMasterTest, ReadIgnoresMailboxErrorsFromBeforeTheRead) {
+    this->initialize_with_slave();
+    ec_errort err{};
+    err.Etype = EC_ERR_TYPE_MBX_ERROR;
+    err.Slave = 1;
+    this->mock->errors.push_back(err);
+    this->mock->slave_infos[0].sdo_read_aborts[{0x8040, 0x15}] = 0;
+    ASSERT_OCCURRED_AS_P(this->master->read(1, 0x8040, 0x15), coe::NO_REPLY);
+}
+
+/// @brief it should not blame a packet error of another object for a failed read.
+TEST_F(SOEMMasterTest, ReadIgnoresPacketErrorsOfOtherObjects) {
+    this->initialize_with_slave();
+    this->mock->push_packet_error(1, 0x8040, 0x16, 1);
+    this->mock->slave_infos[0].sdo_read_aborts[{0x8040, 0x15}] = 0;
+    ASSERT_OCCURRED_AS_P(this->master->read(1, 0x8040, 0x15), coe::NO_REPLY);
+}
+
+/// @brief it should fail a startup parameter write that got an unexpected reply as
+/// retryable, not as a rejection.
+TEST_F(SOEMMasterTest, ActivateRetriesAStartupParameterWithAnUnexpectedReply) {
+    this->initialize_with_slave();
+    this->configs = {{1, {.startup_parameters = {RANGE}}}};
+    this->mock->slave_infos[0].sdo_write_packet_errors[{0x8000, 0x19}] = 1;
+    const auto err = this->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) failed to write startup parameter 0x8000:19: the slave "
+        "sent an unexpected reply"
+    );
+}
+
 /// @brief it should hold a slave in PRE-OP and report the failure when a startup
 /// parameter write fails during reconfiguration.
 TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
@@ -3126,13 +3746,13 @@ TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
     this->activate_master();
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
     );
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 1);
     EXPECT_TRUE(health[0].faulted);
     EXPECT_EQ(
@@ -3153,7 +3773,7 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersThenRestoresTheClock) {
     this->mock->register_values[{1, 0x0920}] = 9'000'000'000;
     this->mock->register_values[{2, 0x0918}] = 2'000;
     this->mock->register_values[{2, 0x0910}] = 5'000'000'000;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     const std::vector<MockAPI::SDOWrite> expected{{2, 0x8000, 0x15, {0x03, 0x00}}};
     EXPECT_EQ(this->mock->sdo_writes, expected);
     ASSERT_FALSE(this->mock->register_writes.empty());
@@ -3177,9 +3797,9 @@ TEST_F(SOEMMasterTest, CheckRestoresNoClockOnASlaveThatRejectsAStartupParameter)
     this->mock->slave_infos[1].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
-    this->check_while_cycling();
+    this->supervise_while_cycling();
     EXPECT_TRUE(this->mock->register_writes.empty());
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     ASSERT_EQ(health.size(), 2);
     EXPECT_TRUE(health[1].faulted);
     EXPECT_EQ(
@@ -3198,10 +3818,10 @@ TEST_F(SOEMMasterTest, CheckStopsRecoveringSlaveThatRejectsStartupParameter) {
     this->activate_master();
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     this->mock->slave_infos[0].sdo_write_aborts.clear();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
-    const auto health = this->master->check(this->brk);
+    const auto health = this->supervise();
     EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
     ASSERT_EQ(health.size(), 1);
     EXPECT_TRUE(health[0].faulted);
@@ -3215,12 +3835,12 @@ TEST_F(SOEMMasterTest, CheckClearsLostFlagOfSlaveThatRejectsStartupParameter) {
     this->activate_master();
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     this->mock->slave_infos[0].bus_state = EC_STATE_NONE;
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_NONE;
-    EXPECT_TRUE(this->master->check(this->brk)[0].lost);
+    EXPECT_TRUE(this->supervise()[0].lost);
     this->mock->slave_infos[0].bus_state = EC_STATE_PRE_OP;
-    EXPECT_FALSE(this->master->check(this->brk)[0].lost);
+    EXPECT_FALSE(this->supervise()[0].lost);
 }
 
 /// @brief it should recover a slave that rejected a startup parameter once the master
@@ -3231,13 +3851,13 @@ TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
     this->activate_master();
     this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     this->mock->slave_infos[0].sdo_write_aborts.clear();
     this->master->deactivate();
     ASSERT_NIL_P(this->master->scan());
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
-    this->master->check(this->brk);
+    this->supervise();
     EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 1}));
 }
 
@@ -3253,7 +3873,8 @@ class Bus {
           "eth0",
           {
               .pre_op_timeout = x::telem::MILLISECOND * 100,
-              .state_change_timeout = x::telem::MILLISECOND * 100,
+              // A loaded Windows host can take over 100 ms to cycle two frames.
+              .state_change_timeout = x::telem::SECOND,
               .init_timeout = x::telem::MILLISECOND * 100,
               .dc_settle_timeout = x::telem::MILLISECOND * 50,
           }) {}

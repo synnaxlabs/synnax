@@ -17,6 +17,7 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/strings/strings.h"
 
@@ -24,7 +25,6 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks. A status that answers no
 /// command is sent at most once per window, and only when it changes.
@@ -123,8 +123,15 @@ struct StatusHandler {
     /// as part of the state. If an error has been accumulated, then the error will be
     /// sent as part of the state. If the error is nil, then the task will be marked as
     /// running. Skips the window because the Console waits for command acknowledgments
-    /// keyed by cmd.
+    /// keyed by cmd. A start that failed with x::errors::CANCELLED sends nothing and
+    /// clears the error, since its operation answers it as stopped.
     void send_start(const std::string &cmd_key) {
+        // A start ended by its cancel is answered as stopped, and its error must not
+        // answer the stop that follows.
+        if (this->accumulated_err.matches(x::errors::CANCELLED)) {
+            this->reset();
+            return;
+        }
         this->status.details.cmd = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
@@ -277,10 +284,14 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, empty at boot. A boot configure that does not
-/// auto-start logs its failures instead of reporting them. A successful configure
-/// writes no status: the start that follows it answers the command. cancel is passed
-/// to the auto-start.
+/// command driving the deploy, or NO_COMMAND at boot. A configure with no command that
+/// does not auto-start logs its failures instead of reporting them. A successful
+/// configure writes no status: the start that follows it answers the command. Only a
+/// configure with no command auto-starts the task, because a start command that drives
+/// a deploy starts the task with its own key. An auto-start first writes a loading
+/// status, which the task replaces when it answers the start. cancel is passed to the
+/// auto-start. A configure that fails with x::errors::CANCELLED after cancel stops
+/// writes no status, so the start is answered as stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -288,7 +299,9 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::string &cmd_key,
     x::breaker::Breaker &cancel
 ) {
-    const bool boot = cmd_key == driver::task::NO_COMMAND;
+    const bool commanded = cmd_key != driver::task::NO_COMMAND;
+    if (res.second.matches(x::errors::CANCELLED) && !cancel.running())
+        return {std::move(res.first.task), true};
     if (res.second) {
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
@@ -300,14 +313,23 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        if (boot && !res.first.auto_start)
+        if (!commanded && !res.first.auto_start)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
                          << res.second;
         else
             ctx->set_status(status);
         return {std::move(res.first.task), true};
     }
-    if (res.first.auto_start) {
+    if (!commanded && res.first.auto_start) {
+        // A task may answer the start later, from its own thread. Until then, this
+        // status replaces the one stored by the last run.
+        synnax::task::Status starting;
+        starting.owner = synnax::task::resource_id(task.key);
+        starting.name = task.name;
+        starting.variant = synnax::status::VARIANT_LOADING;
+        starting.message = "Starting task";
+        starting.details.config_hash = task.config_hash;
+        ctx->set_status(starting);
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

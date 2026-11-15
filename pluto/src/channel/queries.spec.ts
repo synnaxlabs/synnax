@@ -67,6 +67,37 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultCountLimited", () => {
+    // Other specs change channels on the same Core, so compare with a fresh count.
+    const expectCount = async (data: number | undefined) =>
+      expect(data).toBe(await client.channels.countLimited());
+
+    const createIndex = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+    it("should fetch the count again when a channel is created or deleted", async () => {
+      const { result } = renderHook(() => Channel.useResultCountLimited(), { wrapper });
+      await waitFor(async () => await expectCount(result.current.data));
+      const ch = await createIndex();
+      await waitFor(async () => await expectCount(result.current.data));
+      await client.channels.delete(ch.key);
+      await waitFor(async () => await expectCount(result.current.data));
+    });
+
+    it("should fetch the count again on a new mount", async () => {
+      const first = renderHook(() => Channel.useResultCountLimited(), { wrapper });
+      await waitFor(async () => await expectCount(first.result.current.data));
+      first.unmount();
+      await createIndex();
+      const { result } = renderHook(() => Channel.useResultCountLimited(), { wrapper });
+      await waitFor(async () => await expectCount(result.current.data));
+    });
+  });
+
   describe("useForm", () => {
     it("should create a new virtual channel", async () => {
       const { result } = renderHook(() => Channel.useForm({ query: null }), {

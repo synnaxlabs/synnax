@@ -43,6 +43,8 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief what scan() found, which it returns again until deactivate().
     std::vector<slave::DiscoveryResult> scanned;
+    /// @brief why the serial number read of each slave fails in the next new scan only.
+    std::map<uint16_t, std::string> next_serial_errors;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
@@ -56,9 +58,13 @@ class Master final : public master::Master {
     /// @brief the number of starts left that each slave refuses, keyed by position. A
     /// slave in refusing and not here refuses every start.
     std::map<uint16_t, size_t> refusals_left;
-    std::optional<size_t> bus_slaves;
+    /// @brief the positions that changed() reports as restarted until the next scan.
+    std::set<uint16_t> restarted;
+    /// @brief whether restarts_visible() returns false.
+    bool restarts_hidden = false;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
+    std::optional<uint16_t> reference_clock;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
     /// nullopt when it does not follow the host clock.
     std::optional<double> host_dc_rate;
@@ -68,7 +74,7 @@ class Master final : public master::Master {
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     /// @brief the working counter share of each slave in the latest activation.
-    std::map<uint16_t, uint32_t> shares;
+    std::map<uint16_t, master::WorkingCounterShare> shares;
     /// @brief the shortfall of each cycle that set_shortfall() sets.
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
@@ -86,9 +92,18 @@ class Master final : public master::Master {
     std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
-    /// @brief the value of each object that set_object() gave, by position, index, and
-    /// sub-index.
+    /// @brief the value of each object that set_object() or write() gave, by position,
+    /// index, and sub-index.
     std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief the error of each write to an object, by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, x::errors::Error> write_failures;
+    /// @brief the slave that the next write that succeeds replaces, by position.
+    std::optional<std::pair<uint16_t, slave::Properties>> replacement;
+    /// @brief the objects whose writes the slave answers but does not take, by index
+    /// and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> ignored_writes;
+    /// @brief the error of each scan after the next write that succeeds.
+    x::errors::Error scan_err_after_write;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -120,6 +135,15 @@ class Master final : public master::Master {
     std::condition_variable activate_cv;
     /// @brief whether each activate() blocks until release_activate().
     bool activate_held{false};
+    std::mutex recover_mu;
+    std::condition_variable recover_cv;
+    /// @brief whether a recover() that finds a slave out of OP waits for
+    /// release_recover().
+    bool recover_held{false};
+    /// @brief whether a recover() waits for release_recover().
+    bool recovering{false};
+    /// @brief whether the latest check() reported a slave out of OP.
+    bool checked_out{false};
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -152,6 +176,15 @@ public:
         result.properties = std::move(props);
         result.status.state = slave::State::INIT;
         this->slave_list.push_back(std::move(result));
+    }
+
+    /// @brief takes the slave at position off the bus, as when its power is off.
+    /// add_slave() puts it back. A scan sees the change only after deactivate().
+    void remove_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        std::erase_if(this->slave_list, [position](const auto &s) {
+            return s.properties.position == position;
+        });
     }
 
     /// @brief replaces the slave at position with props. A scan sees the change only
@@ -194,6 +227,37 @@ public:
                 slave.status.settings_error = error;
     }
 
+    /// @brief sets the settings that a scan reads from the slave at position.
+    void set_settings(const uint16_t position, const x::json::json &settings) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.properties.settings = settings;
+    }
+
+    /// @brief makes the serial number read of the slave at position fail with error.
+    void fail_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.serial_error = error;
+    }
+
+    /// @brief makes the serial number read of the slave at position fail with error in
+    /// the next new scan only.
+    void fail_next_serial_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->next_serial_errors[position] = error;
+    }
+
+    /// @brief sets whether the slave at position is below PRE-OP when the master reads
+    /// it.
+    void set_starting(const uint16_t position, const bool starting) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position) slave.status.starting = starting;
+    }
+
     /// @brief injects an error to be returned by scan().
     void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -223,6 +287,28 @@ public:
     void set_activate_duration(const x::telem::TimeSpan span) {
         std::lock_guard lock(this->mu);
         this->activate_duration = span;
+    }
+
+    /// @brief makes a recover() that finds a slave out of OP wait for
+    /// release_recover().
+    void hold_recover() {
+        std::lock_guard lock(this->recover_mu);
+        this->recover_held = true;
+    }
+
+    /// @brief waits until a recover() waits after hold_recover().
+    void wait_until_recovering() {
+        std::unique_lock lock(this->recover_mu);
+        this->recover_cv.wait(lock, [this] { return this->recovering; });
+    }
+
+    /// @brief lets the recover() that hold_recover() holds go on.
+    void release_recover() {
+        {
+            std::lock_guard lock(this->recover_mu);
+            this->recover_held = false;
+        }
+        this->recover_cv.notify_all();
     }
 
     /// @brief makes activate() wait for release_activate(), which holds a bus start.
@@ -424,24 +510,52 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
-        if (!this->initialized) this->scanned = this->slave_list;
+        if (!this->initialized) {
+            this->scanned = this->slave_list;
+            this->restarted.clear();
+            for (auto &slave: this->scanned)
+                if (const auto it = this->next_serial_errors.find(
+                        slave.properties.position
+                    );
+                    it != this->next_serial_errors.end())
+                    slave.status.serial_error = it->second;
+            this->next_serial_errors.clear();
+        }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
 
-    std::pair<size_t, x::errors::Error> count_slaves() override {
+    std::pair<master::Change, x::errors::Error> changed() override {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("count_slaves");
+        this->calls.emplace_back("changed");
         if (!this->initialized)
-            return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
-        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+            return {{}, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {
+            master::Change{
+                .stale = !this->restarted.empty() ||
+                         this->slave_list.size() != this->scanned.size(),
+                .restarted = this->restarted,
+            },
+            x::errors::NIL
+        };
     }
 
-    /// @brief makes count_slaves() report count instead of the number of added slaves,
-    /// as when a slave is plugged in or removed after discovery.
-    void set_bus_slaves(const std::optional<size_t> count) {
+    bool restarts_visible() const override {
         std::lock_guard lock(this->mu);
-        this->bus_slaves = count;
+        return !this->restarts_hidden;
+    }
+
+    /// @brief makes changed() report the slave at position as restarted until the next
+    /// scan.
+    void restart_slave(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        this->restarted.insert(position);
+    }
+
+    /// @brief makes restarts_visible() return false, as on the IgH master.
+    void hide_restarts() {
+        std::lock_guard lock(this->mu);
+        this->restarts_hidden = true;
     }
 
     /// @brief returns the plan of the latest activate().
@@ -509,6 +623,7 @@ public:
                 .outputs = {this->output_iomap.data(), this->output_sz},
                 .offsets = this->pdo_offset_cache,
                 .dc_sync = this->syncs,
+                .reference_clock = this->reference_clock,
                 .slaves = this->slave_list,
                 .working_counter_shares = this->shares,
             };
@@ -642,6 +757,12 @@ public:
         this->host_dc_start.reset();
     }
 
+    /// @brief sets the reference clock of the image that the next activate() gives.
+    void set_reference_clock(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        this->reference_clock = position;
+    }
+
     /// @brief sets the DC registers of the image that the next activate() gives.
     void set_dc_sync(const std::vector<dc::Registers> &syncs) {
         std::lock_guard lock(this->mu);
@@ -669,9 +790,8 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief reports each enabled slave, then returns each faulted or non-OP slave to
-    /// OP unless set_slave_transition_failure() blocks it.
-    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override {
+    /// @brief reports each slave on the bus.
+    std::vector<slave::Health> check(const x::breaker::Breaker &) override {
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("check");
         std::vector<slave::Health> health;
@@ -693,21 +813,51 @@ public:
                 .dc_restore_error = restore_failed ? restore->second : "",
                 .startup_error = startup_failed ? startup->second : "",
             });
-            if (this->lost_slaves.contains(pos) || restore_failed || startup_failed)
-                continue;
+        }
+        this->checked_out = std::ranges::any_of(health, [](const slave::Health &h) {
+            return !h.operational();
+        });
+        return health;
+    }
+
+    /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
+    /// failed clock restore or startup, and a slave that set_slave_transition_failure()
+    /// keeps from OP. After hold_recover(), waits for release_recover() first when the
+    /// latest check() reported a slave out of OP, as a recovery step acts on the states
+    /// that check() read.
+    void recover(const x::breaker::Breaker &breaker) override {
+        bool out = false;
+        {
+            std::lock_guard lock(this->mu);
+            out = this->checked_out;
+        }
+        if (out) {
+            std::unique_lock lock(this->recover_mu);
+            this->recovering = this->recover_held;
+            this->recover_cv.notify_all();
+            this->recover_cv.wait(lock, [this] { return !this->recover_held; });
+            this->recovering = false;
+        }
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
             const auto blocked = this->state_transition_failures.find(pos);
-            if (!breaker.running() ||
+            if (!this->on_bus(pos) || this->lost_slaves.contains(pos) ||
+                this->dc_restore_errors.contains(pos) ||
+                this->startup_errors.contains(pos) || !breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
                  blocked->second == slave::State::OP))
                 continue;
             slave.status.state = slave::State::OP;
             this->faults.erase(pos);
         }
-        return health;
     }
 
-    /// @brief records the write and adds the parameters to the slave in the latest
-    /// plan, or returns the error that inject_write_error() set.
+    /// @brief records the write, sets each object it names until one that fail_write()
+    /// names, and adds the parameters to the slave in the latest plan. Then replaces
+    /// the slave as replace_after_write() asks, and fails scans as
+    /// fail_scan_after_write() asks. Returns the error that inject_write_error() or
+    /// fail_write() set.
     x::errors::Error write(
         const uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -717,7 +867,57 @@ public:
         if (this->inject_write_err) return this->inject_write_err;
         this->writes.emplace_back(position, parameters);
         this->latest_plan.slaves[position].add_startup_parameters(parameters);
+        for (const auto &param: parameters) {
+            if (const auto it = this->write_failures.find(
+                    {param.index, param.sub_index}
+                );
+                it != this->write_failures.end())
+                return it->second;
+            if (this->ignored_writes.contains({param.index, param.sub_index})) continue;
+            this->objects[{position, param.index, param.sub_index}] = static_cast<
+                uint32_t>(param.value);
+        }
+        if (this->scan_err_after_write)
+            this->inject_scan_err = std::exchange(
+                this->scan_err_after_write,
+                x::errors::NIL
+            );
+        if (this->replacement) {
+            const auto [pos, props] = std::move(*this->replacement);
+            this->replacement.reset();
+            for (auto &slave: this->slave_list)
+                if (slave.properties.position == pos) slave.properties = props;
+        }
         return x::errors::NIL;
+    }
+
+    /// @brief makes each write to index:sub_index fail with err.
+    void fail_write(
+        const uint16_t index,
+        const uint8_t sub_index,
+        const x::errors::Error &err
+    ) {
+        std::lock_guard lock(this->mu);
+        this->write_failures[{index, sub_index}] = err;
+    }
+
+    /// @brief makes the slave answer each write to index:sub_index but keep its value.
+    void ignore_write(const uint16_t index, const uint8_t sub_index) {
+        std::lock_guard lock(this->mu);
+        this->ignored_writes.insert({index, sub_index});
+    }
+
+    /// @brief makes each scan fail with err after the next write that succeeds.
+    void fail_scan_after_write(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->scan_err_after_write = err;
+    }
+
+    /// @brief replaces the slave at position with props after the next write that
+    /// succeeds, as a slave that maps new entries when it takes a new mode.
+    void replace_after_write(const uint16_t position, slave::Properties props) {
+        std::lock_guard lock(this->mu);
+        this->replacement.emplace(position, std::move(props));
     }
 
     /// @brief returns the value that set_object() gave the object, or
@@ -791,9 +991,11 @@ private:
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;
-            if (const uint32_t share = (props.output_pdos.empty() ? 0 : 2) +
-                                       (props.input_pdos.empty() ? 0 : 1);
-                share > 0)
+            if (const master::WorkingCounterShare share{
+                    .outputs = props.output_pdos.empty() ? 0U : 2U,
+                    .inputs = props.input_pdos.empty() ? 0U : 1U,
+                };
+                share != master::WorkingCounterShare{})
                 this->shares[props.position] = share;
             pdo::compute_offsets(
                 this->pdo_offset_cache,

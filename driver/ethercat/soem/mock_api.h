@@ -70,8 +70,17 @@ struct MockSlaveInfo {
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index.
+    /// sub-index. A code of 0 makes the read get no reply.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO read replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_read_packet_errors;
+    /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
+    /// @brief objects whose SDO reads bring a CoE emergency from the slave, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_emergencies;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -80,6 +89,9 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO write replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_write_packet_errors;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
@@ -116,6 +128,8 @@ public:
     std::set<std::string> filtered_interfaces;
     /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
     std::map<std::string, std::string> adapter_names;
+    /// @brief the interfaces whose adapters are on USB.
+    std::set<std::string> usb_interfaces;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -160,6 +174,10 @@ public:
     int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
+    /// @brief the value reset_slave returns.
+    int reset_return = 1;
+    /// @brief slaves passed to reset_slave, with the number of reconfigs before each.
+    std::vector<std::pair<uint16_t, size_t>> reset_slaves;
     std::vector<uint16_t> reconfigured_slaves;
     /// @brief the value recover_slave returns.
     int recover_return = 1;
@@ -214,6 +232,8 @@ public:
     int latch_count = 0;
     /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
     int64_t latched_at = 0;
+    /// @brief the timeout of the last latch_receive_times call.
+    int latch_timeout = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
 
@@ -258,6 +278,10 @@ public:
         return it->second;
     }
 
+    bool on_usb(const char *ifname) override {
+        return this->usb_interfaces.contains(ifname);
+    }
+
     int init(const char *) override {
         this->init_called = true;
         return this->init_return;
@@ -291,8 +315,9 @@ public:
         return this->config_init_return;
     }
 
-    /// @brief like ecx_config_map_group, maps the slaves of group into iomap, sets the
-    /// group sizes and working counters, and runs the PO2SOconfig hook of each slave.
+    /// @brief like ecx_config_map_group, checks that each slave of group reaches
+    /// PRE-OP, maps the slaves into iomap, sets the group sizes and working counters,
+    /// and runs the PO2SOconfig hook of each slave.
     int config_map_group(void *iomap, uint8_t group) override {
         auto *base = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
@@ -304,6 +329,7 @@ public:
             for (int sm = 2; sm < EC_MAXSM; ++sm)
                 if (slave.SM[sm].SMlength != 0) this->sms_cleared_at_map = false;
             const auto pos = static_cast<uint16_t>(i + 1);
+            this->statecheck(pos, EC_STATE_PRE_OP, 0);
             this->run_PO2SOconfig(pos);
             const auto &info = this->slave_infos[i];
             slave.Ibits = info.Ibits;
@@ -405,7 +431,8 @@ public:
         return this->sync_dc_return;
     }
 
-    int latch_receive_times(int) override {
+    int latch_receive_times(const int timeout) override {
+        this->latch_timeout = timeout;
         this->latched_at = now();
         this->latch_count++;
         return this->latch_return;
@@ -472,6 +499,11 @@ public:
         return this->reconfig_return;
     }
 
+    int reset_slave(uint16_t slave, int) override {
+        this->reset_slaves.emplace_back(slave, this->reconfigured_slaves.size());
+        return this->reset_return;
+    }
+
     int recover_slave(uint16_t slave, int) override {
         this->recovered_slaves.push_back(slave);
         return this->recover_return;
@@ -528,9 +560,25 @@ public:
             std::memcpy(p, it->second.data(), *psize);
             return 1;
         }
+        for (const auto &[objects, type]:
+             {std::pair{&info.sdo_read_emergencies, EC_ERR_TYPE_EMERGENCY},
+              std::pair{&info.sdo_read_mailbox_errors, EC_ERR_TYPE_MBX_ERROR}})
+            if (objects->contains({index, sub_index})) {
+                ec_errort err{};
+                err.Etype = type;
+                err.Slave = slave;
+                this->errors.push_back(err);
+            }
+        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) return 0;
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
-            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            if (abort->second != 0)
+                this->push_sdo_abort(slave, index, sub_index, abort->second);
+            return 0;
+        }
+        if (const auto packet = info.sdo_read_packet_errors.find({index, sub_index});
+            packet != info.sdo_read_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
             return 0;
         }
         const auto &objects = info.sdo_objects;
@@ -557,6 +605,11 @@ public:
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
         auto &info = this->slave_infos.at(slave - 1);
+        if (const auto packet = info.sdo_write_packet_errors.find({index, sub_index});
+            packet != info.sdo_write_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
         const auto it = info.sdo_write_aborts.find({index, sub_index});
         if (it == info.sdo_write_aborts.end()) {
             uint32_t value = 0;
@@ -577,6 +630,22 @@ public:
         err.Index = index;
         err.SubIdx = sub_index;
         err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    /// @brief appends a SOEM packet error for the object to the SOEM error list.
+    void push_packet_error(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        uint16_t code
+    ) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_PACKET_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.ErrorCode = code;
         this->errors.push_back(err);
     }
 
@@ -627,7 +696,13 @@ public:
     ) override {
         const auto &entries = this->slave_infos.at(od_list->Slave - 1).oe_entries;
         const auto it = entries.find({od_list->Index[item], sub_index});
-        if (it == entries.end()) return 0;
+        if (it == entries.end()) {
+            ec_errort err{};
+            err.Etype = EC_ERR_TYPE_SDOINFO_ERROR;
+            err.Slave = od_list->Slave;
+            this->errors.push_back(err);
+            return 0;
+        }
         oe_list->Entries++;
         std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
         oe_list->DataType[sub_index] = it->second.second;

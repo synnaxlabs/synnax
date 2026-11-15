@@ -31,7 +31,6 @@ class KeyboardShortcuts(ConsoleCase):
         ("r", "range", "Ranges"),
         ("s", "status", "Statuses"),
         ("t", "task", "Tasks"),
-        ("u", "user", "Users"),
         ("w", "project", "Projects"),
     ]
 

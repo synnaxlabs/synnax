@@ -15,7 +15,7 @@
     /* stylelint-disable-next-line declaration-no-important -- outranks the bordered Box
        rule */
     border: var(--pluto-border-l6) !important;
-    background-color: var(--pluto-gray-l2);
+    background-color: var(--pluto-gray-l1-l2);
 
     --pluto-fill-rest: var(--pluto-gray-l3);
     --pluto-fill-hover: var(--pluto-gray-l4);

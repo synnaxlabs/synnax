@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,6 +85,10 @@ type Config struct {
 	// It runs inline under the DB's locks and must not block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
+	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic, so
+	// that a change to the system clock does not delay a persist.
+	// [OPTIONAL] Default: xtime.Real
+	Clock xtime.Clock
 }
 
 var (
@@ -92,6 +97,7 @@ var (
 		FileSize:       800 * telem.Megabyte,
 		GCThreshold:    0.2,
 		MaxDescriptors: 100,
+		Clock:          xtime.Real,
 	}
 )
 
@@ -121,6 +127,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
 	c.OnHistoryChange = override.Nil(c.OnHistoryChange, other.OnHistoryChange)
+	c.Clock = override.Nil(c.Clock, other.Clock)
 	// Store 80% of the desired maximum file size as file size since we must leave some
 	// buffer for when we stop acquiring a new writer on a file.
 	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))

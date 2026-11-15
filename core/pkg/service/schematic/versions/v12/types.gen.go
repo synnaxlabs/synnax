@@ -48,40 +48,296 @@ type Segment = v11.Segment
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig = v11.SegmentedEdgeConfig
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
-type EdgeConfig = v11.EdgeConfig
-
-// EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant = v11.EdgeConfigVariant
-
 // EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType = v11.EdgeConfigType
+type EdgeConfigType string
 
 const (
 	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = v11.PipeEdgeConfigType
+	PipeEdgeConfigType EdgeConfigType = "pipe"
 	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = v11.ElectricEdgeConfigType
+	ElectricEdgeConfigType EdgeConfigType = "electric"
 	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = v11.SecondaryEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = "secondary"
 	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = v11.JacketedEdgeConfigType
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
 	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = v11.HydraulicEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
 	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = v11.PneumaticEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
 	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = v11.DataEdgeConfigType
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
-type PipeEdgeConfig = v11.PipeEdgeConfig
-type ElectricEdgeConfig = v11.ElectricEdgeConfig
-type SecondaryEdgeConfig = v11.SecondaryEdgeConfig
-type JacketedEdgeConfig = v11.JacketedEdgeConfig
-type HydraulicEdgeConfig = v11.HydraulicEdgeConfig
-type PneumaticEdgeConfig = v11.PneumaticEdgeConfig
-type DataEdgeConfig = v11.DataEdgeConfig
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
+type EdgeConfigVariant interface {
+	isEdgeConfigVariant()
+}
+
+type PipeEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PipeEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PipeEdgeConfig) Validate() error {
+	v := validate.New("PipeEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type ElectricEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (ElectricEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e ElectricEdgeConfig) Validate() error {
+	v := validate.New("ElectricEdgeConfig")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type SecondaryEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecondaryEdgeConfig) Validate() error {
+	v := validate.New("SecondaryEdgeConfig")
+	v.Exec(s.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type JacketedEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (JacketedEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (j JacketedEdgeConfig) Validate() error {
+	v := validate.New("JacketedEdgeConfig")
+	v.Exec(j.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type HydraulicEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HydraulicEdgeConfig) Validate() error {
+	v := validate.New("HydraulicEdgeConfig")
+	v.Exec(h.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type PneumaticEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PneumaticEdgeConfig) Validate() error {
+	v := validate.New("PneumaticEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type DataEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (DataEdgeConfig) isEdgeConfigVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DataEdgeConfig) Validate() error {
+	v := validate.New("DataEdgeConfig")
+	v.Exec(d.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
+type EdgeConfig struct {
+	Variant EdgeConfigVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PipeEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
+	case ElectricEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
+	case SecondaryEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
+	case JacketedEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
+	case HydraulicEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
+	case PneumaticEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
+	case DataEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type EdgeConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PipeEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PipeEdgeConfig
+	case ElectricEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricEdgeConfig
+	case SecondaryEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SecondaryEdgeConfig
+	case JacketedEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JacketedEdgeConfig
+	case HydraulicEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HydraulicEdgeConfig
+	case PneumaticEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PneumaticEdgeConfig
+	case DataEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DataEdgeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u EdgeConfig) Validate() error {
+	v := validate.New("EdgeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PipeEdgeConfig:
+		v.Exec(variant.Validate)
+	case ElectricEdgeConfig:
+		v.Exec(variant.Validate)
+	case SecondaryEdgeConfig:
+		v.Exec(variant.Validate)
+	case JacketedEdgeConfig:
+		v.Exec(variant.Validate)
+	case HydraulicEdgeConfig:
+		v.Exec(variant.Validate)
+	case PneumaticEdgeConfig:
+		v.Exec(variant.Validate)
+	case DataEdgeConfig:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
 
 // FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v11.FlexAlignment
@@ -3610,8 +3866,8 @@ type GroupBoxNodeConfig struct {
 
 func (GroupBoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfig is the per-node configuration stored in the schematic configs map. The
-// variant selects the symbol rendered for the node and the fields that accompany it.
+// NodeConfig is the configuration of one node. The variant selects the symbol rendered
+// for the node and the fields that accompany it.
 type NodeConfig struct {
 	Variant NodeConfigVariant
 }
@@ -5531,216 +5787,218 @@ func (u *NodeConfig) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u NodeConfig) Validate() error {
+	v := validate.New("NodeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CapNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FilterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowStraightenerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeaterElementNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCapNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoFilterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NozzleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificePlateNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerConeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThrusterNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VentNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterGeneralNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterElectromagneticNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVariableAreaNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterCoriolisNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterNozzleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVenturiNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterRingPistonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPositiveDisplacementNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterTurbineNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPulseNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterFloatSensorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterOrificeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BoxNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButtonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CircleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GaugeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LightNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OffPageReferenceNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolygonNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SelectNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScaleNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SetpointNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StateIndicatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StringDisplayNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SwitchNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TextBoxNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossBeamAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlatBladeAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerGeneralNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerMNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerStraightTubeNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HelicalAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PaddleAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PropellerAgitatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RotaryMixerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StaticMixerNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CavityPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CentrifugalCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DiaphragmPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectionPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectorCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LiquidRingCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PistonPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RollerVaneCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScrewPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TurboCompressorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VacuumPumpNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BurstDiscNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorDetonationNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorExplosionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResDetonationNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoBurstDiscNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledSpringLoadedReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BallValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BreatherValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveOneNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveTwoNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveWithArrowNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorMotorizedNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FourWayValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GateValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCheckValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ManualValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NeedleValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorManualNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SolenoidValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SpringLoadedReliefValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayBallValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValveNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossJunctionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CylinderNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TankNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TJunctionNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomActuatorNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomStaticNodeConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // ElementConfigType is the "variant" value that selects a variant of ElementConfig.
@@ -11223,230 +11481,232 @@ func (u *ElementConfig) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ElementConfig) Validate() error {
+	v := validate.New("ElementConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CapElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FilterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowStraightenerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeaterElementElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCapElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoFilterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NozzleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OrificePlateElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StrainerConeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThrusterElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VentElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterGeneralElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterElectromagneticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVariableAreaElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterCoriolisElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterNozzleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterVenturiElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterRingPistonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPositiveDisplacementElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterTurbineElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterPulseElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterFloatSensorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlowmeterOrificeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BoxElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButtonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CircleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GaugeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LightElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case OffPageReferenceElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolygonElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SelectElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScaleElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SetpointElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StateIndicatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StringDisplayElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SwitchElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TextBoxElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossBeamAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlatBladeAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerGeneralElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerMElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HeatExchangerStraightTubeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HelicalAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PaddleAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PropellerAgitatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RotaryMixerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case StaticMixerElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CavityPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CentrifugalCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DiaphragmPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectionPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case EjectorCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case LiquidRingCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PistonPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RollerVaneCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ScrewPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TurboCompressorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case VacuumPumpElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BurstDiscElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorDetonationElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorExplosionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FlameArrestorFireResDetonationElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoBurstDiscElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AngledSpringLoadedReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BallValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case BreatherValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveOneElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ButterflyValveTwoElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CheckValveWithArrowElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricRegulatorMotorizedElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FourWayValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GateValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case IsoCheckValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ManualValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case NeedleValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case RegulatorManualElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SolenoidValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SpringLoadedReliefValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThreeWayBallValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValveElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CrossJunctionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CylinderElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TankElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TJunctionElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomActuatorElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CustomStaticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PipeElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ElectricElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SecondaryElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case JacketedElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HydraulicElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PneumaticElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case DataElementConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control

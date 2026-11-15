@@ -12,6 +12,7 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -101,6 +102,14 @@ class Master final : public master::Master {
         dc::Registers registers;
     };
 
+    /// @brief the wait before the next clock restore of a slave whose restore failed.
+    struct ClockRetry {
+        /// @brief the Config::clock time of the next restore.
+        std::chrono::steady_clock::time_point at;
+        /// @brief the number of restores in a row that failed.
+        size_t failures = 0;
+    };
+
     /// @brief the state of one bus run, from activate() to deactivate().
     struct Session {
         /// @brief the plan that activate() got.
@@ -117,10 +126,16 @@ class Master final : public master::Master {
         std::vector<DCSetup> dc_setups;
         /// @brief why each slave rejected a startup parameter at its latest move to
         /// SAFE-OP, keyed by position.
-        std::map<uint16_t, std::string> startup_failures;
+        std::map<uint16_t, x::errors::Error> startup_failures;
         /// @brief why the master could not restore the distributed clock of a slave
         /// that came back, keyed by position.
         std::unordered_map<uint16_t, std::string> dc_restore_errors;
+        /// @brief the wait before the next clock restore of each slave in
+        /// dc_restore_errors, keyed by position. A slave in OP leaves it.
+        std::unordered_map<uint16_t, ClockRetry> clock_retries;
+        /// @brief the slaves with a clock that came back without a clock restore. No
+        /// restore reads the clock of one.
+        std::set<uint16_t> unrestored_clocks;
         /// @brief the latest DC time that moved forward, in nanoseconds.
         int64_t last_dc_time = NO_DC_FRAME;
         /// @brief the Config::clock time of the last process data send.
@@ -136,6 +151,15 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
+        /// @brief the working counter of the latest mismatch, and what receive()
+        /// returns for it. Only the cycle uses them.
+        int mismatched_wkc = -1;
+        x::errors::Error mismatch_err;
+        /// @brief what receive() returns on a USB adapter when no frame comes back, but
+        /// one did less than a second before. NIL on other adapters.
+        x::errors::Error late_frame_err;
+        /// @brief the sent_at of the latest frame that came back.
+        std::optional<std::chrono::steady_clock::time_point> frame_sent_at;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
@@ -158,7 +182,9 @@ public:
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<size_t, x::errors::Error> count_slaves() override;
+    std::pair<master::Change, x::errors::Error> changed() override;
+
+    [[nodiscard]] bool restarts_visible() const override { return true; }
 
     master::Activation activate(
         const master::Plan &plan,
@@ -173,6 +199,8 @@ public:
 
     /// @brief shares only atomics with receive() and send().
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    void recover(const x::breaker::Breaker &breaker) override;
 
     x::errors::Error write(
         uint16_t position,
@@ -222,6 +250,11 @@ private:
     /// @brief reads the settings that the ESI catalog describes for the slave from it,
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
+
+    /// @brief reads the CoE serial number of the slave into its properties, or the
+    /// reason the read got no answer into its status. Keeps the SII serial number when
+    /// the slave answers the read with an error or gives serial number 0.
+    void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);
@@ -342,9 +375,9 @@ private:
     x::errors::Error start_dc();
 
     /// @brief sets the DC system time offset (0x0920) of a slave so that its clock
-    /// matches the clock of another enabled DC slave in SAFE-OP or OP whose latest
-    /// restore did not fail. Without one, the clock continues the latest DC time that
-    /// moved forward.
+    /// matches the clock of another enabled DC slave in SAFE-OP or OP. That slave must
+    /// not be in unrestored_clocks, and its latest restore must not have failed.
+    /// Without one, the clock continues the latest DC time that moved forward.
     /// @returns errors::ACTIVATION_ERROR when no frame has carried the DC time, a slave
     /// does not answer a read, or the slave does not take the write.
     x::errors::Error align_clock(uint16_t pos);
@@ -369,6 +402,10 @@ private:
     /// @brief whether the latest clock restore of the slave failed.
     [[nodiscard]] bool restore_failed(uint16_t pos) const;
 
+    /// @brief whether the master restores the clock of the slave when it comes back:
+    /// the reference clock and each slave in a DC mode.
+    [[nodiscard]] bool restores_clock(uint16_t pos) const;
+
     /// @brief whether the slave has its AL error flag set and gives an AL status code.
     [[nodiscard]] bool al_error(uint16_t pos) const;
 
@@ -383,12 +420,14 @@ private:
     void update_lost(uint16_t pos);
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
-    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
-    /// to PRE-OP, not to OP. Takes no step for a slave that rejected a startup
-    /// parameter, so it stays in PRE-OP until the next activation. A wait for the
-    /// clock of a DC slave ends once breaker stops.
-    void recover(uint16_t pos, const x::breaker::Breaker &breaker);
+    /// ecatcheck sample: acknowledge an error, request OP, reset and reconfigure, or
+    /// restore a slave that lost power. A slave in SAFE-OP whose clock restore failed
+    /// goes back to PRE-OP, not to OP. Takes no step for a slave that rejected a
+    /// startup parameter, so it stays in PRE-OP until the next activation. After a
+    /// failed clock restore, the next one waits from 100 ms, twice as long after each
+    /// failure up to 10 s, and the wait starts again at 100 ms once the slave reaches
+    /// OP. A wait for the clock of a DC slave ends once breaker stops.
+    void recover_slave(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
