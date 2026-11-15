@@ -10,12 +10,19 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 36, height: 72 };
+const SPEC = Custom.createBuiltIn({
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 72">' +
+    '<rect x="4" y="4" width="28" height="64" rx="2" stroke-width="2" stroke="var(--pluto-symbol-display)"/>' +
+    '<path d="M13 68V47C13 46.4477 13.4489 45.9892 13.9928 45.8933C16.1351 45.5152 21 43.7981 21 36C21 28.2019 16.1351 26.4848 13.9928 26.1068C13.4489 26.0108 13 25.5523 13 25V4" stroke-width="2" stroke="var(--pluto-symbol-display)"/>' +
+    "</svg>",
+  handles: [{ key: "1", position: { x: 0.111111, y: 0.5 }, orientation: "left" }],
+});
 
 export const IsoBurstDisc = ({
   className,
@@ -25,26 +32,11 @@ export const IsoBurstDisc = ({
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("symbol"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={11.1111}
-        top={50}
-        id="1"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS} // Reduced to ~2/3 of original size (50x108)
+    <Custom.Drawing
+      spec={SPEC}
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="4" y="4" width="28" height="64" rx="2" strokeWidth="2" />
-      <Primitive.Path
-        d="M13 68V47C13 46.4477 13.4489 45.9892 13.9928 45.8933C16.1351 45.5152 21 43.7981 21 36C21 28.2019 16.1351 26.4848 13.9928 26.1068C13.4489 26.0108 13 25.5523 13 25V4"
-        strokeWidth="2"
-      />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );
