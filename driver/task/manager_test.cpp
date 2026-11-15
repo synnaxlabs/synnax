@@ -1594,6 +1594,36 @@ TEST_F(TaskManagerTest, UnstartedTaskKeepsItsInstanceAcrossALostConnection) {
     EXPECT_FALSE(built(*f)[0]->stopped.load());
 }
 
+/// @brief it should keep a running task whose last command failed through a lost Core
+/// connection, as a failed manual scan leaves a scanner running.
+TEST_F(TaskManagerTest, TaskWithAFailedCommandKeepsItsInstanceAcrossALostConnection) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    std::shared_ptr<Context> ctx;
+    {
+        std::lock_guard lock(f->mu);
+        ctx = f->ctx;
+    }
+    report(ctx, task.key, true, "", synnax::status::VARIANT_ERROR, "Failed to scan");
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    statuses_until_command(task);
+    EXPECT_EQ(built(*f).size(), 1);
+    EXPECT_FALSE(state->stopped.load());
+}
+
 /// @brief it should stop the tasks that a run which lost the Core left running on
 /// close, and end its workers.
 TEST_F(TaskManagerTest, CloseStopsTheTasksOfARunThatLostTheCore) {

@@ -698,10 +698,12 @@ void Manager::execute_op(
                 }
                 // An instance that lived through a lost Core connection keeps its
                 // status too. One whose task failed on its own, such as a pipeline
-                // that gave up, deploys again.
+                // that gave up, deploys again. A failed command, such as a manual
+                // scan, leaves its task running.
                 const auto latest = this->statuses->latest(tsk.key);
                 const bool failed = latest.has_value() &&
-                                    latest->variant == synnax::status::VARIANT_ERROR;
+                                    latest->variant == synnax::status::VARIANT_ERROR &&
+                                    !latest->details.running;
                 if (entry->instance != nullptr && deployed == tsk.config_hash &&
                     !failed)
                     return;
