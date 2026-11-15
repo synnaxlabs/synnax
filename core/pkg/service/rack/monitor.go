@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -253,23 +254,66 @@ func (m *monitor) handleChange(
 	defer m.mu.Unlock()
 	for ch := range t {
 		owner := ch.Value.Owner
-		if ch.Kind == gorp.ChangeDelete || owner == nil ||
-			owner.Type != resource.TypeRack {
+		if ch.Kind == gorp.ChangeDelete || owner == nil {
 			continue
 		}
-		key, err := KeyFromResourceID(*owner)
-		if err != nil {
-			m.L.Error("failed to decode status owner", zap.Error(err))
-			continue
+		switch owner.Type {
+		case resource.TypeRack:
+			m.handleRackStatus(*owner, ch.Value)
+		case resource.TypeTask:
+			m.handleTaskStatus(ch.Value)
 		}
-		alive := storedDetails(ch.Value.Details).Running
-		state, known := m.mu.racks[key]
-		if !known || (alive && ch.Value.Time != state.statusTime) {
-			state = rackState{lastUpdated: m.svc.Now()}
-		}
-		state.statusTime = ch.Value.Time
-		m.mu.racks[key] = state
 	}
+}
+
+func (m *monitor) handleRackStatus(owner resource.ID, stat status.Status[any]) {
+	key, err := KeyFromResourceID(owner)
+	if err != nil {
+		m.L.Error("failed to decode status owner", zap.Error(err))
+		return
+	}
+	alive := storedDetails(stat.Details).Running
+	state, known := m.mu.racks[key]
+	if !known || (alive && stat.Time != state.statusTime) {
+		state = rackState{lastUpdated: m.svc.Now()}
+	}
+	state.statusTime = stat.Time
+	m.mu.racks[key] = state
+}
+
+// handleTaskStatus counts a running task status as a report from the rack that runs
+// the task. A Driver that reconnects reports its tasks before its first heartbeat, and
+// an outage written in that gap would overwrite the newer task statuses.
+func (m *monitor) handleTaskStatus(stat status.Status[any]) {
+	fields, _ := stat.Details.(map[string]any)
+	if running, _ := fields["running"].(bool); !running {
+		return
+	}
+	key, ok := rackKeyField(fields["rack"])
+	if !ok {
+		return
+	}
+	state, known := m.mu.racks[key]
+	if !known || state.outage != nil {
+		return
+	}
+	state.lastUpdated = m.svc.Now()
+	m.mu.racks[key] = state
+}
+
+// rackKeyField returns the rack key that a decoded status details field holds. The
+// decoder picks the integer type from the size of the value.
+func rackKeyField(v any) (Key, bool) {
+	rv := reflect.ValueOf(v)
+	switch {
+	case rv.CanUint():
+		return Key(rv.Uint()), true
+	case rv.CanInt():
+		return Key(rv.Int()), true
+	case rv.CanFloat():
+		return Key(rv.Float()), true
+	}
+	return 0, false
 }
 
 // openMonitor watches the health of every stored rack. A rack that sends no status

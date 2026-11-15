@@ -16,6 +16,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -94,6 +95,8 @@ var _ = Describe("Task", Ordered, func() {
 		configs     config.Registry
 		testArc     arc.Key
 		names       []string
+		// frozenNow pins the clock of the rack monitor when it is not zero.
+		frozenNow atomic.Int64
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -112,6 +115,12 @@ var _ = Describe("Task", Ordered, func() {
 			HostKey:             1,
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			Now: func() telem.TimeStamp {
+				if t := frozenNow.Load(); t != 0 {
+					return telem.TimeStamp(t)
+				}
+				return telem.Now()
+			},
 			DriverRole: MustSucceed(
 				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
@@ -1570,6 +1579,46 @@ var _ = Describe("Task", Ordered, func() {
 						ConfigHash: "deployed",
 						Rack:       r.Key,
 					}))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should keep a task running while its Driver reports it before a heartbeat",
+			func(ctx SpecContext) {
+				now := telem.Now()
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
+				r := rack.Rack{Name: "reconnecting rack"}
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
+				t := &task.Task{Type: testType, Rack: r.Key, Name: "Reported Task"}
+				Expect(svc.NewWriter(createTx).Create(ctx, t)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
+				for range 4 {
+					now = now.Add(rackService.HealthCheckInterval / 2)
+					frozenNow.Store(int64(now))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &task.Status{
+							Owner:   new(t.ResourceID()),
+							Name:    t.Name,
+							Time:    now,
+							Variant: status.VariantSuccess,
+							Message: "Task started",
+							Details: task.StatusDetails{Running: true, Rack: r.Key},
+						})
+					})).To(Succeed())
+				}
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).To(Equal("Task started"))
+				}, 50*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+
+				By("Marking the task once its Driver stops reporting")
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).
+						To(Equal("Task stopped responding"))
 				}).Should(Succeed())
 			},
 		)
