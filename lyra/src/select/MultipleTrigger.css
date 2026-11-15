@@ -20,6 +20,16 @@
     padding: 0 1rem;
 }
 
+/* The frame gives way with its tags. Around a stepped group, it fills the container
+   that sets the step. */
+.lyra-dialog__frame:has(> .lyra-tags) {
+    min-width: 0;
+}
+
+.lyra-dialog__frame:has(> .lyra-tags--stepped) {
+    flex: 1 1 0;
+}
+
 /* A status colors the trigger, and the placeholder takes that color. */
 :is(.lyra--status-warning, .lyra--status-error)
     > .lyra-text.lyra-select-multiple-trigger-placeholder {
