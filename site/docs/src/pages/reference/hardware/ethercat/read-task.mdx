@@ -480,13 +480,13 @@ which module is lost. Check its power and its cable.
 <Problem.Cause>
 
 The task shows **Dropped samples**, and the port is on a USB Ethernet adapter. A USB
-adapter can hold a frame back past the end of its bus cycle. That cycle fails, and every
-read task on the port loses its sample. More cycles fail at higher rates. On macOS, the
-warning gives only `Bus cycles failed: process data receive failed.`
+adapter can hold a frame back past the end of its bus cycle. That cycle fails, and each
+read task that samples on that cycle loses its sample. More cycles fail at higher rates.
+On macOS, the warning gives only `Bus cycles failed: process data receive failed.`
 
 For example, a Realtek USB Ethernet adapter on a Windows computer, with one Dewesoft
-IOLITE 6xSTG module, missed 3 of 90,109 samples in 3 minutes at 500 Hz, and 753 of
-180,297 (0.4%) at 1 kHz. Other adapters and computers give other results.
+IOLITE 6xSTG module, missed 753 of 180,297 samples (0.4%) in 3 minutes at 1 kHz. Other
+adapters and computers give other results.
 
 </Problem.Cause>
 <Problem.Fix>

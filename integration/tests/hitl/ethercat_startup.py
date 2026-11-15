@@ -39,12 +39,12 @@ class EtherCATRefusedStartupParameter(TestCase):
             name="HITL EtherCAT Refused Startup Parameter",
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
+            startup_parameters=[
+                sy.ethercat.SlaveStartupParameters(
+                    device=self.stg.key, parameters=[MISSING]
+                )
+            ],
         )
-        self.tsk.config.startup_parameters = [
-            sy.ethercat.SlaveStartupParameters(
-                device=self.stg.key, parameters=[MISSING]
-            )
-        ]
         text = assert_start_rejected(
             self.client, self.tsk, "a missing address", timeout=REJECT_TIMEOUT
         )
