@@ -31,8 +31,6 @@ const (
 	ActionTypeAddEdge = "add_edge"
 	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
 	ActionTypeRemoveEdge = "remove_edge"
-	// ActionTypeSetConfig is the Type of an Action that carries SetConfigPayload.
-	ActionTypeSetConfig = "set_config"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
 	ActionTypeSet = "set"
 	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
@@ -56,15 +54,14 @@ type SetNodePositionPayload struct {
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place. A present config replaces the entry stored under
-// the node's key in the schematic configs map.
+// replaces the existing node and its config in place.
 type SetNodePayload struct {
-	Node   Node           `json:"node" msgpack:"node"`
-	Config *ElementConfig `json:"config,omitzero" msgpack:"config,omitempty"`
+	Node Node `json:"node" msgpack:"node"`
 }
 
-// RemoveNodePayload removes the node, its config, and the edges that connect to it and
-// their configs. No-op when no node has the key.
+// RemoveNodePayload removes the node and the edges that connect to it. The children of
+// a removed group box move to the parent of the group box. No-op when no node has the
+// key.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
@@ -75,32 +72,26 @@ type AddEdgePayload struct {
 	Edge Edge `json:"edge" msgpack:"edge"`
 }
 
-// RemoveEdgePayload removes the edge with the given key and its config, if present.
+// RemoveEdgePayload removes the edge with the given key, if present.
 type RemoveEdgePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
-// SetConfigPayload replaces the config entry stored under the given node or edge key.
-// No-op when no node or edge has the key.
-type SetConfigPayload struct {
-	Key    string        `json:"key" msgpack:"key"`
-	Config ElementConfig `json:"config" msgpack:"config"`
-}
-
-// SetPayload replaces the value at a path in the schematic's name or element configs.
-// No-op when no node or edge has the config's key.
+// SetPayload replaces the value at a path in the schematic's name, group, or project,
+// or in the config of a node or edge. No-op when no node or edge has the key.
 type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the
-// schematic's element configs. No-op when no node or edge has the config's key.
+// schematic's group or project, or in the config of a node or edge. No-op when no node
+// or edge has the key.
 type RemovePayload patch.Remove
 
-// InsertPayload adds an entry to a list in the schematic's element configs. No-op when
-// no node or edge has the config's key.
+// InsertPayload adds an entry to a list in the config of a node or edge. No-op when no
+// node or edge has the key.
 type InsertPayload patch.Insert
 
-// MovePayload moves an entry in a list in the schematic's element configs. No-op when
-// no node or edge has the config's key.
+// MovePayload moves an entry in a list in the config of a node or edge. No-op when no
+// node or edge has the key.
 type MovePayload patch.Move
 
 // Action is a discriminated union for all Schematic mutations. Type names
@@ -113,7 +104,6 @@ type Action struct {
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
-	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
 	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
 	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
 	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
@@ -158,11 +148,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
-		case ActionTypeSetConfig:
-			if a.SetConfig == nil {
-				return Schematic{}, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetConfig.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
 				return Schematic{}, union.MissingPayload(a.Type)
@@ -221,11 +206,6 @@ func NewAddEdgeAction(p AddEdgePayload) Action {
 // NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
 func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
 	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
-}
-
-// NewSetConfigAction wraps a SetConfigPayload in an Action envelope.
-func NewSetConfigAction(p SetConfigPayload) Action {
-	return Action{Type: ActionTypeSetConfig, SetConfig: &p}
 }
 
 // NewSetAction wraps a SetPayload in an Action envelope.

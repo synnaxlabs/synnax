@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/user/Members.css";
-
 import { access, user } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, User } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
@@ -29,20 +25,6 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { User as PlatformUser } from "@/platform/user";
-
-interface SetRoleParams {
-  key: user.Key;
-  role: access.role.Key;
-}
-
-const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
-  name: "user role",
-  verbs: { present: "change", past: "changed", participle: "changing" },
-  update: async ({ client, data }) => {
-    await client.users.setRole(data.key, data.role);
-    return data;
-  },
-});
 
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
@@ -52,11 +34,12 @@ const COLUMNS: List.Column[] = [
 const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
+  const itemClass = PlatformSettings.useItemClass(itemKey);
   const { data: selfKey } = User.useResultKey({});
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const { update: rename } = User.useRename();
-  const { update: setRole } = useSetRole();
+  const { update: setRole } = User.useSetRole();
   if (item == null) return null;
   const self = item.key === selfKey;
   // Until the current user is known, any line could be theirs, so every line locks.
@@ -68,7 +51,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
       checkable
       align="center"
       aria-label={item.name}
-      className={CSS.BE("user-members", "item")}
+      className={CSS.cls(CSS.BE("user-members", "item"), itemClass)}
     >
       <List.Cells>
         <List.Cell>
@@ -152,57 +135,23 @@ const menu = Component.renderProp(MembersMenu);
  * their sign-in, or deletes them.
  */
 export const Members = (): ReactElement => {
-  const { data, getItem, subscribe, more, search } = Flux.useList(
-    (client) => client.users,
-    { name: "users", query: { order: { field: "name" } }, pageSize: 100 },
-  );
-  const [term, setTerm] = useState("");
-  const [selected, setSelected] = useState<user.Key[]>([]);
-  const menuProps = Menu.useContextMenu();
+  const list = Flux.useList((client) => client.users, {
+    name: "users",
+    query: { order: { field: "name" } },
+    pageSize: 100,
+  });
   const openRegister = PlatformUser.useRegisterModal();
   const canCreate = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
-  const handleSearch = (next: string): void => {
-    setTerm(next);
-    search(next);
-  };
   return (
-    <Select.Frame<user.Key, user.User>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={more}
-      value={selected}
-      onChange={setSelected}
+    <PlatformSettings.Table<user.Key, user.User>
+      list={list}
+      columns={COLUMNS}
+      noun="users"
+      menu={menu}
+      createLabel={canCreate ? "Register user" : undefined}
+      onCreate={() => openRegister()}
     >
-      <Menu.ContextMenu menu={menu} {...menuProps} />
-      <Flex.Box y gap="medium">
-        <Flex.Box x align="center" justify="between" gap="medium">
-          <Input.Text
-            value={term}
-            onChange={handleSearch}
-            placeholder="Search users"
-            startContent={<Icon.Search />}
-            className={CSS.BE("user-members", "search")}
-          />
-          {canCreate && (
-            <Button.Button variant="outlined" onClick={() => openRegister()}>
-              <Icon.Add />
-              Create user
-            </Button.Button>
-          )}
-        </Flex.Box>
-        <PlatformSettings.Card flush>
-          <List.Columns columns={COLUMNS}>
-            <List.Headings checkable />
-            <List.Scroll onContextMenu={menuProps.open}>
-              <List.Items<user.Key>>
-                {({ key, ...p }) => <Member key={key} {...p} />}
-              </List.Items>
-            </List.Scroll>
-          </List.Columns>
-        </PlatformSettings.Card>
-      </Flex.Box>
-    </Select.Frame>
+      {({ key, ...p }) => <Member key={key} {...p} />}
+    </PlatformSettings.Table>
   );
 };

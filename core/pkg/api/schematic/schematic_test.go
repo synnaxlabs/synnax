@@ -34,6 +34,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// tankConfig returns a tank node config with its schema defaults.
+func tankConfig() schematic.NodeConfig {
+	cfg := schematic.NodeConfig{Variant: schematic.TankNodeConfig{}}
+	cfg.ApplyDefaults()
+	return cfg
+}
+
 // denied matches an error that denies u the action on object.
 func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
 	return SatisfyAll(
@@ -183,6 +190,7 @@ var _ = Describe("Service", func() {
 										Node: schematic.Node{
 											Key:      "n1",
 											Position: spatial.XY{X: 1, Y: 2},
+											Config:   tankConfig(),
 										},
 									}),
 								},
@@ -243,12 +251,14 @@ var _ = Describe("Service", func() {
 										Node: schematic.Node{
 											Key:      "n1",
 											Position: spatial.XY{X: 1, Y: 2},
+											Config:   tankConfig(),
 										},
 									}),
 									schematic.NewSetNodeAction(schematic.SetNodePayload{
 										Node: schematic.Node{
 											Key:      "n2",
 											Position: spatial.XY{X: 3, Y: 4},
+											Config:   tankConfig(),
 										},
 									}),
 									schematic.NewAddEdgeAction(
@@ -261,6 +271,9 @@ var _ = Describe("Service", func() {
 											Target: schematic.Handle{
 												Node:  "n2",
 												Param: "in",
+											},
+											Config: schematic.EdgeConfig{
+												Variant: schematic.PipeEdgeConfig{},
 											},
 										}},
 									),
@@ -329,7 +342,10 @@ var _ = Describe("Service", func() {
 								DispatchKey: "session-marker-xyz",
 								Actions: []schematic.Action{
 									schematic.NewSetNodeAction(schematic.SetNodePayload{
-										Node: schematic.Node{Key: "n1"},
+										Node: schematic.Node{
+											Key:    "n1",
+											Config: tankConfig(),
+										},
 									}),
 								},
 							},

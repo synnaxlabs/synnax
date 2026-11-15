@@ -94,14 +94,11 @@ class SecretClient(_Page):
         :param value: The value of the secret.
         """
         self.show()
-        self.page.get_by_role("button", name="Create secret", exact=True).click()
-        modal = self.page.locator(self.layout.MODAL_SELECTOR).first
-        name_input = modal.get_by_label("Secret name", exact=True)
-        name_input.wait_for(state="visible", timeout=5000)
+        item = self.layout.open_settings_create("Create secret")
+        name_input = item.get_by_label("Secret name", exact=True)
         name_input.fill(name)
-        modal.get_by_placeholder("Value", exact=True).fill(value)
-        modal.get_by_role("button", name="Create", exact=True).click()
-        modal.wait_for(state="hidden", timeout=5000)
+        item.get_by_placeholder("Value", exact=True).fill(value)
+        self.layout.submit_settings_create(item, name_input)
         self._get_item(name)
 
     def replace_value(self, name: str, *, value: str) -> None:

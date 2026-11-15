@@ -174,6 +174,10 @@ public:
     int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
+    /// @brief the value reset_slave returns.
+    int reset_return = 1;
+    /// @brief slaves passed to reset_slave, with the number of reconfigs before each.
+    std::vector<std::pair<uint16_t, size_t>> reset_slaves;
     std::vector<uint16_t> reconfigured_slaves;
     /// @brief the value recover_slave returns.
     int recover_return = 1;
@@ -493,6 +497,11 @@ public:
             this->context.slavelist[slave].state = info->state;
         }
         return this->reconfig_return;
+    }
+
+    int reset_slave(uint16_t slave, int) override {
+        this->reset_slaves.emplace_back(slave, this->reconfigured_slaves.size());
+        return this->reset_return;
     }
 
     int recover_slave(uint16_t slave, int) override {

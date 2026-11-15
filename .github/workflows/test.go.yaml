@@ -61,6 +61,13 @@ on:
         required: false
         type: boolean
         default: false
+      warmed:
+        description:
+          Whether warm.go.yaml saves a go test cache of this module on Ubuntu, which a
+          Ginkgo run on Ubuntu then restores
+        required: false
+        type: boolean
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -225,6 +232,10 @@ jobs:
     # Dropping it cuts compile time and halves link time.
     env:
       GOFLAGS: -gcflags=all=-dwarf=false -ldflags=-w
+      # The relative path of each package that has tests.
+      SUITE:
+        "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
+        .Module.Path)}}{{end}}"
     steps:
       # The matrix holds four shards, so a larger count would skip suites.
       - name: Check the shard count
@@ -267,14 +278,17 @@ jobs:
 
       # This workflow file salts the key: cache archives store absolute paths, so one
       # saved before a cache-path move would restore to the old spot. The trim keeps
-      # only what a run used, and a Ginkgo run uses no test results, so Ginkgo and go
-      # test do not share keys.
+      # only what a run used, and a Ginkgo run uses no test results, so a Ginkgo run
+      # never saves under the go test key. On Ubuntu, a Ginkgo run of a warmed module
+      # restores a go test cache before a Ginkgo one: go test compiles the same
+      # packages, and the warm run saves that cache on each merge.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
-          PREFIX: go-${{ inputs.cached && 'test' || 'ginkgo' }}-${{ runner.os }}
+          KIND: ${{ inputs.cached && 'test' || 'ginkgo' }}
+          WARMED: ${{ inputs.warmed && !inputs.cached && runner.os == 'Linux' }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
@@ -282,13 +296,17 @@ jobs:
           {
             echo "build=$(go env GOCACHE)"
             echo "modules=$(go env GOMODCACHE)"
-            echo "module=$PREFIX-$DIRECTORY-"
-            echo "sum=$PREFIX-$DIRECTORY-$SUM-"
+            echo "module=go-$KIND-$RUNNER_OS-$DIRECTORY-"
+            echo "sum=go-$KIND-$RUNNER_OS-$DIRECTORY-$SUM-"
+            if [ "$WARMED" = true ]; then
+              echo "test_module=go-test-$RUNNER_OS-$DIRECTORY-"
+              echo "test_sum=go-test-$RUNNER_OS-$DIRECTORY-$SUM-"
+            fi
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
-      # cache of the module.
+      # cache of the module. The go test keys are empty unless the module is warmed.
       - name: Restore the Go caches
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -298,6 +316,8 @@ jobs:
             ${{ steps.key.outputs.modules }}
           key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
           restore-keys: |
+            ${{ steps.key.outputs.test_sum }}
+            ${{ steps.key.outputs.test_module }}
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
@@ -343,13 +363,31 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: python3 -I .github/scripts/pin_mtimes.py "$DIRECTORY"
 
-      # macOS skips race and cover until it runs on stronger machines.
+      # macOS skips race and cover until it runs on stronger machines. With -cover, go
+      # test adds counters to each named package that has no tests, which changes the
+      # build of each package that imports it. Ginkgo compiles one suite at a time and
+      # adds none, so naming only the suites keeps the builds the same as Ginkgo's.
       - name: Test
         if: inputs.cached
         timeout-minutes: 150
-        run: >-
-          go test ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' ||
-          '' }} -timeout=30m ./...
+        shell: bash
+        env:
+          FLAGS:
+            ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' || '' }}
+        run: |
+          suites=$(go list -f "$SUITE" ./...)
+          read -ra flags <<< "$FLAGS"
+          read -ra suites <<< "${suites//$'\n'/ }"
+          go test "${flags[@]}" -timeout=30m "${suites[@]}"
+        working-directory: ${{ inputs.directory }}
+
+      # go test -cover adds a sync/atomic import to each package it names, so its build
+      # of a package differs from the one Ginkgo makes when a suite imports that
+      # package. A plain build makes the Ginkgo one, so a Ginkgo run that restores this
+      # cache compiles only the test mains.
+      - name: Build the packages that the Ginkgo suites import
+        if: inputs.cached && github.ref == 'refs/heads/main'
+        run: go build ${{ runner.os != 'macOS' && '-race' || '' }} ./...
         working-directory: ${{ inputs.directory }}
 
       # Each shard takes every nth suite in path order, which spreads the versions of
@@ -364,9 +402,6 @@ jobs:
             --coverprofile=cover.out --race' }} ${{ inputs.ginkgo_flags }}
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ inputs.shards }}
-          SUITE:
-            "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
-            .Module.Path)}}{{end}}"
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
@@ -382,9 +417,13 @@ jobs:
       # that mtime is less than an hour old, so an entry older than an hour before the
       # build did not serve this run. A size budget below the size of one build deletes
       # entries that the run used. A failed run used only a part of the cache, so only
-      # a run that passes trims and saves.
+      # a run that passes trims and saves. A Ginkgo run that restored a go test cache
+      # saves nothing, because the warm run keeps that cache at the head of main.
       - name: Trim the Go build cache
-        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: >-
+          ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
+          (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
+          'go-test-')) }}
         shell: bash
         env:
           BUILD: ${{ steps.key.outputs.build }}
@@ -399,7 +438,10 @@ jobs:
       # saves. Its cache holds no test build of the other shards, by design: it holds
       # most of the packages they import, and a cache for each shard is about 1.8 GB.
       - name: Save the Go caches
-        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: >-
+          ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
+          (inputs.cached || !startsWith(steps.cache.outputs.cache-matched-key,
+          'go-test-')) }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |

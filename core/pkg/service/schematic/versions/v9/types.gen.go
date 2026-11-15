@@ -201,8 +201,8 @@ func (d DataEdgeConfig) Validate() error {
 	return v.Error()
 }
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
 type EdgeConfig struct {
 	Variant EdgeConfigVariant
 }
@@ -4250,8 +4250,8 @@ type GroupBoxNodeConfig struct {
 
 func (GroupBoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfig is the per-node configuration stored in the schematic configs map. The
-// variant selects the symbol rendered for the node and the fields that accompany it.
+// NodeConfig is the configuration of one node. The variant selects the symbol rendered
+// for the node and the fields that accompany it.
 type NodeConfig struct {
 	Variant NodeConfigVariant
 }

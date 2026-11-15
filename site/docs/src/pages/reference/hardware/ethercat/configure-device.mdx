@@ -107,8 +107,8 @@ port with no modules every 30 seconds. A module shows in the
 
 - **Name** -> the name stored in the module, such as `EL3102`, or "EtherCAT Slave
   \<position\>".
-- **Location** -> the port and the position of the module on the network, such as
-  `en5.Slot 2`.
+- **Location** -> the position of the module on the network, such as `Slot 2`. Put the
+  pointer on it to see the port, such as `en5.Slot 2`.
 
 When no task uses the network, a module that you connect shows at the next scan, and a
 module that you remove shows **Device disconnected**. While a task uses the network, the
@@ -150,10 +150,11 @@ yet.
   When the network stops, or the Driver loses contact with a module, the module sets its
   outputs to its own safe value. When the network starts, each output is 0 until a write
   task commands it.
-- **Lost modules** -> When a module stops responding, the network continues to cycle,
-  and the Driver returns the module to operation when it responds again. Until then,
-  every read task on the port pauses with the warning "Failed to read data", and its
-  data starts again when the module responds.
+- **Lost modules** -> When a module stops responding, the network continues to cycle. A
+  read task that uses the module loses its samples and shows "Dropped samples". A write
+  task that uses the module shows "Interrupted outputs". The other tasks on the port
+  continue. When the module responds again, the Driver returns it to operation, and its
+  outputs take the last commanded values.
 
 <Divider.Divider x />
 
@@ -164,17 +165,26 @@ yet.
 
 1. In the devices toolbar, right-click the module and select **Configure**. You can also
    click **Configure** in the "New slave connected" notification. To list each module
-   that the Driver found, click <Icon.Add /> and select **EtherCAT network**.
-2. At the top of the dialog, enter a name for the module. The field shows "EtherCAT
-   slave" until you type.
+   that the Driver found, click <Icon.Add /> and select **EtherCAT network**. In that
+   list, click **Scan now** to scan again, or open **Not seeing your hardware?** for the
+   checks to make.
+2. At the top of the dialog, you can change the name of the module. The name starts as
+   the name that the scan found, such as `EL3102`.
 3. Under **General**, enter an
    [**Identifier**](/reference/hardware/devices#identifiers), or click one of the
-   identifiers that the Console suggests.
+   identifiers that the Console suggests. Give each module its own identifier. Modules
+   of one model get the same suggestions, and the Console does not save an identifier
+   that gives the same channel names as another device.
 4. To run the module in a mode other than the default, set its
    [sync mode](#set-the-sync-mode) under **Sync mode**.
-5. To write CoE settings when the network starts, add them under
-   [**Startup parameters**](#set-startup-parameters).
-6. Click **Save**. For a module that is not configured yet, you can click **Save and
+5. If Synnax knows the module, set its settings under **Settings**, such as the state of
+   the outputs on connection loss. The Driver writes each value that you set as a
+   startup parameter. A field that you do not set keeps the value in the module.
+6. To write CoE settings when the network starts, add them under
+   [**Startup parameters**](#set-startup-parameters). To copy the startup commands from
+   the ESI file of the module, click **Import from ESI file** and select the XML file.
+   The file must be for the vendor, product code, and revision of the module.
+7. Click **Save**. For a module that is not configured yet, you can click **Save and
    create read task** or **Save and create write task** to also open a task for it.
 
 Configure each module that a task uses.
@@ -308,8 +318,10 @@ await client.devices.dispatch(
 
 The Driver picks a mode by these rules:
 
-- **Default** -> the Driver runs SM sync when the module lists an SM sync mode, and else
-  the first mode that the module lists.
+- **Default** -> When Synnax knows the setup of the module, such as for most Dewesoft
+  modules, the Driver runs the mode that the setup needs. If not, the Driver runs SM
+  sync when the module lists an SM sync mode. Else, it runs the first mode that the
+  module lists.
 - **A listed mode** -> the Driver runs that mode.
 - **SYNC0 cycle** and **SYNC1 cycle** -> a DC sync mode gives its own cycles, often as a
   number of bus cycles. A cycle that you enter replaces the cycle of the mode. The SYNC1
@@ -493,7 +505,16 @@ Driver updates it every 5 seconds.
 | **Device disconnected**                     | The last scan did not find the module.                                                                                                                   |
 
 When no task uses the network, the status shows what the scan found, such as
-**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**.
+**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**. The scan can also
+show these statuses:
+
+| Status                                               | Meaning                                                                                                                                                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Starting up**                                      | The module was not ready when the Driver scanned the network. The Driver reads it again on a later scan. If the module stays in this status, restart its power.                        |
+| **Set up for DewesoftX**                             | DewesoftX sets up the module, and Synnax cannot read its data. [Switch the module to Synnax](/reference/hardware/ethercat/dewesoft#set-up-a-module-in-synnax) in the Configure dialog. |
+| **Waiting for a power restart**                      | The module was switched to Synnax. Restart its power to finish the switch. On a module with two EtherCAT buses, first connect Synnax to bus 1 IN.                                      |
+| **Connected to EtherCAT bus 2 IN**                   | In Synnax only mode, the module uses EtherCAT bus 1 IN. Connect Synnax to bus 1 IN.                                                                                                    |
+| **Left Synnax mode**, **Set up for DewesoftX again** | The module was switched to Synnax, and then went to another mode. The description gives the time of the switch. Switch the module to Synnax again in the Configure dialog.             |
 
 <Divider.Divider x />
 
@@ -506,6 +527,7 @@ When no task uses the network, the status shows what the scan found, such as
 | `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.                                                               |
 | `revision`, `serial`          | The revision and serial number of the module, as numbers.                                                     |
 | `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.                                                     |
+| `network_name`                | The name of the port, such as `Ethernet 2` on Windows. Read only.                                             |
 | `position`                    | The position on the network. Starts at 1.                                                                     |
 | `enabled`                     | `false` when the module is [disabled](#disable-a-device).                                                     |
 | `op_modes`                    | The sync modes that the module lists. Read only. See below.                                                   |

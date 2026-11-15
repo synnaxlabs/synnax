@@ -476,7 +476,7 @@ describe("reconcile panel order and selection", () => {
   it("keeps an emptied draft and deletes it once when the Core rejects it", async () => {
     const proj = await createProject();
     const editor = await createTestClientWithPolicy(client, {
-      name: "edit panels without delete",
+      name: "edit panels without group access",
       objects: [
         panel.TYPE_RESOURCE_ID,
         project.TYPE_RESOURCE_ID,
@@ -486,10 +486,16 @@ describe("reconcile panel order and selection", () => {
     });
     const editorKey = (await editor.users.current.retrieve()).key;
     const tab = uuid.create();
+    // The editor cannot update the group, so the Core refuses to take the draft out.
+    const grp = await client.groups.create({
+      parent: project.resourceID(proj.key),
+      name: uniqueName("group"),
+    });
     const draft = await client.panels.create({
       name: uniqueName("draft"),
       owner: editorKey,
       project: proj.key,
+      group: grp.key,
       root: leaf(tab),
     });
     const store = await createStoreWithProject(proj.key, draft.key);

@@ -28,7 +28,7 @@ const fields = channel.settings;
 describe("Settings", () => {
   describe("fill", () => {
     it("should give each address one value in field order, from the defaults", () => {
-      expect(Settings.fill(fields, [])).toEqual([
+      expect(Settings.fill(fields, []).values).toEqual([
         { ...MEASUREMENT, dataType: "uint16", value: 0, name: "" },
         { ...RANGE, dataType: "uint16", value: 0, name: "" },
         { ...EXCITATION, dataType: "float32", value: 0, name: "" },
@@ -39,17 +39,45 @@ describe("Settings", () => {
       const held = fields.map((f) =>
         sameAddress(f, MEASUREMENT) ? { ...f, value: 6 } : f,
       );
-      expect(Settings.fill(held, []).map(({ value }) => value)).toEqual([6, 0, 0]);
+      expect(Settings.fill(held, []).values.map(({ value }) => value)).toEqual([
+        6, 0, 0,
+      ]);
       expect(
-        Settings.fill(held, [{ ...MEASUREMENT, value: 1 }]).map(({ value }) => value),
+        Settings.fill(held, [{ ...MEASUREMENT, value: 1 }]).values.map(
+          ({ value }) => value,
+        ),
       ).toEqual([1, 0, 0]);
     });
 
+    it("should start a float32 field from the text of the value the card holds", () => {
+      const held = fields.map((f) =>
+        sameAddress(f, EXCITATION) ? { ...f, value: Math.fround(19.796932) } : f,
+      );
+      expect(Settings.fill(held, []).values.map(({ value }) => value)).toEqual([
+        0, 0, 19.796932,
+      ]);
+    });
+
+    it("should start a held value past the limit of a shown field at the limit", () => {
+      const excitation = createExcitationDescription({
+        polarity: 1,
+        voltage: Math.fround(12.000228),
+      }).channels[0].settings;
+      const { values, notes } = Settings.fill(excitation, []);
+      expect(values.map(({ value }) => value)).toEqual([1, 12]);
+      expect(notes).toEqual([
+        {
+          ...EXCITATION,
+          message: "Excitation voltage changed from 12.000228 V to 12 V.",
+        },
+      ]);
+    });
+
     it("should drop a value at an address that no field names", () => {
-      const settings = Settings.fill(fields, [
+      const { values } = Settings.fill(fields, [
         { index: 0x8041, subIndex: 1, value: 6 },
       ]);
-      expect(settings.map(({ value }) => value)).toEqual([0, 0, 0]);
+      expect(values.map(({ value }) => value)).toEqual([0, 0, 0]);
     });
   });
 
@@ -124,6 +152,15 @@ describe("Settings", () => {
       expect(voltageOf(bipolar)).toBe(12);
       expect(bipolar.notes).toEqual([
         { ...EXCITATION, message: "Excitation voltage changed from 13.3 V to 12 V." },
+      ]);
+    });
+
+    it("should note a held voltage that the new field moves to its limit", () => {
+      const held = createExcitationDescription({ voltage: 24 }).channels[0].settings;
+      const bipolar = Settings.set(held, [], POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(12);
+      expect(bipolar.notes).toEqual([
+        { ...EXCITATION, message: "Excitation voltage changed from 24 V to 12 V." },
       ]);
     });
 

@@ -21,6 +21,9 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::task {
+/// @brief the message of the step that a stop sends while it cancels a start.
+inline constexpr auto STOPPING_MESSAGE = "Stopping task";
+
 /// @brief one command that the task manager runs on a task. It sends the steps of the
 /// command, warns when a step runs past its limit, and sends exactly one final status
 /// to the command and to each start that joined it. Safe for concurrent use.

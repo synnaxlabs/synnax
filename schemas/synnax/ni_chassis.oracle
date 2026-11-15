@@ -13,6 +13,7 @@ import "schemas/x/filter"
 
 @cpp output "client/cpp/ni/chassis"
 @go output  "core/pkg/service/ni/chassis"
+@pb
 @py output  "client/py/synnax/ni/chassis"
 @ts output  "client/ts/src/ni/chassis"
 

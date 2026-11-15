@@ -167,6 +167,7 @@ export const ChannelList = <C extends Channel>({
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
   const { status } = Form.useFieldState(path);
+  Form.useStatusDisplay(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
   const headingsRef = useRef<HTMLDivElement>(null);

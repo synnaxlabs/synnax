@@ -14,30 +14,11 @@ package v6
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 )
-
-func autoMigrateTable(ctx context.Context, old v5.Table) (Table, error) {
-	cells := make(map[string]CellConfig, len(old.Cells))
-	for k, v := range old.Cells {
-		nv, err := autoMigrateCellConfig(ctx, v)
-		if err != nil {
-			return Table{}, err
-		}
-		cells[k] = nv
-	}
-	return Table{
-		Key:     old.Key,
-		Name:    old.Name,
-		Rows:    old.Rows,
-		Columns: old.Columns,
-		Cells:   cells,
-		Group:   old.Group,
-		Project: old.Project,
-	}, nil
-}
 
 func autoMigrateCellConfig(ctx context.Context, old v5.CellConfig) (CellConfig, error) {
 	switch variant := old.Variant.(type) {
@@ -113,4 +94,28 @@ func autoMigrateCellConfig(ctx context.Context, old v5.CellConfig) (CellConfig, 
 	default:
 		return CellConfig{}, errors.Newf("unknown CellConfig variant %T", variant)
 	}
+}
+
+func autoMigrateTable(ctx context.Context, old v5.Table) (Table, error) {
+	rows, err := lo.MapErr(old.Rows, func(v v5.Row, _ int) (Row, error) {
+		return MigrateRow(ctx, v)
+	})
+	if err != nil {
+		return Table{}, err
+	}
+	return Table{
+		Key:     old.Key,
+		Name:    old.Name,
+		Rows:    rows,
+		Columns: old.Columns,
+		Group:   old.Group,
+		Project: old.Project,
+	}, nil
+}
+
+func autoMigrateRow(_ context.Context, old v5.Row) (Row, error) {
+	return Row{
+		Key:  old.Key,
+		Size: old.Size,
+	}, nil
 }

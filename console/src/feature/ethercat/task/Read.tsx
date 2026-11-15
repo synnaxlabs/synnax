@@ -94,13 +94,13 @@ const useDataTypes = (slaves: SlaveDevice[]): DataTypes | undefined => {
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
-  const { value: ch, status } = PForm.useFieldState(entry);
+  const ch = PForm.useFieldValue(entry);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
   const named =
-    slave != null &&
+    slave?.configured === true &&
     dataTypes != null &&
     hasEntry(ch) &&
     entryAt(slave.properties.pdos.inputs, ch) != null;
@@ -109,7 +109,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       nameDirection="y"
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
-      status={status.variant === "error" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
@@ -152,7 +151,6 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const channels = PForm.useFieldValue(path.config.channels);
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
   const onRack = useSlavesOnRack(slaves?.[0]?.rack);
   PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
@@ -176,7 +174,7 @@ const Form: FC = () => {
       <ChannelUsage
         indexOptions={READ_INDEX_OPTIONS}
         pdoType="inputs"
-        channels={channels}
+        path={path.config.channels}
         slaves={slaves}
       />
     </Flex.Box>

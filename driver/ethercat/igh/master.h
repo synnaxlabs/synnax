@@ -123,6 +123,9 @@ public:
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    /// @brief does nothing: the IgH master brings slaves back to OP by itself.
+    void recover(const x::breaker::Breaker &) override {}
+
     /// @brief does what master::Master::write does, but on a running bus writes
     /// nothing, since IgH takes startup parameters only before activation. It does not
     /// write those parameters again when the slave restarts, so a slave that loses

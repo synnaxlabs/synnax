@@ -16,7 +16,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
-import { caseconv, TimeStamp } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Handoff } from "@/feature/license/Handoff";
@@ -51,7 +51,14 @@ interface StatProps {
 }
 
 const Stat = ({ label, value, caption, captionStatus }: StatProps): ReactElement => (
-  <Flex.Box y gap="tiny" className={CSS.BE("license-info", "stat")}>
+  <Flex.Box
+    y
+    gap="tiny"
+    bordered
+    rounded
+    background={1}
+    className={CSS.BE("license-info", "stat")}
+  >
     <Text.Text level="small" color={9}>
       {label}
     </Text.Text>
@@ -83,18 +90,14 @@ const Stats = ({ license: lic, fingerprint }: StatsProps): ReactElement => {
       />
       <Stat
         label="Channels"
-        value={lic.channels === 0 ? "Unlimited" : lic.channels.toLocaleString()}
-        caption={lic.channels === 0 ? undefined : "Per Core"}
+        value={
+          License.channelsUnlimited(lic) ? "Unlimited" : lic.channels.toLocaleString()
+        }
+        caption={License.channelsUnlimited(lic) ? undefined : "Per Core"}
       />
       <Stat
         label={lic.exp == null ? "Term" : "Expires"}
-        value={
-          lic.exp == null
-            ? "Perpetual"
-            : TimeStamp.seconds(lic.exp)
-                .date()
-                .toLocaleDateString(undefined, { dateStyle: "medium" })
-        }
+        value={lic.exp == null ? "Perpetual" : License.formatExpiry(lic.exp)}
         caption={
           lic.maxVersion == null ? undefined : `Versions up to ${lic.maxVersion}`
         }

@@ -24,6 +24,7 @@
 #include "absl/log/log.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/alias.h"
 #include "driver/ni/probe.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
@@ -115,9 +116,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
         return {Device(), SKIP_DEVICE_ERR};
     }
     VLOG(1) << SCAN_LOG_PREFIX << "resource name: " << property_value_buf;
-    dev.resource_name = property_value_buf;
-    if (dev.resource_name.size() > 2)
-        dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
+    dev.resource_name = trim_resource_name(property_value_buf);
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::device::Status{

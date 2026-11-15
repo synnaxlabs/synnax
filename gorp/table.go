@@ -41,10 +41,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
-	// OnRewrite runs in the transaction of each delete that detaches a target from an
-	// entry of the table, and of each Retarget that moves an entry to a new target,
-	// after Gorp writes the entry. It gets the entry as written. An error fails the
-	// delete or the Retarget.
+	// OnRewrite runs in the transaction of each delete that detaches or inlines a
+	// target in an entry of the table, and of each Retarget that moves an entry to a
+	// new target, after Gorp writes the entry. It gets the entry as written. An error
+	// fails the delete or the Retarget.
 	OnRewrite func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
