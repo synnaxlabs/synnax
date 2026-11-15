@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Core pull requests reuse the go test results and builds that main saves. Only this
-# workflow runs go test on main, so each merge refreshes them.
+# Core pull requests reuse the go test results and builds that main saves, and the
+# Ginkgo runs of the Core on Ubuntu reuse the builds. Only this workflow runs go test on
+# main, so each merge refreshes them.
 name: Warm - Go
 
 on:
