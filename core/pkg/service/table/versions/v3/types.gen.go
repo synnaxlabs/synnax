@@ -39,8 +39,8 @@ const (
 	FlexAlignmentStretch FlexAlignment = v2.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = v2.CellConfig
 
 // CellConfigVariant is implemented by every CellConfig variant.

@@ -52,6 +52,21 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
     );
 }
 
+/// @brief it should call permanent only a failure that a retry does not change.
+TEST(SDOFailureTest, IsPermanentOnlyForAFailureThatARetryDoesNotChange) {
+    using Kind = SDOFailure::Kind;
+    EXPECT_TRUE(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x06020000}).permanent()
+    );
+    EXPECT_FALSE(
+        (SDOFailure{.kind = Kind::ABORTED, .abort_code = 0x08000022}).permanent()
+    );
+    EXPECT_FALSE(SDOFailure{}.permanent());
+    EXPECT_FALSE(SDOFailure{.kind = Kind::UNEXPECTED_REPLY}.permanent());
+    EXPECT_TRUE(SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.permanent());
+    EXPECT_TRUE(SDOFailure{.kind = Kind::MAILBOX_ERROR}.permanent());
+}
+
 /// @brief it should treat an abort about the value as a rejection.
 TEST(StartupParameterErrorTest, RejectsAValueAbort) {
     EXPECT_EQ(

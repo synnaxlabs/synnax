@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, query, type Synnax, user } from "@synnaxlabs/client";
-import { deep, type destructor, verbs } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type access, query, type Synnax, type user } from "@synnaxlabs/client";
+import { type destructor, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -131,33 +130,5 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     const { key, name } = data;
     await client.access.roles.rename(key, name);
     return data;
-  },
-});
-
-export type ChangeRoleFormQuery = {
-  key: user.Key;
-};
-
-export const changeRoleFormSchema = z.object({
-  key: user.keyZ,
-  role: access.role.keyZ,
-});
-
-export const changeRoleFormPath = deep.path<z.infer<typeof changeRoleFormSchema>>();
-
-export const useChangeRoleForm = Flux.createForm<
-  ChangeRoleFormQuery,
-  typeof changeRoleFormSchema
->({
-  name: RESOURCE_NAME,
-  schema: changeRoleFormSchema,
-  initialValues: { key: "", role: "" },
-  retrieve: async ({ client, query: { key } }) => ({
-    key,
-    role: (await client.users.retrieve(key)).role,
-  }),
-  update: async ({ client, value }) => {
-    const { key, role } = value();
-    await client.users.setRole(key, role);
   },
 });

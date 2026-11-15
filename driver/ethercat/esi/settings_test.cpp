@@ -270,6 +270,19 @@ TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
         })
     );
     EXPECT_TRUE(mode["switch"].empty());
+    EXPECT_FALSE(mode.contains("unlisted"));
+}
+
+/// @brief it should mark a mode that the catalog of the card does not list.
+TEST(ReadSettings, MarksAModeThatTheCatalogDoesNotList) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(7))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &mode = settings.value()["mode"];
+    EXPECT_EQ(mode["value"], 7);
+    EXPECT_TRUE(mode["unlisted"].get<bool>());
+    EXPECT_FALSE(mode["switch"].empty());
 }
 
 /// @brief it should name the object that holds the mode of a 6xSTG.

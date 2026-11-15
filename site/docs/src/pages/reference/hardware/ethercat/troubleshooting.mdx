@@ -178,6 +178,39 @@ See
 </Problem.Fix>
 </Problem.Body>
 
+### `Cannot open ... for raw Ethernet access`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot send raw Ethernet frames on the port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Install Npcap on Windows. On Linux, give the Driver CAP_NET_RAW. See
+[network interface access](/reference/hardware/ethercat/configure-device#network-interface-access).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No module answered on ...` or `Slave ... on ... gives no identity`
+
+<Problem.Body>
+<Problem.Cause>
+
+The scan got no reply from the modules on the port, or a module did not give its
+identity.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cable and the power of the first module. For a module that gives no identity,
+restart its power.
+
+</Problem.Fix>
+</Problem.Body>
+
 <Divider.Divider x />
 
 ## Network start
@@ -271,6 +304,42 @@ Wait a few seconds for the next scan, then configure the task again.
 </Problem.Fix>
 </Problem.Body>
 
+### `Slaves ... and ... are both at position ... on ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core holds two modules at one position on the port, and the Console cannot tell
+which one is on the network. This occurs when the task uses both modules, or when
+neither module has a serial number. A module with a serial number that moved to the
+position of a saved module does not give this error.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Delete the module that the message names, or the one that is not on the network. A
+deleted module loses its saved settings.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slaves ... and ... have the same serial number ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core holds two modules on the port with the same vendor, product code, and serial
+number, so both are the same module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Delete the module that the message names, or the one that is not on the network. A
+deleted module loses its saved settings.
+
+</Problem.Fix>
+</Problem.Body>
+
 ### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
 
 <Problem.Body>
@@ -289,6 +358,24 @@ again. If the error stays, the module is not supported yet.
 </Problem.Fix>
 </Problem.Body>
 
+### `Skipped startup settings`
+
+<Problem.Body>
+<Problem.Cause>
+
+Another program, such as DewesoftX, sets up the module, so Synnax did not write its
+startup parameters. The task runs and shows this warning. The description names the
+module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Remove the startup parameters of the module, or switch the module to Synnax in the
+Configure dialog.
+
+</Problem.Fix>
+</Problem.Body>
+
 <Divider.Divider x />
 
 ## Sync mode and clocks
@@ -299,8 +386,9 @@ again. If the error stays, the module is not supported yet.
 <Problem.Cause>
 
 The module is set to a sync mode that the Driver did not set up, so it stays in PRE-OP.
-By default, the Driver runs SM sync when the module lists an SM sync mode, so a module
-that is set to DC sync and also lists an SM sync mode does not start.
+If Synnax does not know the setup of the module, the Driver runs SM sync when the module
+lists an SM sync mode. Thus, a module that is set to DC sync and also lists an SM sync
+mode can fail to start.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -336,9 +424,11 @@ than the 4.29 s limit when the network cycles slower than 233 Hz.
 </Problem.Cause>
 <Problem.Fix>
 
-Under [**Sync mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode),
-enter a cycle that fits, such as a **SYNC1 cycle** of 1 s. You can also make the network
-cycle faster, for example with a write task at an execution rate of 250 Hz or more.
+In the Configure dialog, select the DC sync mode of the module in
+[**Mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode). Then enter
+a **SYNC1 cycle** that fits, such as 1 s, and click **Save**. You can also make the
+network cycle faster, for example with a write task at an execution rate of 250 Hz or
+more.
 
 </Problem.Fix>
 </Problem.Body>

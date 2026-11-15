@@ -61,7 +61,8 @@ lighter step or the base step in dark mode.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
   and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
   tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
-  bars, and page sections use large. Do not add a step.
+  bars, and page sections use large. The Settings section list uses huge. Do not add a
+  step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 
@@ -310,6 +311,15 @@ bound, a log precision, or the line plot X channel.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
 - The search in a submenu is a line of text over a hairline, with no box.
+- Typing in an open context menu or the filter menu filters its items, as in Linear. The
+  first printable key starts the filter and shows it as a line over a hairline at the
+  top. Items whose text does not match hide, and so do dividers with no match on one
+  side. With no match, one muted line says "No matches". Backspace edits the filter. Esc
+  clears it, then closes the menu. Every menu is at least 32rem (192 px) wide, filtering
+  or not. The first match takes the focus, and the arrow keys and Enter act on the items
+  that show. A submenu matches on its `textValue`, and the filter never hides its
+  content. Keys typed into a field, such as the search of a picker, never reach the
+  filter.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
@@ -443,6 +453,13 @@ bound, a log precision, or the line plot X channel.
 - Secrets and certificates are two record tables in Settings, not a toolbar. A secret
   shows where its value comes from and a "Used by" count that opens what uses it. A
   certificate shows when it is valid.
+- The Settings lists share `Settings.Table`: search and a filled create button above,
+  headings, checkable items, and a right-click menu.
+- Create in place when every field you set is a column, such as a label or a secret. The
+  create item opens at the top with check and X buttons, and Enter and Esc. It stays
+  open and empty after each create, and the new item fades in under it.
+- Use a modal when the item needs a field the list does not show, such as a user's
+  password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

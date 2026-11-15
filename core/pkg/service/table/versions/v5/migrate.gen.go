@@ -15,16 +15,57 @@ import (
 	"context"
 
 	v4 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
+	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateTable(_ context.Context, old v4.Table) (Table, error) {
+func autoMigrateTable(ctx context.Context, old v4.Table) (Table, error) {
+	cells := make(map[string]CellConfig, len(old.Cells))
+	for k, v := range old.Cells {
+		nv, err := autoMigrateCellConfig(ctx, v)
+		if err != nil {
+			return Table{}, err
+		}
+		cells[k] = nv
+	}
 	return Table{
 		Key:     old.Key,
 		Name:    old.Name,
 		Rows:    old.Rows,
 		Columns: old.Columns,
-		Cells:   old.Cells,
+		Cells:   cells,
 		Group:   old.Group,
 		Project: old.Project,
 	}, nil
+}
+
+func autoMigrateCellConfig(_ context.Context, old v4.CellConfig) (CellConfig, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return CellConfig{}, nil
+	case v4.TextCellConfig:
+		return CellConfig{Variant: TextCellConfig{
+			Value:     variant.Value,
+			Level:     variant.Level,
+			Weight:    variant.Weight,
+			Align:     variant.Align,
+			FillColor: variant.FillColor,
+			TextColor: variant.TextColor,
+		}}, nil
+	case v4.ValueCellConfig:
+		return CellConfig{Variant: ValueCellConfig{
+			Channel:          variant.Channel,
+			RollingAverage:   variant.RollingAverage,
+			Precision:        variant.Precision,
+			Notation:         variant.Notation,
+			Redline:          variant.Redline,
+			FillColor:        variant.FillColor,
+			Level:            variant.Level,
+			TextColor:        variant.TextColor,
+			Units:            variant.Units,
+			StalenessTimeout: variant.StalenessTimeout,
+			StalenessColor:   variant.StalenessColor,
+		}}, nil
+	default:
+		return CellConfig{}, errors.Newf("unknown CellConfig variant %T", variant)
+	}
 }

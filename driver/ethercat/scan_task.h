@@ -111,15 +111,17 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
-    /// @brief the positions of the slaves with no identity on one interface.
+    /// @brief the slaves on one interface that the scan cannot add: those with no
+    /// identity, and those with an unread serial number and no stored device.
     struct Unidentified {
-        /// @brief the slaves with no identity at the last rediscovery.
+        /// @brief the positions of the slaves unidentified at the last rediscovery.
         std::set<uint16_t> seen;
-        /// @brief the slaves with no identity at each of the last two rediscoveries.
-        /// A restart clears by the next rediscovery, so only these are reported.
-        std::set<uint16_t> reported;
+        /// @brief the failure of each slave unidentified at each of the last two
+        /// rediscoveries. A restart clears by the next rediscovery, so only these are
+        /// reported.
+        std::map<uint16_t, std::string> reported;
     };
-    /// @brief the slaves with no identity on each interface.
+    /// @brief the unidentified slaves on each interface.
     std::unordered_map<std::string, Unidentified> unidentified;
     /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
     mutable std::mutex switch_mu;
@@ -128,14 +130,16 @@ private:
     /// their only writer.
     std::unordered_map<std::string, x::telem::TimeStamp> switch_times;
 
-    /// @brief creates the slave device with key for the given slave, and returns
-    /// whether its saved config enables it. The status names any invalid property, and
-    /// otherwise reflects the slave's live state when health holds an entry for it.
+    /// @brief creates the slave device with key for the given slave on the master with
+    /// master_key and network_name, and returns whether its saved config enables it.
+    /// The status names any invalid property, and otherwise reflects the slave's live
+    /// state when health holds an entry for it.
     [[nodiscard]] std::pair<synnax::device::Device, bool> create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &key,
         const std::vector<slave::Health> &health,
         const std::string &master_key,
+        const std::string &network_name,
         const common::ScannerContext &scan_ctx
     ) const;
 
@@ -147,11 +151,12 @@ private:
     /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
     /// new key that no stored device holds. A slave whose serial number the master
     /// could not read takes only the stored device of its model at its position, and
-    /// else gets an empty key. No slave takes a device in kept.
+    /// else gets an empty key. No slave takes a device in kept. stored holds the
+    /// properties of each stored slave device by key.
     [[nodiscard]] static std::vector<std::string> slave_keys(
         const std::vector<slave::DiscoveryResult> &slaves,
         const std::string &master_key,
-        const common::ScannerContext &scan_ctx,
+        const std::map<std::string, slave::Properties> &stored,
         std::set<std::string> &kept
     );
 

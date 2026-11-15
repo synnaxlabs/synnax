@@ -9,7 +9,7 @@
 
 import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
+import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -17,6 +17,8 @@ import {
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  type SlaveOnRack,
+  toSlaveOnRack,
 } from "@/feature/ethercat/device/types";
 import {
   type Channel,
@@ -24,22 +26,32 @@ import {
   SCAN_TYPE,
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves, useResult: useResultSlaves } =
-  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+const {
+  use: useSlaves,
+  useResult: useResultSlaves,
+  createResultSelector,
+} = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
   useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
+// A status heartbeat changes no slave unless it connects or disconnects.
+const useResultSlavesOnRack = createResultSelector(
+  (slaves) => slaves.map(toSlaveOnRack),
+  deep.equal,
+);
+
 /**
- * The slaves on the rack with their statuses, or undefined until they resolve, on
- * failure, or without a rack.
+ * The slaves on the rack, or undefined until they resolve, on failure, or without a
+ * rack.
  */
-export const useSlavesOnRack = (rack: number | undefined): SlaveDevice[] | undefined =>
-  useResultSlaves(
+export const useSlavesOnRack = (rack: number | undefined): SlaveOnRack[] | undefined =>
+  useResultSlavesOnRack(
     rack == null
       ? null
       : {
@@ -131,8 +143,8 @@ const SWITCH_TIMEOUT = TimeSpan.seconds(50);
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
  * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
- * tasks again. When the Driver gives no answer, the switch may still run, so the tasks
- * stay stopped.
+ * tasks again. Else the tasks stay stopped, and the answer tells the user to start
+ * them.
  */
 export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   SetStandaloneParams,
@@ -197,6 +209,13 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
       await restart();
       throw status.toError(res);
     }
-    return { ...data, answer: res };
+    // The scan task writes the properties and status of each device at a scan. It also
+    // scans every 5 s, so a failed scan command only delays them.
+    await scanTask
+      .executeCommand({ type: PlatformDevice.SCAN_COMMAND })
+      .catch(() => undefined);
+    if (tasks.length === 0) return { ...data, answer: res };
+    const description = `${res.description} Start your tasks again.`.trimStart();
+    return { ...data, answer: { ...res, description } };
   },
 });

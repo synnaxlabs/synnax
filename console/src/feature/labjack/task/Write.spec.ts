@@ -10,7 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
@@ -21,10 +21,12 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  clickFailedDeploy,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  START_FAILURE,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
@@ -511,6 +513,19 @@ describe("Write", () => {
 });
 
 describe("Write disabled channels", () => {
+  it("should leave an error on the channels to the list on Start", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("FIO4", { disabled: true })]),
+    );
+    const onStatuses = vi.fn();
+    const { container } = await renderWrite({ client, taskKey: draft.key, onStatuses });
+    await clickFailedDeploy(container);
+    expect(screen.getByText("At least one enabled channel is required")).toBeTruthy();
+    expect(onStatuses.mock.calls.flat(2)).not.toContainEqual(START_FAILURE);
+  });
+
   it("should show no conflict for a port a disabled channel shares", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(

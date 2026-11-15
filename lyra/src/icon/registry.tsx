@@ -76,12 +76,16 @@ import {
   IoTime,
 } from "react-icons/io5";
 import {
+  LuBadgeCheck,
+  LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
+  LuInfo,
   LuKeyRound,
   LuLock,
   LuLockOpen,
   LuPipette,
+  LuSquareAsterisk,
   LuSquareFunction,
   LuUngroup,
 } from "react-icons/lu";
@@ -385,8 +389,11 @@ export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
-export const License = wrapSVGIcon(LuFileBadge, "license");
-export const Secret = wrapSVGIcon(LuKeyRound, "secret");
+export const License = wrapSVGIcon(LuBadgeCheck, "license");
+export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
+export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
+export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
+export const About = wrapSVGIcon(LuInfo, "about");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
@@ -636,6 +643,7 @@ const icons = {
   TimeOutline,
   Acquire,
   Analyze,
+  UsageData,
   Concepts,
   Visualize,
   Panel,
@@ -663,6 +671,8 @@ const icons = {
   Lock,
   Unlock,
   Secret,
+  APIKey,
+  About,
   Certificate,
   Project,
   Box,

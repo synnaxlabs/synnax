@@ -152,7 +152,9 @@ std::pair<x::json::json, x::errors::Error> read_mode(
     const auto match = std::ranges::find_if(values, [value](const auto &v) {
         return v["value"].template get<double>() == value;
     });
-    if (match != values.end()) {
+    if (match == values.end())
+        result["unlisted"] = true;
+    else {
         for (const auto *key: {"shared_with", "only_read_by"})
             if (match->contains(key)) {
                 result["shared"] = true;

@@ -134,6 +134,7 @@ class LayoutClient:
 
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
+    SETTINGS_CREATE_SELECTOR = ".console-settings-table__create"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
@@ -486,10 +487,16 @@ class LayoutClient:
             value, timeout=5000
         )
 
-    def get_selected_button(self, button_options: list[str]) -> str:
-        """Get the currently selected button from a button group (no label)."""
+    def get_selected_button(
+        self, button_options: list[str], *, scope: Locator | None = None
+    ) -> str:
+        """Get the currently selected button from a button group (no label).
+
+        :param scope: Where the button group lives. Defaults to the whole page.
+        """
+        parent = self.page if scope is None else scope
         for option in button_options:
-            text_el = self.page.get_by_text(option, exact=True).first
+            text_el = parent.get_by_text(option, exact=True).first
             if text_el.count() == 0:
                 continue
             button = text_el.locator("xpath=ancestor-or-self::button[1]").first
@@ -769,6 +776,29 @@ class LayoutClient:
             nav.wait_for(state="visible", timeout=5000)
         return nav
 
+    def open_settings_create(self, button: str) -> Locator:
+        """Open the create item of the shown Settings page.
+
+        :param button: The name of the page's create button, such as "Create label".
+        :returns: The create item.
+        """
+        self.page.get_by_role("button", name=button, exact=True).click()
+        item = self.page.locator(self.SETTINGS_CREATE_SELECTOR)
+        item.wait_for(state="visible", timeout=5000)
+        return item
+
+    def submit_settings_create(self, item: Locator, name_field: Locator) -> None:
+        """Confirm a filled create item, then close it.
+
+        :param item: The create item from open_settings_create.
+        :param name_field: A field of the item that the create empties.
+        """
+        item.get_by_role("button", name="Create", exact=True).click()
+        # The item stays open and starts empty again once the Core has the new one.
+        expect(name_field).to_have_value("", timeout=5000)
+        item.get_by_role("button", name="Cancel", exact=True).click()
+        item.wait_for(state="hidden", timeout=5000)
+
     def close_tab(self, name: str) -> None:
         """Close a tab using a randomly selected modality.
 
@@ -871,16 +901,20 @@ class LayoutClient:
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
-    def show_visualization_toolbar(self) -> None:
-        """Show the bottom Component toolbar via its nav toggle."""
+    def show_visualization_toolbar(self) -> Locator:
+        """Show the bottom Component toolbar via its nav toggle.
+
+        :returns: The toolbar's drawer.
+        """
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
-            return
+            return bottom_drawer
 
         self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
+        return bottom_drawer
 
     def hide_visualization_toolbar(self) -> None:
         """Hide the bottom Component toolbar via its nav toggle."""

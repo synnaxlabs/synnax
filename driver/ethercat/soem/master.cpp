@@ -325,7 +325,7 @@ master::Activation Master::activate(
             errors::CYCLIC_ERROR,
             std::string(NO_FRAME) + ". " + this->name() +
                 " is a USB adapter, which can hold frames back. Use a PCIe or onboard "
-                "Ethernet adapter, or a lower sample rate"
+                "Ethernet adapter, or lower the rate of the fastest task on the network"
         );
     return this->start(start_cycle);
 }
@@ -516,11 +516,16 @@ x::errors::Error Master::receive() {
     if (wkc != session.expected_wkc) {
         if (wkc < session.expected_wkc)
             session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "working counter mismatch: expected " +
-                std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
-        );
+        if (wkc != session.mismatched_wkc) {
+            session.mismatched_wkc = wkc;
+            session.mismatch_err = x::errors::Error(
+                errors::WORKING_COUNTER_ERROR,
+                "working counter mismatch: expected " +
+                    std::to_string(session.expected_wkc) + ", got " +
+                    std::to_string(wkc)
+            );
+        }
+        return session.mismatch_err;
     }
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
@@ -579,7 +584,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->context.DCtime);
 }
 
-std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::lock_guard lock(this->mailbox_mu);
     this->api->readstate();
     std::vector<slave::Health> health;
@@ -608,9 +613,15 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             h.faulted = true;
             h.startup_error = it->second.data;
         }
-        if (breaker.running()) this->recover(i, breaker);
     }
     return health;
+}
+
+void Master::recover(const x::breaker::Breaker &breaker) {
+    std::lock_guard lock(this->mailbox_mu);
+    for (int i = 1; i <= this->api->context.slavecount && breaker.running(); ++i)
+        if (this->record(i).group == ENABLED_GROUP)
+            this->recover_slave(static_cast<uint16_t>(i), breaker);
 }
 
 x::errors::Error Master::write(
@@ -641,13 +652,13 @@ void Master::update_lost(const uint16_t pos) {
     this->record(pos).islost = this->record(pos).state == EC_STATE_NONE ? 1 : 0;
 }
 
-void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
+void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breaker) {
     auto &session = this->session.value();
     if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;
     const auto retry = session.clock_retries.find(pos);
-    const bool waits = retry != session.clock_retries.end() &&
-                       this->cfg.clock.steady() < retry->second.at;
+    const bool waiting = retry != session.clock_retries.end() &&
+                         this->cfg.clock.steady() < retry->second.at;
     if (state == EC_STATE_OPERATIONAL)
         session.clock_retries.erase(pos);
     else if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
@@ -658,15 +669,23 @@ void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && !waits) {
+    } else if (
+        // Some slaves arm their inputs again only from cleared sync managers, as the
+        // first start leaves them, and reach OP with no inputs from a bare reconfig.
+        state > EC_STATE_NONE && !waiting &&
+        this->api->reset_slave(pos, EC_TIMEOUTRET3) == 1
+    ) {
         auto params = this->config(pos).startup_parameters;
-        const bool restores = this->restores_clock(pos);
-        if (this->record(pos).hasdc && !restores) session.unrestored_clocks.insert(pos);
-        if (restores || !params.empty())
+        const bool restorable = this->restores_clock(pos);
+        if (this->record(pos).hasdc && !restorable)
+            session.unrestored_clocks.insert(pos);
+        if (restorable || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
-                [this, pos, &breaker, params = std::move(params), restores](uint16_t) {
-                    if (!this->write_startup_parameters(pos, params) || !restores)
+                [this, pos, &breaker, params = std::move(params), restorable](
+                    uint16_t
+                ) {
+                    if (!this->write_startup_parameters(pos, params) || !restorable)
                         return;
                     auto &s = this->session.value();
                     const auto err = this->restore_dc(pos, breaker);
@@ -725,15 +744,11 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
         if (serial != 0) slave.properties.serial = serial;
         return;
     }
-    // A slave that answers the read with an error, such as an SDO abort or a mailbox
-    // error, has no CoE serial number. An emergency is no answer.
-    bool answered = false;
-    ec_errort err{};
-    while (this->api->poperror(err))
-        answered |= err.Slave == pos && err.Etype != EC_ERR_TYPE_EMERGENCY;
-    if (!answered)
-        slave.status.serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, 0)
-                                        .data;
+    const auto failure = pop_sdo_failure(*this->api);
+    // Only a slave that refuses the read for good has no CoE serial number.
+    if (failure.permanent()) return;
+    slave.status
+        .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, failure).data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {
@@ -784,6 +799,7 @@ master::Image Master::image() {
     for (const auto &[pos, regs]: session.dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             image.dc_sync.push_back(regs);
+    if (session.has_dc) image.reference_clock = this->record(0).DCnext;
     image.slaves = this->slave_list;
     const auto *base = this->iomap.data();
     for (const auto &slave: this->slave_list) {

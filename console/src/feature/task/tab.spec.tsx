@@ -18,6 +18,7 @@ import { type ComponentType, type FC } from "react";
 import { assert, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { HTTP } from "@/feature/http";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
@@ -175,8 +176,11 @@ describe("task tab", () => {
   });
 
   describe("an EtherCAT task", () => {
-    // Creates and deletes a read task that names a channel, then restores it.
-    const restoreReadTask = async (channelDeleted: boolean): Promise<task.Key> => {
+    // Creates and deletes a read task that names a channel and a slave, then restores
+    // it.
+    const restoreReadTask = async (
+      deleted: "none" | "channel" | "slave",
+    ): Promise<task.Key> => {
       const { restore } = Task.TAB;
       assert(restore != null);
       const ch = await client.channels.create({
@@ -184,16 +188,25 @@ describe("task tab", () => {
         dataType: "float32",
         virtual: true,
       });
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const slave = await createSlaveDevice(client, rack.key);
       const created = await client.tasks.create({
         name: uniqueName("ethercat"),
         type: EtherCAT.Task.READ_TYPE,
         config: EtherCAT.Task.READ_SCHEMAS.config.parse({
-          channels: [{ ...EtherCAT.Task.createReadChannel([]), channel: ch.key }],
+          channels: [
+            {
+              ...EtherCAT.Task.createReadChannel([]),
+              channel: ch.key,
+              device: slave.key,
+            },
+          ],
         }),
       });
       await client.tasks.retrieve({ key: created.key });
       await client.tasks.delete(created.key);
-      if (channelDeleted) await client.channels.delete(ch.key);
+      if (deleted === "channel") await client.channels.delete(ch.key);
+      if (deleted === "slave") await client.devices.delete(slave.key);
       await waitFor(() =>
         expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
           true,
@@ -204,15 +217,21 @@ describe("task tab", () => {
       return created.key;
     };
 
-    it("should restore a task whose channels exist", async () => {
-      const key = await restoreReadTask(false);
+    it("should restore a task whose channels and slaves exist", async () => {
+      const key = await restoreReadTask("none");
       const restored = await createTestClient().tasks.retrieve({ key });
       expect(restored.type).toEqual(EtherCAT.Task.READ_TYPE);
     });
 
     it("should say why a task whose channels were deleted cannot restore", async () => {
-      await expect(restoreReadTask(true)).rejects.toThrow(
+      await expect(restoreReadTask("channel")).rejects.toThrow(
         "The task uses channels that were deleted. Create the task again.",
+      );
+    });
+
+    it("should say why a task whose slave was deleted cannot restore", async () => {
+      await expect(restoreReadTask("slave")).rejects.toThrow(
+        "The task uses devices that were deleted. Create the task again.",
       );
     });
   });

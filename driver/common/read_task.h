@@ -255,9 +255,9 @@ public:
 
     /// @brief executes the given command on the task.
     void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) override {
-        if (cmd.type == "start")
+        if (cmd.type == synnax::task::START_CMD_TYPE)
             this->start(cmd.key, cancel);
-        else if (cmd.type == "stop")
+        else if (cmd.type == synnax::task::STOP_CMD_TYPE)
             this->stop(cmd.key, true);
         else if (cmd.type == "tare")
             this->tare.tare(cmd.args);

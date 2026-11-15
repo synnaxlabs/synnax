@@ -208,21 +208,17 @@ class Overview(Surface):
         self.layout.press_escape()
         dropdown.wait_for(state="hidden", timeout=5000)
 
-    def get_labels(self) -> list[str]:
-        """Get the labels currently attached to the range in the overview.
+    def label(self, label_name: str) -> Locator:
+        """The chip of a label attached to the range in the overview.
 
-        :returns: A list of label names.
+        :param label_name: The name of the label.
         """
         labels_row = self.layout.page.locator(
             ".console-range-overview__labels-select"
         ).visible
-        label_chips = labels_row.locator(".lyra-tag")
-        labels = []
-        for i in range(label_chips.count()):
-            text = label_chips.nth(i).inner_text()
-            if text:
-                labels.append(text)
-        return labels
+        return labels_row.locator(".lyra-tag").filter(
+            has_text=re.compile(f"^{re.escape(label_name)}$")
+        )
 
     # ── Header actions ───────────────────────────────────────────────────
 

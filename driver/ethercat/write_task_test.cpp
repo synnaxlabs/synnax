@@ -367,6 +367,56 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     );
 }
 
+/// @brief it should send no status for a start that a stop ends while it waits for the
+/// start of another task, so the stop answers it.
+TEST_F(EtherCATWriteTest, StopDuringAStartSendsNoStatusForTheStart) {
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const auto configure = [&](const std::string &name,
+                               const uint8_t sub_index,
+                               const x::telem::DataType &data_type) {
+        const auto cmd_ch = create_command_channel(name, data_type);
+        auto cfg = this->create_base_config();
+        cfg["channels"].push_back(create_output_channel_config(
+            cmd_ch.key,
+            0x7000,
+            sub_index,
+            data_type.name()
+        ));
+        const synnax::task::Task task{
+            .rack = this->rack.key,
+            .name = name,
+            .type = WRITE_TASK_TYPE,
+            .config = cfg,
+        };
+        auto [tsk, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
+        EXPECT_TRUE(ok);
+        return std::pair{task, std::move(tsk)};
+    };
+    auto [first, first_task] = configure("first", 1, x::telem::INT16_T);
+    auto [second, second_task] = configure("second", 2, x::telem::INT32_T);
+    this->mock_master->hold_activate();
+    std::thread starter([&] {
+        synnax::task::Command start{.task = first.key, .type = "start", .key = "a"};
+        first_task->exec(start, this->cancel);
+    });
+    this->mock_master->wait_until_activating();
+    x::breaker::Breaker canceled;
+    synnax::task::Command start{.task = second.key, .type = "start", .key = "b"};
+    second_task->exec(start, canceled);
+    this->mock_master->release_activate();
+    starter.join();
+    for (const auto &status: this->ctx->snapshot()) {
+        if (status.details.cmd == "b") {
+            EXPECT_EQ(status.variant, synnax::status::VARIANT_LOADING)
+                << status.message;
+        }
+    }
+    synnax::task::Command stop{.task = first.key, .type = "stop"};
+    first_task->exec(stop, this->cancel);
+}
+
 /// @brief it should start a write task that the Factory configures, with the bus at the
 /// execution rate of the task, and send only the steps that the start reached before it
 /// answers the start.

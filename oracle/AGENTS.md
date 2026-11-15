@@ -276,6 +276,11 @@ struct with a hand-written Go JSON decoder, such as `color.Color`, declares
 `@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
 runs the decoder.
 
+`@patch` on a field of a list entry, such as `Node.config`, limits the paths into that
+entry to its `@patch` fields. A path that ends at the list or at one entry then fails,
+so only a declared action adds, removes, or replaces an entry. A struct with `@patch`
+fields that a document reaches outside a list fails generation.
+
 ## Filters and sorted indexes
 
 A typed line of a `filter` calls `Match<Line>` in the Go package of its target, with the

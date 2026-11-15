@@ -144,6 +144,7 @@ markers = [
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
+    "icd: mark test as an ICD test",
     "label: mark test as a label test",
     "labjack: mark test as a labjack test",
     "lineplot: mark test as a line plot test",
