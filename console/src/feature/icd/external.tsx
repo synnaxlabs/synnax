@@ -14,7 +14,6 @@ import { ICD } from "@synnaxlabs/pluto";
 import { Panel } from "@/platform/panel";
 
 export * from "@/feature/icd/commands";
-export { Fields } from "@/feature/icd/editor/Fields";
 export * from "@/feature/icd/link";
 export * from "@/feature/icd/search";
 export * from "@/feature/icd/Toolbar";

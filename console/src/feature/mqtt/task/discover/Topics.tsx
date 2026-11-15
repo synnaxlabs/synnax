@@ -29,11 +29,7 @@ import {
 } from "@/feature/mqtt/task/discover/Values";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
-import {
-  type ReadEntry,
-  type ReadField,
-  type WriteTarget,
-} from "@/feature/mqtt/task/types";
+import { type HeldEntry, type ReadField } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 
@@ -156,7 +152,7 @@ export type TopicPicks = Map<string, TopicPick>;
 type Taken = Map<string, Set<string>>;
 
 const takenBy = (
-  entries: (ReadEntry | WriteTarget)[],
+  entries: HeldEntry[],
   topics: ListedTopic[],
   single: boolean,
 ): Taken => {
@@ -288,7 +284,7 @@ const SKELETON: Picker.SkeletonItem[] = [
 export interface TopicPickerProps {
   device: Device;
   /** What the task holds now. */
-  entries: (ReadEntry | WriteTarget)[];
+  entries: HeldEntry[];
   /** Each topic takes one value, and a topic that the task holds takes none. */
   single?: boolean;
   value: TopicPicks;

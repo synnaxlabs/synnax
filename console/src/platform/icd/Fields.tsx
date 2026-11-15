@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/Fields.css";
+
 import { icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -384,7 +386,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "fields")}>
+    <Flex.Box y gap="small" className={CSS.B("icd-fields")}>
       <Input.Table
         value={rows}
         onChange={handleChange}
@@ -401,4 +403,16 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
       )}
     </Flex.Box>
   );
+};
+
+export interface FieldsStatusProps {
+  /** The form path of the message's fields. */
+  path: deep.Target<unknown[]>;
+}
+
+/** Shows a problem with the fields of a message as a whole. */
+export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
+  const status = Form.useStatuses(path).find(({ key }) => key === String(path));
+  if (status == null) return null;
+  return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
 };

@@ -39,6 +39,11 @@ export const nodeKey = ({
 export const tagKey = (id: SparkplugTagID): string =>
   `${nodeKey(id)}/${id.device}/${id.tag}`;
 
+/** What a browse dialog reads from an item that a task holds. */
+export type HeldEntry =
+  | { type: "plain"; topic: string; fields: { pointer: string }[] }
+  | ({ type: "sparkplug" } & SparkplugTagID);
+
 const deployTopicZ = z
   .string()
   .min(1, "Topic is required")

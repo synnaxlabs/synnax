@@ -951,6 +951,73 @@ describe("MQTT Scan Task", () => {
   });
 });
 
+describe("deployICDReadConfigZ", () => {
+  const icdKey = "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a01";
+  const message = "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02";
+  const icdEntry = (topic: string, disabled = false) => ({
+    key: topic,
+    topic,
+    disabled,
+    icd: icdKey,
+    messages: [{ message }],
+  });
+  const icdConfig = (...entries: object[]) => ({ device: "dev-001", entries });
+
+  it("should accept one enabled topic", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry("plant/temp")),
+    );
+    expect(issuesOf(result)).toEqual([]);
+  });
+
+  it("should require an enabled topic", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry("plant/temp", true)),
+    );
+    expect(issuesOf(result)).toEqual([
+      { message: "At least one topic must be enabled", path: "entries" },
+    ]);
+  });
+
+  it("should reject a topic that another enabled entry reads", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry("plant/temp"), icdEntry("plant/temp")),
+    );
+    expect(issuesOf(result)).toEqual([
+      {
+        message: 'Topic "plant/temp" is already read by another entry',
+        path: "entries.1.topic",
+      },
+    ]);
+  });
+
+  it("should allow a disabled entry to repeat a topic", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry("plant/temp"), icdEntry("plant/temp", true)),
+    );
+    expect(issuesOf(result)).toEqual([]);
+  });
+
+  it("should require the topic of an enabled entry", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(icdConfig(icdEntry("")));
+    expect(issuesOf(result)).toEqual([
+      { message: "Topic is required", path: "entries.0.topic" },
+    ]);
+  });
+
+  it("should reject a wildcard topic", () => {
+    const result = MQTT.Task.deployICDReadConfigZ.safeParse(
+      icdConfig(icdEntry("plant/+/temp")),
+    );
+    expect(issuesOf(result)).toEqual([
+      {
+        message: "Topic must not hold the wildcards + or #",
+        path: "entries.0.topic",
+      },
+    ]);
+  });
+});
+
 describe("draft configs", () => {
   // Drafts persist on the Core before configuration, so the shape schema must accept
   // every default config; retrieve parses with it.
@@ -962,6 +1029,11 @@ describe("draft configs", () => {
   it("should accept the default write config", () => {
     const config = MQTT.Task.WRITE_SCHEMAS.config.parse({});
     expect(z.validate(MQTT.Task.WRITE_SCHEMAS.config, config)).toBe(true);
+  });
+
+  it("should accept the default ICD read config", () => {
+    const config = MQTT.Task.ICD_READ_SCHEMAS.config.parse({});
+    expect(z.validate(MQTT.Task.ICD_READ_SCHEMAS.config, config)).toBe(true);
   });
 
   it("should accept the default edge config", () => {
