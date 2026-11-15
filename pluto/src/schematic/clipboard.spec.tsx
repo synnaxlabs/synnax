@@ -471,7 +471,7 @@ describe("schematic clipboard", () => {
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
-    it("ignores a payload with a mismatched version", async () => {
+    it("ignores a payload from a Console that kept configs apart", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
       await loadSchematic(Wrapper, schem.key);
@@ -487,10 +487,10 @@ describe("schematic clipboard", () => {
       const event = createClipboardEvent(
         createDataTransfer({
           [MIME]: JSON.stringify({
-            version: 999,
-            nodes: [],
+            version: 1,
+            nodes: [{ key: "old", position: { x: 0, y: 0 } }],
             edges: [],
-            configs: {},
+            configs: { old: { variant: "value" } },
             anchor: { x: 0, y: 0 },
           }),
         }),
