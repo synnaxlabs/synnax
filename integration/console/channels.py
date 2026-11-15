@@ -14,6 +14,7 @@ from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError,
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 
 
 class Spec(TypedDict, total=False):
@@ -234,11 +235,10 @@ class ChannelClient(ResourceClient):
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
-        self.notifications.close_all()
         save_btn = self.layout.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
             save_btn = self.layout.locator("button").filter(has_text="Create").first
-        save_btn.click()
+        click_past(save_btn)
 
         try:
             name_input.wait_for(state="hidden", timeout=3000)
