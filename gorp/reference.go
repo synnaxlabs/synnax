@@ -35,6 +35,9 @@ const (
 	Cascade
 	// Detach keeps the referencing entry and removes the deleted target from it.
 	Detach
+	// Inline keeps the referencing entry and replaces the deleted target in it with a
+	// value read from the target.
+	Inline
 )
 
 // Target identifies an entry by the name of its table and its key in the text form
@@ -97,6 +100,8 @@ type Reference[K Key, E Entry[K]] interface {
 	detachTarget(e *E, target Target) bool
 	// canDetach reports whether the reference has a Detach.
 	canDetach() bool
+	// inlineTarget replaces target in e through the reference's Inline.
+	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
 	// check validates the targets that e holds against tx, for a write of e to t.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	// links appends the links that e holds to out.
@@ -121,6 +126,8 @@ type referenceSpec struct {
 	textKeys bool
 	// detachable is true when the reference can remove a target from an entry.
 	detachable bool
+	// inlinable is true when the reference can replace a target in an entry.
+	inlinable bool
 	// tablesField names the config field that holds tables, for validation errors.
 	tablesField string
 	// owner is the name of the table the reference is registered on.
@@ -140,14 +147,24 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 	v.Ternary("targets", !targets, "must be non-nil")
 	v.Ternary(
 		"on_delete",
-		s.onDelete < Restrict || s.onDelete > Detach,
-		"must be Restrict, Cascade, or Detach",
+		s.onDelete < Restrict || s.onDelete > Inline,
+		"must be Restrict, Cascade, Detach, or Inline",
 	)
 	v.Ternary("kind", s.kind < Place || s.kind > Use, "must be Place or Use")
 	v.Ternary(
 		"detach",
 		s.onDelete == Detach && !s.detachable,
 		"must be set when on_delete is Detach",
+	)
+	v.Ternary(
+		"on_delete",
+		s.onDelete == Inline && s.textKeys,
+		"cannot be Inline on a TargetReference",
+	)
+	v.Ternary(
+		"inline",
+		s.onDelete == Inline && !s.inlinable && !s.textKeys,
+		"must be set when on_delete is Inline",
 	)
 	v.Ternary(
 		"acyclic",
@@ -216,6 +233,11 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED] when OnDelete is Detach.
 	Detach func(e *E, target T)
+	// Inline replaces the target with key target in e with a value it reads from the
+	// target in tx. Gorp calls it before it deletes the target.
+	//
+	// [REQUIRED] when OnDelete is Inline.
+	Inline func(ctx context.Context, tx Tx, e *E, target T) error
 	// Kind is the kind of the link from e to each of its targets.
 	//
 	// [REQUIRED]
@@ -247,8 +269,10 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		unique:      cfg.Unique,
 		acyclic:     cfg.Acyclic,
 		detachable:  cfg.Detach != nil,
+		inlinable:   cfg.Inline != nil,
 		targetsOf:   cfg.Targets,
 		detach:      cfg.Detach,
+		inline:      cfg.Inline,
 		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
@@ -277,7 +301,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Targets func(e *E) []Target
-	// OnDelete is what happens to e when one of its targets is deleted.
+	// OnDelete is what happens to e when one of its targets is deleted. It cannot be
+	// Inline.
 	//
 	// [REQUIRED]
 	OnDelete OnDelete
@@ -330,6 +355,7 @@ type reference[K Key, E Entry[K], T comparable] struct {
 	referenceSpec
 	targetsOf func(e *E) []T
 	detach    func(e *E, target T)
+	inline    func(ctx context.Context, tx Tx, e *E, target T) error
 	// format returns the Target of t.
 	format func(t T) Target
 	// parse returns the value of target, or false when the reference cannot hold it.
@@ -411,6 +437,19 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 		r.detach(e, t)
 	}
 	return true
+}
+
+func (r *reference[K, E, T]) inlineTarget(
+	ctx context.Context,
+	tx Tx,
+	e *E,
+	target Target,
+) error {
+	t, ok := r.parse(target)
+	if !ok {
+		return nil
+	}
+	return r.inline(ctx, tx, e, t)
 }
 
 // Get returns the keys of the entries that hold any of targets, with the changes staged
