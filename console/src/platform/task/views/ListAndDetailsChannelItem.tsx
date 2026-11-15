@@ -110,6 +110,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
       className={CSS.cls(
         CSS.B("channel-item"),
         disabled && CSS.BM("channel-item", "disabled"),
+        failed && CSS.BM("channel-item", "error"),
       )}
     >
       <Flex.Box

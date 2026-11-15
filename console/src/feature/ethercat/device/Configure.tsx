@@ -308,8 +308,14 @@ const General = (): ReactElement => {
         </Text.Text>
         {ideas.length > 0 && (
           // The ideas wrap apart from the icon, so the icon never sits alone on a line.
-          <Flex.Box x align="center" gap="small">
-            <Icon.Bolt />
+          <Flex.Box x align="start" gap="small">
+            <Flex.Box
+              x
+              align="center"
+              className={CSS.BE("ethercat-configure", "ideas-icon")}
+            >
+              <Icon.Bolt />
+            </Flex.Box>
             <Flex.Box x align="center" wrap>
               {ideas.map((id) => (
                 <Button.Button
