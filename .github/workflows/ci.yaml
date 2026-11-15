@@ -281,6 +281,7 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: arc-cpp
       directories: arc/cpp
       macos: *full
       rust: true
@@ -288,6 +289,7 @@ jobs:
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   arc-go:
@@ -350,12 +352,14 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: client-cpp
       directories: client/cpp client/clib
       macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py:
@@ -557,6 +561,7 @@ jobs:
       apt_packages: libsystemd-dev
       clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: driver
       directories: driver
       macos: *full
       rust: true
@@ -565,6 +570,7 @@ jobs:
       test_tags: -hardware
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   # The EtherCAT bus runs on its own thread, and a streamer can set its channels
@@ -698,11 +704,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: freighter-cpp
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-go:
@@ -1146,11 +1154,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: x-cpp
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-go:
