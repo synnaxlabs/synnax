@@ -10,19 +10,12 @@
 import re
 from typing import ClassVar
 
-from playwright.sync_api import Locator, expect
+from playwright.sync_api import Locator
 
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
-
-
-# Device toasts land at any time and stack over the modal footer, so the click skips the
-# hit test. Focus blurs the last field first, which commits a numeric field's value.
-def _click_under_toasts(target: Locator) -> None:
-    expect(target).to_be_enabled(timeout=5000)
-    target.focus()
-    target.dispatch_event("click")
+from console.notifications import click_past
 
 
 def fill_configure(
@@ -42,7 +35,7 @@ def fill_configure(
     # A required field's label ends in an asterisk.
     modal.get_by_label(re.compile(r"^Name\b")).fill(name)
     modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
-    _click_under_toasts(modal.get_by_role("button", name=action, exact=True))
+    click_past(modal.get_by_role("button", name=action, exact=True))
 
 
 class DevicesClient(ResourceClient):
@@ -419,17 +412,13 @@ class DevicesClient(ResourceClient):
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Host\b")).fill(host)
         self.modal.get_by_label(re.compile(r"^Port\b")).fill(str(port))
-        _click_under_toasts(
-            self.modal.get_by_role("button", name="Connect", exact=True)
-        )
+        click_past(self.modal.get_by_role("button", name="Connect", exact=True))
 
     def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
         """Fill the open connect form of a serial device and click Connect."""
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
-        _click_under_toasts(
-            self.modal.get_by_role("button", name="Connect", exact=True)
-        )
+        click_past(self.modal.get_by_role("button", name="Connect", exact=True))
 
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
@@ -445,9 +434,7 @@ class DevicesClient(ResourceClient):
         :param identifier: Prefix for the channels of the device.
         :param action: The submit button, "Save" or "Save and create read task".
         """
-        _click_under_toasts(
-            self.found(name).get_by_role("button", name="Configure", exact=True)
-        )
+        click_past(self.found(name).get_by_role("button", name="Configure", exact=True))
         fill_configure(
             self.modal,
             name=device_name,

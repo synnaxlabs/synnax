@@ -33,6 +33,20 @@ _READ_JS = """(elements) => elements.map((el) => {
 _NOTIFICATIONS: TypeAdapter[list[sy.Status]] = TypeAdapter(list[sy.Status])
 
 
+def click_past(target: Locator) -> None:
+    """Click a target that toasts can cover.
+
+    Toasts land at any time and stack over forms and toolbars, so the click skips the
+    hit test. Focus moves first, as a real click does, so the field that had focus
+    blurs and commits its value.
+
+    :param target: The element to click. It must become enabled within 5 seconds.
+    """
+    expect(target).to_be_enabled(timeout=5000)
+    target.focus()
+    target.dispatch_event("click")
+
+
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
