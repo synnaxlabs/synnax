@@ -137,10 +137,24 @@ const geometry = (el: Element): string =>
     .filter(Boolean)
     .join(" ");
 
+// Font hinting changes glyph widths on each platform, so text records its anchor and
+// font, not its box.
+const place = (el: Element, origin: DOMRect, style: CSSStyleDeclaration): string => {
+  if (!(el instanceof SVGTextElement)) return box(el, origin);
+  const matrix = el.getScreenCTM();
+  if (matrix == null) throw new Error("text has no screen matrix");
+  const { x, y } = new DOMPoint(
+    el.x.baseVal.getItem(0).value,
+    el.y.baseVal.getItem(0).value,
+  ).matrixTransform(matrix);
+  const anchor = [x - origin.left, y - origin.top].map(round).join(" ");
+  return `${anchor} ${style.fontSize} ${style.fontFamily}`;
+};
+
 const paint = (el: Element, origin: DOMRect): string => {
   const style = getComputedStyle(el);
   const values = PAINT.map((p) => roundAll(style.getPropertyValue(p)));
-  return [box(el, origin), ...values].join(" | ");
+  return [place(el, origin, style), ...values].join(" | ");
 };
 
 const measure = (node: Element): Omit<Fingerprint, "cases"> & { drawn: Drawn } => {
@@ -187,9 +201,6 @@ const draw = async (cases: Case[], record: Record<string, Fingerprint>) => {
     expect(els).toHaveLength(cases.length);
     return els;
   });
-  // Layout starts the font loads that text needs, and the text box changes after them.
-  container.getBoundingClientRect();
-  await document.fonts.ready;
   rendered.forEach((node) => {
     const { variant, name } = cases[Number(node.getAttribute("data-id"))];
     const { drawn, ...rest } = measure(node);
