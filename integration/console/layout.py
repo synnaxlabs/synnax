@@ -1115,8 +1115,7 @@ class LayoutClient:
         """
         modal = self.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        modal.get_by_role("button", name="Delete", exact=True).click()
+        click_past(modal.get_by_role("button", name="Delete", exact=True))
         modal.wait_for(state="hidden", timeout=5000)
 
     def delete_with_confirmation(self, item: Locator) -> None:
