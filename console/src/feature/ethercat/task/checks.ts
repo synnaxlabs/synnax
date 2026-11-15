@@ -126,6 +126,20 @@ const settingProblem = (
   return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
 };
 
+type Slave = SlaveDevice | SlaveOnRack;
+
+/**
+ * @returns the two slaves by name, then by slot, then by key. A problem of a pair then
+ * reads the same from either slave, so the task names it once.
+ */
+const inOrder = (a: Slave, b: Slave): [Slave, Slave] => {
+  const order =
+    a.name.localeCompare(b.name, undefined, { numeric: true }) ||
+    a.properties.position - b.properties.position ||
+    a.key.localeCompare(b.key);
+  return order <= 0 ? [a, b] : [b, a];
+};
+
 /** @returns the step that tells the user which of the two devices to delete. */
 const deleteStep = (
   slave: SlaveDevice,
@@ -162,8 +176,9 @@ const positionProblem = (
         (serial === 0 && o.properties.serial === 0)),
   );
   if (other == null) return null;
+  const [first, second] = inOrder(slave, other);
   return (
-    `Slaves ${slave.name} and ${other.name} are both at position ${position} on ` +
+    `Slaves ${first.name} and ${second.name} are both at position ${position} on ` +
     `${network}. ${deleteStep(slave, other, onRack)}`
   );
 };
@@ -187,8 +202,9 @@ const serialProblem = (slave: SlaveDevice, onRack: SlaveOnRack[]): string | null
       p.serial === serial,
   );
   if (other == null) return null;
+  const [first, second] = inOrder(slave, other);
   return (
-    `Slaves ${slave.name} and ${other.name} have the same serial number ${serial}. ` +
+    `Slaves ${first.name} and ${second.name} have the same serial number ${serial}. ` +
     `${deleteStep(slave, other, onRack)}`
   );
 };
@@ -199,7 +215,9 @@ const identifierProblem = (
   onRack: SlaveOnRack[],
 ): string | null => {
   const other = findClash(slave, onRack);
-  return other == null ? null : clashProblem(slave, other);
+  if (other == null) return null;
+  const [first, second] = inOrder(slave, other);
+  return clashProblem(second, first);
 };
 
 /** @returns what the user must do when other software sets up the slave, or null. */
@@ -253,15 +271,18 @@ const problemsOf = (
   onRack: SlaveOnRack[],
 ): Problem[] => {
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
-  const taskWide = [
-    networkProblem(used),
-    ...used.map(
-      (slave) =>
-        positionProblem(slave, used, onRack) ??
-        serialProblem(slave, onRack) ??
-        identifierProblem(slave, onRack),
-    ),
-  ].filter((p): p is string => p != null);
+  // When the task uses both slaves of a pair, each gives the problem of the pair.
+  const taskWide = unique.unique(
+    [
+      networkProblem(used),
+      ...used.map(
+        (slave) =>
+          positionProblem(slave, used, onRack) ??
+          serialProblem(slave, onRack) ??
+          identifierProblem(slave, onRack),
+      ),
+    ].filter((p): p is string => p != null),
+  );
   const enabled = Map.groupBy(
     channels.filter((ch) => !ch.disabled),
     (ch) => ch.device,

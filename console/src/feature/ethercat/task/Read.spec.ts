@@ -935,17 +935,21 @@ describe("Read", () => {
       serial: Math.floor(Math.random() * 2 ** 31) + 1,
     });
 
+    // The connected slave sorts first, so a problem of the pair names it first.
     const createPair = async (overrides: { position?: number } = {}) => {
       const identity = { ...overrides, ...createIdentity() };
       const ownRack = await createRack();
+      const name = uniqueName("slave");
       const stale = await createSlaveDevice(client, ownRack.key, {
         ...identity,
+        name: `${name} b`,
         identifier: createIdentifier(),
         network: "eth0",
         pdos: createPDOs(),
       });
       const connected = await createSlaveDevice(client, ownRack.key, {
         ...identity,
+        name: `${name} a`,
         identifier: createIdentifier(),
         network: "eth0",
         pdos: createPDOs(),
@@ -962,7 +966,7 @@ describe("Read", () => {
       });
       expect(
         await screen.findByText(
-          `Slaves ${stale.name} and ${connected.name} have the same serial number ` +
+          `Slaves ${connected.name} and ${stale.name} have the same serial number ` +
             `${serial}. Delete ${stale.name}, which is not connected.`,
         ),
       ).toBeTruthy();
@@ -978,7 +982,7 @@ describe("Read", () => {
       // The whole text matches only when the error carries no position problem.
       expect(
         await screen.findByText(
-          `Slaves ${stale.name} and ${connected.name} have the same serial number ` +
+          `Slaves ${connected.name} and ${stale.name} have the same serial number ` +
             `${serial}. Delete ${stale.name}, which is not connected.`,
         ),
       ).toBeTruthy();
@@ -1024,9 +1028,15 @@ describe("Read", () => {
       pdos: createPDOs(),
     };
     const ownRack = await createRack();
-    const stale = await createSlaveDevice(client, ownRack.key, props);
+    const name = uniqueName("slave");
+    // The connected slave sorts first, so the problem names it first.
+    const stale = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      name: `${name} b`,
+    });
     const connected = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} a`,
       identifier: createIdentifier(),
     });
     await markConnected(connected);
@@ -1036,7 +1046,7 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slaves ${stale.name} and ${connected.name} are both at position ` +
+        `Slaves ${connected.name} and ${stale.name} are both at position ` +
           `${position} on eth0. Delete ${stale.name}, which is not connected.`,
       ),
     ).toBeTruthy();
@@ -1064,17 +1074,21 @@ describe("Read", () => {
     expect(deployed.config.channels[0].channel).not.toBe(0);
   });
 
-  it("should name both slaves at one position when the task uses both", async () => {
+  it("should name both slaves at one position once when the task uses both", async () => {
     const position = Math.floor(Math.random() * 2 ** 31);
     const ownRack = await createRack();
     const props = { network: "eth0", position, pdos: createPDOs() };
+    const name = uniqueName("slave");
+    // The first slave of the task sorts second.
     const first = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} b`,
       identifier: createIdentifier(),
       serial: 1,
     });
     const second = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} a`,
       identifier: createIdentifier(),
       serial: 2,
     });
@@ -1087,8 +1101,10 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        // The task names the problem once for each slave, in the order of retrieval.
-        new RegExp(`Slaves ${first.name} and ${second.name} are both at position`),
+        new RegExp(
+          `^Slaves ${second.name} and ${first.name} are both at position ${position} ` +
+            "on eth0\\. Delete the one that is not on the network\\.$",
+        ),
       ),
     ).toBeTruthy();
   });
@@ -1096,14 +1112,18 @@ describe("Read", () => {
   it("should name the slots of two slaves whose identifiers give the same names", async () => {
     const ownRack = await createRack();
     const base = createIdentifier();
+    const name = uniqueName("slave");
     const props = { network: "eth0", pdos: createPDOs() };
+    // The other slave sorts first, so the problem names it first.
     const slave = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} b`,
       identifier: `${base}-a`,
       position: 3,
     });
     const other = await createSlaveDevice(client, ownRack.key, {
       ...props,
+      name: `${name} a`,
       identifier: `${base}_a`,
       position: 4,
     });
@@ -1115,6 +1135,40 @@ describe("Read", () => {
       await screen.findByText(
         `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
           `names as slave ${slave.name} in slot 3. In Configure, change the identifier ` +
+          "of one of them.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should name two slaves whose identifiers give the same names once", async () => {
+    const ownRack = await createRack();
+    const base = createIdentifier();
+    const name = uniqueName("slave");
+    const props = { network: "eth0", pdos: createPDOs() };
+    // The first slave of the task sorts second.
+    const first = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      name: `${name} b`,
+      identifier: `${base}-a`,
+      position: 3,
+    });
+    const second = await createSlaveDevice(client, ownRack.key, {
+      ...props,
+      name: `${name} a`,
+      identifier: `${base}_a`,
+      position: 4,
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(first.key, STATUS_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(second.key, STATUS_ENTRY),
+      ],
+    });
+    expect(
+      await screen.findByText(
+        `Slave ${second.name} in slot 4 has an identifier that gives the same channel ` +
+          `names as slave ${first.name} in slot 3. In Configure, change the identifier ` +
           "of one of them.",
       ),
     ).toBeTruthy();
