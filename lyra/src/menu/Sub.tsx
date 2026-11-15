@@ -25,7 +25,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
-import { useMatches } from "@/menu/filter";
+import { FilterContext, useMatches } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
@@ -129,7 +129,8 @@ export const Sub = ({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
-        {children}
+        {/* The filter of the menu matches the submenu, never its content. */}
+        <FilterContext value="">{children}</FilterContext>
       </Dialog.Frame>
     </SubContext>
   );

@@ -34,6 +34,8 @@ const [FilterContext, useFilterContext] = context.create<string>({
   displayName: "Menu.FilterContext",
 });
 
+export { FilterContext };
+
 const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
 const SURFACES = `[role="menu"], .${CSS.B("menu-dialog")}`;

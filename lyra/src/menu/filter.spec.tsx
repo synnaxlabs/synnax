@@ -155,6 +155,13 @@ describe("menu filter", () => {
       expect(shown()).toEqual([]);
     });
 
+    it("should show every item of a submenu opened under the filter", () => {
+      open();
+      type("col");
+      press("ArrowRight");
+      expect(shown()).toEqual(["Color", "Red"]);
+    });
+
     it("should show the filter as a line at the top", () => {
       open();
       type("ren");
