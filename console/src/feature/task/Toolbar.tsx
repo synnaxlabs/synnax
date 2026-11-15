@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { arc, type channel, query, task } from "@synnaxlabs/client";
+import { arc, channel, query, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -88,9 +88,9 @@ const deleteEach = async (
 };
 
 interface Owned {
-  channels: channel.Channel[];
+  channels: channel.Key[];
   /** The indexes of the channels that the tasks do not own. */
-  indexes: channel.Channel[];
+  indexes: channel.Key[];
 }
 
 const retrieveOwned = async (
@@ -99,14 +99,12 @@ const retrieveOwned = async (
 ): Promise<Owned> => {
   if (channels == null || keys.length === 0) return { channels: [], indexes: [] };
   const owned = await channels.retrieve({ where: { key: { in: keys } } });
-  const indexKeys = unique
-    .unique(owned.map(({ index }) => index))
-    .filter((key) => key !== 0 && !keys.includes(key));
-  const indexes =
-    indexKeys.length === 0
-      ? []
-      : await channels.retrieve({ where: { key: { in: indexKeys } } });
-  return { channels: owned, indexes };
+  return {
+    channels: owned.map(({ key }) => key),
+    indexes: unique
+      .unique(owned.map(({ index }) => index))
+      .filter((key) => key !== 0 && !keys.includes(key)),
+  };
 };
 
 const CHANNELS_DESCRIPTION =
@@ -116,6 +114,7 @@ const CHANNELS_DESCRIPTION =
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
+  const canDeleteChannels = Access.useDeleteGranted(channel.TYPE_RESOURCE_ID);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -160,7 +159,9 @@ const Content = () => {
   // uses, so the tasks go first, then the channels, then their indexes.
   const handleDelete = (keys: task.Key[]) => {
     const rows = getItem(keys);
-    const ownedKeys = unique.unique(rows.flatMap(ownedChannelsOf));
+    const ownedKeys = canDeleteChannels
+      ? unique.unique(rows.flatMap(ownedChannelsOf))
+      : [];
     handleError(
       async () => {
         const { channels, indexes } = await retrieveOwned(client?.channels, ownedKeys);
@@ -180,14 +181,8 @@ const Content = () => {
         }
         if (!(await deleteTasks(keys)) || !withChannels || client == null) return;
         const failures = [
-          ...(await deleteEach(
-            client.channels,
-            channels.map(({ key }) => key),
-          )),
-          ...(await deleteEach(
-            client.channels,
-            indexes.map(({ key }) => key),
-          )),
+          ...(await deleteEach(client.channels, channels)),
+          ...(await deleteEach(client.channels, indexes)),
         ];
         if (failures.length > 0)
           addStatus({

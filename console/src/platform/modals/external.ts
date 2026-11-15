@@ -9,11 +9,7 @@
 
 export * from "@/platform/modals/factory";
 export * from "@/platform/modals/Stack";
-export {
-  type ConfirmOption,
-  type ConfirmParams,
-  useConfirm,
-} from "@/platform/modals/useConfirm";
+export { type ConfirmParams, useConfirm } from "@/platform/modals/useConfirm";
 export * from "@/platform/modals/useConfirmDelete";
 export * from "@/platform/modals/useRename";
 export { type Content, type ContentProps } from "@/session/modals/Context";

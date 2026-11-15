@@ -19,6 +19,7 @@ import {
   rack,
   ranger,
   type resource,
+  status,
   type Synnax as Client,
   task,
   user,
@@ -239,6 +240,40 @@ const selectRows = async (first: string, ...others: string[]): Promise<void> => 
   for (const name of others) await selectRow(name, true);
 };
 
+// A client that can delete the tasks of the test, but not Arcs or channels. The Core
+// updates the rack and deletes the status of each task that it deletes.
+const createTaskDeleter = async (): Promise<Client> =>
+  await createTestClientWithPolicy(client, [
+    {
+      name: uniqueName("retrieve"),
+      objects: [
+        ...task.resourceID(testTasks),
+        arc.TYPE_RESOURCE_ID,
+        arc.directory.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        device.TYPE_RESOURCE_ID,
+        channel.TYPE_RESOURCE_ID,
+        ranger.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    },
+    {
+      name: uniqueName("delete"),
+      objects: [task.TYPE_RESOURCE_ID, status.TYPE_RESOURCE_ID],
+      actions: ["delete"],
+    },
+    {
+      name: uniqueName("update"),
+      objects: [rack.TYPE_RESOURCE_ID],
+      actions: ["update"],
+    },
+  ]);
+
 const createArc = async (): Promise<arc.Arc> => {
   const a = await client.arcs.create({
     name: uniqueName("arc"),
@@ -421,32 +456,7 @@ describe("task/Toolbar Arc rows", () => {
     it("hides Delete when the Arc cannot be deleted", async () => {
       const { arc: a } = await createBoundArc();
       const t = await createTask();
-      const taskDeleter = await createTestClientWithPolicy(client, [
-        {
-          name: uniqueName("retrieve"),
-          objects: [
-            ...task.resourceID(testTasks),
-            arc.TYPE_RESOURCE_ID,
-            arc.directory.TYPE_RESOURCE_ID,
-            rack.TYPE_RESOURCE_ID,
-            device.TYPE_RESOURCE_ID,
-            channel.TYPE_RESOURCE_ID,
-            ranger.TYPE_RESOURCE_ID,
-            panel.TYPE_RESOURCE_ID,
-            project.TYPE_RESOURCE_ID,
-            user.TYPE_RESOURCE_ID,
-            access.role.TYPE_RESOURCE_ID,
-            access.policy.TYPE_RESOURCE_ID,
-          ],
-          actions: ["retrieve"],
-        },
-        {
-          name: uniqueName("delete"),
-          objects: [task.TYPE_RESOURCE_ID],
-          actions: ["delete"],
-        },
-      ]);
-      await renderToolbar({ as: taskDeleter });
+      await renderToolbar({ as: await createTaskDeleter() });
       // The client sees Delete on the task alone, so its grants have loaded.
       await openContextMenuUntil(t.name, "Delete");
       fireEvent.keyDown(document.body, { code: "Escape" });
@@ -958,6 +968,19 @@ describe("task/Toolbar channels of a deleted EtherCAT task", () => {
     );
     expect(await retrieveKeys([unowned.index, ...unowned.channels])).toEqual(
       keysOf(unowned.index, ...unowned.channels),
+    );
+  });
+
+  it("offers no box to a user who cannot delete channels", async () => {
+    const { index, channels } = await createChannels(1);
+    const t = await createReadTask(channels);
+    await renderToolbar({ as: await createTaskDeleter() });
+    await openDelete(t);
+    expect(within(screen.getByRole("dialog")).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(findButton("Delete"));
+    await expectDeleted(t);
+    expect(await retrieveKeys([index, ...channels])).toEqual(
+      keysOf(index, ...channels),
     );
   });
 
