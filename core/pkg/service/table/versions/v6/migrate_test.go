@@ -124,6 +124,26 @@ var _ = Describe("MigrateTable", func() {
 		Expect(out.Rows[0].Cells[0].Key).To(Equal("a"))
 		Expect(out.Rows[0].Cells[1].Key).To(Equal("b"))
 	})
+	It(
+		"Should give each later cell that repeats a key a new key",
+		func(ctx SpecContext) {
+			out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
+				Rows: []v5.Row{
+					{Key: "r0", Cells: []string{"a", "a-1"}},
+					{Key: "r1", Cells: []string{"a"}},
+				},
+				Cells: map[string]v5.CellConfig{"a": text("A"), "a-1": text("B")},
+			}))
+			Expect(out.Rows[0].Cells[0].Key).To(Equal("a"))
+			Expect(out.Rows[0].Cells[1].Key).To(Equal("a-1"))
+			Expect(out.Rows[1].Cells).To(Equal([]v6.Cell{
+				{
+					Key:    "a-2",
+					Config: v6.CellConfig{Variant: v6.TextCellConfig{Value: "A"}},
+				},
+			}))
+		},
+	)
 	It("Should drop a cell that no row references", func(ctx SpecContext) {
 		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
 			Rows:  []v5.Row{{Key: "r", Cells: []string{"a"}}},

@@ -139,6 +139,24 @@ var _ = Describe("Reducer", func() {
 			Expect(configOf(out, "e")).To(Equal(textCfg("E")))
 		})
 
+		It("Should not change the payload when a later action edits the row", func() {
+			cells := []table.Cell{cell("e", textCfg("E")), cell("f", textCfg("F"))}
+			MustSucceed(table.Reduce(
+				create2x2(),
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 2,
+					Key:   "r2",
+					Size:  40,
+					Cells: cells,
+				}),
+				table.NewRemoveColAction(table.RemoveColPayload{Key: "c0"}),
+			))
+			Expect(cells).To(Equal([]table.Cell{
+				cell("e", textCfg("E")),
+				cell("f", textCfg("F")),
+			}))
+		})
+
 		It("Should clamp out-of-range indices to the end of the rows slice", func() {
 			out := MustSucceed(
 				table.Reduce(create2x2(), table.NewAddRowAction(table.AddRowPayload{

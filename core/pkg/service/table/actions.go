@@ -101,7 +101,7 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 			state.Columns[i] = baseCol(deriveKey(p.Key, i))
 		}
 	}
-	row := Row{Key: p.Key, Size: max(p.Size, minCellDim), Cells: cells}
+	row := Row{Key: p.Key, Size: max(p.Size, minCellDim), Cells: slices.Clone(cells)}
 	idx := min(int(p.Index), len(state.Rows))
 	state.Rows = slices.Insert(state.Rows, idx, row)
 	return state, nil

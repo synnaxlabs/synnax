@@ -102,7 +102,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		DescribeTable(
-			"Should reject a table whose rows or columns share a key",
+			"Should reject a table whose rows, columns, or cells share a key",
 			func(ctx SpecContext, rows []table.Row, cols []table.Column, msg string) {
 				tx := DeferClose(db.OpenTx())
 				t := table.Table{
@@ -127,6 +127,15 @@ var _ = Describe("Writer", func() {
 				[]table.Row(nil),
 				[]table.Column{{Key: "c0", Size: 80}, {Key: "c0", Size: 80}},
 				`duplicate column key "c0": validation error`,
+			),
+			Entry(
+				"cells",
+				[]table.Row{
+					{Key: "r0", Size: 30, Cells: []table.Cell{cell("a", textCfg(""))}},
+					{Key: "r1", Size: 30, Cells: []table.Cell{cell("a", textCfg(""))}},
+				},
+				[]table.Column{{Key: "c0", Size: 80}},
+				`duplicate cell key "a": validation error`,
 			),
 		)
 
@@ -234,6 +243,38 @@ var _ = Describe("Writer", func() {
 				{Type: table.ActionTypeSet},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
+		})
+
+		It("Should reject a cell config that fails its schema", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewSetAction(table.SetPayload{
+					Path:  []string{"rows", "r0", "cells", "a", "config", "weight"},
+					Value: 0,
+				}),
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("weight: must be greater than or equal to 1"),
+				),
+			))
+			Expect(retrieve(ctx, s.Key).Rows).To(Equal(s.Rows))
+		})
+
+		It("Should reject an action that duplicates a cell key", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Key:   "r1",
+					Size:  30,
+					Cells: []table.Cell{cell("a", textCfg("")), cell("c", textCfg(""))},
+				}),
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`duplicate cell key "a"`)),
+			))
+			Expect(retrieve(ctx, s.Key).Rows).To(HaveLen(1))
 		})
 
 		It("Should reject an action that duplicates a row key", func(ctx SpecContext) {

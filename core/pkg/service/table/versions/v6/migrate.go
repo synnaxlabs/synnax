@@ -11,20 +11,28 @@ package v6
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
+	"github.com/synnaxlabs/x/set"
 )
 
 // MigrateTable lifts a v5 table to v6. Every color alpha becomes a 0-255 byte, and each
 // entry of the cells map moves into the row cell that references it. Pluto draws
 // nothing for a row cell with no config, so it is dropped. A cell that no row
-// references is dropped too.
+// references is dropped too. A key that more than one row cell references keeps its
+// first cell, and each later cell gets a new key with a copy of the config.
 func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 	t, err := autoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
 	}
+	used := make(set.Set[string])
+	for _, row := range old.Rows {
+		used.Add(row.Cells...)
+	}
+	seen := make(set.Set[string])
 	for i, row := range old.Rows {
 		cells := make([]Cell, 0, len(row.Cells))
 		for _, key := range row.Cells {
@@ -33,6 +41,10 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 				continue
 			}
 			c := Cell{Key: key}
+			if seen.Contains(key) {
+				c.Key = newKey(key, used)
+			}
+			seen.Add(c.Key)
 			if c.Config, err = autoMigrateCellConfig(ctx, cfg); err != nil {
 				return Table{}, err
 			}
@@ -41,6 +53,16 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 		t.Rows[i].Cells = cells
 	}
 	return t, nil
+}
+
+// newKey returns a key derived from base that used does not hold, and adds it to used.
+func newKey(base string, used set.Set[string]) string {
+	for n := 1; ; n++ {
+		if k := fmt.Sprintf("%s-%d", base, n); !used.Contains(k) {
+			used.Add(k)
+			return k
+		}
+	}
 }
 
 // MigrateRow copies the row. MigrateTable sets its cells from the cells map.

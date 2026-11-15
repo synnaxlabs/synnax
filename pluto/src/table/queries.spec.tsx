@@ -690,6 +690,24 @@ describe("table queries", () => {
       });
     });
 
+    it("useRows keeps its reference when only a cell config changes", async () => {
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        rows: Table.useRows({ key: created.key }),
+        cell: Table.useCell({ key: created.key, row: "r0", cellKey: "a" }),
+        dispatch: Table.useDispatch(),
+      }));
+      const initial = result.current.rows;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [table.setCell({ cell: { key: "a", config: mkValue("psi") } })],
+        });
+      });
+      await waitFor(() => expect(result.current.cell?.variant).toBe("value"));
+      expect(result.current.rows).toBe(initial);
+    });
+
     it("useColumns returns the table's columns and updates after a resize", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({

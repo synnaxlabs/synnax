@@ -127,6 +127,13 @@ func validateUniqueKeys(t Table) error {
 	if k, ok := duplicateKey(t.Columns, func(c Column) string { return c.Key }); ok {
 		return errors.Wrapf(validate.ErrValidation, "duplicate column key %q", k)
 	}
+	var cells []Cell
+	for _, r := range t.Rows {
+		cells = append(cells, r.Cells...)
+	}
+	if k, ok := duplicateKey(cells, func(c Cell) string { return c.Key }); ok {
+		return errors.Wrapf(validate.ErrValidation, "duplicate cell key %q", k)
+	}
 	return nil
 }
 
