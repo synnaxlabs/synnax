@@ -29,8 +29,7 @@ const (
 	// message, field, start_bit, and bit_length columns are required. A kind is float,
 	// integer, or unsigned, and defaults to unsigned. Each other row is one binary
 	// field, and the rows of one message form one message, with a CAN identifier when
-	// an
-	// id is present.
+	// an id is present.
 	FormatCSV Format = "csv"
 	// FormatXLSX is a field table, laid out as for FormatCSV, in the first sheet of an
 	// Excel workbook. A numeric cell is read as its value, whatever its number format.
