@@ -67,6 +67,13 @@ public:
     /// @brief called on the pipeline thread each time the writer opens.
     virtual void writer_opened() {}
 
+    /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
+    /// after the breaker stops, and before the pipeline joins its thread. It can come
+    /// before the read blocks, so a blocking call made after it must also return. The
+    /// read it ends should return driver::errors::NOMINAL_SHUTDOWN_ERROR. Not called
+    /// when the pipeline already stopped itself.
+    virtual void interrupt() {}
+
     virtual ~Source() = default;
 };
 
@@ -171,6 +178,8 @@ class Acquisition final : public Base {
     void run() override;
 
     void stopped_with_err(const x::errors::Error &err) override;
+
+    void interrupt() override { this->source->interrupt(); }
 
     /// @brief runs the pipeline until it stops.
     /// @returns true when the Core was temporarily unavailable and the breaker allows

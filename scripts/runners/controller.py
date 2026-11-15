@@ -38,8 +38,7 @@ Per-runner channels, written on change:
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
 
 Pool channels (pools.py), int32, written on change. <pool> is one of ubuntu_build,
-ubuntu_test, win_build, win_test, macos_build, review, hitl, and total. review and hitl
-have only the queued and queue_wait channels. On runner_pool_time:
+ubuntu_test, win_build, win_test, macos_build, and total. On runner_pool_time:
 
     runner_<pool>_queued      jobs waiting
     runner_<pool>_busy        runners on a job

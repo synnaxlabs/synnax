@@ -22,9 +22,9 @@ import { staleness } from "@/vis/staleness/aether";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
-// Below this contrast against the background a color is illegible and gets
-// swapped for a legible gray. Rough guard, tune later.
-const MIN_LEGIBLE_CONTRAST = 1.1;
+// Below this contrast against the background a color is illegible and gets swapped for
+// a legible gray.
+const MIN_LEGIBLE_CONTRAST = 1.5;
 
 const valueState = staleness.configZ.extend({
   box: box.box,

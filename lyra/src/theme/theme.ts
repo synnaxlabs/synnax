@@ -99,7 +99,6 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(z.string(), color.paletteZ),
       visualization: z
         .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
         .default({ palettes: {} }),
@@ -246,7 +245,6 @@ const SYNNAX_BASE: ThemeSpec = {
     border: lightGrayScale.l6,
     error: ERROR,
     warning: LIGHT_WARNING,
-    palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
     visualization: {
       palettes: {
         default: [

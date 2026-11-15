@@ -20,6 +20,7 @@
       "independent": true,
       "tests": [
         { "case": "console/label/label_lifecycle" },
+        { "case": "console/secret/secret_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/device/devices_toolbar" },
         { "case": "console/device/connect_hardware" },
@@ -96,10 +97,6 @@
         { "case": "console/user/role_operator_permissions" },
         { "case": "console/user/role_viewer_permissions" }
       ]
-    },
-    {
-      "sequence_name": "user_drag",
-      "tests": [{ "case": "console/user/drag_to_role" }]
     },
     {
       "sequence_name": "cluster",

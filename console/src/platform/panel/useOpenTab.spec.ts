@@ -56,6 +56,8 @@ const viewLeaf = (key: string, type: string): panel.New["root"] => ({
 // A node key no tree in these specs reaches: the root's own children stop at 3.
 const STALE_LEAF = 99;
 
+const DRAFT = { name: "Drafted", icon: "gear" };
+
 const leafTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
   return root.tabs;
@@ -394,19 +396,19 @@ describe("Panel.useOpenTab", () => {
       return key;
     };
 
-    it("creates a draft of the user when the selected panel is shared", async () => {
+    it("creates a named draft of the user when the selected panel is shared", async () => {
       const { me, shared, wrapper, store } = await setup();
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const tabKey = uuid.create();
       await act(async () => {
         result.current(
           { variant: "view", key: tabKey, type: "drafted" },
-          { draft: true },
+          { draft: DRAFT },
         );
       });
       await waitFor(() => expect(selected(store)).not.toBe(shared.key));
       const draft = await client.panels.retrieve(selected(store));
-      expect(draft.owner).toBe(me);
+      expect(draft).toMatchObject({ owner: me, ...DRAFT });
       expect(panel.findTab(draft.root, tabKey)).toBeDefined();
       const after = await client.panels.retrieve(shared.key);
       expect(panel.findTab(after.root, tabKey)).toBeUndefined();
@@ -431,7 +433,7 @@ describe("Panel.useOpenTab", () => {
       await act(async () => {
         result.current(
           { variant: "view", key: tabKey, type: "drafted" },
-          { draft: true },
+          { draft: DRAFT },
         );
       });
       await waitFor(async () => {
@@ -455,7 +457,7 @@ describe("Panel.useOpenTab", () => {
       await act(async () => {
         result.current(
           { variant: "view", type: "single" },
-          { singleton: true, draft: true },
+          { singleton: true, draft: DRAFT },
         );
       });
       await waitFor(() => expect(selected(store)).toBe(draft.key));

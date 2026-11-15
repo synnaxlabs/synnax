@@ -204,12 +204,15 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
       {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}
       <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
+        className={CSS.BE("panel-selector", "name")}
         value={name}
         overflow="fade"
         onChange={handleChange}
         disabled={!canEdit}
       />
-      {draft && <Badge.Badge>Draft</Badge.Badge>}
+      {draft && (
+        <Badge.Badge className={CSS.BE("panel-selector", "draft")}>Draft</Badge.Badge>
+      )}
     </Tabs.Tab>
   );
 };

@@ -426,20 +426,22 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case HoldingRegisterStringReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputRegisterStringReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case HoldingRegisterBitReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case InputRegisterBitReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -671,14 +673,16 @@ func (u *WriteChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case HoldingRegisterBitWriteChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

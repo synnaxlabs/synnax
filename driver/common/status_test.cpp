@@ -52,6 +52,25 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.description, "task validation error");
 }
 
+/// @brief it should send nothing for a start that its cancel ended, and answer the stop
+/// that follows as stopped.
+TEST(TestTaskStateHandler, testCancelledStartSendsNothing) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+    handler.error(
+        x::errors::Error(x::errors::CANCELLED, "bus start"),
+        "Failed to start task"
+    );
+    handler.send_start("start_cmd");
+    EXPECT_TRUE(ctx->statuses.empty());
+    handler.send_stop("stop_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Stopped task");
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "stop_cmd");
+}
+
 /// @brief it should echo the config hash the instance was built from.
 TEST(TestTaskStateHandler, testEchoesConfigHash) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -526,25 +545,36 @@ TEST(TestStatusWindow, testDifferentVariantSameMessage) {
 class RecordingTask final : public task::Task {
 public:
     std::vector<synnax::task::Command> cmds;
-    void exec(synnax::task::Command &cmd) override { this->cmds.push_back(cmd); }
+    /// @brief the context whose status count each exec records, or null.
+    std::shared_ptr<task::MockContext> ctx;
+    std::vector<size_t> statuses_at_exec;
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        this->cmds.push_back(cmd);
+        if (this->ctx != nullptr)
+            this->statuses_at_exec.push_back(this->ctx->statuses.size());
+    }
     void stop(bool will_reconfigure) override {}
 };
 
 /// @brief a config error during a start-triggered deploy should write an error
 /// status.
 TEST(TestHandleConfigErr, testErrorWithPendingStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
         .config_hash = "hash1"
     };
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
-        "start_cmd"
+        "start_cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
@@ -555,14 +585,60 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
 }
 
+/// @brief it should write no status for a configure that its cancel ended, so the
+/// start is answered as stopped.
+TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::CANCELLED, "bus start")},
+        "start_cmd",
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+}
+
+/// @brief it should report a cancel error as a failure while the start still runs.
+TEST(TestHandleConfigErr, testCancelErrorOfARunningStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    cancel.start();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::CANCELLED, "bus start")},
+        "start_cmd",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
+}
+
 /// @brief a config error should list each field error on its own line.
 TEST(TestHandleConfigErr, ListsFieldErrors) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     x::json::Parser parser(x::json::json::object());
     parser.field_err("device", "this field is required");
     parser.field_err("channels.0.port", "must be positive");
-    handle_config_err(ctx, task, {ConfigureResult{}, parser.error()}, "start_cmd");
+    cancel.start();
+    handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, parser.error()},
+        "start_cmd",
+        cancel
+    );
+    cancel.stop();
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
     EXPECT_EQ(
@@ -573,14 +649,18 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
 
 /// @brief a config error at boot with no auto-start should not write a status.
 TEST(TestHandleConfigErr, testErrorAtBootSilent) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
-        ""
+        "",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
@@ -589,16 +669,20 @@ TEST(TestHandleConfigErr, testErrorAtBootSilent) {
 /// @brief a config error at boot with auto-start requested should write an error
 /// status.
 TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.auto_start = true;
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {std::move(res), x::errors::Error(x::errors::VALIDATION, "bad config")},
-        ""
+        "",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
@@ -609,16 +693,20 @@ TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
 /// @brief a successful configure during a deploy should write no status. The start
 /// that follows it is what answers the command.
 TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.task = std::make_unique<RecordingTask>();
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {std::move(res), x::errors::NIL},
-        "start_cmd"
+        "start_cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
@@ -626,24 +714,29 @@ TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
 
 /// @brief a successful configure at boot should not write a status.
 TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.task = std::make_unique<RecordingTask>();
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {std::move(res), x::errors::NIL},
-        ""
+        "",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
 }
 
-/// @brief auto-start at boot should exec the start command instead of writing a
-/// configure status.
-TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
+/// @brief it should not auto-start a task that a start command deploys, so the start
+/// command starts it with its own key.
+TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
+    x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
@@ -651,16 +744,57 @@ TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     auto *raw = recording.get();
     res.task = std::move(recording);
     res.auto_start = true;
+    cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
         {std::move(res), x::errors::NIL},
-        ""
+        "start_cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
+    EXPECT_TRUE(raw->cmds.empty());
+}
+
+/// @brief auto-start at boot should show the task as starting, and then exec the start
+/// command.
+TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config_hash = "hash1"
+    };
+    ConfigureResult res;
+    auto recording = std::make_unique<RecordingTask>();
+    auto *raw = recording.get();
+    raw->ctx = ctx;
+    res.task = std::move(recording);
+    res.auto_start = true;
+    cancel.start();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL},
+        "",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(ctx->statuses[0].message, "Starting task");
+    EXPECT_EQ(ctx->statuses[0].name, "task1");
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "");
+    EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
+    EXPECT_FALSE(ctx->statuses[0].details.running);
     ASSERT_EQ(raw->cmds.size(), 1);
     EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
+    EXPECT_EQ(raw->statuses_at_exec, std::vector<size_t>{1});
 }
 }

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -70,9 +70,41 @@ const Move = (): ReactElement => (
   </Menu.Sub>
 );
 
-/** A menu at the left or the right edge of the window. */
+const LONG = Array.from({ length: 60 }, (_, i) => `option ${i}`);
+
+const Long = (): ReactElement => (
+  <Menu.Sub itemKey="long" textValue="Long">
+    <Menu.SubTrigger>Long</Menu.SubTrigger>
+    <Select.Frame<string, undefined>
+      multiple
+      virtual
+      data={LONG}
+      value={[]}
+      onChange={() => {}}
+    >
+      <Select.Dialog surface="menu" aria-label="Long">
+        <Select.Body<string> resourceName="option" onSearch={() => {}}>
+          {({ key, ...p }) => (
+            <Select.Item key={key} {...p}>
+              {key}
+            </Select.Item>
+          )}
+        </Select.Body>
+      </Select.Dialog>
+    </Select.Frame>
+  </Menu.Sub>
+);
+
+/**
+ * A menu at the left or the right edge of the window, low enough that a submenu has
+ * room to rise and level its first item.
+ */
 const Dropdown = ({ right = false }: { right?: boolean }): ReactElement => (
-  <Flex.Box x justify={right ? "end" : "start"} style={{ width: "100vw" }}>
+  <Flex.Box
+    x
+    justify={right ? "end" : "start"}
+    style={{ width: "100vw", paddingTop: 100 }}
+  >
     <Dialog.Frame initialVisible>
       <Dialog.Trigger>Filter</Dialog.Trigger>
       <Menu.Dialog aria-label="Filter">
@@ -137,18 +169,50 @@ describe("Menu.Sub", () => {
       );
     });
 
-    it("should meet the right edge of the menu", async () => {
+    it("should lap 4 px over the right edge of the menu", async () => {
       const sub = await open("Move");
-      expect(sub.getBoundingClientRect().left).toBe(
-        dialog("Filter").getBoundingClientRect().right,
-      );
+      expect(
+        dialog("Filter").getBoundingClientRect().right -
+          sub.getBoundingClientRect().left,
+      ).toBe(4);
     });
 
-    it("should meet the left edge of a menu with no room on its right", async () => {
+    it("should lap 4 px over the left edge of a menu with no room on its right", async () => {
       const sub = await open("Move", true);
-      expect(sub.getBoundingClientRect().right).toBe(
-        dialog("Filter").getBoundingClientRect().left,
+      expect(
+        sub.getBoundingClientRect().right -
+          dialog("Filter").getBoundingClientRect().left,
+      ).toBe(4);
+    });
+
+    it("should keep the first visible option of a scrolled list level with its item", async () => {
+      await renderThemed(
+        <Dialog.Frame initialVisible>
+          <Dialog.Trigger>Filter</Dialog.Trigger>
+          <Menu.Dialog aria-label="Filter" style={{ marginTop: 100 }}>
+            <Menu.Menu>
+              <Long />
+            </Menu.Menu>
+          </Menu.Dialog>
+        </Dialog.Frame>,
       );
+      await shown("Filter");
+      await userEvent.click(item("Long"));
+      const list = (await shown("Long")).querySelector('[role="listbox"]');
+      assert(list instanceof HTMLElement);
+      list.scrollTop = list.scrollHeight / 3;
+      const row = page.getByRole("option", { name: "option 20", exact: true });
+      await expect.element(row).toBeInTheDocument();
+      list.scrollTop += top(row.element()) - top(list);
+      await expect.poll(() => top(row.element())).toBe(top(list));
+      // A resize of the window places the submenu again.
+      await page.viewport(820, 600);
+      await expect.poll(() => top(row.element())).toBe(top(item("Long")));
+    });
+
+    it("should open with its first item level with its own item on the left", async () => {
+      await open("Move", true);
+      expect(top(item("Up"))).toBe(top(item("Move")));
     });
   });
 

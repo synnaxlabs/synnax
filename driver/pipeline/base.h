@@ -52,6 +52,11 @@ protected:
     ):
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
+    /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
+    /// such as a hardware read. Called by a stop() from another thread that stops the
+    /// breaker, before it joins the pipeline thread.
+    virtual void interrupt() {}
+
 public:
     virtual ~Base() = default;
 
@@ -85,9 +90,11 @@ public:
     /// the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
-        if (this->thread.get_id() != std::this_thread::get_id() &&
-            this->thread.joinable())
-            this->thread.join();
+        if (this->thread.get_id() == std::this_thread::get_id() ||
+            !this->thread.joinable())
+            return stopped;
+        if (stopped) this->interrupt();
+        this->thread.join();
         return stopped;
     }
 

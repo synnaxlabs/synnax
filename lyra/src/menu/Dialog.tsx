@@ -22,10 +22,7 @@ export interface DialogProps extends Base.DialogProps {}
 
 /** Props that give a dialog the surface of a menu. */
 export type SurfaceProps = Required<
-  Pick<
-    Base.DialogProps,
-    "ref" | "className" | "background" | "borderColor" | "rounded" | "pack"
-  >
+  Pick<Base.DialogProps, "ref" | "className" | "borderColor" | "rounded" | "pack">
 >;
 
 /**
@@ -42,7 +39,6 @@ export const useSurface = (
   const combinedRef = useCombinedRefs(ref, sub?.content);
   return {
     ref: combinedRef,
-    background: 2,
     borderColor: 6,
     rounded: "large",
     pack: false,

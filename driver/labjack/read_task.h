@@ -696,7 +696,9 @@ public:
     }
 
     /// @brief claims the device and applies the channel settings.
-    x::errors::Error start() override { return this->connect(); }
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->connect();
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -915,7 +917,9 @@ public:
     }
 
     /// @brief claims the device and starts the stream.
-    x::errors::Error start() override { return this->restart(); }
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->restart();
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -956,7 +960,8 @@ public:
         if (res.error = this->dev->e_stream_read(
                 this->interleaved_buf.data(),
                 &device_scan_backlog,
-                &ljm_scan_backlog
+                &ljm_scan_backlog,
+                breaker
             );
             res.error) {
             if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();

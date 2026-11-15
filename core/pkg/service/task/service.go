@@ -302,25 +302,44 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 	}
 	statuses := make([]Status, 0, len(tasks))
 	for i, tsk := range tasks {
-		// A task without a status has never reported running, so it gets no copy.
 		prev := reported[i]
-		if prev == nil || !prev.Details.Running {
+		if prev == nil {
+			continue
+		}
+		var (
+			variant     = rackStat.Variant
+			message     = "Task stopped responding"
+			description = fmt.Sprintf(
+				"The Core lost contact with the Driver on %s while the task was "+
+					"running.",
+				rackStat.Name,
+			)
+		)
+		switch {
+		case prev.Details.Running:
+		// A start in progress never ends once its Driver is gone, and the Console
+		// disables Start and Stop while a start is loading.
+		case prev.Variant == status.VariantLoading:
+			variant = status.VariantError
+			message = "Failed to start task"
+			description = fmt.Sprintf(
+				"The Core lost contact with the Driver on %s while the task was "+
+					"starting.",
+				rackStat.Name,
+			)
+		default:
 			continue
 		}
 		// A silent rack does not undo the deploy the Driver reported, so the config
 		// hash is carried across.
 		statuses = append(statuses, Status{
-			Key:     prev.Key,
-			Owner:   prev.Owner,
-			Time:    telem.Now(),
-			Name:    tsk.Name,
-			Variant: rackStat.Variant,
-			Message: "Task stopped responding",
-			Description: fmt.Sprintf(
-				"The Core lost contact with the Driver on %s while the task was "+
-					"running.",
-				rackStat.Name,
-			),
+			Key:         prev.Key,
+			Owner:       prev.Owner,
+			Time:        telem.Now(),
+			Name:        tsk.Name,
+			Variant:     variant,
+			Message:     message,
+			Description: description,
 			Details: StatusDetails{
 				ConfigHash: prev.Details.ConfigHash,
 				Rack:       rackKey,

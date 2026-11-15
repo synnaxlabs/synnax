@@ -443,6 +443,46 @@ describe("Select", () => {
     });
   });
 
+  describe("surface", () => {
+    it("should fill the dialog like a menu", async () => {
+      await renderThemed(
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={vi.fn()}
+          allowNone={false}
+          searchHidden
+        >
+          {LEVELS}
+        </Select.Simple>,
+      );
+      await userEvent.click(page.getByRole("button", { name: /^Level/ }));
+      const dialog = page.getByRole("dialog").element();
+      expect(computed(dialog, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
+    });
+
+    it("should keep the surface of a modal in a modal", async () => {
+      await renderThemed(
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={vi.fn()}
+          allowNone={false}
+          variant="modal"
+        >
+          {LEVELS}
+        </Select.Simple>,
+      );
+      await userEvent.click(page.getByRole("button", { name: /^Level/ }));
+      const dialog = page.getByRole("dialog").element();
+      expect(computed(dialog, "background-color")).toBe(
+        resolve("color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent)"),
+      );
+    });
+  });
+
   describe("in a modal", () => {
     it("should focus the trigger when Enter picks an option", async () => {
       const trigger = await openInModal();

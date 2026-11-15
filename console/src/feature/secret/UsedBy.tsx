@@ -9,26 +9,21 @@
 
 import { type certificate, type resource, type secret } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Resource, Secret } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, Suspense } from "react";
+import { location, state } from "@synnaxlabs/x";
+import { type ReactElement, Suspense, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
 
-/** Selects a certificate in the toolbar instead of opening it. */
+/** Shows a certificate that uses a secret. */
 export interface SelectCertificate {
   (key: certificate.Key): void;
 }
-
-/**
- * Suspends a read of the uses of a secret without a loading indicator. A failed read
- * reaches the toolbar boundary.
- */
-export const UsesBoundary = ({ children }: PropsWithChildren): ReactElement => (
-  <Suspense fallback={null}>{children}</Suspense>
-);
 
 const NO_USES: resource.ID[] = [];
 
@@ -46,7 +41,7 @@ const useUses = (key: secret.Key): resource.ID[] =>
  * Returns the count of the resources that use the secret and that the caller can read,
  * or zero while the uses load or after their read fails. Never suspends or throws.
  */
-export const useUsesCount = (key: secret.Key): number =>
+const useUsesCount = (key: secret.Key): number =>
   Secret.useResultMultiple(ALL_USES).data?.find((s) => s.key === key)?.uses?.length ??
   0;
 
@@ -64,7 +59,7 @@ const Use = ({ resource, onSelectCertificate }: UseProps): ReactElement => {
       size="small"
       justify="start"
       full="x"
-      className={CSS.BE("credentials", "resource")}
+      className={CSS.BE("secret-settings", "resource")}
       onClick={onClick}
     >
       {Item.icon(resource)}
@@ -87,7 +82,7 @@ interface UsesProps extends Pick<UseProps, "onSelectCertificate"> {
 }
 
 const Unused = (): ReactElement => (
-  <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
+  <Text.Text level="small" color={9} className={CSS.BE("secret-settings", "unused")}>
     Nothing uses this secret.
   </Text.Text>
 );
@@ -97,7 +92,7 @@ const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
   const resources = Resource.useMultiple({ ids });
   if (resources.length === 0) return <Unused />;
   return (
-    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
+    <Flex.Box y empty className={CSS.BE("secret-settings", "resources")}>
       {resources.map((r) => (
         <Use
           key={`${r.id.type}:${r.id.key}`}
@@ -109,16 +104,124 @@ const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
   );
 };
 
-export interface UsedByProps extends Pick<UseProps, "onSelectCertificate"> {
+interface UsedByProps extends Pick<UseProps, "onSelectCertificate"> {
   secretKey: secret.Key;
 }
 
 /** Lists the resources that use a secret. Suspends while they load. */
-export const UsedBy = ({
-  secretKey,
-  onSelectCertificate,
-}: UsedByProps): ReactElement => {
+const UsedBy = ({ secretKey, onSelectCertificate }: UsedByProps): ReactElement => {
   const uses = useUses(secretKey);
   if (uses.length === 0) return <Unused />;
   return <Uses ids={uses} onSelectCertificate={onSelectCertificate} />;
+};
+
+const POPOVER_LOCATION = {
+  targetCorner: location.BOTTOM_RIGHT,
+  dialogCorner: location.TOP_RIGHT,
+};
+
+// How long the popover stays open after the pointer leaves, so the pointer can cross
+// the gap from the count to the popover.
+const HOVER_CLOSE_DELAY = 150;
+
+/** Returns the ID of the popover that lists the uses of a secret. */
+export const usedByDialogID = (key: secret.Key): string => `used-by-${key}`;
+
+type PopoverMode = "hover" | "pinned" | null;
+
+interface CountProps extends Pick<
+  Button.ButtonProps,
+  "onPointerEnter" | "onPointerLeave" | "onClick"
+> {
+  secretKey: secret.Key;
+}
+
+const Count = ({ secretKey, ...rest }: CountProps): ReactElement | null => {
+  const count = useUsesCount(secretKey);
+  if (count === 0) return null;
+  return (
+    <Button.Button
+      {...rest}
+      variant="text"
+      size="small"
+      textColor={9}
+      onDoubleClick={stopPropagation}
+    >
+      Used by {count}
+    </Button.Button>
+  );
+};
+
+export interface UsedByPopoverProps {
+  secretKey: secret.Key;
+  onSelectCertificate: SelectCertificate;
+  /** The element the popover opens below. */
+  anchor: HTMLElement | null;
+}
+
+/**
+ * The count of the resources that use a secret. Hovering or clicking it opens a
+ * popover that lists them, as does {@link usedByDialogID} through `Dialog.open`.
+ */
+export const UsedByPopover = ({
+  secretKey,
+  anchor,
+  onSelectCertificate,
+}: UsedByPopoverProps): ReactElement => {
+  const [mode, setMode] = useState<PopoverMode>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(
+      () => setMode((m) => (m === "hover" ? null : m)),
+      HOVER_CLOSE_DELAY,
+    );
+  };
+  const handleEnter = () => {
+    cancelClose();
+    setMode((m) => m ?? "hover");
+  };
+  const handleVisibleChange = (arg: state.SetArg<boolean>) =>
+    setMode((m) => (state.executeSetter(arg, m != null) ? "pinned" : null));
+  const handleSelectCertificate = (key: certificate.Key) => {
+    setMode(null);
+    onSelectCertificate(key);
+  };
+  return (
+    <Dialog.Frame
+      id={usedByDialogID(secretKey)}
+      anchor={anchor}
+      visible={mode != null}
+      onVisibleChange={handleVisibleChange}
+      location={POPOVER_LOCATION}
+    >
+      <Count
+        secretKey={secretKey}
+        onPointerEnter={handleEnter}
+        onPointerLeave={scheduleClose}
+        onClick={() => setMode("pinned")}
+      />
+      <Dialog.Dialog
+        background={1}
+        rounded="medium"
+        className={CSS.BE("secret-settings", "popover")}
+        onPointerEnter={cancelClose}
+        onPointerLeave={mode === "hover" ? scheduleClose : undefined}
+        onClick={stopPropagation}
+      >
+        <Text.Text
+          level="small"
+          color={9}
+          className={CSS.BE("secret-settings", "label")}
+        >
+          Used by
+        </Text.Text>
+        <Suspense fallback={null}>
+          <UsedBy secretKey={secretKey} onSelectCertificate={handleSelectCertificate} />
+        </Suspense>
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  );
 };
