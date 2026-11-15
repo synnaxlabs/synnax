@@ -20,13 +20,13 @@ state color or binds a color by position. This RFC replaces the library items se
 ## 1 Motivation
 
 - **State colors are copies**: Each select, state indicator, light, and custom symbol
-  state keeps its own colors (`schemas/synnax/schematic.oracle:300-316`, `:477`;
+  state keeps its own colors (`schemas/synnax/schematic.oracle:312-328`, `:489`;
   `schemas/synnax/symbol.oracle:24-63`). A new fault red is an edit to every symbol.
 - **A pick stores paint**: A swatch click stores a literal, also for a theme preset
   (`lyra/src/color/Swatches.tsx:50-56`, `:121`).
 - **Plot colors follow position**: A line with no color takes `palette[index % length]`
   (`pluto/src/lineplot/queries.ts:105-114`), so a removed line repaints the lines after
-  it. Both themes share one 14-color list (`lyra/src/theme/theme.ts:250-268`), and 10 of
+  it. Both themes share one 14-color list (`lyra/src/theme/theme.ts:250-265`), and 10 of
   the 14 are under 3:1 contrast on the light canvas.
 
 ## 2 Vocabulary
@@ -45,7 +45,7 @@ state color or binds a color by position. This RFC replaces the library items se
 1. **One place for each fact**: A symbol holds the key of an enum, never a copy of its
    colors.
 2. **Bind by key**: Never by position, name, or hash.
-3. **A delete never changes the screen**: A deleted named color stays as a fixed color.
+3. **A delete leaves every user colored**: A deleted named color stays as a fixed color.
    An enum in use refuses the delete.
 4. **Absent means the theme picks**: RFC 0061 rule 1 holds for every color reference.
 5. **Warn, never block**: Some sites use red for closed on purpose.
@@ -57,8 +57,9 @@ state color or binds a color by position. This RFC replaces the library items se
 A named color holds a required `light` and an optional `dark` `color.Color`. The values
 are opaque: a stroke uses the color at full strength, and a fill uses a tint. An absent
 dark value comes from the RFC 0061 band. A stored dark value also sets lightness, which
-deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60`). The
-picker shows the groups that its caller passes.
+deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60`). Lyra
+stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its caller
+passes, and the picker shows the groups that its caller passes.
 
 Built-in named colors are normal records with fixed keys. The Core makes them at
 startup, as it makes built-in roles
@@ -79,7 +80,10 @@ that takes a color. A named color delete is never refused. The `named` key decla
 `@ref on_delete inline` once, inside the union. Before Gorp removes the color, a
 generated function for each reference sets each union that names it to
 `target.Inline()`, a hand-written method on the color record that returns the `fixed`
-variant.
+variant. Each holder's service sends the rewritten record to open Consoles from its
+rewrite hook, as line plots do for a detached channel
+(`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for enums uses the
+same hook.
 
 ### 4.2 Enums
 
@@ -110,8 +114,8 @@ A value that matches no entry shows one unknown look and the raw value. The look
 Core-wide setting that points at a named color, by default the built-in "Unknown".
 
 The light keeps its threshold (`pluto/src/schematic/node/common/telem/telem.ts:16`) and
-gets the built-in "Light" enum (Off 0, On 1). Its `stroke_color`, redline bands, and
-`staleness_color` stay look colors.
+gets the built-in "Light" enum (Off 0, On 1). Its `stroke_color` and `staleness_color`
+stay look colors.
 
 ### 4.4 Series colors
 
@@ -131,21 +135,26 @@ The schematic cutover is one migration in one release:
 
 - Each inline state list becomes an enum. Exact duplicates share one. Lists that differ
   stay separate, and "Replace with..." merges them later.
-- A symbol gets an `enum` key only when it had its own state colors. The old fields are
-  removed.
+- A symbol gets an `enum` key when it had its own state list or its own state colors.
+  The old fields are removed.
 - In a custom symbol, the regions move up to the drawing. A region with one color in
   each state keeps it as a look color. A region whose color changes gets a mark, and its
   colors move to the entries. When two changing regions differ in one state, the first
   wins and the Core logs the symbol name.
 - Each light `on_color` moves to the On entry of an enum.
-- Imports take the same path, as panel composition does
-  (`core/pkg/service/panel/versions/v0/composition.go:41-55`).
+- The upgrade runs as a composition migration, as panels do
+  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import creates its
+  enums with the same rules in the transaction of its write closure
+  (`core/pkg/service/schematic/imex.go:45-64`).
 
 Until the cutover, an in-memory adapter reads stored custom symbols in the new format.
 The cutover deletes it.
 
 The line plot migration stores the color that each uncolored line and rule shows today
-as `fixed`. The old 14 colors are frozen in the migration's version package.
+as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
+record that moves to `color.Ref` (phases 25 to 31) mints a version (RFC 0053) that
+stores each old color as `fixed`, and its hand-written client code writes the union
+(`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
 
 ## 5 What this RFC does not cover
 
@@ -155,47 +164,47 @@ as `fixed`. The old 14 colors are frozen in the migration's version package.
 
 ## 6 Implementation phases
 
-PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`),
-#5622 (color-blind simulation), #5623 (`luminance` rounding), #5624 (unused
-`color.Palette`), #5625 (WCAG contrast), #5626 (custom strokes through the band), and
-#5627 (table cells in rows) are merged. #5632 (`on_delete inline` in Oracle) is open.
+PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`), #5622
+(color-blind simulation), #5623 (`luminance` rounding), #5624 (unused `color.Palette`),
+#5625 (WCAG contrast), #5626 (custom strokes through the band), and #5627 (table cells
+in rows) are merged. #5632 (`on_delete inline` in Oracle) is open.
 
 Phases 9, 16, and 21 ship behind one flag in `console/src/flags.ts`. Phases 10 and 11
 ship in one release, and phases 19 to 22 in one release after the symbol consolidation.
 
-| Phase | Scope                                                     | Touches                                                        | Depends on |
-| ----- | --------------------------------------------------------- | -------------------------------------------------------------- | ---------- |
-| 1     | Add a Gorp retarget that rewrites every reference         | `x/go/gorp`                                                    | -          |
-| 2     | Add the named color record and the color reference        | `schemas/synnax`, `core/pkg/service/color`                     | -          |
-| 3     | Add the named color API, access, search, and signals      | `core/pkg/api/color`, `core/pkg/service/color`                 | 2          |
-| 4     | Add built-in named colors with sparse user changes        | `core/pkg/service/color`                                       | 3          |
-| 5     | Turn a deleted named color into the fixed color it showed | `schemas/synnax`, `core/pkg/service/color`                     | 2          |
-| 6     | Add named colors to the clients and Pluto queries         | `client/ts`, `client/py`, `pluto/src/color`                    | 3          |
-| 7     | Resolve a named color for the theme mode in Lyra          | `lyra/src/theme`, `lyra/src/color`                             | 6          |
-| 8     | Store a color reference from the color picker             | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`         | 7          |
-| 9     | Add the Console named color toolbar and editor            | `console/src/feature/color`, `console/src/flags.ts`            | 5, 8       |
-| 10    | Store color references on line plot lines and rules       | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`     | 4          |
-| 11    | Resolve and write line color references in Pluto          | `pluto/src/lineplot`, `console/src/feature/lineplot`           | 7, 10      |
-| 12    | Read every data color from the series colors              | `lyra/src/theme`, `pluto/src`                                  | 7          |
-| 13    | Add the enum record                                       | `schemas/synnax`, `core/pkg/service/enum`                      | 2          |
-| 14    | Add the enum API, used-by list, and built-in enums        | `core/pkg/api/enum`, `core/pkg/service/enum`                   | 4, 13      |
-| 15    | Add enums to the clients and Pluto queries                | `client/ts`, `client/py`, `pluto/src/enum`                     | 14         |
-| 16    | Add the Console enum editor with its checks               | `console/src/feature/enum`                                     | 9, 15      |
-| 17    | Add Replace with for enums                                | `core/pkg/api/enum`, `console/src/feature/enum`                | 1, 16      |
-| 18    | Add the Core-wide unknown color setting                   | `core/pkg/service`, `console/src/feature`                      | 4          |
-| 19    | Add enum references and marks to state symbols            | `schemas/synnax`, `core/pkg/service/schematic`                 | 13         |
-| 20    | Paint state symbols from their enum in Pluto              | `pluto/src/schematic`                                          | 15, 19     |
-| 21    | Add the enum picker to the symbol forms                   | `console/src/feature/schematic`                                | 16, 19     |
-| 22    | Migrate inline state colors to enums                      | `core/pkg/service/schematic`, `pluto/src/schematic`, `console` | 20, 21     |
-| 23    | Delete the named colors and enums flag                    | `console/src/flags.ts`                                         | 22         |
-| 24    | Carry color references in multi-edit                      | `console/src/platform/multiedit`                               | 8          |
-| 25    | Store color references in schematic look colors           | `schemas/synnax`, `core/pkg/service/schematic`                 | 5, 24      |
-| 26    | Store color references in table colors                    | `schemas/synnax`, `core/pkg/service/table`                     | 5, 24      |
-| 27    | Store color references in log colors                      | `schemas/synnax`, `core/pkg/service/log`                       | 5, 24      |
-| 28    | Store color references in label colors                    | `schemas/synnax`, `core/pkg/service/label`                     | 5, 24      |
-| 29    | Store color references in range colors                    | `schemas/synnax`, `core/pkg/service/ranger`, `driver/arc`      | 5, 24      |
-| 30    | Store color references in panel colors                    | `schemas/synnax`, `core/pkg/service/panel`                     | 5, 24      |
-| 31    | Store color references in custom symbol look colors       | `schemas/synnax`, `core/pkg/service/schematic/symbol`          | 5, 24      |
+| Phase | Scope                                                     | Touches                                                                             | Depends on |
+| ----- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------- |
+| 1     | Add a Gorp retarget that rewrites every reference         | `x/go/gorp`                                                                         | -          |
+| 2     | Add the named color record and the color reference        | `schemas/synnax`, `core/pkg/service/color`                                          | -          |
+| 3     | Add the named color API, access, search, and signals      | `core/pkg/api/color`, `core/pkg/service/color`                                      | 2          |
+| 4     | Add built-in named colors with sparse user changes        | `core/pkg/service/color`                                                            | 3          |
+| 5     | Turn a deleted named color into the fixed color it showed | `schemas/synnax`, `core/pkg/service/color`                                          | 2          |
+| 6     | Add named colors to the clients and Pluto queries         | `client/ts`, `client/py`, `pluto/src/color`                                         | 3          |
+| 7     | Resolve a light and dark pair for the theme mode in Lyra  | `lyra/src/theme`, `lyra/src/color`                                                  | -          |
+| 8     | Store a color reference from the color picker             | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7          |
+| 9     | Add the Console named color toolbar and editor            | `console/src/feature/color`, `console/src/flags.ts`                                 | 5, 6, 8    |
+| 10    | Store color references on line plot lines and rules       | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                          | 4          |
+| 11    | Resolve and write line color references in Pluto          | `pluto/src/lineplot`, `console/src/feature/lineplot`                                | 6, 7, 10   |
+| 12    | Read every data color from the series colors              | `lyra/src/theme`, `pluto/src`                                                       | 4, 6, 7    |
+| 13    | Add the enum record                                       | `schemas/synnax`, `core/pkg/service/enum`                                           | 2          |
+| 14    | Add the enum API, used-by list, and built-in enums        | `core/pkg/api/enum`, `core/pkg/service/enum`                                        | 4, 13      |
+| 15    | Add enums to the clients and Pluto queries                | `client/ts`, `client/py`, `pluto/src/enum`                                          | 14         |
+| 16    | Add the Console enum editor with its checks               | `console/src/feature/enum`                                                          | 9, 15      |
+| 17    | Add Replace with for enums                                | `core/pkg/api/enum`, `console/src/feature/enum`                                     | 1, 16      |
+| 18    | Add the Core-wide unknown color setting                   | `core/pkg/service`, `console/src/feature`                                           | 4          |
+| 19    | Add enum references and marks to state symbols            | `schemas/synnax`, `core/pkg/service/schematic`                                      | 13         |
+| 20    | Paint state symbols from their enum in Pluto              | `pluto/src/schematic`                                                               | 15, 19     |
+| 21    | Add the enum picker to the symbol forms                   | `console/src/feature/schematic`                                                     | 16, 19     |
+| 22    | Migrate inline state colors to enums                      | `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                      | 20, 21     |
+| 23    | Delete the named colors and enums flag                    | `console/src/flags.ts`                                                              | 22         |
+| 24    | Carry color references in multi-edit                      | `console/src/platform/multiedit`                                                    | 8          |
+| 25    | Store color references in schematic look colors           | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`            | 5, 24      |
+| 26    | Store color references in table colors                    | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                | 5, 24      |
+| 27    | Store color references in log colors                      | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                  | 5, 24      |
+| 28    | Store color references in label colors                    | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                | 5, 24      |
+| 29    | Store color references in range colors                    | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc` | 5, 24      |
+| 30    | Store color references in panel colors                    | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 5, 24      |
+| 31    | Store color references in custom symbol look colors       | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `client/ts`, `client/py`     | 5, 24      |
 
 Phases 4 and 18 are new patterns: no record stores sparse user changes, and the Core has
 no settings store. In phase 29, the Driver writes range colors
@@ -207,14 +216,14 @@ no settings store. In phase 29, the Driver writes range colors
    enum adds a third record and a map that follows every entry edit. The trade is real:
    two conventions for one set of states need two enums.
 2. **A required light value and an optional dark value**: The band cannot rotate hue;
-   yellow goes olive when only darkened (`lyra/src/theme/theme.ts:190-191`). The trade
+   yellow goes olive when only darkened (`lyra/src/theme/theme.ts:189-190`). The trade
    is real: a dark value deviates from RFC 0061 rule 4.
 3. **A symbol stores only its enum**: A per-state override brings the copies back.
 4. **One unknown look for the Core**: A look for each user, enum, or symbol lets a data
    fault look like a valid state on another screen.
 5. **Series colors by first unused key**: An index repaints on a remove. A hash gives a
    4-line plot a shared color 59% of the time with 8 colors.
-6. **A deleted named color becomes fixed**: Nothing changes on screen, as with a deleted
+6. **A deleted named color becomes fixed**: Each user keeps the color, as with a deleted
    Figma style
    ([Figma](https://webcf.waybackmachine.org/web/20210815191134/https://help.figma.com/hc/en-us/articles/360039238753-Styles-in-Figma)).
    One `on_delete inline` rule on the key serves every holder. A rule set by the holding
@@ -224,7 +233,8 @@ no settings store. In phase 29, the Driver writes range colors
    that hides a color but keeps its users, as Linear does for labels, can come later if
    users ask.
 7. **A `fixed` reference keeps one value**: A deleted color inlines its light value, and
-   the symbol lightness band adapts it on schematic symbols.
+   the symbol lightness band adapts it on schematic symbols. The trade is real: in the
+   dark theme, a deleted color with a dark value shows its light value.
 8. **An enum in use refuses the delete**: A symbol with no enum loses its states.
 9. **Built-ins are editable, with sparse changes**: Copy-to-edit makes each site keep a
    copy. Overwrite at startup erases edits on each release.
