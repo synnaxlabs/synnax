@@ -416,6 +416,8 @@ var _ = Describe("Import CSV", func() {
 		),
 		Entry("an invalid byte order", header+"m,,,,a,0,8,middle\n",
 			`row 2, column byte_order: invalid byte order "middle"`),
+		Entry("an invalid boolean", header+"m,0x100,maybe,,a,0,8\n",
+			`row 2, column extended: invalid boolean "maybe"`),
 		Entry(
 			"an invalid kind",
 			header+"m,,,,a,0,8,,string\n",
