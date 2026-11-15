@@ -32,8 +32,8 @@ import { type position } from "@/position";
 const MENU_ITEM = '[role="menuitem"]';
 const LIST = '[role="listbox"]';
 
-// The content opens beside the item, on the side that has room. The item sits inside
-// the padding of its menu, so the content laps over the edge of the menu.
+// The content opens beside the item, on the side that has room. It laps 4 px over the
+// menu edge: padding 6 + border 1 - frame offset 3.
 const LOCATION: position.LocationPreference = {
   targetCorner: { y: "top" },
   dialogCorner: { y: "top" },
