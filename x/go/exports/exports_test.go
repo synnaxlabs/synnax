@@ -90,6 +90,17 @@ var _ = Describe("Check", func() {
 	)
 
 	It(
+		"Should keep a method that an interface deep in a dependency declares",
+		func(ctx SpecContext) {
+			findings := summarize(MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})))
+			Expect(findings).ToNot(ContainElement(HaveField("Name", "Ping")))
+		},
+	)
+
+	It(
 		"Should check only the modules that the workspace does not add",
 		func(ctx SpecContext) {
 			findings := MustSucceed(exports.Check(ctx, exports.Config{
@@ -114,6 +125,32 @@ var _ = Describe("Check", func() {
 			HaveField("Name", "Read"),
 		)))
 	})
+
+	It(
+		"Should return an error when it cannot create the workspace",
+		func(ctx SpecContext) {
+			notDir := filepath.Join(GinkgoT().TempDir(), "file")
+			Expect(os.WriteFile(notDir, nil, 0o644)).To(Succeed())
+			setTempDir(notDir)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: create workspace directory")))
+		},
+	)
+
+	It(
+		"Should remove its workspace when a package fails to load",
+		func(ctx SpecContext) {
+			tmp := GinkgoT().TempDir()
+			setTempDir(tmp)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: []string{"testdata/missing"},
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: load packages")))
+			Expect(os.ReadDir(tmp)).To(BeEmpty())
+		},
+	)
 
 	It("Should return an error when a package fails to load", func(ctx SpecContext) {
 		Expect(exports.Check(ctx, exports.Config{
@@ -158,7 +195,7 @@ type edit struct{ file, old, new string }
 func copyModules(edits ...edit) string {
 	GinkgoHelper()
 	dir := GinkgoT().TempDir()
-	for _, m := range modules {
+	for _, m := range append(modules, "testdata/c") {
 		Expect(os.CopyFS(filepath.Join(dir, m), os.DirFS(m))).To(Succeed())
 	}
 	for _, e := range edits {

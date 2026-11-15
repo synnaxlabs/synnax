@@ -124,6 +124,7 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      exports_go: ${{ steps.filter.outputs.exports_go }}
       exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
@@ -615,17 +616,20 @@ jobs:
   # reports every finding each night.
   exports-go:
     needs: changes
-    if: ${{ !inputs.full && needs.changes.outputs.exports_go == 'true' }}
+    if:
+      ${{ !inputs.full && (needs.changes.outputs.exports_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')) }}
     runs-on: ubuntu-latest
     env:
+      # The proxy drops streams at times, so a failed fetch falls back to the source.
+      GOPROXY: https://proxy.golang.org|direct
       MODULES: >-
-        alamos/go arc/go aspen cesium core freighter/go freighter/integration gorp
-        oracle x/go
+        alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
     steps:
       # The first parent is the code the change applies to: the target branch of a pull
       # request, or the merge group entries ahead.
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
 
@@ -646,13 +650,20 @@ jobs:
         if: steps.modules.outputs.affected != ''
         run: git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
 
+      # The check compiles nothing, and the modules download faster than a cache
+      # restores.
       - name: Set up Go
         if: steps.modules.outputs.affected != ''
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: x/go/go.mod
-          # The check type checks from source, so a build cache saves it nothing.
           cache: false
+
+      - name: Download the Go modules
+        if: steps.modules.outputs.affected != ''
+        run: |
+          # shellcheck disable=SC2086
+          .github/scripts/go_mod_download.sh $MODULES
 
       - name: Build the check
         if: steps.modules.outputs.affected != ''
@@ -1335,6 +1346,7 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
+      - exports-go
       - exports-py
       - format
       - foundation

@@ -239,7 +239,11 @@ func inBase(base string, modules []string) ([]string, error) {
 }
 
 func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
-	work, err := writeWorkspace(slices.Concat(cfg.Modules, cfg.Workspace))
+	modules, err := absolute(cfg.Modules)
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := absolute(cfg.Workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +257,7 @@ func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 			err = errors.Wrap(rmErr, "exports: remove workspace directory")
 		}
 	}()
-	work, err := writeWorkspace(dir, modules)
+	work, err := writeWorkspace(dir, slices.Concat(modules, workspace))
 	if err != nil {
 		return nil, err
 	}
@@ -325,13 +329,9 @@ func writeWorkspace(dir string, modules []string) (string, error) {
 	fmt.Fprintf(&b, "go %s\n\nuse (\n", strings.TrimPrefix(runtime.Version(), "go"))
 	used := set.Set[string]{}
 	for _, m := range modules {
-		abs, err := filepath.Abs(m)
-		if err != nil {
-			return "", errors.Wrapf(err, "exports: resolve module %s", m)
-		}
-		if !used.Contains(abs) {
-			used.Add(abs)
-			fmt.Fprintf(&b, "\t%q\n", abs)
+		if !used.Contains(m) {
+			used.Add(m)
+			fmt.Fprintf(&b, "\t%q\n", m)
 		}
 	}
 	b.WriteString(")\n")
