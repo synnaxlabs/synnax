@@ -14,7 +14,6 @@ import { describe, expect, it } from "vitest";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
-import { nodeText } from "@/menu/filter";
 import { Triggers } from "@/triggers";
 
 const ITEMS = (
@@ -79,19 +78,6 @@ const shown = (): string[] =>
 const focused = (): string | null | undefined => document.activeElement?.textContent;
 
 describe("menu filter", () => {
-  describe("nodeText", () => {
-    it("should read the text through elements and skip icons", () => {
-      const node = (
-        <>
-          <Icon.Search />
-          <span>Copy </span>
-          link {2}
-        </>
-      );
-      expect(nodeText(node)).toBe("Copy link 2");
-    });
-  });
-
   describe("context menu", () => {
     it("should show every item before a key is typed", () => {
       open();
@@ -103,6 +89,20 @@ describe("menu filter", () => {
       open();
       type("RE");
       expect(shown()).toEqual(["Rename", "Remove"]);
+    });
+
+    it("should match an item on the text inside its elements", () => {
+      open(
+        <Menu.Menu>
+          <Menu.Item itemKey="copy">
+            <Icon.Search />
+            <span>Copy </span>
+            link {2}
+          </Menu.Item>
+        </Menu.Menu>,
+      );
+      type("copy link 2");
+      expect(shown()).toEqual(["Copy link 2"]);
     });
 
     it("should match an item on its textValue", () => {
