@@ -1,0 +1,59 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+
+# Posts to Slack when a scheduled run fails. Test - HITL and Check - Runners post their
+# own failures, because their messages carry more than a link.
+name: Report - Failures
+
+on:
+  workflow_run:
+    workflows:
+      - Agent - Bug hunt
+      - Agent - Console QA
+      - Agent - Lint
+      - Agent - Nightly
+      - Agent - Shepherd
+      - Check - Rulesets
+      - CodeQL
+      - Dispatch - Agents
+      - Fuzz - Go
+      - Nightly
+      - Relay - Sweep
+      - Report - Agents
+      - Report - Sedosaur
+      - Security
+      - Sync - Runner webhook ranges
+      - Warm - Browsers
+      - Warm - Windows
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  report:
+    name: Report
+    if: >-
+      github.event.workflow_run.event == 'schedule' &&
+      contains(fromJSON('["failure", "timed_out", "startup_failure"]'),
+      github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the failure to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          text="Scheduled run of $WORKFLOW ended in $CONCLUSION: $RUN_URL"
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
