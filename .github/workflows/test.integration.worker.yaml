@@ -175,6 +175,29 @@ jobs:
           uv run test-conductor --name tc_unix \
             --core-binary "$HOME/synnax-binaries/synnax" "${args[@]}"
 
+      # A conductor that fails before it writes a bundle, which holds the Core log,
+      # leaves no evidence. The upload below takes this copy instead.
+      - name: Copy Core log (Windows)
+        if: failure() && runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $log = "$env:USERPROFILE\synnax-data\synnax-core.log"
+          $bundled = Test-Path integration/tests/results/run-*
+          if ((Test-Path $log) -and -not $bundled) {
+            New-Item -ItemType Directory -Force integration/tests/results | Out-Null
+            Copy-Item $log integration/tests/results/
+          }
+
+      - name: Copy Core log (Ubuntu)
+        if: failure() && runner.os == 'Linux'
+        run: |
+          log="$HOME/synnax-data/synnax-core.log"
+          if [ -f "$log" ] && ! compgen -G "integration/tests/results/run-*" > /dev/null
+          then
+            mkdir -p integration/tests/results
+            cp "$log" integration/tests/results/
+          fi
+
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use
         continue-on-error: true
