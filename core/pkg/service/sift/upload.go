@@ -264,6 +264,11 @@ func (u *uploader) schedule(ctx context.Context) error {
 	// starting again.
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	// Close cancels ctx before a stopped upload leaves u.running, so this check keeps
+	// that upload from starting again.
+	if ctx.Err() != nil {
+		return nil
+	}
 	var pending []UploadStatus
 	if err := u.cfg.Status.NewRetrieve[UploadDetails]().
 		WherePrefix(uploadKeyPrefix).
