@@ -72,17 +72,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		distinctTypes := c.distinct.Get(outputPath)
 		unions := c.unions.Get(outputPath)
 
-		var namespace string
+		var filePath string
 		if len(structs) > 0 {
-			namespace = structs[0].Namespace
+			filePath = structs[0].FilePath
 		} else if len(distinctTypes) > 0 {
-			namespace = distinctTypes[0].Namespace
+			filePath = distinctTypes[0].FilePath
 		} else {
-			namespace = unions[0].Namespace
+			filePath = unions[0].FilePath
 		}
 
 		content, err := p.generateFile(
-			outputPath, structs, distinctTypes, unions, namespace, c.jsonPaths, req,
+			outputPath, structs, distinctTypes, unions, filePath, c.jsonPaths, req,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
@@ -189,7 +189,7 @@ func (p *Plugin) generateFile(
 	structs []resolution.Type,
 	distinctTypes []resolution.Type,
 	unions []resolution.Type,
-	namespace string,
+	filePath string,
 	jsonPaths set.Set[string],
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -201,7 +201,7 @@ func (p *Plugin) generateFile(
 		Manager:       includes.NewManager(),
 		table:         req.Resolutions,
 		jsonPaths:     jsonPaths,
-		rawNs:         namespace,
+		filePath:      filePath,
 	}
 
 	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
@@ -279,7 +279,7 @@ func (p *Plugin) resolveExtendsType(
 ) string {
 	name := domain.GetName(parent, "cpp")
 
-	if parent.Namespace != data.rawNs {
+	if parent.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -499,7 +499,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		target, _, ok := resolution.Dealias(typeRef, data.table)
 		_, isStruct := target.Form.(resolution.StructForm)
-		if ok && isStruct && target.Namespace != data.rawNs {
+		if ok && isStruct && target.FilePath != data.filePath {
 			if path := output.GetPath(target, "cpp"); path != "" {
 				data.AddInternal(data.jsonInclude(path))
 			}
@@ -508,7 +508,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 	name := domain.GetName(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			var includePath string
@@ -589,7 +589,7 @@ func (p *Plugin) parseExprForField(
 			if _, wraps := arrays.Wrapped(form, data.table); wraps {
 				resolved, _ := typeRef.Resolve(data.table)
 				wrapperType := domain.GetName(resolved, "cpp")
-				if resolved.Namespace != data.rawNs {
+				if resolved.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -637,7 +637,7 @@ func (p *Plugin) parseExprForField(
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				structType := domain.GetName(elemResolved, "cpp")
-				if elemResolved.Namespace != data.rawNs {
+				if elemResolved.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -677,7 +677,7 @@ func (p *Plugin) parseExprForField(
 			}
 			if union, ok := dealiasUnion(elemType, data.table); ok {
 				parseFn := "parse_" + lo.SnakeCase(domain.GetName(union, "cpp"))
-				if union.Namespace != data.rawNs {
+				if union.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(union, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -736,7 +736,7 @@ func (p *Plugin) parseExprForField(
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
 			enumType := domain.GetName(resolved, "cpp")
-			if resolved.Namespace != data.rawNs {
+			if resolved.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -767,7 +767,7 @@ func (p *Plugin) parseExprForField(
 		}
 		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			structType := domain.GetName(resolved, "cpp")
-			if resolved.Namespace != data.rawNs {
+			if resolved.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -806,7 +806,7 @@ func (p *Plugin) parseExprForField(
 		if union, ok := dealiasUnion(typeRef, data.table); ok {
 			unionType := domain.GetName(union, "cpp")
 			parseFn := "parse_" + lo.SnakeCase(unionType)
-			if union.Namespace != data.rawNs {
+			if union.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -850,7 +850,7 @@ func (p *Plugin) parseExprForField(
 			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
 				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
-					if resolved.Namespace != data.rawNs {
+					if resolved.FilePath != data.filePath {
 						targetOutputPath := output.GetPath(resolved, "cpp")
 						if targetOutputPath != "" {
 							ns := cppnaming.Namespace(targetOutputPath)
@@ -972,8 +972,8 @@ func (p *Plugin) compositeFallback(
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 	return defaults.Renderer{
-		Table:     data.table,
-		Namespace: data.rawNs,
+		Table:    data.table,
+		FilePath: data.filePath,
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
@@ -1123,7 +1123,7 @@ func (p *Plugin) toJSONExprForField(
 				// Qualify the free to_json: unqualified lookup inside a member
 				// to_json() finds the member and never reaches the overload.
 				qualifier := "::" + data.Namespace
-				if elem.Namespace != data.rawNs {
+				if elem.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(elem, "cpp")
 					if targetOutputPath != "" {
 						data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -1189,7 +1189,7 @@ func (p *Plugin) toJSONExprForField(
 			// Qualify the free to_json: unqualified lookup inside a member to_json()
 			// finds the member and never reaches the overload.
 			qualifier := "::" + data.Namespace
-			if union.Namespace != data.rawNs {
+			if union.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -1424,7 +1424,7 @@ type templateData struct {
 	jsonPaths     set.Set[string]
 	OutputPath    string
 	Namespace     string
-	rawNs         string
+	filePath      string
 	Serializers   []serializerData
 	ArrayWrappers []arrayWrapperData
 	Unions        []unionDispatchData
