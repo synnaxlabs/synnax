@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -245,6 +245,8 @@ describe("Schematic.Node.changeConfig", () => {
   });
 });
 
+const fieldPath = deep.path<Record<string, number>>();
+
 describe("Schematic.Node.REGISTRY forms", () => {
   it.each([
     {
@@ -319,7 +321,7 @@ describe("Schematic.Node.REGISTRY forms", () => {
       if (input == null) throw new Error(`expected a ${label} input`);
       fireEvent.change(input, { target: { value: typed } });
       fireEvent.blur(input);
-      expect(value(field)).toBe(expected);
+      expect(value(fieldPath[field])).toBe(expected);
     },
   );
 });
