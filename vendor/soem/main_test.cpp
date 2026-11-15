@@ -123,6 +123,31 @@ Bytes upload_reply(
     };
 }
 
+/// @brief returns the SDO abort reply for index:sub_index with code.
+Bytes abort_reply(const uint16_t index, const uint8_t sub_index, const uint32_t code) {
+    return {
+        10,
+        0,
+        0,
+        0,
+        0,
+        ECT_MBXT_COE,
+        0x00,
+        ECT_COES_SDOREQ << 4,
+        ECT_SDO_ABORT,
+        static_cast<uint8_t>(index & 0xFF),
+        static_cast<uint8_t>(index >> 8),
+        sub_index,
+        static_cast<uint8_t>(code & 0xFF),
+        static_cast<uint8_t>((code >> 8) & 0xFF),
+        static_cast<uint8_t>((code >> 16) & 0xFF),
+        static_cast<uint8_t>(code >> 24),
+    };
+}
+
+/// The abort code of an object that does not exist.
+constexpr uint32_t NO_OBJECT = 0x0602'0000;
+
 Bus &bus_of(ecx_portt *port) {
     auto *context = reinterpret_cast<ecx_contextt *>(
         reinterpret_cast<char *>(port) - offsetof(ecx_contextt, port)
@@ -236,6 +261,89 @@ TEST_F(SOEMTest, SDOReadFailsOnAReplyForAnotherSubIndex) {
     EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
     EXPECT_EQ(err.Index, 0x1C12);
     EXPECT_EQ(err.SubIdx, 2);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
+/// @brief it should report the abort of the object that an SDO read asks for.
+TEST_F(SOEMTest, SDOReadReportsTheAbortOfItsObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x1C12, 2, NO_OBJECT)};
+    };
+    uint16_t value = 0;
+    int size = sizeof(value);
+    EXPECT_LE(
+        ecx_SDOread(this->context.get(), 1, 0x1C12, 2, FALSE, &size, &value, 100'000),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_SDO_ERROR);
+    EXPECT_EQ(err.AbortCode, NO_OBJECT);
+}
+
+/// @brief it should fail an SDO read with an unexpected frame error when the abort is
+/// for another object, as an abort of an earlier request is.
+TEST_F(SOEMTest, SDOReadFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x1C12, 1, NO_OBJECT)};
+    };
+    uint16_t value = 0;
+    int size = sizeof(value);
+    EXPECT_LE(
+        ecx_SDOread(this->context.get(), 1, 0x1C12, 2, FALSE, &size, &value, 100'000),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
+/// @brief it should fail an expedited SDO write with an unexpected frame error when the
+/// abort is for another object.
+TEST_F(SOEMTest, SDOWriteFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x8040, 1, NO_OBJECT)};
+    };
+    uint16_t value = 3;
+    EXPECT_LE(
+        ecx_SDOwrite(
+            this->context.get(),
+            1,
+            0x8040,
+            2,
+            FALSE,
+            sizeof(value),
+            &value,
+            100'000
+        ),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
+/// @brief it should fail a normal SDO write with an unexpected frame error when the
+/// abort is for another object.
+TEST_F(SOEMTest, NormalSDOWriteFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x8040, 1, NO_OBJECT)};
+    };
+    uint64_t value = 3;
+    EXPECT_LE(
+        ecx_SDOwrite(
+            this->context.get(),
+            1,
+            0x8040,
+            2,
+            FALSE,
+            sizeof(value),
+            &value,
+            100'000
+        ),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
     EXPECT_EQ(err.ErrorCode, 1);
 }
 

@@ -35,6 +35,69 @@ CHECK_SDO_READ_SUBINDEX = (
 """,
 )
 
+# An abort that answers an earlier request for another object passes as the abort of
+# this one. The patches check the index and sub-index of an abort, so a stale one fails
+# the transfer with SOEM packet error 1 (unexpected frame).
+CHECK_SDO_READ_ABORT = (
+    """         /* other slave response */
+         else
+         {
+            if ((aSDOp->Command) == ECT_SDO_ABORT) /* SDO abort frame received */
+            {
+               ecx_SDOerror(context, slave, index, subindex, etohl(aSDOp->ldata[0]));
+""",
+    """         /* other slave response */
+         else
+         {
+            if (((aSDOp->Command) == ECT_SDO_ABORT) && /* SDO abort frame received */
+                (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+            {
+               ecx_SDOerror(context, slave, index, subindex, etohl(aSDOp->ldata[0]));
+""",
+)
+
+CHECK_SDO_EXPEDITED_WRITE_ABORT = (
+    """               /* all OK */
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if (aSDOp->Command == ECT_SDO_ABORT) /* SDO abort frame received */
+               {
+""",
+    """               /* all OK */
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if ((aSDOp->Command == ECT_SDO_ABORT) && /* SDO abort frame received */
+                   (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+               {
+""",
+)
+
+CHECK_SDO_NORMAL_WRITE_ABORT = (
+    """                  toggle = toggle ^ 0x10; /* toggle bit for segment request */
+               }
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if (aSDOp->Command == ECT_SDO_ABORT) /* SDO abort frame received */
+               {
+""",
+    """                  toggle = toggle ^ 0x10; /* toggle bit for segment request */
+               }
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if ((aSDOp->Command == ECT_SDO_ABORT) && /* SDO abort frame received */
+                   (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+               {
+""",
+)
+
 # When the slave refuses an EEPROM read, EEPDAT still holds the word of the read before,
 # so the slave gets the wrong identity. The patch returns 0, as for a slave that does not
 # answer, and pushes SOEM packet error 30 for the slave.
@@ -59,7 +122,12 @@ FAIL_REFUSED_EEPROM_READ = (
 )
 
 PATCHES = {
-    "ec_coe.c": [CHECK_SDO_READ_SUBINDEX],
+    "ec_coe.c": [
+        CHECK_SDO_READ_SUBINDEX,
+        CHECK_SDO_READ_ABORT,
+        CHECK_SDO_EXPEDITED_WRITE_ABORT,
+        CHECK_SDO_NORMAL_WRITE_ABORT,
+    ],
     "ec_main.c": [FAIL_REFUSED_EEPROM_READ],
 }
 
