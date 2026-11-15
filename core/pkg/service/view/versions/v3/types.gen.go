@@ -125,16 +125,6 @@ func (r *RangeView) SetDefaults() {
 	r.Layout = RangeLayoutTree
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RangeView) ApplyDefaults() {
-	if r.Sort == "" {
-		r.Sort = RangeSortNewest
-	}
-	if r.Layout == "" {
-		r.Layout = RangeLayoutTree
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RangeView) Validate() error {
@@ -249,16 +239,6 @@ func (u View) Type() Type {
 		return TypeStatus
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *View) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case RangeView:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
