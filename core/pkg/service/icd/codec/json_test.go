@@ -15,7 +15,9 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"testing"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,6 +69,7 @@ func decodeEntries() []TableEntry {
 
 // sampleJSON is the JSON form of one sample of dt, as the fixtures write it.
 func sampleJSON(dt telem.DataType, data []byte) any {
+	GinkgoHelper()
 	if dt.IsVariable() {
 		data = data[4:]
 	}
@@ -114,34 +117,34 @@ var _ = Describe("JSON", func() {
 		bindings := lo.Map(f.Bindings, func(b binding, _ int) codec.Binding {
 			return codec.Binding{Field: b.Field, DataType: b.DataType}
 		})
-		dec, err := codec.NewJSON(f.Payload, bindings)
 		if f.Error != "" {
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(f.Error)))
+			Expect(codec.NewJSON(f.Payload, bindings)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(f.Error)),
+			))
 			return
 		}
-		Expect(err).ToNot(HaveOccurred())
+		dec := MustSucceed(codec.NewJSON(f.Payload, bindings))
 		Expect(f.Cases).ToNot(BeEmpty())
 		for i, c := range f.Cases {
-			By("case " + string(rune('0'+i)))
+			By("case " + strconv.Itoa(i))
 			doc := []byte(c.Document)
 			if c.Text != nil {
 				doc = []byte(*c.Text)
 			}
 			samples := make([][]byte, len(bindings))
-			ok, err := dec.Decode(doc, samples)
 			switch {
 			case c.Error != "":
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(ContainSubstring(c.Error)))
+				Expect(dec.Decode(doc, samples)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(c.Error)),
+				))
 				Expect(samples).To(HaveEach(BeEmpty()))
 			case c.Unmatched:
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ok).To(BeFalse())
+				Expect(dec.Decode(doc, samples)).To(BeFalse())
 				Expect(samples).To(HaveEach(BeEmpty()))
 			default:
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ok).To(BeTrue())
+				Expect(dec.Decode(doc, samples)).To(BeTrue())
 				Expect(c.Samples).To(HaveLen(len(bindings)))
 				for k, b := range bindings {
 					actual := MustSucceed(
@@ -197,5 +200,43 @@ var _ = Describe("JSON", func() {
 			Error().To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0]}).
 			To(telem.MatchSeriesDataV[float64](1, 2))
+	})
+
+	It("Should decode a document without allocating", func() {
+		temp, count, state := uuid.New(), uuid.New(), uuid.New()
+		p := icd.JSONPayload{
+			Match: &icd.JSONMatch{Pointer: "/type", Value: "status"},
+			Fields: []icd.JSONField{
+				{Variant: icd.FloatJSONField{
+					Key: temp, Name: "temp", Scale: 0.5, Offset: -10, Pointer: "/temp",
+				}},
+				{Variant: icd.IntegerJSONField{
+					Key: count, Name: "count", Scale: 1, Pointer: "/count",
+				}},
+				{Variant: icd.StringJSONField{
+					Key: state, Name: "state", Scale: 1, Pointer: "/state",
+				}},
+			},
+		}
+		dec := MustSucceed(codec.NewJSON(p, []codec.Binding{
+			{Field: temp, DataType: telem.Float32T},
+			{Field: count, DataType: telem.Float64T},
+			{Field: state, DataType: telem.StringT},
+		}))
+		doc := []byte(`{"type":"status","temp":40,"count":3,"state":"run"}`)
+		samples := make([][]byte, 3)
+		var (
+			ok  bool
+			err error
+		)
+		decode := func() {
+			for i := range samples {
+				samples[i] = samples[i][:0]
+			}
+			ok, err = dec.Decode(doc, samples)
+		}
+		Expect(testing.AllocsPerRun(100, decode)).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	})
 })

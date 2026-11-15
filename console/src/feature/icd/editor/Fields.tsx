@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -120,6 +120,8 @@ type JSONType = Exclude<payload.Kind, "timestamp"> | payload.TimeFormat;
 const isTimeFormat = (type: JSONType): type is payload.TimeFormat =>
   payload.timeFormatZ.safeParse(type).success;
 
+const isNumberKind = (type: JSONType): type is NumberKind => type in NUMBER_KIND_NAMES;
+
 const JSON_TYPE_NAMES: Record<JSONType, string> = {
   ...NUMBER_KIND_NAMES,
   string: "String",
@@ -137,12 +139,17 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.timeFormat : field.type;
 
-/** Only a number field scales, so a new type drops the scale and offset. */
+/** Only a number field scales, so a field that stops being one drops its scaling. */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
   if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
-  return icd.JSON_FIELD_SCHEMAS[type].parse({ ...base, type });
+  if (isNumberKind(type)) {
+    const { scale, offset, min, max } = field;
+    return { ...base, scale, offset, min, max, type, enumValues: [] };
+  }
+  if (type === "string" || type === "boolean") return { ...base, type, enumValues: [] };
+  return { ...base, type };
 };
 
 const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
