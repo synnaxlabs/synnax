@@ -24,9 +24,14 @@ const HIDDEN = "data-hidden";
 const STACKED = "--lyra-tags-stacked";
 // The room the count takes with its dots, in rem. Fixed, so the step never chases the
 // count's width.
-const COUNT = 11;
+const COUNT = 12;
+// The room the count takes with no tags beside it, where it names the total, in rem.
+const ALONE_COUNT = 17;
 // The dots of the first hidden tags the count shows.
 const DOTS = 3;
+// How much of its name, in rem, a stacked tag shows past its icon before it folds.
+const SLIVER = 0.5;
+const ALONE = "data-alone";
 
 /** A group's tags at full width, in CSS pixels. */
 interface Fit {
@@ -134,15 +139,24 @@ const full = (f: Fit, k: number, count: number): number => {
 };
 
 // Whether a group's first k tags fit in room once stacked. Flex shrinks every tag but
-// the last in proportion to its width, and none may pass its floor.
-const stacks = (f: Fit, k: number, count: number, room: number): boolean => {
+// the last in proportion to its width. The next tag covers each from one gap past its
+// box, and none may cover its icon or the sliver of name past it.
+const stacks = (
+  f: Fit,
+  k: number,
+  count: number,
+  room: number,
+  sliver: number,
+): boolean => {
   if (k === 0) return true;
   const under = f.measures.slice(0, k - 1);
   const total = sum(under.map((m) => m.natural));
   const over = full(f, k, count) - room;
   if (over <= 0) return true;
   if (over >= total) return false;
-  return under.every((m) => m.natural - (over * m.natural) / total >= m.floor);
+  return under.every(
+    (m) => m.natural - (over * m.natural) / total >= m.lead - f.gap + sliver,
+  );
 };
 
 /**
@@ -339,12 +353,15 @@ export class Steps {
     let shown = most;
     while (
       shown > 0 &&
-      !fits.every((f) => stacks(f, Math.min(shown, f.measures.length), count, room))
+      !fits.every((f) =>
+        stacks(f, Math.min(shown, f.measures.length), count, room, SLIVER * rem),
+      )
     )
       shown--;
     // A lifted tag gives back the width it had, which a refit may change.
     this.drop();
-    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count));
+    const alone = ALONE_COUNT * rem;
+    fitted.forEach((el, i) => write(el, fits[i], shown, widths[i], count, alone));
   }
 }
 
@@ -359,12 +376,13 @@ const write = (
   step: number,
   room: number,
   count: number,
+  alone: number,
 ): void => {
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
   set(el, STACKED, String(overlap));
-  el.toggleAttribute(EMPTY, shown === 0 && f.frame + count > room);
+  el.toggleAttribute(EMPTY, shown === 0 && f.frame + alone > room);
   const gaps = `${f.gap}px`;
   if (el.style.getPropertyValue("--lyra-tags-gap") !== gaps)
     el.style.setProperty("--lyra-tags-gap", gaps);
@@ -379,6 +397,7 @@ const write = (
   });
   const more = moreOf(el);
   if (more == null) return;
+  more.toggleAttribute(ALONE, shown === 0);
   const hidden = shown < tags.length ? String(tags.length - shown) : undefined;
   if (more.dataset.count === hidden) return;
   if (hidden == null) delete more.dataset.count;

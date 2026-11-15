@@ -103,7 +103,10 @@
     flex-shrink: 0;
 }
 
+/* A container sets the lit flag to 1 to brighten its groups, such as on its hover. */
 .lyra-tags__steps {
+    --lyra-tags-lit: 0;
+
     display: contents;
 }
 
@@ -172,9 +175,25 @@
             background-color: var(--pluto-gray-l0);
         }
 
+        &::before,
+        &::after {
+            transition:
+                border-color 0.15s,
+                color 0.15s;
+        }
+
         &::after {
             content: "+" attr(data-count);
             color: var(--pluto-gray-l9);
+        }
+
+        /* With no tags beside it, the count names the total. */
+        &[data-alone]::after {
+            content: attr(data-count) " labels";
+        }
+
+        &[data-alone][data-count="1"]::after {
+            content: "1 label";
         }
     }
 
@@ -223,18 +242,39 @@
         );
     }
 
-    /* Hover brightens the chip as one unit. Its face lies under its dots, so they
-       hover it too. */
-    &.lyra-btn[aria-expanded="true"] > .lyra-tags__more[data-count],
+    /* Its own hover brightens the count as one unit. Its face lies under its dots, so
+       they hover it too. */
     & > .lyra-tags__more[data-count]:hover {
         border-color: transparent;
 
         &::before {
-            border-color: var(--pluto-gray-l7);
+            border-color: var(--pluto-gray-l8);
         }
 
         &::after {
             color: var(--pluto-gray-l11);
+        }
+    }
+}
+
+/* A hovered or open group is lit too. */
+.lyra-tags--stepped:is(:hover, [aria-expanded="true"]) {
+    --lyra-tags-lit: 1;
+}
+
+/* A lit group brightens its outlines and its count's text. */
+@container style(--lyra-tags-lit: 1) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        border-color: var(--pluto-gray-l8);
+    }
+
+    .lyra-tags--stepped > .lyra-tags__more[data-count] {
+        &::before {
+            border-color: var(--pluto-gray-l8);
+        }
+
+        &::after {
+            color: var(--pluto-gray-l10);
         }
     }
 }
@@ -283,22 +323,24 @@
             background: var(--pluto-gray-l0);
             box-shadow: var(--pluto-shadow-lift);
             content: "";
+            transition: border-color 0.15s;
         }
 
         &:hover {
             color: var(--pluto-gray-l11);
         }
 
-        /* The name fades where the tag cuts it, so its tooltip shows the full name. */
+        /* The name runs on under the next tag, whose face cuts it. */
         & > .lyra-text {
-            min-width: 0;
+            flex-shrink: 0;
         }
     }
 
     /* A hovered tag lifts over its neighbors at full width. Its margin gives back the
        width it gains, so they hold still. */
+    /* Every button sits at z-index 1, so the lifted tag takes 2. */
     .lyra-tags > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
-        z-index: 1;
+        z-index: 2;
         flex: 0 0 var(--lyra-tag-full);
         margin-right: calc(var(--lyra-tag-shrunk) - var(--lyra-tag-full));
         color: var(--pluto-gray-l11);
@@ -307,7 +349,7 @@
 
         &::before {
             width: calc(100% + 2px);
-            border-color: var(--pluto-gray-l7);
+            border-color: var(--pluto-gray-l9);
         }
     }
 
@@ -324,5 +366,16 @@
 @keyframes lyra-tags-lift {
     from {
         opacity: 0.6;
+    }
+}
+
+/* A lit group brightens its stacked faces and names. */
+@container style(--lyra-tags-lit: 1) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        color: var(--pluto-gray-l11);
+
+        &::before {
+            border-color: var(--pluto-gray-l8);
+        }
     }
 }

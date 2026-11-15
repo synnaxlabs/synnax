@@ -13,6 +13,8 @@ import { CSS } from "@/css";
 export interface Measure {
   natural: number;
   floor: number;
+  // The width before the name: padding, icon, and the gap after it.
+  lead: number;
 }
 
 /** What a group shows once folded. */
@@ -35,7 +37,7 @@ const STACK_GAP = "--lyra-tags-stack-gap";
 const MORE_WIDE = 18.5;
 const MORE_NARROW = 12;
 // The characters a stacked tag keeps before it folds.
-const FLOOR_CHARS = 3;
+const FLOOR_CHARS = 2;
 
 /** A tag's name, and the color of its dot if it has one. Reads style only. */
 export const describe = (tag: HTMLElement): Hidden => {
@@ -91,12 +93,12 @@ export const measure = (tag: HTMLElement): Measure => {
   const natural = cssWidth(tag);
   const text = textBox(tag);
   const scale = tag.getBoundingClientRect().width / natural;
-  if (text == null || !(scale > 0)) return { natural, floor: natural };
+  if (text == null || !(scale > 0)) return { natural, floor: natural, lead: natural };
   const cs = getComputedStyle(tag);
   const right = px(cs.paddingRight) + px(cs.borderRightWidth);
   const kept = (FLOOR_CHARS * text.width) / Math.max(1, text.chars);
   const floor = (text.left + Math.min(text.width, kept)) / scale + right;
-  return { natural, floor: Math.min(natural, floor) };
+  return { natural, floor: Math.min(natural, floor), lead: text.left / scale };
 };
 
 /**

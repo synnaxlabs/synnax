@@ -93,6 +93,11 @@
     }
 }
 
+/* A hovered item lights its labels. */
+.console-range-item:hover .console-range-item__labels {
+    --lyra-tags-lit: 1;
+}
+
 .console-range-item__when {
     flex-shrink: 0;
 }

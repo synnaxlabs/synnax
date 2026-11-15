@@ -116,7 +116,9 @@ const count = (frame: HTMLElement): string | null => {
   const chip = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
   return getComputedStyle(chip).display === "none"
     ? null
-    : getComputedStyle(chip, "::after").content.replace(/["\s]/g, "");
+    : getComputedStyle(chip, "::after")
+        .content.replace(/"\s*"/g, "")
+        .replaceAll('"', "");
 };
 
 const stacked = (frame: HTMLElement): string =>
@@ -195,19 +197,33 @@ describe("Stepped tags", () => {
     const full = parseFloat(first.style.getPropertyValue("--lyra-tag-full"));
     expect(full).toBeGreaterThan(cut);
     expect(first.getBoundingClientRect().width).toBeCloseTo(full, 0);
+    // It draws over the next tag where they overlap.
+    const r = first.getBoundingClientRect();
+    expect(
+      first.contains(document.elementFromPoint(r.right - 2, r.top + r.height / 2)),
+    ).toBe(true);
     expect(others()).toEqual(before);
   });
 
-  it("should show the first tags as dots in the count when no tag fits", async () => {
-    const [all] = await renderStepped(90);
-    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
+  it("should show the first tags as dots and the total when no tag fits", async () => {
+    const [all] = await renderStepped(150);
+    await expect.poll(() => count(all)).toBe(`${LABELS.length} labels`);
+    expect(getComputedStyle(all.querySelector(`.${CSS.B("tags")}`)!).visibility).toBe(
+      "visible",
+    );
     expect(named(all)).toEqual([]);
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
   });
 
+  it("should hide a group too narrow for its dots and total", async () => {
+    const [all] = await renderStepped(90);
+    const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+    await expect.poll(() => getComputedStyle(tags).visibility).toBe("hidden");
+  });
+
   it("should keep a pressed group on the shared step", async () => {
-    const [all, three] = await renderStepped(90);
-    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
+    const [all, three] = await renderStepped(150);
+    await expect.poll(() => count(all)).toBe(`${LABELS.length} labels`);
     // A press renders the group with a new class name, as a dialog trigger does.
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
     await userEvent.click(tags);
@@ -215,6 +231,6 @@ describe("Stepped tags", () => {
     await new Promise(requestAnimationFrame);
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
     expect(dots(three)).toEqual(LABELS.slice(0, 3));
-    expect(count(all)).toBe(`+${LABELS.length}`);
+    expect(count(all)).toBe(`${LABELS.length} labels`);
   });
 });
