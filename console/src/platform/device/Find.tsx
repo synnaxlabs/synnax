@@ -318,6 +318,7 @@ export const Find = ({
   );
   const scan = async () => {
     setScanning(true);
+    setScanned([]);
     try {
       await Promise.all(
         targets.map((s) =>

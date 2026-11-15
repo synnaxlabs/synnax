@@ -20,7 +20,11 @@ import {
   startRackHeartbeat,
 } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, createTaskStatus } from "@/platform/task/testutil";
+import {
+  answerNextCommand,
+  type CommandAnswer,
+  createTaskStatus,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -140,7 +144,15 @@ describe("Device.useFindModal", () => {
       ];
       await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
       await screen.findByText(devices[0].name);
-      const { answered } = await answerNextCommand(client, scanner, { type: "scan" });
+      await scan(scanner);
+      return scanner;
+    };
+
+    const scan = async (scanner: task.Task, answer: CommandAnswer = {}) => {
+      const { answered } = await answerNextCommand(client, scanner, {
+        ...answer,
+        type: "scan",
+      });
       // The button stays disabled until the scanner loads.
       const button = await waitFor(() => {
         const b = findButton("Scan now");
@@ -162,6 +174,13 @@ describe("Device.useFindModal", () => {
       await renderScan(0, 1);
       expect(await screen.findByText("Scan complete")).toBeTruthy();
       expect(screen.getByText("No Test devices connected.")).toBeTruthy();
+    });
+
+    it("should clear the result of a scan when a later scan fails", async () => {
+      const scanner = await renderScan(1, 0);
+      await screen.findByText("Scan complete");
+      await scan(scanner, { variant: "error", message: "Failed to scan" });
+      await waitFor(() => expect(screen.queryByText("Scan complete")).toBeNull());
     });
   });
 

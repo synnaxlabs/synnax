@@ -1087,7 +1087,8 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        new RegExp(`^Slaves ${first.name} and ${second.name} are both at position`),
+        // The task names the problem once for each slave, in the order of retrieval.
+        new RegExp(`Slaves ${first.name} and ${second.name} are both at position`),
       ),
     ).toBeTruthy();
   });
