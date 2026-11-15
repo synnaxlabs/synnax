@@ -59,8 +59,9 @@ type SetNodePayload struct {
 	Node Node `json:"node" msgpack:"node"`
 }
 
-// RemoveNodePayload removes the node, the edges that connect to it, and its key from
-// the members of every group box. No-op when no node has the key.
+// RemoveNodePayload removes the node and the edges that connect to it. The children of
+// a removed group box move to the parent of the group box. No-op when no node has the
+// key.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }

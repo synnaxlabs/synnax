@@ -44,8 +44,9 @@ export const setNodePayloadZ = z.object({
 export type SetNodePayload = z.infer<typeof setNodePayloadZ>;
 
 /**
- * RemoveNode removes the node, the edges that connect to it, and its key from the
- * members of every group box. No-op when no node has the key.
+ * RemoveNode removes the node and the edges that connect to it. The children of a
+ * removed group box move to the parent of the group box. No-op when no node has the
+ * key.
  */
 export const removeNodePayloadZ = z.object({
   key: z.string(),
