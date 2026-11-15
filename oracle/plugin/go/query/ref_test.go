@@ -192,6 +192,15 @@ var _ = Describe("@ref", func() {
 		),
 	)
 
+	It("Should refuse to inline a key that a struct holds", func(ctx SpecContext) {
+		req := MustGenerateRequest(ctx, device(`
+				spare rack.Key @ref on_delete inline @ref kind use
+			`), "device", loader)
+		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"Device: @ref field spare needs a union variant to hold it to inline",
+		)))
+	})
+
 	It("Should declare a resource target for an ID reference on a union", func(
 		ctx SpecContext,
 	) {
@@ -452,7 +461,7 @@ var _ = Describe("@ref", func() {
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(message)))
 		},
 		Entry("without on_delete", `rack rack.Key @ref`,
-			"@ref field rack needs on_delete cascade, restrict, or detach"),
+			"@ref field rack needs on_delete cascade, restrict, detach, or inline"),
 		Entry("without a kind", `rack rack.Key @ref on_delete restrict`,
 			"@ref field rack needs kind place or use"),
 		Entry(
@@ -744,11 +753,65 @@ var _ = Describe("@ref", func() {
 					@resource type "kv"
 				}
 			`)
+			loader.Add("schemas/swatch", `
+				import "schemas/resource"
+
+				@go output "core/pkg/service/swatch"
+
+				Key = uuid
+
+				Swatch struct {
+					key   Key {
+						@key
+					}
+					value string
+					@resource type "swatch"
+				}
+
+				Ref union on type {
+					named {
+						key Key @ref on_delete inline @ref kind use
+					}
+					fixed {
+						value string
+					}
+				}
+
+				Spot union on type {
+					named {
+						key Key? @ref on_delete inline @ref kind use
+					}
+				}
+
+				Pin union on type {
+					named {
+						key Key @ref on_delete inline @ref kind use
+					}
+				}
+
+				Band union on type {
+					owned {
+						owner resource.ID {
+							@ref on_delete inline
+							@ref kind      use
+							@ref types     swatch
+						}
+					}
+				}
+			`)
 		})
 
 		config := func(types, fields string) string {
 			var imports strings.Builder
-			for _, ns := range []string{"rack", "label", "channel", "kv", "resource"} {
+			namespaces := []string{
+				"rack",
+				"label",
+				"channel",
+				"kv",
+				"resource",
+				"swatch",
+			}
+			for _, ns := range namespaces {
 				if strings.Contains(types+fields, ns+".") {
 					imports.WriteString(`import "schemas/` + ns + `"` + "\n")
 				}
@@ -795,6 +858,48 @@ var _ = Describe("@ref", func() {
 					`"context"`,
 					`"slices"`,
 				)
+		})
+
+		It(
+			"Should inline a deleted target in an optional union",
+			func(ctx SpecContext) {
+				generate(ctx, "", `
+				fill swatch.Ref?
+			`).
+					ToContain(
+						`"context"`,
+						`Name:     "fill.key",`,
+						`Table:    "swatch",`,
+						"OnDelete: gorp.Inline,",
+						"ctx context.Context,",
+						"tx gorp.Tx,",
+						"e *ReadConfig,",
+						"t swatch.Key,",
+						"var target swatch.Swatch",
+						"if err := gorp.NewRetrieve[swatch.Key, swatch.Swatch]().",
+						"Where(gorp.MatchKeys[swatch.Key, swatch.Swatch](t)).",
+						"Entry(&target).",
+						"if e.Fill != nil {",
+						"if v2, ok := e.Fill.Variant.(swatch.NamedRef); ok && v2.Key == t {",
+						"e.Fill.Variant = target.Inline()",
+						"return nil",
+					).
+					ToNotContain("Detach:", "FixedRef")
+			},
+		)
+
+		It("Should inline a deleted target in each union of an array", func(
+			ctx SpecContext,
+		) {
+			generate(ctx, "", `
+				fills swatch.Ref[]
+			`).
+				ToContain(
+					"for i3 := range e.Fills {",
+					"if v4, ok := e.Fills[i3].Variant.(swatch.NamedRef); ok && v4.Key == t {",
+					"e.Fills[i3].Variant = target.Inline()",
+				).
+				ToNotContain("Detach:", `"slices"`)
 		})
 
 		It("Should declare the kind of a nested reference", func(ctx SpecContext) {
@@ -1102,6 +1207,38 @@ var _ = Describe("@ref", func() {
 			),
 			Entry("a type with no reference", "", `name string`,
 				"@retrieve references needs a @ref field"),
+			Entry(
+				"inlining a key that no union variant holds",
+				"",
+				`swatch swatch.Key @ref on_delete inline @ref kind use`,
+				"@ref field swatch is not a field of a union variant that a field "+
+					"holds, so it cannot inline",
+			),
+			Entry(
+				"inlining one key path through different unions",
+				`Marker union on type {
+					spot {
+						fill swatch.Ref
+					}
+					pin {
+						fill swatch.Pin
+					}
+				}`,
+				`marker Marker`,
+				"@ref field marker.fill.key sits in different unions, so it cannot inline",
+			),
+			Entry(
+				"inlining an optional key",
+				"",
+				`spots swatch.Spot[]`,
+				"@ref field spots.key is not required, so it cannot inline",
+			),
+			Entry(
+				"inlining a resource ID",
+				"",
+				`band swatch.Band`,
+				"@ref field band.owner needs the key type of one resource to inline",
+			),
 			Entry(
 				"union variants that give one field different references",
 				`Channel union on type {

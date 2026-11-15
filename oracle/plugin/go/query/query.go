@@ -385,7 +385,9 @@ func generateRetrieveFile(
 		return nil, nil
 	}
 
-	if lo.SomeBy(infos, func(i retrieveInfo) bool { return !i.IndexesOnly }) {
+	if lo.SomeBy(infos, func(i retrieveInfo) bool {
+		return !i.IndexesOnly || inlines(i.NestedRefs)
+	}) || lo.SomeBy(refRoots, func(r referencesInfo) bool { return inlines(r.Refs) }) {
 		imps.AddExternal("context")
 	}
 	imps.AddInternal(
@@ -565,6 +567,13 @@ func extractRetrieveInfo(
 			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
+			}
+			if info.OnDelete == "Inline" {
+				return nil, errors.Newf(
+					"%s: @ref field %s needs a union variant to hold it to inline",
+					typ.QualifiedName,
+					field.Name,
+				)
 			}
 			// The walk over a union's variants declares the reference, because each
 			// variant holds the base field.
@@ -1302,6 +1311,16 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}
+			},
+{{- end}}
+{{- if .InlineBody}}
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *{{.EntryType}},
+				t {{.TargetType}},
+			) error {
+				{{.InlineBody -}}
 			},
 {{- end}}
 		}){{end}}`),
