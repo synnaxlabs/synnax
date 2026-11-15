@@ -9,8 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The surface of a context menu. Props set the fill, the border, and the corners. A
-   highlight follows the pointer with no fade. */
+/* The surface of a context menu. Props set the border and the corners. A highlight
+   follows the pointer with no fade. */
 .lyra-dialog__dialog.lyra-menu-dialog {
     --pluto-btn-transition: none;
 
