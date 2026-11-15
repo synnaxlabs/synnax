@@ -114,28 +114,17 @@ export const SelectMultiple = ({
     if (!opened && state.executeSetter(next, false)) setOpened(true);
     onVisibleChange?.(next);
   };
-  // Both branches render the one dialog, so the first open keeps the tag it opened at.
-  if (!opened)
-    return (
-      <Base
-        getItem={getValueItem}
-        virtual={false}
-        {...rest}
-        data={rest.value}
-        onVisibleChange={handleVisibleChange}
-      />
-    );
   // A change to virtual mounts the trigger again, so the list stays static once open.
   return (
     <Base
-      getItem={list.getItem}
-      onFetchMore={list.more}
-      onSearch={list.search}
-      status={list.status}
+      getItem={opened ? list.getItem : getValueItem}
+      onFetchMore={opened ? list.more : undefined}
+      onSearch={opened ? list.search : undefined}
+      status={opened ? list.status : undefined}
       virtual={false}
       {...rest}
-      data={list.data}
-      subscribe={list.subscribe}
+      data={opened ? list.data : rest.value}
+      subscribe={opened ? list.subscribe : undefined}
       onVisibleChange={handleVisibleChange}
     />
   );
