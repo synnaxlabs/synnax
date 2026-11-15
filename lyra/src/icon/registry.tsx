@@ -283,6 +283,23 @@ export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+// A circle that fills its box, so its edges are the box's edges.
+export const Dot = wrapSVGIcon(
+  ({ color, size, style, ...rest }) => (
+    <svg
+      viewBox="0 0 2 2"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      style={{ color, ...style }}
+      {...rest}
+    >
+      <circle cx="1" cy="1" r="1" />
+    </svg>
+  ),
+  "dot",
+);
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");

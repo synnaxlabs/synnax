@@ -114,8 +114,7 @@
    cap, and its name fades past it. */
 .lyra-tags--stepped {
     --lyra-tags-cap: 20rem;
-    --lyra-tags-dot: calc(var(--lyra-tag-dot-scale) * 1.75rem);
-    --lyra-tags-dot-step: calc(var(--lyra-tag-dot-scale) * 1.1rem);
+    --lyra-tags-dot-step: calc(var(--lyra-tag-dot) * 0.94);
     --lyra-tags-dots: 1;
     --lyra-tags-gap: 0px;
 
@@ -160,16 +159,14 @@
             display: flex;
         }
 
-        /* The face reaches back under the dots. */
+        /* The face reaches back under the dots, with the inset before the first dot
+           equal to the one after the text. */
         &::before {
             content: "";
             position: absolute;
             z-index: -1;
             inset: -1px -1px -1px
-                calc(
-                    -0.75rem - var(--lyra-tags-dot) - (var(--lyra-tags-dots) - 1) *
-                        var(--lyra-tags-dot-step) - var(--lyra-tags-stack-gap)
-                );
+                calc(-1.5rem - 2px - var(--lyra-tags-dots) * var(--lyra-tags-dot-step));
             border: var(--pluto-border);
             border-radius: var(--pluto-border-radius-small);
             background-color: var(--pluto-gray-l0);
@@ -204,17 +201,11 @@
         display: flex;
         flex-shrink: 0;
         margin-right: calc(
-            var(--lyra-tags-dot-step) - var(--lyra-tags-dot) - var(--lyra-tags-gap)
+            var(--lyra-tags-dot-step) - var(--lyra-tag-dot) - var(--lyra-tags-gap)
         );
         padding: 0;
         border: none;
-
-        /* The dot fills two thirds of its icon. The ring sits just outside it. */
-        background: radial-gradient(
-            circle closest-side,
-            var(--pluto-gray-l0) calc(200% / 3 + 1.5px),
-            transparent calc(200% / 3 + 1.5px)
-        );
+        background: none;
         box-shadow: none;
         clip-path: none;
         pointer-events: none;
@@ -223,9 +214,13 @@
             display: none;
         }
 
+        /* A ring of the count's face sits just outside the dot. */
         & > svg {
-            width: var(--lyra-tags-dot);
-            height: var(--lyra-tags-dot);
+            width: var(--lyra-tag-dot);
+            height: var(--lyra-tag-dot);
+            margin: 0;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1.5px var(--pluto-gray-l0);
         }
 
         & > .lyra-text {
@@ -236,10 +231,7 @@
     /* The count's face reaches back past the first dot, and keeps the gap from the
        last tag. */
     & > .lyra-tag:not([data-hidden]) + .lyra-flex.lyra-btn.lyra-tag[data-dot] {
-        margin-left: calc(
-            0.75rem + var(--lyra-tags-dot) - var(--lyra-tags-dot-step) +
-                var(--lyra-tags-stack-gap)
-        );
+        margin-left: calc(1.5rem + 1px - var(--lyra-tags-stack-gap));
     }
 
     /* Its own hover brightens the count as one unit. Its face lies under its dots, so

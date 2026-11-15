@@ -9,10 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* How large a tag's color dot is, against its icon size: a 9px dot at a 6px rem. Group
-   dots follow it. */
+/* How large a tag's color dot is. Group dots follow it. */
 :root {
-    --lyra-tag-dot-scale: 1.2273;
+    --lyra-tag-dot: 1.5rem;
 }
 
 /* The flex class outranks the bordered rule in Box.css, which would otherwise tie with
@@ -28,9 +27,10 @@
     box-shadow: var(--pluto-shadow-lift);
     position: relative;
 
-    & > .lyra-icon--circle {
-        width: calc(var(--lyra-tag-dot-scale) * 1em);
-        height: calc(var(--lyra-tag-dot-scale) * 1em);
+    & > .lyra-icon--dot {
+        width: var(--lyra-tag-dot);
+        height: var(--lyra-tag-dot);
+        margin-right: calc(var(--lyra-tag-dot) / 4);
     }
 
     /* The close overlays the leading icon, so it paints the tag's face to mask
