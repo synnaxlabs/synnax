@@ -189,7 +189,10 @@ class CoreRestart(TestCase):
                     if VENTED in frame:
                         break
                 else:
-                    self.fail("the Arc did not leave the hold stage")
+                    self.fail(
+                        "the Arc did not leave the hold stage: "
+                        f"{self._status_of(task.key)}"
+                    )
         self._expect_running(task.key, "after it left the hold stage")
 
     def _read_until(
