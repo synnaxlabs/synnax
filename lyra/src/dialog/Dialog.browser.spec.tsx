@@ -231,11 +231,10 @@ describe("Dialog", () => {
       expect(computed(trigger, "border-top-color")).toBe(resolve("transparent"));
     });
 
-    it("should hide its caret at rest", async () => {
+    it("should show no caret, even on hover", async () => {
       const trigger = await renderShadow();
-      const caret = trigger.querySelector(`.${CSS.B("caret-animated")}`);
-      assert(caret != null);
-      expect(computed(caret, "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      expect(trigger.querySelector(`.${CSS.B("caret-animated")}`)).toBeNull();
     });
   });
 

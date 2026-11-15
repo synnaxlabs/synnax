@@ -227,7 +227,7 @@ export const MultipleTrigger = <
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
       )}
-      {variant !== "text" && preview !== true && (
+      {variant === "outlined" && preview !== true && (
         <Caret.Animated
           className={CSS.level("p")}
           enabled={visible}

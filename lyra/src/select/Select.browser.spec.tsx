@@ -507,6 +507,14 @@ describe("Select", () => {
       expect(computed(remove, "display")).toBe("none");
     });
 
+    it("should show no caret, even on hover", async () => {
+      const { container } = await renderThemed(<ShadowTags value={["low"]} />);
+      const item = container.querySelector(".lyra-list__item");
+      assert(item != null);
+      await userEvent.hover(item);
+      expect(container.querySelector(".lyra-caret-animated")).toBeNull();
+    });
+
     it("should show its placeholder in a list item on hover only", async () => {
       const { container } = await renderThemed(<ShadowTags value={[]} />);
       const item = container.querySelector(".lyra-list__item");
