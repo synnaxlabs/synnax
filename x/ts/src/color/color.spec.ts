@@ -548,6 +548,74 @@ describe("color.Color", () => {
     });
   });
 
+  describe("oklab", () => {
+    test.each<[string, [number, number, number]]>([
+      ["#ffffff", [1, 0, 0]],
+      ["#ff0000", [0.6279554, 0.2248631, 0.1258463]],
+      ["#00ff00", [0.8664396, -0.2338876, 0.1794985]],
+      ["#0000ff", [0.4520137, -0.032457, -0.3115281]],
+    ])("should convert %s to its published OKLab value", (hex, expected) => {
+      const [l, a, b, alpha] = color.oklab(hex);
+      [l, a, b].forEach((v, i) => expect(v).toBeCloseTo(expected[i], 5));
+      expect(alpha).toEqual(1);
+    });
+    test("should keep the alpha", () => {
+      expect(color.oklab("#00000080")[3]).toBeCloseTo(128 / 255);
+    });
+  });
+
+  describe("distance", () => {
+    test("should be zero for equal colors", () => {
+      expect(color.distance("#3774d0", [55, 116, 208])).toEqual(0);
+    });
+    test("should put black and white 1 apart", () => {
+      expect(color.distance("#000000", "#ffffff")).toBeCloseTo(1, 5);
+    });
+    test("should be symmetric", () => {
+      expect(color.distance("#ff0000", "#00ff00")).toEqual(
+        color.distance("#00ff00", "#ff0000"),
+      );
+    });
+    test("should give the Euclidean distance in OKLab", () => {
+      expect(color.distance("#ff0000", "#00ff00")).toBeCloseTo(0.519813, 5);
+    });
+    test("should ignore alpha", () => {
+      expect(color.distance("#ff000000", "#ff0000")).toEqual(0);
+    });
+  });
+
+  describe("simulate", () => {
+    test.each<[color.Deficiency, string, color.Color]>([
+      ["protanopia", "#ff0000", [109, 95, 0, 255]],
+      ["protanopia", "#00ff00", [255, 229, 0, 255]],
+      ["protanopia", "#0000ff", [0, 89, 255, 255]],
+      ["deuteranopia", "#ff0000", [163, 144, 0, 255]],
+      ["deuteranopia", "#00ff00", [239, 214, 58, 255]],
+      ["deuteranopia", "#0000ff", [0, 61, 251, 255]],
+      ["tritanopia", "#ff0000", [255, 0, 15, 255]],
+      ["tritanopia", "#00ff00", [0, 247, 217, 255]],
+      ["tritanopia", "#0000ff", [0, 107, 150, 255]],
+    ])("should simulate %s on %s", (deficiency, input, expected) => {
+      expect(color.simulate(input, deficiency)).toEqual(expected);
+    });
+    test.each(color.DEFICIENCIES)("should not change any gray under %s", (d) => {
+      for (let v = 0; v < 256; v++)
+        expect(color.simulate([v, v, v], d)).toEqual([v, v, v, 255]);
+    });
+    test("should keep the alpha", () => {
+      expect(color.simulate("#ff000080", "deuteranopia")[3]).toEqual(128);
+    });
+    test("should make red and green closer for a deuteranope", () => {
+      const red = "#d62728";
+      const green = "#2ca02c";
+      const simulated = color.distance(
+        color.simulate(red, "deuteranopia"),
+        color.simulate(green, "deuteranopia"),
+      );
+      expect(simulated).toBeLessThan(color.distance(red, green) / 2);
+    });
+  });
+
   describe("over", () => {
     test("should paint the foreground over the background at an opacity", () => {
       expect(color.over("#ff0000", "#0000ff", 0.25)).toEqual([64, 0, 191, 255]);
