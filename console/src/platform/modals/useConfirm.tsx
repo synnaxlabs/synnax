@@ -151,19 +151,22 @@ const ConfirmWithOption = ({
       onConfirm={() => close({ option: checked })}
       onCancel={() => close()}
     >
-      <Flex.Box y gap="small">
-        <Flex.Box x align="center" gap="small">
-          <Input.Checkbox
-            id={id}
-            aria-labelledby={labelID}
-            value={checked}
-            onChange={setChecked}
-          />
-          <Text.Text el="label" id={labelID} htmlFor={id} weight={450}>
-            {label}
-          </Text.Text>
+      <Flex.Box x gap="small" align="start">
+        <Input.Checkbox
+          id={id}
+          aria-labelledby={labelID}
+          value={checked}
+          onChange={setChecked}
+        />
+        <Flex.Box y>
+          {/* As tall as the checkbox, so the label stays level with it. */}
+          <Flex.Box x align="center" size="medium">
+            <Text.Text el="label" id={labelID} htmlFor={id} weight={450}>
+              {label}
+            </Text.Text>
+          </Flex.Box>
+          {description != null && <Text.Text color={9}>{description}</Text.Text>}
         </Flex.Box>
-        {description != null && <Text.Text color={9}>{description}</Text.Text>}
       </Flex.Box>
     </Layout>
   );
