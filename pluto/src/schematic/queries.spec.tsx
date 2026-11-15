@@ -1154,26 +1154,32 @@ describe("schematic queries", () => {
       });
     });
 
-    it("should send no edit once another client removes the element", async () => {
+    it("should throw when the element is not in the schematic", async () => {
       const schem = await createTestSchematic(proj.key);
-      const { result } = await renderForm(schem.key, "e1");
-      await remote.schematics.retrieve({ key: schem.key });
+      const Form = (): ReactElement => {
+        Schematic.useConfigForm({ key: schem.key, elKey: "ghost" });
+        return <div />;
+      };
+      let utils!: ReturnType<typeof render>;
       await act(async () => {
-        await remote.schematics.dispatch(
-          schem.key,
-          schematic.removeEdge({ key: "e1" }),
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={null}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Form />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+          { onCaughtError: () => {} },
         );
       });
       await waitFor(() =>
-        expect(client.schematics.watch(schem.key).getCached()).toMatchObject({
-          edges: [],
-        }),
-      );
-      const send = spyOnSend(client);
-      act(() => result.current.form.set(pipePath.strokeColor, [255, 0, 0, 1]));
-      await act(async () => await result.current.flush());
-      expect(send.mock.calls.some(([target]) => target === "/schematic/dispatch")).toBe(
-        false,
+        expect(utils.getByTestId("error").textContent).toBe(
+          "Schematic element ghost not found",
+        ),
       );
     });
 

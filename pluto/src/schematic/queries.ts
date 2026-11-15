@@ -9,7 +9,6 @@
 
 import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
 import { compare, verbs } from "@synnaxlabs/x";
-import { useState } from "react";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -96,18 +95,16 @@ export const useElementConfig = Scope.bindHook(
   ),
 );
 
-// Null when the element is in neither list, as when another client removed it.
 const useField = Scope.bindHook(
-  createSelector<schematic.ElementField | null, ConfigParams>(
-    (s, { elKey }, client) => {
-      const config = client.schematics.configsOf(s)[elKey];
-      return config == null ? null : schematic.fieldOf(config);
-    },
-  ),
+  createSelector<schematic.ElementField, ConfigParams>((s, { elKey }, client) => {
+    const config = client.schematics.configsOf(s)[elKey];
+    if (config == null) throw new NotFoundError(`Schematic element ${elKey} not found`);
+    return schematic.fieldOf(config);
+  }),
 );
 
 interface FieldConfigParams extends ConfigParams {
-  field: schematic.ElementField | null;
+  field: schematic.ElementField;
 }
 
 const useDocumentConfigForm = Flux.createDocumentForm<
@@ -121,20 +118,11 @@ const useDocumentConfigForm = Flux.createDocumentForm<
   domain: (client) => client.schematics,
   useEnsure,
   toValues: (s, { elKey }) => configOf(s, elKey),
-  pathOf: ({ field, elKey }) => {
-    if (field == null) throw new NotFoundError(`Schematic element ${elKey} not found`);
-    return [field, elKey, "config"];
-  },
+  pathOf: ({ field, elKey }) => [field, elKey, "config"],
 });
 
-const useConfigFormBase = (query: ConfigParams) => {
-  const field = useField(query);
-  // A removed element has no field. The form keeps the last one, so it keeps its store,
-  // which then holds its last values and sends no edits.
-  const [last, setLast] = useState(field);
-  if (field != null && field !== last) setLast(field);
-  return useDocumentConfigForm({ query: { ...query, field: field ?? last } });
-};
+const useConfigFormBase = (query: ConfigParams) =>
+  useDocumentConfigForm({ query: { ...query, field: useField(query) } });
 
 /** A form over one element's config in the cached schematic. */
 export const useConfigForm = Scope.bindHook(useConfigFormBase);
