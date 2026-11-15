@@ -44,6 +44,7 @@ const validateEntries = ({ value: channels, issues }: z.core.ParsePayload<Channe
   channels.forEach((ch, i) => {
     if (ch.disabled || ch.device === "" || ch.type !== "entry" || hasEntry(ch)) return;
     issues.push({
+      continue: true,
       code: "custom",
       message: "Entry is required",
       path: [i],

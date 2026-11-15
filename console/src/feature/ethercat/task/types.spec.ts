@@ -409,6 +409,14 @@ describe("deploy configs", () => {
     ]);
   });
 
+  it("should report a missing entry when another channel has no device", () => {
+    const empty = { ...EtherCAT.Task.createReadChannel([]), device: "dev" };
+    expect(issuesOf([empty, EtherCAT.Task.createReadChannel([])])).toEqual([
+      { path: ["channels", 1, "device"], message: "Device is required" },
+      { path: ["channels", 0], message: "Entry is required" },
+    ]);
+  });
+
   it("should leave an unresolved channel to the checks of its slave", () => {
     expect(issuesOf([createUnresolvedReadChannel("dev", "Input")])).toBeUndefined();
   });

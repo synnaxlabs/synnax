@@ -1440,6 +1440,30 @@ describe("Read", () => {
     expect(await screen.findByText("Device is required")).toBeTruthy();
   });
 
+  it("should show a missing entry and device together after a start", async () => {
+    const slave = await createStrainSlave();
+    const { container } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        { ...EtherCAT.Task.createReadChannel([]), device: slave.key },
+        EtherCAT.Task.createReadChannel([]),
+      ],
+    });
+    const options = await screen.findAllByRole("option", { name: /No entry/ });
+    expect(options).toHaveLength(2);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(options.map((o) => o.classList.contains("lyra--status-error"))).toEqual([
+        true,
+        true,
+      ]),
+    );
+    fireEvent.click(options[0]);
+    expect(await screen.findByText("Entry is required")).toBeTruthy();
+    fireEvent.click(options[1]);
+    expect(await screen.findByText("Device is required")).toBeTruthy();
+  });
+
   it("should show why a disabled channel with no device stops a start", async () => {
     const slave = await createStrainSlave();
     const { container } = await renderRead({

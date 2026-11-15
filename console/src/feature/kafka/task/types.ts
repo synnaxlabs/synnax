@@ -65,6 +65,7 @@ const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
       return;
     }
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message:
