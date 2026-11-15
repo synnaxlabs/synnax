@@ -73,6 +73,8 @@ class Breaker {
     Config config;
     /// @brief the current number of retries. Guarded by mu.
     size_t retries;
+    /// @brief the current number of unlimited retries. Guarded by mu.
+    size_t unlimited_retries = 0;
     /// @brief a flag to indicate if the breaker is currently running.
     std::atomic<bool> is_running;
     /// @brief a condition variable used to notify the breaker to shut down immediately.
@@ -96,8 +98,21 @@ class Breaker {
         );
     }
 
+    /// @brief requires mu to be held. Describes the next call to wait_unlimited().
+    [[nodiscard]] std::string next_unlimited_retry_locked() const {
+        const auto next = this->unlimited_retries + 1;
+        return std::format(
+            "retry {} in {:.1f} s",
+            next,
+            this->config.interval(next).seconds()
+        );
+    }
+
     /// @brief requires mu to be held. @see reset().
-    void reset_locked() { this->retries = 0; }
+    void reset_locked() {
+        this->retries = 0;
+        this->unlimited_retries = 0;
+    }
 
     bool trigger(const std::string &message, const bool limited) {
         std::unique_lock lock(this->mu);
@@ -105,28 +120,23 @@ class Breaker {
             LOG(ERROR) << "[" << this->config.name << "] breaker not started. Exiting.";
             return false;
         }
-        auto next = this->next_retry_locked();
+        const auto next = limited ? this->next_retry_locked()
+                                  : this->next_unlimited_retry_locked();
         if (next.empty()) {
-            if (limited) {
-                LOG(ERROR) << "[" << this->config.name
-                           << "] exceeded the maximum retry count of "
-                           << this->config.max_retries
-                           << ". Exiting. Error: " << message << ".";
-                this->reset_locked();
-                return false;
-            }
-            next = std::format(
-                "retry {} past the limit in {:.1f} s",
-                this->retries + 1,
-                this->config.interval(this->retries + 1).seconds()
-            );
+            LOG(ERROR) << "[" << this->config.name
+                       << "] exceeded the maximum retry count of "
+                       << this->config.max_retries << ". Exiting. Error: " << message
+                       << ".";
+            this->reset_locked();
+            return false;
         }
-        this->retries++;
+        auto &count = limited ? this->retries : this->unlimited_retries;
+        count++;
         LOG(ERROR) << "[" << this->config.name << "] " << next
                    << ". Error: " << message;
         if (this->shutdown_cv.wait_for(
                 lock,
-                this->config.interval(this->retries).chrono(),
+                this->config.interval(count).chrono(),
                 [this] { return !this->running(); }
             )) {
             LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
@@ -181,7 +191,8 @@ public:
 
     /// @brief triggers the breaker like wait(), but never exceeds the maximum retry
     /// count. Use it for a failure that has no limit on how long it may last, such as
-    /// an unreachable Core.
+    /// an unreachable Core. Its retries count and back off apart from those of wait(),
+    /// so they never use up the retry limit of wait().
     /// @returns false only if the breaker is not running or stops during the wait.
     bool wait_unlimited(const errors::Error &err) {
         return this->trigger(err.message(), false);
