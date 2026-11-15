@@ -15,6 +15,7 @@
 #include "absl/log/globals.h"
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
@@ -1000,8 +1001,8 @@ public:
 };
 }
 
-/// @brief it should open the writer again while the Core is unreachable, and stop on
-/// another error.
+/// @brief it should open the writer again while the Core is unreachable, past the
+/// retry limit of the breaker, and stop on another error.
 TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
     const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         freighter::UNREACHABLE,
@@ -1016,12 +1017,60 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
-            .max_retries = 5,
+            .max_retries = 1,
         }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
     pipeline.stop();
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<ScriptedSource>(std::vector{TEMPORARY});
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_EQ(factory->opens.load(), 2);
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::LICENSE_MISSING);
 }
 }
