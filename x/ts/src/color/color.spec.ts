@@ -131,16 +131,20 @@ describe("color.Color", () => {
 
   describe("contrast", () => {
     const tests: Array<[string, string, number]> = [
-      ["#000000", "#ffffff", 3],
-      ["#ffffff", "#000000", 3],
+      ["#000000", "#ffffff", 21],
+      ["#ffffff", "#000000", 21],
       ["#000000", "#000000", 1],
       ["#ffffff", "#ffffff", 1],
+      ["#ff0000", "#ffffff", 4],
+      ["#0000ff", "#ffffff", 8.6],
+      ["#777777", "#ffffff", 4.5],
+      ["#777777", "#000000", 4.7],
     ];
     tests.forEach(([hex1, hex2, expected]) => {
       test(`${hex1} ${hex2}`, () => {
         const c1 = color.construct(hex1);
         const c2 = color.construct(hex2);
-        expect(color.contrast(c1, c2)).toBeCloseTo(expected);
+        expect(color.contrast(c1, c2)).toBeCloseTo(expected, 1);
       });
     });
     test("pick c with highest contrast", () => {
@@ -148,6 +152,11 @@ describe("color.Color", () => {
       const c1 = color.construct("#ffffff");
       const c2 = color.construct("#0000ff");
       expect(color.pickByContrast(c, c1, c2)).toEqual(c1);
+    });
+    test("pick black text on a mid blue", () => {
+      expect(color.pickByContrast("#20a4f3", "#ffffff", "#000000")).toEqual(
+        color.construct("#000000"),
+      );
     });
   });
 

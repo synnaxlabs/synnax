@@ -288,7 +288,7 @@ export const contrast = (a: Crude, b: Crude): number => {
   const b_ = construct(b);
   const l1 = luminance(a_);
   const l2 = luminance(b_);
-  return (Math.max(l1, l2) + 0.5) / (Math.min(l1, l2) + 0.5);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 };
 
 /**
