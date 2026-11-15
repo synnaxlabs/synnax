@@ -8,3 +8,6 @@
 *_gen.go linguist-generated
 *_gen_test.go linguist-generated
 *_gen.py linguist-generated
+
+# Snapshots that specs record: collapse in GitHub diffs.
+**/__snapshots__/** linguist-generated

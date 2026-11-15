@@ -329,41 +329,17 @@ func (p MovePayload) Handle(state Table) (Table, error) {
 }
 
 // apply applies a path action to the table's name, group, or project, or to the config
-// of a cell. An action on a cell that no row holds does nothing, and any other path
-// into a row is rejected.
+// of a cell. Any other path fails, except that a path through a row or cell that does
+// not exist does nothing.
 func apply[A patch.Action](state Table, a A) (Table, error) {
 	c, err := patch.Begin(a)
 	if err != nil {
-		return Table{}, err
-	}
-	if err = checkPath(c); err != nil {
 		return Table{}, err
 	}
 	if err = state.Patch(c); err != nil {
 		return Table{}, err
 	}
 	return state, nil
-}
-
-// checkPath returns an error wrapping validate.ErrValidation unless the path at c names
-// the table's name, group, or project, or goes into the config of a cell.
-func checkPath(c patch.Cursor) error {
-	if c.Segment() != "rows" {
-		return nil
-	}
-	if row := c.Next(); !row.Done() {
-		if cells := row.Next(); !cells.Done() && cells.Segment() == "cells" {
-			if cell := cells.Next(); !cell.Done() {
-				if field := cell.Next(); !field.Done() && field.Segment() == "config" {
-					return nil
-				}
-			}
-		}
-	}
-	return errors.Wrap(
-		validate.ErrValidation,
-		"[Table] - a path into rows must go into the config of one cell",
-	)
 }
 
 func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }

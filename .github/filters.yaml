@@ -405,7 +405,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
   - scripts/common/**
 

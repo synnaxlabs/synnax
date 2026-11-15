@@ -284,8 +284,8 @@ describe("Schematic", () => {
         ...setNodes("n1"),
         schematic.setNode({ node: node("outer", group()) }),
         schematic.setNode({ node: { ...node("inner", group()), parent: "outer" } }),
+        setParent("n1", "inner"),
       ]);
-      await client.schematics.dispatch(schem.key, [setParent("n1", "inner")]);
       await client.schematics.dispatch(schem.key, [
         schematic.removeNode({ key: "inner" }),
       ]);
@@ -309,8 +309,6 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         ...setNodes("n1", "n2"),
         schematic.setNode({ node: node("g1", group()) }),
-      ]);
-      await client.schematics.dispatch(schem.key, [
         setParent("n1", "g1"),
         setParent("n2", "g1"),
       ]);
@@ -335,8 +333,6 @@ describe("Schematic", () => {
         schematic.setNode({ node: node("outer", group()) }),
         schematic.setNode({ node: { ...node("mid", group()), parent: "outer" } }),
         schematic.setNode({ node: { ...node("inner", group()), parent: "mid" } }),
-      ]);
-      await client.schematics.dispatch(schem.key, [
         setParent("n1", "inner"),
         setParent("n2", "mid"),
         setParent("n3", "outer"),
@@ -395,12 +391,10 @@ describe("Schematic", () => {
 
     test("a set of an edge config field reaches the Core", async () => {
       const { schem } = await newProjectSchematic(client);
+      const segments = [{ direction: "x", length: 10 }];
       await client.schematics.dispatch(schem.key, [
         ...setNodes("a", "b"),
         schematic.addEdge({ edge: edge("e1", "a", "o", "b", "i") }),
-      ]);
-      const segments = [{ direction: "x", length: 10 }];
-      await client.schematics.dispatch(schem.key, [
         schematic.set({ path: ["edges", "e1", "config", "segments"], value: segments }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
@@ -424,8 +418,8 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         ...setNodes("n1"),
         schematic.setNode({ node: node("g1", group()) }),
+        setParent("n1", "g1"),
       ]);
-      await client.schematics.dispatch(schem.key, [setParent("n1", "g1")]);
       expect((await client.schematics.retrieve(schem.key)).nodes[0].parent).toBe("g1");
       await client.schematics.dispatch(schem.key, [
         schematic.remove({ path: ["nodes", "n1"], key: "parent" }),

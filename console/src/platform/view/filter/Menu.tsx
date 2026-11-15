@@ -31,7 +31,7 @@ const PropertySub = ({
   value,
   onChange,
 }: PropertySubProps): ReactElement => (
-  <Base.Sub itemKey={itemKey}>
+  <Base.Sub itemKey={itemKey} textValue={name}>
     <Base.SubTrigger>
       <PropertyIcon />
       {name}

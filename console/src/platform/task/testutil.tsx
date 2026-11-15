@@ -40,7 +40,7 @@ import {
   type ReactElement,
   useImperativeHandle,
 } from "react";
-import { onTestFinished } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -481,6 +481,24 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
   // The click can re-render form parts that still suspend on their first query.
   await act(async () => fireEvent.click(button));
 };
+
+/**
+ * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
+ * a toast that the start raised has shown.
+ */
+export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
+  await clickDeploy(container);
+  await waitFor(() => {
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
+  });
+  await act(async () => {});
+};
+
+/** Matches the toast of a start that failed. */
+export const START_FAILURE = expect.objectContaining({
+  message: "Failed to start task",
+});
 
 /**
  * Finds the channel list row showing the text, such as a port or a channel name. The

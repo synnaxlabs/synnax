@@ -99,7 +99,8 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     type: schemas.type,
     config: schemas.config,
     configHash: z.string(),
-    status: task.statusZ(schemas.statusData).optional().nullable(),
+    // The Core writes the status, so the user cannot fix a status that fails a check.
+    status: z.unknown(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{

@@ -100,7 +100,6 @@ jobs:
     if: needs.gate.outputs.run == 'true'
     permissions:
       contents: read
-      id-token: write
     # The agent pushes and replies itself, as its GitHub App. The App token expires an
     # hour after it is minted, so the job budget stays at an hour.
     uses: ./.github/workflows/agent.yaml

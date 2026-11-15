@@ -28,8 +28,9 @@ import {
   commitFieldInput,
   createTaskStatus,
   renderTaskFormTab,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findIconButton, uniqueName } from "@/testutil";
 
 const path = deep.path<Task.Values<typeof schemas>>();
 
@@ -234,6 +235,57 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
+    });
+
+    it("should show an error that no field shows in a toast", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container } = await renderTaskFormTab(
+        createRenderer({ deployConfigZ: requiredDeviceZ }),
+        {
+          client,
+          taskKey: draft.key,
+          onStatuses: (next) => {
+            statuses.length = 0;
+            statuses.push(...next);
+          },
+        },
+      );
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: "Device is required",
+          }),
+        ),
+      );
+    });
+
+    it("should leave an error to the field that shows it", async () => {
+      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
+      DeviceField.displayName = "DeviceField";
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container } = await renderTaskFormTab(
+        createRenderer({ Form: DeviceField, deployConfigZ: requiredDeviceZ }),
+        {
+          client,
+          taskKey: draft.key,
+          onStatuses: (next) => {
+            statuses.length = 0;
+            statuses.push(...next);
+          },
+        },
+      );
+      await clickDeploy(container);
+      expect(await screen.findByText("Device is required")).toBeTruthy();
+      await act(async () => {});
+      expect(statuses).not.toContainEqual(
+        expect.objectContaining({ message: "Failed to start task" }),
+      );
     });
 
     it("should put an error of a keyed list entry on the field of that entry", async () => {
@@ -751,39 +803,63 @@ describe("wrapForm", () => {
       }
     });
 
-    it("should fail a start on an error at a path that has no field", async () => {
+    it("should start a task whose status fails its status data schema", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
-      const statuses: Status.NotificationSpec[] = [];
-      const { container } = await renderTaskFormTab(createRenderer(), {
-        client,
-        taskKey: draft.key,
-        onStatuses: (next) => {
-          statuses.length = 0;
-          statuses.push(...next);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(createRenderer(), {
+          client,
+          taskKey: draft.key,
+        });
+        // The status data of the task type requires running.
+        await client.statuses.set(
+          createTaskStatus({
+            owner: task.resourceID(draft.key),
+            message: "Task stopped",
+            details: { data: {} },
+          }),
+        );
+        await screen.findByText("Task stopped");
+        await clickDeploy(container);
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should not start a redeploy that a stop cancels while it configures", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      let release = (): void => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => {
+          await released;
+          return [config, 0];
         },
       });
-      // The status data of the task type requires running.
-      await client.statuses.set(
-        createTaskStatus({
-          owner: task.resourceID(draft.key),
-          message: "Task stopped",
-          details: { data: {} },
-        }),
-      );
-      await screen.findByText("Task stopped");
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: [
-              "The task has a value that the form does not show, and the value is not valid. This is a bug: report it with the error below.",
-              "status.details.data.running: Invalid input: expected boolean, received undefined",
-            ].join("\n"),
-          }),
-        ),
-      );
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await reportTaskRunning(client, draft, "stale");
+        await act(async () =>
+          fireEvent.click(await screen.findByRole("button", { name: "Redeploy" })),
+        );
+        await screen.findByText("Configuring task");
+        fireEvent.click(await findIconButton(container, "stop"));
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
+        release();
+        await waitFor(() => expect(screen.queryByText("Configuring task")).toBeNull());
+        // A start sent after the stop would come before this second stop.
+        fireEvent.click(await findIconButton(container, "stop"));
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should show that a start configures until its command goes out", async () => {

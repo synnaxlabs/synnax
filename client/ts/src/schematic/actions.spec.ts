@@ -453,6 +453,26 @@ describe("schematic reducer", () => {
       expect(freed.nodes[1]).toEqual(node("n1", 0, 0));
     });
 
+    it("should set the parent of a node inserted earlier in the batch", () => {
+      const insert = schematic.setNode({ node: node("n1", 0, 0) });
+      const batch = [insert, set(["nodes", "n1", "parent"], "g1")];
+      // A dispatch applies the actions before the last one alone to encode the batch.
+      apply(empty(), insert);
+      expect(apply(empty(), ...batch).nodes).toEqual([inGroup(node("n1", 0, 0), "g1")]);
+    });
+
+    it("should edit the config of a node inserted earlier in the batch", () => {
+      const insert = schematic.setNode({ node: node("n1", 0, 0, tank("Old")) });
+      const before = structuredClone(insert);
+      const out = apply(
+        empty(),
+        insert,
+        set(["nodes", "n1", "config", "label", "label"], "New"),
+      );
+      expect(out.nodes[0].config).toEqual(tank("New"));
+      expect(insert).toEqual(before);
+    });
+
     it("should not classify a set of the name as a config edit", () => {
       expect(
         schematic.kindOf([
