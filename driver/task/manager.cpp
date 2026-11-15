@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -78,15 +79,25 @@ std::shared_ptr<Manager::Entry> Manager::entry_for(const synnax::task::Key &key)
     return entry;
 }
 
-void Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
+bool Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
     const auto it = this->entries.find(key);
-    if (it == this->entries.end()) return;
+    if (it == this->entries.end()) return false;
     // A claimed entry stays: its worker may act on a stale fetch and install a
     // running instance, which the not-ours start path releases later. This also
     // keeps relevant()'s instance read claim-free.
-    if (!even_if_processing && it->second->processing) return;
-    if (it->second->relevant(this->rack.key)) return;
+    if (!even_if_processing && it->second->processing) return false;
+    if (it->second->relevant(this->rack.key)) return false;
     this->entries.erase(it);
+    return true;
+}
+
+void Manager::forget(const synnax::task::Key &key, const bool even_if_processing) {
+    bool removed = false;
+    {
+        std::lock_guard lock{this->mu};
+        removed = this->remove(key, even_if_processing);
+    }
+    if (removed) this->ctx->drop(key);
 }
 
 x::errors::Error Manager::configure_initial_tasks() {
@@ -95,8 +106,22 @@ x::errors::Error Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
+    std::vector<synnax::task::Key> gone;
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // A task deleted or moved during a Core outage sent no event here. Its ops
+        // that an earlier run queued, such as a deploy, must never run.
+        for (const auto &[key, _]: this->entries) {
+            if (std::ranges::any_of(tasks, [&](const auto &t) {
+                    return t.key == key && !t.snapshot;
+                }))
+                continue;
+            gone.push_back(key);
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                return op.task_key == key;
+            });
+            this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
+        }
         for (const auto &task: tasks) {
             if (task.snapshot) {
                 VLOG(1) << "ignoring snapshot task " << task;
@@ -112,7 +137,9 @@ x::errors::Error Manager::configure_initial_tasks() {
             queued++;
         }
     }
-    if (queued > 0) this->cv.notify_all();
+    this->cv.notify_all();
+    for (const auto &key: gone)
+        this->ctx->drop(key);
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     {
@@ -124,6 +151,7 @@ x::errors::Error Manager::configure_initial_tasks() {
                              << sy_task;
             else {
                 const auto entry = this->entry_for(sy_task.key);
+                this->ctx->hold(sy_task.key);
                 entry->instance = std::move(driver_task);
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = sy_task;
@@ -144,31 +172,36 @@ void Manager::stop() {
 }
 
 x::errors::Error Manager::run(std::function<void()> on_started) {
-    if (this->exit_early) {
-        VLOG(1) << "exiting early";
-        return x::errors::NIL;
+    x::errors::Error err = x::errors::NIL;
+    if (!this->exit_early) {
+        ++this->runs;
+        if (!this->breaker.running()) this->start_workers();
+        err = this->serve(on_started);
     }
-    this->start_workers();
-    if (const auto err = this->configure_initial_tasks()) {
-        this->stop_workers();
-        return err;
-    }
-    if (this->exit_early) {
-        VLOG(1) << "exiting early";
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
-    if (const auto err = this->open_streamer()) {
-        this->stop_workers();
-        return err;
-    }
+    // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
+    // the tasks run on until the next run reconciles them.
+    if (this->exit_early) this->close();
+    return err;
+}
+
+void Manager::close() {
+    if (!this->breaker.running()) return;
+    // Workers run the shutdown of each task, so they stop last.
+    this->stop_all_tasks();
+    this->stop_workers();
+}
+
+x::errors::Error Manager::serve(const std::function<void()> &on_started) {
+    if (const auto err = this->configure_initial_tasks()) return err;
+    if (this->exit_early) return x::errors::NIL;
+    if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
-    if (this->streamer == nullptr) {
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
+    if (this->streamer == nullptr) return x::errors::NIL;
+    // An earlier run may have failed to write statuses, and the Core marks the tasks
+    // of a silent rack as stopped, which is false for the tasks that ran on.
+    if (this->runs > 1)
+        if (const auto err = this->ctx->resend_statuses())
+            LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -190,8 +223,6 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
                 this->control_states_->apply(series);
         }
     } while (true);
-    this->stop_all_tasks();
-    this->stop_workers();
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
@@ -201,10 +232,11 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
 void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
-        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so a Driver with an empty mirror starts optimistic and
-        // converges as transfers arrive on the stream.
+        // The mirror of an earlier run may hold control that ended during an outage.
+        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
+        // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
+        this->control_states_->set({});
         return;
     }
     this->control_states_->set(states);
@@ -225,13 +257,13 @@ void Manager::process_task_set(const x::telem::Series &series) {
             continue;
         }
         if (snapshot) continue;
-        std::lock_guard<std::mutex> lock(this->mu);
-        // An untracked task becomes ours only when its row lands on this rack.
-        if (this->entries.find(task_key) == this->entries.end() &&
-            rack_key != this->rack.key)
-            continue;
-        const auto entry = this->entry_for(task_key);
         {
+            std::lock_guard<std::mutex> lock(this->mu);
+            // An untracked task becomes ours only when its row lands on this rack.
+            if (this->entries.find(task_key) == this->entries.end() &&
+                rack_key != this->rack.key)
+                continue;
+            const auto entry = this->entry_for(task_key);
             std::lock_guard entry_lock{entry->mu};
             entry->row.key = task_key;
             entry->row.rack = rack_key;
@@ -239,7 +271,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
             entry->row.type = type;
             entry->row.config_hash = config_hash;
         }
-        this->remove(task_key);
+        this->forget(task_key);
     }
 }
 
@@ -481,8 +513,10 @@ void Manager::monitor_loop() {
                 }
             }
         }
+        // A timed out op may still finish, so its status is not the latest of the
+        // task.
         for (auto &status: timed_out)
-            this->ctx->set_status(status);
+            this->ctx->send(status);
     }
 }
 
@@ -490,6 +524,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
     switch (op.type) {
         case Op::Type::DEPLOY: {
             auto tsk = op.task;
+            bool silent = true;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -513,15 +548,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         }
                         this->ctx->set_status(status);
                     }
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 tsk = std::move(fetched);
                 if (tsk.snapshot) {
                     VLOG(1) << "ignoring start for snapshot task " << tsk;
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 if (tsk.rack != this->rack.key) {
@@ -534,8 +567,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         entry->instance = nullptr;
                     }
                     this->clear_deploy(entry);
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->ctx->drop(op.task_key);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 std::string deployed;
@@ -559,9 +592,31 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     entry->instance->exec(cmd);
                     break;
                 }
+            } else {
+                std::string deployed;
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    deployed = entry->deployed_hash;
+                }
+                // An instance that lived through a lost Core connection keeps its
+                // status too. One whose task failed on its own, such as a pipeline
+                // that gave up, deploys again. A failed command, such as a manual
+                // scan, leaves its task running.
+                const auto latest = this->ctx->latest(tsk.key);
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR &&
+                                    !latest->details.running;
+                if (entry->instance != nullptr && deployed == tsk.config_hash &&
+                    !failed)
+                    break;
+                silent = failed;
             }
+            this->ctx->hold(tsk.key);
             if (entry->instance != nullptr) {
-                entry->instance->stop(true);
+                // A start follows a deploy for a command. At boot, a live instance
+                // reports its own stop, and a failed one keeps the error that says
+                // why.
+                entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;
@@ -629,6 +684,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 entry->instance = nullptr;
             }
             this->clear_deploy(entry);
+            this->ctx->drop(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -644,6 +700,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             // The row may have moved back to this rack while the release was queued,
             // so the entry can survive and must not keep a stale hash.
             this->clear_deploy(entry);
+            this->ctx->drop(op.task_key);
             std::lock_guard lock{this->mu};
             this->remove(op.task_key, true);
             break;

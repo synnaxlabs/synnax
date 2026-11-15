@@ -11,9 +11,11 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -97,10 +99,30 @@ public:
     }
 };
 
+/// @brief the context of the task manager. Keeps the latest status of each task that
+/// the manager holds, so it can send them again.
 class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
+
+    /// @brief the latest status of one task, with no command key.
+    struct Latest {
+        /// @brief guards status, present, and dropped, and orders the writes of the
+        /// task, so a re-send never lands after a newer status or a drop.
+        std::mutex mu;
+        synnax::task::Status status;
+        bool present = false;
+        bool dropped = false;
+    };
+    /// @brief guards latest_statuses. Never held during a write.
+    std::mutex latest_mu;
+    /// @brief the tasks that the manager holds, by key.
+    std::unordered_map<synnax::task::Key, std::shared_ptr<Latest>> latest_statuses;
+
+    x::errors::Error write(synnax::task::Status &status) {
+        return this->client->statuses.set<synnax::task::StatusDetails>(status);
+    }
 
 public:
     explicit SynnaxContext(
@@ -123,13 +145,93 @@ public:
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
+        std::shared_ptr<Latest> latest;
+        {
+            std::lock_guard lock{this->latest_mu};
+            const auto it = this->latest_statuses.find(status.details.task);
+            if (it != this->latest_statuses.end()) latest = it->second;
+        }
+        if (latest == nullptr) {
+            this->send(status);
+            return;
+        }
+        std::lock_guard lock{latest->mu};
+        if (!latest->dropped) {
+            if (status.time == 0) status.time = x::telem::TimeStamp::now();
+            status.details.rack = this->rack_key_;
+            latest->status = status;
+            latest->status.details.cmd.clear();
+            latest->present = true;
+        }
+        this->send(status);
+    }
+
+    /// @brief writes status without keeping it as the latest status of its task.
+    void send(synnax::task::Status &status) {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
-        if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
-                status
-            );
-            err)
+        if (const auto err = this->write(status))
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+    }
+
+    /// @brief keeps the statuses of the task from now on. Call it before the task
+    /// runs on this Driver.
+    void hold(const synnax::task::Key &key) {
+        std::lock_guard lock{this->latest_mu};
+        auto &entry = this->latest_statuses[key];
+        if (entry == nullptr) entry = std::make_shared<Latest>();
+    }
+
+    /// @returns the latest status of the task, or nullopt when it has none.
+    std::optional<synnax::task::Status> latest(const synnax::task::Key &key) {
+        std::shared_ptr<Latest> entry;
+        {
+            std::lock_guard lock{this->latest_mu};
+            const auto it = this->latest_statuses.find(key);
+            if (it == this->latest_statuses.end()) return std::nullopt;
+            entry = it->second;
+        }
+        std::lock_guard lock{entry->mu};
+        if (entry->dropped || !entry->present) return std::nullopt;
+        return entry->status;
+    }
+
+    /// @brief sends the latest status of each task again, stamped now, to repair
+    /// statuses lost while the Driver could not reach the Core.
+    /// @returns the first error of the writes.
+    x::errors::Error resend_statuses() {
+        std::vector<std::shared_ptr<Latest>> entries;
+        {
+            std::lock_guard lock{this->latest_mu};
+            for (const auto &[_, entry]: this->latest_statuses)
+                entries.push_back(entry);
+        }
+        x::errors::Error first_err = x::errors::NIL;
+        for (const auto &entry: entries) {
+            std::lock_guard lock{entry->mu};
+            if (entry->dropped || !entry->present) continue;
+            auto status = entry->status;
+            status.time = x::telem::TimeStamp::now();
+            if (const auto err = this->write(status); err && !first_err)
+                first_err = err;
+        }
+        return first_err;
+    }
+
+    /// @brief forgets the latest status of the task, so a re-send never writes it.
+    /// Waits for a write of the task in progress, so call it without Manager::mu.
+    /// Call it once the task has left this Driver.
+    void drop(const synnax::task::Key &key) {
+        std::shared_ptr<Latest> entry;
+        {
+            std::lock_guard lock{this->latest_mu};
+            const auto it = this->latest_statuses.find(key);
+            if (it == this->latest_statuses.end()) return;
+            entry = it->second;
+            this->latest_statuses.erase(it);
+        }
+        std::lock_guard lock{entry->mu};
+        entry->dropped = true;
     }
 };
 
@@ -276,12 +378,21 @@ public:
         shutdown_timeout(cfg.shutdown_timeout),
         worker_count(cfg.worker_count) {}
 
-    /// @brief runs the main task manager loop, blocking until stop() is called.
-    /// Safe to call stop() from another thread.
+    /// @brief runs the main task manager loop, blocking until stop() is called or the
+    /// connection to the Core fails. Safe to call stop() from another thread. A failed
+    /// connection leaves the tasks running: call run again to reconnect, or close. It
+    /// is not safe to call while a call is in progress.
     x::errors::Error run(std::function<void()> on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
+
+    /// @brief stops the tasks that a failed run left running. Call it on the thread of
+    /// run once no run follows. Does nothing after a run that stop() ended.
+    void close();
+
+    /// @returns the key of the rack of this task manager.
+    [[nodiscard]] synnax::rack::Key rack_key() const { return this->rack.key; }
 
 private:
     /// @brief the rack this manager belongs to.
@@ -289,7 +400,7 @@ private:
     /// @brief shared control authority states, fed by the manager's streamer.
     std::shared_ptr<control::States> control_states_;
     /// @brief shared context passed to all tasks.
-    std::shared_ptr<Context> ctx;
+    std::shared_ptr<SynnaxContext> ctx;
     /// @brief creates device-specific tasks.
     std::unique_ptr<Factory> factory;
     /// @brief duration before reporting stuck operations.
@@ -366,6 +477,8 @@ private:
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
+    /// @brief the number of runs started.
+    std::atomic<uint64_t> runs{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -382,6 +495,9 @@ private:
         synnax::channel::Channel control_state;
     } channels;
 
+    /// @brief configures the tasks and applies the events of the Core until the
+    /// streamer stops.
+    x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
@@ -389,7 +505,7 @@ private:
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
-    /// @brief stops all running tasks.
+    /// @brief stops all running tasks. Needs the workers.
     void stop_all_tasks();
     /// @brief refreshes the local row for each changed task. Never deploys or stops;
     /// a rack move is acted on by the next start command.
@@ -405,12 +521,16 @@ private:
     /// @brief drops the entry for key unless it is still relevant or claimed by a
     /// worker. even_if_processing is for a worker's own entry. Callers must hold
     /// mu.
-    void remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @returns true when the entry was dropped.
+    bool remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @brief removes the entry for key like remove, and forgets the latest status of
+    /// the task when the entry goes. Takes mu.
+    void forget(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.
     void stop_workers();
-    /// @brief main loop for worker threads - pops and executes operations.
+    /// @brief main loop for worker threads - pops and executes operations until close.
     void worker_loop();
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
