@@ -469,18 +469,24 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        // A cycle short by what the slaves out of OP can miss drops only their inputs.
+        // The slaves out of OP lose their inputs on a full cycle too, since a slave
+        // below SAFE-OP can keep its share of the working counter. A cycle short by
+        // what they can miss drops only their inputs.
         const Outage *out = nullptr;
-        if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
+        if (!starting) {
             if (this->outage_version.load(std::memory_order_acquire) !=
                 outage_version) {
                 std::lock_guard lock(this->outage_mu);
                 outage = this->outage;
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
-            if (const auto missed = this->master->shortfall();
-                missed && *missed >= outage.least_shortfall &&
-                *missed <= outage.shortfall) {
+            if (!err) {
+                if (!outage.positions.empty()) out = &outage;
+            } else if (
+                const auto missed = this->master->shortfall();
+                err.matches(errors::WORKING_COUNTER_ERROR) && missed &&
+                *missed >= outage.least_shortfall && *missed <= outage.shortfall
+            ) {
                 out = &outage;
                 latched_at = sent_at + lead;
                 host_timed = true;
@@ -537,7 +543,7 @@ void Engine::run() {
             input->countdown = decimation - 1;
             if (err && out == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else if (!err || !input->lose(*out))
+            else if (out == nullptr || !input->lose(*out))
                 input->push(inputs, latched_at);
         }
 

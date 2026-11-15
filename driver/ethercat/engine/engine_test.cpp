@@ -3326,6 +3326,34 @@ TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
     EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
 }
 
+/// @brief it should drop the samples of a slave out of OP on a full cycle, since a
+/// slave below SAFE-OP can keep its share of the working counter.
+TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
+    EXPECT_EQ(kept->warning(), "");
+}
+
 /// @brief it should drop the samples of every reader when the working counter falls
 /// further short than the slaves out of OP explain.
 TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
