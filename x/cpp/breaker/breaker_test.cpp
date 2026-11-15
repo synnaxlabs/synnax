@@ -82,6 +82,24 @@ TEST(BreakerTests, testInfiniteRetries) {
     EXPECT_FALSE(b.running());
 }
 
+/// @brief it should retry past the maximum retry count on an unlimited wait, and still
+/// stop the limited waits that follow at the limit.
+TEST(BreakerTests, UnlimitedWaitIgnoresTheRetryLimit) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    ASSERT_TRUE(b.start());
+    for (int i = 0; i < 5; i++)
+        EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    EXPECT_EQ(b.retry_count(), 5);
+    EXPECT_FALSE(b.wait("limited"));
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should return false from an unlimited wait on a stopped breaker.
+TEST(BreakerTests, UnlimitedWaitReturnsFalseWhenStopped) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    EXPECT_FALSE(b.wait_unlimited(errors::UNKNOWN));
+}
+
 /// @brief it should return false when attempting to start a breaker that was
 /// already running.
 TEST(BreakerTests, testStartAlreadyRunning) {

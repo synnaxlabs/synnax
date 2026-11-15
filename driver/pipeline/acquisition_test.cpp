@@ -1000,8 +1000,8 @@ public:
 };
 }
 
-/// @brief it should open the writer again while the Core is unreachable, and stop on
-/// another error.
+/// @brief it should open the writer again while the Core is unreachable, past the
+/// retry limit of the breaker, and stop on another error.
 TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
     const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         freighter::UNREACHABLE,
@@ -1016,7 +1016,7 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
-            .max_retries = 5,
+            .max_retries = 1,
         }
     );
     ASSERT_TRUE(pipeline.start());

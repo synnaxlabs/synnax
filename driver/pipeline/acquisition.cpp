@@ -85,7 +85,7 @@ bool Acquisition::run_once() {
     auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
     if (writer_err) {
         if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-            this->breaker.wait(writer_err.message()))
+            this->breaker.wait_unlimited(writer_err))
             return true;
         LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.message();
         this->source->stopped_with_err(writer_err);
@@ -142,7 +142,7 @@ bool Acquisition::run_once() {
     }
     writer_err = writer->close();
     if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message()))
+        this->breaker.wait_unlimited(writer_err))
         return true;
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);

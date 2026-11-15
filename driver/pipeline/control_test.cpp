@@ -198,8 +198,8 @@ public:
 };
 }
 
-/// @brief it should open the streamer again while the Core is unreachable, and stop on
-/// another error.
+/// @brief it should open the streamer again while the Core is unreachable, past the
+/// retry limit of the breaker, and stop on another error.
 TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
     const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
         freighter::UNREACHABLE,
@@ -214,7 +214,7 @@ TEST(ControlPipeline, RetriesOpenWhileCoreUnreachable) {
         sink,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
-            .max_retries = 5,
+            .max_retries = 1,
         }
     );
     ASSERT_TRUE(control.start());
