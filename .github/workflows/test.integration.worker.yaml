@@ -175,25 +175,25 @@ jobs:
           uv run test-conductor --name tc_unix \
             --core-binary "$HOME/synnax-binaries/synnax" "${args[@]}"
 
-      # A conductor that fails before it writes a bundle, which holds the Core log,
-      # leaves no evidence. The upload below takes this copy instead.
+      # A conductor that fails before its bundle holds server.log leaves no Core log. The
+      # upload below takes this copy instead. !success() also covers a job timeout.
       - name: Copy Core log (Windows)
-        if: failure() && runner.os == 'Windows'
+        if: ${{ !success() && runner.os == 'Windows' }}
         shell: powershell
         run: |
           $log = "$env:USERPROFILE\synnax-data\synnax-core.log"
-          $bundled = Test-Path integration/tests/results/run-*
+          $bundled = Test-Path integration/tests/results/run-*/server.log
           if ((Test-Path $log) -and -not $bundled) {
             New-Item -ItemType Directory -Force integration/tests/results | Out-Null
             Copy-Item $log integration/tests/results/
           }
 
       - name: Copy Core log (Ubuntu)
-        if: failure() && runner.os == 'Linux'
+        if: ${{ !success() && runner.os == 'Linux' }}
         run: |
           log="$HOME/synnax-data/synnax-core.log"
-          if [ -f "$log" ] && ! compgen -G "integration/tests/results/run-*" > /dev/null
-          then
+          if [ -f "$log" ] && ! compgen -G "integration/tests/results/run-*/server.log" \
+            > /dev/null; then
             mkdir -p integration/tests/results
             cp "$log" integration/tests/results/
           fi
