@@ -384,4 +384,32 @@ describe("deploy configs", () => {
       }),
     );
   });
+
+  const issuesOf = (channels: EtherCAT.Task.ReadChannel[]) =>
+    EtherCAT.Task.deployReadConfigZ
+      .safeParse(EtherCAT.Task.READ_SCHEMAS.config.parse({ channels }))
+      .error?.issues.map(({ path, message }) => ({ path, message }));
+
+  it("should ask an enabled channel with no entry for an entry", () => {
+    const empty = { ...EtherCAT.Task.createReadChannel([]), device: "dev" };
+    expect(issuesOf([empty])).toEqual([
+      { path: ["channels", 0], message: "Entry is required" },
+    ]);
+  });
+
+  it("should not ask a disabled channel for an entry", () => {
+    const valid = EtherCAT.Task.createEntryReadChannel("dev", STATUS_ENTRY);
+    const empty = { ...EtherCAT.Task.createReadChannel([]), device: "dev" };
+    expect(issuesOf([valid, { ...empty, disabled: true }])).toBeUndefined();
+  });
+
+  it("should ask a channel with no device only for a device", () => {
+    expect(issuesOf([EtherCAT.Task.createReadChannel([])])).toEqual([
+      { path: ["channels", 0, "device"], message: "Device is required" },
+    ]);
+  });
+
+  it("should leave an unresolved channel to the checks of its slave", () => {
+    expect(issuesOf([createUnresolvedReadChannel("dev", "Input")])).toBeUndefined();
+  });
 });

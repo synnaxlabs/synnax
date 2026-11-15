@@ -39,9 +39,24 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = ethercat.readConfigZ;
 
+/** Reports each enabled channel on a device that has no entry picked. */
+const validateEntries = ({ value: channels, issues }: z.core.ParsePayload<Channel[]>) =>
+  channels.forEach((ch, i) => {
+    if (ch.disabled || ch.device === "" || ch.type !== "entry" || hasEntry(ch)) return;
+    issues.push({
+      code: "custom",
+      message: "Entry is required",
+      path: [i],
+      input: channels,
+    });
+  });
+
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
-    channels: ethercat.readConfigZ.shape.channels.check(Task.validateEnabledChannel),
+    channels: ethercat.readConfigZ.shape.channels
+      .check(Task.validateEnabledChannel)
+      .check(Task.validateChannelDevices)
+      .check(validateEntries),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
   })
@@ -69,7 +84,10 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
-  channels: ethercat.writeConfigZ.shape.channels.check(Task.validateEnabledChannel),
+  channels: ethercat.writeConfigZ.shape.channels
+    .check(Task.validateEnabledChannel)
+    .check(Task.validateChannelDevices)
+    .check(validateEntries),
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });
