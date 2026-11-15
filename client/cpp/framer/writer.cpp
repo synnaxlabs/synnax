@@ -124,8 +124,12 @@ x::errors::Error Writer::close(const x::errors::Error &err) {
 
 std::pair<grpc::framer::WriterResponse, x::errors::Error>
 Writer::exec(grpc::framer::WriterRequest &req, const bool ack) {
-    if (const auto err = this->stream->send(req); err)
-        return {grpc::framer::WriterResponse(), this->close(err)};
+    if (const auto err = this->stream->send(req); err) {
+        // A send fails once the stream has ended. The stream status holds the cause,
+        // such as an unreachable Core.
+        const auto close_err = this->close(x::errors::NIL);
+        return {grpc::framer::WriterResponse(), close_err ? close_err : err};
+    }
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close(res_err)};
