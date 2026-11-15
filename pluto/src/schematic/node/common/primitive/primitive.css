@@ -32,7 +32,8 @@
     .react-flow__handle {
         transform: translate(-50%, -50%);
 
-        &::before {
+        &::before,
+        &::after {
             scale: calc(1 / var(--pluto-diagram-zoom, 1));
         }
     }
