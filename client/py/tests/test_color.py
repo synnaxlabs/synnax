@@ -9,6 +9,7 @@
 
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
@@ -172,6 +173,32 @@ class TestColorClient:
         )
         assert ungrouped == [loose]
 
+    def test_retrieve_every(self, client: sy.Synnax) -> None:
+        """Should retrieve every named color when given no arguments."""
+        named = client.colors.create(name=str(uuid4()), light="#FF0000")
+        assert named.key in {n.key for n in client.colors.retrieve()}
+
+    def test_retrieve_drops_missing_keys(self, client: sy.Synnax) -> None:
+        """Should leave the keys with no named color out of a list."""
+        named = client.colors.create(name=str(uuid4()), light="#FF0000")
+        assert client.colors.retrieve(keys=[named.key, uuid4()]) == [named]
+
+    def test_retrieve_key_not_found(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when no named color has the key."""
+        with pytest.raises(sy.NotFoundError):
+            client.colors.retrieve(key=uuid4())
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every named
+        color."""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.colors.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_retrieve_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a named color filter line."""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.colors.retrieve(nme="a")  # type: ignore[call-overload]
+
     def test_retrieve_name_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no named color has the name."""
         with pytest.raises(sy.NotFoundError, match="Found no named color"):
@@ -199,12 +226,26 @@ class TestColorClient:
                 named.key, color.set(color.SetPayload(path=["name"], value=""))
             )
 
+    def test_dispatch_missing_key(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when no named color has the key."""
+        with pytest.raises(sy.NotFoundError):
+            client.colors.dispatch(
+                uuid4(), color.set(color.SetPayload(path=["name"], value="Anomaly"))
+            )
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a named color."""
         named = client.colors.create(name=str(uuid4()), light="#FF0000")
         client.colors.delete(named.key)
         with pytest.raises(sy.NotFoundError):
             client.colors.retrieve(key=named.key)
+
+    def test_delete_many(self, client: sy.Synnax) -> None:
+        """Should delete several named colors at once."""
+        a = client.colors.create(name=str(uuid4()), light="#FF0000")
+        b = client.colors.create(name=str(uuid4()), light="#FF0000")
+        client.colors.delete([a.key, b.key])
+        assert client.colors.retrieve(names=[a.name, b.name]) == []
 
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not fail on a key with no named color."""
