@@ -131,12 +131,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const deployChecked = useRef(false);
     const [configuring, setConfiguring] = useState(false);
 
-    const handleDeploy = () => {
+    const handleDeploy = async () => {
       setConfiguring(true);
-      handleError(
-        async () => await deploy().finally(() => setConfiguring(false)),
-        "Failed to start task",
-      );
+      try {
+        await deploy();
+      } catch (e) {
+        handleError(e, "Failed to start task");
+      }
+      setConfiguring(false);
     };
 
     const deploy = async () => {
@@ -153,10 +155,15 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         const hidden = errors.filter(
           ({ key }) => !FIELD_PATHS.some((p) => key != null && deep.pathsMatch(key, p)),
         );
-        if (hidden.length > 0)
+        if (hidden.length > 0) {
+          const details = hidden.map(({ key, message }) => `${key}: ${message}`);
           throw new Error(
-            hidden.map(({ key, message }) => `${key}: ${message}`).join("\n"),
+            [
+              "The task has a value that the form does not show, and the value is not valid. This is a bug: report it with the error below.",
+              ...details,
+            ].join("\n"),
           );
+        }
         if (errors.length > 0) return;
         const { config, name, rack } = form.value();
         // The form's values are the cached task, and onConfigure changes its config.
@@ -220,7 +227,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             {showControls && (
               <Controls.Controls
                 configuring={configuring}
-                onDeploy={handleDeploy}
+                onDeploy={() => void handleDeploy()}
                 onStop={handleStop}
               />
             )}

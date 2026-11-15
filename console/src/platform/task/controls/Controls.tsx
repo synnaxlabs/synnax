@@ -126,7 +126,8 @@ export const Controls = ({
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      disabled={configuring}
+      // Stop stays enabled on a running task while a redeploy configures.
+      disabled={configuring && !running}
       startStopVariant={
         configuring ? undefined : status.keepVariants(taskStatus?.variant, "loading")
       }

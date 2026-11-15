@@ -724,8 +724,10 @@ describe("wrapForm", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to start task",
-            description:
+            description: [
+              "The task has a value that the form does not show, and the value is not valid. This is a bug: report it with the error below.",
               "status.details.data.running: Invalid input: expected boolean, received undefined",
+            ].join("\n"),
           }),
         ),
       );
