@@ -23,11 +23,16 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func rangeView(name string) view.View {
 	return view.View{
-		Variant: view.RangeView{Base: view.Base{Key: uuid.New(), Name: name}},
+		Variant: view.RangeView{
+			Base:   view.Base{Key: uuid.New(), Name: name},
+			Sort:   view.RangeSortNewest,
+			Layout: view.RangeLayoutTree,
+		},
 	}
 }
 
@@ -58,9 +63,11 @@ var _ = Describe("View", func() {
 			It(
 				"Should create a new view with an auto-generated key",
 				func(ctx SpecContext) {
-					s := &view.View{
-						Variant: view.RangeView{Base: view.Base{Name: "Test"}},
-					}
+					s := &view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Test"},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
+					}}
 					Expect(w.Create(ctx, s)).To(Succeed())
 					Expect(s.GorpKey()).ToNot(Equal(uuid.Nil()))
 				},
@@ -89,12 +96,28 @@ var _ = Describe("View", func() {
 				"Should reject a range view with an invalid regex",
 				func(ctx SpecContext) {
 					s := view.View{Variant: view.RangeView{
-						Base:  view.Base{Name: "Bad"},
-						Where: &ranger.Where{Name: &filter.String{Regex: new("(")}},
+						Base:   view.Base{Name: "Bad"},
+						Where:  &ranger.Where{Name: &filter.String{Regex: new("(")}},
+						Sort:   view.RangeSortNewest,
+						Layout: view.RangeLayoutTree,
 					}}
 					Expect(w.Create(ctx, &s)).To(MatchError(ContainSubstring(
 						"where.name.regex: error parsing regexp: missing closing )",
 					)))
+				},
+			)
+			It(
+				"Should reject a range view with an invalid sort",
+				func(ctx SpecContext) {
+					s := view.View{Variant: view.RangeView{
+						Base:   view.Base{Name: "Bad"},
+						Sort:   "random",
+						Layout: view.RangeLayoutTree,
+					}}
+					Expect(w.Create(ctx, &s)).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("sort: invalid sort: random")),
+					))
 				},
 			)
 			It("Should reject a view with no name", func(ctx SpecContext) {
@@ -103,24 +126,27 @@ var _ = Describe("View", func() {
 					w.Create(ctx, &s),
 				).To(MatchError(ContainSubstring("name: required")))
 			})
-			It("Should update an existing view", func(ctx SpecContext) {
-				s := rangeView("Test View")
-				Expect(w.Create(ctx, &s)).To(Succeed())
-				updated := view.View{Variant: view.StatusView{
-					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
-					Where: &status.Where{Variant: &filter.Set[status.Variant]{
-						Eq: new(status.VariantError),
-					}},
+			It("Should refuse a view whose key exists", func(ctx SpecContext) {
+				stored := rangeView("Test View")
+				Expect(w.Create(ctx, &stored)).To(Succeed())
+				again := view.View{Variant: view.StatusView{
+					Base: view.Base{Key: stored.GorpKey(), Name: "Updated Name"},
 				}}
-				Expect(w.Create(ctx, &updated)).To(Succeed())
+				Expect(w.Create(ctx, &again)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"view %s already exists",
+						stored.GorpKey(),
+					)),
+				))
 				var retrieved view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.GorpKey())).
+						Where(view.MatchKeys(stored.GorpKey())).
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved).To(Equal(updated))
+				Expect(retrieved).To(Equal(stored))
 			})
 		})
 

@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -42,7 +42,11 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
-	v := view.View{Variant: view.RangeView{Name: "Before"}}
+	v := view.View{Variant: view.RangeView{
+		Name:   "Before",
+		Sort:   view.RangeSortNewest,
+		Layout: view.RangeLayoutTree,
+	}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.View.NewWriter(tx).Create(ctx, &v)
 	})).To(Succeed())
@@ -69,7 +73,11 @@ func retrieveView(ctx SpecContext, key view.Key) view.View {
 
 var _ = Describe("Create", func() {
 	newView := func() view.View {
-		return view.View{Variant: view.RangeView{Name: "Created"}}.WithKey(uuid.New())
+		return view.View{Variant: view.RangeView{
+			Name:   "Created",
+			Sort:   view.RangeSortNewest,
+			Layout: view.RangeLayoutTree,
+		}}.WithKey(uuid.New())
 	}
 	It("Should create the view with create on views", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -91,20 +99,21 @@ var _ = Describe("Create", func() {
 		})).Error().To(denied(u, access.ActionCreate, v.ResourceID()))
 		Expect(exists(ctx, v.GorpKey())).To(BeFalse())
 	})
-	It("Should need update on a stored view that it overwrites", func(ctx SpecContext) {
+	It("Should refuse a view whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, resource.ID{
 			Type: resource.TypeView,
 		})
-		v.SetBase(view.Base{Key: v.GorpKey(), Name: "After"})
-		req := apiview.CreateRequest{Views: []view.View{v}}
-		Expect(create(AuthedCtx(ctx, u), req)).Error().
-			To(denied(u, access.ActionUpdate, v.ResourceID()))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		MustSucceed(create(AuthedCtx(ctx, u), req))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
+		v.SetBase(view.Base{Key: v.GorpKey(), Name: "After"})
+		Expect(create(AuthedCtx(ctx, u), apiview.CreateRequest{
+			Views: []view.View{v},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("view %s already exists", v.GorpKey())),
+		))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })
 
@@ -159,49 +168,6 @@ var _ = Describe("Dispatch", func() {
 			apiview.DispatchRequest{Key: v.GorpKey(), Actions: rename},
 		))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
-	})
-})
-
-var _ = Describe("Rename", func() {
-	It("Should rename the view when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		MustSucceed(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		))
-		renamed := retrieveView(ctx, v.GorpKey())
-		Expect(renamed.Base().Name).To(Equal("After"))
-		Expect(renamed.Type()).To(Equal(view.TypeRange))
-	})
-	It("Should reject an empty name", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: ""},
-		)).Error().To(MatchError(ContainSubstring("name: required")))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
-	})
-	It("Should return a not found error for a missing view", func(ctx SpecContext) {
-		u := createUser(ctx)
-		key := uuid.New()
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, view.ResourceID(key))
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: key, Name: "After"},
-		)).Error().To(MatchError(query.ErrNotFound))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		v := createView(ctx)
-		Expect(rename(
-			AuthedCtx(ctx, u),
-			apiview.RenameRequest{Key: v.GorpKey(), Name: "After"},
-		)).Error().To(denied(u, access.ActionUpdate, v.ResourceID()))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })
 

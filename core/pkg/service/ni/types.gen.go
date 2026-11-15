@@ -1065,6 +1065,10 @@ func (h *Hardware) ApplyDefaults() {
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
+	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
+	v.GreaterThanEq("ai_max_single_channel_rate", h.AiMaxSingleChannelRate, 0)
+	v.GreaterThanEq("ai_max_multi_channel_rate", h.AiMaxMultiChannelRate, 0)
+	v.GreaterThanEq("ao_max_rate", h.AoMaxRate, 0)
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {
 			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))

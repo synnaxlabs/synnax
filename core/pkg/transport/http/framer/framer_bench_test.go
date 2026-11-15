@@ -20,15 +20,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/telem"
 )
 
-func newHTTPFramerCodec(keys channel.Keys, dts []telem.DataType) *framer.Codec {
-	return &framer.Codec{
-		Codec:          codec.NewStatic(keys, dts),
-		LowerPerfCodec: json.Codec,
-	}
+func newHTTPFramerCodec(
+	b *testing.B,
+	keys channel.Keys,
+	dts []telem.DataType,
+) *framer.Codec {
+	return framer.NewCodec(b.Context(), codec.NewStatic(keys, dts))
 }
 
 func httpBenchFrame(
@@ -89,7 +89,7 @@ func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dts, fr := httpBenchFrame(nc, 100)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
@@ -101,7 +101,7 @@ func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				w.Reset()
-				if err := c.EncodeStream(b.Context(), w, msg); err != nil {
+				if err := c.EncodeStream(w, msg); err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 			}
@@ -113,7 +113,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dts, fr := httpBenchFrame(nc, 100)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
@@ -121,7 +121,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 					Frame:   fr,
 				},
 			}
-			encoded, err := c.Encode(b.Context(), msg)
+			encoded, err := c.Encode(msg)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
@@ -129,7 +129,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				dec = http.WSMessage[framer.WriterRequest]{}
-				if err := c.Decode(b.Context(), encoded, &dec); err != nil {
+				if err := c.Decode(encoded, &dec); err != nil {
 					b.Fatalf("decode: %v", err)
 				}
 			}
@@ -141,7 +141,7 @@ func BenchmarkHTTPCodec_StreamerResponse_Encode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dts, fr := httpBenchFrame(nc, 100)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.StreamerResponse]{
 				Type:    "data",
 				Payload: framer.StreamerResponse{Frame: fr},
@@ -150,7 +150,7 @@ func BenchmarkHTTPCodec_StreamerResponse_Encode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				w.Reset()
-				if err := c.EncodeStream(b.Context(), w, msg); err != nil {
+				if err := c.EncodeStream(w, msg); err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 			}
@@ -162,12 +162,12 @@ func BenchmarkHTTPCodec_StreamerResponse_Decode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
 			keys, dts, fr := httpBenchFrame(nc, 100)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.StreamerResponse]{
 				Type:    "data",
 				Payload: framer.StreamerResponse{Frame: fr},
 			}
-			encoded, err := c.Encode(b.Context(), msg)
+			encoded, err := c.Encode(msg)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
@@ -175,7 +175,7 @@ func BenchmarkHTTPCodec_StreamerResponse_Decode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				dec = http.WSMessage[framer.StreamerResponse]{}
-				if err := c.Decode(b.Context(), encoded, &dec); err != nil {
+				if err := c.Decode(encoded, &dec); err != nil {
 					b.Fatalf("decode: %v", err)
 				}
 			}
@@ -205,7 +205,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 		)
 		b.Run(name, func(b *testing.B) {
 			keys, dts, fr := httpIteratorFrame(cs.channels, cs.domains, cs.samples)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
@@ -218,7 +218,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				w.Reset()
-				if err := c.EncodeStream(b.Context(), w, msg); err != nil {
+				if err := c.EncodeStream(w, msg); err != nil {
 					b.Fatalf("encode: %v", err)
 				}
 			}
@@ -243,7 +243,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 		)
 		b.Run(name, func(b *testing.B) {
 			keys, dts, fr := httpIteratorFrame(cs.channels, cs.domains, cs.samples)
-			c := newHTTPFramerCodec(keys, dts)
+			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
@@ -252,7 +252,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 					Frame:   fr,
 				},
 			}
-			encoded, err := c.Encode(b.Context(), msg)
+			encoded, err := c.Encode(msg)
 			if err != nil {
 				b.Fatalf("encode: %v", err)
 			}
@@ -260,7 +260,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				dec = http.WSMessage[framer.IteratorResponse]{}
-				if err := c.Decode(b.Context(), encoded, &dec); err != nil {
+				if err := c.Decode(encoded, &dec); err != nil {
 					b.Fatalf("decode: %v", err)
 				}
 			}
@@ -274,7 +274,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 // SeekFirst).
 func BenchmarkHTTPCodec_IteratorRequest_Encode(b *testing.B) {
 	keys, dts, _ := httpIteratorFrame(8, 1, 1)
-	c := newHTTPFramerCodec(keys, dts)
+	c := newHTTPFramerCodec(b, keys, dts)
 	msg := http.WSMessage[framer.IteratorRequest]{
 		Type: "data",
 		Payload: framer.IteratorRequest{
@@ -287,7 +287,7 @@ func BenchmarkHTTPCodec_IteratorRequest_Encode(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		w.Reset()
-		if err := c.EncodeStream(b.Context(), w, msg); err != nil {
+		if err := c.EncodeStream(w, msg); err != nil {
 			b.Fatalf("encode: %v", err)
 		}
 	}

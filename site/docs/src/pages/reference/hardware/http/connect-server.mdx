@@ -41,7 +41,7 @@ Synnax, an HTTP server is one base address with its authentication and health ch
 2. Enter a name for the server.
 3. In **Host**, enter the address and port without `http://` or `https://`, for example
    `192.168.1.40:8080`. You can add a base path, such as `api.example.com/v2`.
-4. Turn **HTTPS** off if the server uses plain HTTP. Most devices on a local network do.
+4. Clear **HTTPS** if the server uses plain HTTP. Most devices on a local network do.
 5. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has HTTP enabled, the Console selects it for you.
 6. On the **Authentication** and **Health check** tabs, set the
@@ -118,9 +118,13 @@ result as the server status in the devices toolbar. For the messages, see
 - **Path** -> the path of the request. In the Console it is empty by default, so the
   check asks for the base address. In Python it is `/health` by default. If the server
   answers the check path with an error such as 404, **Connect** fails.
+- **Body** -> the body of a POST request. Shows when **Method** is POST.
+- **Headers** and **Query parameters** -> names and values to send with the request.
 - **Validate body** -> also checks one value in the JSON response. Set a **JSON
-  pointer**, such as `/status`, the **Value type**, and the **Expected value**, such as
-  `ok`. The status is "Health check failed" when the value is different.
+  pointer**, such as `/status`, the **Value type** (**String**, **Number**, **Boolean**,
+  or **Null**), and the **Expected value**, such as `ok`. A **Null** value type expects
+  `null` and has no expected value. The status is "Health check failed" when the value
+  is different.
 
 <Divider.Divider x />
 
@@ -129,8 +133,8 @@ result as the server status in the devices toolbar. For the messages, see
 | Console label       | Python field              | Default | Notes                                                                                  |
 | ------------------- | ------------------------- | ------- | -------------------------------------------------------------------------------------- |
 | Host                | `host`                    |         | Address and port, with no scheme.                                                      |
-| HTTPS               | `secure`                  | On      | Off for plain HTTP.                                                                    |
-| Verify certificate  | `verify_ssl`              | On      | Shows when **HTTPS** is on. Turn off for a server with a self-signed certificate.      |
+| HTTPS               | `secure`                  | On      | A check box. Clear it for plain HTTP.                                                  |
+| Verify certificate  | `verify_ssl`              | On      | Shows when **HTTPS** is on. Clear it for a server with a self-signed certificate.      |
 | Timeout             | `timeout_ms`              | 100 ms  | On the **Advanced** tab. The time the Driver waits for each response. Must be above 0. |
 | Concurrent requests | `max_concurrent_requests` | 6       | On the **Advanced** tab. The most requests open to the server at one time.             |
 | Authentication      | `auth`                    | None    | See [authentication](#authentication).                                                 |
@@ -197,8 +201,8 @@ The Driver could not reach the address. The description shows the reason.
 <Problem.Fix>
 
 1. Make sure that **Host** has no `http://` or `https://`.
-2. Match **HTTPS** to the server. A local device often needs **HTTPS** off.
-3. For a server with a self-signed certificate, turn off **Verify certificate**.
+2. Match **HTTPS** to the server. For a local device, you often must clear **HTTPS**.
+3. For a server with a self-signed certificate, clear **Verify certificate**.
 
 </Problem.Fix>
 </Problem.Item>
@@ -206,8 +210,8 @@ The Driver could not reach the address. The description shows the reason.
 <Problem.Item message={["HTTP 401", "HTTP 403"]}>
 <Problem.Cause>
 
-The server rejected the credentials. The status shows "Health check failed", or "Failed
-to connect to server" in the **Connect** dialog, with the code in the description.
+The server rejected the credentials. The status and the **Connect** dialog show "Health
+check failed", with "The server responded with HTTP 401" or 403 in the description.
 
 </Problem.Cause>
 <Problem.Fix>

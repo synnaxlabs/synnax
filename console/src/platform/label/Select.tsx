@@ -9,35 +9,50 @@
 
 import { label } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Access, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Button } from "@/platform/button";
-import { useEditModal } from "@/platform/label/useEditModal";
+import { useCreateModal } from "@/platform/label/useCreateModal";
 
-const useAdd = (): (() => void) => {
-  const openEdit = useEditModal();
+interface CreateButtonProps {
+  onCreate: (key: label.Key) => void;
+}
+
+const CreateButton = ({ onCreate }: CreateButtonProps): ReactElement => {
+  const create = useCreateModal();
   const { close } = Dialog.useContext();
-  return () => {
+  const handleClick = (): void => {
     close();
-    openEdit();
+    void create().then((key) => {
+      if (key != null) onCreate(key);
+    });
   };
-};
-
-const CreateButton = () => {
-  const onClick = useAdd();
   return (
-    <Button.CreateListItem size="small" onClick={onClick}>
-      New label
+    <Button.CreateListItem size="small" onClick={handleClick}>
+      Create label
     </Button.CreateListItem>
   );
 };
 
-// The select moves its border onto a wrapper the moment it is handed a footer, so an
-// ungranted subject must leave the prop undefined rather than render nothing inside it.
-const useCreateFooter = (): ReactElement | undefined =>
-  Access.useCreateGranted(label.TYPE_RESOURCE_ID) ? <CreateButton /> : undefined;
-
-export const SelectMultiple = (props: Label.SelectMultipleProps) => (
-  <Label.SelectMultiple {...props} footer={useCreateFooter()} />
-);
+/** Picks labels. A user who can create labels can also create one, which it adds. */
+export const SelectMultiple = ({
+  value,
+  onChange,
+  ...rest
+}: Label.SelectMultipleProps): ReactElement => {
+  const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
+  // The create dialog can stay open while the value changes.
+  const valueRef = useSyncedRef(value);
+  // The select moves its border onto a wrapper once it has a footer, so a user who
+  // cannot create labels gets no footer rather than an empty one.
+  const footer = canCreate ? (
+    <CreateButton
+      onCreate={(key) => onChange([...valueRef.current, key], { clicked: key })}
+    />
+  ) : undefined;
+  return (
+    <Label.SelectMultiple {...rest} value={value} onChange={onChange} footer={footer} />
+  );
+};

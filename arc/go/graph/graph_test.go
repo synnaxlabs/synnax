@@ -142,8 +142,8 @@ var _ = Describe("Graph", func() {
 				Expect(*diags).To(HaveLen(1), diags.String())
 				Expect((*diags)[0].Code).To(Equal(code))
 			},
-			Entry("overflow", "{\n x i8 := 100 + 100\n}", codes.ConstantOverflow),
-			Entry("division by zero", "{\n x := 1 / 0\n}", codes.DivisionByZero),
+			Entry("overflow", "{\n x i8 := 100 + 100\n}", codes.ConstantOverflow.Code),
+			Entry("division by zero", "{\n x := 1 / 0\n}", codes.DivisionByZero.Code),
 		)
 
 		It("Should correctly analyze a complete program", func(ctx SpecContext) {
@@ -288,8 +288,16 @@ var _ = Describe("Graph", func() {
 					}
 					return false
 				}
+				inIndex := func(node antlr.Tree) bool {
+					for ; node != nil; node = node.GetParent() {
+						if _, ok := node.(parser.IIndexOrSliceContext); ok {
+							return true
+						}
+					}
+					return false
+				}
 				for node, typ := range inter.TypeMap {
-					if _, ok := node.(parser.ILiteralContext); !ok {
+					if _, ok := node.(parser.ILiteralContext); !ok || inIndex(node) {
 						continue
 					}
 					expected := secondType

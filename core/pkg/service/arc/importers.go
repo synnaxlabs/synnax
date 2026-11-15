@@ -15,28 +15,34 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
-// pathOf returns the import path of a: the names of its directories below Arcs, then
-// its own name.
-func (w Writer) pathOf(ctx context.Context, a Arc) (string, error) {
+// pathOf returns the import path of a in snap: the names of its directories below Arcs,
+// then its own name.
+func (s *Service) pathOf(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	a Arc,
+) (string, error) {
 	segments := []string{a.Base().Name}
 	parent := a.Base().Directory
 	for {
 		if parent == nil {
 			return "", errors.Newf("arc %s is not below Arcs", a.Base().Key)
 		}
-		if *parent == w.root {
+		if *parent == s.root {
 			break
 		}
 		var d directory.Directory
-		if err := w.directories.NewRetrieve().
+		if err := s.directories.NewRetrieve().
 			Where(directory.MatchKeys(*parent)).
 			Entry(&d).
-			Exec(ctx, w.tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return "", err
 		}
 		segments = append(segments, d.Name)
@@ -48,12 +54,13 @@ func (w Writer) pathOf(ctx context.Context, a Arc) (string, error) {
 
 // importsOf returns the import paths of a. A graph Arc or a text that does not parse
 // has none.
-func (w Writer) importsOf(a Arc) []string {
+func (s *Service) importsOf(a Arc) []string {
 	src, ok := a.Base().Source.Variant.(TextSource)
 	if !ok {
 		return nil
 	}
-	prog, diag := parser.Parse(src.Text.Materialize().Raw, w.parser)
+	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
+	prog, diag := parser.Parse(src.Text.Materialize().Raw, cfg)
 	if diag != nil {
 		return nil
 	}
@@ -65,16 +72,20 @@ func (w Writer) importsOf(a Arc) []string {
 	return paths
 }
 
-// importersOf returns the key of every Arc that imports the module at path, directly
-// or through another module, each once.
-func (w Writer) importersOf(ctx context.Context, path string) ([]Key, error) {
+// importersOf returns the key of every Arc in snap that imports the module at path,
+// directly or through another module, each once.
+func (s *Service) importersOf(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	path string,
+) ([]Key, error) {
 	var arcs []Arc
-	if err := w.table.NewRetrieve().Entries(&arcs).Exec(ctx, w.tx); err != nil {
+	if err := s.table.NewRetrieve().Entries(&arcs).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	byPath := make(map[string][]Arc)
 	for _, a := range arcs {
-		for _, p := range w.importsOf(a) {
+		for _, p := range s.importsOf(a) {
 			byPath[p] = append(byPath[p], a)
 		}
 	}
@@ -96,7 +107,7 @@ func (w Writer) importersOf(ctx context.Context, path string) ([]Key, error) {
 			if a.Type() != TypeModule {
 				continue
 			}
-			modulePath, err := w.pathOf(ctx, a)
+			modulePath, err := s.pathOf(ctx, snap, a)
 			if err != nil {
 				return nil, err
 			}
@@ -106,19 +117,20 @@ func (w Writer) importersOf(ctx context.Context, path string) ([]Key, error) {
 	return found, nil
 }
 
-// resyncImporting schedules a resync of every Arc with an import once w.tx commits. A
-// path change may resolve or break any of them.
-func (w Writer) resyncImporting(ctx context.Context) error {
+// resyncImporting schedules a resync of every Arc with an import, since a path change
+// may resolve or break any of them. It runs on the path-sync debouncer and reads
+// committed state with no lock.
+func (s *Service) resyncImporting(ctx context.Context, _ struct{}) {
 	var arcs []Arc
-	if err := w.table.NewRetrieve().Entries(&arcs).Exec(ctx, w.tx); err != nil {
-		return err
+	if err := s.table.NewRetrieve().Entries(&arcs).Exec(ctx, s.cfg.DB); err != nil {
+		if failed(err) {
+			s.cfg.L.Error("failed to resync importing arcs", zap.Error(err))
+		}
+		return
 	}
-	var keys []Key
 	for _, a := range arcs {
-		if len(w.importsOf(a)) > 0 {
-			keys = append(keys, a.Base().Key)
+		if len(s.importsOf(a)) > 0 {
+			s.taskSync.Trigger(a.Base().Key)
 		}
 	}
-	w.resyncs.Add(w.tx, keys...)
-	return nil
 }

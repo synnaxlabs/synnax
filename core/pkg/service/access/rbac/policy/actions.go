@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -27,7 +28,7 @@ func (CreatePayload) Handle(Policy) (Policy, error) {
 	return Policy{}, actions.CoreOnlyError("a policy create")
 }
 
-// Handle applies the set to the policy's whole name, objects, or actions.
+// Handle applies the set to the policy's whole name, objects, actions, or role.
 func (p SetPayload) Handle(pol Policy) (Policy, error) {
 	return edit(pol, patch.Set(p))
 }
@@ -54,27 +55,28 @@ type document struct {
 	Name    string          `json:"name"`
 	Objects []resource.ID   `json:"objects"`
 	Actions []access.Action `json:"actions"`
+	Role    role.Key        `json:"role"`
 }
 
 // edit applies a to a copy of the policy's document. It returns a validation error when
 // a is not a set of one whole member, or when the document gains a member it does not
-// declare, such as a path to the policy's role.
+// declare, such as a path to the policy's key.
 func edit(p Policy, a patch.Action) (Policy, error) {
 	if path, whole := target(a); !whole {
 		return Policy{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[%s]: a policy takes only a set of its whole name, objects, or actions",
+			"[%s]: a policy takes only a set of its whole name, objects, actions, or role",
 			strings.Join(path, ", "),
 		)
 	}
 	d, err := patch.Edit(
-		document{Name: p.Name, Objects: p.Objects, Actions: p.Actions},
+		document{Name: p.Name, Objects: p.Objects, Actions: p.Actions, Role: p.Role},
 		a.Apply,
 	)
 	if err != nil {
 		return Policy{}, err
 	}
-	p.Name, p.Objects, p.Actions = d.Name, d.Objects, d.Actions
+	p.Name, p.Objects, p.Actions, p.Role = d.Name, d.Objects, d.Actions, d.Role
 	return p, nil
 }
 

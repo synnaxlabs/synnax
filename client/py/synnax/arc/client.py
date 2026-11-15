@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import random
 from collections.abc import Sequence
 from typing import Any, Literal, overload
 from uuid import UUID
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_, task as task_
-from synnax.arc import directory
+from synnax.arc import actions_gen, directory
 from synnax.arc.graph import Graph
 from synnax.arc.task import Performance
 from synnax.arc.text import Text
@@ -41,7 +42,7 @@ from synnax.arc.types_gen import (
 )
 from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
-from x import filter
+from x import crdt, filter
 from x.lists import normalize
 
 
@@ -55,6 +56,12 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
+
+
+class _DispatchRequest(BaseModel):
+    key: Key
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _UpdateTaskRequest(BaseModel):
@@ -97,6 +104,12 @@ _ARCS: dict[Type, type[Automation] | type[Module]] = {
     "automation": Automation,
     "module": Module,
 }
+
+
+# The Core writes the text of a created Arc as this replica, so an edit takes another.
+_SEED_REPLICA = 1
+_MAX_REPLICA = 0xFFFFFFFF
+_ROOT = crdt.ID(replica=0, counter=0)
 
 
 def _source(mode: Mode, text: Text | None, graph: Graph | None) -> Source:
@@ -312,6 +325,39 @@ class Client:
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
+
+    def set_text(self, key: Key, text: str) -> None:
+        """Replaces the text of the text-mode Arc with key. Edits that other editors
+        make between the read and the write merge into the result.
+
+        :raises NotFoundError: If no Arc has key.
+        :raises ValueError: If the Arc is a graph-mode Arc.
+        """
+        source = self.retrieve(key=key).source
+        if not isinstance(source, TextSource):
+            raise ValueError(f"Arc {key} is a graph-mode Arc and has no text")
+        doc = source.text.doc
+        deleted = {(d.id.replica, d.id.counter) for d in doc.deletes}
+        actions: list[actions_gen.Action] = [
+            actions_gen.delete_char(actions_gen.DeleteCharPayload(id=i.id))
+            for i in doc.inserts
+            if (i.id.replica, i.id.counter) not in deleted
+        ]
+        used = {i.id.replica for i in doc.inserts}
+        replica = _SEED_REPLICA
+        while replica == _SEED_REPLICA or replica in used:
+            replica = random.randint(_SEED_REPLICA + 1, _MAX_REPLICA)
+        origin = _ROOT
+        for counter, char in enumerate(text):
+            id_ = crdt.ID(replica=replica, counter=counter)
+            payload = actions_gen.InsertCharPayload(
+                id=id_, origin=origin, side="right", char=ord(char)
+            )
+            actions.append(actions_gen.insert_char(payload))
+            origin = id_
+        self._client.send(
+            "/arc/dispatch", _DispatchRequest(key=key, actions=actions), Empty
+        )
 
     def update_task(
         self,

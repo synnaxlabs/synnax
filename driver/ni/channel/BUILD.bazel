@@ -31,8 +31,8 @@ cc_library(
 cc_test(
     name = "channels_test",
     srcs = [
-        "channels_tests.cpp",
-        "scale_tests.cpp",
+        "channels_test.cpp",
+        "scale_test.cpp",
     ],
     deps = [
         "//client/cpp/testutil",

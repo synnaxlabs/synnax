@@ -15,6 +15,7 @@ import (
 	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -23,8 +24,14 @@ import (
 // in its high bits, so writes route to the Core running its Driver.
 type Key = v2.Key
 
+// StatusDetails contains rack-specific status details.
+type StatusDetails struct {
+	// Running is true when the status comes from a running Driver.
+	Running bool `json:"running" msgpack:"running"`
+}
+
 // Status is rack-specific status information including operational state.
-type Status = v2.Status
+type Status = status.Status[StatusDetails]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through

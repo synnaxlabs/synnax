@@ -31,9 +31,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates a new label, assigning it a unique key if one is not provided. If a
-// label with the same key already exists, it will be overwritten. The commit carries a
-// create action that holds the stored label.
+// Create creates a new label, assigning it a unique key if one is not provided. It
+// returns an error wrapping validate.ErrValidation when a label with the key exists.
+// The commit carries a create action that holds the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -41,7 +41,7 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := l.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -83,8 +83,8 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 		Exec(ctx, w.tx)
 }
 
-// CreateMany creates multiple labels in a single transaction. If any of the labels
-// exist, they will be overwritten.
+// CreateMany creates multiple labels in a single transaction. It returns an error
+// wrapping validate.ErrValidation when a label with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, labels *[]Label) error {
 	for i := range *labels {
 		if err := w.Create(ctx, &(*labels)[i]); err != nil {

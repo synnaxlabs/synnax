@@ -11,6 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { createOf, reduceAll } from "@/access/role/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/access/role/actions.gen";
 import {
   type Key,
   keyZ,
@@ -24,14 +32,16 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
   shortcutZ,
 } from "@/access/role/where.gen";
+import { actions } from "@/actions";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_role_set";
+export const ACTION_CHANNEL_NAME = "sy_role_action_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -68,17 +78,32 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Role> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Role>;
+  private readonly dispatcher: actions.Controller<Key, Role, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Role>({
       name: "roles",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, roleZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a role reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Role, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/access/role/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "role",
       table: store,
@@ -93,6 +118,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async create(role: New): Promise<Role>;
@@ -126,17 +152,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const existing = await this.retrieve(key);
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        await this.create({ ...existing, name });
-      },
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached role until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached role.
+   * @throws {Error} if the cached role cannot hold an action, before any send.
+   * @throws {ValidationError} if the role cannot hold an action.
+   * @throws {NotFoundError} if the role does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Role[]> {

@@ -27,7 +27,6 @@ class _GetResponse(BaseModel):
 
 
 class _SetRequest(BaseModel):
-    range: ranger.Key
     pairs: list[Pair]
 
 
@@ -73,7 +72,7 @@ class Client:
         else:
             for k, v in key.items():
                 pairs.append(Pair(range=self._rng_key, key=k, value=v))
-        req = _SetRequest(range=self._rng_key, pairs=pairs)
+        req = _SetRequest(pairs=pairs)
         self._client.send("/range/kv/set", req, _EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:

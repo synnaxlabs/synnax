@@ -149,11 +149,13 @@ func migrateConfigsToRecords(
 			removed = append(removed, id)
 			continue
 		}
-		rec, err := store.Prepare(ctx, tx, t.Key, converted)
+		rec, err := store.Prepare(ctx, tx, t.Key, t.Name, converted)
 		if err == nil {
 			err = rec.Write(ctx, tx)
 		}
 		if err != nil {
+			// A write that the resolve hook ran stays, so the user keeps what it made,
+			// such as a secret.
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
 			}

@@ -13,6 +13,7 @@ cc_library(
     name = "task",
     srcs = ["task.cpp"],
     hdrs = [
+        "actions.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "task.h",
@@ -32,6 +33,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/cpp/telem",
         "//x/cpp/uuid",
@@ -63,6 +65,17 @@ cc_test(
         "//x/cpp/pb",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":task",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

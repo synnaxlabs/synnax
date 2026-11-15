@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -37,7 +36,6 @@ var (
 	groupSvc   *group.Service
 	proj       project.Project
 	projectSvc *project.Service
-	rangerSvc  *ranger.Service
 	svc        *schematic.Service
 	imexSvc    *imex.Service
 )
@@ -47,10 +45,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
-	}))
-	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
 	}))
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
@@ -75,6 +69,9 @@ func dispatch(
 	acts []schematic.Action,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+		_, err := svc.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Apply(ctx, key, acts...)
+		return err
 	})
 }

@@ -14,6 +14,7 @@ cc_library(
     name = "ranger",
     srcs = ["ranger.cpp"],
     hdrs = [
+        "actions.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "ranger.h",
@@ -34,6 +35,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/mem",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/cpp/telem",
         "//x/go/color:color_grpc",
@@ -52,6 +54,18 @@ cc_test(
         "//client/cpp/testutil",
         "//x/cpp/errors",
         "//x/cpp/pb",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":ranger",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

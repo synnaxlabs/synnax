@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -129,33 +130,27 @@ var _ = Describe("Group", func() {
 			},
 		)
 
-		It(
-			"Should need update access to overwrite an existing group",
-			func(ctx SpecContext) {
-				g := newGroup(ctx, resource.TypeChannel, nil)
-				u := newUser(ctx, grant(createAction, groups))
-				Expect(create(
-					AuthedCtx(ctx, u),
-					apigroup.CreateRequest{Key: g.Key, Name: "renamed"},
-				)).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
-			},
-		)
-
-		It(
-			"Should keep the parent of an existing group that it overwrites",
-			func(ctx SpecContext) {
-				parent := newGroup(ctx, resource.TypeChannel, nil)
-				g := newGroup(ctx, resource.TypeChannel, &parent)
-				u := newUser(ctx, grant(update, g.ResourceID()))
-				res := MustSucceed(create(
-					AuthedCtx(ctx, u),
-					apigroup.CreateRequest{Key: g.Key, Name: g.Name},
-				))
-				Expect(res.Group.Parent).To(Equal(new(parent.ResourceID())))
-				Expect(retrieve(ctx, g.Key).Parent).
-					To(Equal(new(parent.ResourceID())))
-			},
-		)
+		It("Should refuse a group whose key exists", func(ctx SpecContext) {
+			parent := newGroup(ctx, resource.TypeChannel, nil)
+			g := newGroup(ctx, resource.TypeChannel, &parent)
+			u := newUser(
+				ctx,
+				grant(createAction, groups),
+				grant(update, g.ResourceID()),
+			)
+			Expect(create(
+				AuthedCtx(ctx, u),
+				apigroup.CreateRequest{
+					Key:   g.Key,
+					Name:  "renamed",
+					Scope: resource.TypeChannel,
+				},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group %s already exists", g.Key)),
+			))
+			Expect(retrieve(ctx, g.Key)).To(Equal(g))
+		})
 	})
 
 	Describe("Delete", func() {
@@ -215,16 +210,19 @@ var _ = Describe("Group", func() {
 		)
 	})
 
-	Describe("Rename", func() {
+	Describe("Dispatch rename", func() {
 		var g group.Group
 		BeforeEach(func(ctx SpecContext) {
 			g = newGroup(ctx, resource.TypeChannel, nil)
 		})
 		renameAs := func(ctx SpecContext, u user.User) (struct{}, error) {
-			return rename(
-				AuthedCtx(ctx, u),
-				apigroup.RenameRequest{Key: g.Key, Name: "renamed"},
-			)
+			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
+				Key: g.Key,
+				Actions: []group.Action{group.NewSetAction(group.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})},
+			})
 		}
 
 		It("Should need update access on the group", func(ctx SpecContext) {
@@ -239,23 +237,9 @@ var _ = Describe("Group", func() {
 			MustSucceed(renameAs(ctx, u))
 			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
 		})
-
-		It("Should need update access on the group for a dispatch", func(
-			ctx SpecContext,
-		) {
-			u := newUser(ctx)
-			Expect(dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
-				Key: g.Key,
-				Actions: []group.Action{group.NewSetAction(group.SetPayload{
-					Path:  []string{"name"},
-					Value: "renamed",
-				})},
-			})).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
-			Expect(retrieve(ctx, g.Key).Name).To(Equal("group"))
-		})
 	})
 
-	Describe("SetParent", func() {
+	Describe("Dispatch set parent", func() {
 		var source, dest, moved group.Group
 		BeforeEach(func(ctx SpecContext) {
 			source = newGroup(ctx, resource.TypeChannel, nil)
@@ -263,13 +247,12 @@ var _ = Describe("Group", func() {
 			moved = newGroup(ctx, resource.TypeChannel, &source)
 		})
 		setParentAs := func(ctx SpecContext, u user.User) (struct{}, error) {
-			return setParent(
-				AuthedCtx(ctx, u),
-				apigroup.SetParentRequest{
-					Keys:   []group.Key{moved.Key},
-					Parent: new(dest.ResourceID()),
-				},
-			)
+			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
+				Key: moved.Key,
+				Actions: []group.Action{group.NewSetParentAction(
+					group.SetParentPayload{Parent: new(dest.ResourceID())},
+				)},
+			})
 		}
 
 		It("Should need update access on the destination", func(ctx SpecContext) {
@@ -300,7 +283,7 @@ var _ = Describe("Group", func() {
 		)
 	})
 
-	Describe("SetParent to another project", func() {
+	Describe("Dispatch set parent to another project", func() {
 		var (
 			from, to             project.Project
 			source, dest, nested group.Group
@@ -332,13 +315,12 @@ var _ = Describe("Group", func() {
 			}
 		}
 		move := func(ctx SpecContext, u user.User) (struct{}, error) {
-			return setParent(
-				AuthedCtx(ctx, u),
-				apigroup.SetParentRequest{
-					Keys:   []group.Key{nested.Key},
-					Parent: new(dest.ResourceID()),
-				},
-			)
+			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
+				Key: nested.Key,
+				Actions: []group.Action{group.NewSetParentAction(
+					group.SetParentPayload{Parent: new(dest.ResourceID())},
+				)},
+			})
 		}
 
 		It(
@@ -395,12 +377,9 @@ var _ = Describe("Group", func() {
 				),
 			)
 
-			DescribeTable(
+			It(
 				"Should move the schematic with update on it and both projects",
-				func(
-					ctx SpecContext,
-					move func(SpecContext, user.User) (struct{}, error),
-				) {
+				func(ctx SpecContext) {
 					u := newUser(ctx, grant(update, append(
 						groupIDs(),
 						from.ResourceID(),
@@ -415,18 +394,6 @@ var _ = Describe("Group", func() {
 						Exec(ctx, db)).To(Succeed())
 					Expect(stored.Project).To(Equal(&to.Key))
 				},
-				Entry("through a set parent request", move),
-				Entry(
-					"through a dispatched set parent",
-					func(ctx SpecContext, u user.User) (struct{}, error) {
-						return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
-							Key: nested.Key,
-							Actions: []group.Action{group.NewSetParentAction(
-								group.SetParentPayload{Parent: new(dest.ResourceID())},
-							)},
-						})
-					},
-				),
 			)
 		})
 	})

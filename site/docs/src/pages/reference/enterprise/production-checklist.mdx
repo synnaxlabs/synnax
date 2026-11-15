@@ -48,16 +48,17 @@ the page with the steps.
 
 A backup is a copy of the whole data folder, made while the Core is stopped. The Core is
 down during the copy, so clients cannot read or write data. The Core has no online
-backup.
+backup. Before each update, the Core backs up its metadata, but not telemetry. See
+[before you upgrade](/reference/enterprise/upgrade#before-you-upgrade).
 
 To restore, stop the Core, replace the data folder with the copy, and start the Core.
 
 ### The data folder
 
 The data folder holds everything the Core stores: metadata, users, and the license key
-in `kv/`, telemetry in `cesium/`, and a `LOCK` file. The `--data` flag (`-d`), the
-`SYNNAX_DATA` environment variable, or the `data` key of the config file sets it. The
-defaults are:
+in `kv/`, telemetry in `cesium/`, the metadata backups of updates in `backups/`, the
+`VERSION` file, and a `LOCK` file. The `--data` flag (`-d`), the `SYNNAX_DATA`
+environment variable, or the `data` key of the config file sets it. The defaults are:
 
 | How the Core runs                                                | Data folder                                                              |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -71,7 +72,7 @@ To find the data folder of a running Core, look for this line near the start of 
 A relative path is relative to the folder where the Core started:
 
 ```
-storage/layer.go:205  starting in directory  {"dirname": "synnax-data"}
+storage/layer.go:242  starting in directory  {"dirname": "synnax-data"}
 ```
 
 For a service, `synnax service status` also prints the data folder.

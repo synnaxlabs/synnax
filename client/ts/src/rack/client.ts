@@ -12,8 +12,17 @@ import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role";
+import { actions } from "@/actions";
 import { group } from "@/group";
 import { query } from "@/query";
+import { createOf, reduceAll } from "@/rack/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/rack/actions.gen";
 import {
   type Key,
   keyZ,
@@ -32,6 +41,7 @@ import { LINES } from "@/rack/where";
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -41,7 +51,7 @@ import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const SET_CHANNEL_NAME = "sy_rack_set";
+export const ACTION_CHANNEL_NAME = "sy_rack_action_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -80,7 +90,6 @@ const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -117,6 +126,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  private readonly dispatcher: actions.Controller<Key, Omit<Payload, "status">, Action>;
   /** Builds requests that move racks between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
 
@@ -129,13 +139,20 @@ export class Client extends query.Retriever<
       name: "racks",
       fetch: async (keys) =>
         (await this.fetchThrough(query.keysRequest(keys))).map(stripStatus),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
-          value: ({ status: _, ...rack }) => rack,
-        }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a rack reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Omit<Payload, "status">, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/rack/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Payload, "status">, Rack>({
       name: "rack.composed",
@@ -183,7 +200,8 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+    this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest("/rack/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -205,15 +223,20 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/rack/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached rack until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached rack.
+   * @throws {Error} if the cached rack cannot hold an action, before any send.
+   * @throws {ValidationError} if the rack cannot hold an action.
+   * @throws {NotFoundError} if the rack does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async create(rack: New): Promise<Rack>;

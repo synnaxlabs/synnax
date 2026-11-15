@@ -37,6 +37,7 @@ import {
   cellsInRegion,
   findCellPosition,
   nextCellPosition,
+  type RowLayout,
   useColumns,
   useDispatch,
   useRedo,
@@ -67,7 +68,7 @@ const BASE_COL_SIZE = table.columnZ.parse({}).size;
 const NONE_HIDDEN: string[] = [];
 
 // fullySelectedRows returns the keys of the rows whose every cell is selected.
-const fullySelectedRows = (rows: table.Row[], selected: string[]): string[] => {
+const fullySelectedRows = (rows: RowLayout[], selected: string[]): string[] => {
   const set = new Set(selected);
   return rows.flatMap((row) =>
     row.cells.length > 0 && row.cells.every((k) => set.has(k)) ? [row.key] : [],
@@ -76,7 +77,7 @@ const fullySelectedRows = (rows: table.Row[], selected: string[]): string[] => {
 
 // fullySelectedCols returns the keys of the columns whose every cell is selected.
 const fullySelectedCols = (
-  rows: table.Row[],
+  rows: RowLayout[],
   columns: table.Column[],
   selected: string[],
 ): string[] => {
@@ -88,7 +89,7 @@ const fullySelectedCols = (
 
 // displacedCells returns the keys of the cells a move shifts out of place.
 const displacedCells = (
-  rows: table.Row[],
+  rows: RowLayout[],
   rowShifts: number[] | undefined,
   colShifts: number[] | undefined,
 ): string[] => {

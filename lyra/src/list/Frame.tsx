@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type location, type record } from "@synnaxlabs/x";
+import { bounds, type destructor, type location, type record } from "@synnaxlabs/x";
 import {
   defaultRangeExtractor,
   type Range,
@@ -19,6 +19,7 @@ import {
   type ReactElement,
   type RefCallback,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -93,6 +94,10 @@ export interface UtilContextValue<
   subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
   itemHeight?: number;
+  /** Reads the keys as they are now. It keeps its identity as the keys change. */
+  getData: () => K[];
+  /** Calls the listener after each commit that changes the keys. */
+  subscribeData: (listener: () => void) => destructor.Destructor;
 }
 
 const [DataContext, useDataContext] = context.create<DataContextValue>({
@@ -185,9 +190,16 @@ export const useData = <
   const { data, items, totalSize, sentinelRef } = useDataContext(
     "List.useData",
   ) as DataContextValue<K>;
-  const { ref, itemsRef, getItem, scrollToIndex, subscribe, itemHeight } = useUtilCtx(
-    "List.useData",
-  ) as unknown as UtilContextValue<K, E>;
+  const {
+    ref,
+    itemsRef,
+    getItem,
+    scrollToIndex,
+    subscribe,
+    itemHeight,
+    getData,
+    subscribeData,
+  } = useUtilCtx("List.useData") as unknown as UtilContextValue<K, E>;
   return {
     data,
     items,
@@ -198,18 +210,28 @@ export const useData = <
     scrollToIndex,
     subscribe,
     itemHeight,
+    getData,
+    subscribeData,
     sentinelRef,
   };
 };
 
-/** @returns a ref for the scroll container that fetches once when it first mounts. */
-const useFetchMoreRefCallback = (onFetchMore?: () => void) => {
+/**
+ * @returns a ref for the scroll container that fetches when it first mounts, and again
+ * on each new mount while the list is empty, so reopening a failed list retries it.
+ */
+const useFetchMoreRefCallback = (
+  onFetchMore: (() => void) | undefined,
+  empty: boolean,
+) => {
   const onFetchMoreRef = useSyncedRef(onFetchMore);
-  const initialFetchCalledRef = useRef(false);
+  // A frame that opts out of memoization passes the same container on every render.
+  const containerRef = useRef<HTMLDivElement | null>(null);
   return (el: HTMLDivElement | null) => {
-    if (el == null || initialFetchCalledRef.current) return;
-    initialFetchCalledRef.current = true;
-    onFetchMoreRef.current?.();
+    if (el == null || el === containerRef.current) return;
+    const first = containerRef.current == null;
+    containerRef.current = el;
+    if (first || empty) onFetchMoreRef.current?.();
   };
 };
 
@@ -273,6 +295,29 @@ const useIntersectionFetchMore = (
   return { containerRef, sentinelRef };
 };
 
+// The data context changes with the keys, and React re-renders its readers under a
+// nested frame too. A reader that needs the keys only when it acts uses this instead.
+const useDataReader = <K extends record.Key>(
+  data: K[],
+): Pick<UtilContextValue<K>, "getData" | "subscribeData"> => {
+  const dataRef = useSyncedRef(data);
+  const listenersRef = useInitializerRef(() => new Set<() => void>());
+  // React cleans up every effect of a commit before it runs any, so a listener that
+  // changes in the same commit as the keys never runs with its old closure.
+  useEffect(() => {
+    listenersRef.current.forEach((listener) => listener());
+  }, [data]);
+  return {
+    getData: () => dataRef.current,
+    subscribeData: (listener) => {
+      listenersRef.current.add(listener);
+      return () => {
+        listenersRef.current.delete(listener);
+      };
+    },
+  };
+};
+
 const useElements = (pin: Elements["pin"]): Elements => {
   const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   const setElement = (key: record.Key, element: HTMLElement | null) => {
@@ -334,7 +379,7 @@ const VirtualFrame = <
       mutation.disconnect();
     };
   }, []);
-  const fetchMoreRef = useFetchMoreRefCallback(onFetchMore);
+  const fetchMoreRef = useFetchMoreRefCallback(onFetchMore, data.length === 0);
   const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
@@ -414,6 +459,7 @@ const VirtualFrame = <
     [virtualizer],
   );
   const elements = useElements(pin);
+  const { getData, subscribeData } = useDataReader(data);
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
   const dataCtxValue = useMemo<DataContextValue<K>>(
@@ -437,8 +483,19 @@ const VirtualFrame = <
       scrollToIndex,
       subscribe,
       itemHeight,
+      getData,
+      subscribeData,
     }),
-    [refCallback, itemsRef, scrollToIndex, getItem, subscribe, itemHeight],
+    [
+      refCallback,
+      itemsRef,
+      scrollToIndex,
+      getItem,
+      subscribe,
+      itemHeight,
+      getData,
+      subscribeData,
+    ],
   );
 
   /* eslint-enable no-restricted-syntax */
@@ -480,8 +537,9 @@ const StaticFrame = <
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   };
   const elements = useElements(NO_PIN);
+  const { getData, subscribeData } = useDataReader(data);
 
-  const initialFetchCallback = useFetchMoreRefCallback(onFetchMore);
+  const initialFetchCallback = useFetchMoreRefCallback(onFetchMore, data.length === 0);
   const { containerRef: intersectionContainerRef, sentinelRef } =
     useIntersectionFetchMore(onFetchMore, data.length);
   const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);
@@ -498,6 +556,8 @@ const StaticFrame = <
     scrollToIndex,
     subscribe,
     itemHeight,
+    getData,
+    subscribeData,
   };
   return (
     <DataContext value={dataCtxValue}>

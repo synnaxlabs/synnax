@@ -86,5 +86,9 @@ public:
     /// @brief writes and keeps the statuses of the task again after drop. Call it
     /// before the task runs on this Driver.
     void claim(const synnax::task::Key &key);
+
+    /// @brief forgets the latest status of every task, so a re-send writes none of
+    /// them. Keeps the tasks that left this Driver dropped. Never waits on a write.
+    void clear();
 };
 }

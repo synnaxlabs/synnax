@@ -9,7 +9,12 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = [
+#     "boto3",
+#     "certifi>=2026.10.19",
+#     "PyJWT[crypto]>=2.10,<3",
+#     "synnax>=0.61,<0.62",
+# ]
 # ///
 
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
@@ -31,6 +36,19 @@ Per-runner channels, written on change:
     <runner>_ec2_cmd       bool on its own index, for dispatch.py
     <runner>_gh_cmd        same
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
+
+Pool channels (pools.py), int32, written on change. <pool> is one of ubuntu_build,
+ubuntu_test, win_build, win_test, macos_build, and total. On runner_pool_time:
+
+    runner_<pool>_queued      jobs waiting
+    runner_<pool>_busy        runners on a job
+    runner_<pool>_idle        runners online with no job
+    runner_<pool>_starting    instances on their way up
+    runner_<pool>_offline     the rest of the pool
+
+On runner_pool_wait_time:
+
+    runner_<pool>_queue_wait  seconds the oldest waiting job has waited
 
 Cost channels (cost.py), float32 on the cost_query_time index. The totals come
 from a fetch every 6 h; every channel is written each minute, with live runner rates:
@@ -59,11 +77,13 @@ cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persi
 in registry.json so a removed runner keeps reporting -1.
 
 Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (1 min), or --windows-idle-cooldown (15 min) for the
-Windows pools, whose cold start costs each merge group minutes. An offline runner on
-an instance up longer than --boot-grace (2 min) counts as idle. --scale sets the
-start state (enabled); runner_scaler_cmd switches it at runtime,
-runner_scaler_enabled beats the state, runner_scaler_log carries its log.
+runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
+than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
+runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
+runner_scaler_log carries its log.
+
+Seats (seats.py): starts a stopped agent seat when a job that asks for its labels
+queues. The scaler switch holds these starts too, and they log to runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -72,13 +92,14 @@ runner_gh_global_set and runner_gh_log as above.
 Both write commands at authority 254 for the instant of a write, so the Console
 (255) always wins.
 
-Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit),
-runner_controller_log (every line logged here).
+Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit and
+while the last 3 polls all failed), runner_controller_log (every line logged here).
 
-Reads the GH_TOKEN, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see common.secret).
+Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
+common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-cloudwatch:GetMetricData, ce:GetCostAndUsage, ce:GetCostForecast, pricing:GetProducts,
-and ssm:GetParameter on /runners/*.
+StartInstances on the agent seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, and ssm:GetParameter on /runners/*.
 """
 
 import argparse
@@ -103,7 +124,6 @@ from common import (
     gh_channels,
     instance_status,
     parameter_store,
-    patch_client,
     seconds,
     secret,
     shield,
@@ -122,9 +142,19 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from pools import (
+    POOL_INDEX,
+    WAIT_INDEX,
+    PoolReport,
+    count_channels,
+    pool_counts,
+    pool_waits,
+    wait_channels,
+)
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
-from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, WINDOWS_POOLS, Scaler
+from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
+from seats import Seats
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -134,6 +164,7 @@ EC2_INDEX = "ec2_time"
 HEARTBEAT = "runner_controller_heartbeat"
 LOG = "runner_controller_log"
 WEBHOOK_PORT = 9091
+FAILED_POLLS = 3
 
 # A runtime switch: what a command channel enables, its heartbeat, its log name.
 Toggle = tuple[Scaler | Gate, Heartbeat, str]
@@ -164,6 +195,7 @@ class Controller:
         jobs: Jobs,
         cost: Cost,
         scaler: Scaler,
+        seats: Seats,
         gate: Gate,
         log: Log,
         webhook: Webhook,
@@ -175,12 +207,15 @@ class Controller:
         self.jobs = jobs
         self.cost = cost
         self.scaler = scaler
+        self.seats = seats
         self.gate = gate
         self.log = log
         self.webhook = webhook
         self.pool = ThreadPoolExecutor(8)
         self.gh_index = channels.index(GH_INDEX)
         self.ec2_index = channels.index(EC2_INDEX)
+        self.pools_index = channels.index(POOL_INDEX)
+        self.waits_index = channels.index(WAIT_INDEX)
         self.known: set[str] = set()
         self.cost_index = channels.index(QUERY_TIME)
         # What the writer carries, so a fetch that adds a type retargets first.
@@ -191,6 +226,7 @@ class Controller:
         )
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
+        self.pool_report = PoolReport(publisher=self.status)
         self.cost_pending: dict[str, float] = {}
         self.events = Events(
             client=client, channels=channels, runners=set(), report=log.error
@@ -243,7 +279,7 @@ class Controller:
         self.events.write(events)
         self.gate.step(self.known)
         # A closed gate would disconnect whatever the scaler started.
-        self.scaler.step(
+        booting = self.scaler.step(
             known=self.known,
             status=status,
             labels=labels,
@@ -252,6 +288,20 @@ class Controller:
             running=set(self.jobs.active),
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
+        )
+        self.seats.step(
+            queued=[job.labels for job in self.jobs.queued.values()],
+            found=found,
+            enabled=self.scaler.enabled,
+        )
+        now = sy.TimeStamp.now()
+        self.pool_report.step(
+            ready=self.jobs.ready,
+            counts=pool_counts(
+                status=status, labels=labels, queued=queued, booting=booting
+            ),
+            waits=pool_waits(self.jobs.waits(now)),
+            now=now,
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
@@ -285,6 +335,8 @@ class Controller:
             self.channels.calculated(name, expression=expression)
         self.uptime.retarget(self.known)
         self.channels.data(index=self.ec2_index, channels=ec2_channels(self.known))
+        self.channels.data(index=self.pools_index, channels=count_channels())
+        self.channels.data(index=self.waits_index, channels=wait_channels())
         for name in command_channels(self.known):
             index = self.channels.index(f"{name}_time")
             self.channels.data(index=index, channels={name: sy.DataType.BOOLEAN})
@@ -297,6 +349,10 @@ class Controller:
                 *ec2_channels(self.known),
                 QUERY_TIME,
                 *cost,
+                POOL_INDEX,
+                *count_channels(),
+                WAIT_INDEX,
+                *wait_channels(),
             ]
         )
         self.events.retarget(self.known)
@@ -315,6 +371,20 @@ class Controller:
         self.gate.close()
         self.webhook.close()
         self.reset()
+
+
+class Health:
+    """Whether the polls work: false once FAILED_POLLS fail in a row, until one
+    succeeds."""
+
+    def __init__(self) -> None:
+        self.failures = 0
+
+    def record(self, *, failed: bool) -> None:
+        self.failures = self.failures + 1 if failed else 0
+
+    def healthy(self) -> bool:
+        return self.failures < FAILED_POLLS
 
 
 def wait_for_cmds(
@@ -361,14 +431,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--idle-cooldown",
         type=seconds,
-        default=1 * sy.TimeSpan.MINUTE,
+        default=3 * sy.TimeSpan.MINUTE,
         help="idle seconds before the scaler stops a runner",
-    )
-    p.add_argument(
-        "--windows-idle-cooldown",
-        type=seconds,
-        default=15 * sy.TimeSpan.MINUTE,
-        help="idle seconds before the scaler stops a Windows build or test runner",
     )
     p.add_argument(
         "--boot-grace",
@@ -394,24 +458,26 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     store = parameter_store()
-    github = GitHub(secret("GH_TOKEN", store=store))
-    patch_client()
+    github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
     client = connect(args, store=store)
     channels = Channels(client=client, enabled=args.create_channels)
     log = Log(client=client, channels=channels, channel=LOG)
-    alive = Heartbeat(client=client, channels=channels, name=HEARTBEAT)
+    health = Health()
+    alive = Heartbeat(
+        client=client, channels=channels, name=HEARTBEAT, value=health.healthy
+    )
     channels.virtual(SCALER_CMD, data_type=sy.DataType.BOOLEAN)
     channels.data(
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
+    scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
     scaler = Scaler(
         client=client,
         cooldown=args.idle_cooldown,
         boot_grace=args.boot_grace,
-        log=Log(client=client, channels=channels, channel=SCALER_LOG),
+        log=scaler_log,
         enabled=args.scale == "enabled",
-        pool_cooldowns=dict.fromkeys(WINDOWS_POOLS, args.windows_idle_cooldown),
     )
     gate = Gate(
         client=client,
@@ -464,6 +530,7 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
+        seats=Seats(aws=aws, log=scaler_log),
         gate=gate,
         log=log,
         webhook=webhook,
@@ -478,6 +545,9 @@ def main() -> None:
             except Exception as e:
                 log.error("poll", e)
                 controller.reset()
+                health.record(failed=True)
+            else:
+                health.record(failed=False)
             wait_for_cmds(
                 controller.commands,
                 remaining=args.interval - timer.elapsed(),

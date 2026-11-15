@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const testVersion imex.Version = 1
@@ -46,6 +47,18 @@ func sampleEnvelope(name string, typ resource.Type) imex.Envelope {
 	env := imex.Envelope{Version: testVersion, Type: string(typ)}
 	Expect(env.Encode(sampleResource(name))).To(Succeed())
 	return WireRoundTrip(env)
+}
+
+func namelessEnvelope() imex.Envelope {
+	GinkgoHelper()
+	b := fmt.Appendf(
+		nil,
+		`{"version":%d,"type":%q,"field_one":"value","field_two":42}`,
+		testVersion, resource.TypeChannel,
+	)
+	var env imex.Envelope
+	Expect(json.Unmarshal(b, &env)).To(Succeed())
+	return env
 }
 
 type testEntry struct {
@@ -111,26 +124,34 @@ func openTestService(ctx context.Context, db *gorp.DB) *testService {
 
 func (*testService) Type() resource.Type { return resource.TypeChannel }
 
-func (s *testService) Import(
+func (s *testService) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	env imex.Envelope,
-	opts imex.ImportOptions,
-) (resource.ID, error) {
+) (imex.Write, error) {
 	r, err := env.Decode[testResource](ctx)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	key := uuid.New().String()
-	e := testEntry{Key: key, Name: env.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
-	if !opts.Parent.IsZero() {
-		e.Parent = opts.Parent.String()
-	}
-	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
-		return resource.ID{}, err
-	}
-	id := resource.ID{Type: resource.TypeChannel, Key: key}
-	return id, nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		key := uuid.New().String()
+		e := testEntry{
+			Key:      key,
+			Name:     env.Name,
+			FieldOne: r.FieldOne,
+			FieldTwo: r.FieldTwo,
+		}
+		if !opts.Parent.IsZero() {
+			e.Parent = opts.Parent.String()
+		}
+		if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
+			return resource.ID{}, err
+		}
+		return resource.ID{Type: resource.TypeChannel, Key: key}, nil
+	}, nil
 }
 
 func (*testService) Match(map[string]any) bool { return false }
@@ -180,10 +201,8 @@ func (errorService) Type() resource.Type { return resource.TypeDevice }
 
 func (errorService) Match(map[string]any) bool { return false }
 
-func (errorService) Import(
-	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (resource.ID, error) {
-	return resource.ID{}, errors.New("importer error: forced failure")
+func (errorService) Decode(context.Context, imex.Envelope) (imex.Write, error) {
+	return nil, errors.New("importer error: forced failure")
 }
 
 func (errorService) Export(
@@ -198,10 +217,19 @@ type noopImporter struct{ typ resource.Type }
 
 func (noopImporter) Match(map[string]any) bool { return false }
 
-func (n noopImporter) Import(
-	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (resource.ID, error) {
-	return resource.ID{Type: n.typ, Key: "noop-key"}, nil
+func (n noopImporter) Decode(context.Context, imex.Envelope) (imex.Write, error) {
+	return func(context.Context, gorp.Tx, imex.ImportOptions) (resource.ID, error) {
+		return resource.ID{Type: n.typ, Key: "noop-key"}, nil
+	}, nil
+}
+
+// writeErrorImporter decodes every envelope but fails its Write.
+type writeErrorImporter struct{ noopImporter }
+
+func (writeErrorImporter) Decode(context.Context, imex.Envelope) (imex.Write, error) {
+	return func(context.Context, gorp.Tx, imex.ImportOptions) (resource.ID, error) {
+		return resource.ID{}, errors.New("write failed")
+	}, nil
 }
 
 // matchImporter is a noopImporter that claims typeless envelopes whose body carries
@@ -507,19 +535,78 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("Import Options", func() {
-		namelessEnvelope := func() imex.Envelope {
-			GinkgoHelper()
-			b := fmt.Appendf(
-				nil,
-				`{"version":%d,"type":%q,"field_one":"value","field_two":42}`,
-				testVersion, resource.TypeChannel,
-			)
-			var env imex.Envelope
-			Expect(json.Unmarshal(b, &env)).To(Succeed())
-			return env
-		}
+	Describe("Decode", func() {
+		It(
+			"Should persist nothing until the returned Write runs",
+			func(ctx SpecContext) {
+				write := MustSucceed(svc.Decode(
+					ctx,
+					sampleEnvelope("Deferred", resource.TypeChannel),
+					"",
+				))
+				Expect(ts.Retrieve(ctx, "Deferred")).Error().To(
+					MatchError(query.ErrNotFound),
+				)
+				id := MustSucceed(write(ctx, db, imex.ImportOptions{}))
+				Expect(MustSucceed(ts.Retrieve(ctx, "Deferred")).Key).
+					To(Equal(id.Key))
+			},
+		)
 
+		It(
+			"Should name a nameless envelope after the file name",
+			func(ctx SpecContext) {
+				write := MustSucceed(svc.Decode(
+					ctx, namelessEnvelope(), "dir/Decoded Log.json",
+				))
+				id := MustSucceed(write(ctx, db, imex.ImportOptions{}))
+				Expect(MustSucceed(ts.Retrieve(ctx, "Decoded Log")).Key).
+					To(Equal(id.Key))
+			},
+		)
+
+		It(
+			"Should reject an envelope with neither a name nor a file name",
+			func(ctx SpecContext) {
+				Expect(svc.Decode(ctx, namelessEnvelope(), "")).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("name must be a non-empty string")),
+					MatchError(validate.ErrValidation),
+				))
+			},
+		)
+
+		It("Should reject an unregistered type", func(ctx SpecContext) {
+			Expect(svc.Decode(
+				ctx,
+				imex.Envelope{Version: testVersion, Type: "nonexistent", Name: "x"},
+				"",
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("no importer registered")),
+				MatchError(validate.ErrValidation),
+			))
+		})
+
+		It("Should wrap an error from the importer's Decode", func(ctx SpecContext) {
+			Expect(svc.Decode(
+				ctx, sampleEnvelope("Erroring", resource.TypeDevice), "",
+			)).Error().To(MatchError(ContainSubstring(
+				"import envelope: importer error: forced failure",
+			)))
+		})
+
+		It("Should wrap an error from the returned Write", func(ctx SpecContext) {
+			s := imex.NewService()
+			Expect(s.RegisterImporter("failing", writeErrorImporter{})).To(Succeed())
+			write := MustSucceed(s.Decode(
+				ctx, imex.Envelope{Version: 1, Type: "failing", Name: "x"}, "",
+			))
+			Expect(write(ctx, db, imex.ImportOptions{})).Error().To(
+				MatchError("import envelope: write failed"),
+			)
+		})
+	})
+
+	Describe("Import Options", func() {
 		Describe("FileName", func() {
 			It(
 				"Should fall back to the extensionless file name when the envelope has no name",

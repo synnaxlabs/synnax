@@ -192,6 +192,25 @@
             line-height: 1.4 !important;
         }
     }
+
+    &[data-severity="warning"] {
+        background: var(--pluto-warning-z-10) !important;
+        border-color: var(--pluto-warning-z-70) !important;
+
+        & > div {
+            border-top-color: var(--pluto-warning-z-30) !important;
+        }
+    }
+
+    &[data-severity="info"],
+    &[data-severity="hint"] {
+        background: var(--pluto-primary-z-10) !important;
+        border-color: var(--pluto-primary-z-70) !important;
+
+        & > div {
+            border-top-color: var(--pluto-primary-z-30) !important;
+        }
+    }
 }
 
 /* Stacked diagnostics: a marker whose row immediately follows another

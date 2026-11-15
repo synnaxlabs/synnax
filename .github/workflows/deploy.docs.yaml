@@ -19,6 +19,7 @@ on:
     paths:
       - .github/workflows/deploy.docs.yaml
       - alamos/ts/**
+      - arc/go/analyzer/codes/codes.gen.json
       - client/ts/**
       - configs/ts/**
       - configs/vite/**
@@ -42,8 +43,9 @@ on:
         default: latest
       ref:
         description:
-          "Ref to build one version from (default: main for next, else the train's
-          newest Core tag, or its release branch if the branch holds that tag)"
+          "Ref to build one version from (default: main for next, release/docs-X.Y for
+          0.60 and 0.61, else the train's newest Core tag, or its release branch if the
+          branch holds that tag)"
         type: string
         default: ""
   workflow_call:

@@ -71,19 +71,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Config, err = config.OpenService(
 		ctx, config.ServiceConfig[Config]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               Type,
-			Migrations:         versions.Migrations,
-			References:         s.indexes.references(),
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ConfigLadder,
-			Legacy:             &legacy.Config,
-			SetEntryKey:        (*Config).SetKey,
-			PatchEntry:         (*Config).Patch,
-			HashEntry:          (*Config).HashContent,
-			ApplyEntryDefaults: (*Config).ApplyDefaults,
-			ValidateEntry:      (*Config).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            Type,
+			Migrations:      versions.Migrations,
+			References:      s.indexes.references(),
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ConfigLadder,
+			Legacy:          &legacy.Config,
+			SetEntryKey:     (*Config).SetKey,
+			PatchEntry:      (*Config).Patch,
+			HashEntry:       (*Config).HashContent,
+			ValidateEntry:   (*Config).Validate,
 		},
 	); !ok(err, s.Config) {
 		return nil, err

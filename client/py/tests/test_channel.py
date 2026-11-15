@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -249,6 +250,30 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
 
+    def test_set_expression(self, client: sy.Synnax) -> None:
+        """Should set the expression of a calculated channel and infer its new data
+        type."""
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.INT64,
+            expression="return 1 + 1",
+        )
+        client.channels.set_expression(ch.key, "return 1.5 * 2.0")
+        res = client.channels.retrieve(ch.key)
+        assert res.expression == "return 1.5 * 2.0"
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_set_expression_not_calculated(self, client: sy.Synnax) -> None:
+        """Should refuse an expression for a channel that is not calculated."""
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(
+            sy.ValidationError, match="only a calculated channel can change"
+        ):
+            client.channels.set_expression(ch.key, "return 1")
+        assert client.channels.retrieve(ch.key).expression == ""
+
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax) -> None:
         """Should create a channel with a leaseholder"""
@@ -386,6 +411,21 @@ class TestChannel:
             data_types=["float32"],
         )
         assert [ch.key for ch in res] == [a.key]
+
+    def test_count_limited(self, client: sy.Synnax) -> None:
+        """Should count a stored channel toward the channel limit and leave out a
+        virtual one.
+        """
+        before = client.channels.count_limited()
+        index = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT64
+        )
+        assert client.channels.count_limited() == before + 1
+        client.channels.delete(index.key)
+        assert client.channels.count_limited() == before
 
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""
@@ -532,6 +572,34 @@ class TestChannel:
         for name in new_names:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+    def test_multiple_rename_missing_key(self, client: sy.Synnax) -> None:
+        """Should rename no channel when one key of the batch does not exist"""
+        kept, removed = client.channels.create(
+            [
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        client.channels.delete(removed.key)
+        with pytest.raises(
+            sy.NotFoundError,
+            match=re.escape(
+                f"requests.1: Channels with keys [{removed.key}] not found"
+            ),
+        ):
+            client.channels.rename(
+                [kept.key, removed.key], [channel_name(), channel_name()]
+            )
+        assert client.channels.retrieve(kept.key).name == kept.name
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -920,60 +988,6 @@ class TestChannelRetrieveFilters:
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""
         assert len(client.channels.retrieve(limit=1)) == 1
-
-    def test_range_key(
-        self,
-        client: sy.Synnax,
-        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
-    ) -> None:
-        """Should set the alias of the channel in the range without caching it"""
-        data = create_channels[1]
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(data.key, "aliased")
-        assert client.channels.retrieve(data.key, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.name, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.key).alias is None
-
-    def test_range_key_search(self, client: sy.Synnax) -> None:
-        """Should put the channels whose alias in the range matches the search term
-        first, keeping only those that match the other filters
-        """
-        term = random_name()
-        named = client.channels.create(
-            name=f"{term}_named", data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        aliased = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        excluded = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT64, virtual=True
-        )
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(aliased.key, f"{term}_alias")
-        rng.set_alias(excluded.key, f"{term}_excluded")
-
-        def check() -> None:
-            res = client.channels.retrieve(
-                search_term=term,
-                range_key=rng.key,
-                data_types=[sy.DataType.FLOAT32],
-            )
-            assert [(ch.key, ch.alias) for ch in res] == [
-                (aliased.key, f"{term}_alias"),
-                (named.key, None),
-            ]
-
-        assert_eventually(check)
 
     def test_include_status(
         self,

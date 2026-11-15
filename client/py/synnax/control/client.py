@@ -15,7 +15,7 @@ from freighter import UnaryClient
 from synnax import channel, framer as framer_
 from synnax.control.controller import Controller
 from x.control import Authority, CrudeAuthority, State
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 
 _RETRIEVE_ENDPOINT = "/control/retrieve"
 
@@ -101,6 +101,7 @@ class Client:
             _RETRIEVE_ENDPOINT, _RetrieveRequest(keys=keys), _RetrieveResponse
         ).states
 
+    @deprecate_positional("read", "write", "write_authorities")
     def acquire(
         self,
         name: str,

@@ -11,15 +11,20 @@ import { type schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
 
-export interface ActuatorProps extends Omit<Toggle.ButtonProps, "onClick"> {
+export interface ActuatorProps
+  extends
+    Omit<Toggle.ButtonProps, "onClick">,
+    Pick<Primitive.SVGBasedProps, "strokeColor"> {
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
   scale?: number;
@@ -34,6 +39,8 @@ export const Actuator = ({
   scale = 1,
   className,
   stateOverrides,
+  strokeColor,
+  onClickDelay = 0,
   ...rest
 }: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
@@ -44,6 +51,8 @@ export const Actuator = ({
     externalScale: scale,
     spec,
     stateOverrides,
+    strokeColor,
+    delayed: !new TimeSpan(onClickDelay).isZero,
   });
   const svg = spec?.svg;
   const invalid = svg != null && !Custom.isValidSVG(svg);
@@ -71,6 +80,7 @@ export const Actuator = ({
       enabled={enabled}
       triggered={triggered}
       orientation={orientation}
+      onClickDelay={onClickDelay}
       {...rest}
     >
       <Handle.Boundary orientation={orientation}>

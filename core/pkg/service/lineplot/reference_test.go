@@ -105,9 +105,18 @@ var _ = Describe("Channel references", func() {
 					return svc.NewWriter(tx).Delete(ctx, plot.Key)
 				})).To(Succeed())
 			})
-			plot.Lines[1].StrokeWidth = 7
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &plot)
+				_, err := svc.NewWriter(tx).Apply(
+					ctx,
+					plot.Key,
+					lineplot.NewSetLineStrokeWidthAction(
+						lineplot.SetLineStrokeWidthPayload{
+							Key:         plot.Lines[1].Key,
+							StrokeWidth: 7,
+						},
+					),
+				)
+				return err
 			})).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).DeleteMany(

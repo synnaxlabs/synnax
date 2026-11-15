@@ -17,30 +17,30 @@ from console.page import PageType
 from console.task_page import TaskPage
 
 BROKER_FIELD_LABEL = "MQTT broker"
-DETAILS_SELECTOR = ".console-details__form"
-ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
-FIELD_POINTER_SELECTOR = ".console-field-pointer"
-CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
-TREE_ROWS_JS = f"""els => els.map((e) => [
+_DETAILS_SELECTOR = ".console-details__form"
+_ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
+_FIELD_POINTER_SELECTOR = ".console-field-pointer"
+_CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
+_TREE_ROWS_JS = f"""els => els.map((e) => [
     Number(e.getAttribute("aria-level")),
-    e.querySelector("{ENTRY_TITLE_SELECTOR}")?.textContent ?? "",
-    e.querySelector("{FIELD_POINTER_SELECTOR}")?.textContent ?? "",
+    e.querySelector("{_ENTRY_TITLE_SELECTOR}")?.textContent ?? "",
+    e.querySelector("{_FIELD_POINTER_SELECTOR}")?.textContent ?? "",
 ])"""
 # The list wraps a title in bidi isolates so a topic reads left to right.
-LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
-PDI = "\N{POP DIRECTIONAL ISOLATE}"
-WHOLE_PAYLOAD = "Whole payload"
+_LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
+_PDI = "\N{POP DIRECTIONAL ISOLATE}"
+_WHOLE_PAYLOAD = "Whole payload"
 # The submit button of the add dialog counts the picks: "Add 4 channels".
-SUBMIT_PICKS = re.compile(r"^Add \d+ ")
+_SUBMIT_PICKS = re.compile(r"^Add \d+ ")
 # A listen of the dialog takes a few seconds before it lists anything.
-LISTEN_TIMEOUT = 30000
-TAG_NAME_PLACEHOLDER = "oven/temperature"
-NO_COMMAND_CHANNEL = "No command channel"
+_LISTEN_TIMEOUT = 30000
+_TAG_NAME_PLACEHOLDER = "oven/temperature"
+_NO_COMMAND_CHANNEL = "No command channel"
 
 
 def _plain(title: str) -> str:
     """Return a listed title without its bidi isolates."""
-    return title.strip().strip(LRI + PDI)
+    return title.strip().strip(_LRI + _PDI)
 
 
 class MQTTTask(TaskPage):
@@ -53,10 +53,10 @@ class MQTTTask(TaskPage):
         raise NotImplementedError
 
     def _title(self, title: str) -> Locator:
-        return self._rows().get_by_text(f"{LRI}{title}{PDI}", exact=True).first
+        return self._rows().get_by_text(f"{_LRI}{title}{_PDI}", exact=True).first
 
     def _details(self) -> Locator:
-        return self._pane().locator(DETAILS_SELECTOR).first
+        return self._pane().locator(_DETAILS_SELECTOR).first
 
     def _add_button(self) -> Locator:
         return self._pane().get_by_role("button", name=self.add_label, exact=True)
@@ -72,13 +72,13 @@ class MQTTTask(TaskPage):
         return dialog
 
     def _pick(self, checkbox: Locator) -> None:
-        checkbox.wait_for(state="visible", timeout=LISTEN_TIMEOUT)
+        checkbox.wait_for(state="visible", timeout=_LISTEN_TIMEOUT)
         # The indicator paints over the input and takes a real click.
         checkbox.dispatch_event("click")
         expect(checkbox).to_be_checked(timeout=5000)
 
     def _submit(self, dialog: Locator) -> None:
-        dialog.get_by_role("button", name=SUBMIT_PICKS).click()
+        dialog.get_by_role("button", name=_SUBMIT_PICKS).click()
         dialog.wait_for(state="hidden", timeout=5000)
 
     def _fill(self, label: str, value: str) -> None:
@@ -127,7 +127,7 @@ class MQTTTask(TaskPage):
         dialog = self._open_dialog()
         dialog.get_by_role("button", name="Sparkplug B", exact=True).click()
         node = dialog.get_by_role("treeitem").get_by_text(edge_node, exact=True)
-        node.wait_for(state="visible", timeout=LISTEN_TIMEOUT)
+        node.wait_for(state="visible", timeout=_LISTEN_TIMEOUT)
         node.click()
         for tag in tags:
             self._pick(dialog.get_by_role("checkbox", name=f"Record {tag}", exact=True))
@@ -153,7 +153,7 @@ class MQTTTask(TaskPage):
     def entries(self) -> list[str]:
         """Return the title of each listed entry, in order. A Sparkplug B entry is
         titled by its full tag path, such as ``Plant/Line1/Pump1/setpoint``."""
-        titles = self._rows().locator(ENTRY_TITLE_SELECTOR).all_inner_texts()
+        titles = self._rows().locator(_ENTRY_TITLE_SELECTOR).all_inner_texts()
         return [_plain(t) for t in titles]
 
     def disable_entry(self, title: str) -> None:
@@ -201,7 +201,7 @@ class MQTTRead(MQTTTask):
         :param title: Title of the entry.
         :raises AssertionError: If no entry has the title.
         """
-        rows = self._rows().evaluate_all(TREE_ROWS_JS)
+        rows = self._rows().evaluate_all(_TREE_ROWS_JS)
         pointers: list[str] = []
         found = False
         for level, entry, pointer in rows:
@@ -210,7 +210,7 @@ class MQTTRead(MQTTTask):
                     break
                 found = _plain(str(entry)) == title
             elif found:
-                pointers.append("" if pointer == WHOLE_PAYLOAD else str(pointer))
+                pointers.append("" if pointer == _WHOLE_PAYLOAD else str(pointer))
         if not found:
             raise AssertionError(f"No entry is titled {title!r}")
         return pointers
@@ -255,7 +255,7 @@ class MQTTEdge(TaskPage):
 
     @staticmethod
     def _name_input(row: Locator) -> Locator:
-        return row.get_by_placeholder(TAG_NAME_PLACEHOLDER, exact=True)
+        return row.get_by_placeholder(_TAG_NAME_PLACEHOLDER, exact=True)
 
     def _fill(self, placeholder: str, value: str) -> None:
         self._pane().get_by_placeholder(placeholder, exact=True).fill(value)
@@ -305,7 +305,7 @@ class MQTTEdge(TaskPage):
         """
         row = self._row(name)
         self.ctx_menu.action(self._name_input(row), "Add command channel")
-        expect(row.get_by_text(NO_COMMAND_CHANNEL, exact=True)).to_have_count(
+        expect(row.get_by_text(_NO_COMMAND_CHANNEL, exact=True)).to_have_count(
             0, timeout=5000
         )
 
@@ -314,7 +314,7 @@ class MQTTEdge(TaskPage):
 
         :param name: Name of the tag.
         """
-        names = self._row(name).locator(CHANNEL_NAME_SELECTOR)
+        names = self._row(name).locator(_CHANNEL_NAME_SELECTOR)
         if names.count() == 0:
             return ""
         return names.first.inner_text().strip()

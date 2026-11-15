@@ -111,6 +111,9 @@ type Service struct {
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
+	// renames holds the renames of each transaction. The hook of the last one sends all
+	// of them to storage in one call.
+	renames *gorp.Attachment[rename]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -134,6 +137,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes: newIndexes(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
+		renames: gorp.NewAttachment[rename](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -196,6 +200,14 @@ func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
 	return r
+}
+
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
 }
 
 // Close releases the resources held by the Service.

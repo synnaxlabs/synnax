@@ -169,6 +169,8 @@ When the task already has the name, the Console adds a number, such as
 stops after 1,000 variables, 10,000 objects, or 20 seconds, and the Console tells you
 when it stopped early.
 
+<Video id="hardware/opc-ua/add-folder" />
+
 ### Import and export channels
 
 Click <Icon.Export /> (**Export channels to CSV**) in **Channels** to save the channels
@@ -200,9 +202,9 @@ Some servers buffer fast samples in an array node. To read the arrays:
 
 The Driver then reads each node `Sample rate / Array size` times a second, and spreads
 the timestamps of the values evenly over the read period. **Sample rate** must be equal
-to or more than **Array size**. Each array must have exactly **Array size** values, or
-the Driver drops the frame and shows a warning. **Stream rate** does not apply in array
-mode.
+to or more than **Array size**. Each array must have exactly **Array size** values. An
+array of another size is a [bad value](#bad-values): the task shows "Received bad
+values", with the size in the description. **Stream rate** does not apply in array mode.
 
 <Divider.Divider x />
 
@@ -355,13 +357,15 @@ Write the node ID in one of the forms in [node IDs](#node-ids).
 The server sent a Bad status for a node, the server has no namespace with the URI of the
 node, or the Driver could not convert its value. The description names each channel and
 the reason. For example, `BadNodeIdUnknown` means that the server has no node with that
-ID. See [bad values](#bad-values).
+ID, and "OPC UA array for ... is too small" means that an array node has fewer values
+than **Array size**. See [bad values](#bad-values).
 
 </Problem.Cause>
 <Problem.Fix>
 
 For `BadNodeIdUnknown` or a missing namespace, drag the node from the **Browser** again.
-For a conversion error, check the data type of the node.
+For a conversion error, check the data type of the node. For "OPC UA array for ... is
+too small" or "too large", set **Array size** to the length of the array.
 
 </Problem.Fix>
 </Problem.Item>
@@ -391,19 +395,6 @@ The task lost the connection to the server. It tries again until the server answ
 
 Check the
 [server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
-
-</Problem.Fix>
-</Problem.Item>
-
-<Problem.Item message={["OPC UA array for ... is too small", "... is too large"]}>
-<Problem.Cause>
-
-An array node has a different number of values than **Array size**.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Set **Array size** to the length of the array.
 
 </Problem.Fix>
 </Problem.Item>

@@ -33,6 +33,7 @@ constexpr uint32_t FIRST_PROCESS_DATA_SM = 2;
 /// @brief the most PDOs an assign object, or objects a PDO, can count.
 constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
+constexpr uint32_t ABORT_SUBINDEX_MISSING = 0x06090011;
 
 /// @brief returns the size in bytes of each entry of the sync manager type object, a
 /// PDO assign object, or a PDO mapping object, or 0 for another object.
@@ -60,6 +61,15 @@ parse_entries(const std::vector<uint8_t> &bytes, const size_t size) {
     }
     return entries;
 }
+
+const x::errors::Error &failure_type(const errors::SDOFailure &failure) {
+    using Kind = errors::SDOFailure::Kind;
+    if (failure.kind == Kind::NO_REPLY) return NO_REPLY;
+    if (failure.kind != Kind::ABORTED) return errors::SDO_READ_ERROR;
+    if (failure.abort_code == ABORT_OBJECT_MISSING) return OBJECT_MISSING;
+    if (failure.abort_code == ABORT_SUBINDEX_MISSING) return SUBINDEX_MISSING;
+    return errors::SDO_READ_ERROR;
+}
 }
 
 Read with_complete_access(Read read, ReadAll read_all) {
@@ -85,12 +95,33 @@ Read with_complete_access(Read read, ReadAll read_all) {
     };
 }
 
+x::errors::Error read_error(
+    const uint16_t index,
+    const uint8_t sub_index,
+    const errors::SDOFailure &failure
+) {
+    return x::errors::Error(
+        failure_type(failure),
+        "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
+            failure.reason()
+    );
+}
+
 x::errors::Error
 read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
-    return x::errors::Error(
-        abort_code == ABORT_OBJECT_MISSING ? OBJECT_MISSING : errors::SDO_READ_ERROR,
-        "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
-            errors::sdo_abort_reason(abort_code)
+    if (abort_code == 0)
+        return x::errors::Error(
+            errors::SDO_READ_ERROR,
+            "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
+                errors::sdo_abort_reason(0)
+        );
+    return read_error(
+        index,
+        sub_index,
+        errors::SDOFailure{
+            .kind = errors::SDOFailure::Kind::ABORTED,
+            .abort_code = abort_code,
+        }
     );
 }
 

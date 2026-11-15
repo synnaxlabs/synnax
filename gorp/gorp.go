@@ -28,11 +28,12 @@ func Wrap(
 	kv kv.DB,
 	opts ...Option,
 ) *DB {
+	o := newOptions(opts)
 	return &DB{
 		DB:       kv,
-		options:  newOptions(opts),
+		options:  o,
 		registry: newRegistry(),
-		delivery: delivery{observer: observe.New[Commit]()},
+		delivery: delivery{observer: observe.New[Commit](), ins: o.Instrumentation},
 	}
 }
 
@@ -59,9 +60,9 @@ type DB struct {
 
 var _ Tx = (*DB)(nil)
 
-// lockWaitWarning is the wait for the lock past which OpenTx and WithSnapshot log a
-// warning.
-const lockWaitWarning = 500 * time.Millisecond
+// waitWarning is the wait past which OpenTx and WithSnapshot warn about the lock, and
+// a commit warns about its delivery.
+const waitWarning = 500 * time.Millisecond
 
 // OpenTx begins a new Tx against the DB. It blocks until no other Tx and no snapshot of
 // the DB is open. A goroutine that opens a second Tx, or writes through the DB, while
@@ -69,7 +70,7 @@ const lockWaitWarning = 500 * time.Millisecond
 func (db *DB) OpenTx() Tx {
 	start := time.Now()
 	db.lock.Lock()
-	if wait := time.Since(start); wait > lockWaitWarning {
+	if wait := time.Since(start); wait > waitWarning {
 		db.Instrumentation.L.Warn(
 			"gorp transaction waited long for the write lock",
 			zap.Duration("wait", wait),
@@ -128,12 +129,13 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 // WithSnapshot runs f with a Snapshot of the DB and returns the error of f. No
 // transaction of the DB opens while f runs, so the entries and indexes that f reads
 // agree. Snapshots run at the same time as each other. f must not open a transaction,
-// write through the DB, or call WithSnapshot, since each can deadlock.
+// write through the DB, or call WithSnapshot, since each can deadlock. f can read a
+// commit that is not yet durable, and a crash before its sync loses it.
 func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	start := time.Now()
 	db.lock.RLock()
 	defer db.lock.RUnlock()
-	if wait := time.Since(start); wait > lockWaitWarning {
+	if wait := time.Since(start); wait > waitWarning {
 		db.Instrumentation.L.Warn(
 			"gorp snapshot waited long for the read lock",
 			zap.Duration("wait", wait),
@@ -198,12 +200,11 @@ func newContext(ctx context.Context, snap Snapshot) Context {
 	return Context{Context: ctx, Snapshot: snap}
 }
 
-// txState owns per-tx ephemeral state and runs cleanups when the owning
-// transaction commits or closes. The pointer is stable for the lifetime
-// of the transaction, so callers can use it as a map key. Cleanups
-// receive committed=true if Commit succeeded and committed=false
-// otherwise; they fire after the underlying commit attempt completes and
-// before the transaction releases the write lock.
+// txState owns per-tx ephemeral state and runs cleanups when the owning transaction
+// commits or closes. The pointer is stable for the lifetime of the transaction, so
+// callers can use it as a map key. Cleanups receive committed=true once the writes of
+// Commit are visible to reads and committed=false otherwise. They fire before the
+// transaction releases the write lock.
 type txState struct {
 	// mu guards cleanups.
 	mu sync.Mutex
@@ -241,11 +242,10 @@ func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
 // Committing reports whether a commit attempt is in flight.
 func (s *txState) Committing() bool { return s.committing.Load() }
 
-// OnCleanup registers a hook to run when the owning transaction commits
-// or closes. The hook is invoked with committed=true if the owning tx
-// reached a successful Commit, and committed=false otherwise (Close
-// without prior Commit, or a failed Commit). Safe to call from any
-// goroutine that holds a reference to the state handle.
+// OnCleanup registers a hook to run when the owning transaction commits or closes. The
+// hook is invoked with committed=true once the writes of Commit are visible to reads,
+// and committed=false otherwise (Close without prior Commit, or a failed Commit). Safe
+// to call from any goroutine that holds a reference to the state handle.
 func (s *txState) OnCleanup(fn func(committed bool)) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)
@@ -300,11 +300,12 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit runs the work of BeforeCommit, commits the transaction, and releases the
-// write lock. An error from the work rolls the transaction back. Hooks registered via
-// state.OnCleanup run before the release, with committed=true on success and
-// committed=false otherwise. Then the readers of DB.Observe run. The release comes
-// before them, because a reader can open a transaction.
+// Commit runs the work of BeforeCommit, commits the transaction, and returns once the
+// store syncs its writes. An error from the work rolls the transaction back. The write
+// lock releases before the sync, once the writes are visible to reads. Hooks registered
+// via state.OnCleanup run before the release, with committed=true once the writes are
+// visible and committed=false otherwise. Then the readers of DB.Observe run. The
+// release comes before them, because a reader can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {

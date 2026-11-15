@@ -272,32 +272,49 @@ func (r retrieveInfo) HasIndexes() bool {
 // HasRefs reports whether the type holds any reference.
 func (r retrieveInfo) HasRefs() bool { return len(r.Refs) > 0 || len(r.NestedRefs) > 0 }
 
+// idRef returns the first @ref field that holds resource IDs. A union's base fields
+// declare their references through NestedRefs, so their filters carry the field.
+func (r retrieveInfo) idRef() (refInfo, bool) {
+	for _, ref := range r.Refs {
+		if ref.IsID {
+			return ref, true
+		}
+	}
+	for _, f := range r.Filters {
+		if f.Ref != nil && f.Ref.IsID {
+			return *f.Ref, true
+		}
+	}
+	return refInfo{}, false
+}
+
 // IDGoType returns the Go type of a resource ID, as the first @ref field that holds
 // resource IDs resolves it.
 func (r retrieveInfo) IDGoType() string {
-	for _, ref := range r.Refs {
-		if ref.IsID {
-			return ref.ElemGoType
-		}
-	}
-	return ""
+	ref, _ := r.idRef()
+	return ref.ElemGoType
 }
 
 // HasIDRefs reports whether any @ref field holds resource IDs.
 func (r retrieveInfo) HasIDRefs() bool {
-	return lo.SomeBy(r.Refs, func(ref refInfo) bool { return ref.IsID })
+	_, ok := r.idRef()
+	return ok
 }
 
 // needsSlices reports whether the generated code calls the slices package.
 func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
-		if f.Ref != nil {
-			return false
-		}
-		return f.IsSlice || (!f.IsScalar && (f.IndexFieldName == "" || f.IndexTextual))
+		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		return ref.IsSlice && ref.OnDelete == "Detach"
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
+}
+
+// needsSet reports whether the generated code calls the set package.
+func (r retrieveInfo) needsSet() bool {
+	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
+		return f.Ref == nil && !f.IsScalar && (f.IndexFieldName == "" || f.IndexTextual)
+	})
 }
 
 // HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
@@ -368,7 +385,9 @@ func generateRetrieveFile(
 		return nil, nil
 	}
 
-	if lo.SomeBy(infos, func(i retrieveInfo) bool { return !i.IndexesOnly }) {
+	if lo.SomeBy(infos, func(i retrieveInfo) bool {
+		return !i.IndexesOnly || inlines(i.NestedRefs)
+	}) || lo.SomeBy(refRoots, func(r referencesInfo) bool { return inlines(r.Refs) }) {
 		imps.AddExternal("context")
 	}
 	imps.AddInternal(
@@ -391,6 +410,12 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsSet) {
+		imps.AddInternal(
+			"set",
+			gomod.ResolveImportPath("x/go/set", repoRoot, gomod.DefaultModulePrefix),
+		)
 	}
 
 	data := &templateData{
@@ -539,18 +564,33 @@ func extractRetrieveInfo(
 					field.Name,
 				)
 			}
-			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
-				return nil, errors.Newf(
-					"%s: @ref is not supported on union fields (%s)",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
 			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
 			if err != nil {
 				return nil, err
 			}
-			refs = append(refs, info)
+			if info.OnDelete == "Inline" {
+				return nil, errors.Newf(
+					"%s: @ref field %s needs a union variant to hold it to inline",
+					typ.QualifiedName,
+					field.Name,
+				)
+			}
+			// The walk over a union's variants declares the reference, because each
+			// variant holds the base field.
+			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+				if info.OnDelete == "Detach" {
+					return nil, errors.Newf(
+						"%s: @ref on_delete detach is not supported on the base fields "+
+							"of a union (%s)",
+						typ.QualifiedName,
+						field.Name,
+					)
+				}
+				// The variant walk names the index after the field, ignoring @go name.
+				info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
+			} else {
+				refs = append(refs, info)
+			}
 			filters = append(filters, filterInfo{
 				FieldName:  field.Name,
 				GoName:     info.GoName,
@@ -582,7 +622,7 @@ func extractRetrieveInfo(
 			indexTextual bool
 		)
 		if hasIndex {
-			idx := indexInfo{
+			base := indexInfo{
 				FieldName:   field.Name,
 				GoName:      goFieldName,
 				Access:      access,
@@ -590,32 +630,41 @@ func extractRetrieveInfo(
 				ValueGoType: goType,
 				Kind:        "lookup",
 			}
+			fieldIndexes := []indexInfo{base}
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
 				sorts, err := resolution.Sorts([]resolution.Field{field}, table)
 				if err != nil {
 					return nil, errors.Wrapf(err, "%s", typ.QualifiedName)
 				}
-				sort := sorts[0]
-				idx.Kind, idx.Textual = "sorted", sort.Textual
-				idx.FieldName = sort.Name
-				if len(sort.Path) > 1 {
-					leaf := sort.Leaf()
-					idx.GoName += naming.GetFieldName(leaf)
-					idx.Access += "." + naming.GetFieldName(leaf)
-					idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
-				}
-				idx.GoType = idx.ValueGoType
-				if idx.Textual {
-					idx.GoType = "string"
-				}
+				fieldIndexes = lo.Map(
+					sorts,
+					func(sort resolution.Sort, _ int) indexInfo {
+						idx := base
+						idx.Kind, idx.Textual = "sorted", sort.Textual
+						idx.FieldName = sort.Name
+						if len(sort.Path) > 1 {
+							leaf := sort.Leaf()
+							idx.GoName += naming.GetFieldName(leaf)
+							idx.Access += "." + naming.GetFieldName(leaf)
+							idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
+						}
+						idx.GoType = idx.ValueGoType
+						if idx.Textual {
+							idx.GoType = "string"
+						}
+						return idx
+					},
+				)
 			}
-			// camelCase field name on the per-Retrieve indexes struct. Unexported
-			// because the indexes struct itself is unexported.
-			idx.StructField = naming.LowerFirst(idx.GoName)
-			if idx.Access == access {
-				indexField, indexTextual = idx.StructField, idx.Textual
+			for _, idx := range fieldIndexes {
+				// camelCase field name on the per-Retrieve indexes struct. Unexported
+				// because the indexes struct itself is unexported.
+				idx.StructField = naming.LowerFirst(idx.GoName)
+				if idx.Access == access {
+					indexField, indexTextual = idx.StructField, idx.Textual
+				}
+				indexes = append(indexes, idx)
 			}
-			indexes = append(indexes, idx)
 		}
 
 		if hasFilter {
@@ -639,8 +688,8 @@ func extractRetrieveInfo(
 	if err != nil {
 		return nil, err
 	}
-	// The loop above declares the references of a struct's own fields. A union's own
-	// fields hold none, so every reference it holds is in a variant.
+	// The loop above declares the references of a struct's own fields. The walk
+	// declares every reference of a union, its base fields included.
 	if _, ok := typ.Form.(resolution.StructForm); ok {
 		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
 			return strings.Contains(ref.path, ".")
@@ -1156,17 +1205,19 @@ func {{.Func}}(vals ...{{.GoType}}) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.{{.IndexFieldName}}.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-				return slices.Contains(vals, e.{{.Access}}), nil
+				return want.Contains(e.{{.Access}}), nil
 			}),
 		)
 {{- else if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(vals, e.{{.Access}}), nil
+			return want.Contains(e.{{.Access}}), nil
 		})
 {{- end}}
 	}
@@ -1260,6 +1311,16 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}
+			},
+{{- end}}
+{{- if .InlineBody}}
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *{{.EntryType}},
+				t {{.TargetType}},
+			) error {
+				{{.InlineBody -}}
 			},
 {{- end}}
 		}){{end}}`),

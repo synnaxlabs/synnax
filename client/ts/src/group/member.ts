@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, type record } from "@synnaxlabs/x";
-import { z } from "zod";
+import { array, type destructor, type patch, type record } from "@synnaxlabs/x";
 
+import { type actions } from "@/actions";
 import { type batch } from "@/batch";
-import { type Key, keyZ } from "@/group/types.gen";
+import { type Key } from "@/group/types.gen";
 import { query } from "@/query";
 
 /** A record that can sit in a group. */
@@ -27,37 +27,45 @@ export const MEMBER_LINES = {
     (group != null) === grouped,
 };
 
-/** Schema of a set-group request for records keyed by the given schema. */
-export const moveReqZ = <K extends z.ZodType<record.Key>>(key: K) =>
-  z.object({ keys: key.array(), group: keyZ.optional() });
-
-/** Payload of a set-group request. A missing group moves records out of their group. */
-export interface MovePayload<K extends record.Key> {
-  keys: K[];
-  group?: Key;
-}
+/**
+ * Payload of a dispatch entry that moves one record. Its action sets the group of the
+ * record, where null moves the record out of its group.
+ */
+export interface MovePayload<K extends record.Key> extends actions.DispatchPayload<
+  K,
+  patch.Action
+> {}
 
 /**
- * Builds a request that moves the records into the group, or out of their group when it
- * is null or undefined. Its cache write moves the cached records.
+ * Builds one batch entry per record that moves it into the group, or out of its group
+ * when the group is null or undefined. The cache write of each entry moves its cached
+ * record.
  */
 export interface MoveRequest<K extends record.Key> {
-  (keys: K | K[], to?: Key | null): batch.Request<MovePayload<K>>;
+  (keys: K | K[], to?: Key | null): batch.Request<MovePayload<K>>[];
 }
 
 /**
- * Returns a builder of set-group requests to the endpoint. A request's cache write
- * calls move with its keys and group, and move returns the rollback.
+ * Returns a builder of move entries for the dispatch endpoint of a record type. The
+ * cache write of an entry calls move with its key and group, and move returns the
+ * rollback.
  */
 export const createMoveRequest =
   <K extends record.Key>(
     endpoint: string,
     move: (keys: K[], group?: Key) => destructor.Destructor,
   ): MoveRequest<K> =>
-  (keys, to) => {
-    const payload = { keys: array.toArray(keys), group: to ?? undefined };
-    return { endpoint, payload, apply: () => move(payload.keys, payload.group) };
-  };
+  (keys, to) =>
+    array.toArray(keys).map((key) => ({
+      endpoint,
+      payload: {
+        key,
+        actions: [
+          { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
+        ],
+      },
+      apply: () => move([key], to ?? undefined),
+    }));
 
 /**
  * Sets the group of each cached record under keys, skipping keys the table does not

@@ -7,23 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, NotFoundError } from "@synnaxlabs/client";
-import {
-  createEmptyRole,
-  createTestClient,
-  TEST_CREDENTIALS,
-} from "@synnaxlabs/client/testutil";
+import { access, NotFoundError } from "@synnaxlabs/client";
+import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Role } from "@/access/role";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-
-const path = Role.changeRoleFormPath;
 
 const client = createTestClient();
 
@@ -179,7 +173,10 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current.data?.description).toEqual("Before"));
-      await remote.access.roles.create({ ...role, description: "After" });
+      await remote.access.roles.dispatch(
+        role.key,
+        access.role.set({ path: ["description"], value: "After" }),
+      );
       await waitFor(() => expect(result.current.data?.description).toEqual("After"));
     });
 
@@ -214,14 +211,13 @@ describe("queries", () => {
         name: "testRole",
         description: "Test description",
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Role.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Role.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: role.key, name: "newName" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.access.roles.watch(role.key).getCached()).toMatchObject({
+        name: "newName",
+      });
     });
   });
 
@@ -286,87 +282,6 @@ describe("queries", () => {
           "uses it as its role: validation error",
       );
       expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
-    });
-  });
-
-  describe("useChangeRoleForm", () => {
-    it("should retrieve the current role for a user", async () => {
-      const role = await createEmptyRole(client);
-      const testUser = await client.users.create({
-        username: `retrieve-for-${id.create()}`,
-        name: "Test User",
-        password: "password123",
-        role: role.key,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().role).toEqual(role.key);
-    });
-
-    it("should change a user's role when saved", async () => {
-      const [from, to] = await Promise.all([
-        createEmptyRole(client),
-        createEmptyRole(client),
-      ]);
-      const testUser = await client.users.create({
-        username: `change-role-${id.create()}`,
-        name: "Change Role",
-        password: "password123",
-        role: from.key,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().role).toEqual(from.key);
-
-      act(() => {
-        result.current.form.set(path.role, to.key);
-      });
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const stored = await createTestClient().users.retrieve(testUser.key);
-      expect(stored.role).toEqual(to.key);
-    });
-
-    it("should report an error when the Core refuses the change", async () => {
-      const role = await createEmptyRole(client);
-      const root = await client.users.retrieve({
-        username: TEST_CREDENTIALS.username,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: root.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set(path.role, role.key);
-      });
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("error"));
-      expect(result.current.status.description).toEqual(
-        `cannot change the role of root user ${root.name}: validation error`,
-      );
-      const stored = await createTestClient().users.retrieve(root.key);
-      expect(stored.role).toEqual(root.role);
     });
   });
 });

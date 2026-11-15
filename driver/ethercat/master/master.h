@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -51,6 +52,17 @@ struct Plan {
     std::map<uint16_t, slave::Config> slaves;
 };
 
+/// @brief what one slave adds to the working counter of a full cycle.
+struct WorkingCounterShare {
+    /// @brief what the slave adds when it takes its outputs.
+    uint32_t outputs = 0;
+    /// @brief what the slave adds when it gives its inputs, which it also does in
+    /// SAFE-OP.
+    uint32_t inputs = 0;
+
+    bool operator==(const WorkingCounterShare &) const = default;
+};
+
 /// @brief the process data of a bus that activate() starts. The spans stay valid until
 /// deactivate().
 struct Image {
@@ -65,8 +77,14 @@ struct Image {
     /// @brief the DC registers of each enabled slave whose SYNC0 events the master
     /// starts.
     std::vector<dc::Registers> dc_sync;
+    /// @brief the position of the slave whose clock dc_time() reads, or nullopt when
+    /// dc_time() reads none.
+    std::optional<uint16_t> reference_clock;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
+    /// @brief what each enabled slave adds to the working counter of a full cycle,
+    /// keyed by position. A slave with no process data adds nothing.
+    std::map<uint16_t, WorkingCounterShare> working_counter_shares;
 
     /// @brief returns the offset of entry.
     /// @returns errors::PDO_MAPPING_ERROR when the master did not map the entry, or
@@ -89,8 +107,19 @@ struct Image {
 struct Activation {
     /// @brief NIL when every enabled slave reached OP.
     x::errors::Error err;
-    /// @brief why each slave refused a state, keyed by position.
+    /// @brief why each slave refused a state, or why the master refused to start it,
+    /// keyed by position.
     std::map<uint16_t, slave::Refusal> refusals;
+};
+
+/// @brief how the slaves on the bus differ from those of the last scan.
+struct Change {
+    /// @brief true when another number of slaves answers, a slave restarted, or (IgH)
+    /// another model is at a position, so that the bus needs a new scan.
+    bool stale = false;
+    /// @brief the positions of the slaves that fell below their state at the scan, as
+    /// after a restart.
+    std::set<uint16_t> restarted;
 };
 
 /// @brief abstract interface for an EtherCAT master.
@@ -98,14 +127,23 @@ class Master {
 public:
     virtual ~Master() = default;
 
+    /// @brief returns the name that messages to the user give the network, such as
+    /// "Ethernet 2" for a Windows adapter.
+    [[nodiscard]] virtual std::string name() const = 0;
+
     /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
     /// it found without a new discovery until deactivate().
     [[nodiscard]]
     virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 
-    /// @brief counts the slaves that answer on the bus now, without changing their
-    /// state. Valid between scan() and deactivate().
-    [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
+    /// @brief compares the slaves on the bus with those of the last scan(). Valid
+    /// between scan() and deactivate().
+    [[nodiscard]] virtual std::pair<Change, x::errors::Error> changed() = 0;
+
+    /// @brief returns true when changed() reports the slaves that restarted. The IgH
+    /// master scans the bus again by itself, so it sees only another number of slaves
+    /// or another model at a position, and no restart.
+    [[nodiscard]] virtual bool restarts_visible() const = 0;
 
     /// @brief maps the process data of every enabled slave, calls start_cycle with the
     /// image once send() and receive() work, starts the DC sync of each slave in a DC
@@ -114,7 +152,9 @@ public:
     /// Valid after scan(). Only the SOEM master starts DC sync.
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP.
+    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
+    /// with a refusal for a used slave with no identity, after start_cycle only when
+    /// another slave has process data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle
@@ -129,6 +169,12 @@ public:
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
 
+    /// @brief returns how far the working counter of the latest receive() fell short of
+    /// a full cycle, or nullopt when the master cannot tell. Valid after a receive()
+    /// that returns errors::WORKING_COUNTER_ERROR. A lost frame can take more than the
+    /// shares of the slaves that missed the cycle.
+    [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
+
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
@@ -137,13 +183,36 @@ public:
     /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
-    /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
-    /// call from one thread while another runs receive() and send(). Valid between
-    /// activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step.
+    /// @brief reads the condition of each enabled slave. Safe to call from one thread
+    /// while another runs receive() and send(). Valid between activate() and
+    /// deactivate().
+    /// @returns the condition of each enabled slave.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
+
+    /// @brief asks each slave that the latest check() found out of OP to return to it.
+    /// Takes no further step once breaker stops. Can block for seconds while a slave
+    /// restores its clock. Call it from the thread that calls check().
+    virtual void recover(const x::breaker::Breaker &breaker) = 0;
+
+    /// @brief writes parameters to the slave at position, in order. On a running bus, a
+    /// master that can also adds them to the startup parameters of the slave, so it
+    /// writes them again when the slave restarts. Safe to call from one thread while
+    /// another runs receive() and send(). Valid between scan() and deactivate().
+    /// @returns errors::STARTUP_PARAMETER_ERROR when the slave rejects a parameter. The
+    /// parameters before it stay on the slave. errors::SETTING_CONFLICT when the master
+    /// cannot change a parameter on the running bus.
+    [[nodiscard]] virtual x::errors::Error write(
+        uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    ) = 0;
+
+    /// @brief reads an object of at most four bytes from the slave at position, as an
+    /// unsigned value. Safe to call from one thread while another runs receive() and
+    /// send(). Valid between scan() and deactivate().
+    /// @returns coe::read_error() when the read fails.
+    [[nodiscard]] virtual std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) = 0;
 };
 
 /// @brief abstract interface for discovering and creating EtherCAT masters.

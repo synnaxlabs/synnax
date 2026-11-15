@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,37 +36,23 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates or updates the given range, assigning a new key when it has none. A
-// create stores the labels r carries. An update keeps the stored labels, which change
-// only through AddLabels, ReplaceLabels, and RemoveLabels, and keeps the stored parent
-// when r has none. The parent and labels must exist, and the parent must not be the
-// range or one of its descendants. On return, r holds what was stored. After the
-// transaction commits, Create broadcasts a create action that carries the stored range.
+// Create creates the given range, assigning a new key when it has none, and stores the
+// labels r carries. It sets HasChildren to false, since a new range has no children.
+// The parent and labels must exist. It returns an error wrapping validate.ErrValidation
+// when a range with the key exists. After the transaction commits, Create broadcasts a
+// create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
+	r.HasChildren = false
 	if err := r.Validate(); err != nil {
 		return err
 	}
 	if err := w.validate(*r); err != nil {
 		return err
 	}
-	var stored Range
-	err := w.table.
-		NewRetrieve().
-		Where(gorp.MatchKeys[Key, Range](r.Key)).
-		Entry(&stored).
-		Exec(ctx, w.tx)
-	if err == nil {
-		r.Labels = stored.Labels
-		if r.Parent == nil {
-			r.Parent = stored.Parent
-		}
-	} else if !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -78,12 +63,21 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	return nil
 }
 
-// CreateMany calls Create for each range, in order.
+// CreateMany calls Create for each range, in order. It sets HasChildren on each range
+// that another range in ranges names as its parent.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
+	parents := make(set.Set[Key], len(*ranges))
 	for i := range *ranges {
-		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
+		r := &(*ranges)[i]
+		if err := w.Create(ctx, r); err != nil {
 			return err
 		}
+		if r.Parent != nil {
+			parents.Add(*r.Parent)
+		}
+	}
+	for i := range *ranges {
+		(*ranges)[i].HasChildren = parents.Contains((*ranges)[i].Key)
 	}
 	return nil
 }
@@ -176,7 +170,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 }
 
 // Delete deletes the ranges with the given keys, along with each range nested in them
-// and the aliases and key-value pairs of every deleted range. Delete is idempotent.
+// and the key-value pairs of every deleted range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil

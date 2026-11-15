@@ -41,9 +41,9 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
-	// OnDetach runs in the transaction of each delete that detaches a target from an
-	// entry of the table, after Gorp writes the entry. It gets the entry as written. An
-	// error fails the delete.
+	// OnDetach runs in the transaction of each delete that detaches or inlines a target
+	// in an entry of the table, after Gorp writes the entry. It gets the entry as
+	// written. An error fails the delete.
 	OnDetach func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
@@ -93,12 +93,13 @@ func (t *Table[K, E]) Close() error {
 // asynchronously by a background goroutine that scans the table once and feeds every
 // index from the same scan.
 //
-// idx.Filter inside Retrieve blocks the query until the index has finished populating.
-// After populate completes the index serves queries normally. If populate fails, the
-// failure is logged via cfg.Instrumentation, and idx.Filter falls back to a sequential
-// scan with a synthesized predicate so queries continue to return correct results.
-// Every other read of a failed index returns ErrIndexInvalid: idx.Get, Dependents, and
-// the reference checks of each write and delete.
+// idx.Filter and SortedIndex.FilterRange inside Retrieve block the query until the
+// index has finished populating. After populate completes the index serves queries
+// normally. If populate fails, the failure is logged via cfg.Instrumentation, and
+// idx.Filter, SortedIndex.FilterRange, and Referenced fall back to a sequential scan so
+// queries continue to return correct results. Every other read of a failed index
+// returns ErrIndexInvalid: idx.Get, Dependents, and the reference checks of each write
+// and delete.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],

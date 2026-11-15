@@ -10,3 +10,4 @@
 export * from "@/arc/directory/actions.gen";
 export * from "@/arc/directory/client";
 export * from "@/arc/directory/types.gen";
+export { type WhereInput } from "@/arc/directory/where.gen";

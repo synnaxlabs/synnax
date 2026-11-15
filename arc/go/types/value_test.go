@@ -54,7 +54,7 @@ var _ = Describe("Value", func() {
 			param := types.Param{Name: "a", Type: t, Value: types.EncodeFloat(value)}
 			var decoded types.Param
 			Expect(msgpack.Codec.Decode(
-				ctx, MustSucceed(msgpack.Codec.Encode(ctx, param)), &decoded,
+				MustSucceed(msgpack.Codec.Encode(param)), &decoded,
 			)).To(Succeed())
 			expectFloat(decoded, value, t)
 		},

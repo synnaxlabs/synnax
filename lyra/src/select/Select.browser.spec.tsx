@@ -13,6 +13,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -107,7 +108,9 @@ const CHECKABLE_COLUMNS: List.Column[] = [
   { name: "Channel", width: "20rem" },
 ];
 
-const renderCheckable = async (): Promise<(text: string) => Element> => {
+const renderCheckable = async (
+  favorite?: ReactElement,
+): Promise<(text: string) => Element> => {
   const { getByText } = await renderThemed(
     <Triggers.Provider>
       <List.Columns columns={CHECKABLE_COLUMNS}>
@@ -126,6 +129,7 @@ const renderCheckable = async (): Promise<(text: string) => Element> => {
                     <List.Cell>type-{key}</List.Cell>
                     <List.Cell>channel-{key}</List.Cell>
                   </List.Cells>
+                  {favorite}
                 </Select.Item>
               )}
             </List.Items>
@@ -279,6 +283,17 @@ const TextTags = (): ReactElement => {
   );
 };
 
+const ShadowTags = ({ value }: { value: string[] }): ReactElement => (
+  <List.Item itemKey="row">
+    <Dialog.Frame>
+      <Select.Frame<string, undefined> multiple value={value} onChange={() => {}}>
+        <Select.MultipleTrigger variant="shadow" aria-label="Levels" />
+        <Select.Dialog>{LEVELS}</Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  </List.Item>
+);
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -396,6 +411,78 @@ describe("Select", () => {
     });
   });
 
+  describe("menu surface", () => {
+    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+      const onChange = vi.fn();
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Stage</Dialog.Trigger>
+            <Select.Frame<string, undefined> multiple value={[]} onChange={onChange}>
+              <Select.Dialog surface="menu" aria-label="Stage">
+                <Select.List>
+                  {["alpha", "beta"].map((key) => (
+                    <Select.Item<string> key={key} itemKey={key}>
+                      {key}
+                    </Select.Item>
+                  ))}
+                </Select.List>
+              </Select.Dialog>
+            </Select.Frame>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await userEvent.click(page.getByText("Stage"));
+      const dialog = page.getByRole("dialog", { name: "Stage" });
+      await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+      await userEvent.keyboard("b");
+      expect(document.querySelector(".lyra-menu-filter")).toBeNull();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect.poll(() => onChange).toHaveBeenCalledOnce();
+      expect(onChange.mock.calls[0][0]).toEqual(["alpha"]);
+    });
+  });
+
+  describe("surface", () => {
+    it("should fill the dialog like a menu", async () => {
+      await renderThemed(
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={vi.fn()}
+          allowNone={false}
+          searchHidden
+        >
+          {LEVELS}
+        </Select.Simple>,
+      );
+      await userEvent.click(page.getByRole("button", { name: /^Level/ }));
+      const dialog = page.getByRole("dialog").element();
+      expect(computed(dialog, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
+    });
+
+    it("should keep the surface of a modal in a modal", async () => {
+      await renderThemed(
+        <Select.Simple<string>
+          resourceName="level"
+          value="low"
+          onChange={vi.fn()}
+          allowNone={false}
+          variant="modal"
+        >
+          {LEVELS}
+        </Select.Simple>,
+      );
+      await userEvent.click(page.getByRole("button", { name: /^Level/ }));
+      const dialog = page.getByRole("dialog").element();
+      expect(computed(dialog, "background-color")).toBe(
+        resolve("color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent)"),
+      );
+    });
+  });
+
   describe("in a modal", () => {
     it("should focus the trigger when Enter picks an option", async () => {
       const trigger = await openInModal();
@@ -441,6 +528,27 @@ describe("Select", () => {
       expect(document.activeElement).toBe(
         page.getByRole("button", { name: "Levels" }).element(),
       );
+    });
+  });
+
+  describe("shadow multiple trigger", () => {
+    it("should drop the remove buttons of its tags", async () => {
+      const { container } = await renderThemed(<ShadowTags value={["low"]} />);
+      const remove = container.querySelector(".lyra-tag__close");
+      assert(remove != null);
+      expect(computed(remove, "display")).toBe("none");
+    });
+
+    it("should show its placeholder in a list item on hover only", async () => {
+      const { container } = await renderThemed(<ShadowTags value={[]} />);
+      const item = container.querySelector(".lyra-list__item");
+      const placeholder = container.querySelector(
+        ".lyra-select-multiple-trigger-placeholder",
+      );
+      assert(item != null && placeholder != null);
+      expect(computed(placeholder, "opacity")).toBe("0");
+      await userEvent.hover(item);
+      expect(computed(placeholder, "opacity")).toBe("1");
     });
   });
 
@@ -582,6 +690,17 @@ describe("Select", () => {
       const item = (await renderCheckable())("type-1").closest(".lyra-list__item")!;
       const box = rect(item.querySelector(".lyra-input__checkbox-indicator")!);
       expect(box.left - rect(item).left).toBeCloseTo(box.top - rect(item).top, 0);
+    });
+
+    it("should keep a checkbox in the content in its place", async () => {
+      const find = await renderCheckable(
+        <Input.Checkbox value={false} onChange={() => {}} aria-label="Favorite" />,
+      );
+      const favorite = find("type-1")
+        .closest(".lyra-list__item")!
+        .querySelector('.lyra-input__checkbox:has(> [aria-label="Favorite"])')!;
+      expect(computed(favorite, "margin-left")).toBe("0px");
+      expect(computed(favorite, "margin-right")).toBe("0px");
     });
 
     it("should keep each heading over its column", async () => {

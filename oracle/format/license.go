@@ -29,7 +29,7 @@ const licenseTemplatePath = "licenses/headers/template.txt"
 // headerYear matches the year in a Synnax license header.
 var headerYear = regexp.MustCompile(`Copyright (\d{4}) Synnax Labs`)
 
-// License is a Formatter that prepends a per-extension license header rendered from
+// License is a formatter that prepends a per-extension license header rendered from
 // licenses/headers/template.txt.
 //
 // The header keeps the year of the file on disk at the formatted path when that file

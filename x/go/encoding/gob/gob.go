@@ -11,7 +11,6 @@ package gob
 
 import (
 	"bytes"
-	"context"
 	"encoding/gob"
 	"io"
 
@@ -24,11 +23,11 @@ var Codec encoding.Codec = &codec{}
 
 type codec struct{}
 
-func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
-	return c.DecodeStream(ctx, bytes.NewReader(data), value)
+func (c *codec) Decode(data []byte, value any) error {
+	return c.DecodeStream(bytes.NewReader(data), value)
 }
 
-func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (*codec) DecodeStream(r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, ioErr := io.ReadAll(r)
 		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
@@ -36,15 +35,15 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	return nil
 }
 
-func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := c.EncodeStream(ctx, &buf, value); err != nil {
+	if err := c.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (*codec) EncodeStream(w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
 		return encoding.SugarEncodingError(value, err)

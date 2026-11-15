@@ -47,7 +47,7 @@ var _ = Describe("Set", func() {
 		r = createRange(ctx)
 	})
 	setAs := func(ctx SpecContext, pairs ...kv.Pair) (struct{}, error) {
-		return set(AuthedCtx(ctx, u), apikv.SetRequest{Range: r.Key, Pairs: pairs})
+		return set(AuthedCtx(ctx, u), apikv.SetRequest{Pairs: pairs})
 	}
 	It("Should refuse the set without update on the range", func(ctx SpecContext) {
 		Expect(setAs(ctx, kv.Pair{Range: r.Key, Key: "k", Value: "v"})).Error().

@@ -11,16 +11,17 @@ package cesium
 
 import (
 	"context"
-	"io/fs"
 	"math/rand/v2"
 	"strconv"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -71,139 +72,148 @@ func dirNameToKey(name string) (ChannelKey, error) {
 	return ChannelKey(key), nil
 }
 
-// DeleteChannel deletes a channel by its key.
+// DeleteChannel deletes a channel by its key. It returns once the channel is detached
+// and removes its data in the background. Close waits for the removal to finish.
 //
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
 //
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	// Rename the file first, so we can avoid hogging the mutex while deleting the
-	// directory, which may take a longer time. Rename the file to have a random suffix
-	// in case the channel is repeatedly created and deleted.
-	oldName := keyToDirName(ch)
-	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := func() error {
-		db.mu.Lock()
-		defer db.mu.Unlock()
-		if err := db.removeChannel(ch); err != nil {
-			return err
-		}
-		err := db.fs.Rename(oldName, newName)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
-	}(); err != nil {
-		return err
-	}
-	return db.fs.Remove(newName)
+	return db.DeleteChannels([]ChannelKey{ch})
 }
 
-// DeleteChannels deletes many channels by their keys. This operation is not guaranteed
-// to be atomic: it is possible some channels in chs are deleted and some are not.
-func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	var (
-		indexChannels       = make([]ChannelKey, 0, len(chs))
-		directoriesToRemove = make([]string, 0, len(chs))
-	)
+// DeleteChannels deletes the channels with the given keys and skips keys with no
+// channel. It returns an error and deletes none of them if one is being written to or
+// read from, or is the index of a channel outside chs. A file system error stops it and
+// can leave some of them deleted. It deletes index channels last. It returns once the
+// channels are detached and removes their data in the background. Close waits for the
+// removal to finish.
+func (db *DB) DeleteChannels(chs []ChannelKey) error {
 	db.mu.Lock()
-	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.dbs.unary and db.mu.dbs.virtual are also
-	// deleted on FS.
-	defer func() {
-		db.mu.Unlock()
-		var errRemove error
-		for _, name := range directoriesToRemove {
-			errRemove = errors.Join(errRemove, db.fs.Remove(name))
-		}
-		err = errors.Combine(err, errRemove)
-	}()
-
-	// Do a pass first to remove all non-index channels
-	for _, ch := range chs {
-		udb, uok := db.mu.dbs.unary[ch]
-
-		if !uok || udb.Channel().IsIndex {
-			if udb.Channel().IsIndex {
-				indexChannels = append(indexChannels, ch)
+	defer db.mu.Unlock()
+	// Close waits for removals under db.mu, so the check must hold the lock.
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+	// Index channels detach last, so that a failed detach never keeps a data channel
+	// whose index it deleted.
+	data, indexes := lo.FilterReject(lo.Uniq(chs), func(ch ChannelKey, _ int) bool {
+		uDB, ok := db.mu.dbs.unary[ch]
+		return !ok || !uDB.Channel().IsIndex
+	})
+	chs = append(data, indexes...)
+	deleting := set.New(chs...)
+	for i, ch := range chs {
+		if err := db.markClosed(ch, deleting); err != nil {
+			for _, marked := range chs[:i] {
+				db.unmarkClosed(marked)
 			}
-			continue
-		}
-
-		err = db.removeChannel(ch)
-		if err != nil {
 			return err
 		}
-
-		// Rename the files first, so we can avoid hogging the mutex while deleting the
-		// directory, which may take a longer time.
-		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-		err = db.fs.Rename(oldName, newName)
-		if err != nil {
-			return err
-		}
-
-		directoriesToRemove = append(directoriesToRemove, newName)
 	}
-
-	// Do another pass to remove all index channels
-	for _, ch := range indexChannels {
-		err = db.removeChannel(ch)
+	dirs := make([]string, 0, len(chs))
+	defer func() { db.removeDirs(dirs...) }()
+	for i, ch := range chs {
+		dir, err := db.detach(ch)
 		if err != nil {
-			return err
-		}
-
-		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-		err = db.fs.Rename(oldName, newName)
-		if err != nil {
-			return err
-		}
-
-		directoriesToRemove = append(directoriesToRemove, newName)
-	}
-
-	return err
-}
-
-// removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
-// error if there is an open resource on the database.
-func (db *DB) removeChannel(ch ChannelKey) error {
-	if uDB, ok := db.mu.dbs.unary[ch]; ok {
-		if uDB.Channel().IsIndex {
-			for otherDBKey, otherDB := range db.mu.dbs.unary {
-				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
-					return errors.Newf(
-						"cannot delete channel %v "+
-							"because it indexes data in channel %v",
-						uDB.Channel(),
-						otherDB.Channel(),
-					)
-				}
+			for _, marked := range chs[i+1:] {
+				db.unmarkClosed(marked)
 			}
-		}
-		if err := uDB.Close(); err != nil {
 			return err
 		}
-		delete(db.mu.dbs.unary, ch)
-		return nil
-	}
-	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
-		if err := vDB.Close(); err != nil {
-			return err
+		if dir != "" {
+			dirs = append(dirs, dir)
 		}
-		delete(db.mu.dbs.virtual, ch)
-		return nil
 	}
 	return nil
+}
+
+// markClosed marks the DB of ch closed for a delete of the channels in deleting. It
+// returns an error if ch is being written to or read from, or is the index of a channel
+// outside deleting. The caller must hold db.mu.
+func (db *DB) markClosed(ch ChannelKey, deleting set.Set[ChannelKey]) error {
+	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
+		return vDB.MarkClosed()
+	}
+	uDB, ok := db.mu.dbs.unary[ch]
+	if !ok {
+		return nil
+	}
+	if uDB.Channel().IsIndex {
+		for key, other := range db.mu.dbs.unary {
+			if other.Channel().Index == ch && !deleting.Contains(key) {
+				return errors.Newf(
+					"cannot delete channel %v because it indexes data in channel %v",
+					uDB.Channel(),
+					other.Channel(),
+				)
+			}
+		}
+	}
+	return uDB.MarkClosed()
+}
+
+// unmarkClosed opens the DB of ch that markClosed marked closed. The caller must hold
+// db.mu.
+func (db *DB) unmarkClosed(ch ChannelKey) {
+	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
+		vDB.UnmarkClosed()
+	} else if uDB, ok := db.mu.dbs.unary[ch]; ok {
+		uDB.UnmarkClosed()
+	}
+}
+
+// detach releases the DB of ch that markClosed marked closed, removes it from db, and
+// renames its directory for removal. It returns the new name, or "" if ch does not
+// exist. The caller must hold db.mu.
+func (db *DB) detach(ch ChannelKey) (string, error) {
+	if uDB, ok := db.mu.dbs.unary[ch]; ok {
+		// The data of the channel is deleted anyway, so a close error loses nothing.
+		if err := uDB.Release(); err != nil {
+			db.L.Error(
+				"failed to release a deleted channel",
+				zap.Stringer("channel", uDB.Channel()),
+				zap.Error(err),
+			)
+		}
+		delete(db.mu.dbs.unary, ch)
+	} else if _, ok = db.mu.dbs.virtual[ch]; ok {
+		delete(db.mu.dbs.virtual, ch)
+	} else {
+		return "", nil
+	}
+	// The random suffix lets a channel be created and deleted again while an earlier
+	// removal runs.
+	name := keyToDirName(ch)
+	detached := name + deletedDirInfix + strconv.Itoa(rand.Int())
+	if err := db.fs.Rename(name, detached); err != nil {
+		return "", err
+	}
+	return detached, nil
+}
+
+// deletedDirInfix marks a channel directory that a delete detached and that waits for
+// removal.
+const deletedDirInfix = "-DELETE-"
+
+// removeDirs removes the named detached channel directories in the background. A
+// failed removal logs the error, and the next Open retries it.
+func (db *DB) removeDirs(names ...string) {
+	if len(names) == 0 {
+		return
+	}
+	db.removals.Go(func() {
+		for _, name := range names {
+			if err := db.fs.Remove(name); err != nil {
+				db.L.Error(
+					"failed to remove deleted channel data",
+					zap.String("dir", name),
+					zap.Error(err),
+				)
+			}
+		}
+	})
 }
 
 // DeleteTimeRange deletes a time range of data in the database in the given channels

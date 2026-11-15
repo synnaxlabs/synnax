@@ -41,7 +41,7 @@ var _ = Describe("Writer", func() {
 				Channels: []log.ChannelEntry{
 					{
 						Channel: ch1,
-						Color:   MustSucceed(color.FromHex("#ff0000")),
+						Color:   new(MustSucceed(color.Parse("#ff0000"))),
 					},
 				},
 			})
@@ -123,14 +123,14 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should reject a log with neither a project nor a range",
+			"Should reject a log with no project",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
 				l := defaults.Fill(log.Log{Name: "orphan"})
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &l),
 				).To(MatchError(ContainSubstring(
-					"project: must belong to exactly one of a project and a range",
+					"project: must belong to a project",
 				)))
 			},
 		)
@@ -146,27 +146,24 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It(
-			"Should update the existing log when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				key := uuid.New()
-				first := defaults.Fill(
-					log.Log{Project: &proj.Key, Key: key, Name: "first"},
-				)
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := defaults.Fill(
-					log.Log{Project: &proj.Key, Key: key, Name: "second"},
-				)
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				var res log.Log
-				Expect(svc.NewRetrieve().
-					Where(log.MatchKeys(key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res.Name).To(Equal("second"))
-			},
-		)
+		It("Should refuse a log whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := defaults.Fill(log.Log{Project: &proj.Key, Name: "first"})
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := defaults.Fill(
+				log.Log{Project: &proj.Key, Key: stored.Key, Name: "second"},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("log %s already exists", stored.Key)),
+			))
+			var res log.Log
+			Expect(svc.NewRetrieve().
+				Where(log.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
@@ -221,14 +218,15 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved).To(HaveLen(2))
 		})
 	})
-	Describe("SetProject", func() {
-		It("Should move the logs into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the log into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := defaults.Fill(log.Log{Project: &proj.Key, Name: "moved"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res log.Log
 			Expect(svc.NewRetrieve().
 				Where(log.MatchKeys(v.Key)).
@@ -241,8 +239,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			v := defaults.Fill(log.Log{Project: &proj.Key, Name: "stuck"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
@@ -479,10 +477,10 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
-					red := color.Color{R: 255, G: 0, B: 0, A: 1}
+					red := color.Color{R: 255, G: 0, B: 0, A: 255}
 					Expect(dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
-							log.SetChannelColorPayload{Channel: ch5, Color: red},
+							log.SetChannelColorPayload{Channel: ch5, Color: &red},
 						),
 						log.NewSetChannelNotationAction(
 							log.SetChannelNotationPayload{
@@ -513,7 +511,7 @@ var _ = Describe("Writer", func() {
 						),
 					})).To(Succeed())
 					entry := retrieve(ctx, l.Key).Channels[0]
-					Expect(entry.Color).To(Equal(red))
+					Expect(entry.Color).To(HaveValue(Equal(red)))
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
 					Expect(entry.Precision).To(Equal(new(uint8(4))))
 					Expect(entry.Alias).To(Equal("volts"))
@@ -563,6 +561,24 @@ var _ = Describe("Writer", func() {
 					),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
+			})
+
+			It("Should clear a channel color", func(ctx SpecContext) {
+				red := color.Color{R: 255, A: 255}
+				l := defaults.Fill(log.Log{
+					Project:  &proj.Key,
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: ch5, Color: &red}},
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &l)
+				})).To(Succeed())
+				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelColorAction(
+						log.SetChannelColorPayload{Channel: ch5},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).Channels[0].Color).To(BeNil())
 			})
 
 			DescribeTable("Should reject an out-of-range channel precision",

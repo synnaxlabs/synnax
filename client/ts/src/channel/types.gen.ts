@@ -57,6 +57,16 @@ export const operationZ = z.object({
 });
 export interface Operation extends z.infer<typeof operationZ> {}
 
+/**
+ * CountLimitedResponse holds the count of the channels that count against the license
+ * channel limit (not internal, not virtual).
+ */
+export const countLimitedResponseZ = z.object({
+  /** count is how many channels count against the license channel limit. */
+  count: z.uint32(),
+});
+export interface CountLimitedResponse extends z.infer<typeof countLimitedResponseZ> {}
+
 /** Where is a filter that selects channels. */
 export type Where = {
   and?: Where[];
@@ -168,8 +178,6 @@ export const payloadZ = z.object({
    * with a timestamp.
    */
   index: keyZ.default(0),
-  /** alias is an optional alternate name for the channel within a specific context. */
-  alias: z.string().optional(),
   /**
    * virtual is true if this channel does not store data in the database but can still
    * be used for streaming purposes.

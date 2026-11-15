@@ -487,6 +487,7 @@ describe("Tabs", () => {
       ["default", "align-center", "sizing-elastic"],
       ["pill", "align-start", "sizing-fixed"],
       ["chip", "align-start", "sizing-content"],
+      ["text", "align-start", "sizing-content"],
     ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
       const el = strip({ variant });
       expect(el.classList.contains(`lyra-tabs__selector--${align}`)).toBe(true);
@@ -497,6 +498,7 @@ describe("Tabs", () => {
       ["default", "lyra-btn--text", "lyra--rounded-small"],
       ["pill", "lyra-btn--outlined", "lyra--rounded"],
       ["chip", "lyra-btn--outlined", "lyra--rounded"],
+      ["text", "lyra-btn--text", "lyra--rounded-medium"],
     ] as const)(
       "should render a %s tab as a %s, %s button",
       (variant, kind, corner) => {

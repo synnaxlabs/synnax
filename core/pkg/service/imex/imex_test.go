@@ -160,7 +160,7 @@ var _ = Describe("ImEx", func() {
 				ctx SpecContext,
 			) {
 				var env imex.Envelope
-				Expect(imex.Codec.Decode(ctx, []byte(
+				Expect(imex.Codec.Decode([]byte(
 					`{"version":1,"type":"log","name":"Tank \ud83d level"}`,
 				), &env)).To(Succeed())
 				Expect(env.Name).To(Equal("Tank \uFFFD level"))
@@ -173,7 +173,7 @@ var _ = Describe("ImEx", func() {
 			It("Should replace invalid UTF-8", func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
-					ctx, []byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
 				)).To(Succeed())
 				Expect(env.Name).To(Equal("\uFFFD"))
 			})
@@ -181,7 +181,7 @@ var _ = Describe("ImEx", func() {
 			It("Should reject a duplicate object name", func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
-					ctx, []byte(`{"version":1,"name":"a","name":"b"}`), &env,
+					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
 				)).To(MatchError(ContainSubstring("failed to decode")))
 			})
 

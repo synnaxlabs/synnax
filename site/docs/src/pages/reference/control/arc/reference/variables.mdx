@@ -33,6 +33,10 @@ variable holds depends on its value:
 | A channel name                    | `vlv := press_vlv_cmd`   | Is a second name for the channel. It reads and writes the channel.    |
 | An expression that reads channels | `kpa := tank_pt * 6.895` | Is read-only. It gets a new value each time one of the channels does. |
 
+To write a literal to a channel alias, give the literal the type of the channel, such as
+`u8(1) -> vlv`. `1 -> vlv` fails with a type mismatch (known bug). A write to the
+channel name, such as `1 -> press_vlv_cmd`, needs no cast.
+
 ### Where you can declare
 
 | Place     | `:=`                                    | `$=` | `=` | `+=` and `x[i] =` |

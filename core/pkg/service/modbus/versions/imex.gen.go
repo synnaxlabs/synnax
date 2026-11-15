@@ -93,13 +93,21 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t2, nil
+		t3, err := v3.MigrateWriteConfig(ctx, t2)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t3, nil
 	case v2.Version:
 		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "modbus.WriteConfig", version)
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t2, nil
+		t3, err := v3.MigrateWriteConfig(ctx, t2)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t3, nil
 	case v3.Version:
 		return imex.DecodeBlob[WriteConfig](data, "modbus.WriteConfig", version)
 	}

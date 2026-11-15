@@ -200,9 +200,6 @@ struct Channel {
     /// @brief index is the channel used to index this channel's values, associating
     /// each value with a timestamp.
     Key index = Key(0);
-    /// @brief alias is an optional alternate name for the channel within a specific
-    /// context.
-    std::optional<std::string> alias;
     /// @brief is_virtual is true if this channel does not store data in the database
     /// but can still be used for streaming purposes.
     bool is_virtual = false;

@@ -26,6 +26,7 @@ from synnax.access.role.types_gen import (
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
+from x.params import deprecate_positional
 
 
 class _CreateRequest(BaseModel):
@@ -141,6 +142,7 @@ class Client:
         one: Literal[False] = ...,
     ) -> list[Role]: ...
 
+    @deprecate_positional("keys", "search_term", "limit")
     def retrieve(
         self,
         key: filter.SetInput[Key] | None = None,

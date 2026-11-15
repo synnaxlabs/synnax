@@ -1,0 +1,256 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Kafka write task"
+description: "Send the samples of Synnax channels to a Kafka topic as JSON records."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Kafka write task sends each sample of its channels to one topic as a JSON record. Use
+it to give other systems on Kafka the data that Synnax records. Before you start,
+[connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
+
+The task reads channels and does not command hardware, so it takes no
+[control authority](/reference/control/authority). It has no data saving option, because
+it records nothing in Synnax.
+
+<Divider.Divider x />
+
+## Create a Kafka write task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the cluster and select **Create write task**. You
+   can also run the "Create Kafka write task" command.
+2. Enter the **Topic**, such as `synnax-samples`.
+3. Click **Add channel**, then select a channel in **Channel**.
+4. Set the **JSON type** of the value: **Number**, **String**, or **Boolean**.
+5. Click <Icon.Play /> (**Start**).
+
+The task starts to send records at once. Each record holds the value, the channel name,
+and the timestamp, as in [record shape](#record-shape).
+
+<Video id="hardware/kafka/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+from synnax import kafka
+
+cluster = client.devices.retrieve(name="Plant cluster")
+temperature = client.channels.retrieve("oven_temperature")
+
+task = client.tasks.create(
+    name="Oven to Kafka",
+    type="kafka_write",
+    rack=cluster.rack,
+    config=kafka.WriteConfig(
+        device=cluster.key,
+        topic="synnax-samples",
+        record=kafka.Record(
+            channel_pointer="/channel", timestamp_pointer="/timestamp"
+        ),
+        channels=[kafka.WriteChannel(channel=temperature.key)],
+    ),
+)
+task.start()
+```
+
+Pass `rack=cluster.rack`. With no rack, Python picks an embedded rack, which can be the
+rack of the Driver instead of the rack of the Core.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { kafka } from "@synnaxlabs/client";
+
+const [cluster] = await client.devices.retrieve({
+  where: { name: { eq: "Plant cluster" } },
+});
+const temperature = await client.channels.retrieve("oven_temperature");
+
+const task = await client.tasks.create({
+  name: "Oven to Kafka",
+  rack: cluster.rack,
+  type: "kafka_write",
+  config: kafka.writeConfigZ.parse({
+    device: cluster.key,
+    topic: "synnax-samples",
+    record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
+    channels: [{ channel: temperature.key }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Record shape
+
+Each record is one JSON object. Three pointers set where each part goes:
+
+- **Value pointer** -> the sample value. `/value` by default.
+- **Channel pointer** -> the name of the channel. The Console sets `/channel`. Clear it
+  to leave the name out.
+- **Timestamp pointer** -> the timestamp of the sample, in the **Time format**. The
+  Console sets `/timestamp`. Clear it to leave the timestamp out.
+
+With the Console defaults, a sample of `oven_temperature` gives this record value:
+
+```json
+{ "value": 182.5, "channel": "oven_temperature", "timestamp": 1767225600000000000 }
+```
+
+A pointer can go deeper than one level, such as `/data/value`. The record also has a
+Kafka timestamp, which is the timestamp of the sample.
+
+The timestamp of a sample comes from the index channel of its channel. A virtual channel
+has no index, so its samples take the time at which the Core receives them.
+
+**Record key** sets the Kafka key of each record. **Channel name** puts each channel on
+its own key, so Kafka keeps the samples of one channel in order. **None** sends records
+with no key.
+
+In code, `record.fields` adds the same fields to every record. A static field adds a
+fixed value, and a generated field adds a new UUID or the current time. The Console does
+not show them.
+
+```python
+from synnax import http, kafka
+
+kafka.Record(
+    channel_pointer="/channel",
+    fields=[
+        http.StaticWriteField(pointer="/site", json_type="string", value="plant-1"),
+        http.GeneratedWriteField(pointer="/id", generator="uuid"),
+    ],
+)
+```
+
+The field types come from `synnax.http`. A generated timestamp field takes a
+`time_format`, and its default is `iso8601`.
+
+<Divider.Divider x />
+
+## Task options
+
+| Setting                                                     | Default      | Notes                                                           |
+| ----------------------------------------------------------- | ------------ | --------------------------------------------------------------- |
+| Topic <small>`topic`</small>                                |              | One topic for each task.                                        |
+| Record key <small>`record_key`</small>                      | Channel name | **Channel name** or **None**.                                   |
+| Value pointer <small>`record.value_pointer`</small>         | `/value`     | Empty uses `/value`.                                            |
+| Channel pointer <small>`record.channel_pointer`</small>     | `/channel`   | Empty leaves the name out. In code, leave it unset: `""` fails. |
+| Timestamp pointer <small>`record.timestamp_pointer`</small> | `/timestamp` | Empty leaves it out. In code, leave it unset: `""` fails.       |
+| Time format <small>`record.time_format`</small>             | Unix (ns)    | ISO 8601, or Unix time in s, ms, µs, or ns.                     |
+| Auto start <small>`auto_start`</small>                      | Off          | Starts the task each time the Core starts.                      |
+
+TypeScript uses the same fields in camel case, such as `recordKey`.
+
+<Divider.Divider x />
+
+## Channel reference
+
+| Setting                                   | Default | Notes                                                       |
+| ----------------------------------------- | ------- | ----------------------------------------------------------- |
+| Channel <small>`channel`</small>          |         | The channel whose samples the task sends.                   |
+| JSON type <small>`json_type`</small>      | Number  | **Number**, **String**, or **Boolean**.                     |
+| Time format <small>`time_format`</small>  | None    | Required for a `timestamp` channel. Replaces the JSON type. |
+| Enum mapping <small>`enum_values`</small> | None    | With **String**, maps numbers to text labels.               |
+
+A string, JSON, or UUID channel always goes out as a string.
+
+<Divider.Divider x />
+
+## When the cluster is unreachable
+
+The task does not start when the Core cannot reach the cluster. While the task runs, a
+record that the cluster does not accept shows
+[`Failed to produce record`](#failed-to-produce-record), and the task keeps running.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Failed to produce record"}>
+<Problem.Cause>
+
+The task could not send a record. The description gives the reason:
+
+- **Produce failed** -> the cluster did not accept the record, for example because the
+  user cannot write to the topic.
+- **Channel ... arrived without its index** -> a sample came with no timestamp from its
+  index channel.
+- **Record build failed** -> a value does not fit the JSON type or the enum mapping.
+
+The task keeps running.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Produce failed** -> check the topic name and the ACLs of the user.
+- **Channel ... arrived without its index** -> write the index channel in the same frame
+  as the channel.
+- **Record build failed** -> match the JSON type and the enum mapping to the values.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"connecting to cluster: ..."}>
+<Problem.Cause>
+
+The task did not start, because the Core cannot reach the cluster.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the [cluster status](/reference/hardware/kafka/connect-cluster#cluster-status),
+then start the task again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channels: at least one must be enabled"}>
+<Problem.Cause>
+
+The task has no enabled channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add a channel, or enable one.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel ...: time_format is required for timestamp channel ..."}>
+<Problem.Cause>
+
+A `timestamp` channel has no time format.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Time format** on the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For problems with the connection, see
+[Connect a Kafka cluster](/reference/hardware/kafka/connect-cluster#troubleshooting).

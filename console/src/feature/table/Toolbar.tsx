@@ -213,6 +213,7 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
+  const setChanged = Table.useSetChanged();
   const theme = Theming.use();
 
   // One dispatch per change so undo collapses to one step.
@@ -221,8 +222,12 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     fields: FIELDS,
     onChange: (updates) =>
       dispatch(
-        updates.flatMap(({ key, base, next }) =>
-          table.setChanged({ key, base, next: Table.Cell.configZ.parse(next) }),
+        setChanged(
+          updates.map(({ key, base, next }) => ({
+            key,
+            base,
+            next: Table.Cell.configZ.parse(next),
+          })),
         ),
       ),
   });

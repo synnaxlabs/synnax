@@ -10,6 +10,7 @@
 import "@/feature/panel/Selector.css";
 
 import { panel, query } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
@@ -19,7 +20,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Errors, type Flux, Mosaic, Panel, Synnax } from "@synnaxlabs/pluto";
-import { array, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -28,7 +29,6 @@ import {
   isPillHaulItem,
   PILL_HAUL_TYPE,
 } from "@/feature/panel/haul";
-import { renderIcon } from "@/feature/panel/icon";
 import { IconPicker, openIconPicker } from "@/feature/panel/IconPicker";
 import { useCreate } from "@/feature/panel/useCreate";
 import { type Dwell, useDwell } from "@/feature/panel/useDwell";
@@ -38,6 +38,7 @@ import {
   useMoveTabToNewPanel,
 } from "@/feature/panel/useMoveTab";
 import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
+import { Appearance } from "@/platform/appearance";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -45,8 +46,10 @@ import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.resourceID(keys);
-  const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const hasDeletePermission = Access.useDeleteGranted(ids);
+  // The owner of a draft can change it with no access on it.
+  const owned = Panel.useOwned({ key: keys.length === 1 ? keys[0] : null });
+  const canUpdate = Access.useUpdateGranted(ids) || owned;
+  const canDelete = Access.useDeleteGranted(ids) || owned;
   const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
   const client = Synnax.use();
@@ -71,10 +74,10 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {hasUpdatePermission && keys.length === 1 && (
+      {canUpdate && keys.length === 1 && (
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasUpdatePermission && keys.length === 1 && (
+      {canUpdate && keys.length === 1 && (
         <Menu.Item itemKey="change-icon" onClick={() => openIconPicker(key)}>
           <Icon.FillColor />
           Change icon
@@ -92,7 +95,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
         </Menu.Item>
       )}
       <Menu.Divider />
-      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      {canDelete && <CMenu.DeleteItem onClick={() => del(keys)} />}
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
@@ -148,12 +151,10 @@ const useTabDrop = (
   };
 };
 
-type AnchorHandler = (key: panel.Key, pill: HTMLElement | null) => void;
-
 interface TabProps {
   tabKey: panel.Key;
   dwell: Dwell;
-  onAnchorChange: AnchorHandler;
+  onAnchorChange: Appearance.SetAnchor;
 }
 
 // A pill whose panel vanished between the list answer and the retrieve
@@ -171,6 +172,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   const name = Panel.useName({ key: tabKey });
   const icon = Panel.useIcon({ key: tabKey });
   const color = Panel.useColor({ key: tabKey });
+  const draft = Panel.useDraft({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = (name: string) => rename({ key: tabKey, name });
@@ -201,14 +203,18 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
       onDragLeave={handleDragLeave}
       {...dropProps}
     >
-      {renderIcon({ icon, color })}
+      {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}
       <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
+        className={CSS.BE("panel-selector", "name")}
         value={name}
         overflow="fade"
         onChange={handleChange}
         disabled={!canEdit}
       />
+      {draft && (
+        <Badge.Badge className={CSS.BE("panel-selector", "draft")}>Draft</Badge.Badge>
+      )}
     </Tabs.Tab>
   );
 };
@@ -252,11 +258,7 @@ const Internal = (): ReactElement => {
 
   const menuProps = Menu.useContextMenu();
 
-  const [anchors, setAnchors] = useState<Record<panel.Key, HTMLElement>>({});
-  const handleAnchorChange: AnchorHandler = (key, pill) =>
-    setAnchors((anchors) =>
-      pill == null ? record.omit(anchors, key) : { ...anchors, [key]: pill },
-    );
+  const [anchors, setAnchor] = Appearance.useAnchors();
 
   return (
     <>
@@ -278,12 +280,7 @@ const Internal = (): ReactElement => {
             onContextMenu={menuProps.open}
           >
             {ordered.map((key) => (
-              <Tab
-                key={key}
-                tabKey={key}
-                dwell={dwell}
-                onAnchorChange={handleAnchorChange}
-              />
+              <Tab key={key} tabKey={key} dwell={dwell} onAnchorChange={setAnchor} />
             ))}
           </Tabs.Selector>
           <CreateButton />

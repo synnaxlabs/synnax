@@ -93,6 +93,16 @@ cc_library(
 )
 
 cc_test(
+    name = "api_linux_test",
+    srcs = ["api_linux_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "api_windows_test",
     srcs = ["api_windows_test.cpp"],
     linkopts = ["/DEFAULTLIB:iphlpapi.lib"],
@@ -128,6 +138,7 @@ cc_library(
         "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/esi:settings",
         "//driver/ethercat/master",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
@@ -146,9 +157,12 @@ cc_test(
     deps = [
         ":soem",
         ":soem_mock_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/esi:settings",
         "//driver/ethercat/master:contract",
+        "//driver/ethercat/testutil:stg",
         "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",

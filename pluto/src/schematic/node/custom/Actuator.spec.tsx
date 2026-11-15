@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -49,6 +49,29 @@ describe("Actuator", () => {
     expect(container.querySelector("svg rect")).toBeNull();
   });
 
+  it("should paint its stroke color on the drawing", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    const { container } = render(
+      <Actuator specKey={symbol.key} strokeColor={[255, 0, 0, 255]} />,
+      { wrapper },
+    );
+    await waitFor(() => {
+      const svg = container.querySelector("svg");
+      expect(svg?.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+    });
+  });
+
+  it("should fill its drawing while held when its click is delayed", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    const { container } = render(
+      <Actuator specKey={symbol.key} onClickDelay={1000} />,
+      { wrapper },
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".pluto-symbol-hold__fill")).not.toBeNull();
+    });
+  });
+
   it("should mount the symbol once valid markup replaces it", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
@@ -57,11 +80,10 @@ describe("Actuator", () => {
     );
     await findByText("Invalid custom symbol");
     await act(async () => {
-      await client.schematics.symbols.create({
-        key: symbol.key,
-        name: symbol.name,
-        data: createData(VALID_SVG),
-      });
+      await client.schematics.symbols.dispatch(
+        symbol.key,
+        schematic.symbol.set({ path: ["data", "svg"], value: VALID_SVG }),
+      );
     });
     await waitFor(() => {
       expect(queryByText("Invalid custom symbol")).toBeNull();

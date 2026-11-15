@@ -33,8 +33,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates a new role in the database, or overwrites the role with its key. The
-// commit carries a create action that holds the stored role.
+// Create creates a new role in the database. It returns an error wrapping
+// validate.ErrValidation when a role with the key exists. The commit carries a create
+// action that holds the stored role.
 func (w Writer) Create(ctx context.Context, r *Role) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
@@ -45,7 +46,7 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, r.Key, NewCreateAction(CreatePayload{Role: *r}))
@@ -84,8 +85,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
-// CreateMany creates the given roles. If roles with the same key already exist, they
-// will be overwritten.
+// CreateMany creates the given roles. It returns an error wrapping
+// validate.ErrValidation when a role with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
 	for i := range *roles {
 		if err := w.Create(ctx, &(*roles)[i]); err != nil {

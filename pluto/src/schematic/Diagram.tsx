@@ -21,11 +21,13 @@ import {
 
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import {
   useAllEdges,
   useConfigs,
   useElementConfig,
+  useParentOf,
   useSingleDispatch,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -157,11 +159,21 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
 };
 
+const Provider = ({ children }: PropsWithChildren): ReactElement => {
+  const parentOf = useParentOf();
+  const members = Group.childrenOf(parentOf);
+  return (
+    <Node.GroupBox.MembersProvider value={members}>
+      <EdgeJumpProvider>{children}</EdgeJumpProvider>
+    </Node.GroupBox.MembersProvider>
+  );
+};
+
 export const Diagram = Base.create({
   node: Component.renderProp(NodeRenderer),
   edge: Component.renderProp(EdgeRenderer),
   connectionLine: Component.renderProp(Edge.ConnectionLine),
-  Provider: EdgeJumpProvider,
+  Provider,
 });
 
 export const nodeChangesToActions = (
@@ -185,10 +197,8 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
     switch (ch.type) {
       case "add":
         return [
-          schematic.addEdge({ edge: ch.edge }),
-          schematic.setConfig({
-            key: ch.edge.key,
-            config: Edge.REGISTRY.pipe.defaultConfig(),
+          schematic.addEdge({
+            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
           }),
         ];
       case "remove":

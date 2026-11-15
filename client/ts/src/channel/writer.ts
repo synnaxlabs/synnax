@@ -11,14 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  nameZ,
-  type New,
-  type Payload,
-  payloadZ,
-} from "@/channel/types.gen";
+import { keyZ, nameZ, type New, type Payload, payloadZ } from "@/channel/types.gen";
 
 const createReqZ = z.object({
   channels: payloadZ.array(),
@@ -32,11 +25,7 @@ const deleteReqZ = z.object({
 });
 const deleteResZ = z.object({});
 
-const renameReqZ = z.object({ keys: keyZ.array(), names: nameZ.array() });
-const renameResZ = z.object({});
-
 export interface DeleteProps extends z.input<typeof deleteReqZ> {}
-export interface RenameProps extends z.input<typeof renameReqZ> {}
 
 export class Writer {
   private readonly client: UnaryClient;
@@ -63,9 +52,5 @@ export class Writer {
 
   async delete(props: DeleteProps): Promise<void> {
     await this.client.send("/channel/delete", props, deleteReqZ, deleteResZ);
-  }
-
-  async rename(keys: Key[], names: string[]): Promise<void> {
-    await this.client.send("/channel/rename", { keys, names }, renameReqZ, renameResZ);
   }
 }

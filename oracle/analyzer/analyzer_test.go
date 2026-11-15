@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -1054,6 +1055,78 @@ Node union on variant {
 					}
 				}
 			`, "test.Entry.value is omitted in every language test.Entry generates in"),
+		)
+	})
+
+	Describe("Pattern rules", func() {
+		DescribeTable(
+			"Should reject a second pattern on a value",
+			func(ctx SpecContext, source, want string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a field whose type sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Entry struct {
+					value Name { @validate pattern "^[a-c]+$" }
+				}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on an override of an inherited field whose type sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct {
+					value Name
+				}
+				Entry struct extends Parent {
+					value { @validate pattern "^[a-c]+$" }
+				}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on a field inherited from a generic parent", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct<T> {
+					value T { @validate pattern "^a" }
+				}
+				Entry struct extends Parent<Name> {}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on a type whose target sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Short = Name { @validate pattern "^[a-c]+$" }
+			`, "test.Short has a pattern rule, but its type already sets one"),
+		)
+
+		It("Should report an inherited pattern conflict once", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct {
+					value Name { @validate pattern "^a" }
+				}
+				Entry struct extends Parent {}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("test.Parent.value has a pattern rule"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry.value"))
+		})
+
+		DescribeTable(
+			"Should accept one pattern on a value",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("on a field whose type sets none", `
+				Name = string
+				Entry struct {
+					value Name { @validate pattern "^[a-c]+$" }
+				}
+			`),
+			Entry("on a type that a field uses", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Entry struct {
+					value Name { @validate max_length 8 }
+				}
+			`),
 		)
 	})
 
@@ -3090,6 +3163,173 @@ Node union on variant {
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
 			},
 		)
+
+		Context("aliased payloads", func() {
+			It(
+				"Should resolve the aliased struct and take its doc",
+				func(ctx SpecContext) {
+					source := `
+					Set struct {
+						path string[]
+
+						@doc value "replaces the value at a path."
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set
+					}
+				`
+					table, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					action := findAction(table, "test.Container", "Set")
+					Expect(action.IsAlias()).To(BeTrue())
+					Expect(action.Alias.Name).To(Equal("test.Set"))
+					Expect(action.Fields).To(BeEmpty())
+					Expect(doc.Get(action.Domains)).
+						To(Equal("replaces the value at a path."))
+				},
+			)
+
+			It(
+				"Should keep an alias's own doc in place of its struct's doc",
+				func(ctx SpecContext) {
+					source := `
+					Set struct {
+						path string[]
+
+						@doc value "replaces the value at a path."
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set {
+							@doc value "replaces the value at a path in the cells."
+						}
+					}
+				`
+					table, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					action := findAction(table, "test.Container", "Set")
+					Expect(action.Alias.Name).To(Equal("test.Set"))
+					Expect(doc.Get(action.Domains)).
+						To(Equal("replaces the value at a path in the cells."))
+					set := MustBeOk(table.Get("test.Set"))
+					Expect(doc.Get(set.Domains)).
+						To(Equal("replaces the value at a path."))
+				},
+			)
+
+			It("Should reject an alias of a type that is not a struct", func(
+				ctx SpecContext,
+			) {
+				source := `
+					Color enum {
+						red = 0
+					}
+
+					Container struct {
+						key uuid
+
+						action Paint = Color
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"action Paint of Container must alias a struct, got test.Color",
+				))
+			})
+
+			It("Should reject an alias of a generic struct", func(ctx SpecContext) {
+				source := `
+					Box struct<T = string> {
+						data T
+					}
+
+					Container struct {
+						key uuid
+
+						action Load = Box
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"action Load of Container cannot alias generic struct test.Box, " +
+						"because an alias takes no type arguments",
+				))
+			})
+
+			It(
+				"Should reject an alias of a struct alias with bound type arguments",
+				func(ctx SpecContext) {
+					source := `
+					Box struct<T> {
+						data T
+					}
+
+					StringBox = Box<string>
+
+					Container struct {
+						key uuid
+
+						action Load = StringBox
+					}
+				`
+					_, diag := Analyze(ctx, source, "test", loader)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.Error()).To(ContainSubstring(
+						"action Load of Container cannot alias generic struct test.Box",
+					))
+				},
+			)
+
+			It("Should reject an alias of an array", func(ctx SpecContext) {
+				source := `
+					Set struct {
+						path string[]
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set[]
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`action Set: the alias target must be a plain struct reference, ` +
+						`got "Set[]"`,
+				))
+			})
+
+			It("Should reject two actions that alias the same struct", func(
+				ctx SpecContext,
+			) {
+				source := `
+					Set struct {
+						path string[]
+					}
+
+					Container struct {
+						key uuid
+
+						action Set = Set
+
+						action Replace = Set
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					"actions Set and Replace of Container both alias test.Set",
+				))
+			})
+		})
 	})
 
 	Describe("Union Actions", func() {

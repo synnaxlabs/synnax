@@ -5,7 +5,7 @@
     "build": {
       "cache": false,
       "inputs": ["src/**", "astro.config.ts", "tsconfig*.json", "package.json"],
-      "env": ["DOCS_VERSION", "FLAG_*", "VERCEL_ENV"],
+      "env": ["DOCS_VERSION"],
       "passThroughEnv": ["DOCS_GITHUB_TOKEN"]
     },
     "lint": {

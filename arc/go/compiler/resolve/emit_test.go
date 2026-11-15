@@ -199,6 +199,73 @@ var _ = Describe("Emit", func() {
 		})
 	})
 
+	DescribeTable("Should emit the host import matching the element type",
+		func(ctx SpecContext, emit func(), wantWASMName string) {
+			emit()
+			resolver.Finalize(wasmModule)
+			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(wantWASMName))
+		},
+		Entry("EmitChannelRead", func() {
+			resolver.EmitChannelRead(writer, writerID, types.Chan(types.I64()))
+		}, "read_i64"),
+		Entry("EmitChannelWrite", func() {
+			resolver.EmitChannelWrite(writer, writerID, types.I64())
+		}, "write_i64"),
+		Entry("EmitStateLoad", func() {
+			resolver.EmitStateLoad(writer, writerID, types.I64())
+		}, "load_i64"),
+		Entry("EmitStateStore", func() {
+			resolver.EmitStateStore(writer, writerID, types.I64())
+		}, "store_i64"),
+		Entry("EmitStateLoadSeries", func() {
+			resolver.EmitStateLoadSeries(writer, writerID, types.I64())
+		}, "load_series_i64"),
+		Entry("EmitStateStoreSeries", func() {
+			resolver.EmitStateStoreSeries(writer, writerID, types.I64())
+		}, "store_series_i64"),
+		Entry("EmitSeriesArithmetic with a scalar", func() {
+			Expect(
+				resolver.EmitSeriesArithmetic(writer, writerID, "+", types.I64(), true),
+			).To(Succeed())
+		}, "element_add_i64"),
+		Entry("EmitSeriesArithmetic with a series", func() {
+			Expect(
+				resolver.EmitSeriesArithmetic(
+					writer,
+					writerID,
+					"+",
+					types.I64(),
+					false,
+				),
+			).To(Succeed())
+		}, "series_add_i64"),
+		Entry("EmitSeriesReverseArithmetic", func() {
+			Expect(
+				resolver.EmitSeriesReverseArithmetic(
+					writer,
+					writerID,
+					"-",
+					types.I64(),
+				),
+			).To(Succeed())
+		}, "element_rsub_i64"),
+		Entry("EmitSeriesCreateEmpty", func() {
+			resolver.EmitSeriesCreateEmpty(writer, writerID, types.I64())
+		}, "create_empty_i64"),
+		Entry("EmitSeriesSetElement", func() {
+			resolver.EmitSeriesSetElement(writer, writerID, types.I64())
+		}, "set_element_i64"),
+		Entry("EmitSeriesIndex", func() {
+			resolver.EmitSeriesIndex(writer, writerID, types.I64())
+		}, "index_i64"),
+		Entry("EmitSeriesNegate", func() {
+			resolver.EmitSeriesNegate(writer, writerID, types.I64())
+		}, "negate_i64"),
+		Entry("EmitMathPow", func() {
+			resolver.EmitMathPow(writer, writerID, types.F64())
+		}, "pow_f64"),
+	)
+
 	Describe("EmitSeriesLogical", func() {
 		It("Should emit and for a series right operand", func(ctx SpecContext) {
 			Expect(
@@ -229,5 +296,32 @@ var _ = Describe("Emit", func() {
 			resolver.Finalize(wasmModule)
 			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("not"))
 		})
+	})
+
+	Describe("EmitIndexFrom", func() {
+		DescribeTable("should call the module function for the index type",
+			func(t types.Type, name string) {
+				Expect(resolve.IndexFromName(t)).To(Equal(name))
+				resolver.EmitIndexFrom(writer, writerID, t)
+				Expect(resolver.References(name)).To(BeTrue())
+				resolver.RegisterLocal(name, 0)
+				Expect(resolver.Finalize(wasmModule)).To(HaveLen(1))
+				Expect(wasmModule.ImportCount()).To(BeZero())
+			},
+			Entry("i64", types.I64(), "$index_from_i64"),
+			Entry("u64", types.U64(), "$index_from_u64"),
+		)
+	})
+
+	Describe("EmitSeriesIndexFrom", func() {
+		DescribeTable("should import the host function for the index type",
+			func(ctx SpecContext, t types.Type, name string) {
+				resolver.EmitSeriesIndexFrom(writer, writerID, t)
+				resolver.Finalize(wasmModule)
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(name))
+			},
+			Entry("i64", types.I64(), "index_from_i64"),
+			Entry("u64", types.U64(), "index_from_u64"),
+		)
 	})
 })

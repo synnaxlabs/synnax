@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
+import { type Device } from "@synnaxlabs/pluto";
 import { type ComponentType } from "react";
 
 import { type ConfigureProps, type ConnectProps } from "@/platform/device/types";
@@ -25,6 +27,8 @@ export interface Integration {
   make: string;
   /** The type of the scan task each Driver runs for this integration. */
   scanType: string;
+  /** How the locations of its devices read. */
+  location: Device.LocationFormat;
 }
 
 /** An integration the user connects to by address. */
@@ -41,4 +45,9 @@ export interface Hardware extends Integration {
   checks: string[];
   /** The form that names a found device and sets it up. */
   Configure: ComponentType<ConfigureProps>;
+  /**
+   * Returns where a found device is in the words of the user, such as "Ethernet 2, slot
+   * 3". Without it, the find view shows the location of the device.
+   */
+  formatLocation?: (device: device.Device) => string;
 }

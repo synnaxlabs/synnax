@@ -118,7 +118,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 // Children returns the ID of every record that references the project with key, as seen
-// by snap: the groups directly under it and every visualization it owns.
+// by snap: the groups directly under it and every visualization it holds.
 func (s *Service) Children(
 	ctx context.Context,
 	snap gorp.Snapshot,

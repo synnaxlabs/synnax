@@ -9,6 +9,7 @@
 
 import { access, panel, project, user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
@@ -49,7 +50,7 @@ const createTab = (): panel.Tab => ({
   type: "t",
 });
 
-interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color"> {
+interface CreateProjectPanelProps extends Pick<panel.New, "icon" | "color" | "owner"> {
   name?: string;
   key?: panel.Key;
   tab?: panel.Tab;
@@ -455,6 +456,32 @@ describe("Panel.Selector", () => {
     });
   });
 
+  describe("drafts", () => {
+    it("should mark the user's drafts and hide the drafts of others", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const me = (await client.users.current.retrieve()).key;
+      const role = await createEmptyRole(client);
+      const other = await client.users.create({
+        username: uuid.create(),
+        password: "test",
+        name: "other",
+        role: role.key,
+      });
+      const shared = await createProjectPanel(proj.key, { name: "shared" });
+      const mine = await createProjectPanel(proj.key, { name: "mine", owner: me });
+      const theirs = await createProjectPanel(proj.key, {
+        name: "theirs",
+        owner: other.key,
+      });
+      await renderStrip([shared, mine], proj.key);
+      expect(screen.queryByText(theirs.name)).toBeNull();
+      const pill = (name: string) =>
+        screen.getAllByRole("tab").find((tab) => tab.textContent?.includes(name));
+      expect(pill(mine.name)?.textContent).toContain("Draft");
+      expect(pill(shared.name)?.textContent).not.toContain("Draft");
+    });
+  });
+
   // Deleting the selected panel hands the window to the panel beside it in the
   // strip, the way closing a browser tab does.
   describe("delete", () => {
@@ -682,6 +709,38 @@ describe("Panel.Selector", () => {
       fireEvent.contextMenu(await screen.findByText(pan.name));
       await screen.findByText("Reload Console");
       expect(screen.queryByText("Change icon")).toBeNull();
+    });
+
+    it("should offer the edits of a draft to its owner without update access", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: uniqueName("draft"),
+        project: proj.key,
+        owner: me,
+      });
+      const { wrapper } = await createPanelWrapper({
+        client: viewer,
+        project: proj.key,
+      });
+      await act(async () => {
+        render(<Selector />, { wrapper });
+      });
+      fireEvent.contextMenu(await screen.findByText(draft.name));
+      expect(await screen.findByText("Change icon")).toBeTruthy();
+      expect(screen.getByText("Rename")).toBeTruthy();
+      expect(screen.getByText("Delete")).toBeTruthy();
     });
   });
 

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -32,6 +33,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Secret resolves the routing key of a task when the task starts.
+	//
+	// [REQUIRED]
+	Secret *secret.Service
 	// Sender is an optional EventSender for testability.
 	//
 	// [OPTIONAL] - Defaults to the real PagerDuty API.
@@ -46,6 +51,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Sender = override.Nil(c.Sender, other.Sender)
 	return c
 }
@@ -55,6 +61,7 @@ func (c FactoryConfig) Validate() error {
 	v := validate.New("pagerduty.factory")
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
+	v.NotNil("secret", c.Secret)
 	v.NotNil("sender", c.Sender)
 	return v.Error()
 }
@@ -104,9 +111,10 @@ func (f *factory) ConfigureTask(
 		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false.
+	// command, and a "configured" status would answer it first with running false. An
+	// auto-start answers the command too, since no start follows a failed one.
 	if cfg.AutoStart {
-		if err := pdTask.Start(ctx, driver.NoCommand); err != nil {
+		if err := pdTask.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}

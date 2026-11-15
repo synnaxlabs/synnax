@@ -116,13 +116,19 @@ func (s *Scale) HashContent(h *content.Hash) {
 func (ls *LinearScale) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "slope":
-		return patch.Value(&ls.Slope, c.Next())
+		return patch.Defaulted(&ls.Slope, c.Next(), func(def *LinearScale) {
+			ls.Slope = def.Slope
+		})
 	case "y_intercept":
 		return patch.Value(&ls.YIntercept, c.Next())
 	case "pre_scaled_units":
-		return patch.Value(&ls.PreScaledUnits, c.Next())
+		return patch.Defaulted(&ls.PreScaledUnits, c.Next(), func(def *LinearScale) {
+			ls.PreScaledUnits = def.PreScaledUnits
+		})
 	case "scaled_units":
-		return patch.Value(&ls.ScaledUnits, c.Next())
+		return patch.Defaulted(&ls.ScaledUnits, c.Next(), func(def *LinearScale) {
+			ls.ScaledUnits = def.ScaledUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -142,15 +148,23 @@ func (ms *MapScale) Patch(c patch.Cursor) error {
 	case "pre_scaled_min":
 		return patch.Value(&ms.PreScaledMin, c.Next())
 	case "pre_scaled_max":
-		return patch.Value(&ms.PreScaledMax, c.Next())
+		return patch.Defaulted(&ms.PreScaledMax, c.Next(), func(def *MapScale) {
+			ms.PreScaledMax = def.PreScaledMax
+		})
 	case "scaled_min":
 		return patch.Value(&ms.ScaledMin, c.Next())
 	case "scaled_max":
-		return patch.Value(&ms.ScaledMax, c.Next())
+		return patch.Defaulted(&ms.ScaledMax, c.Next(), func(def *MapScale) {
+			ms.ScaledMax = def.ScaledMax
+		})
 	case "pre_scaled_units":
-		return patch.Value(&ms.PreScaledUnits, c.Next())
+		return patch.Defaulted(&ms.PreScaledUnits, c.Next(), func(def *MapScale) {
+			ms.PreScaledUnits = def.PreScaledUnits
+		})
 	case "scaled_units":
-		return patch.Value(&ms.ScaledUnits, c.Next())
+		return patch.Defaulted(&ms.ScaledUnits, c.Next(), func(def *MapScale) {
+			ms.ScaledUnits = def.ScaledUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -174,9 +188,13 @@ func (ts *TableScale) Patch(c patch.Cursor) error {
 	case "scaled_vals":
 		return patch.Value(&ts.ScaledVals, c.Next())
 	case "pre_scaled_units":
-		return patch.Value(&ts.PreScaledUnits, c.Next())
+		return patch.Defaulted(&ts.PreScaledUnits, c.Next(), func(def *TableScale) {
+			ts.PreScaledUnits = def.PreScaledUnits
+		})
 	case "scaled_units":
-		return patch.Value(&ts.ScaledUnits, c.Next())
+		return patch.Defaulted(&ts.ScaledUnits, c.Next(), func(def *TableScale) {
+			ts.ScaledUnits = def.ScaledUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -204,9 +222,13 @@ func (ps *PolynomialScale) Patch(c patch.Cursor) error {
 	case "reverse_coeffs":
 		return patch.Value(&ps.ReverseCoeffs, c.Next())
 	case "pre_scaled_units":
-		return patch.Value(&ps.PreScaledUnits, c.Next())
+		return patch.Defaulted(&ps.PreScaledUnits, c.Next(), func(def *PolynomialScale) {
+			ps.PreScaledUnits = def.PreScaledUnits
+		})
 	case "scaled_units":
-		return patch.Value(&ps.ScaledUnits, c.Next())
+		return patch.Defaulted(&ps.ScaledUnits, c.Next(), func(def *PolynomialScale) {
+			ps.ScaledUnits = def.ScaledUnits
+		})
 	default:
 		return c.UnknownField()
 	}

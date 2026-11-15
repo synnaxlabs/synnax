@@ -12,9 +12,19 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { z } from "zod";
-
-import { OUT_ROOT, readStamp, ROOT, run, select, THEMES } from "@/cli/common";
+import {
+  BUCKET,
+  bucket,
+  OUT_ROOT,
+  type Put,
+  readStamp,
+  ROOT,
+  run,
+  select,
+  THEMES,
+  versionsZ,
+  VIDEO_VERSIONS,
+} from "@/cli/common";
 import { versionOf } from "@/cli/hash";
 import { stillKey, stillsDir, videoKey, videoName } from "@/manifest";
 
@@ -30,20 +40,6 @@ Options:
                   substring
   --dry-run       print what would upload without uploading
   --allow-draft   permit uploading draft-quality renders (normally refused)`;
-
-const ENDPOINT = "https://nyc3.digitaloceanspaces.com";
-const BUCKET = "synnax";
-const VIDEO_VERSIONS = path.resolve(
-  ROOT,
-  "../site/docs/src/components/media/videos.json",
-);
-const versionsZ = z.record(z.string(), z.string());
-
-interface Upload {
-  file: string;
-  key: string;
-  contentType: string;
-}
 
 const main = async (): Promise<void> => {
   const { values, positionals } = parseArgs({
@@ -61,7 +57,7 @@ const main = async (): Promise<void> => {
   }
   const entries = await select(positionals[0], values.exact);
 
-  const uploads: Upload[] = [];
+  const uploads: Put[] = [];
   const missing: string[] = [];
   const versions: Record<string, string> = {};
   for (const entry of entries) {
@@ -122,31 +118,10 @@ const main = async (): Promise<void> => {
     return;
   }
 
-  const key = process.env.DO_SPACES_KEY;
-  const secret = process.env.DO_SPACES_SECRET;
-  if (key == null || secret == null) {
-    console.error("DO_SPACES_KEY and DO_SPACES_SECRET must be set");
-    process.exit(1);
-  }
-  const { PutObjectCommand, S3Client } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({
-    endpoint: ENDPOINT,
-    region: "us-east-1",
-    credentials: { accessKeyId: key, secretAccessKey: secret },
-  });
+  const put = await bucket();
   for (const u of uploads) {
     process.stdout.write(`uploading ${u.key}... `);
-    await client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: u.key,
-        Body: await readFile(u.file),
-        ACL: "public-read",
-        ContentType: u.contentType,
-        // A key changes with its content, so a file never changes under its key.
-        CacheControl: "public, max-age=31536000, immutable",
-      }),
-    );
+    await put(u);
     console.log("done");
   }
   console.log(`${uploads.length} files uploaded`);

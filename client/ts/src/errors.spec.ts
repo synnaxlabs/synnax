@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Timeout } from "@synnaxlabs/freighter";
 import { errors, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
@@ -18,6 +19,7 @@ import {
   ExpiredLicenseError,
   InvalidLicenseError,
   InvalidTokenError,
+  isConnectionError,
   LicenseError,
   LicenseFingerprintError,
   LicenseLimitError,
@@ -108,6 +110,12 @@ describe("error", () => {
       expect(payload.type).toBe(errors.UNKNOWN);
       expect(payload.data).toBe("boom");
     });
+  });
+});
+
+describe("isConnectionError", () => {
+  test("matches a send that timed out", () => {
+    expect(isConnectionError(new Timeout("no response"))).toBe(true);
   });
 });
 

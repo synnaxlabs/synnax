@@ -35,38 +35,39 @@ const (
 
 const recordHeaderSize = 5
 
-// FrameEncoder encodes a read as a sequence of records, each a one-byte kind, a
-// four-byte little-endian length, and that many bytes of payload. Data records hold the
-// requested channels, and only those, encoded by the frame codec. The last record is a
-// terminator: empty when the read completed, a JSON error payload when it did not. A
-// body that ends without a terminator was cut short in transit.
-var FrameEncoder frameEncoder
+// NewFrameEncoder returns an encoder that writes a read as a sequence of records, each
+// a one-byte kind, a four-byte little-endian length, and that many bytes of payload.
+// Data records hold the requested channels, and only those, encoded by the frame codec.
+// The last record is a terminator: empty when the read completed, a JSON error payload
+// when it did not. A body that ends without a terminator was cut short in transit. ctx
+// bounds the iterators the encoder opens.
+func NewFrameEncoder(ctx context.Context) xhttp.Encoder {
+	return frameEncoder{ctx: ctx}
+}
 
-type frameEncoder struct{}
-
-var _ xhttp.Encoder = frameEncoder{}
+type frameEncoder struct{ ctx context.Context }
 
 // ContentType implements http.Encoder.
 func (frameEncoder) ContentType() string { return frameContentType }
 
 // Encode implements encoding.Encoder. It holds the whole read in memory, so prefer
 // EncodeStream.
-func (e frameEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e frameEncoder) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := e.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 // EncodeStream implements encoding.Encoder. value must be a ReadResponse.
-func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e frameEncoder) EncodeStream(w io.Writer, value any) error {
 	res, err := readResponse(value)
 	if err != nil {
 		return err
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
-	iter, err := res.OpenIterator(ctx, keys, res.Bounds)
+	iter, err := res.OpenIterator(e.ctx, keys, res.Bounds)
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	var buf bytes.Buffer
 	write := func(fr Frame) error {
 		buf.Reset()
-		if err := c.EncodeStream(ctx, &buf, fr); err != nil {
+		if err := c.EncodeStream(e.ctx, &buf, fr); err != nil {
 			return err
 		}
 		return writeRecord(w, recordData, buf.Bytes())
@@ -82,9 +83,8 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	readErr := drainer(res)(iter, write)
 	var payload []byte
 	if readErr != nil {
-		if payload, err = json.Codec.Encode(
-			ctx, errors.Encode(ctx, readErr, false),
-		); err != nil {
+		fErr := errors.Encode(e.ctx, readErr, false)
+		if payload, err = json.Codec.Encode(fErr); err != nil {
 			return err
 		}
 	}

@@ -25,6 +25,8 @@ const auto UNREACHABLE = x::errors::Error(
 
 class SinkClaimTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<device::MockManager> devs;
     synnax::channel::Channel state_idx_ch = synnax::channel::Channel{
@@ -46,7 +48,7 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
         auto dev = synnax::device::Device{
-            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("labjack"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",
@@ -87,12 +89,12 @@ TEST_F(SinkClaimTest, testSinkClaimsDeviceOnStart) {
     WriteSink sink(devs, std::move(*cfg));
     EXPECT_EQ(devs->acquire_call_count, 0);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 1);
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(sink.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(sink.stop());
 }
@@ -103,9 +105,9 @@ TEST_F(SinkClaimTest, testSinkAcquireFailureRetriesOnNextStart) {
     parse_config();
     devs->acquire_errors = {UNREACHABLE};
     WriteSink sink(devs, std::move(*cfg));
-    ASSERT_OCCURRED_AS(sink.start(), ljm::UNREACHABLE);
+    ASSERT_OCCURRED_AS(sink.start("start_cmd", this->cancel), ljm::UNREACHABLE);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(sink.stop());
 }
@@ -120,10 +122,13 @@ TEST_F(SinkClaimTest, testSinkReleasesClaimOnFailedInitialWrite) {
     WriteSink sink(devs, std::move(*cfg));
     // The local mock_dev and the manager both hold the device.
     EXPECT_EQ(devs->dev.use_count(), 2);
-    ASSERT_OCCURRED_AS(sink.start(), x::errors::Error("mock failure"));
+    ASSERT_OCCURRED_AS(
+        sink.start("start_cmd", this->cancel),
+        x::errors::Error("mock failure")
+    );
     EXPECT_EQ(devs->dev.use_count(), 2);
     mock_dev->set_should_fail(false);
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     EXPECT_EQ(devs->dev.use_count(), 3);
     ASSERT_NIL(sink.stop());
@@ -137,7 +142,7 @@ TEST_F(SinkClaimTest, testSinkWritesStateAfterReconnect) {
     const auto mock = std::make_shared<device::Mock>();
     devs = std::make_shared<device::MockManager>(mock);
     WriteSink sink(devs, std::move(*cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     auto command = [this](const double value) {
         return x::telem::Frame(this->cmd_ch.key, x::telem::Series(value));
     };

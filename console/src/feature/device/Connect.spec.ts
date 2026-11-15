@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
-import { createSlaveDevice } from "@/feature/ethercat/testutil";
+import { createSlaveDevice, STATUS_ENTRY } from "@/feature/ethercat/testutil";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -86,7 +86,11 @@ describe("Device.useConnectModal", () => {
       const found = await createSlaveDevice(
         client,
         rack.key,
-        { name: uniqueName("slave"), network: "eth0" },
+        {
+          name: uniqueName("slave"),
+          network: "eth0",
+          pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+        },
         false,
       );
       await open({ integration: EtherCAT.Device.HARDWARE.key, rack: rack.key });
@@ -129,15 +133,15 @@ describe("Device.useConnectModal", () => {
         type: LabJack.Task.SCAN_TYPE,
         config: {},
       });
-      await client.tasks.create({
-        ...scanner.payload,
-        status: createTaskStatus({
+      await client.statuses.set(
+        createTaskStatus({
+          owner: task.resourceID(scanner.key),
           variant: "error",
           message: "Failed to start scan task",
           description: "LJM library not found",
           details: { rack: rack.key },
         }),
-      });
+      );
       await open({ integration: "labjack", rack: rack.key });
       await screen.findByText("Failed to start scan task");
       expect(screen.getByText("LJM library not found")).toBeTruthy();

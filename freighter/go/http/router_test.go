@@ -121,6 +121,18 @@ var _ = Describe("Router", func() {
 		})
 	})
 
+	Describe("Context", func() {
+		It("should end the context only after the bound app shuts down", func() {
+			router := MustSucceed(fhttp.NewRouter())
+			app := newFiberApp(fiber.Config{})
+			router.BindTo(app)
+			ctx := router.Context()
+			Expect(ctx.Err()).ToNot(HaveOccurred())
+			Expect(app.Shutdown()).To(Succeed())
+			Expect(ctx.Done()).To(BeClosed())
+		})
+	})
+
 	It(
 		"should report an empty Report — the router itself is a passive container",
 		func() {

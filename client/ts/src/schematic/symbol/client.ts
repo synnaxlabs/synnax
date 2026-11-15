@@ -15,9 +15,18 @@ import {
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { group } from "@/group";
 import { imex } from "@/imex";
 import { query } from "@/query";
+import { createOf, reduceAll } from "@/schematic/symbol/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/schematic/symbol/actions.gen";
 import {
   type Key,
   keyZ,
@@ -31,16 +40,16 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
 } from "@/schematic/symbol/where.gen";
 
-export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
+export const ACTION_CHANNEL_NAME = "sy_schematic_symbol_action_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
 const createReqZ = z.object({ symbols: symbolZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveMultiParamsZ = z.union([
@@ -78,6 +87,7 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
+  private readonly dispatcher: actions.Controller<Key, Symbol, Action>;
   /** Builds requests that move symbols between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
 
@@ -86,11 +96,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, symbolZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a symbol reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Symbol, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/schematic/symbol/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "schematic symbol",
       table: store,
@@ -104,8 +128,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.setGroupRequest = group.createMoveRequest(
-      "/schematic/symbol/set-group",
+      "/schematic/symbol/dispatch",
       (keys, to) => group.moveCached(store, keys, to),
     );
   }
@@ -127,20 +152,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     return isMany ? res.symbols : res.symbols[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => query.partialUpdate(this.store, key, { name });
-    await query.optimistic({
-      rollbacks: [rename()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/schematic/symbol/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached symbol until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached symbol.
+   * @throws {Error} if the cached symbol cannot hold an action, before any send.
+   * @throws {ValidationError} if the symbol cannot hold an action.
+   * @throws {NotFoundError} if the symbol does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

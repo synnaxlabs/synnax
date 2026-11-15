@@ -1,0 +1,197 @@
+{"name":"CI / changes","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / format / Check formatting","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / copyright / Check copyright headers","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / Fail fast","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / ci-scripts / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / exports-go","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / desktop-shell","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / knip","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / ci-scripts / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / exports-py","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-py-lowest / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-ts / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-ts / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-ts / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-go / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / actionlint / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-go / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / cesium / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-py / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-py / Test (windows-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-py / Test (macos-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / alamos-py / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / stylelint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core-image / Build - Docker","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / docs / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / docs / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / eslint-config / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-image / Build - Docker","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / docs / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-cpp / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-cpp / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-cpp / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-cpp / Test (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / foundation / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / foundation / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / foundation / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-integration / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / foundation-site / Build foundation","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / drift / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-go / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / drift / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / drift / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / gorp / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (ubuntu-latest, 1/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (ubuntu-latest, 2/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (macos-latest, 3/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (macos-latest, 1/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (windows-latest, 1/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (macos-latest, 2/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (ubuntu-latest, 3/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (windows-latest, 2/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / www / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / vite-plugin / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / core / Test (windows-latest, 3/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / www / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / portal / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / vite-plugin / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / portal / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / site-common / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / vite-plugin / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / www / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / portal / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / lyra / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / lint-integration / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / soem / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / site-common / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / portal-site / Build portal","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / lint-integration / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / lyra / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-py / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-py / Test (macos-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / stylelint-config / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-py / Test (windows-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-cpp / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / www-site / Build www","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-py / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / runners / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / lyra / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-cpp / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-ts / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / site-common / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-ts / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / runners / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-ts / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-cpp / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-cpp / Test (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle-language / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / py-packages / Check distributions","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle-language / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Lint (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / buildifier / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Lint (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-py-lowest / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / scripts / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Lint (darwin)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Test (windows-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / oracle-language / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / scripts / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / x-go / Test (macos-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / docs-site / Check site","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / setup","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / soem / Lint","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / oracle-check / Check","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / protobuf / Test","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / console / Test (ubuntu-latest, 1/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / console / Test (ubuntu-latest, 3/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-ts / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / console / Test (ubuntu-latest, 2/3)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-cpp / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-py / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-py-lowest / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-py / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-cpp / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-cpp / Test (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-cpp / Test (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-cpp / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-cpp / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / arc-cpp / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver / Lint","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / pluto / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / client-cpp / Test (macos-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver / Test (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver-tsan / Test (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / driver-tsan / Lint","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / freighter-ts / Test (ubuntu-latest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-py / Test (ubuntu-latest, Python 3.14)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-py-lowest / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / freighter-py / Test (ubuntu-latest, Python oldest)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / setup","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Republish cached (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Republish cached (linux)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Build (windows-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Build (ubuntu-build-bot)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Build Console app","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / integration / Binary checks (ubuntu)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Binary checks (windows)","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (ubuntu) / console","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (ubuntu) / arc","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (ubuntu) / driver","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / console-2","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / console-4","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / console-3","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / driver","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / arc","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / console-1","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / Test (windows) / console-5","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / integration / build / Build Synnax Desktop","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / integration / build / Sign release binaries","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / integration / build / Build Docker image","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / integration / Wait for turn","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"CI / OK","status":"completed","conclusion":"success","run_attempt":1}
+{"name":"CI / Wake the shepherd","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"Write the triage prompt","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"Triage","status":"completed","conclusion":"skipped","run_attempt":1}
+{"name":"Notify Slack","status":"completed","conclusion":"skipped","run_attempt":1}

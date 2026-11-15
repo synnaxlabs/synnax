@@ -69,11 +69,19 @@ var _ = Describe("Where", Ordered, func() {
 			Status: stat,
 			Rack:   racks,
 		}))
-		for _, d := range v.Records {
-			r := rack.Rack{Key: d.Rack, Name: "Rack"}
+		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
+			_ string,
+			d device.Device,
+		) rack.Key {
+			return d.Rack
+		}))
+		for _, k := range rackKeys {
+			r := rack.Rack{Key: k, Name: "Rack"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return racks.NewWriter(tx).Create(ctx, &r)
 			})).To(Succeed())
+		}
+		for _, d := range v.Records {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &d)
 			})).To(Succeed())

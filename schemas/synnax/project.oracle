@@ -43,27 +43,17 @@ Project struct {
 
         @doc value """
             replaces the project with the given created state. Emitted by the Core when
-            a project is created or overwritten whole; clients never dispatch it.
+            a project is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the project."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the project.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the project."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the project."
-    }
+    action Move = patch.Move
 
     @create
     @doc value     """

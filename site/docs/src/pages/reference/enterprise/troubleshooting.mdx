@@ -119,7 +119,7 @@ folders it can write. See [Run the Core as a service](/reference/enterprise/serv
 </Problem.Fix>
 </Problem.Body>
 
-### Synnax requires the storage directory to have at least -rwx------ permissions
+### Existing storage directory ... has permissions
 
 <Problem.Body>
 <Problem.Cause>
@@ -130,6 +130,41 @@ The owner of the data folder cannot read, write, or open it.
 <Problem.Fix>
 
 Run `chmod u+rwx` on the folder.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Data was last opened by Core
+
+<Problem.Body>
+<Problem.Cause>
+
+A newer Core opened the data folder, and an older Core does not open it. The Core exits
+with code 65.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Run the version that the message names, or a newer one. To go back to the older version,
+undo the update. See
+[go back to an earlier version](/reference/enterprise/upgrade#go-back-to-an-earlier-version).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Update to Core ... failed
+
+<Problem.Body>
+<Problem.Cause>
+
+The new Core failed before it committed the update. It put the metadata backup back, and
+it does not start on the data again. The Core exits with code 65.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Run the version that the message names, or fix the cause and run `synnax update retry`.
+See [when an update fails](/reference/enterprise/upgrade#when-an-update-fails).
 
 </Problem.Fix>
 </Problem.Body>
@@ -187,7 +222,7 @@ The username or password is wrong.
 <Problem.Fix>
 
 For the root user, restart the Core with a new `--password`. For other users, an Owner
-deletes the user and registers them again. See [Users](/reference/enterprise/users).
+sets a new password. See [set a password](/reference/enterprise/users#set-a-password).
 
 </Problem.Fix>
 </Problem.Body>
@@ -208,12 +243,24 @@ older one. See [Upgrade the Core](/reference/enterprise/upgrade).
 </Problem.Fix>
 </Problem.Body>
 
-### Clock is ahead of the Core
+### Driver ... cannot work with Core ...
+
+<Problem.Body>
+<Problem.Fix>
+
+A standalone Driver on another minor version starts no tasks. See
+[`Driver ... cannot work with Core ...`](/reference/hardware/troubleshooting#driver--cannot-work-with-core-).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Clock out of sync with the Core
 
 <Problem.Body>
 <Problem.Cause>
 
-The clocks of this computer and the Core differ by more than one second.
+The clocks of this computer and the Core differ by more than the clock skew limit. The
+rack status gives the measured skew and the limit.
 
 </Problem.Cause>
 <Problem.Fix>

@@ -84,6 +84,6 @@ TEST(BPFTest, CheckAccessReportsMissingDevice) {
     FakeOpen open{.errnos = {ENOENT}};
     const auto err = check_bpf_access("en0", std::ref(open));
     ASSERT_OCCURRED_AS(err, errors::INTERFACE_ERROR);
-    EXPECT_EQ(err.data, "failed to open /dev/bpf0 for en0: No such file or directory");
+    EXPECT_EQ(err.data, "Failed to open /dev/bpf0 for en0: No such file or directory");
 }
 }

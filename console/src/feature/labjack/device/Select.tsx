@@ -33,6 +33,7 @@ export const Select = () => {
       emptyContent={EMPTY_CONTENT}
       make={MAKE}
       icon={HARDWARE.icon}
+      locationFormat={HARDWARE.location}
       connect={connect}
     />
   );

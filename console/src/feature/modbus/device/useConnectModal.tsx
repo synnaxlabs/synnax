@@ -31,7 +31,7 @@ import {
   byteOrderOf,
   type Connection,
   type Device,
-  INTEGRATION,
+  INTEGRATION_KEY,
   PARITIES,
   type Parity,
   SCHEMAS,
@@ -97,12 +97,14 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
   const connection = get(connectionPath).value;
-  set(
-    path.location,
-    connection.transport === "rtu"
-      ? connection.serialPort
-      : `${connection.host}:${connection.port}`,
-  );
+  if (connection.transport === "rtu") {
+    set(path.location, connection.serialPort);
+    return;
+  }
+  const { host, port } = connection;
+  // Brackets keep the colons of an IPv6 host apart from the port's.
+  const shown = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+  set(path.location, `${shown}:${port}`);
 };
 
 const beforeSave = async ({
@@ -167,7 +169,7 @@ export const Connect = ({
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
-    integration: INTEGRATION,
+    integration: INTEGRATION_KEY,
     name: "Modbus",
     rack: rackKey,
   });
@@ -253,7 +255,7 @@ export const Connect = ({
                 />
                 <ByteOrderField />
               </Flex.Box>
-              <PlatformDevice.RackField integration={INTEGRATION} />
+              <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
           </Form.Sections>
           <Form.Sections className={SECTIONS_CLASS}>
@@ -330,7 +332,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
+export const useConnectModal = PlatformDevice.createConnectModal(
+  Connect,
+  INTEGRATION_KEY,
+);
 
 const HEADER = ["Device", "Connect", "Modbus server"];
 

@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"sync"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -333,10 +333,6 @@ var _ = Describe("Collaborative text", func() {
 	It(
 		"Should reclaim tombstoned characters only after the text falls quiet",
 		func(ctx SpecContext) {
-			base := telem.Now()
-			arcClock = func() telem.TimeStamp { return base }
-			DeferCleanup(func() { arcClock = telem.Now })
-
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			forgottenCount := func() int {
@@ -378,7 +374,7 @@ var _ = Describe("Collaborative text", func() {
 				To(Succeed())
 			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 
-			base = base.Add(2 * telem.Second)
+			clock.Advance(2 * time.Second)
 			Expect(
 				dispatch(
 					ctx,
@@ -391,7 +387,7 @@ var _ = Describe("Collaborative text", func() {
 			Expect(textOf(fetch(ctx, a.Base().Key).Base()).Doc.Deletes).To(HaveLen(5))
 			Expect(forgottenCount()).To(Equal(0))
 
-			base = base.Add(10 * telem.Second)
+			clock.Advance(10 * time.Second)
 			Expect(
 				dispatch(
 					ctx,
@@ -413,9 +409,6 @@ var _ = Describe("Collaborative text", func() {
 	It(
 		"Should keep the quiet window of an Arc whose delete rolls back",
 		func(ctx SpecContext) {
-			base := telem.Now()
-			arcClock = func() telem.TimeStamp { return base }
-			DeferCleanup(func() { arcClock = telem.Now })
 			a := newAutomation(arc.Base{
 				Name: "collab-sweep-rollback",
 				Source: arc.Source{
@@ -437,7 +430,7 @@ var _ = Describe("Collaborative text", func() {
 				"dk",
 				toDeleteActions(client.Delete(6, 5)),
 			)).To(Succeed())
-			base = base.Add(2 * telem.Second)
+			clock.Advance(2 * time.Second)
 			rollback := errors.New("rolled back")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				if err := svc.NewWriter(tx).Delete(ctx, a.Base().Key); err != nil {
@@ -458,9 +451,6 @@ var _ = Describe("Collaborative text", func() {
 	It(
 		"Should not move the edit time of a text edit that rolls back",
 		func(ctx SpecContext) {
-			base := telem.Now()
-			arcClock = func() telem.TimeStamp { return base }
-			DeferCleanup(func() { arcClock = telem.Now })
 			a := newAutomation(arc.Base{
 				Name: "collab-sweep-denied",
 				Source: arc.Source{
@@ -483,7 +473,7 @@ var _ = Describe("Collaborative text", func() {
 				"dk",
 				toDeleteActions(load().Delete(6, 5)),
 			)).To(Succeed())
-			base = base.Add(10 * telem.Second)
+			clock.Advance(10 * time.Second)
 			rollback := errors.New("rolled back")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				if err := svc.NewWriter(tx).Apply(
@@ -508,9 +498,6 @@ var _ = Describe("Collaborative text", func() {
 	It(
 		"Should attach the sweep after the edit in the same commit",
 		func(ctx SpecContext) {
-			base := telem.Now()
-			arcClock = func() telem.TimeStamp { return base }
-			DeferCleanup(func() { arcClock = telem.Now })
 			a := newAutomation(arc.Base{
 				Name: "collab-sweep-order",
 				Source: arc.Source{
@@ -532,7 +519,7 @@ var _ = Describe("Collaborative text", func() {
 				"dk",
 				toDeleteActions(client.Delete(6, 5)),
 			)).To(Succeed())
-			base = base.Add(12 * telem.Second)
+			clock.Advance(12 * time.Second)
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			edit := toInsertActions(client.Insert(0, "Y"))

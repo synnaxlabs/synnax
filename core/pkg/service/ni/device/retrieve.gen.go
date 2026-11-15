@@ -13,11 +13,11 @@ package device
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Device table for references. Pass it as
@@ -36,10 +36,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial  *gorp.LookupIndex[Key, Device, string]
-	rack    *gorp.KeyReference[Key, Device, rack.Key]
-	chassis *gorp.KeyReference[Key, Device, chassis.Key]
-	search  *gorp.SearchIndex[Key, Device]
+	serial       *gorp.LookupIndex[Key, Device, string]
+	resourceName *gorp.LookupIndex[Key, Device, string]
+	rack         *gorp.KeyReference[Key, Device, rack.Key]
+	chassis      *gorp.KeyReference[Key, Device, chassis.Key]
+	search       *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -50,6 +51,10 @@ func newIndexes() indexes {
 		serial: gorp.NewLookupIndex[Key, Device, string](
 			"serial",
 			func(e *Device) string { return e.Serial },
+		),
+		resourceName: gorp.NewLookupIndex[Key, Device, string](
+			"resource_name",
+			func(e *Device) string { return e.ResourceName },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
 			Name:     "rack",
@@ -86,6 +91,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Device] {
 	return []gorp.Index[Key, Device]{
 		i.serial,
+		i.resourceName,
 		i.search,
 	}
 }
@@ -173,8 +179,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return want.Contains(e.Name), nil
 		})
 	}
 }
@@ -188,21 +195,31 @@ func MatchSerials(vals ...string) Filter {
 	}
 }
 
+// MatchResourceNames returns a filter for
+// devices whose ResourceName matches any of the
+// provided values.
+func MatchResourceNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.resourceName.Filter(vals...)
+	}
+}
+
 // MatchModels returns a filter for
 // devices whose Model matches any of the
 // provided values.
 func MatchModels(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Model), nil
+			return want.Contains(e.Model), nil
 		})
 	}
 }
 
-// MatchChassises returns a filter for devices
+// MatchChassisList returns a filter for devices
 // whose Chassis matches any of the provided
 // values.
-func MatchChassises(vals ...chassis.Key) Filter {
+func MatchChassisList(vals ...chassis.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.chassis.Filter(vals...)
 	}
@@ -247,6 +264,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {
 	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no device as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

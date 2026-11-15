@@ -21,7 +21,7 @@ class Runners(GitHub):
     """Answers the runner lookup with one runner in the given busy state."""
 
     def __init__(self, busy: bool) -> None:
-        super().__init__("token")
+        super().__init__("1", "")
         self.busy_flag = busy
 
     def get(self, path: str) -> dict:
@@ -53,4 +53,5 @@ class TestRun:
         aws = Instances()
         line = ec2_off.run(RUNNER, aws=cast(AWS, aws), github=Runners(busy=True))
         assert aws.stopped == []
+        assert line is not None
         assert "busy" in line

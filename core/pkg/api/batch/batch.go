@@ -28,7 +28,7 @@ import (
 // endpoint takes it. It decodes with the codec that decoded the batch.
 type Payload struct {
 	data   []byte
-	decode func(ctx context.Context, data []byte, v any) error
+	decode func(data []byte, v any) error
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -55,7 +55,7 @@ func Route[RQ, RS any](handle func(context.Context, gorp.Tx, RQ) (RS, error)) Ha
 		if p.decode == nil {
 			return nil, validate.PathedError(validate.ErrRequired, "payload")
 		}
-		if err := p.decode(ctx, p.data, &req); err != nil {
+		if err := p.decode(p.data, &req); err != nil {
 			return nil, validate.PathedError(
 				errors.Wrap(validate.ErrValidation, err.Error()),
 				"payload",

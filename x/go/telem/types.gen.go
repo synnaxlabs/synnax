@@ -57,7 +57,8 @@ type DynamicWindow = versions.DynamicWindow
 type StaticWindow = versions.StaticWindow
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
@@ -273,12 +274,14 @@ func (u *Reduction) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Reduction) Validate() error {
+	v := validate.New("Reduction")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LimitReduction:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }

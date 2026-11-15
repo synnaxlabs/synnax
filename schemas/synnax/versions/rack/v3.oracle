@@ -9,10 +9,19 @@
 
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/role/v0"
+import "schemas/synnax/versions/status/v2"
 
 Key = v0.Key
 
-Status = v2.Status
+StatusDetails struct {
+    running bool = false {
+        @doc value "is true when the status comes from a running Driver."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails>
 
 Rack struct extends v2.Rack {
     version string?    {

@@ -71,7 +71,6 @@ var migratableLayoutTypes = map[string]resource.Type{
 // (no backing document) to the view type the current Console renders them as in a
 // panel. Both legacy new-tab selectors collapse into the current selector picker.
 var viewLayoutTypes = map[string]string{
-	"arc_explorer":          "arc_explorer",
 	"range_explorer":        "range_explorer",
 	"status_explorer":       "status_explorer",
 	"taskSelector":          "taskSelector",

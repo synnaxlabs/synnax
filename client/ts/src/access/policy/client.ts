@@ -11,6 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { createOf, reduceAll } from "@/access/policy/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/access/policy/actions.gen";
 import {
   type Key,
   keyZ,
@@ -26,14 +34,16 @@ import {
   compareCursors,
   cursor,
   type Lines,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
 } from "@/access/policy/where.gen";
+import { actions } from "@/actions";
 import { query } from "@/query";
 import { user } from "@/user";
 
-export const SET_CHANNEL_NAME = "sy_policy_set";
+export const ACTION_CHANNEL_NAME = "sy_policy_action_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
 const retrieveMultiParamsZ = z.union([
@@ -87,17 +97,32 @@ const namesUser = (where: Where | undefined, key: user.Key): boolean =>
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Policy> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Policy>;
+  private readonly dispatcher: actions.Controller<Key, Policy, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, policyZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a policy reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Policy, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/access/policy/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "policy",
       table: store,
@@ -116,6 +141,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async create(policy: New): Promise<Policy>;
@@ -149,17 +175,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const existing = await this.retrieve(key);
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        await this.create({ ...existing, name });
-      },
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached policy until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached policy.
+   * @throws {Error} if the cached policy cannot hold an action, before any send.
+   * @throws {ValidationError} if the policy cannot hold an action.
+   * @throws {NotFoundError} if the policy does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {

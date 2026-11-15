@@ -12,7 +12,8 @@
 // actions edit only those fields. A struct with @patch on the type is a document whose
 // fields all take path actions, and it also gets the HashContent methods that hash its
 // content. Every struct and union that a document reaches gets the methods over all of
-// its fields, unless it is marked @go json hand.
+// its fields, unless it is marked @go json hand. A list entry with @patch fields takes
+// path actions only through those fields.
 package patch
 
 import (
@@ -25,6 +26,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -108,8 +110,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // node is a struct or union that gets generated methods.
 type node struct {
 	typ resolution.Type
-	// fields are the fields of a struct that Patch edits.
+	// fields are the fields of a struct that HashContent and PatchKey read.
 	fields []resolution.Field
+	// edited are the fields of a struct that Patch edits.
+	edited []resolution.Field
 	// patched, hashed, and keyed report that the type gets Patch, HashContent, and
 	// PatchKey.
 	patched, hashed, keyed bool
@@ -136,17 +140,12 @@ func (c *collector) collect() error {
 		if whole {
 			fields = wireFields(t, c.table)
 		} else if document(t) {
-			fields = slices.DeleteFunc(
-				slices.Clone(resolution.UnifiedFields(t, c.table)),
-				func(f resolution.Field) bool {
-					return !domain.HasDomainFromField(f, patchDomain)
-				},
-			)
+			fields = markedFields(t, c.table)
 		}
 		if len(fields) == 0 {
 			continue
 		}
-		n := &node{typ: t, fields: fields}
+		n := &node{typ: t, fields: fields, edited: fields}
 		c.roots.Add(t.QualifiedName)
 		c.nodes[t.QualifiedName] = n
 		if err := c.mark(n, true, whole, false); err != nil {
@@ -168,6 +167,10 @@ func (c *collector) collect() error {
 			n = &node{typ: d.typ}
 			if _, isStruct := d.typ.Form.(resolution.StructForm); isStruct {
 				n.fields = wireFields(d.typ, c.table)
+				n.edited = n.fields
+				if marked := markedFields(d.typ, c.table); len(marked) > 0 {
+					n.edited = marked
+				}
 			}
 			c.nodes[name] = n
 		}
@@ -187,13 +190,15 @@ func (c *collector) mark(n *node, patched, hashed, keyed bool) error {
 	if !patched && !hashed {
 		return nil
 	}
-	for _, f := range c.fieldsOf(n) {
-		if patched {
+	if patched {
+		for _, f := range c.fieldsOf(n, n.edited) {
 			if err := c.reachPatch(n.typ, f); err != nil {
 				return err
 			}
 		}
-		if hashed {
+	}
+	if hashed {
+		for _, f := range c.fieldsOf(n, n.fields) {
 			if err := c.reachHash(f.Type); err != nil {
 				return errors.Wrapf(err, "%s.%s", n.typ.QualifiedName, f.Name)
 			}
@@ -202,17 +207,18 @@ func (c *collector) mark(n *node, patched, hashed, keyed bool) error {
 	return nil
 }
 
-// fieldsOf returns the fields of a struct, or of every variant of a union.
-func (c *collector) fieldsOf(n *node) []resolution.Field {
+// fieldsOf returns the given fields of a struct, or the fields of every variant of a
+// union.
+func (c *collector) fieldsOf(n *node, fields []resolution.Field) []resolution.Field {
 	form, ok := n.typ.Form.(resolution.UnionForm)
 	if !ok {
-		return n.fields
+		return fields
 	}
-	var fields []resolution.Field
+	var all []resolution.Field
 	for _, v := range form.Variants {
-		fields = append(fields, variantFields(form, v, c.table)...)
+		all = append(all, variantFields(form, v, c.table)...)
 	}
-	return fields
+	return all
 }
 
 // reachPatch queues the type that f holds when its Patch method takes the path, and
@@ -231,6 +237,12 @@ func (c *collector) reachPatch(owner resolution.Type, f resolution.Field) error 
 		)
 	}
 	if t, ok := patchable(f.Type, c.table); ok {
+		if !document(t) && len(markedFields(t, c.table)) > 0 {
+			return errors.Newf(
+				"%s.%s: a struct with @patch fields must be a list entry",
+				owner.QualifiedName, f.Name,
+			)
+		}
 		c.queue = append(c.queue, demand{typ: t, patched: true})
 	} else if t, ok := keyedList(f.Type, c.table); ok {
 		c.queue = append(c.queue, demand{typ: t, patched: true, keyed: true})
@@ -261,6 +273,17 @@ func wireFields(t resolution.Type, table *resolution.Table) []resolution.Field {
 	)
 }
 
+// markedFields returns the @patch fields of a struct.
+func markedFields(t resolution.Type, table *resolution.Table) []resolution.Field {
+	if _, ok := t.Form.(resolution.StructForm); !ok {
+		return nil
+	}
+	return slices.DeleteFunc(
+		slices.Clone(resolution.UnifiedFields(t, table)),
+		func(f resolution.Field) bool { return !domain.HasDomainFromField(f, patchDomain) },
+	)
+}
+
 // variantFields returns the fields of a union variant that have a JSON form. A field
 // that the variant declares again replaces the one it inherits.
 func variantFields(
@@ -284,14 +307,14 @@ func variantFields(
 	return fields
 }
 
-// document reports whether t declares path actions: an action that extends patch.Set.
-// A struct that only inherits @patch fields, such as a create request, is not one.
+// document reports whether t declares path actions: an action that aliases or extends
+// patch.Set. A struct that only inherits @patch fields, such as a create request, is
+// not one.
 func document(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.StructForm)
+	isSet := func(r resolution.TypeRef) bool { return r.Name == "patch.Set" }
 	return ok && slices.ContainsFunc(form.Actions, func(a resolution.Action) bool {
-		return slices.ContainsFunc(a.Extends, func(r resolution.TypeRef) bool {
-			return r.Name == "patch.Set"
-		})
+		return isSet(a.Alias) || slices.ContainsFunc(a.Extends, isSet)
 	})
 }
 
@@ -602,6 +625,9 @@ type fieldData struct {
 	// that the receiver embeds.
 	Selector string
 	Kind     kind
+	// Defaulted reports that a decode may set the field to a value other than its zero
+	// value, so a removal leaves that value.
+	Defaulted bool
 }
 
 // kind is how a Patch method applies an action to a field.
@@ -613,6 +639,7 @@ const (
 	kindStruct         kind = "struct"
 	kindOptionalStruct kind = "optionalStruct"
 	kindList           kind = "list"
+	kindEntryFields    kind = "entryFields"
 	kindAny            kind = "any"
 	kindOptionalAny    kind = "optionalAny"
 )
@@ -631,7 +658,14 @@ func render(pkg string, nodes []*node, table *resolution.Table) ([]byte, error) 
 			data.Unions = append(data.Unions, ud)
 		default:
 			path := func(name string) []string { return embedPath(n.typ, name, table) }
-			sd, err := structView(naming.GetGoName(n.typ), n.fields, path, n, table)
+			sd, err := structView(
+				naming.GetGoName(n.typ),
+				n.fields,
+				n.edited,
+				path,
+				n,
+				table,
+			)
 			if err != nil {
 				return nil, errors.Wrap(err, n.typ.QualifiedName)
 			}
@@ -647,7 +681,7 @@ func render(pkg string, nodes []*node, table *resolution.Table) ([]byte, error) 
 
 func structView(
 	goName string,
-	fields []resolution.Field,
+	fields, edited []resolution.Field,
 	path func(name string) []string,
 	n *node,
 	table *resolution.Table,
@@ -662,11 +696,12 @@ func structView(
 		Hashed:   n.hashed,
 	}
 	if n.patched {
-		for _, f := range fields {
+		for _, f := range edited {
 			sd.Fields = append(sd.Fields, fieldData{
-				JSONName: casing.FieldSnake(f.Name),
-				Selector: selector(f),
-				Kind:     fieldKind(f, table),
+				JSONName:  casing.FieldSnake(f.Name),
+				Selector:  selector(f),
+				Kind:      fieldKind(f, table),
+				Defaulted: defaulted(f, table, make(set.Set[string])),
 			})
 		}
 	}
@@ -712,6 +747,7 @@ func unionView(
 		path := func(name string) []string { return variantPath(form, v, name, table) }
 		sd, err := structView(
 			casing.VariantTypeName(goName, v.Name),
+			fields,
 			fields,
 			path,
 			variant,
@@ -770,13 +806,81 @@ func fieldKind(f resolution.Field, table *resolution.Table) kind {
 		}
 		return kindStruct
 	}
-	if _, ok := keyedList(f.Type, table); ok {
+	if entry, ok := keyedList(f.Type, table); ok {
+		if len(markedFields(entry, table)) > 0 {
+			return kindEntryFields
+		}
 		return kindList
 	}
 	if f.Optional {
 		return kindOptionalValue
 	}
 	return kindValue
+}
+
+// defaulted reports whether a decode may set the field f to a value other than its
+// zero value before it reads its input. visited guards against recursive types.
+func defaulted(
+	f resolution.Field,
+	table *resolution.Table,
+	visited set.Set[string],
+) bool {
+	if f.Optional {
+		return false
+	}
+	if f.Default != nil {
+		return !zeroDefault(*f.Default, f.Type, table)
+	}
+	ref := f.Type
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
+		return false
+	}
+	typ, _, ok := resolution.Dealias(ref, table)
+	if !ok || visited.Contains(typ.QualifiedName) {
+		return false
+	}
+	if _, ok = typ.Form.(resolution.StructForm); !ok {
+		return false
+	}
+	visited.Add(typ.QualifiedName)
+	return slices.ContainsFunc(
+		resolution.UnifiedFields(typ, table),
+		func(f resolution.Field) bool { return defaulted(f, table, visited) },
+	)
+}
+
+// zeroDefault reports whether the default v of a field of type ref leaves the Go zero
+// value. An ident default other than a union variant or a string enum member, such as
+// create or an integer enum member, sets nothing.
+func zeroDefault(
+	v resolution.ExpressionValue,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) bool {
+	switch v.Kind {
+	case resolution.ValueKindIdent:
+		if _, ok := validation.ResolveUnionVariant(v.IdentValue, ref, table); ok {
+			return false
+		}
+		ev, ok := validation.ResolveEnumVariant(v.IdentValue, ref, table)
+		if !ok {
+			return true
+		}
+		form, _ := ev.Type.Form.(resolution.EnumForm)
+		return form.IsIntEnum
+	case resolution.ValueKindString:
+		return v.StringValue == ""
+	case resolution.ValueKindInt:
+		return v.IntValue == 0
+	case resolution.ValueKindFloat:
+		return v.FloatValue == 0
+	case resolution.ValueKindBool:
+		return !v.BoolValue
+	case resolution.ValueKindArray:
+		return len(v.Elements) == 0
+	default:
+		return false
+	}
 }
 
 // hashField returns the statements that write the field at sel to h.
@@ -973,7 +1077,9 @@ func receiver(goName string) string {
 	return name
 }
 
-var reserved = set.New("c", "content", "err", "h", "next", "ok", "patch", "v")
+var reserved = set.New(
+	"c", "content", "def", "err", "h", "next", "ok", "patch", "v",
+)
 
 // Generated methods call nested methods directly, never through a generic helper, so
 // the compiler can keep the document on the stack.
@@ -1056,6 +1162,7 @@ func ({{$r}} *{{.GoName}}) HashContent(h *content.Hash) {
 {{- end}}
 {{define "struct"}}
 {{- $r := .Receiver}}
+{{- $t := .GoName}}
 {{- if .Patched}}
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -1063,7 +1170,14 @@ func ({{$r}} *{{.GoName}}) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 {{- range .Fields}}
 	case "{{.JSONName}}":
-{{- if eq .Kind "struct"}}
+{{- if and (eq .Kind "struct") .Defaulted}}
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&{{$r}}.{{.Selector}}, c, func(def *{{$t}}) {
+				{{$r}}.{{.Selector}} = def.{{.Selector}}
+			})
+		}
+		return {{$r}}.{{.Selector}}.Patch(c)
+{{- else if eq .Kind "struct"}}
 		if c = c.Next(); c.Done() {
 			return patch.Value(&{{$r}}.{{.Selector}}, c)
 		}
@@ -1080,12 +1194,18 @@ func ({{$r}} *{{.GoName}}) Patch(c patch.Cursor) error {
 		return nil
 {{- else if eq .Kind "list"}}
 		return patch.List(&{{$r}}.{{.Selector}}, c.Next())
+{{- else if eq .Kind "entryFields"}}
+		return patch.EntryFields(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "any"}}
 		return patch.Any(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "optionalAny"}}
 		return patch.OptionalAny(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "optionalValue"}}
 		return patch.OptionalValue(&{{$r}}.{{.Selector}}, c.Next())
+{{- else if .Defaulted}}
+		return patch.Defaulted(&{{$r}}.{{.Selector}}, c.Next(), func(def *{{$t}}) {
+			{{$r}}.{{.Selector}} = def.{{.Selector}}
+		})
 {{- else}}
 		return patch.Value(&{{$r}}.{{.Selector}}, c.Next())
 {{- end}}

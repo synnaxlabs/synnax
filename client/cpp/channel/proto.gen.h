@@ -210,7 +210,6 @@ Channel::to_proto() const {
     pb.set_data_type(this->data_type.to_proto());
     pb.set_is_index(this->is_index);
     pb.set_index(this->index);
-    if (this->alias.has_value()) pb.set_alias(*this->alias);
     pb.set_virtual_(this->is_virtual);
     pb.set_internal(this->internal);
     pb.set_expression(this->expression);
@@ -237,7 +236,6 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.index = pb.index();
-    if (pb.has_alias()) cpp.alias = pb.alias();
     cpp.is_virtual = pb.virtual_();
     cpp.internal = pb.internal();
     cpp.expression = pb.expression();

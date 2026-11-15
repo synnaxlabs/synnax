@@ -17,10 +17,10 @@ This tutorial shows the main parts of Synnax without hardware. You create two ch
 write a changing value to them with an Arc automation, plot the value, and record a
 range. It takes about ten minutes.
 
-You need Synnax Desktop, or the Synnax Console connected to a Synnax Core. To choose
-one, see [Synnax editions](/reference/get-started/editions). Use any
-[project](/reference/visualize/projects). To start with an empty one, run the "Create
-project" command.
+You need Synnax Desktop, or the Synnax Console connected to a Synnax Core of the same
+minor version. To choose one, see [Synnax editions](/reference/get-started/editions).
+Use any [project](/reference/visualize/projects). To start with an empty one, run the
+"Create project" command.
 
 Most steps run a command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). To
@@ -89,11 +89,11 @@ The automation is now running. To stop it, select the stop <Icon.Stop /> button.
 ## <Step step={3} level="h2">Plot the data</Step>
 
 1. Run the "Create line plot" command.
-2. Select the component <Icon.Component /> button in the bottom-left corner, or press
-   **V**, to open the component toolbar.
+2. Select the component button in the bottom-left corner, or press **V**, to open the
+   component toolbar. The button shows the line plot <Icon.LinePlot /> icon.
 3. In **Y1**, select `ramp`.
-4. Check that **Ranges** shows **Rolling 30s**. If it shows a different range, remove
-   that range and select **Rolling 30s**.
+4. Check that **Ranges** shows a live **30s** tag. If it does not, select **Ranges**,
+   then select **30s** next to **Live**.
 
 The plot shows a line that climbs from 0 to 100 every ten seconds. For more about plots,
 see [line plots](/reference/visualize/line-plots).

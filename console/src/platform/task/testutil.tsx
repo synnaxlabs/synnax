@@ -40,7 +40,7 @@ import {
   type ReactElement,
   useImperativeHandle,
 } from "react";
-import { onTestFinished } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -99,8 +99,8 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
- * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning,
- * useIsSnapshot) be exercised in isolation without mounting the full task Form UI.
+ * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
+ * exercised in isolation without mounting the full task Form UI.
  */
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
@@ -180,7 +180,6 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
-  snapshot: false,
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
@@ -484,6 +483,24 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
 };
 
 /**
+ * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
+ * a toast that the start raised has shown.
+ */
+export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
+  await clickDeploy(container);
+  await waitFor(() => {
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
+  });
+  await act(async () => {});
+};
+
+/** Matches the toast of a start that failed. */
+export const START_FAILURE = expect.objectContaining({
+  message: "Failed to start task",
+});
+
+/**
  * Finds the channel list row showing the text, such as a port or a channel name. The
  * details header for the selected channel shows the same text, so a plain text query is
  * ambiguous.
@@ -588,13 +605,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
       details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -614,13 +631,13 @@ export const answerCommand = async (
   cmd: task.Command,
   { data, ...answer }: Omit<CommandAnswer, "type"> = {},
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk.payload,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
       ...answer,
+      owner: task.resourceID(tsk.key),
       details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
-  });
+  );
 };
 
 /**

@@ -13,6 +13,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "status",
     hdrs = [
+        "actions.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "status.h",
@@ -59,6 +60,17 @@ cc_test(
     srcs = ["where_test.cpp"],
     deps = [
         ":status",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":status",
+        "//x/cpp/json",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

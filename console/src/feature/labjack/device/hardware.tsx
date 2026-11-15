@@ -9,20 +9,21 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
+import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
 import { SCAN_TYPE } from "@/feature/labjack/task/types";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.LabJack />;
 
 export const HARDWARE: Device.Hardware = {
-  key: INTEGRATION,
+  key: INTEGRATION_KEY,
   name: "LabJack",
   title: "LabJack hardware",
   description: "T4, T7, and T8 devices over USB or Ethernet.",
   icon: ICON,
   make: MAKE,
   scanType: SCAN_TYPE,
+  location: { shape: "plain" },
   Configure: Device.createConfigure({ icon: ICON, zeroProperties: ZERO_PROPERTIES }),
   checks: [
     "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",

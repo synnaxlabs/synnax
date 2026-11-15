@@ -85,17 +85,17 @@ start a task, it shows "Failed to configure task", with this text in the descrip
 <Problem.Cause>
 
 The Driver did not answer the command in 10 seconds. The Driver is running, but the
-device takes too long to start or stop. After 60 seconds, the Driver gives up and the
-status changes to "Failed to complete task operation". The Driver does not run a new
-command for the task until the old command ends, so starting the task again does not
-help.
+device takes too long to start or stop. When a start runs for 60 seconds, the status
+also says "Still working after 1m.", and the Driver keeps working on the command. A
+second start joins the start that runs, so starting the task again does not help.
 
 </Problem.Cause>
 <Problem.Fix>
 
-1. Check the cable, power, and network of the device.
-2. [Restart the Driver](#restart-the-driver).
+1. Stop the task. The Driver cancels the start, and stops the task when the start ends.
+2. Check the cable, power, and network of the device.
 3. Start the task again.
+4. If the start still does not end, [restart the Driver](#restart-the-driver).
 
 If the status is "Driver not running" instead, see
 [the Driver is not running](#driver-not-running).
@@ -180,7 +180,8 @@ Update the Driver to the version of the Core, then start the task again.
 <Problem.Cause>
 
 The Driver skips the device, cannot use it, or does not look for it. A task with no
-device to select shows "No devices connected" in its device list.
+device to select shows a message such as "No NI devices connected", with **Connect NI
+hardware** under it. Click it to connect the device and select it.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -303,6 +304,22 @@ The task keeps its old configuration until you redeploy it.
 
 Redeploy the task. See
 [apply edits to a running task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Config changed`
+
+<Problem.Body>
+<Problem.Cause>
+
+Another user changed the task after you last saw it, so the Driver refused your start.
+If the task was running, it keeps running with its old configuration.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Review the task in the task tab, then start it again.
 
 </Problem.Fix>
 </Problem.Body>

@@ -21,6 +21,7 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
 enum OrderField {
   ORDER_FIELD_NAME = 0;
   ORDER_FIELD_TIME_RANGE_START = 1;
+  ORDER_FIELD_TIME_RANGE_END = 2;
 }
 
 // Cursor is a position in an order of ranges: the sort value and the key of a range.
@@ -32,6 +33,9 @@ message Cursor {
   // time_range_start is the time range start of the range at the position, when the
   // order sorts by it.
   optional int64 time_range_start = 3;
+  // time_range_end is the time range end of the range at the position, when the order
+  // sorts by it.
+  optional int64 time_range_end = 4;
 }
 
 // Order is a sort of ranges.

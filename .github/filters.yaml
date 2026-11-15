@@ -224,6 +224,7 @@ site_common: &site_common
 
 docs:
   - *arc_ts
+  - arc/go/analyzer/codes/codes.gen.json
   - *client_ts
   - *lyra
   - *site_common
@@ -349,11 +350,19 @@ driver: &driver
 
 soem:
   - *cpp
+  - vendor/open62541/codegen.bzl
   - vendor/soem/**
 
 # Every path that changes a C++ CodeQL analysis.
 codeql_cpp:
   - *driver
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a Rust CodeQL analysis.
+codeql_rust:
+  - "**/*.rs"
+  - "**/Cargo.lock"
+  - "**/Cargo.toml"
   - .github/workflows/codeql.yaml
 
 buildifier:
@@ -396,7 +405,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
   - scripts/common/**
 

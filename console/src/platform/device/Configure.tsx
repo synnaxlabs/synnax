@@ -9,7 +9,7 @@
 
 import "@/platform/device/Configure.css";
 
-import { device as clientDevice, type device, status } from "@synnaxlabs/client";
+import { actions, device, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +17,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device } from "@synnaxlabs/pluto";
-import { deep, type record, strings } from "@synnaxlabs/x";
+import { Device, Flux } from "@synnaxlabs/pluto";
+import { deep, type record, strings, verbs } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement } from "react";
 import { z } from "zod";
 
@@ -45,13 +45,33 @@ interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
+interface SaveParams {
+  prev: device.Device;
+  next: device.Device;
+}
+
+const { useUpdate: useSave } = Flux.createUpdate<SaveParams>({
+  name: "device",
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { prev, next } = data;
+    const edits = actions.diffFields(device.deviceZ(), prev, next, [
+      "name",
+      "configured",
+      "properties",
+    ]);
+    if (edits.length > 0) await client.devices.dispatch(prev.key, edits);
+    return data;
+  },
+});
+
 const Internal = ({
   device,
   device: { name },
   close,
   icon,
   initialProperties,
-  onCreateTask,
+  onCreateReadTask,
   onBack,
 }: InternalProps) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
@@ -60,23 +80,26 @@ const Internal = ({
   });
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
-  const { updateAsync, variant } = Device.useCreate();
+  const { updateAsync, variant } = useSave();
   const suggestions = strings.createShortIdentifiers(currentName);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
-      ...clientDevice.toUpdate(device),
-      configured: true,
-      name: methods.get(path.name).value,
-      properties: {
-        ...deep.copy(initialProperties),
-        ...device.properties,
-        identifier: methods.get(path.identifier).value,
+      prev: device,
+      next: {
+        ...device,
+        configured: true,
+        name: methods.get(path.name).value,
+        properties: {
+          ...deep.copy(initialProperties),
+          ...device.properties,
+          identifier: methods.get(path.identifier).value,
+        },
       },
     });
     if (!saved) return;
     capture("device_configured", { make: device.make });
-    if (createTask) onCreateTask?.(device.key);
+    if (createTask) onCreateReadTask?.(device.key);
     close();
   };
 
@@ -125,7 +148,7 @@ const Internal = ({
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
-          {onCreateTask != null && (
+          {onCreateReadTask != null && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               onClick={() => void save(true)}

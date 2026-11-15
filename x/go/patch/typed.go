@@ -17,6 +17,7 @@ import (
 	"slices"
 	"unicode/utf8"
 
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -110,11 +111,12 @@ func (m Move) cursor() Cursor {
 	}
 }
 
-// Partial returns the cursor for a document whose defaults and validation run after the
-// edit. A value that lacks a member, and a removal or null set of a required value,
-// then leave zero values, as a JSON decode of the edited document would. The Patch
-// methods set filled when the document no longer matches the JSON form that the action
-// gives, such as at a zero value where the JSON form holds nothing.
+// Partial returns the cursor for a document whose default groups and validation run
+// after the edit. A value that lacks a member, and a removal or null set of a required
+// value, then leave its schema default or zero value, as a JSON decode of the edited
+// document would. The Patch methods set filled when the document no longer matches
+// the JSON form that the action gives, such as at a value where the JSON form holds
+// nothing.
 func (c Cursor) Partial(filled *bool) Cursor {
 	c.filled = filled
 	return c
@@ -194,6 +196,27 @@ func Value[T any](dst *T, c Cursor) error {
 		return intoValue(c.path[:c.depth])
 	}
 	return whole(dst, c)
+}
+
+// Defaulted is Value for a required field of a P that may have a schema default. For a
+// partial cursor, a removal or null set calls reset with a P that holds the defaults a
+// decode sets before it reads its input, and reset copies the field from it.
+func Defaulted[P, T any](dst *T, c Cursor, reset func(*P)) error {
+	if !c.Done() {
+		return intoValue(c.path[:c.depth])
+	}
+	emptied := c.kind == kindRemove || (c.kind == kindSet && c.value == nil)
+	if c.filled == nil || !emptied {
+		return whole(dst, c)
+	}
+	if err := c.unguarded(); err != nil {
+		return err
+	}
+	var d P
+	defaults.Prefill(&d)
+	reset(&d)
+	c.fill()
+	return nil
 }
 
 // OptionalValue applies the action at c to an optional field that the path ends at, or
@@ -340,7 +363,8 @@ func sameJSON(v any, b []byte) bool {
 }
 
 // missingFrom returns the path of a member that the JSON form of v holds and the object
-// b lacks, or nil when b holds every member.
+// b lacks, or nil when b holds every member. A v whose JSON form is not an object, such
+// as a color that writes a hex string, has no members to lack.
 func missingFrom(v any, b []byte) ([]string, error) {
 	var got, want map[string]any
 	if err := json.Unmarshal(b, &got); err != nil {
@@ -349,6 +373,9 @@ func missingFrom(v any, b []byte) ([]string, error) {
 	encoded, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
+	}
+	if encoded[0] != '{' {
+		return nil, nil
 	}
 	if err = json.Unmarshal(encoded, &want); err != nil {
 		return nil, err

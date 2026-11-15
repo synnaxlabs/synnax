@@ -108,7 +108,7 @@ const resolveColor = (
   palette: color.Crude[],
 ): ResolvedColor => {
   const autoColor = color.construct(
-    palette[index % Math.max(palette.length, 1)] ?? color.ZERO,
+    palette[index % Math.max(palette.length, 1)] ?? color.TRANSPARENT,
   );
   return { color: stored ?? autoColor, pickedColor: stored, autoColor };
 };
@@ -362,9 +362,8 @@ export interface RenameParams extends Pick<lineplot.LinePlot, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
     await client.lineplots.rename(key, name);
     return data;
   },

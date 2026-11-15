@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"slices"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,18 +24,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -102,6 +94,38 @@ var _ = Describe("Retrieve", func() {
 	},
 		Entry("with the parent granted", true, 1),
 		Entry("with the parent denied", false, 0),
+	)
+
+	DescribeTable("Should count only the children that the subject can retrieve", func(
+		ctx SpecContext,
+		childGranted bool,
+	) {
+		u := createUser(ctx)
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), parent.ResourceID())
+		if childGranted {
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), child.ResourceID())
+		}
+		res := MustSucceed(retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{Where: &ranger.Where{
+				Key: &filter.Set[ranger.Key]{Eq: &parent.Key},
+			}},
+		))
+		Expect(res.Ranges).To(HaveExactElements(
+			HaveField("HasChildren", childGranted),
+		))
+	},
+		Entry("with the child granted", true),
+		Entry("with the child denied", false),
 	)
 
 	It("Should deny a named child range whose parent the subject cannot retrieve", func(
@@ -352,57 +376,6 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
-	It("Should rename the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
-	})
-})
-
-var _ = Describe("SetEnd", func() {
-	end := telem.TimeStamp(9 * telem.Second)
-	It("Should set the end of the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		))
-		Expect(retrieveRange(ctx, r.Key).TimeRange.End).To(Equal(end))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).TimeRange).To(Equal(r.TimeRange))
-	})
-})
-
 var _ = Describe("Create", func() {
 	It(
 		"Should stamp the dispatch key onto the create broadcast",
@@ -442,9 +415,7 @@ var _ = Describe("Create", func() {
 		Expect(rangeExists(ctx, r.Key)).To(BeFalse())
 	})
 
-	It("Should refuse to overwrite a range without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a range whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeRange,
@@ -454,7 +425,10 @@ var _ = Describe("Create", func() {
 		overwrite.Name = "Overwritten"
 		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
 			Ranges: []ranger.Range{overwrite},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("range %s already exists", stored.Key)),
+		))
 		Expect(retrieveRange(ctx, stored.Key).Name).To(Equal("Hot fire"))
 	})
 
@@ -656,77 +630,6 @@ var _ = Describe("Delete cascades", func() {
 			},
 		}
 	}
-	createAlias := func(ctx SpecContext) held {
-		GinkgoHelper()
-		ch := channel.Channel{
-			Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
-			DataType: telem.Float64T,
-			Virtual:  true,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
-		})).To(Succeed())
-		return held{
-			id: alias.ResourceID(r.Key, ch.Key()),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				_, err := svc.Alias.NewReader(db).Resolve(ctx, r.Key, "alias")
-				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
-				return err == nil
-			},
-		}
-	}
-	createLinePlot := func(ctx SpecContext) held {
-		GinkgoHelper()
-		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Range: &r.Key})
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
-		})).To(Succeed())
-		return held{
-			id: lineplot.ResourceID(lp.Key),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				return MustSucceed(svc.LinePlot.NewRetrieve().
-					Where(lineplot.MatchKeys(lp.Key)).
-					Exists(ctx, db))
-			},
-		}
-	}
-	createSnapshot := func(ctx SpecContext) held {
-		GinkgoHelper()
-		t := task.Task{
-			Type:     pagerduty.AlertTaskType,
-			Rack:     svc.Rack.EmbeddedKey,
-			Name:     "Snapshot",
-			Snapshot: true,
-			Range:    &r.Key,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Task.NewWriter(tx).Create(ctx, &t)
-		})).To(Succeed())
-		grant(
-			ctx,
-			access.ActionUpdate,
-			u.ResourceID(),
-			t.ResourceID(),
-			svc.Rack.EmbeddedKey.ResourceID(),
-		)
-		grant(ctx, access.ActionDelete, u.ResourceID(), resource.ID{
-			Type: resource.TypeStatus,
-		})
-		return held{
-			id: t.ResourceID(),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				return MustSucceed(svc.Task.NewRetrieve().
-					Where(task.MatchKeys(t.Key)).
-					Exists(ctx, db))
-			},
-		}
-	}
 	DescribeTable(
 		"Should need delete on each record that the range holds",
 		func(ctx SpecContext, create func(ctx SpecContext) held) {
@@ -743,9 +646,6 @@ var _ = Describe("Delete cascades", func() {
 			Expect(h.exists(ctx)).To(BeFalse())
 		},
 		Entry("a nested range", createChild),
-		Entry("an alias", createAlias),
-		Entry("a line plot", createLinePlot),
-		Entry("a snapshot task", createSnapshot),
 	)
 })
 
@@ -820,14 +720,16 @@ var _ = Describe("Retrieve", func() {
 			byName []ranger.Key
 			// byStart holds the children from the latest start to the earliest.
 			byStart []ranger.Key
+			// byEnd holds the children from the earliest end to the latest.
+			byEnd []ranger.Key
 		)
 		BeforeEach(func(ctx SpecContext) {
 			parent = createRange(ctx)
-			child := func(name string, start telem.TimeStamp) ranger.Key {
+			child := func(name string, start, end telem.TimeStamp) ranger.Key {
 				GinkgoHelper()
 				r := ranger.Range{
 					Name:      name,
-					TimeRange: telem.TimeRange{Start: start, End: start + 1},
+					TimeRange: telem.TimeRange{Start: start, End: end},
 					Parent:    &parent.Key,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -835,10 +737,10 @@ var _ = Describe("Retrieve", func() {
 				})).To(Succeed())
 				return r.Key
 			}
-			beta := child("beta", 30)
-			upper := child("Alpha", 10)
-			gamma := child("Gamma", 20)
-			lower := child("alpha", 40)
+			beta := child("beta", 30, 35)
+			upper := child("Alpha", 10, 50)
+			gamma := child("Gamma", 20, 25)
+			lower := child("alpha", 40, 41)
 			tie := []ranger.Key{upper, lower}
 			// Gorp orders equal names by the trailing bytes of the key.
 			slices.SortFunc(tie, func(a, b ranger.Key) int {
@@ -848,6 +750,7 @@ var _ = Describe("Retrieve", func() {
 			})
 			byName = append(tie, beta, gamma)
 			byStart = []ranger.Key{lower, beta, gamma, upper}
+			byEnd = []ranger.Key{gamma, beta, lower, upper}
 		})
 		page := func(
 			ctx context.Context,
@@ -875,6 +778,7 @@ var _ = Describe("Retrieve", func() {
 					Key:            last.Key,
 					Name:           &last.Name,
 					TimeRangeStart: &last.TimeRange.Start,
+					TimeRangeEnd:   &last.TimeRange.End,
 				}
 			}
 		}
@@ -899,6 +803,11 @@ var _ = Describe("Retrieve", func() {
 				Descending: true,
 			}
 			Expect(page(authed(ctx), order, 2)).To(Equal(byStart))
+		})
+
+		It("Should page ranges by end time", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldTimeRangeEnd}
+			Expect(page(authed(ctx), order, 3)).To(Equal(byEnd))
 		})
 
 		It("Should page ranges by key with no order", func(ctx SpecContext) {
@@ -930,6 +839,15 @@ var _ = Describe("Retrieve", func() {
 					After: &apiranger.Cursor{Key: uuid.New()},
 				},
 				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that resumes an order by end time without the end time",
+				apiranger.RetrieveRequest{
+					Order: &apiranger.Order{Field: apiranger.OrderFieldTimeRangeEnd},
+					After: &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after.time_range_end: is required to resume an order by "+
+					"time_range_end: validation error",
 			),
 			Entry(
 				"that sorts a search",

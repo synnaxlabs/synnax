@@ -129,6 +129,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
   let modified = false;
   let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
@@ -182,7 +183,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);

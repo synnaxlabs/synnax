@@ -97,23 +97,36 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
-		DescribeTable(
-			"Should reject a line plot that does not have exactly one owner",
-			func(ctx SpecContext, owned func() (*project.Key, *ranger.Key)) {
-				tx := DeferClose(db.OpenTx())
-				plot := defaults.Fill(lineplot.LinePlot{Name: "owner"})
-				plot.Project, plot.Range = owned()
-				Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(MatchError(
-					ContainSubstring(
-						"project: must belong to exactly one of a project and a range",
-					),
-				))
-			},
-			Entry("no owner", func() (*project.Key, *ranger.Key) { return nil, nil }),
-			Entry("both owners", func() (*project.Key, *ranger.Key) {
-				return &proj.Key, new(uuid.New())
-			}),
-		)
+		It("Should refuse a line plot whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := defaults.Fill(
+				lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := defaults.Fill(lineplot.LinePlot{
+				Key:      stored.Key,
+				Project:  &proj.Key,
+				Name:     "refused",
+				Channels: lineplot.Channels{Y1: []channel.Key{ch5}},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("lineplot %s already exists", stored.Key)),
+			))
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
+		It("Should reject a line plot with no project", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			plot := defaults.Fill(lineplot.LinePlot{Name: "owner"})
+			Expect(svc.NewWriter(tx).Create(ctx, &plot)).To(MatchError(
+				ContainSubstring("project: must belong to a project"),
+			))
+		})
 		It(
 			"Should populate lines from channel and range bindings supplied at creation",
 			func(ctx SpecContext) {
@@ -328,14 +341,15 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
-	Describe("SetProject", func() {
-		It("Should move the line plots into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the line plot into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "moved"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res lineplot.LinePlot
 			Expect(svc.NewRetrieve().
 				Where(lineplot.MatchKeys(v.Key)).
@@ -348,8 +362,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			v := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "stuck"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
@@ -805,7 +819,7 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
 						Key:   lk(plot.Key, ch10, ch5),
-						Color: new(MustSucceed(color.FromHex("#ff0000"))),
+						Color: new(MustSucceed(color.Parse("#ff0000"))),
 					})
 					Expect(
 						dispatch(ctx, plot.Key, "d1", []lineplot.Action{keep}),
@@ -832,7 +846,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines).To(HaveLen(1))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+					).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 				},
 			)
 
@@ -1193,7 +1207,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetLineColorAction(
 								lineplot.SetLineColorPayload{
 									Key:   key,
-									Color: new(MustSucceed(color.FromHex("#ff0000"))),
+									Color: new(MustSucceed(color.Parse("#ff0000"))),
 								},
 							),
 							lineplot.NewSetLineAggregationAction(
@@ -1224,7 +1238,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailLow))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+					).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
 
 					Expect(
 						dispatch(ctx, plot.Key, "d2", []lineplot.Action{
@@ -1285,7 +1299,7 @@ var _ = Describe("Writer", func() {
 									Aggregation: lineplot.AggregationAverage,
 									Detail:      lineplot.DetailHigh,
 									Color: new(
-										MustSucceed(color.FromHex("#0000ff")),
+										MustSucceed(color.Parse("#0000ff")),
 									),
 								}},
 							),
@@ -1306,7 +1320,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailHigh))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(MustSucceed(color.FromHex("#0000ff")))))
+					).To(Equal(new(MustSucceed(color.Parse("#0000ff")))))
 				},
 			)
 
@@ -1320,7 +1334,7 @@ var _ = Describe("Writer", func() {
 				rule := lineplot.Rule{
 					Key:       rk1,
 					Label:     "ceiling",
-					Color:     new(MustSucceed(color.FromHex("#888888"))),
+					Color:     new(MustSucceed(color.Parse("#888888"))),
 					Axis:      lineplot.AxisKeyY1,
 					LineWidth: 1,
 					LineDash:  4,

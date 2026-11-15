@@ -49,7 +49,9 @@ class ArcClient(ResourceClient):
         """
         self._show_arc_panel()
 
-        add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
+        add_btn = self.layout.page.locator(
+            f"{self.TOOLBAR_CLASS} button:has(.lyra-icon--add)"
+        )
         add_btn.click()
 
         name_input = self.layout.page.locator("input[placeholder='Arc name']")

@@ -176,8 +176,7 @@ class ArcCase(SimDaqCase, TestCase):
         )
         path = name
         if parent is not None:
-            directories = self.client.arcs.directories
-            directories.move(directories.root(), parent.key, module.resource_id)
+            self.client.arcs.directories.move(parent.key, module.resource_id)
             path = f"{parent.path}.{name}"
         self._modules.append(ModuleHandle(path=path, arc_key=module.key))
         return path
@@ -191,24 +190,12 @@ class ArcCase(SimDaqCase, TestCase):
     def overwrite_module(self, path: str, source: str) -> None:
         """Replace the text of the module at path, which load_module created."""
         self.log(f"Overwriting Arc module: {path}")
-        self.client.arcs.create(
-            sy.arc.Module(
-                key=self._module(path).arc_key,
-                name=path.rsplit(".", 1)[-1],
-                source=sy.arc.TextSource(text=sy.Text(raw=source)),
-            )
-        )
+        self.client.arcs.set_text(self._module(path).arc_key, source)
 
     def overwrite_automation(self, name: str, source: str) -> None:
         """Replace the text of the automation named name, which load_arc created."""
         self.log(f"Overwriting Arc: {name}")
-        self.client.arcs.create(
-            sy.arc.Automation(
-                key=self._arc(name).arc_key,
-                name=name,
-                source=sy.arc.TextSource(text=sy.Text(raw=source)),
-            )
-        )
+        self.client.arcs.set_text(self._arc(name).arc_key, source)
 
     def wait_for_module_status(
         self, path: str, variant: Variant, timeout: sy.CrudeTimeSpan

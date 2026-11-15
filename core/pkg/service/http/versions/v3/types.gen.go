@@ -135,6 +135,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.GreaterThanEq("rate", r.Rate, 0)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
 	}

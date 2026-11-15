@@ -30,7 +30,9 @@ func (cv *Config) Patch(c patch.Cursor) error {
 	case "hash":
 		return patch.Value(&cv.Hash, c.Next())
 	case "performance":
-		return patch.Value(&cv.Performance, c.Next())
+		return patch.Defaulted(&cv.Performance, c.Next(), func(def *Config) {
+			cv.Performance = def.Performance
+		})
 	default:
 		return c.UnknownField()
 	}

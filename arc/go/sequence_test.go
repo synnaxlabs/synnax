@@ -6815,6 +6815,26 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
+		It("Writes an integer literal through an alias", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 201},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    sink := out_a
+				    1 -> sink
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 201)).To(Equal(uint8(1)))
+		})
+
 		It("Redirects writes through an alias across a rebind", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},

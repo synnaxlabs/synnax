@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createLabel(ctx SpecContext) label.Label {
@@ -180,9 +181,7 @@ var _ = Describe("Create", func() {
 		Expect(labelExists(ctx, l.Key)).To(BeFalse())
 	})
 
-	It("Should refuse to overwrite a label without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a label whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeLabel,
@@ -190,7 +189,10 @@ var _ = Describe("Create", func() {
 		stored := createLabel(ctx)
 		Expect(create(AuthedCtx(ctx, u), apilabel.CreateRequest{
 			Labels: []label.Label{{Key: stored.Key, Name: "Overwritten"}},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("label %s already exists", stored.Key)),
+		))
 		Expect(retrieveLabel(ctx, stored.Key).Name).To(Equal("Nominal"))
 	})
 })

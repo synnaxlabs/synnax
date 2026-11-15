@@ -42,11 +42,8 @@ export const createUseRename = <K extends record.Key>({
       beforeUpdate: async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
         const { data } = query;
         const { key, name: oldName } = data;
-        // The row may display a derived value (a channel alias); the edit always
-        // targets the resource's real name.
         const [name, renamed] = await Text.asyncEdit(
           List.itemNameID(resource.idToString(resourceID(key))),
-          { initialValue: oldName },
         );
         if (!renamed) return false;
         if (beforeUpdate != null)

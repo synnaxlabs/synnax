@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -268,6 +269,14 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u ReadChannel) Base() BaseReadChannel {
 	switch variant := u.Variant.(type) {
@@ -454,6 +463,14 @@ func (u *WriteChannel) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
 	switch variant := u.Variant.(type) {
@@ -520,6 +537,17 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
 	task.WriteConfig
@@ -532,6 +560,16 @@ func (w *WriteConfig) ApplyDefaults() {
 	for i := range w.Channels {
 		w.Channels[i].ApplyDefaults()
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // ScanConfig configures a Modbus scan task.
@@ -566,4 +604,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

@@ -30,12 +30,12 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return InferLogicalOr(ctx.Child(logicalOr))
+		return inferLogicalOr(ctx.Child(logicalOr))
 	}
 	return types.Type{}
 }
 
-func InferLogicalOr(
+func inferLogicalOr(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
 ) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
@@ -258,7 +258,7 @@ func InferMultiplicative(
 	return resultType
 }
 
-func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
+func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		baseType := InferPostfix(ctx.Child(postfix))
 
@@ -287,7 +287,7 @@ func InferFromUnaryExpression(
 		).UnwrapChan()
 	}
 	if power := ctx.AST.PowerExpression(); power != nil {
-		return InferPower(ctx.Child(power))
+		return inferPower(ctx.Child(power))
 	}
 	return types.Type{}
 }
@@ -295,31 +295,28 @@ func InferFromUnaryExpression(
 func InferPostfix(
 	ctx context.Context[parser.IPostfixExpressionContext],
 ) types.Type {
-	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		primaryType := inferPrimaryType(ctx.Child(primary))
-
-		// Handle function call suffixes - return the function's return type
-		funcCalls := ctx.AST.AllFunctionCallSuffix()
-		if len(funcCalls) > 0 && primaryType.Kind == types.KindFunction {
-			// Get the return type of the function
-			if len(primaryType.Outputs) > 0 {
-				return primaryType.Outputs[0].Type
-			}
-			// Function with no return type
-			return types.Type{}
-		}
-
-		// Handle index/slice operations - return the element type for series
-		indexOps := ctx.AST.AllIndexOrSlice()
-		if len(indexOps) > 0 && primaryType.Kind == types.KindSeries {
-			if primaryType.Elem != nil {
-				return *primaryType.Elem
-			}
-		}
-
-		return primaryType
+	primary := ctx.AST.PrimaryExpression()
+	if primary == nil {
+		return types.Type{}
 	}
-	return types.Type{}
+	t := inferPrimaryType(ctx.Child(primary))
+	for _, op := range ctx.AST.GetChildren()[1:] {
+		switch op := op.(type) {
+		case parser.IFunctionCallSuffixContext:
+			if t.Kind != types.KindFunction {
+				continue
+			}
+			if len(t.Outputs) == 0 {
+				return types.Type{}
+			}
+			t = t.Outputs[0].Type
+		case parser.IIndexOrSliceContext:
+			if op.COLON() == nil && t.Kind == types.KindSeries && t.Elem != nil {
+				t = *t.Elem
+			}
+		}
+	}
+	return t
 }
 
 func inferPrimaryType(

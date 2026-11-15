@@ -15,7 +15,6 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "client/cpp/resource/id.h"
@@ -32,12 +31,13 @@
 
 namespace synnax::rack {
 
+struct StatusDetails;
 struct Where;
 struct Cursor;
-struct Rack;
 struct Order;
-struct RetrieveResponse;
+struct Rack;
 struct RetrieveRequest;
+struct RetrieveResponse;
 
 constexpr const char *ORDER_FIELD_NAME = "name";
 
@@ -46,7 +46,20 @@ constexpr const char *ORDER_FIELD_NAME = "name";
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-using Status = ::synnax::status::Status<std::monostate>;
+/// @brief StatusDetails contains rack-specific status details.
+struct StatusDetails {
+    /// @brief running is true when the status comes from a running Driver.
+    bool running = false;
+
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::rack::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::rack::pb::StatusDetails &pb);
+};
 
 /// @brief Where is a filter that selects racks.
 struct Where {
@@ -117,6 +130,24 @@ struct Cursor {
     from_proto(const ::api::rack::pb::Cursor &pb);
 };
 
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Order is a sort of racks.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::Order;
+    [[nodiscard]] std::pair<::api::rack::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::rack::pb::Order &pb);
+};
+
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific Core. Racks are the integration point between the Core and physical
 /// hardware through the Driver.
@@ -147,37 +178,6 @@ struct Rack {
     static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
     task::Client tasks;
-};
-
-/// @brief Order is a sort of racks.
-struct Order {
-    /// @brief field is the field to sort by. Records with equal values sort by key.
-    std::string field;
-    /// @brief descending sorts from the greatest value to the least.
-    bool descending = false;
-
-    static Order parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::rack::pb::Order;
-    [[nodiscard]] std::pair<::api::rack::pb::Order, x::errors::Error> to_proto() const;
-    static std::pair<Order, x::errors::Error>
-    from_proto(const ::api::rack::pb::Order &pb);
-};
-
-/// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief racks are the racks the request selects.
-    std::vector<Rack> racks;
-
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::rack::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
@@ -229,6 +229,21 @@ struct RetrieveRequest {
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::rack::pb::RetrieveRequest &pb);
+};
+
+/// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief racks are the racks the request selects.
+    std::vector<Rack> racks;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");

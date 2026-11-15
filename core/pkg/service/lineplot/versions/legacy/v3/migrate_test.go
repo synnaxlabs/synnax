@@ -17,7 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )

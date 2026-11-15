@@ -72,7 +72,10 @@ var _ = Describe("Writer", func() {
 			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Role: member}))
 			Expect(w.Create(ctx, user.User{Key: u.Key, Name: "b", Role: member})).
 				Error().
-				To(MatchError(validate.ErrValidation))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("user %s already exists", u.Key)),
+				))
 		})
 		It("Should allow two users with the same name", func(ctx SpecContext) {
 			a := MustSucceed(w.Create(ctx, user.User{Name: "Twin", Role: member}))

@@ -88,7 +88,7 @@ func isRangeCallExpr(
 		return nil, false
 	}
 	calls := postfix.AllFunctionCallSuffix()
-	if len(calls) != 1 {
+	if len(calls) != 1 || len(postfix.AllIndexOrSlice()) > 0 {
 		return nil, false
 	}
 	return calls[0], true
@@ -216,6 +216,19 @@ func compileForRange(
 
 	// end block $continue
 	ctx.Writer.WriteEnd()
+
+	if stepExpr != nil {
+		if err = emitStepReachesLimit(
+			ctx.Writer,
+			loopVarType,
+			loopVarIdx,
+			limitIdx,
+			stepIdx,
+		); err != nil {
+			return err
+		}
+		ctx.Writer.WriteBrIf(1)
+	}
 
 	ctx.Writer.WriteLocalGet(loopVarIdx)
 	if stepExpr != nil {
@@ -463,6 +476,48 @@ func compileContinueStatement(
 	}
 	label := uint32(ctx.BlockDepth() - entry.ContinueDepth)
 	ctx.Writer.WriteBr(label)
+	return nil
+}
+
+// emitStepReachesLimit emits a bool that is true when one more step takes the loop
+// variable to the limit or past it. The loop ends there, so the variable cannot wrap
+// past the bound of t. The distance to the limit is compared unsigned, so it holds
+// across the full range of a signed type.
+func emitStepReachesLimit(
+	w *wasm.Writer,
+	t types.Type,
+	loopVarIdx, limitIdx, stepIdx int,
+) error {
+	lessOrEqual := wasm.OpI32LeU
+	if wasm.ConvertType(t) == wasm.I64 {
+		lessOrEqual = wasm.OpI64LeU
+	}
+	w.WriteLocalGet(stepIdx)
+	emitZero(w, t)
+	if err := w.WriteBinaryOpInferred(">", t); err != nil {
+		return err
+	}
+	w.WriteIf(wasm.BlockTypeI32)
+	w.WriteLocalGet(limitIdx)
+	w.WriteLocalGet(loopVarIdx)
+	if err := w.WriteBinaryOpInferred("-", t); err != nil {
+		return err
+	}
+	w.WriteLocalGet(stepIdx)
+	w.WriteOpcode(lessOrEqual)
+	w.WriteElse()
+	w.WriteLocalGet(loopVarIdx)
+	w.WriteLocalGet(limitIdx)
+	if err := w.WriteBinaryOpInferred("-", t); err != nil {
+		return err
+	}
+	emitZero(w, t)
+	w.WriteLocalGet(stepIdx)
+	if err := w.WriteBinaryOpInferred("-", t); err != nil {
+		return err
+	}
+	w.WriteOpcode(lessOrEqual)
+	w.WriteEnd()
 	return nil
 }
 

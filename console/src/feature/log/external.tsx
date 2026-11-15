@@ -37,11 +37,10 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.logs.watch(resource.key).getCached());
-    // A restored record comes back in the project, as its range or group may be gone.
+    // A restored record comes back in the project, as its group may be gone.
     await client.logs.create({
       ...corpse,
       project,
-      range: undefined,
       group: undefined,
     });
   },

@@ -358,7 +358,7 @@ var _ = Describe("Channel", Ordered, func() {
 						MustSucceed(meta.Read(buf))
 						Expect(meta.Close()).To(Succeed())
 
-						Expect(json.Codec.Decode(ctx, buf, &newCh)).To(Succeed())
+						Expect(json.Codec.Decode(buf, &newCh)).To(Succeed())
 						Expect(newCh.Name).To(Equal("laplace"))
 					},
 				)

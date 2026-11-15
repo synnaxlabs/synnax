@@ -17,8 +17,8 @@ export const integrations = ["modbus"];
 
 /**
  * Docs `reference/enterprise/driver/install` (Log in a Driver with an API key): in the
- * devices toolbar, right-click the rack, select Manage credentials, and create a key
- * for the Driver.
+ * devices toolbar, right-click the rack, select Manage sign-in, and create a key for
+ * the Driver.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;

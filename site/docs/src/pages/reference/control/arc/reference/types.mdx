@@ -177,12 +177,15 @@ func peak() f64 {
   `e series f64 := []`.
 - Put a series literal in a variable before you use it in an operation.
   `data + [1.0, 2.0]` fails with `series literal requires series type hint`.
-- Give a slice its type: `sub series f64 := data[1:3]`. Without the type, Arc reads the
-  slice as one element.
-- An index outside the series gives `0` on the Core and an error on a Driver. See
+- A slice is a series. `sub := data[1:3]` gives `series f64`, and `x f64 := data[1:3]`
+  fails with `cannot assign series f64 to 'x' (type f64)`.
+- A slice is a copy. A write to `sub` does not change `data`.
+- A negative slice bound counts from the end, so `data[0:-1]` drops the last element. A
+  bound outside the series stops at the nearer end.
+- A negative index counts from the end. An index outside the series is an error. See
   [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
-- A top-level series is not a constant. A flow or function that reads one fails with
-  `cannot read 'data': its initializer is not a compile-time constant`.
+- A top-level series is not a constant. Its declaration fails with
+  `variable 'data' of type series f64 cannot have a computed initializer`.
 
 <Divider.Divider x />
 

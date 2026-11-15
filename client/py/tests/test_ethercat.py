@@ -140,6 +140,39 @@ class TestEtherCATReadTask:
         )
         assert task.config.channels[0].key != ""
 
+    def test_read_task_startup_parameters(self) -> None:
+        """Should send the startup parameters of each slave in the task config."""
+        task = sy.ethercat.ReadTask(
+            name="test",
+            startup_parameters=[
+                sy.ethercat.SlaveStartupParameters(
+                    device="slave-key",
+                    parameters=[
+                        sy.ethercat.StartupParameter(
+                            index=0x8040,
+                            sub_index=3,
+                            data_type=sy.DataType.UINT16,
+                            value=2,
+                        )
+                    ],
+                )
+            ],
+        )
+        assert task.config.model_dump(mode="json")["startup_parameters"] == [
+            {
+                "device": "slave-key",
+                "parameters": [
+                    {
+                        "index": 0x8040,
+                        "sub_index": 3,
+                        "data_type": "uint16",
+                        "value": 2,
+                        "name": "",
+                    }
+                ],
+            }
+        ]
+
     def test_entry_channel_scale_defaults_to_none(self) -> None:
         """Should leave an entry channel unscaled unless a scale is given."""
         ch = sy.ethercat.EntryReadChannel(

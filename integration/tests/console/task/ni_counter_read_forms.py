@@ -26,8 +26,9 @@ class NICounterReadForms(NIRackCase):
     def run(self) -> None:
         """Test channel type form inputs with random subset selection."""
         console = self.console
-        rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = "CI_E103"
+        suffix = random.randint(100, 999)
+        rack_name = f"TestRack_{suffix}"
+        device_name = f"CI_E103_{suffix}"
 
         self.log("Creating NI Counter Read Task")
         ni_ci = console.pages.create(CounterRead, "CI_Test_task")

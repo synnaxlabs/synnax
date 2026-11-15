@@ -12,7 +12,6 @@ package device
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -62,26 +61,17 @@ func resolveStatus(d *Device, provided *Status) *Status {
 	return &stat
 }
 
-// writeStatus sets d.Status to the status that d now has in the DB. A provided status
-// replaces the stored row only if overwritable is true. The default status is written
-// only if no row exists, because a stored row may be a live status from the Driver.
-func (w Writer) writeStatus(
-	ctx context.Context,
-	d *Device,
-	provided *Status,
-	overwritable bool,
-) error {
-	if provided != nil && overwritable {
-		d.Status = resolveStatus(d, provided)
-		return w.status.Set(ctx, d.Status)
-	}
+// writeStatus sets d.Status to the status that d now has in the DB. The stored status
+// takes the name and rack of d. It writes the default status only when d has no stored
+// status, because the Driver may have stored a live one.
+func (w Writer) writeStatus(ctx context.Context, d *Device) error {
 	var stored Status
 	err := w.statuses.NewRetrieve[StatusDetails]().
 		Where(status.MatchOwners[StatusDetails](d.ResourceID())).
 		Entry(&stored).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
-		d.Status = resolveStatus(d, provided)
+		d.Status = resolveStatus(d, nil)
 		return w.status.Set(ctx, d.Status)
 	}
 	if err != nil {
@@ -94,50 +84,29 @@ func (w Writer) writeStatus(
 	return w.status.Set(ctx, d.Status)
 }
 
-// Create creates or updates the given device and attaches a create action that holds
-// it. Create writes the parent as sent, so an update must carry the current parent. A
-// new device with a parent cannot sit in a group. An existing device keeps its group
-// unless it moves to another rack or has a parent. A status provided on the device
-// replaces the stored status if the device is new, renamed, or moved to another rack or
-// parent. With no provided status, the stored status stays, and only a device with no
-// stored status gets the default "unknown" status. Create sets device.Status to the
-// resulting status.
+// Create creates the given device and attaches a create action that holds it. A device
+// with a parent cannot sit in a group. Create stores the status provided on the device,
+// or the default "unknown" status when none is provided, and sets device.Status to it.
+// Create returns an error wrapping validate.ErrValidation when a device with the key
+// exists.
 func (w Writer) Create(ctx context.Context, device *Device) error {
 	if err := device.Validate(); err != nil {
 		return err
 	}
 	providedStatus := device.Status
 	device.Status = nil // Status stored separately, not in gorp
-	var existing Device
-	err := w.table.
-		NewRetrieve().
-		Where(gorp.MatchKeys[Key, Device](device.Key)).
-		Entry(&existing).
-		Exec(ctx, w.tx)
-	if errors.Skip(err, query.ErrNotFound) != nil {
+	if err := w.checkGroup(ctx, device.Group, *device); err != nil {
 		return err
 	}
-	exists := err == nil
-	if exists {
-		device.Group = existing.Group
-		if device.Rack != existing.Rack || device.Parent != nil {
-			device.Group = nil
-		}
-	}
-	if err = w.checkGroup(ctx, device.Group, *device); err != nil {
-		return err
-	}
-	if err = w.table.
+	if err := w.table.
 		NewCreate().
+		Exclusive().
 		Entry(device).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	unmoved := exists &&
-		device.Rack == existing.Rack &&
-		lo.FromPtr(device.Parent) == lo.FromPtr(existing.Parent)
-	overwritable := !unmoved || device.Name != existing.Name
-	if err = w.writeStatus(ctx, device, providedStatus, overwritable); err != nil {
+	device.Status = resolveStatus(device, providedStatus)
+	if err := w.status.Set(ctx, device.Status); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -148,8 +117,8 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	return nil
 }
 
-// CreateMany creates or updates the given devices. If devices with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given devices. It returns an error wrapping
+// validate.ErrValidation when a device with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	for i := range *devices {
 		if err := w.Create(ctx, &(*devices)[i]); err != nil {
@@ -218,7 +187,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		return err
 	}
 	if next.Name != prev.Name || next.Rack != prev.Rack {
-		if err = w.writeStatus(ctx, &next, nil, false); err != nil {
+		if err = w.writeStatus(ctx, &next); err != nil {
 			return err
 		}
 	}

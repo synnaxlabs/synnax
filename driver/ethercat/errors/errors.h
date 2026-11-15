@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cctype>
 #include <cstdint>
 #include <string>
 
@@ -25,6 +26,9 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 /// @brief error returned when a network interface has no EtherCAT slaves.
 const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found");
+/// @brief error returned when no slave answers because a filter on the adapter blocks
+/// the replies. The user can remove the filter.
+const x::errors::Error REPLIES_BLOCKED = NO_SLAVES_FOUND.sub("replies_blocked");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when the Driver lacks permission to open the network
@@ -34,10 +38,21 @@ const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denie
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
 const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
+/// @brief error returned when the process image does not hold a PDO entry.
+const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
+/// @brief error returned when a slave aborts a startup parameter write because of the
+/// object or its value. The same value gets the same abort, so retrying does not help.
+/// A write with no response or a temporary abort is a plain STARTUP_PARAMETER_ERROR.
+const x::errors::Error STARTUP_PARAMETER_REJECTED = STARTUP_PARAMETER_ERROR.sub(
+    "rejected"
+);
+/// @brief error returned when two open tasks set one object of a slave to different
+/// values.
+const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when the working counter does not match expected value.
@@ -63,4 +78,49 @@ const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 
 /// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
 std::string sdo_abort_reason(uint32_t code);
+
+/// @brief why a slave did not complete an SDO transfer.
+struct SDOFailure {
+    /// @brief how the transfer failed.
+    enum class Kind : uint8_t {
+        /// @brief no reply came back.
+        NO_REPLY,
+        /// @brief the slave aborted the transfer with abort_code.
+        ABORTED,
+        /// @brief the reply was not the SDO response to the request.
+        UNEXPECTED_REPLY,
+        /// @brief the reply held more data than the request had room for.
+        REPLY_TOO_LARGE,
+        /// @brief the slave refused the mailbox request with a mailbox error.
+        MAILBOX_ERROR,
+    };
+
+    /// @brief how the transfer failed.
+    Kind kind = Kind::NO_REPLY;
+    /// @brief the abort code of an ABORTED transfer.
+    uint32_t abort_code = 0;
+
+    /// @brief returns why the transfer failed, such as "no response".
+    [[nodiscard]] std::string reason() const;
+
+    /// @brief whether the transfer failed for a reason that a retry does not change: an
+    /// abort about the object, a reply larger than the read, or a mailbox error.
+    [[nodiscard]] bool permanent() const;
+
+    bool operator==(const SDOFailure &) const = default;
+};
+
+/// @brief returns STARTUP_PARAMETER_REJECTED when the abort code depends on the object
+/// or its value, and STARTUP_PARAMETER_ERROR for no response (0) or an abort that can
+/// pass, such as a timeout or a device that is still starting.
+const x::errors::Error &startup_parameter_error(uint32_t code);
+
+/// @brief returns error text as a sentence: the first letter in upper case and a period
+/// at the end.
+inline std::string sentence(std::string text) {
+    if (text.empty()) return text;
+    text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+    if (!text.ends_with('.')) text += '.';
+    return text;
+}
 }

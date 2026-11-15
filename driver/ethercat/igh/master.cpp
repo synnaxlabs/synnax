@@ -21,6 +21,7 @@
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -31,31 +32,36 @@ constexpr auto SYSFS_PATH = "/sys/class/EtherCAT";
 /// @brief the device of the first IgH master.
 constexpr auto DEVICE_PATH = "/dev/EtherCAT0";
 
+/// @brief returns a read of the object dictionary of the slave at position.
+coe::Read sdo_reader(const API &api, ec_master_t *master, const uint16_t position) {
+    return [&api, master, position](const uint16_t index, const uint8_t sub_index)
+               -> std::pair<uint32_t, x::errors::Error> {
+        std::array<uint8_t, 4> data{};
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (api.master_sdo_upload(
+                master,
+                position,
+                index,
+                sub_index,
+                data.data(),
+                data.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return {0, coe::read_error(index, sub_index, abort_code)};
+        uint32_t value = 0;
+        for (size_t i = 0; i < size; i++)
+            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        return {value, x::errors::NIL};
+    };
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
     return coe::read_layout(
-        [&](const uint16_t index,
-            const uint8_t sub_index) -> std::pair<uint32_t, x::errors::Error> {
-            std::array<uint8_t, 4> data{};
-            size_t size = 0;
-            uint32_t abort_code = 0;
-            if (api.master_sdo_upload(
-                    master,
-                    position,
-                    index,
-                    sub_index,
-                    data.data(),
-                    data.size(),
-                    &size,
-                    &abort_code
-                ) < 0)
-                return {0, coe::read_error(index, sub_index, abort_code)};
-            uint32_t value = 0;
-            for (size_t i = 0; i < size; i++)
-                value |= static_cast<uint32_t>(data[i]) << (8 * i);
-            return {value, x::errors::NIL};
-        },
+        sdo_reader(api, master, position),
         EC_MAX_SYNC_MANAGERS,
         coe::OnError::FAIL
     );
@@ -190,6 +196,15 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
+        auto [settings, settings_err] = esi::read_settings(
+            slave_info.vendor_id,
+            slave_info.product_code,
+            slave_info.revision_number,
+            result.properties.op_modes,
+            sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
+        );
+        result.status.settings_error = settings_err.data;
+        result.properties.settings = std::move(settings);
         this->cached_slaves.push_back(std::move(result));
     }
 
@@ -204,16 +219,122 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-std::pair<size_t, x::errors::Error> Master::count_slaves() {
+std::pair<master::Change, x::errors::Error> Master::changed() {
     if (!this->initialized)
-        return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {{}, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
     ec_master_info_t info;
     if (this->api->master(this->ec_master, &info) < 0)
         return {
-            0,
+            {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
         };
-    return {info.slave_count, x::errors::NIL};
+    if (info.slave_count != this->cached_slaves.size())
+        return {master::Change{.stale = true}, x::errors::NIL};
+    // IgH scans the bus again by itself, so its slave info is current.
+    for (const auto &slave: this->cached_slaves) {
+        const auto &props = slave.properties;
+        ec_slave_info_t slave_info;
+        if (const int ret = this->api->master_get_slave(
+                this->ec_master,
+                static_cast<uint16_t>(props.position - 1),
+                &slave_info
+            );
+            ret != 0)
+            return {
+                {},
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
+                    std::format(
+                        "failed to read slave {}: {}",
+                        props.position,
+                        reason(ret)
+                    )
+                )
+            };
+        if (slave_info.vendor_id != props.vendor_id ||
+            slave_info.product_code != props.product_code ||
+            slave_info.revision_number != props.revision)
+            return {master::Change{.stale = true}, x::errors::NIL};
+    }
+    return {{}, x::errors::NIL};
+}
+
+x::errors::Error
+Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
+    const auto data = param.bytes();
+    uint32_t abort_code = 0;
+    if (this->api->master_sdo_download(
+            this->ec_master,
+            ring_position(slave.position),
+            param.index,
+            param.sub_index,
+            data.data(),
+            data.size(),
+            &abort_code
+        ) >= 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        errors::startup_parameter_error(abort_code),
+        "slave " + std::to_string(slave.position) + " (" + slave.name +
+            ") rejected startup parameter " + param.to_string() + ": " +
+            errors::sdo_abort_reason(abort_code)
+    );
+}
+
+x::errors::Error Master::write(
+    const uint16_t position,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    if (position == 0 || position > this->cached_slaves.size())
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "no slave at position " + std::to_string(position)
+        );
+    const auto &slave = this->cached_slaves[position - 1].properties;
+    if (!this->activated) {
+        for (const auto &param: parameters)
+            if (auto err = this->download(slave, param)) return err;
+        return x::errors::NIL;
+    }
+    for (const auto &param: parameters) {
+        const auto want = param.bytes();
+        std::vector<uint8_t> held(want.size());
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (this->api->master_sdo_upload(
+                this->ec_master,
+                ring_position(position),
+                param.index,
+                param.sub_index,
+                held.data(),
+                held.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return x::errors::Error(
+                errors::startup_parameter_error(abort_code),
+                "slave " + std::to_string(position) + " (" + slave.name +
+                    ") failed to read startup parameter " + param.to_string() + ": " +
+                    errors::sdo_abort_reason(abort_code)
+            );
+        if (size != want.size() || held != want)
+            return x::errors::Error(
+                errors::SETTING_CONFLICT,
+                "the IgH master cannot change " + param.to_string() + " of slave " +
+                    std::to_string(position) + " (" + slave.name +
+                    ") while other tasks run the bus. Stop them, then start this "
+                    "task first"
+            );
+    }
+    return x::errors::NIL;
+}
+
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t position, const uint16_t index, const uint8_t sub_index) {
+    return sdo_reader(*this->api, this->ec_master, ring_position(position))(
+        index,
+        sub_index
+    );
 }
 
 x::errors::Error Master::add_startup_parameters(
@@ -221,27 +342,11 @@ x::errors::Error Master::add_startup_parameters(
     ec_slave_config_t *sc,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    const auto slave_name = "slave " + std::to_string(slave.position) + " (" +
-                            slave.name + ")";
     for (const auto &param: parameters) {
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        uint32_t abort_code = 0;
-        if (this->api->master_sdo_download(
-                this->ec_master,
-                ring_position(slave.position),
-                param.index,
-                param.sub_index,
-                data.data(),
-                data.size(),
-                &abort_code
-            ) < 0)
-            return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
-                slave_name + " rejected startup parameter " + param.to_string() + ": " +
-                    errors::sdo_abort_reason(abort_code)
-            );
+        if (auto err = this->download(slave, param)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -251,8 +356,8 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to " +
-                    slave_name
+                "failed to add startup parameter " + param.to_string() + " to slave " +
+                    std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
     return x::errors::NIL;
@@ -421,9 +526,12 @@ void Master::deactivate() {
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
+    this->full_working_counter.reset();
+    this->latest_shortfall.reset();
 }
 
 x::errors::Error Master::receive() {
+    this->latest_shortfall.reset();
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
@@ -448,20 +556,28 @@ x::errors::Error Master::receive() {
     }
 
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
-    if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
-        (this->input_sz > 0 && this->input_domain_state.wc_state == EC_WC_ZERO))
+    const bool zero = (this->output_sz > 0 &&
+                       this->output_domain_state.wc_state == EC_WC_ZERO) ||
+                      (this->input_sz > 0 &&
+                       this->input_domain_state.wc_state == EC_WC_ZERO);
+    const bool incomplete = this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
+                            this->input_domain_state.wc_state == EC_WC_INCOMPLETE;
+    const uint32_t wkc = this->output_domain_state.working_counter +
+                         this->input_domain_state.working_counter;
+    if (!zero && !incomplete) {
+        this->full_working_counter = wkc;
+        return x::errors::NIL;
+    }
+    if (this->full_working_counter && wkc < *this->full_working_counter)
+        this->latest_shortfall = *this->full_working_counter - wkc;
+    if (zero)
         return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
-
-    if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
-        this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "incomplete working counter: output " +
-                std::to_string(this->output_domain_state.working_counter) + ", input " +
-                std::to_string(this->input_domain_state.working_counter)
-        );
-
-    return x::errors::NIL;
+    return x::errors::Error(
+        errors::WORKING_COUNTER_ERROR,
+        "incomplete working counter: output " +
+            std::to_string(this->output_domain_state.working_counter) + ", input " +
+            std::to_string(this->input_domain_state.working_counter)
+    );
 }
 
 x::errors::Error Master::send() {
@@ -610,6 +726,8 @@ void Master::register_pdo_entries(
     ec_slave_config_t *sc,
     master::Image &image
 ) {
+    // A slave adds 1 to the datagram of each domain that holds one of its entries.
+    master::WorkingCounterShare share;
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -642,11 +760,17 @@ void Master::register_pdo_entries(
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
+        if (domain == this->output_domain)
+            share.outputs = 1;
+        else
+            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
         add(pdo, this->output_domain);
     for (const auto &pdo: slave.input_pdos)
         add(pdo, this->input_domain);
+    if (share != master::WorkingCounterShare{})
+        image.working_counter_shares[slave.position] = share;
 }
 
 x::errors::Error

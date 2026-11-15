@@ -137,45 +137,81 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 	return t, nil
 }
 
+// stream is an open streamer of a WriteTask, which runs apart from the run context.
+type stream struct {
+	requests  confluence.Inlet[framer.StreamerRequest]
+	responses confluence.Outlet[framer.StreamerResponse]
+	sCtx      signal.Context
+	cancel    context.CancelFunc
+}
+
+// close stops the streamer and returns its error.
+func (s stream) close() error {
+	defer s.cancel()
+	s.requests.Close()
+	confluence.Drain(s.responses)
+	if err := s.sCtx.Wait(); !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
+}
+
 func (t *WriteTask) open(ctx context.Context) (func(context.Context) error, error) {
 	w, err := t.cfg.Sink.Open(ctx)
 	if err != nil {
 		return nil, err
 	}
-	streamer, err := t.cfg.Framer.NewStreamer(
-		ctx, framer.StreamerConfig{Keys: t.cfg.Channels},
-	)
+	s, err := t.openStream(ctx)
 	if err != nil {
 		return nil, errors.Combine(err, w.Close())
 	}
-	return func(ctx context.Context) error { return t.run(ctx, w, streamer) }, nil
+	return func(ctx context.Context) error { return t.run(ctx, w, s) }, nil
 }
 
-func (t *WriteTask) run(
-	ctx context.Context,
-	w Writer,
-	streamer framer.Streamer,
-) (err error) {
-	defer func() { err = errors.Combine(err, w.Close()) }()
+// openStream returns once the relay streams the channels, so the task misses no
+// command written after it reports that it started.
+func (t *WriteTask) openStream(ctx context.Context) (stream, error) {
+	streamer, err := t.cfg.Framer.NewStreamer(
+		ctx, framer.StreamerConfig{Keys: t.cfg.Channels, SendOpenAck: true},
+	)
+	if err != nil {
+		return stream{}, err
+	}
 	var (
 		requests  = confluence.NewStream[framer.StreamerRequest]()
 		responses = confluence.NewStream[framer.StreamerResponse](10)
 	)
 	streamer.InFrom(requests)
 	streamer.OutTo(responses)
-	// The streamer runs apart from ctx. Closing the requests stops it.
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.cfg.Instrumentation),
 	)
-	defer cancel()
+	s := stream{requests: requests, responses: responses, sCtx: sCtx, cancel: cancel}
 	streamer.Flow(
 		sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic(),
 	)
+	select {
+	case <-ctx.Done():
+		// The streamer ignores its requests until the relay acks, so only a cancel
+		// stops it.
+		cancel()
+		err = ctx.Err()
+	case _, ok := <-responses.Outlet():
+		if ok {
+			return s, nil
+		}
+		err = errors.New("streamer closed before it opened")
+	}
+	return stream{}, errors.Combine(err, s.close())
+}
+
+func (t *WriteTask) run(ctx context.Context, w Writer, s stream) (err error) {
+	defer func() { err = errors.Combine(err, w.Close()) }()
 	var (
 		health                = make(chan error)
 		healthCtx, stopHealth = context.WithCancel(ctx)
 	)
-	sCtx.Go(func(context.Context) error {
+	s.sCtx.Go(func(context.Context) error {
 		for {
 			hErr := w.Health(healthCtx)
 			if healthCtx.Err() != nil {
@@ -188,14 +224,9 @@ func (t *WriteTask) run(
 			}
 		}
 	}, signal.RecoverWithErrOnPanic())
-	// Closing the requests makes the streamer exit and close the responses.
 	defer func() {
 		stopHealth()
-		requests.Close()
-		confluence.Drain(responses)
-		if sErr := sCtx.Wait(); !errors.Is(sErr, context.Canceled) {
-			err = errors.Combine(err, sErr)
-		}
+		err = errors.Combine(err, s.close())
 	}()
 	// The sink's health holds until the sink reports a change: a write that succeeds
 	// says nothing about it.
@@ -204,7 +235,7 @@ func (t *WriteTask) run(
 		select {
 		case <-ctx.Done():
 			return nil
-		case res, ok := <-responses.Outlet():
+		case res, ok := <-s.responses.Outlet():
 			if !ok {
 				// A stop closes the stream too, and select may take this case first.
 				if ctx.Err() != nil {

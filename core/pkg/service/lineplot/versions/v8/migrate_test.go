@@ -296,7 +296,7 @@ var _ = Describe("MigrateLinePlot", func() {
 
 	It("Should lift a stored v6 entry through v7", func(ctx SpecContext) {
 		var stored v6.LinePlot
-		Expect(orc.Codec.Decode(ctx, loadWire("v6_released.hex"), &stored)).
+		Expect(orc.Codec.Decode(loadWire("v6_released.hex"), &stored)).
 			To(Succeed())
 		old := MustSucceed(v7.MigrateLinePlot(ctx, stored))
 		out := migrate(ctx, old)

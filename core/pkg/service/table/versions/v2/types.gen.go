@@ -187,8 +187,8 @@ func (va ValueCellConfig) Validate() error {
 	return v.Error()
 }
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig struct {
 	Variant CellConfigVariant
 }
@@ -276,16 +276,18 @@ func (u *CellConfig) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u CellConfig) Validate() error {
+	v := validate.New("CellConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case TextCellConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ValueCellConfig:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Row is a single row in a table, with height and ordered cell keys.

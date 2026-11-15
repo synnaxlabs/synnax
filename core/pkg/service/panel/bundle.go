@@ -17,20 +17,25 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// bundleBody is the envelope body for a panel bundle member.
-type bundleBody struct {
+// bundleBody is the envelope body for a panel bundle member. C is the color type of
+// the member's version.
+type bundleBody[C any] struct {
 	// Root is the panel tree with each resource reference rewritten to a bundle path.
-	Root  any          `json:"root"`
-	Icon  *string      `json:"icon,omitzero"`
-	Color *color.Color `json:"color,omitzero"`
+	Root  any     `json:"root"`
+	Icon  *string `json:"icon,omitzero"`
+	Color *C      `json:"color,omitzero"`
 }
 
 // bundleResourceTab is the bundle wire form of a resource tab: resource holds the
@@ -77,7 +82,7 @@ func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
 		Type:    string(resource.TypePanel),
 		Name:    p.Name,
 	}
-	body := bundleBody{Root: node, Icon: p.Icon, Color: p.Color}
+	body := bundleBody[color.Color]{Root: node, Icon: p.Icon, Color: p.Color}
 	if err := env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
@@ -87,8 +92,8 @@ func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
 // DecodeBundle deserializes a project-bundle member produced by EncodeBundle. Where the
 // bundle tree holds a member path, the returned tree holds the resource.ID refs maps
 // that path to; a path refs does not hold is a validation error naming it. A version
-// above versions.Latest is a path-scoped validation error. The returned panel carries
-// no key or project; the caller assigns both.
+// above versions.Latest is a path-scoped validation error. Arc explorer tabs are
+// removed. The returned panel carries no key or project; the caller assigns both.
 func DecodeBundle(
 	ctx context.Context,
 	env imex.Envelope,
@@ -99,7 +104,7 @@ func DecodeBundle(
 			string(resource.TypePanel), env.Version, versions.Latest,
 		)
 	}
-	body, err := env.Decode[bundleBody](ctx)
+	body, err := decodeBundleBody(ctx, env)
 	if err != nil {
 		return Panel{}, err
 	}
@@ -115,7 +120,33 @@ func DecodeBundle(
 	if err := json.Unmarshal(data, &root); err != nil {
 		return Panel{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
+	v3.StripArcExplorerTabs(&root)
 	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
+}
+
+// decodeBundleBody decodes the body of env. A member from before panel v5 holds a color
+// with a 0-1 alpha, which it migrates to a byte alpha.
+func decodeBundleBody(
+	ctx context.Context,
+	env imex.Envelope,
+) (bundleBody[color.Color], error) {
+	if env.Version >= v5.Version {
+		return env.Decode[bundleBody[color.Color]](ctx)
+	}
+	old, err := env.Decode[bundleBody[colorv1.Color]](ctx)
+	if err != nil {
+		return bundleBody[color.Color]{}, err
+	}
+	body := bundleBody[color.Color]{Root: old.Root, Icon: old.Icon}
+	if old.Color == nil {
+		return body, nil
+	}
+	c, err := colorv2.MigrateColor(ctx, *old.Color)
+	if err != nil {
+		return bundleBody[color.Color]{}, err
+	}
+	body.Color = &c
+	return body, nil
 }
 
 // resolveBundleNode rewrites each resource tab's bundle path to the resource.ID refs

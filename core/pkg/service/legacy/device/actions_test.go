@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,6 +25,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -130,6 +132,9 @@ var _ = Describe("Actions", func() {
 		Expect(frames[1].Actions).To(Equal([]device.Action{act}))
 	},
 		Entry("name", "name", "Valve", func(d *device.Device) { d.Name = "Valve" }),
+		Entry("model", "model", "Model 2", func(d *device.Device) {
+			d.Model = "Model 2"
+		}),
 		Entry("location", "location", "dev2", func(d *device.Device) {
 			d.Location = "dev2"
 		}),
@@ -159,6 +164,14 @@ var _ = Describe("Actions", func() {
 		Entry("rack", "rack", 7),
 		Entry("parent", "parent", "other"),
 	)
+
+	It("Should refuse an empty model", func(ctx SpecContext) {
+		Expect(write(ctx, func(w device.Writer) error {
+			return w.Apply(ctx, dev.Key, set("model", ""))
+		})).To(MatchError(ContainSubstring("model: required")))
+		Expect(retrieve(ctx).Model).To(Equal(dev.Model))
+		Expect(rec.Snapshot()).To(HaveLen(1))
+	})
 
 	It("Should reject a create", func(ctx SpecContext) {
 		Expect(write(ctx, func(w device.Writer) error {
@@ -269,6 +282,139 @@ var _ = Describe("Actions", func() {
 			Expect(moved.Group).To(BeNil())
 			frames := rec.Snapshot()
 			Expect(frames[len(frames)-1].Actions).To(Equal([]device.Action{setRack}))
+		})
+	})
+	Describe("Properties", func() {
+		at := func(path ...string) []string {
+			return append([]string{"properties", "read"}, path...)
+		}
+		setAt := func(value any, path ...string) device.Action {
+			return device.NewSetAction(
+				device.SetPayload{Path: at(path...), Value: value},
+			)
+		}
+		stored := func() msgpack.EncodedJSON {
+			return msgpack.EncodedJSON{
+				"host": "10.0.0.1",
+				"read": map[string]any{
+					"channels": map[string]any{"a": 1.0},
+					"nodes":    []any{map[string]any{"key": "n1", "port": 1.0}},
+				},
+			}
+		}
+		apply := func(ctx context.Context, acts ...device.Action) error {
+			return write(ctx, func(w device.Writer) error {
+				return w.Apply(ctx, dev.Key, acts...)
+			})
+		}
+		BeforeEach(func(ctx SpecContext) {
+			Expect(apply(ctx, set("properties", map[string]any(stored())))).
+				To(Succeed())
+		})
+
+		It("Should keep each key that the sets of one dispatch add to a map", func(
+			ctx SpecContext,
+		) {
+			Expect(apply(
+				ctx,
+				setAt(2, "channels", "b"),
+				setAt(3, "channels", "c"),
+			)).To(Succeed())
+			expected := stored()
+			expected["read"].(map[string]any)["channels"] = map[string]any{
+				"a": 1.0, "b": 2.0, "c": 3.0,
+			}
+			Expect(retrieve(ctx).Properties).To(Equal(expected))
+		})
+
+		It("Should remove a key inside the properties", func(ctx SpecContext) {
+			Expect(apply(ctx, device.NewRemoveAction(
+				device.RemovePayload{Path: at("channels"), Key: "a"},
+			))).To(Succeed())
+			expected := stored()
+			expected["read"].(map[string]any)["channels"] = map[string]any{}
+			Expect(retrieve(ctx).Properties).To(Equal(expected))
+		})
+
+		It("Should set a value inside a list entry", func(ctx SpecContext) {
+			Expect(apply(ctx, setAt(2, "nodes", "n1", "port"))).To(Succeed())
+			expected := stored()
+			expected["read"].(map[string]any)["nodes"] = []any{
+				map[string]any{"key": "n1", "port": 2.0},
+			}
+			Expect(retrieve(ctx).Properties).To(Equal(expected))
+		})
+
+		It("Should apply path actions to a copy of the properties", func() {
+			prev := device.Device{Properties: stored()}
+			next := MustSucceed(device.Reduce(
+				prev,
+				setAt(2, "channels", "b"),
+				device.NewRemoveAction(
+					device.RemovePayload{Path: at("channels"), Key: "a"},
+				),
+				device.NewInsertAction(device.InsertPayload{
+					Path:  at("nodes"),
+					Value: map[string]any{"key": "n2"},
+				}),
+				device.NewMoveAction(device.MovePayload{Path: at("nodes"), Key: "n1"}),
+			))
+			Expect(prev.Properties).To(Equal(stored()))
+			expected := stored()
+			expected["read"] = map[string]any{
+				"channels": map[string]any{"b": 2.0},
+				"nodes": []any{
+					map[string]any{"key": "n1", "port": 1.0},
+					map[string]any{"key": "n2"},
+				},
+			}
+			Expect(next.Properties).To(Equal(expected))
+		})
+
+		DescribeTable("Should apply a set only when its guard on the model holds", func(
+			ctx SpecContext,
+			model string,
+			applied bool,
+		) {
+			Expect(apply(ctx, device.NewSetAction(device.SetPayload{
+				Path:   at("channels", "b"),
+				Value:  2,
+				Guards: []patch.Guard{{Path: []string{"model"}, Value: model}},
+			}))).To(Succeed())
+			expected := stored()
+			if applied {
+				expected["read"].(map[string]any)["channels"] = map[string]any{
+					"a": 1.0, "b": 2.0,
+				}
+			}
+			Expect(retrieve(ctx).Properties).To(Equal(expected))
+		},
+			Entry("holds", "Model", true),
+			Entry("does not hold", "Other", false),
+		)
+
+		It("Should apply a set whose guard on the group holds", func() {
+			key := uuid.New()
+			next := MustSucceed(device.Reduce(
+				device.Device{Group: &key, Properties: stored()},
+				device.NewSetAction(device.SetPayload{
+					Path:  at("channels", "b"),
+					Value: 2,
+					Guards: []patch.Guard{
+						{Path: []string{"group"}, Value: key.String()},
+					},
+				}),
+			))
+			Expect(next.Properties["read"]).To(HaveKeyWithValue(
+				"channels",
+				map[string]any{"a": 1.0, "b": 2.0},
+			))
+		})
+
+		It("Should refuse properties that are not an object", func(ctx SpecContext) {
+			Expect(apply(ctx, set("properties", "text"))).
+				To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx).Properties).To(Equal(stored()))
 		})
 	})
 })

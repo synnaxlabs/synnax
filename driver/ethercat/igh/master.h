@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -72,6 +73,10 @@ class Master final : public master::Master {
     ec_domain_state_t input_domain_state;
     /// @brief output domain state for WKC checking.
     ec_domain_state_t output_domain_state;
+    /// @brief the working counter of the latest cycle that every slave took part in.
+    std::optional<uint32_t> full_working_counter;
+    /// @brief what shortfall() returns.
+    std::optional<uint32_t> latest_shortfall;
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
@@ -86,9 +91,16 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
+    /// @brief returns the key of the master, such as "igh:0".
+    [[nodiscard]] std::string name() const override {
+        return "igh:" + std::to_string(this->master_index);
+    }
+
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
-    std::pair<size_t, x::errors::Error> count_slaves() override;
+    std::pair<master::Change, x::errors::Error> changed() override;
+
+    [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, but ignores the period and runs
     /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
@@ -110,6 +122,30 @@ public:
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    /// @brief does nothing: the IgH master brings slaves back to OP by itself.
+    void recover(const x::breaker::Breaker &) override {}
+
+    /// @brief does what master::Master::write does, but on a running bus writes
+    /// nothing, since IgH takes startup parameters only before activation. It does not
+    /// write those parameters again when the slave restarts, so a slave that loses
+    /// power goes back to the values it stores.
+    /// @returns errors::SETTING_CONFLICT when the bus runs and the slave holds another
+    /// value for a parameter. errors::STARTUP_PARAMETER_ERROR when the slave rejects or
+    /// fails to read one.
+    x::errors::Error write(
+        uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    ) override;
+
+    std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) override;
+
+    /// @brief returns nullopt until a cycle that every slave took part in gives the
+    /// full working counter, since IgH does not report the count it expects.
+    [[nodiscard]] std::optional<uint32_t> shortfall() const override {
+        return this->latest_shortfall;
+    }
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -142,6 +178,12 @@ private:
         ec_slave_config_t *sc,
         master::Image &image
     );
+
+    /// @brief writes a parameter to the slave at position with a direct SDO download.
+    /// @returns errors::STARTUP_PARAMETER_ERROR with the abort reason when the slave
+    /// rejects it.
+    x::errors::Error
+    download(const slave::Properties &slave, const slave::StartupParameter &param);
 
     /// @brief writes a slave's startup parameters and adds them to its config, so the
     /// master writes them again at each move to SAFE-OP.

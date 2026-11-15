@@ -39,6 +39,9 @@ STGS = (2, 3)
 DO = 4
 """The position of the 32xDO that the write test drives."""
 
+RESCANNED = 6
+"""The position of the 32xDO that the first scan test deletes from the Core."""
+
 STG_DC: dict[str, JsonValue] = {
     "index": 1,
     "assign_activate": 0x0300,
@@ -82,8 +85,13 @@ def prepare_bus(client: sy.Synnax) -> dict[int, sy.Device]:
         names = {p: d.name for p, d in sorted(found.items())}
         raise TimeoutError(f"Expected the slaves {SLAVES} present, but found {names}")
     for pos in STGS:
+        client.devices.dispatch(
+            slaves[pos].key,
+            sy.device.set(
+                sy.device.SetPayload(path=["properties", "op_mode"], value=STG_DC)
+            ),
+        )
         slaves[pos].properties["op_mode"] = STG_DC
-        slaves[pos] = client.devices.create(slaves[pos])
     return slaves
 
 
@@ -94,6 +102,8 @@ def create_read_task(
     name: str,
     sample_rate: sy.Rate,
     stream_rate: sy.Rate,
+    auto_start: bool = False,
+    startup_parameters: list[sy.ethercat.SlaveStartupParameters] | None = None,
 ) -> sy.ethercat.ReadTask:
     """Returns a task that reads u1 to u4 of the first 6xSTG into `hitl_ethercat_u1`
     to `hitl_ethercat_u4`, and the cycle counter of each 6xSTG into
@@ -121,7 +131,12 @@ def create_read_task(
             )
         )
     return sy.ethercat.ReadTask(
-        name=name, sample_rate=sample_rate, stream_rate=stream_rate, channels=channels
+        name=name,
+        sample_rate=sample_rate,
+        stream_rate=stream_rate,
+        channels=channels,
+        auto_start=auto_start,
+        startup_parameters=startup_parameters,
     )
 
 
@@ -246,21 +261,5 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
     def _channel_keys(self, task: sy.ethercat.WriteTask) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]
 
-    def assert_written(self) -> None:
-        assert self.tsk is not None and self.command_values is not None
-        expected = self.command_values[-1]
-        states = [ch.state_channel for ch in self.tsk.config.channels]
-        # A state from before the last command can come from an earlier run of the task.
-        cmd = self.client.channels.retrieve(self.tsk.config.channels[0].cmd_channel)
-        sent = sy.TimeStamp(self.client.read_latest(cmd.index).to_numpy()[-1])
-
-        def written() -> bool | None:
-            frame = self.client.read(sy.TimeRange(sent, sy.TimeStamp.MAX), states)
-            done = all(
-                len(frame[k]) > 0 and frame[k][-1] == v
-                for k, v in zip(states, expected, strict=True)
-            )
-            return True if done else None
-
-        if sy.poll(written, timeout=5 * sy.TimeSpan.SECOND, interval=0.1) is None:
-            raise AssertionError(f"Expected the 32xDO states {expected}")
+    def _state_keys(self, task: sy.ethercat.WriteTask) -> list[int]:
+        return [ch.state_channel for ch in task.config.channels]

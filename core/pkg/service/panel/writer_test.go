@@ -67,6 +67,19 @@ var _ = Describe("Writer", func() {
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
 
+		It("Should accept a tab that displays an ICD", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
+				Key: uuid.New(),
+				Resource: resource.ID{
+					Type: resource.TypeICD,
+					Key:  uuid.New().String(),
+				},
+			}})
+			p := panel.Panel{Name: "icd", Root: root, Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		})
+
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected string) {
 				tx := DeferClose(db.OpenTx())
@@ -99,7 +112,7 @@ var _ = Describe("Writer", func() {
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
-			}, "split size must be in [0, 1]"),
+			}, "size: must be less than or equal to 1"),
 			Entry("nil child node", func() panel.Node {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(uuid.New())), panel.Node{})
@@ -107,14 +120,14 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should reject a panel with neither a project nor a range",
+			"Should reject a panel with no project",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
 				p := panel.Panel{Name: "draft"}
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &p),
 				).To(MatchError(ContainSubstring(
-					"project: must belong to exactly one of a project and a range",
+					"project: must belong to a project",
 				)))
 			},
 		)
@@ -130,38 +143,19 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It(
-			"Should keep the stored project when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				other := project.Project{Name: "ignored"}
-				Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-				first := panel.Panel{Name: "first", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := panel.Panel{
-					Key:     first.Key,
-					Name:    "second",
-					Project: &other.Key,
-				}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(
-					retrieve(ctx, tx, first.Key).Project,
-				).To(HaveValue(Equal(proj.Key)))
-			},
-		)
-
-		It(
-			"Should update an existing panel when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				key := uuid.New()
-				first := panel.Panel{Key: key, Name: "first", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := panel.Panel{Key: key, Name: "second", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(retrieve(ctx, tx, key).Name).To(Equal("second"))
-			},
-		)
+		It("Should refuse a panel whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			other := project.Project{Name: "ignored"}
+			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			stored := panel.Panel{Name: "first", Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := panel.Panel{Key: stored.Key, Name: "second", Project: &other.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("panel %s already exists", stored.Key)),
+			))
+			Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
@@ -246,14 +240,35 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
-	Describe("SetProject", func() {
-		It("Should move the panels into the project", func(ctx SpecContext) {
+	DescribeTable("Should reject an Apply that resizes a split outside [0, 1]",
+		func(ctx SpecContext, size float64, expected string) {
+			tx := DeferClose(db.OpenTx())
+			p := panel.Panel{Name: "resized", Project: &proj.Key, Root: splitNode(
+				spatial.DirectionX,
+				0.5,
+				leafNode(tab(uuid.New())),
+				leafNode(tab(uuid.New())),
+			)}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			resize := panel.NewResizeSplitAction(
+				panel.ResizeSplitPayload{Split: 1, Size: size},
+			)
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, resize)).
+				Error().To(MatchError(ContainSubstring(expected)))
+		},
+		Entry("above 1", 1.5, "size: must be less than or equal to 1"),
+		Entry("below 0", -0.1, "size: must be greater than or equal to 0"),
+	)
+
+	Describe("Apply of a project move", func() {
+		It("Should move the panel into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			other := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 			p := panel.Panel{Name: "moved", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, other.Key, p.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, setProject(other.Key))).
+				To(BeEmpty())
 			Expect(retrieve(ctx, tx, p.Key).Project).To(HaveValue(Equal(other.Key)))
 		})
 
@@ -261,8 +276,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "stuck", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), p.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 

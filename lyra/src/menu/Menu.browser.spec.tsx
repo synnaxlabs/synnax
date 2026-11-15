@@ -108,7 +108,9 @@ describe("Menu", () => {
       await userEvent.click(getByText("Target"), { button: "right" });
       const menu = page.getByRole("menu").element();
       expect(computed(menu, "position")).toBe("fixed");
-      expect(computed(menu, "background-color")).toBe(resolve("var(--pluto-gray-l2)"));
+      expect(computed(menu, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
       expect(computed(menu, "box-shadow")).toBe(
         resolve("var(--pluto-shadow-overlay)", "box-shadow"),
       );
@@ -167,7 +169,10 @@ describe("Menu", () => {
       await expect
         .poll(() => document.activeElement?.getAttribute("role"))
         .toBe("menu");
-      await userEvent.click(getByText("Canvas"));
+      // The menu covers the left of the canvas.
+      const canvas = getByText("Canvas");
+      const { width } = canvas.element().getBoundingClientRect();
+      await userEvent.click(canvas, { position: { x: width - 4, y: 4 } });
       await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
       expect(document.activeElement).not.toBe(opener);
     });

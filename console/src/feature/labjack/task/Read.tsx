@@ -97,10 +97,9 @@ const ChannelListItem = ({
   const port = PForm.useFieldValue(entry.port);
   const disabled = PForm.useFieldValue(entry.disabled);
   const type = PForm.useFieldValue(entry.type);
-  const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
-  const hasTareButton = channel !== 0 && type === "analog" && !isSnapshot;
+  const hasTareButton = channel !== 0 && type === "analog";
   const canTare = !disabled && isRunning;
   return (
     <Task.Views.ListAndDetailsChannelItem
@@ -332,6 +331,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)
@@ -383,7 +383,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   config.channels.forEach(
     (c) =>

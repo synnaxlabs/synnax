@@ -83,6 +83,10 @@ func typeLines(t resolution.Type) []string {
 func actionLines(qn string, actions []resolution.Action) []string {
 	var lines []string
 	for _, a := range actions {
+		if a.IsAlias() {
+			lines = append(lines, qn+" action "+a.Name+" = "+ref(a.Alias))
+			continue
+		}
 		lines = append(lines, qn+" action "+a.Name)
 		lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
 	}

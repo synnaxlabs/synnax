@@ -34,22 +34,23 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Import decodes env into a Symbol created in opts.Group. opts.Parent is ignored: a
-// symbol has no parent. The key on the wire is discarded so every import mints a new
-// resource. An unknown envelope version is a path-scoped validation error.
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-	opts imex.ImportOptions,
-) (resource.ID, error) {
+// Decode decodes env into a Symbol that its Write creates in opts.Group. opts.Parent is
+// ignored: a symbol has no parent. The key on the wire is discarded so every import
+// mints a new resource. An unknown envelope version is a path-scoped validation error.
+func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sym, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	sym.Group = opts.Group
-	if err = s.NewWriter(tx).Create(ctx, &sym); err != nil {
-		return resource.ID{}, err
-	}
-	return sym.ResourceID(), nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		sym.Group = opts.Group
+		if err := s.NewWriter(tx).Create(ctx, &sym); err != nil {
+			return resource.ID{}, err
+		}
+		return sym.ResourceID(), nil
+	}, nil
 }

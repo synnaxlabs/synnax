@@ -189,7 +189,6 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	r, err := s.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %s Embedded Driver", s.HostKey),
-		nil,
 	)
 	if err != nil {
 		return err
@@ -200,11 +199,12 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 // RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
 // name, creating it if it does not exist. The rack keeps its identity across renames
-// and restarts. edit, if non-nil, changes the rack before it is saved.
+// and restarts. acts apply to a new rack before it is created, and to an existing rack
+// through Writer.Apply.
 func (s *Service) RetrieveOrCreateEmbedded(
 	ctx context.Context,
 	name string,
-	edit func(*Rack),
+	acts ...Action,
 ) (r Rack, err error) {
 	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -223,17 +223,26 @@ func (s *Service) RetrieveOrCreateEmbedded(
 		} else {
 			return err
 		}
+		w := s.NewWriter(tx)
 		if err = q.Exec(ctx, tx); errors.Is(err, query.ErrNotFound) {
-			r = Rack{Name: name}
+			if r, err = Reduce(Rack{Name: name, Embedded: true}, acts...); err != nil {
+				return err
+			}
+			if err = w.Create(ctx, &r); err != nil {
+				return err
+			}
 		} else if err != nil {
 			return err
-		}
-		r.Embedded = true
-		if edit != nil {
-			edit(&r)
-		}
-		if err = s.NewWriter(tx).Create(ctx, &r); err != nil {
-			return err
+		} else if len(acts) > 0 {
+			if err = w.Apply(ctx, r.Key, acts...); err != nil {
+				return err
+			}
+			if err = s.NewRetrieve().
+				Where(MatchKeys(r.Key)).
+				Entry(&r).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 		}
 		return tx.Set(
 			ctx,

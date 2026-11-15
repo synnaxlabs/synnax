@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/compare"
 )
 
@@ -37,11 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name     *gorp.SortedIndex[Key, Panel, string]
-	group    *gorp.KeyReference[Key, Panel, group.Key]
-	project  *gorp.KeyReference[Key, Panel, project.Key]
-	rangeVal *gorp.KeyReference[Key, Panel, ranger.Key]
-	search   *gorp.SearchIndex[Key, Panel]
+	name    *gorp.SortedIndex[Key, Panel, string]
+	group   *gorp.KeyReference[Key, Panel, group.Key]
+	project *gorp.KeyReference[Key, Panel, project.Key]
+	owner   *gorp.KeyReference[Key, Panel, user.Key]
+	search  *gorp.SearchIndex[Key, Panel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -78,16 +78,16 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
-		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, ranger.Key]{
-			Name:     "range",
-			Table:    "range",
+		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
+			Name:     "owner",
+			Table:    "user",
 			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Targets: func(e *Panel) []ranger.Key {
-				if e.Range == nil {
+			Kind:     gorp.Use,
+			Targets: func(e *Panel) []user.Key {
+				if e.Owner == nil {
 					return nil
 				}
-				return []ranger.Key{*e.Range}
+				return []user.Key{*e.Owner}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Panel](
@@ -114,7 +114,7 @@ func (i indexes) references() []gorp.Reference[Key, Panel] {
 	return []gorp.Reference[Key, Panel]{
 		i.group,
 		i.project,
-		i.rangeVal,
+		i.owner,
 	}
 }
 
@@ -258,20 +258,20 @@ func MatchHasProject(has bool) Filter {
 	}
 }
 
-// MatchRanges returns a filter for panels
-// whose Range matches any of the provided
+// MatchOwners returns a filter for panels
+// whose Owner matches any of the provided
 // values.
-func MatchRanges(vals ...ranger.Key) Filter {
+func MatchOwners(vals ...user.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.rangeVal.Filter(vals...)
+		return r.indexes.owner.Filter(vals...)
 	}
 }
 
-// MatchHasRange returns a filter for panels whose
-// Range holds a target when has is true, and holds none when has is false.
-func MatchHasRange(has bool) Filter {
+// MatchHasOwner returns a filter for panels whose
+// Owner holds a target when has is true, and holds none when has is false.
+func MatchHasOwner(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.rangeVal.FilterHolding(has)
+		return r.indexes.owner.FilterHolding(has)
 	}
 }
 

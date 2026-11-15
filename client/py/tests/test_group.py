@@ -38,14 +38,11 @@ class TestGroupClient:
         assert child.parent == sy.group.resource_id(parent.key)
 
     def test_create_with_key(self, client: sy.Synnax) -> None:
-        """Should update the group with the given key and keep its scope."""
-        g = client.groups.create(str(uuid4()), scope="channel")
-        name = str(uuid4())
-        updated = client.groups.create(name, key=g.key)
-        assert updated.key == g.key
-        assert updated.name == name
-        assert updated.scope == "channel"
-        assert client.groups.retrieve(g.key).name == name
+        """Should create a group with the given key."""
+        key = uuid4()
+        g = client.groups.create(str(uuid4()), scope="channel", key=key)
+        assert g.key == key
+        assert client.groups.retrieve(key).name == g.name
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a group by its key."""

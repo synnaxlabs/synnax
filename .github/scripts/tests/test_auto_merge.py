@@ -82,7 +82,7 @@ class TestAutoMerge:
     def test_turns_on_for_a_release_branch(self, run: Run) -> None:
         """Should turn auto-merge on for a review/bot pull request into a release
         branch."""
-        decision, _ = run(pull(["review/bot"], base="release/core-0.60"))
+        decision, _ = run(pull(["review/bot"], base="release/0.60"))
         assert decision == "enabled"
 
     def test_leaves_a_bot_tier_pull_request_already_on(self, run: Run) -> None:

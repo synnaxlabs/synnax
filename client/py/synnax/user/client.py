@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from freighter import Empty, UnaryClient
 from synnax.access import role as role_
 from synnax.exceptions import ValidationError
+from synnax.transport import send_batch
+from synnax.user import actions_gen
 from synnax.user.payload import New, User
 from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
@@ -38,19 +40,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _ChangeUsernameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    username: str
-
-
-class _ChangeNameRequest(BaseModel):
-    key: Key
-    name: str
-
-
-class _SetRoleRequest(BaseModel):
-    keys: list[Key]
-    role: role_.Key
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class Client:
@@ -109,14 +102,18 @@ class Client:
         return res
 
     def change_username(self, key: Key, username: str) -> None:
+        action = actions_gen.set_username(
+            actions_gen.SetUsernamePayload(username=username)
+        )
         self.client.send(
-            "/user/change-username",
-            _ChangeUsernameRequest(key=key, username=username),
-            Empty,
+            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
         )
 
     def change_name(self, key: Key, *, name: str) -> None:
-        self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        self.client.send(
+            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
+        )
 
     def set_role(self, keys: Key | list[Key], role: role_.Key) -> None:
         """Gives a role to the users with the given keys. The role replaces the role
@@ -128,8 +125,11 @@ class Client:
             not exist.
         :raises NotFoundError: If one of the users does not exist.
         """
-        self.client.send(
-            "/user/set-role", _SetRoleRequest(keys=normalize(keys), role=role), Empty
+        action = actions_gen.set(actions_gen.SetPayload(path=["role"], value=str(role)))
+        send_batch(
+            self.client,
+            "/user/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
         )
 
     @overload

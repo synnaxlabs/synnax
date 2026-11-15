@@ -10,6 +10,7 @@
 #include <set>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -23,11 +24,11 @@ namespace {
 /// @param str the type string ("number", "string", "boolean").
 /// @returns the parsed type paired with an error when the string is unknown.
 std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &str) {
-    if (str == ::synnax::http::JSON_TYPE_NUMBER)
+    if (str == ::x::payload::JSON_TYPE_NUMBER)
         return {x::json::Type::Number, x::errors::NIL};
-    if (str == ::synnax::http::JSON_TYPE_STRING)
+    if (str == ::x::payload::JSON_TYPE_STRING)
         return {x::json::Type::String, x::errors::NIL};
-    if (str == ::synnax::http::JSON_TYPE_BOOLEAN)
+    if (str == ::x::payload::JSON_TYPE_BOOLEAN)
         return {x::json::Type::Boolean, x::errors::NIL};
     return {
         x::json::Type::Number,
@@ -39,9 +40,9 @@ std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &st
 /// @param str the generator string ("uuid", "timestamp").
 /// @returns the parsed generator paired with an error when the string is unknown.
 std::pair<GeneratorType, x::errors::Error> parse_generator(const std::string &str) {
-    if (str == ::synnax::http::GENERATOR_TYPE_UUID)
+    if (str == ::x::payload::GENERATOR_TYPE_UUID)
         return {GeneratorType::UUID, x::errors::NIL};
-    if (str == ::synnax::http::GENERATOR_TYPE_TIMESTAMP)
+    if (str == ::x::payload::GENERATOR_TYPE_TIMESTAMP)
         return {GeneratorType::Timestamp, x::errors::NIL};
     return {
         GeneratorType::UUID,
@@ -88,7 +89,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     "duplicate enum value " + x::json::json(entry.value).dump()
                 );
         if (!ep.channel.enum_values.empty() &&
-            ep.channel.json_type != ::synnax::http::JSON_TYPE_STRING)
+            ep.channel.json_type != ::x::payload::JSON_TYPE_STRING)
             parser.field_err(
                 "endpoints.channel.enum_values",
                 "enum values are only supported when json_type is 'string'"

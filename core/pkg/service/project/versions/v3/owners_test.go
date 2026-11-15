@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -115,7 +116,7 @@ var _ = Describe("OwnersMigration", func() {
 			Entry(&v3.Project{Key: proj, Name: "Project"}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
-			Entry(&ranger.Range{Key: rng, Name: "Range"}).
+			Entry(&ranger.Range{Key: rng, Name: "Range", Color: &color.Color{R: 1, A: 128}}).
 			Exec(ctx, db)).To(Succeed())
 		var core zapcore.Core
 		core, logs = observer.New(zapcore.WarnLevel)

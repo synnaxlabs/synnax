@@ -16,16 +16,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import {
-  afterEach,
-  assert,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
@@ -103,6 +94,37 @@ describe("User queries", () => {
     });
   });
 
+  describe("useSetRole", () => {
+    it("should change a user's role", async () => {
+      const to = await createEmptyRole(client);
+      const testUser = await client.users.create({
+        username: `set-role-${id.create()}`,
+        name: "Test User",
+        password: "password123",
+        role: role.key,
+      });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: testUser.key, role: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      expect((await client.users.retrieve(testUser.key)).role).toEqual(to.key);
+    });
+
+    it("should report an error when the Core refuses the change", async () => {
+      const root = await client.users.retrieve({ username: TEST_CREDENTIALS.username });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: root.key, role: role.key });
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toEqual(
+        `cannot change the role of root user ${root.name}: validation error`,
+      );
+      expect((await client.users.retrieve(root.key)).role).not.toEqual(role.key);
+    });
+  });
+
   describe("useRename", () => {
     it("should change a user's name", async () => {
       const testUser = await client.users.create({
@@ -126,21 +148,20 @@ describe("User queries", () => {
       expect(retrieved.name).toBe("Renamed User");
     });
 
-    it("should apply the rename optimistically", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const testUser = await client.users.create({
         username: `original-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => User.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.users.watch(testUser.key).getCached()).toMatchObject({
+        name: "Renamed User",
+      });
     });
   });
 

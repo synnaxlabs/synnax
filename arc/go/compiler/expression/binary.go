@@ -147,7 +147,7 @@ func compileBinaryAdditive(
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
 			ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 		} else {
-			if err = ctx.Writer.WriteBinaryOpInferred(
+			if err = ctx.Writer.WriteArithmetic(
 				operators[i-1],
 				hintType,
 			); err != nil {
@@ -237,7 +237,7 @@ func compileBinaryMultiplicative(
 			elemType = secondElemType
 			firstIsSeries = true
 		} else {
-			if err = ctx.Writer.WriteBinaryOpInferred(
+			if err = ctx.Writer.WriteArithmetic(
 				operators[i-1],
 				hintType,
 			); err != nil {

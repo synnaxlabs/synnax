@@ -961,6 +961,26 @@ var _ = Describe("Filter definitions", func() {
 			Entry("with two paths", `@go request_output "a" "b"`),
 		)
 
+		It(
+			"Should reject @go match on a line that takes an operator",
+			func(ctx SpecContext) {
+				_, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Thing struct {
+					key  uuid   { @key }
+					name string
+				}
+				Where filter Thing {
+					name { @go match MatchName }
+				}
+			`, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: line name takes an operator, so it cannot carry @go match",
+				))
+			},
+		)
+
 		DescribeTable("Should reject a line with the name of a retrieve option",
 			func(ctx SpecContext, line, field string) {
 				_, diag := Analyze(ctx, `

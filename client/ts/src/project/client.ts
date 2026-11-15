@@ -15,8 +15,17 @@ import {
 import { array, type destructor, filter, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { group } from "@/group";
 import { imex } from "@/imex";
+import { createOf, reduceAll } from "@/project/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/project/actions.gen";
 import {
   type Key,
   keyZ,
@@ -30,13 +39,14 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
 } from "@/project/where.gen";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_project_set";
+export const ACTION_CHANNEL_NAME = "sy_project_action_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
 const retrieveMultiParamsZ = z.union([
@@ -48,7 +58,6 @@ const retrieveMultiParamsZ = z.union([
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
@@ -76,6 +85,7 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
+  private readonly dispatcher: actions.Controller<Key, Project, Action>;
   /** Builds requests that move projects between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
 
@@ -84,11 +94,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     const store = cache.createTable<Key, Project>({
       name: "projects",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, projectZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a project reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Project, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/project/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "project",
       table: store,
@@ -102,7 +121,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/project/set-group", (keys, to) =>
+    this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest("/project/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -135,20 +155,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     return isMany ? res.projects : res.projects[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/project/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached project until the Core echoes them, and sends
+   * them to the Core to apply in one transaction. Actions hold the snake_case form that
+   * the Core stores. A refused send drops the actions from the cached project.
+   * @throws {Error} if the cached project cannot hold an action, before any send.
+   * @throws {ValidationError} if the project cannot hold an action.
+   * @throws {NotFoundError} if the project does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

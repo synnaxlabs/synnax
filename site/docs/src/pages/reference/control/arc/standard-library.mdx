@@ -56,8 +56,9 @@ tank_pt -> write(channel=tank_pt_copy)
 `on` and `write` cannot be in the same flow. The compiler cannot find a type for them
 and stops with `on_0_T: unresolved type variable: constraints`.
 
-The comparison functions take two numeric values, `a` and `b`, of the same type. A flow
-value fills the trigger `a`, and `()` sets `b`:
+The comparison functions take two numeric values, `a` and `b`, of the same type, and
+give a `bool`. A flow value fills the trigger `a`, and `()` sets `b`. In this example,
+`tank_high` is a `boolean` channel:
 
 ```arc channels="tank_pt, tank_high"
 tank_pt -> gt(b=300.0) -> tank_high

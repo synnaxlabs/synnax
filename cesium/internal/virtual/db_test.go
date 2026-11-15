@@ -145,4 +145,42 @@ var _ = Describe("DB Metadata Operations", func() {
 			},
 		)
 	})
+
+	Describe("MarkClosed", func() {
+		var db *virtual.DB
+		BeforeEach(func(ctx SpecContext) {
+			db = MustOpen(virtual.Open(ctx, virtual.Config{
+				FS:        fs.NewMem(),
+				MetaCodec: json.Codec,
+				Channel: channel.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "test",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}))
+		})
+		cfg := virtual.WriterConfig{Subject: control.Subject{Key: "string"}}
+
+		It("Should refuse new writers until UnmarkClosed", func(ctx SpecContext) {
+			Expect(db.MarkClosed()).To(Succeed())
+			Expect(db.OpenWriter(ctx, cfg)).Error().To(MatchError(virtual.ErrDBClosed))
+			db.UnmarkClosed()
+			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+			MustSucceed(w.Close())
+		})
+
+		It("Should leave the DB open if a writer is open", func(ctx SpecContext) {
+			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+			Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
+			MustSucceed(w.Close())
+			w, _ = MustSucceed2(db.OpenWriter(ctx, cfg))
+			MustSucceed(w.Close())
+		})
+
+		It("Should return ErrDBClosed if the DB is closed", func() {
+			Expect(db.MarkClosed()).To(Succeed())
+			Expect(db.MarkClosed()).To(MatchError(virtual.ErrDBClosed))
+		})
+	})
 })

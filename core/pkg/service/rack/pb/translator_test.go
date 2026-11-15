@@ -32,10 +32,10 @@ var _ = Describe("Translator", func() {
 				Variant: status.VariantSuccess,
 				Message: "Driver running",
 				Labels:  []label.Key{label.Key(uuid.New())},
+				Details: rack.StatusDetails{Running: true},
 			},
 		}
 		translated := MustSucceed(pb.RackToPB(r))
-		Expect(translated.Status.Details).To(BeNil())
 		Expect(pb.RackFromPB(translated)).To(Equal(r))
 	})
 	It("Should leave the role out, as the Core assigns it", func() {

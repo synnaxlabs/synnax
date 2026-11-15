@@ -20,6 +20,7 @@ import (
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
@@ -182,6 +183,15 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
+}
+
 // WriteConfig configures an OPC UA write task.
 type WriteConfig struct {
 	task.WriteConfig
@@ -228,4 +238,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

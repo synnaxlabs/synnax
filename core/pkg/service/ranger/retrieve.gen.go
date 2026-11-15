@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -32,6 +33,7 @@ const tableName = "range"
 type indexes struct {
 	name           *gorp.SortedIndex[Key, Range, string]
 	timeRangeStart *gorp.SortedIndex[Key, Range, telem.TimeStamp]
+	timeRangeEnd   *gorp.SortedIndex[Key, Range, telem.TimeStamp]
 	labels         *gorp.KeyReference[Key, Range, label.Key]
 	parent         *gorp.KeyReference[Key, Range, Key]
 	search         *gorp.SearchIndex[Key, Range]
@@ -49,6 +51,10 @@ func newIndexes() indexes {
 		timeRangeStart: gorp.NewSortedIndex[Key, Range, telem.TimeStamp](
 			"time_range_start",
 			func(e *Range) telem.TimeStamp { return e.TimeRange.Start },
+		),
+		timeRangeEnd: gorp.NewSortedIndex[Key, Range, telem.TimeStamp](
+			"time_range_end",
+			func(e *Range) telem.TimeStamp { return e.TimeRange.End },
 		),
 		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, label.Key]{
 			Name:     "labels",
@@ -92,6 +98,7 @@ func (i indexes) all() []gorp.Index[Key, Range] {
 	return []gorp.Index[Key, Range]{
 		i.name,
 		i.timeRangeStart,
+		i.timeRangeEnd,
 		i.search,
 	}
 }
@@ -163,6 +170,25 @@ func OrderByTimeRangeStartAfter(
 	}
 }
 
+// OrderByTimeRangeEnd returns an Order by time_range_end, then by key.
+func OrderByTimeRangeEnd(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Range] {
+		return r.indexes.timeRangeEnd.Ordered(dir)
+	}
+}
+
+// OrderByTimeRangeEndAfter returns an Order like OrderByTimeRangeEnd that starts
+// strictly past the position of value and key.
+func OrderByTimeRangeEndAfter(
+	dir gorp.Direction,
+	value telem.TimeStamp,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Range] {
+		return r.indexes.timeRangeEnd.Ordered(dir).After(value, key)
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -224,10 +250,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Range) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}

@@ -1642,7 +1642,10 @@ CounterReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
+        @doc value   """
+            is the rate at which output state is reported to Synnax, in Hertz.
+        """
+        @validate gt 0
     }
 
     @doc value  "carries the configuration fields shared by NI write tasks."

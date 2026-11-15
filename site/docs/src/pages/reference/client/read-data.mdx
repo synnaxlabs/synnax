@@ -125,6 +125,13 @@ const last = await client.readLatest("temperature", 1);
 const frame = await client.readLatest(["temperature", "pressure"], 10);
 ```
 
+To read the newest or oldest samples of a time range, give `latest` or `earliest` to
+`read`:
+
+```typescript
+const newest = await client.read(tr, ["time", "temperature"], { latest: 10 });
+```
+
   </Fragment>
 
 </Client.Tabs>
@@ -220,6 +227,10 @@ import { Writable } from "node:stream";
 const csv = await client.readCSV(tr, ["temperature", "pressure"]);
 await csv.pipeTo(Writable.toWeb(createWriteStream("tank.csv")));
 ```
+
+To export only the newest or oldest rows of each index channel, give `latest` or
+`earliest` in the options, as in `client.readCSV(tr, channels, { latest: 100 })`.
+`readTDMS` takes the same options.
 
   </Fragment>
 

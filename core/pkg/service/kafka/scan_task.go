@@ -128,17 +128,26 @@ func (s scanner) ping(ctx context.Context, props Properties) error {
 	return ping(ctx, props)
 }
 
+func validateScanConfig(cfg *ScanConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if cfg.Rate.Period() <= 0 {
+		return errors.Wrapf(
+			validate.ErrValidation, "rate: %s is too high", cfg.Rate,
+		)
+	}
+	return nil
+}
+
 // configureScan returns the scan task of t, and whether the factory starts it.
 func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 	var cfg ScanConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err
 	}
-	cfg.ApplyDefaults()
-	if cfg.Rate <= 0 || cfg.Rate.Period() <= 0 {
-		return nil, false, errors.Wrapf(
-			validate.ErrValidation, "rate: must be positive, got %s", cfg.Rate,
-		)
+	if err := validateScanConfig(&cfg); err != nil {
+		return nil, false, err
 	}
 	st, err := driver.NewScanTask(driver.ScanTaskConfig{
 		Instrumentation: f.cfg.Child("scan"),

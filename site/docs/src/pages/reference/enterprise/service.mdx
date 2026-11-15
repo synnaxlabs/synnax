@@ -85,8 +85,11 @@ A unit that you wrote yourself also works with `synnax update`, if its name is `
 
 <Fragment slot="Windows">
 
-The Windows installer installs the Core as a service by default, so you can skip this
-step if you used it.
+The Windows installer installs the Core as a service by default. That service runs
+without TLS and with no license file, in the data folder that you chose in the
+installer, and listens on `localhost:9090`, so only this computer can reach it. To add
+the flags below to it, edit `C:\ProgramData\Synnax\config.yaml`, then restart the
+service. Otherwise, install the service yourself:
 
 1. In PowerShell as an administrator, install the service with the flags for the Core:
 
@@ -126,21 +129,20 @@ Start the container with a restart policy:
 
 ```bash
 docker run -d --name synnax --restart unless-stopped \
-  --stop-signal SIGINT --stop-timeout 30 --mac-address 02:5a:00:00:00:01 \
+  --stop-timeout 30 --mac-address 02:5a:00:00:00:01 \
   --ulimit rtprio=99 -p 9090:9090 -v synnax-data:/synnax/synnax-data \
   -v synnax-certs:/usr/local/synnax/certs \
   synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
 ```
 
-Docker starts the container when the Docker daemon starts and after a crash.
-`--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
-`--stop-timeout 30` gives it time to finish. The license is bound to the
-`--mac-address`, so keep the same address when you recreate or upgrade the container.
-The Core stores a key that you activate from the Console in the `synnax-data` volume. To
-give the key at start instead, add `-e SYNNAX_LICENSE_KEY="$(cat synnax.lic)"`.
-`--ulimit rtprio=99` lets Arc automations on the embedded Driver run on a real-time
-thread. The Core runs as a non-root user in the container, so `--cap-add SYS_NICE` does
-not do this.
+Docker starts the container when the Docker daemon starts and after a crash. The Core
+shuts down cleanly on `docker stop`, and `--stop-timeout 30` gives it time to finish.
+The license is bound to the `--mac-address`, so keep the same address when you recreate
+or upgrade the container. The Core stores a key that you activate from the Console in
+the `synnax-data` volume. To give the key at start instead, add
+`-e SYNNAX_LICENSE_KEY="$(cat synnax.lic)"`. `--ulimit rtprio=99` lets Arc automations
+on the embedded Driver run on a real-time thread. The Core runs as a non-root user in
+the container, so `--cap-add SYS_NICE` does not do this.
 
 </Fragment>
 

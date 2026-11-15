@@ -20,7 +20,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -125,6 +125,7 @@ func (a AnalogReadChannel) Validate() error {
 	if a.NegChan != nil {
 		v.LessThanEq("neg_chan", *a.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(a.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -214,6 +215,7 @@ func (t ThermocoupleReadChannel) Validate() error {
 	if t.NegChan != nil {
 		v.LessThanEq("neg_chan", *t.NegChan, 127)
 	}
+	v.Exec(func() error { return validate.PathedError(t.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -337,16 +339,18 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AnalogReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ThermocoupleReadChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -462,6 +466,7 @@ func (r ReadConfig) Validate() error {
 	if r.LjmScanBacklogWarnOnCount != nil {
 		v.GreaterThanEq("ljm_scan_backlog_warn_on_count", *r.LjmScanBacklogWarnOnCount, 1)
 	}
+	v.Exec(r.ReadConfig.Validate)
 	for i := range r.Channels {
 		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -517,5 +522,6 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (s ScanConfig) Validate() error {
 	v := validate.New("ScanConfig")
 	v.GreaterThanEq("tcp_scan_multiplier", s.TCPScanMultiplier, 1)
+	v.Exec(s.ScanConfig.Validate)
 	return v.Error()
 }

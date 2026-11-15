@@ -20,6 +20,7 @@ import synnax as sy
 from console.base import ResourceClient
 from console.channels import ChannelClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import ConsolePage, PageType, page_label
 from console.plot import Plot
 from console.project import ProjectClient
@@ -410,9 +411,7 @@ class PagesClient(ResourceClient):
         self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
-        # Notifications stack over the confirmation dialog and swallow the click.
-        self.notifications.close_all()
-        delete_btn.click(timeout=5000)
+        click_past(delete_btn)
         self.wait_for_removed(name)
         self.layout.close_left_toolbar()
 
@@ -608,19 +607,6 @@ class PagesClient(ResourceClient):
                 f"Import failure notification does not mention {error_text!r}"
             )
         self.notifications.close_all()
-
-    def snapshot_to_active_range(self, names: list[str], *, range_name: str) -> None:
-        """Snapshot multiple pages to the active range via context menu.
-
-        :param names: List of page names to snapshot.
-        :param range_name: Name of the active range (for menu text matching).
-        """
-        if not names:
-            return
-        self.expand_active()
-        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
-        self.ctx_menu.action(last, f"Snapshot to {range_name}")
-        self.layout.close_left_toolbar()
 
     def duplicate(self, name: str, new_name: str) -> None:
         """Duplicate a page via context menu.

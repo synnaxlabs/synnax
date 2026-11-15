@@ -9,18 +9,19 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION, MAKE } from "@/feature/opcua/device/types";
+import { INTEGRATION_KEY, MAKE } from "@/feature/opcua/device/types";
 import { Connect } from "@/feature/opcua/device/useConnectModal";
 import { SCAN_TYPE } from "@/feature/opcua/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
-  key: INTEGRATION,
+  key: INTEGRATION_KEY,
   name: "OPC UA",
   title: "OPC UA server",
   description: "Read and write nodes on an OPC UA server.",
   icon: <Icon.Logo.OPCUA />,
   make: MAKE,
   scanType: SCAN_TYPE,
+  location: { shape: "address", hiddenSchemes: ["opc.tcp://"] },
   Connect,
 };

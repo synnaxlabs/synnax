@@ -16,7 +16,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
-import { createTestDevice, setTestDeviceStatus } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -26,7 +30,7 @@ const client = createTestClient();
 
 const HINT = /A short prefix for every channel/;
 
-const onCreateTask = vi.fn();
+const onCreateReadTask = vi.fn();
 const onBack = vi.fn();
 
 const HARDWARE: Device.Hardware = {
@@ -37,6 +41,7 @@ const HARDWARE: Device.Hardware = {
   icon: <Icon.Hardware />,
   make: "acme",
   scanType: "acme_scan",
+  location: { shape: "plain" },
   checks: [],
   Configure: Device.createConfigure({
     icon: <Icon.Hardware />,
@@ -54,7 +59,7 @@ const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
     <Configure
       deviceKey={deviceKey}
       close={close}
-      onCreateTask={onCreateTask}
+      onCreateReadTask={onCreateReadTask}
       onBack={onBack}
     />
   ),
@@ -94,7 +99,7 @@ const save = async (label = "Save") => {
 
 describe("device Configure", () => {
   beforeEach(() => {
-    onCreateTask.mockClear();
+    onCreateReadTask.mockClear();
     onBack.mockClear();
   });
 
@@ -127,20 +132,23 @@ describe("device Configure", () => {
     expect(unchanged.configured).toBe(false);
   });
 
-  it("should not send the device's status or parent on a rename", async () => {
+  it("should keep the status that the Driver reported on a rename", async () => {
     const { dev } = await setup();
     await setTestDeviceStatus(client, dev);
-    const create = vi.spyOn(client.devices, "create");
     const newName = uniqueName("renamed_sensor");
     fireEvent.change(nameInput(), { target: { value: newName } });
     fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
     await save();
-    await waitFor(() => expect(create).toHaveBeenCalled());
-    const sent = create.mock.lastCall?.[0];
-    create.mockRestore();
-    expect(sent).toMatchObject({ name: newName, configured: true });
-    expect(sent).not.toHaveProperty("status");
-    expect(sent).not.toHaveProperty("parent");
+    await waitFor(async () => {
+      const { status } = await client.devices.retrieve({
+        key: dev.key,
+        includeStatus: true,
+      });
+      expect(status).toMatchObject({
+        name: newName,
+        message: TEST_DEVICE_STATUS_MESSAGE,
+      });
+    });
   });
 
   it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {
@@ -190,7 +198,7 @@ describe("device Configure", () => {
       const { dev } = await setup(useConfigureWithActionsModal);
       fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
       await save("Save and create read task");
-      await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(dev.key));
+      await waitFor(() => expect(onCreateReadTask).toHaveBeenCalledWith(dev.key));
       const updated = await client.devices.retrieve(dev.key);
       expect(updated.configured).toBe(true);
     });
@@ -200,7 +208,7 @@ describe("device Configure", () => {
       fireEvent.change(identifierInput(), { target: { value: "1x" } });
       await save("Save and create read task");
       expect(screen.getByText(HINT)).toBeTruthy();
-      expect(onCreateTask).not.toHaveBeenCalled();
+      expect(onCreateReadTask).not.toHaveBeenCalled();
     });
 
     it("should go back without saving", async () => {

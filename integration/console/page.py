@@ -11,17 +11,16 @@ import os
 from typing import Literal, Self
 
 from playwright.sync_api import (
-    Error as PlaywrightError,
     FloatRect,
     Locator,
     Page,
-    TimeoutError as PlaywrightTimeoutError,
     ViewportSize,
 )
 from pydantic import JsonValue
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from framework.utils import read_json_object, read_latest_value
 
 PageType = (
@@ -328,11 +327,7 @@ class ConsolePage:
         """
         self.layout.show_visualization_toolbar()
         link_button = self.page.get_by_role("button", name="Copy link", exact=True)
-        try:
-            self.notifications.close_all()
-            link_button.click(timeout=5000)
-        except (PlaywrightTimeoutError, PlaywrightError):
-            link_button.dispatch_event("click")
+        click_past(link_button)
         return self.layout.read_clipboard()
 
     def export_json(self) -> dict[str, JsonValue]:
@@ -348,11 +343,7 @@ class ConsolePage:
         )
 
         with self.page.expect_download(timeout=5000) as download_info:
-            try:
-                self.notifications.close_all()
-                export_button.click(timeout=5000)
-            except (PlaywrightTimeoutError, PlaywrightError):
-                export_button.dispatch_event("click")
+            click_past(export_button)
 
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{self.page_name}.json")

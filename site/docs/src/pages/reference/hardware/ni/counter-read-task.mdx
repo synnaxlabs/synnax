@@ -51,10 +51,14 @@ limit only when they share an index channel.
 
 1. In the devices toolbar, right-click a device and select **Create counter read task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**. In **Source**, select the **Device** and the **Port**.
-4. In **Signal**, select the **Channel type**, then set its fields. See the
+3. The task starts with one channel. To add more, click **Add channel**, or select
+   **Ports** above the channel list and click a free counter. See
+   [ports](/reference/hardware/tasks#ports).
+4. Select a channel. In **Source**, select the **Device**, then click a counter in the
+   **Port** grid.
+5. In **Signal**, select the **Channel type**, then set its fields. See the
    [channel reference](#channel-reference).
-5. Click <Icon.Play /> (**Start**).
+6. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `dev1`, counter 0
 gives `dev1_ctr_0`, with the index channel `dev1_ctr_time`.
@@ -175,15 +179,15 @@ plain words. Every type except edge count also has **Custom scaling**.
 
 Measures the frequency of a digital signal.
 
-| Setting                                         | Default      | Notes                                                              |
-| ----------------------------------------------- | ------------ | ------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>       | `2` to `100` | In **Units**.                                                      |
-| Starting edge <small>`edge`</small>             | `Rising`     | `Rising`, `Falling`.                                               |
-| Units <small>`units`</small>                    | `Hz`         | `Hz`, `Ticks`.                                                     |
-| Input terminal <small>`terminal`</small>        |              | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
-| Measurement method <small>`meas_method`</small> | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.       |
-| Measurement time (s) <small>`meas_time`</small> | `0.000006`   | In seconds. Shows for `HighFreq2Ctr`.                              |
-| Divisor <small>`divisor`</small>                | `4`          | Shows for `LargeRng2Ctr`.                                          |
+| Setting                                         | Default      | Notes                                                                         |
+| ----------------------------------------------- | ------------ | ----------------------------------------------------------------------------- |
+| Range <small>`min_val`, `max_val`</small>       | `2` to `100` | In **Units**.                                                                 |
+| Starting edge <small>`edge`</small>             | `Rising`     | `Rising`, `Falling`.                                                          |
+| Units <small>`units`</small>                    | `Hz`         | `Hz`, `Ticks`.                                                                |
+| Input terminal <small>`terminal`</small>        |              | A PFI terminal of the device. Empty uses the default terminal of the counter. |
+| Measurement method <small>`meas_method`</small> | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.                  |
+| Measurement time <small>`meas_time`</small>     | `0.000006`   | A duration, such as `500ms`. Seconds in code. Shows for `HighFreq2Ctr`.       |
+| Divisor <small>`divisor`</small>                | `4`          | Shows for `LargeRng2Ctr`.                                                     |
 
 </Channel.Type>
 
@@ -198,12 +202,12 @@ Measures the frequency of a digital signal.
 
 Counts the edges of a digital signal.
 
-| Setting                                          | Default   | Notes                                                              |
-| ------------------------------------------------ | --------- | ------------------------------------------------------------------ |
-| Active edge <small>`active_edge`</small>         | `Rising`  | `Rising`, `Falling`.                                               |
-| Count direction <small>`count_direction`</small> | `CountUp` | `CountUp`, `CountDown`, `ExternallyControlled`.                    |
-| Input terminal <small>`terminal`</small>         |           | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
-| Initial count <small>`initial_count`</small>     | `0`       | The count when the task starts.                                    |
+| Setting                                          | Default   | Notes                                                                         |
+| ------------------------------------------------ | --------- | ----------------------------------------------------------------------------- |
+| Active edge <small>`active_edge`</small>         | `Rising`  | `Rising`, `Falling`.                                                          |
+| Count direction <small>`count_direction`</small> | `CountUp` | `CountUp`, `CountDown`, `ExternallyControlled`.                               |
+| Input terminal <small>`terminal`</small>         |           | A PFI terminal of the device. Empty uses the default terminal of the counter. |
+| Initial count <small>`initial_count`</small>     | `0`       | The count when the task starts.                                               |
 
 </Channel.Type>
 
@@ -218,15 +222,15 @@ Counts the edges of a digital signal.
 
 Measures the period of a digital signal.
 
-| Setting                                         | Default             | Notes                                                              |
-| ----------------------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>       | `0.000001` to `0.1` | In **Units**.                                                      |
-| Starting edge <small>`starting_edge`</small>    | `Rising`            | `Rising`, `Falling`.                                               |
-| Units <small>`units`</small>                    | `Seconds`           | `Seconds`, `Ticks`.                                                |
-| Input terminal <small>`terminal`</small>        |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
-| Measurement method <small>`meas_method`</small> | `DynamicAvg`        | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.       |
-| Measurement time (s) <small>`meas_time`</small> | `0.001`             | In seconds. Shows for `HighFreq2Ctr`.                              |
-| Divisor <small>`divisor`</small>                | `4`                 | Shows for `LargeRng2Ctr`.                                          |
+| Setting                                         | Default             | Notes                                                                         |
+| ----------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| Range <small>`min_val`, `max_val`</small>       | `0.000001` to `0.1` | In **Units**.                                                                 |
+| Starting edge <small>`starting_edge`</small>    | `Rising`            | `Rising`, `Falling`.                                                          |
+| Units <small>`units`</small>                    | `Seconds`           | `Seconds`, `Ticks`.                                                           |
+| Input terminal <small>`terminal`</small>        |                     | A PFI terminal of the device. Empty uses the default terminal of the counter. |
+| Measurement method <small>`meas_method`</small> | `DynamicAvg`        | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg`.                  |
+| Measurement time <small>`meas_time`</small>     | `0.001`             | A duration, such as `500ms`. Seconds in code. Shows for `HighFreq2Ctr`.       |
+| Divisor <small>`divisor`</small>                | `4`                 | Shows for `LargeRng2Ctr`.                                                     |
 
 </Channel.Type>
 
@@ -241,12 +245,12 @@ Measures the period of a digital signal.
 
 Measures the width of a pulse.
 
-| Setting                                      | Default             | Notes                                                              |
-| -------------------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>    | `0.000001` to `0.1` | In **Scaled units**.                                               |
-| Starting edge <small>`starting_edge`</small> | `Rising`            | `Rising`, `Falling`.                                               |
-| Scaled units <small>`units`</small>          | `Seconds`           | `Seconds`, `Ticks`.                                                |
-| Input terminal <small>`terminal`</small>     |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Setting                                      | Default             | Notes                                                                         |
+| -------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| Range <small>`min_val`, `max_val`</small>    | `0.000001` to `0.1` | In **Scaled units**.                                                          |
+| Starting edge <small>`starting_edge`</small> | `Rising`            | `Rising`, `Falling`.                                                          |
+| Scaled units <small>`units`</small>          | `Seconds`           | `Seconds`, `Ticks`.                                                           |
+| Input terminal <small>`terminal`</small>     |                     | A PFI terminal of the device. Empty uses the default terminal of the counter. |
 
 </Channel.Type>
 
@@ -261,11 +265,11 @@ Measures the width of a pulse.
 
 Measures the time between each edge of a digital signal and the next edge.
 
-| Setting                                   | Default             | Notes                                                              |
-| ----------------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small> | `0.000001` to `0.1` | In **Scaled units**.                                               |
-| Scaled units <small>`units`</small>       | `Seconds`           | `Seconds`, `Ticks`.                                                |
-| <small>`terminal`</small>                 |                     | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Setting                                   | Default             | Notes                                                                         |
+| ----------------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| Range <small>`min_val`, `max_val`</small> | `0.000001` to `0.1` | In **Scaled units**.                                                          |
+| Scaled units <small>`units`</small>       | `Seconds`           | `Seconds`, `Ticks`.                                                           |
+| <small>`terminal`</small>                 |                     | A PFI terminal of the device. Empty uses the default terminal of the counter. |
 
 </Channel.Type>
 
@@ -302,11 +306,11 @@ Measures the time from an edge on one input to an edge on a second input.
 
 Measures the duty cycle of a digital signal.
 
-| Setting                                   | Default        | Notes                                                              |
-| ----------------------------------------- | -------------- | ------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small> | `2` to `10000` | The frequency of the signal, in hertz.                             |
-| Active edge <small>`active_edge`</small>  | `Rising`       | `Rising`, `Falling`.                                               |
-| Input terminal <small>`terminal`</small>  |                | `PFI0` to `PFI15`. Empty uses the default terminal of the counter. |
+| Setting                                   | Default        | Notes                                                                         |
+| ----------------------------------------- | -------------- | ----------------------------------------------------------------------------- |
+| Range <small>`min_val`, `max_val`</small> | `2` to `10000` | The frequency of the signal, in hertz.                                        |
+| Active edge <small>`active_edge`</small>  | `Rising`       | `Rising`, `Falling`.                                                          |
+| Input terminal <small>`terminal`</small>  |                | A PFI terminal of the device. Empty uses the default terminal of the counter. |
 
 </Channel.Type>
 
@@ -431,15 +435,41 @@ and **Scaled units** (`scaled_units`).
 
 <Problem.List>
 
-<Problem.Item message={"Counter port ... has already been used on another channel on the same device"}>
+<Problem.Item message={"Another channel uses ctr0"}>
 <Problem.Cause>
 
-Two channels use the same counter of one device.
+Two enabled channels use the same counter of one device.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Change the port of one of them.
+Change the port of one of the channels, or disable one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device has no counter ctr0"}>
+<Problem.Cause>
+
+The channel uses a counter that the device does not have.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click a counter in the **Port** grid of the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"ctr0 does not take ... channels"}>
+<Problem.Cause>
+
+The counter cannot read the channel type.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a **Channel type** that the counter takes, or use another counter.
 
 </Problem.Fix>
 </Problem.Item>

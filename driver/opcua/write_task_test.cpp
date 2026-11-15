@@ -24,6 +24,8 @@
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
@@ -31,6 +33,7 @@ protected:
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
     connection::Config conn_cfg;
+    synnax::device::Device dev;
 
     // Command channels for different data types
     synnax::channel::Channel bool_cmd_channel;
@@ -105,8 +108,8 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev{
-            .key = "abc123",
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("opc_write_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -116,11 +119,11 @@ protected:
                 {{"connection", testutil::connection_json(conn_cfg)}}
             ),
         };
-        ASSERT_NIL(client->devices.create(dev));
+        ASSERT_NIL(client->devices.create(this->dev));
 
         x::json::json task_cfg = {
             {"data_saving_disabled", false},
-            {"device", dev.key},
+            {"device", this->dev.key},
             {"channels",
              x::json::json::array(
                  {{{"key", "NS=2;I=1"},
@@ -290,7 +293,7 @@ protected:
     }
 
     static constexpr std::uint16_t SECURED_PORT = 4862;
-    inline static const std::string SECURED_DEVICE_KEY = "secured_write_device";
+    synnax::device::Device secured_dev;
     synnax::channel::Channel secured_cmd_channel;
 
     /// @brief creates a command channel, and a device for the secured server that
@@ -307,8 +310,8 @@ protected:
         secured_cfg.security_mode = "SignAndEncrypt";
         secured_cfg.security_policy = "Basic256Sha256";
         secured_cfg.server_certificate = server_cert;
-        synnax::device::Device dev{
-            .key = SECURED_DEVICE_KEY,
+        this->secured_dev = synnax::device::Device{
+            .key = make_unique_channel_name("secured_write_device"),
             .rack = rack.key,
             .location = secured_cfg.endpoint,
             .make = "opc",
@@ -318,7 +321,7 @@ protected:
                 {{"connection", testutil::connection_json(secured_cfg)}}
             ),
         };
-        ASSERT_NIL(ctx->client->devices.create(dev));
+        ASSERT_NIL(ctx->client->devices.create(this->secured_dev));
     }
 
     /// @brief creates a sink that writes the secured command channel to node_id.
@@ -326,7 +329,7 @@ protected:
     create_secured_sink(const std::string &node_id) const {
         x::json::json task_cfg = {
             {"data_saving_disabled", false},
-            {"device", SECURED_DEVICE_KEY},
+            {"device", this->secured_dev.key},
             {"channels",
              x::json::json::array(
                  {{{"node_id", node_id},
@@ -347,7 +350,7 @@ protected:
 
 TEST_F(TestWriteTask, testBasicWriteTask) {
     auto wt = create_task();
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -370,7 +373,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     auto wt = create_task();
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
     ASSERT_EVENTUALLY_GE(
         mock_factory->streamer_opens.load(std::memory_order_acquire),
@@ -412,7 +415,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     auto fr = ::x::telem::Frame(1);
     fr.emplace(
@@ -440,7 +443,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     // First write should succeed
     auto fr1 = ::x::telem::Frame(1);
@@ -492,7 +495,7 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto moved_server_cfg = testutil::ServerConfig::create_default();
     moved_server_cfg.port = 4858;
     testutil::Server moved_server(moved_server_cfg);
@@ -500,9 +503,13 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
     ASSERT_TRUE(moved_server.wait_until_ready());
     auto moved_cfg = conn_cfg;
     moved_cfg.endpoint = "opc.tcp://localhost:4858";
-    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        this->dev.key,
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     server->stop();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
@@ -527,7 +534,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
@@ -562,7 +569,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     ));
     x::json::json task_cfg = {
         {"data_saving_disabled", false},
-        {"device", "abc123"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array({
              {{"node_id", "NS=99;I=99999"},
@@ -581,7 +588,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
         conn_pool,
         std::move(write_cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(2);
     fr.emplace(
         bad_cmd.key,
@@ -607,16 +614,17 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @returns a sink that writes cmd_channel to node_id.
+/// @returns a sink that writes cmd_channel to node_id on device.
 std::unique_ptr<WriteTaskSink> sink_for(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<connection::Pool> &pool,
+    const std::string &device,
     const synnax::channel::Key cmd_channel,
     const std::string &node_id
 ) {
     x::json::json task_cfg = {
         {"data_saving_disabled", false},
-        {"device", "abc123"},
+        {"device", device},
         {"channels",
          x::json::json::array({
              {{"node_id", node_id}, {"cmd_channel", cmd_channel}, {"disabled", false}},
@@ -633,10 +641,11 @@ TEST_F(TestWriteTask, testWritesNamespaceURINode) {
     const auto sink = sink_for(
         ctx->client,
         conn_pool,
+        this->dev.key,
         this->uint32_cmd_channel.key,
         "nsu=urn:open62541.server.application;s=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -656,10 +665,11 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     const auto sink = sink_for(
         ctx->client,
         conn_pool,
+        this->dev.key,
         this->uint32_cmd_channel.key,
         "nsu=urn:missing;s=TestUInt32"
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -681,8 +691,14 @@ TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
         x::telem::FLOAT64_T,
         true
     ));
-    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
-    ASSERT_NIL(sink->start());
+    const auto sink = sink_for(
+        ctx->client,
+        conn_pool,
+        this->dev.key,
+        cmd.key,
+        "NS=1;S=TestUInt32"
+    );
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(77.0));
     ASSERT_NIL(sink->write(fr));
@@ -701,8 +717,14 @@ TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
         x::telem::FLOAT64_T,
         true
     ));
-    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
-    ASSERT_NIL(sink->start());
+    const auto sink = sink_for(
+        ctx->client,
+        conn_pool,
+        this->dev.key,
+        cmd.key,
+        "NS=1;S=TestUInt32"
+    );
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(-1.0));
     const auto err = sink->write(fr);
@@ -719,8 +741,14 @@ TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
         x::telem::FLOAT64_T,
         true
     ));
-    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "nsu=urn:late;s=Late");
-    ASSERT_NIL(sink->start());
+    const auto sink = sink_for(
+        ctx->client,
+        conn_pool,
+        this->dev.key,
+        cmd.key,
+        "nsu=urn:late;s=Late"
+    );
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(97.0));
     ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
@@ -748,8 +776,9 @@ TEST_F(TestWriteTask, testNodeAddedAfterStart) {
         x::telem::FLOAT64_T,
         true
     ));
-    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=Late");
-    ASSERT_NIL(sink->start());
+    const auto
+        sink = sink_for(ctx->client, conn_pool, this->dev.key, cmd.key, "NS=1;S=Late");
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(cmd.key, x::telem::Series(97.0));
     ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
@@ -780,7 +809,7 @@ TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(3);
     fr.emplace(
         this->bool_cmd_channel.key,
@@ -821,7 +850,7 @@ TEST_F(TestWriteTask, testStartsWhileServerOff) {
         conn_pool,
         std::move(*cfg)
     );
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->uint32_cmd_channel.key,
@@ -855,7 +884,7 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
     ASSERT_TRUE(secured->wait_until_ready());
     this->create_secured_device(server_id.certificate);
     const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->secured_cmd_channel.key,
@@ -886,7 +915,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
     ASSERT_TRUE(secured.wait_until_ready());
     this->create_secured_device(server_id.certificate);
     const auto sink = this->create_secured_sink("NS=99;I=99999");
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
     fr.emplace(
         this->secured_cmd_channel.key,
@@ -903,7 +932,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
 TEST_F(TestWriteTask, testUnboundDisabledChannel) {
     x::json::json task_cfg{
         {"data_saving_disabled", false},
-        {"device", "abc123"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},

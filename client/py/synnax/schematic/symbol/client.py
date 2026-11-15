@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group
+from synnax.schematic.symbol import actions_gen
 from synnax.schematic.symbol.types_gen import (
     Key,
     RetrieveRequest,
@@ -34,9 +35,10 @@ class _CreateResponse(BaseModel):
     symbols: list[Symbol]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -173,9 +175,9 @@ class Client:
         :param key: The key of the symbol to rename.
         :param name: The new name for the symbol.
         """
-        self._client.send(
-            "/schematic/symbol/rename", _RenameRequest(key=key, name=name), Empty
-        )
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/schematic/symbol/dispatch", req, Empty)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes one or more symbols by key.

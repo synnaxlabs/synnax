@@ -10,7 +10,6 @@
 package json
 
 import (
-	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
@@ -39,14 +38,14 @@ func NewCodec(opts ...json.Options) http.FileCodec {
 
 func (*codec) ContentType() string { return "application/json" }
 
-func (c *codec) Decode(_ context.Context, data []byte, value any) error {
+func (c *codec) Decode(data []byte, value any) error {
 	if err := json.Unmarshal(data, value, c.opts); err != nil {
 		return encoding.SugarDecodingError(data, value, err)
 	}
 	return nil
 }
 
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (c *codec) DecodeStream(r io.Reader, value any) error {
 	dec := jsontext.NewDecoder(r, c.opts)
 	if err := json.UnmarshalDecode(dec, value, c.opts); err != nil {
 		data, ioErr := io.ReadAll(r)
@@ -55,7 +54,7 @@ func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	return nil
 }
 
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(value any) ([]byte, error) {
 	b, err := json.Marshal(value, c.opts)
 	if err != nil {
 		return nil, encoding.SugarEncodingError(value, err)
@@ -66,7 +65,7 @@ func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	return b, nil
 }
 
-func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (c *codec) EncodeStream(w io.Writer, value any) error {
 	if err := json.MarshalWrite(w, value, c.opts); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}

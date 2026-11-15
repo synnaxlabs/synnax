@@ -14,6 +14,7 @@ import {
   query,
   type resource,
   UnexpectedError,
+  type user,
 } from "@synnaxlabs/client";
 import { array, color, compare, deep, type optional, verbs } from "@synnaxlabs/x";
 
@@ -21,6 +22,7 @@ import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
+import { User } from "@/user";
 
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
@@ -49,25 +51,30 @@ export const useResultAppearance = createResultSelector(
   (a, b) => a.icon === b.icon && color.equals(a.color, b.color),
 );
 
-export type RetrieveKeysByProjectQuery = { project: project.Key };
+export type RetrieveKeysByProjectQuery = { project: project.Key; user: user.Key };
 
 const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
 // The answer carries keys alone: consumers read each panel's own fields, so a rename
-// must not re-answer the query.
+// must not re-answer the query. It holds the shared panels and the user's drafts.
 export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { project } }) =>
-    keysOf((await client.panels.watch({ projects: [project] }).retrieve()).records),
-  onChange: ({ client, query: { project } }, handler) =>
+  retrieve: async ({ client, query: { project, user } }) =>
+    keysOf(
+      (await client.panels.watch({ where: panel.visibleTo(project, user) }).retrieve())
+        .records,
+    ),
+  onChange: ({ client, query: { project, user } }, handler) =>
     client.panels
-      .watch({ projects: [project] })
+      .watch({ where: panel.visibleTo(project, user) })
       .onChange((w) => handler(w == null ? undefined : keysOf(w.records))),
-  getCached: ({ client, query: { project } }) => {
-    const window = client.panels.watch({ projects: [project] }).getCached();
+  getCached: ({ client, query: { project, user } }) => {
+    const window = client.panels
+      .watch({ where: panel.visibleTo(project, user) })
+      .getCached();
     return window == null ? undefined : keysOf(window.records);
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
@@ -77,13 +84,31 @@ export interface KeyParams {
   key: panel.Key;
 }
 
-const useCanEditBase = ({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.resourceID(key));
+const useResultOwner = createResultSelector(({ owner }) => owner ?? null);
+
+export interface OwnedParams {
+  key: panel.Key | null;
+}
+
+/**
+ * Reports whether the panel is a draft of the signed-in user, who can edit it without
+ * update access. False while the panel or the user loads, and for a null key.
+ */
+export const useOwned = ({ key }: OwnedParams): boolean => {
+  const owner = useResultOwner(key == null ? null : { key }).data;
+  const self = User.useResultKey({}).data;
+  return owner != null && owner === self;
+};
+
+const useCanEditBase = ({ key }: KeyParams): boolean => {
+  const granted = Access.useUpdateGranted(panel.resourceID(key));
+  return useOwned({ key }) || granted;
+};
 
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
  * closing a tab to resizing a split, reduces to one dispatch against the panel
- * document, so a single update grant answers all of them.
+ * document, so update access or owning the draft answers all of them.
  */
 export const useCanEdit = Scope.bindHook(useCanEditBase);
 
@@ -186,6 +211,9 @@ export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useIcon = Scope.bindHook(createSelector(({ icon }) => icon));
 
+/** Reports whether the panel is a draft, which has an owner. */
+export const useDraft = Scope.bindHook(createSelector(({ owner }) => owner != null));
+
 export const useColor = Scope.bindHook(
   createSelector(({ color }) => color, deep.equal),
 );
@@ -255,11 +283,9 @@ export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.panels.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.panels.rename(key, name);
     return data;
   },
 });

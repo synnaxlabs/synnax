@@ -195,6 +195,20 @@ func FormatProto(name, doc string, indent ...int) string {
 	return FormatGo(name, doc, indent...)
 }
 
+// FormatPyComment formats documentation as Python line comments, for a module-level
+// alias that cannot carry a docstring. It capitalizes the first letter, as Python docs
+// omit the identifier name, and keeps the line breaks of doc.
+func FormatPyComment(doc string) string {
+	if doc == "" {
+		return ""
+	}
+	lines := strings.Split(capitalize(doc), "\n")
+	for i := range lines {
+		lines[i] = "# " + lines[i]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func capitalize(s string) string {
 	if s == "" {
 		return s

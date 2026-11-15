@@ -101,6 +101,7 @@ var _ = Describe("Service.Set", func() {
 		},
 		Entry("rack string", rackOwner, "not an object"),
 		Entry("rack array", rackOwner, []any{"not", "an", "object"}),
+		Entry("rack field type", rackOwner, map[string]any{"running": "yes"}),
 		Entry("device string", deviceOwner, "not an object"),
 		Entry("device field type", deviceOwner, map[string]any{"rack": "not a key"}),
 		Entry("task number", taskOwner, 12),
@@ -118,6 +119,7 @@ var _ = Describe("Service.Set", func() {
 		},
 		Entry("rack", createRack, map[string]any{}),
 		Entry("rack with no details", createRack, nil),
+		Entry("rack running", createRack, map[string]any{"running": true}),
 		Entry("rack with extra fields", createRack, map[string]any{"rack": 65537}),
 		Entry("device", createDevice, map[string]any{
 			"rack": 65537, "data": map[string]any{"any": "thing"},
@@ -125,6 +127,25 @@ var _ = Describe("Service.Set", func() {
 		Entry("task", createTask, map[string]any{
 			"running": true,
 			"data":    map[string]any{"a": 1},
+		}),
+	)
+
+	DescribeTable(
+		"Should store the details of a rack status as the rack decodes them",
+		func(ctx SpecContext, details any, expected rack.StatusDetails) {
+			owner := createRack(ctx)
+			s := newStatus(&owner, details)
+			Expect(MustSucceed(set(ctx, s)).Statuses[0].Details).To(Equal(expected))
+			var stored status.Status[rack.StatusDetails]
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+				Where(status.MatchOwners[rack.StatusDetails](owner)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Details).To(Equal(expected))
+		},
+		Entry("no details", nil, rack.StatusDetails{}),
+		Entry("running", map[string]any{"running": true}, rack.StatusDetails{
+			Running: true,
 		}),
 	)
 

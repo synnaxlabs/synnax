@@ -111,6 +111,11 @@ func (p *Plugin) generateFile(
 			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
+		if action.IsAlias() {
+			target := fp.ProcessField(resolution.Field{Type: action.Alias}, typ)
+			a.Target = &target
+			fp.CollectTypeImports(&action.Alias)
+		}
 		for _, field := range action.Fields {
 			a.Fields = append(a.Fields, fp.ProcessField(field, typ))
 			fp.CollectTypeImports(&field.Type)
@@ -164,7 +169,10 @@ type actionData struct {
 	Name     string
 	TypeName string
 	Doc      string
-	Fields   []tstypes.FieldData
+	// Target holds the zod schema and type of the struct that an action alias uses as
+	// its payload. It is nil for an action with its own payload.
+	Target *tstypes.FieldData
+	Fields []tstypes.FieldData
 }
 
 var templateFuncs = template.FuncMap{
@@ -190,6 +198,11 @@ import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end 
 {{- if .Doc}}
 {{formatDoc .Name .Doc}}
 {{- end}}
+{{- if .Target }}
+export const {{ camelCase .Name }}PayloadZ = {{ .Target.ZodType }};
+
+export type {{ .Name }}Payload = {{ .Target.TSType }};
+{{- else }}
 export const {{ camelCase .Name }}PayloadZ = z.object({
 {{- range .Fields}}
   {{ .TSName }}: {{ .ZodType }},
@@ -197,6 +210,7 @@ export const {{ camelCase .Name }}PayloadZ = z.object({
 });
 
 export type {{ .Name }}Payload = z.infer<typeof {{ camelCase .Name }}PayloadZ>;
+{{- end }}
 {{end}}
 export type Action =
 {{- range .Actions}}

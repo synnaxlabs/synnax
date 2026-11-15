@@ -42,6 +42,7 @@ from synnax.telem import (
 from x.control import Authority, CrudeAuthority
 from x.exceptions import Registry
 from x.fs import FilePath
+from x.params import deprecate_positional
 
 # A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
 _FrameParams: TypeAlias = (
@@ -91,6 +92,7 @@ class Client:
         )
         self.instrumentation = instrumentation
 
+    @deprecate_positional("authorities")
     def open_writer(
         self,
         start: CrudeTimeStamp | None = None,
@@ -168,6 +170,7 @@ class Client:
             auto_index=auto_index,
         )
 
+    @deprecate_positional("chunk_size", "reduction")
     def open_iterator(
         self,
         tr: TimeRange,
@@ -271,6 +274,7 @@ class Client:
         reduction: Reduction | None = None,
     ) -> Frame: ...
 
+    @deprecate_positional("reduction")
     def read(
         self,
         tr: TimeRange,
@@ -299,6 +303,7 @@ class Client:
             return frame
         return frame[normal.channels[0]]
 
+    @deprecate_positional("dest", "reduction")
     def read_csv(
         self,
         tr: TimeRange,
@@ -319,6 +324,7 @@ class Client:
         """
         self._reader.read_csv(tr, channels, dest=dest, reduction=reduction)
 
+    @deprecate_positional("dest", "reduction")
     def read_tdms(
         self,
         tr: TimeRange,
@@ -356,6 +362,7 @@ class Client:
         n: int = 1,
     ) -> Frame: ...
 
+    @deprecate_positional("n")
     def read_latest(
         self,
         channels: channel.Params,
@@ -386,6 +393,9 @@ class Client:
             return aggregate
         return aggregate[normal.channels[0]]
 
+    @deprecate_positional(
+        "downsample_factor", "throttle_rate", "exclude_groups", "keep_alive"
+    )
     def open_streamer(
         self,
         channels: channel.Params,
@@ -420,6 +430,9 @@ class Client:
             keep_alive=keep_alive,
         )
 
+    @deprecate_positional(
+        "downsample_factor", "throttle_rate", "exclude_groups", "keep_alive"
+    )
     async def open_async_streamer(
         self,
         channels: channel.Params,

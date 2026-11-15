@@ -14,7 +14,7 @@ import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { type resource } from "@/resource";
-import { type schematic } from "@/schematic";
+import { schematic } from "@/schematic";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
@@ -317,9 +317,9 @@ describe("Symbol Client", () => {
         data: SYMBOL_DATA,
         group: from.key,
       });
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, to.key),
-      ]);
+      );
       expect((await client.schematics.symbols.retrieve(symbol.key)).group).toEqual(
         to.key,
       );
@@ -328,9 +328,9 @@ describe("Symbol Client", () => {
           (s) => s.key,
         ),
       ).toEqual([symbol.key]);
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, null),
-      ]);
+      );
       expect(
         (await client.schematics.symbols.retrieve(symbol.key)).group,
       ).toBeUndefined();
@@ -349,6 +349,23 @@ describe("Symbol Client", () => {
 
       const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("New Name");
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the symbol", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Dispatch Test",
+        data: SYMBOL_DATA,
+        group: symbolGroup.key,
+      });
+      const svg = "<svg><g></g></svg>";
+      await client.schematics.symbols.dispatch(
+        symbol.key,
+        schematic.symbol.set({ path: ["data", "svg"], value: svg }),
+      );
+      const stored = await createTestClient().schematics.symbols.retrieve(symbol.key);
+      expect(stored.data.svg).toBe(svg);
     });
   });
 

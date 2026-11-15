@@ -28,13 +28,13 @@ var _ = Describe("SetPreV54Row", func() {
 			e := entry{ID: 7, Data: "old"}
 			key := SetPreV54Row(ctx, kvDB, "legacyEntry", e.ID, e)
 
-			prefix := MustSucceed(msgpack.Codec.Encode(ctx, "legacyEntry"))
-			encodedKey := MustSucceed(msgpack.Codec.Encode(ctx, e.ID))
+			prefix := MustSucceed(msgpack.Codec.Encode("legacyEntry"))
+			encodedKey := MustSucceed(msgpack.Codec.Encode(e.ID))
 			Expect(key).To(Equal(append(prefix, encodedKey...)))
 
 			raw, closer := MustSucceed2(kvDB.Get(ctx, key))
 			var stored entry
-			Expect(msgpack.Codec.Decode(ctx, raw, &stored)).To(Succeed())
+			Expect(msgpack.Codec.Decode(raw, &stored)).To(Succeed())
 			Expect(closer.Close()).To(Succeed())
 			Expect(stored).To(Equal(e))
 		},

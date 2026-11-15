@@ -118,9 +118,8 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
     await client.logs.rename(key, name);
     return data;
   },

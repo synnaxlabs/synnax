@@ -9,9 +9,9 @@
 
 import {
   access,
-  AuthError,
   channel,
   framer,
+  InvalidCredentialsError,
   query,
   ranger,
   type resource,
@@ -213,7 +213,7 @@ describe("Access Queries", () => {
         await client.access.policies.delete(rangePolicy.key);
         const userClient = createTestClient({ username, password: "wrong" });
         const { result } = renderGranted(userClient);
-        await expect(userClient.connect()).rejects.toThrow(AuthError);
+        await expect(userClient.connect()).rejects.toThrow(InvalidCredentialsError);
         userClient.reauthenticate({ username, password: "test" });
         await userClient.connect();
         await client.access.policies.create({

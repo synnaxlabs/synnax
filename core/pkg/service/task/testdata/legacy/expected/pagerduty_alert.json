@@ -20,5 +20,5 @@
     }
   ],
   "auto_start": true,
-  "routing_key": "fixturefixturefixturefixture1234"
+  "plain_routing_key": "fixturefixturefixturefixture1234"
 }

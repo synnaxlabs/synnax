@@ -218,7 +218,7 @@ var _ = Describe("Go Query Plugin", func() {
 					resp := MustGenerate(ctx, source, "view", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
 				},
-				Entry("filter", "@filter", "slices.Contains(vals, e.Base().Name)"),
+				Entry("filter", "@filter", "want.Contains(e.Base().Name)"),
 				Entry("index", "@index lookup", "return e.Base().Name"),
 				Entry("search", "@search", "[]string{e.Base().Name}"),
 			)
@@ -252,7 +252,7 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func MatchTypes(vals ...Type) Filter",
-					"slices.Contains(vals, e.Type())",
+					"want.Contains(e.Type())",
 				)
 			})
 
@@ -286,28 +286,6 @@ var _ = Describe("Go Query Plugin", func() {
 				Entry("ref", "@ref on_delete restrict", "index"),
 				Entry("search", "@search", "index"),
 			)
-
-			It("Should reject a @ref on a union field", func(ctx SpecContext) {
-				source := `
-					@go output "core/pkg/service/view"
-
-					Base struct {
-						key uuid @key
-						owner uuid @ref on_delete restrict
-					}
-
-					View union on type extends Base {
-						first {
-							size int32
-						}
-						@retrieve
-					}
-				`
-				req := MustGenerateRequest(ctx, source, "view", loader)
-				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-					"view.View: @ref is not supported on union fields (owner)",
-				)))
-			})
 		})
 
 		Context("inherited key", func() {
@@ -577,7 +555,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"slices.Contains(vals",
+						"want.Contains(",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -682,7 +660,8 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"slices.Contains(vals, e.Username)",
+						"want := set.New(vals...)",
+						"want.Contains(e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -750,7 +729,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"slices.Contains(vals, e.Rack)",
+							"want.Contains(e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -1221,7 +1200,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should import slices for variadic filters", func(ctx SpecContext) {
+			It("Should import set for variadic filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -1239,10 +1218,13 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("\"slices\"")
+					ToContain(`"github.com/synnaxlabs/synnax/x/go/set"`).
+					ToNotContain("\"slices\"")
 			})
 
-			It("Should not import slices for bool-only filters", func(ctx SpecContext) {
+			It("Should not import slices or set for bool-only filters", func(
+				ctx SpecContext,
+			) {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1260,7 +1242,10 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToNotContain("\"slices\"")
+					ToNotContain(
+						"\"slices\"",
+						`"github.com/synnaxlabs/synnax/x/go/set"`,
+					)
 			})
 
 			It(
@@ -1377,7 +1362,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"slices.Contains(vals",
+							"want.Contains(",
 						)
 				},
 			)
@@ -1507,10 +1492,11 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							`"slices"`,
+							`"github.com/synnaxlabs/synnax/x/go/set"`,
 							"keys[i] = compare.TextKey(string(v))",
+							"want := set.New(vals...)",
 							"r.indexes.name.Filter(keys...),",
-							"return slices.Contains(vals, e.Name), nil",
+							"return want.Contains(e.Name), nil",
 						)
 				},
 			)
@@ -1545,6 +1531,38 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain("r.indexes.spanStart.Filter(")
 			})
+
+			It(
+				"Should sort by each sub-field that a mark names",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/event"
+
+					Span struct {
+						start int64
+						end   int64
+					}
+
+					Event struct {
+						key  uuid { @key }
+						span Span { @index sorted start end }
+						@resource type "event"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "event", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
+							"spanEnd *gorp.SortedIndex[uuid.UUID, Event, int64]",
+							"return e.Span.Start",
+							"return e.Span.End",
+							"func OrderBySpanStart(dir gorp.Direction) Order {",
+							"func OrderBySpanEnd(dir gorp.Direction) Order {",
+						)
+				},
+			)
 
 			It("Should sort a generic type over any", func(ctx SpecContext) {
 				source := `

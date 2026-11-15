@@ -381,11 +381,18 @@ func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, error) {
 	return backups.checkVersion(cfg.Version, *cfg.UpdateBackupDisabled)
 }
 
+// ErrLocked is returned when another process holds the data directory. An open after
+// that process exits succeeds.
+var ErrLocked = errors.New("data locked")
+
 func acquireLock(dirname string, fs vfs.FS) (io.Closer, error) {
 	fName := filepath.Join(dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
 		return release, nil
+	}
+	if heldByOtherProcess(err) {
+		err = errors.Mark(err, ErrLocked)
 	}
 	return release, errors.Wrapf(err, failedToAcquireLockMsg, dirname)
 }
@@ -453,7 +460,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		// Allow more open files (up from 1000)
 		MaxOpenFiles: 10000,
 		BytesPerSync: int(telem.Megabyte * 2),
-		// Let OS handle WAL syncing
+		// No background WAL syncs. Each commit still syncs the WAL.
 		WALBytesPerSync: 0,
 	}
 
@@ -483,7 +490,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
 		return nil, errors.Combine(err, db.Close())
 	}
-	return pebblekv.Wrap(db), nil
+	return pebblekv.Wrap(db, logger), nil
 }
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {

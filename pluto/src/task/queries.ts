@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
+import { type query, rack, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -22,62 +22,27 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 const BASE_QUERY = { includeStatus: true };
 
 /**
- * Parses cached and streamed tasks through the schemas, so a typed hook never hands on
- * the untyped tasks other consumers write into the client cache. A task that fails to
- * parse reads as not cached. Results are memoized per task, as the cache interns its
- * tasks and Flux compares snapshots by identity.
+ * A typed retrieve parses cached and streamed tasks through the schemas. A task that
+ * fails to parse reads as not cached.
  */
-const createCachedParser = <S extends task.Schemas>(schemas: S) => {
-  const schema = task.payloadZ(schemas);
-  const tasks = new WeakMap<task.Task, task.Task<S> | undefined>();
-  const deleted = new WeakMap<query.Deleted<task.Task>, query.Deleted<task.Task<S>>>();
-  const parse = (client: Synnax, cached: task.Task): task.Task<S> | undefined => {
-    if (tasks.has(cached)) return tasks.get(cached);
-    const result = schema.safeParse(cached.payload);
-    // payloadZ types each optional schema as a union with its default, so the parsed
-    // payload narrows to the typed one here.
-    const typed = result.success
-      ? client.tasks.sugar(result.data as task.Payload<S>, schemas)
-      : undefined;
-    tasks.set(cached, typed);
-    return typed;
-  };
-  return (
-    client: Synnax,
-    cached: query.Cached<task.Task> | undefined,
-  ): query.Cached<task.Task<S>> | undefined => {
-    if (cached === undefined) return undefined;
-    if (!query.Deleted.matches(cached)) return parse(client, cached);
-    const held = deleted.get(cached);
-    if (held != null) return held;
-    const corpse = parse(client, cached.corpse);
-    if (corpse === undefined) return undefined;
-    const next = new query.Deleted(corpse, cached.deletedAt);
-    deleted.set(cached, next);
-    return next;
-  };
-};
-
-export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) => {
-  const parse = schemas == null ? null : createCachedParser(schemas);
-  return Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
+export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
+  Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
-      parse == null
+      schemas == null
         ? client.tasks.watch(query).onChange(handler as query.ChangeHandler<task.Task>)
         : client.tasks
             .watch(query)
-            .onChange((cached) => handler(parse(client, cached))),
+            .onChange((cached) => handler(client.tasks.parse(cached, schemas))),
     getCached: ({ client, query }) =>
-      parse == null
+      schemas == null
         ? (client.tasks.watch(query).getCached() as
             query.Cached<task.Task<S>> | undefined)
-        : parse(client, client.tasks.watch(query).getCached()),
+        : client.tasks.parse(client.tasks.watch(query).getCached(), schemas),
   });
-};
 
 export const { use, useEnsure, useResult, useTombstone, createSelector } =
   createRetrieve();
@@ -87,8 +52,6 @@ export interface KeyParams {
 }
 
 export const useName = createSelector(({ name }) => name);
-
-export const useRange = createSelector(({ range }) => range);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
@@ -134,10 +97,10 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     name: z.string(),
     rack: rack.keyZ,
     type: schemas.type,
-    snapshot: z.boolean(),
     config: schemas.config,
     configHash: z.string(),
-    status: task.statusZ(schemas.statusData).optional().nullable(),
+    // The Core writes the status, so the user cannot fix a status that fails a check.
+    status: z.unknown(),
   }) as unknown as FormSchema<S>;
 
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
@@ -145,7 +108,6 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
   name: string;
   rack: rack.Key;
   type: z.infer<S["type"]>;
-  snapshot: boolean;
   config: z.infer<S["config"]>;
   configHash: string;
   status?: task.Status<S["statusData"]>;
@@ -159,7 +121,7 @@ export interface InitialValues<
   S extends task.Schemas = task.Schemas,
 > extends optional.Optional<
   task.Payload<S>,
-  "key" | "rack" | "internal" | "snapshot" | "configHash"
+  "key" | "rack" | "internal" | "configHash"
 > {}
 
 /** Builds the hook for a task's form. */
@@ -181,7 +143,6 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       config: payload.config as z.infer<S["config"]>,
       configHash: payload.configHash ?? "",
       status: payload.status,
-      snapshot: payload.snapshot ?? false,
     }),
   });
 
@@ -198,40 +159,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
-
-export interface SnapshotParams {
-  tasks: SnapshotPair | SnapshotPair[];
-  /** The range the snapshots sit in. */
-  range: ranger.Key;
-}
-
-export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SNAPSHOT,
-  update: async ({ client, data }) => {
-    const { tasks, range } = data;
-    await Promise.all(
-      array
-        .toArray(tasks)
-        .map(({ key, name }) =>
-          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
-        ),
-    );
-    return data;
-  },
-});
-
 export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.tasks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.tasks.rename(key, name);
     return data;
   },
 });

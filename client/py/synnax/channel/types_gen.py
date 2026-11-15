@@ -65,6 +65,17 @@ class Operation(BaseModel):
     )
 
 
+class CountLimitedResponse(BaseModel):
+    """Holds the count of the channels that count against the license channel limit (not
+    internal, not virtual).
+
+    Attributes:
+        count: Is how many channels count against the license channel limit.
+    """
+
+    count: int = Field(ge=0, le=4294967295)
+
+
 class Where(BaseModel):
     """Is a filter that selects channels.
 
@@ -169,7 +180,6 @@ class Payload(BaseModel):
             commonly Unix nanosecond timestamps.
         index: Is the channel used to index this channel's values, associating each
             value with a timestamp.
-        alias: Is an optional alternate name for the channel within a specific context.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
         internal: Is true if this is a system channel hidden from normal user queries.
@@ -189,7 +199,6 @@ class Payload(BaseModel):
     data_type: telem.DataType
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)
-    alias: str | None = None
     virtual: bool = False
     internal: bool = False
     expression: str = ""

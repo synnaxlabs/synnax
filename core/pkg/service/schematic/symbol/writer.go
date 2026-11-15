@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -39,50 +38,29 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates the given symbol. If the symbol does not have a key, a new key will be
-// generated. An existing symbol keeps its group, and a new symbol takes s.Group. The
-// commit carries a create action that holds the stored symbol.
+// Create creates the given symbol in s.Group, assigning a new key when s.Key is zero.
+// The commit carries a create action that holds the stored symbol. Create returns an
+// error wrapping validate.ErrValidation when a symbol with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	var (
-		exists bool
-		stored Symbol
-	)
-	if s.Key == uuid.Nil() {
-		s.Key = uuid.New()
-	} else {
-		err := w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			s.Group = stored.Group
-		}
-	}
-	var prev *Symbol
-	if exists {
-		prev = &stored
-	}
-	if err := validateScale(prev, *s); err != nil {
+	if err := validateScale(nil, *s); err != nil {
 		return err
 	}
-	if !exists {
-		if err := group.CheckMember(
-			ctx,
-			w.tx,
-			s.Group,
-			resource.TypeSchematicSymbol,
-			nil,
-		); err != nil {
-			return err
-		}
+	if s.Key == uuid.Nil() {
+		s.Key = uuid.New()
 	}
-	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		s.Group,
+		resource.TypeSchematicSymbol,
+		nil,
+	); err != nil {
+		return err
+	}
+	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Symbol: *s}))
@@ -144,8 +122,8 @@ func validateScale(prev *Symbol, next Symbol) error {
 	)
 }
 
-// CreateMany creates the given symbols. If symbols with the same key already exist,
-// they will be overwritten.
+// CreateMany creates the given symbols. It returns an error wrapping
+// validate.ErrValidation when a symbol with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, symbols *[]Symbol) error {
 	for i := range *symbols {
 		if err := w.Create(ctx, &(*symbols)[i]); err != nil {

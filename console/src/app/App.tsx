@@ -16,7 +16,6 @@ import { Analytics } from "@/app/analytics";
 import { Haul } from "@/app/haul";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
-import { Range } from "@/app/range";
 import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
@@ -39,12 +38,14 @@ const BuildContext = DESKTOP ? Embedded.Provider : Fragment;
 
 const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
+const BEFORE_CLOSE = DESKTOP ? Embedded.beforeClose : undefined;
+
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
     <Errors.OverlayWithoutStore>
       <BuildContext>
-        <Session.Context>
+        <Session.Context beforeClose={BEFORE_CLOSE}>
           <AnalyticsProvider>
             <Pluto.Context workerURL={workerURL}>
               {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
@@ -52,13 +53,11 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
                 <Errors.OverlayWithStore>
                   <Panel.Context>
                     <Tree.Context>
-                      <Range.Context>
-                        <Task.Context>
-                          <Vis.Canvas>
-                            <Window.Window />
-                          </Vis.Canvas>
-                        </Task.Context>
-                      </Range.Context>
+                      <Task.Context>
+                        <Vis.Canvas>
+                          <Window.Window />
+                        </Vis.Canvas>
+                      </Task.Context>
                     </Tree.Context>
                   </Panel.Context>
                 </Errors.OverlayWithStore>

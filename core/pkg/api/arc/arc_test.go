@@ -160,10 +160,13 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
 			req.IncludeStatus = true
-			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
-			Expect(stat).ToNot(BeNil())
-			Expect(stat.Message).To(Equal("Compiled"))
+			Eventually(func(g Gomega) {
+				res, err := retrieve(AuthedCtx(ctx, author), req)
+				g.Expect(err).ToNot(HaveOccurred())
+				stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+				g.Expect(stat).ToNot(BeNil())
+				g.Expect(stat.Message).To(Equal("Compiled"))
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 
 		It("Should include what changed in a deployed automation", func(
@@ -189,18 +192,22 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).Set(ctx, stat)
 			})).To(Succeed())
-			b := a.Base()
-			b.Source = arc.Source{Variant: arc.TextSource{
-				Text: text.Text{Raw: "func f() i64 { return 1 }"},
-			}}
-			a.SetBase(b)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return arcSvc.NewWriter(tx).Create(ctx, &a)
+				return arcSvc.NewWriter(tx).Apply(
+					ctx,
+					a.Base().Key,
+					arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
+				)
 			})).To(Succeed())
-			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
-				[]arc.Change{{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged}},
-			))
+			Eventually(func(g Gomega) {
+				res, err := retrieve(AuthedCtx(ctx, author), req)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
+					[]arc.Change{
+						{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
+					},
+				))
+			}).Should(Succeed())
 			req.IncludeChanges = false
 			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeNil())

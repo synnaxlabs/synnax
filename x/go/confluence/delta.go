@@ -17,9 +17,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
 )
@@ -79,11 +77,7 @@ type DynamicDeltaMultiplier[V Value] struct {
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
 	Source         AbstractMultiSource[V]
-	// dropping holds the inlets in a drop episode, which ends when the inlet's buffer
-	// is empty. Only a lossy multiplier uses it.
-	dropping set.Set[address.Address]
-	timeout  time.Duration
-	lossy    bool
+	timeout        time.Duration
 }
 
 // NewDynamicDeltaMultiplier creates a new DynamicDeltaMultiplier with the specified
@@ -101,19 +95,6 @@ func NewDynamicDeltaMultiplier[V Value](
 		disconnections:  make(chan []Inlet[V], buf),
 		timeout:         timeout,
 	}
-}
-
-// NewLossyDynamicDeltaMultiplier creates a DynamicDeltaMultiplier that never waits for
-// an output stream. It drops a value for each output stream whose buffer is full, so a
-// slow consumer loses values but does not delay the input stream or other consumers.
-func NewLossyDynamicDeltaMultiplier[V Value](
-	instrumentation alamos.Instrumentation,
-	connectionBuffers ...int,
-) *DynamicDeltaMultiplier[V] {
-	d := NewDynamicDeltaMultiplier[V](0, instrumentation, connectionBuffers...)
-	d.lossy = true
-	d.dropping = make(set.Set[address.Address])
-	return d
 }
 
 // Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams.
@@ -158,10 +139,6 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				if !ok {
 					return nil
 				}
-				if d.lossy {
-					d.sendOrDrop(res)
-					continue
-				}
 				var err error
 				if timer != nil {
 					timer.Reset(d.timeout)
@@ -180,32 +157,12 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	}, o.Signal...)
 }
 
-func (d *DynamicDeltaMultiplier[V]) sendOrDrop(v V) {
-	for _, inlet := range d.Source.Out {
-		addr := inlet.InletAddress()
-		// A drop episode ends only once the consumer drains its whole buffer, so a
-		// consumer that keeps up part of the time logs once.
-		if len(inlet.Inlet()) == 0 {
-			d.dropping.Remove(addr)
-		}
-		select {
-		case inlet.Inlet() <- v:
-		default:
-			if !d.dropping.Contains(addr) {
-				d.dropping.Add(addr)
-				d.L.Warn(fmt.Sprintf("delta: dropping values for slow inlet %s", addr))
-			}
-		}
-	}
-}
-
 // disconnectAll closes all connected inlets and clears the output streams.
 func (d *DynamicDeltaMultiplier[V]) disconnectAll() {
 	for _, inlet := range d.Source.Out {
 		inlet.Close()
 	}
 	d.Source.Out = nil
-	clear(d.dropping)
 }
 
 // disconnect removes the specified inlets from the output streams and closes them.
@@ -221,7 +178,6 @@ func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 			return
 		}
 		d.Source.Out = slices.Delete(d.Source.Out, i, i+1)
-		d.dropping.Remove(inlet.InletAddress())
 		inlet.Close()
 	}
 }

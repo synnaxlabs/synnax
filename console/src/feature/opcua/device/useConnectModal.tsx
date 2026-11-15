@@ -38,7 +38,7 @@ import {
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
   type Device,
-  INTEGRATION,
+  INTEGRATION_KEY,
   NO_SECURITY_MODE,
   NO_SECURITY_POLICY,
   SCHEMAS,
@@ -158,7 +158,7 @@ export const Connect = ({
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
-    integration: INTEGRATION,
+    integration: INTEGRATION_KEY,
     name: "OPC UA",
     rack: rackKey,
   });
@@ -241,7 +241,7 @@ export const Connect = ({
                 padHelpText={false}
                 inputProps={ENDPOINT_INPUT_PROPS}
               />
-              <PlatformDevice.RackField integration={INTEGRATION} />
+              <PlatformDevice.RackField integration={INTEGRATION_KEY} />
               <Form.Field
                 path={path.properties.connection.username}
                 label="Username"
@@ -355,7 +355,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
+export const useConnectModal = PlatformDevice.createConnectModal(
+  Connect,
+  INTEGRATION_KEY,
+);
 
 const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>) => (
   <>

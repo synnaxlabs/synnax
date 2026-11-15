@@ -13,10 +13,12 @@ package start_test
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/base64"
 	"io"
 	"net"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -24,35 +26,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Start", func() {
-	// startCore starts a Core with in-memory storage and the given extra flags. It
-	// returns once the Core is running, with the writing end of the Core's stdin and
-	// the Core's address.
-	startCore := func(flags ...string) (*gexec.Session, io.WriteCloser, string) {
-		GinkgoHelper()
-		l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-		addr := l.Addr().String()
-		Expect(l.Close()).To(Succeed())
-		dir := GinkgoT().TempDir()
-		cmd := exec.Command(
-			MustSucceed(os.Executable()),
-			append([]string{
-				"start", "--mem", "--insecure", "--no-driver",
-				"--listen", addr, "--data", dir,
-			}, flags...)...,
-		)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), coreEnv+"=1")
-		stdin := MustSucceed(cmd.StdinPipe())
-		session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
-		DeferCleanup(func() { session.Kill().Wait() })
-		Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
-		return session, stdin, addr
-	}
-
 	// holdShutdown opens a request to the Core at addr and leaves its body unsent. The
 	// Core waits on the request when it shuts down, until its 5s read timeout from the
 	// request ends it, so stop signals sent in that window reach a shutting-down Core.
@@ -109,6 +87,37 @@ var _ = Describe("Start", func() {
 		session.Signal(syscall.SIGTERM)
 		Eventually(session, 30*time.Second).Should(gexec.Exit(0))
 		Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
+	})
+
+	Describe("Secrets key", func() {
+		var path string
+		BeforeEach(func() {
+			path = filepath.Join(GinkgoT().TempDir(), "secrets.key")
+		})
+
+		It("Should create the secrets key file it is given", func() {
+			startCore("--secrets-key-file", path)
+			Expect(MustSucceed(os.Stat(path)).Mode().Perm()).To(Equal(xfs.UserRW))
+		})
+
+		It("Should create the secrets key file in the data directory", func() {
+			data := GinkgoT().TempDir()
+			startCore("--mem=false", "--data", data)
+			Expect(MustSucceed(os.Stat(filepath.Join(data, "secrets.key"))).Mode().
+				Perm()).To(Equal(xfs.UserRW))
+		})
+
+		It("Should write no secrets key file for a Core in memory", func() {
+			data := GinkgoT().TempDir()
+			startCore("--data", data)
+			Expect(filepath.Join(data, "secrets.key")).ToNot(BeAnExistingFile())
+		})
+
+		It("Should use the secrets key before the secrets key file", func() {
+			key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
+			startCore("--secrets-key", key, "--secrets-key-file", path)
+			Expect(path).ToNot(BeAnExistingFile())
+		})
 	})
 
 	It("Should exit at once on two signals after the stop keyword", func() {

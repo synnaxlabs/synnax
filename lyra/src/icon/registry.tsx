@@ -74,13 +74,18 @@ import {
   IoTerminal,
   IoTerminalOutline,
   IoTime,
-  IoTvOutline,
 } from "react-icons/io5";
 import {
+  LuBadgeCheck,
+  LuChartColumn,
+  LuChartNoAxesGantt,
   LuFileBadge,
+  LuInfo,
+  LuKeyRound,
   LuLock,
   LuLockOpen,
   LuPipette,
+  LuSquareAsterisk,
   LuSquareFunction,
   LuUngroup,
 } from "react-icons/lu";
@@ -157,7 +162,6 @@ import {
   MdPause,
   MdPeople,
   MdPerson,
-  MdPictureInPicture,
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
@@ -241,7 +245,6 @@ import {
   TbEraser,
   TbLayoutSidebar,
   TbLetterE,
-  TbLetterV,
   TbLivePhoto,
   TbMathFunction,
   TbPlugConnected,
@@ -250,6 +253,7 @@ import {
   TbRowInsertBottom,
   TbRowInsertTop,
   TbRowRemove,
+  TbStack2Filled,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -274,6 +278,7 @@ import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
+import { Sift } from "@/icon/Sift";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
 
@@ -300,7 +305,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
-export const View = wrapSVGIcon(IoTvOutline, "view");
+export const View = wrapSVGIcon(TbStack2Filled, "view");
 export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
   Row: wrapSVGIcon(TbRowRemove, "delete-row"),
   Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
@@ -367,7 +372,12 @@ export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
-export const License = wrapSVGIcon(LuFileBadge, "license");
+export const License = wrapSVGIcon(LuBadgeCheck, "license");
+export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
+export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
+export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
+export const About = wrapSVGIcon(LuInfo, "about");
+export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
@@ -393,6 +403,7 @@ export const Logo = {
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  Sift,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
   // Crops the view box to the mark, which fills only a thin strip of the original.
@@ -436,7 +447,6 @@ export const User = wrapSVGIcon(MdPerson, "user");
 export const Role = wrapSVGIcon(MdPeople, "role");
 export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
-export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
 export const TreeView = wrapSVGIcon(PiTreeViewBold, "tree-view");
@@ -525,8 +535,8 @@ export const RotateAroundCenter = {
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
+export const Timeline = wrapSVGIcon(LuChartNoAxesGantt, "timeline");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
-export const Version = wrapSVGIcon(TbLetterV, "version");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
@@ -616,6 +626,7 @@ const icons = {
   TimeOutline,
   Acquire,
   Analyze,
+  UsageData,
   Concepts,
   Visualize,
   Panel,
@@ -642,6 +653,10 @@ const icons = {
   Ungroup,
   Lock,
   Unlock,
+  Secret,
+  APIKey,
+  About,
+  Certificate,
   Project,
   Box,
   Boxes,
@@ -668,7 +683,6 @@ const icons = {
   Role,
   Policy,
   Rename,
-  Snapshot,
   Sync,
   Search,
   Auto,

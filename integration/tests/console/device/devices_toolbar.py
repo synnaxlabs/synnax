@@ -189,23 +189,17 @@ class DevicesToolbar(ConsoleCase):
 
     def _move_device(self, device: sy.Device, target_chassis: sy.Device) -> sy.Device:
         """Move a device to a different chassis and verify in UI."""
-        updated = self.client.devices.create(
-            sy.Device(
-                key=device.key,
-                rack=self.rack.key,
-                name=device.name,
-                make=device.make,
-                model=device.model,
-                location=device.location,
-                properties=device.properties,
-                parent=target_chassis.key,
+        self.client.devices.dispatch(
+            device.key,
+            sy.device.set_rack(
+                sy.device.SetRackPayload(rack=self.rack.key, parent=target_chassis.key)
             ),
         )
         self.console.devices.expand(target_chassis.name)
         assert self.console.devices.is_child_of(device.name, target_chassis.name), (
             f"'{device.name}' should be under '{target_chassis.name}'"
         )
-        return updated
+        return self.client.devices.retrieve(key=device.key)
 
     def _assert_modules_under(self, chassis_name: str) -> None:
         """Assert all modules are visible children of the given chassis."""

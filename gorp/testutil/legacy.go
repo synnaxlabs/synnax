@@ -32,12 +32,12 @@ func SetPreV54Row(
 ) []byte {
 	ginkgo.GinkgoHelper()
 	prefix := testutil.MustSucceed(key.LegacyPrefix(ctx, typeName))
-	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(ctx, entryKey))
+	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(entryKey))
 	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
 	fullKey = append(fullKey, prefix...)
 	fullKey = append(fullKey, encodedKey...)
 	gomega.Expect(
-		kvDB.Set(ctx, fullKey, testutil.MustSucceed(msgpack.Codec.Encode(ctx, value))),
+		kvDB.Set(ctx, fullKey, testutil.MustSucceed(msgpack.Codec.Encode(value))),
 	).To(gomega.Succeed())
 	return fullKey
 }

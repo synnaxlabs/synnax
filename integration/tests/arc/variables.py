@@ -334,6 +334,16 @@ sequence input_alias_main {
     alias_write_src -> chan_writer(channel=wr_alias)
 }
 
+// ───────────────── literals written to a channel alias ──────────────────
+vars_start => alias_literal_main
+
+sequence alias_literal_main {
+    lit_alias := alias_lit_a
+    1 -> lit_alias
+    lit_alias = alias_lit_b
+    2 -> lit_alias
+}
+
 // ──────────────────────── computed initializers ─────────────────────────
 top_computed i64 := 2 + 3
 vars_start => toplevel_computed_reader
@@ -481,6 +491,10 @@ INPUT_OUTPUTS = [
     "alias_dst_a",
     "alias_dst_b",
 ]
+ALIAS_LITERAL_OUTPUTS = [
+    "alias_lit_a",
+    "alias_lit_b",
+]
 COMPUTED_OUTPUTS = [
     "computed_top_out",
     "computed_entry_out",
@@ -508,6 +522,7 @@ OUTPUTS = (
     + RESET_OUTPUTS
     + REEXPR_OUTPUTS
     + INPUT_OUTPUTS
+    + ALIAS_LITERAL_OUTPUTS
     + COMPUTED_OUTPUTS
 )
 
@@ -606,6 +621,8 @@ U8_CHANNELS = [
     "a_to_d",
     "d_to_e",
     "alias_fire",
+    "alias_lit_a",
+    "alias_lit_b",
     "computed_fire",
     "computed_now_fire",
     "computed_to_second",
@@ -665,6 +682,7 @@ class Variables(ArcCase):
         self._verify_reexpr()
         self._verify_value_inputs()
         self._verify_alias_inputs()
+        self._verify_alias_literal()
         self._verify_computed()
         self._verify_stage_stamps()
 
@@ -852,6 +870,11 @@ class Variables(ArcCase):
         self.writer.write("alias_write_src", "w2")
         self.wait_for_eq("alias_dst_b", "w2")
         self.wait_for_eq("alias_dst_a", "w1")
+
+    def _verify_alias_literal(self) -> None:
+        self.log("=== literals written to a channel alias ===")
+        self.wait_for_eq("alias_lit_a", 1)
+        self.wait_for_eq("alias_lit_b", 2)
 
     def _verify_stage_stamps(self) -> None:
         self.log("=== stateful stamps on stage entry ===")

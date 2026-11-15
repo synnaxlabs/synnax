@@ -24,6 +24,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/device",
         "//client/cpp/status",
         "//client/cpp/task",
         "//driver/bypass/pipeline",
@@ -32,6 +33,7 @@ cc_library(
         "//driver/task",
         "//driver/transform",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/loop",

@@ -29,9 +29,9 @@ import { query } from "@/query";
 import {
   type Key as RackKey,
   resourceID as rackResourceID,
+  statusDetailsZ as rackStatusDetailsZ,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
@@ -40,6 +40,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/task/actions.gen";
 import {
   type Command,
@@ -100,16 +101,18 @@ export const drifted = (task: DriftedParams): boolean => {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-// The rack monitor marks a rack whose Driver is alive with one of these.
-const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+// A rack is healthy while its Driver runs and reports no error.
+const isRackHealthy = (stat: status.Status): boolean =>
+  rackStatusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
+  stat.variant !== "error";
 
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 /**
- * How long an acknowledged command waits for its final status. The Driver fails an
- * operation that takes longer than 60 s, so this limit ends only a wait whose command
- * was lost, for example to a Driver restart.
+ * How long an acknowledged command waits for its next status. Each loading status
+ * restarts the wait, so this limit ends only a wait whose command was lost, for example
+ * to a Driver restart.
  */
 const FINAL_STATUS_TIMEOUT = TimeSpan.minutes(2);
 
@@ -147,8 +150,9 @@ export interface ExecuteCommandsParams {
 /** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   /**
-   * How long to wait for the Driver to acknowledge the command. Once it does, the wait
-   * for the final status lasts two minutes or the timeout, whichever is longer.
+   * How long to wait for the Driver to acknowledge the command. Once it does, each
+   * loading status restarts the wait for the next status, which lasts two minutes or
+   * the timeout, whichever is longer.
    */
   timeout?: CrudeTimeSpan;
 }
@@ -173,27 +177,16 @@ export class Task<S extends Schemas = Schemas> {
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
-  snapshot: boolean;
-  /** The range the task is a snapshot in, if any. */
-  readonly range?: ranger.Key;
   config: z.infer<S["config"]>;
   readonly configHash: string;
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
-  private readonly clients?: {
-    frame: framer.Client;
-    range: ranger.Client;
-  };
+  private readonly frame?: framer.Client;
 
   get frameClient(): framer.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.frame;
-  }
-
-  get rangeClient(): ranger.Client {
-    if (this.clients == null) throw new Error("Task not created");
-    return this.clients.range;
+    if (this.frame == null) throw new Error("Task not created");
+    return this.frame;
   }
 
   constructor(
@@ -205,13 +198,10 @@ export class Task<S extends Schemas = Schemas> {
       config,
       configHash = "",
       internal = false,
-      snapshot = false,
-      range,
       status,
     }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
-    rangeClient?: ranger.Client,
   ) {
     this.key = key;
     this.rack = rack;
@@ -227,11 +217,8 @@ export class Task<S extends Schemas = Schemas> {
         statusData: z.unknown().optional(),
       } as unknown as S);
     this.internal = internal;
-    this.snapshot = snapshot;
-    this.range = range;
     this.status = status;
-    if (frameClient != null && rangeClient != null)
-      this.clients = { frame: frameClient, range: rangeClient };
+    this.frame = frameClient;
   }
 
   get payload(): Payload<S> {
@@ -244,8 +231,6 @@ export class Task<S extends Schemas = Schemas> {
       configHash: this.configHash,
       status: this.status,
       internal: this.internal,
-      snapshot: this.snapshot,
-      range: this.range,
     };
   }
 
@@ -296,12 +281,6 @@ export class Task<S extends Schemas = Schemas> {
     } finally {
       await this.stop();
     }
-  }
-
-  /** Returns the range the task is a snapshot in, or null if it sits in no range. */
-  async snapshottedTo(): Promise<ranger.Range | null> {
-    if (this.range == null) return null;
-    return await this.rangeClient.retrieve(this.range);
   }
 }
 
@@ -379,13 +358,7 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const copyReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-  snapshot: z.boolean(),
-  range: ranger.keyZ.optional(),
-});
+const copyReqZ = z.object({ key: keyZ, name: z.string() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
@@ -396,9 +369,14 @@ const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
-  ranges: ranger.Client;
   cache: query.Cache;
   statuses: status.Client;
+}
+
+interface Parsed {
+  schema: z.ZodType;
+  tasks: WeakMap<Task, Task | undefined>;
+  deleted: WeakMap<query.Deleted<Task>, query.Deleted<Task>>;
 }
 
 /**
@@ -418,6 +396,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
+  private readonly parsed = new WeakMap<Schemas, Parsed>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -436,6 +415,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
@@ -450,7 +430,8 @@ export class Client extends query.Retriever<
         // status the create carries fills in until it does.
         const carried =
           action.type === "create" ? action.create.task.status : undefined;
-        if (carried != null) statusStore.ingest(carried, { mode: "if-absent" });
+        if (carried != null)
+          statusStore.ingest(carried, { mode: "if-absent", changed: true });
         return this.sugar(created);
       },
     });
@@ -600,19 +581,8 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**
@@ -676,23 +646,12 @@ export class Client extends query.Retriever<
     return (await super.retrieve(params)) as unknown as Task<S>[];
   }
 
-  /**
-   * Copies the task with the given key under a new key and name. A snapshot copy sits
-   * in the range with key range, or in no range when range is undefined. Only a
-   * snapshot copy can sit in a range.
-   */
-  async copy(key: Key, name: string, snapshot: false): Promise<Task>;
-  async copy(key: Key, name: string, snapshot: true, range?: ranger.Key): Promise<Task>;
-  async copy(
-    key: Key,
-    name: string,
-    snapshot: boolean,
-    range?: ranger.Key,
-  ): Promise<Task> {
+  /** Copies the task with the given key under a new key and name. */
+  async copy(key: Key, name: string): Promise<Task> {
     const copyRes = copyResZ();
     const response = await this.cfg.unary.send(
       "/task/copy",
-      { key, name, snapshot, range },
+      { key, name },
       copyReqZ,
       copyRes,
     );
@@ -725,7 +684,7 @@ export class Client extends query.Retriever<
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
     const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
-    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    if (stat == null || isRackHealthy(stat)) return undefined;
     return stat;
   }
 
@@ -735,14 +694,14 @@ export class Client extends query.Retriever<
    */
   private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
-    // optimistic status claim the task deployed with an empty config/rack.
+    // optimistic status claim the task deployed with an empty config/rack. The status
+    // data has a shape only the task type knows, so this status carries none.
     const latest = this.latestStatusOf(cmd.task);
     const owner = resourceID(cmd.task);
     const details = {
       cmd: "",
       configHash: latest?.details.configHash ?? "",
       rack: latest?.details.rack ?? 0,
-      data: {},
     };
     const cached = this.store.get(cmd.task);
     const name = cached?.name ?? latest?.name ?? "";
@@ -767,8 +726,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A waiting command shows each new problem of its rack, since the Core copies an
-  // outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core's outage copy
+  // carries no command key and so never answers the command.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
@@ -887,8 +846,46 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(payloads);
     const res = array
       .toArray(payloads)
-      .map((payload) => new Task(payload, schemas, this.cfg.framer, this.cfg.ranges));
+      .map((payload) => new Task(payload, schemas, this.cfg.framer));
     return isSingle ? res[0] : res;
+  }
+
+  /**
+   * Parses a cached task through schemas, so a typed reader never sees an untyped task
+   * that another consumer wrote into the cache. A task that fails to parse returns
+   * undefined. The result is memoized per schemas and cached task, so the same input
+   * always returns the same instance.
+   */
+  parse<S extends Schemas>(
+    cached: query.Cached<Task> | undefined,
+    schemas: S,
+  ): query.Cached<Task<S>> | undefined {
+    if (cached === undefined) return undefined;
+    let p = this.parsed.get(schemas);
+    if (p == null) {
+      p = { schema: payloadZ(schemas), tasks: new WeakMap(), deleted: new WeakMap() };
+      this.parsed.set(schemas, p);
+    }
+    const { schema, tasks, deleted } = p;
+    const parseOne = (t: Task): Task<S> | undefined => {
+      if (tasks.has(t)) return tasks.get(t) as Task<S> | undefined;
+      const result = schema.safeParse(t.payload);
+      // payloadZ types each optional schema as a union with its default, so the parsed
+      // payload narrows to the typed one here.
+      const typed = result.success
+        ? this.sugar(result.data as Payload<S>, schemas)
+        : undefined;
+      tasks.set(t, typed);
+      return typed;
+    };
+    if (!query.Deleted.matches(cached)) return parseOne(cached);
+    const held = deleted.get(cached);
+    if (held != null) return held as query.Deleted<Task<S>>;
+    const corpse = parseOne(cached.corpse);
+    if (corpse === undefined) return undefined;
+    const next = new query.Deleted(corpse, cached.deletedAt);
+    deleted.set(cached, next);
+    return next;
   }
 
   /**
@@ -1085,32 +1082,31 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     ? parsedTimeout
     : FINAL_STATUS_TIMEOUT;
   const collect = async (
-    acknowledge: (cmd: string) => void,
+    acknowledge: (cmd: string, loading: boolean) => void,
   ): Promise<Status<StatusData>[]> => {
     let states: Status<StatusData>[] = [];
     while (true) {
       const frame = await streamer.read();
-      // A frame can hold statuses for other tasks and racks, which have a different
-      // shape and fail to parse.
+      // A frame can hold statuses for other tasks and racks. Rack details parse as task
+      // details, so the owner tells a rack status apart.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
         const decoded = binary.JSON_CODEC.decodeString(str);
-        const res = statusZ(statusDataZ).safeParse(decoded);
-        if (!res.success) {
+        const rackRes = rackStatusZ.safeParse(decoded);
+        if (
+          rackRes.success &&
+          rackRes.data.owner != null &&
+          rackOwners.has(resource.idToString(rackRes.data.owner))
+        ) {
           // A down Driver never replies, so its rack's problem ends the wait.
-          const rackRes = rackStatusZ.safeParse(decoded);
-          if (
-            rackRes.success &&
-            rackRes.data.owner != null &&
-            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
-            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
-          )
-            throw status.toError(rackRes.data);
+          if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
           continue;
         }
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) continue;
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         // Any reply acknowledges its command. A loading reply is not the final one.
-        acknowledge(state.details.cmd);
+        acknowledge(state.details.cmd, state.variant === "loading");
         if (state.variant === "loading") continue;
         states = [...states.filter((s) => s.key !== state.key), state];
         if (states.length === cmdKeys.length) return states;
@@ -1129,10 +1125,12 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         }, span.milliseconds);
       let timer = timeOutAfter(parsedTimeout);
       const acknowledged = new Set<string>();
-      const acknowledge = (cmd: string): void => {
-        if (acknowledged.has(cmd)) return;
+      // A loading status shows the Driver still works on its command, so once every
+      // command is acknowledged, it starts the wait again.
+      const acknowledge = (cmd: string, loading: boolean): void => {
+        const first = !acknowledged.has(cmd);
         acknowledged.add(cmd);
-        if (acknowledged.size < cmdKeys.length) return;
+        if (acknowledged.size < cmdKeys.length || (!first && !loading)) return;
         clearTimeout(timer);
         timer = timeOutAfter(finalTimeout);
       };

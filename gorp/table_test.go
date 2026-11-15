@@ -212,9 +212,9 @@ var _ = Describe("Table", func() {
 
 			codec := msgpack.Codec
 			typeName := types.Name[entry]()
-			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
-			encodedValue := MustSucceed(codec.Encode(ctx, entry{ID: 99, Data: "old"}))
-			encodedKey := MustSucceed(codec.Encode(ctx, int32(99)))
+			oldPrefix := MustSucceed(codec.Encode(typeName))
+			encodedValue := MustSucceed(codec.Encode(entry{ID: 99, Data: "old"}))
+			encodedKey := MustSucceed(codec.Encode(int32(99)))
 			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
 			copy(fullKey, oldPrefix)
 			copy(fullKey[len(oldPrefix):], encodedKey)

@@ -1272,7 +1272,9 @@ TEST(ProcessorTest, EmptyBatchExecute) {
 }
 
 TEST(ProcessorTest, LargeResponseBody) {
-    const std::string large_body(size_t{256} * 1024, 'X');
+    // Spans several curl write callbacks (16 KiB each) but fits the 128 KiB loopback
+    // send buffer, so the mock server never blocks mid-body on flow control.
+    const std::string large_body(size_t{64} * 1024, 'X');
     testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,

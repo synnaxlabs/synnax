@@ -20,7 +20,6 @@
       "lyra-list__virtualizer",
       "pluto-arc__stage"
     ],
-    "console/src/feature/arc/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/auth/ConnectionGuard.css": ["lyra-orbital"],
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
@@ -28,7 +27,6 @@
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
-    "console/src/feature/license/useInfoModal.css": ["lyra-text--code"],
     "console/src/feature/lineplot/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/log/toolbar/Toolbar.css": ["lyra-btn"],
     "console/src/feature/opcua/task/Task.css": ["lyra-header"],
@@ -49,13 +47,6 @@
       "lyra-list__item",
       "lyra-list__virtualizer"
     ],
-    "console/src/feature/range/explorer/Explorer.css": [
-      "lyra-list__sentinel",
-      "lyra-list__virtualizer",
-      "lyra-tags"
-    ],
-    "console/src/feature/range/list/List.css": ["lyra-tags"],
-    "console/src/feature/range/overview/Overview.css": ["lyra--hidden", "lyra-header"],
     "console/src/feature/schematic/symbol/edit/Edit.css": [
       "lyra-modal",
       "lyra-modal__body"
@@ -99,7 +90,6 @@
       "pluto-error-fallback__container",
       "pluto-error-fallback__content"
     ],
-    "console/src/platform/label/Edit.css": ["lyra--hidden", "lyra-input", "lyra-modal"],
     "console/src/platform/multiedit/Sections.css": ["lyra-input-label"],
     "console/src/platform/nav/Nav.css": [
       "lyra--direction-x",
@@ -125,7 +115,6 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/Form.css": ["lyra-header"],
     "console/src/platform/task/views/GroupTree.css": [
       "lyra--selected",
       "lyra-btn",
@@ -134,7 +123,6 @@
     ],
     "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
     "console/src/platform/toolbar/Header.css": ["lyra--location-bottom"],
-    "console/src/platform/version/Info.css": ["lyra-text"],
     "console/src/platform/vis/Controls.css": ["lyra-btn", "lyra-tabs__content"],
     "pluto/src/channel/Select.css": ["lyra-dialog__frame", "lyra-dialog__trigger"],
     "pluto/src/code/Editor.css": ["lyra--bordered"],

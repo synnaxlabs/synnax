@@ -58,15 +58,39 @@ var _ = Describe("Change propagation", Ordered, func() {
 		})
 		return a
 	}
-	// overwrite replaces the text of a and returns the Arc as stored.
+	// editor is the last replica that overwrite used. Each call takes a new one, so its
+	// character ids never collide with an earlier call's.
+	var editor uint32 = 100
+	// overwrite dispatches the edits that replace the text of a with raw and returns
+	// the Arc as stored.
 	overwrite := func(ctx SpecContext, a arc.Arc, raw string) arc.Arc {
 		GinkgoHelper()
-		b := a.Base()
-		b.Source = textSource(raw)
-		a.SetBase(b)
-		Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &a) })).
-			To(Succeed())
-		return a
+		key := a.Base().Key
+		var stored arc.Arc
+		Expect(svc.NewRetrieve().
+			Where(arc.MatchKeys(key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		doc := stored.Base().Source.Variant.(arc.TextSource).Text.Doc
+		editor++
+		client := crdt.New(editor)
+		client.Load(doc.Inserts, doc.Deletes)
+		var acts []arc.Action
+		for _, op := range client.Delete(0, client.Len()) {
+			del := arc.DeleteCharPayload{ID: op.ID}
+			acts = append(acts, arc.NewDeleteCharAction(del))
+		}
+		for _, op := range client.Insert(0, raw) {
+			acts = append(acts, arc.NewInsertCharAction(arc.InsertCharPayload{
+				ID: op.ID, Origin: op.Origin, Side: op.Side, Char: op.Char,
+			}))
+		}
+		Expect(dispatch(ctx, key, "dk", acts)).To(Succeed())
+		Expect(svc.NewRetrieve().
+			Where(arc.MatchKeys(key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		return stored
 	}
 	deploy := func(ctx SpecContext, a arc.Arc) task.Key {
 		GinkgoHelper()
@@ -287,6 +311,21 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
 
+		It(
+			"Should drift the importer when a dispatch sets the module's directory",
+			func(ctx SpecContext) {
+				d := createDirectory(ctx, "pt_lib", root)
+				m, key := setup(ctx)
+				before := settledHash(ctx, key)
+				Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
+					arc.NewSetDirectoryAction(
+						arc.SetDirectoryPayload{Directory: d.Key},
+					),
+				})).To(Succeed())
+				Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			},
+		)
+
 		It("Should drift the importer when the module's directory is renamed", func(
 			ctx SpecContext,
 		) {
@@ -346,14 +385,15 @@ var _ = Describe("Change propagation", Ordered, func() {
 				return stat
 			}
 		}
-		// settledVariant waits out the resync that creating an Arc schedules and
-		// returns the module's status variant once it holds still.
+		// settledVariant waits for the module's status and returns its variant once it
+		// holds still.
 		settledVariant := func(ctx SpecContext, key arc.Key) status.Variant {
 			GinkgoHelper()
 			variant := func() status.Variant { return moduleStatus(ctx, key)().Variant }
 			var settled status.Variant
 			Eventually(func(g Gomega) {
 				settled = variant()
+				g.Expect(settled).ToNot(BeEmpty())
 				g.Consistently(variant, 30*time.Millisecond, 5*time.Millisecond).
 					Should(Equal(settled))
 			}).Should(Succeed())
@@ -364,10 +404,11 @@ var _ = Describe("Change propagation", Ordered, func() {
 			ctx SpecContext,
 		) {
 			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
-			stat := moduleStatus(ctx, m.Base().Key)()
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Compiled"))
-			Expect(stat.Name).To(Equal("pt_m"))
+			Eventually(moduleStatus(ctx, m.Base().Key)).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Compiled"),
+				HaveField("Name", "pt_m"),
+			))
 		})
 
 		It("Should store an error status for a module that does not compile", func(
@@ -379,10 +420,11 @@ var _ = Describe("Change propagation", Ordered, func() {
 				"pt_m",
 				"export func f() i64 { return x }",
 			)
-			stat := moduleStatus(ctx, m.Base().Key)()
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("Failed to compile"))
-			Expect(stat.Description).To(ContainSubstring("x"))
+			Eventually(moduleStatus(ctx, m.Base().Key)).Should(SatisfyAll(
+				HaveField("Variant", status.VariantError),
+				HaveField("Message", "Failed to compile"),
+				HaveField("Description", ContainSubstring("x")),
+			))
 		})
 
 		It("Should update the status when an imported module breaks", func(
@@ -477,7 +519,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 			m := newModule(arc.Base{Name: "pt_m", Source: textSource(moduleV1)})
 			Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &m) })).
 				To(Succeed())
-			Expect(moduleStatus(ctx, m.Base().Key)().Key).ToNot(BeEmpty())
+			Eventually(
+				moduleStatus(ctx, m.Base().Key),
+			).ShouldNot(HaveField("Key", BeEmpty()))
 			Expect(write(ctx, func(w arc.Writer) error {
 				return w.Delete(ctx, m.Base().Key)
 			})).To(Succeed())

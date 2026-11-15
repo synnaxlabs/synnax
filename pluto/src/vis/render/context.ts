@@ -347,7 +347,7 @@ export class Context {
   private eraseGL(box: box.Box, overscan: xy.XY = xy.ZERO): void {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverScan(box, overscan));
-    gl.clearColor(...color.rgba1(color.ZERO));
+    gl.clearColor(...color.rgba1(color.TRANSPARENT));
     gl.clear(gl.COLOR_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
     if (this.os === "Windows") this.clearProgram?.exec();

@@ -15,6 +15,7 @@ import z from "zod";
 import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Task } from "@/task";
 import { type Diagram } from "@/vis/diagram";
 
@@ -60,6 +61,14 @@ export const {
 });
 
 export const useResultType = createResultSelector(({ type }) => type);
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  arc.RetrieveMultipleParams,
+  arc.Arc[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.arcs.watch(query)),
+});
 
 // graphOf returns the graph of a graph-mode Arc. Only the graph editor reads it, and it
 // renders only for a graph-mode Arc.
@@ -149,6 +158,10 @@ export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useType = Scope.bindHook(createSelector(({ type }) => type));
 
+export const useDirectory = Scope.bindHook(
+  createSelector(({ directory }) => directory),
+);
+
 export interface AddNodeProps {
   key: string;
   type: string;
@@ -191,12 +204,23 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export const formSchema = z.object({
-  key: arc.keyZ.optional(),
-  name: z.string().min(1, "Name is required"),
-  mode: arc.modeZ,
-  type: arc.typeZ,
-});
+export const formSchema = z
+  .object({
+    key: arc.keyZ.optional(),
+    name: z.string().min(1, "Name is required"),
+    mode: arc.modeZ,
+    type: arc.typeZ,
+  })
+  .superRefine(({ name, type }, ctx) => {
+    if (type !== "module" || name === "") return;
+    const res = arc.identifierZ.safeParse(name);
+    if (!res.success)
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: res.error.issues[0].message,
+      });
+  });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -235,11 +259,9 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.arcs.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.arcs.rename(key, name);
     return data;
   },
 });

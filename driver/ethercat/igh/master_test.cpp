@@ -17,12 +17,15 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/igh/mock_api.h"
 #include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/telem/telem.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::igh {
 namespace {
@@ -286,12 +289,75 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
     EXPECT_EQ(inputs[0].data_type, known->data_type);
 }
 
-/// @brief it should return the number of slaves on the bus.
-TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+/// @brief it should store the settings that the catalog describes for a slave, read
+/// from that slave's own object dictionary.
+TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
+    this->api->add_slave();
+    this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
+        .objects = testutil::stg_objects(0);
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto expected = ASSERT_NIL_P(
+        esi::read_settings(
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG,
+            slaves[1].properties.revision,
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
+        )
+    );
+    ASSERT_TRUE(expected.has_value());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(slaves[1].properties.settings, expected);
+}
+
+/// @brief it should store the settings that the catalog describes for the revision of
+/// the slave.
+TEST_F(IGHMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
+    auto &slave = this->api
+                      ->add_slave("32xDO", testutil::DEWESOFT, testutil::IOLITE_DIO);
+    slave.info.revision_number = 0x00050000;
+    slave.objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    const auto &device = slaves[0].properties.settings.value().at("device");
+    ASSERT_EQ(device.size(), 1);
+    EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
+}
+
+/// @brief it should report why a setting of a slave could not be read, and keep the
+/// other settings.
+TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
+    auto objects = testutil::stg_objects(0);
+    objects.erase({0x8050, 3});
+    this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
+        .objects = objects;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[0].properties.settings.value().contains("mode"));
+    EXPECT_EQ(
+        slaves[0].status.settings_error,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should report a change once IgH finds another model at a position.
+TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
+    this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()).stale);
+    this->api->slaves[0].info.product_code = 0x03F03052;
+    const auto change = ASSERT_NIL_P(this->master.changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_TRUE(change.restarted.empty());
+    EXPECT_FALSE(this->master.restarts_visible());
+}
+
+/// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
+TEST_F(IGHMasterTest, ChangedFailsWhenASlaveIsUnreadable) {
     this->api->add_slave();
     ASSERT_NIL_P(this->master.scan());
-    this->api->add_slave();
-    EXPECT_EQ(ASSERT_NIL_P(this->master.count_slaves()), 2);
+    this->api->slaves[0].unreadable = true;
+    ASSERT_OCCURRED_AS_P(this->master.changed(), errors::MASTER_INIT_ERROR);
 }
 
 /// @brief it should fail activation when the IgH master does not activate.
@@ -539,7 +605,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -555,6 +621,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
@@ -581,6 +648,102 @@ TEST_F(IGHMasterTest, ActivateSkipsTheStartupParametersOfADisabledSlave) {
     this->configs = {{1, {.enabled = false, .startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+}
+
+/// @brief it should write each parameter to a slave before activation.
+TEST_F(IGHMasterTest, WriteDownloadsEachParameterBeforeActivation) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_TRUE(this->api->slaves[0].startup_sdos.empty());
+}
+
+/// @brief it should return the reason a slave rejects a parameter before activation.
+TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
+    this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
+    ASSERT_NIL_P(this->master.scan());
+    const auto err = this->master.write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
+}
+
+/// @brief it should name the master by its index.
+TEST_F(IGHMasterTest, NameIsTheIndexOfTheMaster) {
+    EXPECT_EQ(this->master.name(), "igh:0");
+}
+
+/// @brief it should read the value that a slave holds in an object, counting positions
+/// from 1.
+TEST_F(IGHMasterTest, ReadReturnsTheValueOfAnObject) {
+    this->api->add_slave();
+    this->api->add_slave().objects[{0x8040, 0x15}] = 0x40000000;
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(ASSERT_NIL_P(this->master.read(2, 0x8040, 0x15)), 0x40000000);
+}
+
+/// @brief it should return the abort of a read of an object that the slave does not
+/// have.
+TEST_F(IGHMasterTest, ReadReturnsTheAbortOfAMissingObject) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_OCCURRED_AS_P(this->master.read(1, 0x8040, 0x15), coe::OBJECT_MISSING);
+}
+
+/// @brief it should accept a value that the slave holds on the running bus, and write
+/// nothing.
+TEST_F(IGHMasterTest, WriteAcceptsAValueThatTheSlaveHolds) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 3;
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+}
+
+/// @brief it should refuse a value that the slave does not hold on the running bus,
+/// since IgH writes its startup parameters again each time the slave restarts.
+TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
+    this->api->add_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    auto changed = FILTER;
+    changed.value = 4;
+    const auto err = this->master.write(1, {changed});
+    ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
+    EXPECT_EQ(
+        err.data,
+        "the IgH master cannot change 0x8000:15 (Filter) of slave 1 (TestSlave) while "
+        "other tasks run the bus. Stop them, then start this task first"
+    );
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+}
+
+/// @brief it should return the reason a slave on the running bus fails to read a
+/// parameter.
+TEST_F(IGHMasterTest, WriteReturnsWhyASlaveFailedToReadAParameter) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto err = this->master.write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
+        "Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should refuse to write to a position with no slave on the bus.
+TEST_F(IGHMasterTest, WriteRejectsAPositionWithNoSlave) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto err = this->master.write(2, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(err.data, "no slave at position 2");
 }
 
 /// @brief it should register the entries of the PDO a startup parameter assigns, and
@@ -733,6 +896,44 @@ TEST_F(IGHMasterTest, ReceiveFailsOnAnIncompleteWorkingCounter) {
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "incomplete working counter: output 1, input 2");
+}
+
+/// @brief it should report no shortfall before a complete cycle gives the full working
+/// counter.
+TEST_F(IGHMasterTest, ReceiveReportsNoShortfallBeforeACompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), std::nullopt);
+}
+
+/// @brief it should report how far the working counter fell below the latest complete
+/// cycle.
+TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    ASSERT_NIL(this->master.receive());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), 1);
+}
+
+/// @brief it should give each enabled slave a working counter share of 1 in each domain
+/// that holds one of its entries.
+TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
+    create_io(this->api->add_slave());
+    this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 1, .inputs = 1}},
+            {2, {.inputs = 1}},
+        })
+    );
 }
 
 /// @brief it should not count the zero working counter of an empty domain, which

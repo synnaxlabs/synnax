@@ -139,6 +139,48 @@ var _ = Describe("Attachment", func() {
 		},
 	)
 
+	Describe("Pending", func() {
+		It(
+			"Should return the values attached to a transaction so far",
+			func(ctx SpecContext) {
+				other := gorp.NewAttachment[string]()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					Expect(notes.Pending(tx)).To(BeEmpty())
+					notes.Add(tx, "first")
+					Expect(notes.Pending(tx)).To(Equal([]string{"first"}))
+					other.Add(tx, "other")
+					notes.Add(tx, "second", "third")
+					Expect(notes.Pending(tx)).
+						To(Equal([]string{"first", "second", "third"}))
+					Expect(other.Pending(tx)).To(Equal([]string{"other"}))
+					return nil
+				})).To(Succeed())
+			},
+		)
+
+		It(
+			"Should give work registered before a value is added every value",
+			func(ctx SpecContext) {
+				var pending []string
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					notes.Add(tx, "first")
+					gorp.BeforeCommit(tx, func(context.Context) error {
+						pending = notes.Pending(tx)
+						return nil
+					})
+					notes.Add(tx, "second")
+					return nil
+				})).To(Succeed())
+				Expect(pending).To(Equal([]string{"first", "second"}))
+			},
+		)
+
+		It("Should panic when reading through a DB", func() {
+			Expect(func() { notes.Pending(db) }).
+				To(PanicWith("[gorp] - Attachment.Pending needs a transaction, not a DB"))
+		})
+	})
+
 	It("Should panic when adding through a DB", func() {
 		Expect(func() { notes.Add(db, "value") }).
 			To(PanicWith("[gorp] - Attachment.Add needs a transaction, not a DB"))

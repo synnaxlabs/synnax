@@ -57,7 +57,7 @@ func (f *Subscriber) FlushSync[S any](ctx context.Context, state S) {
 	if err := f.Store.Set(
 		ctx,
 		f.Key,
-		lo.Must(f.Encoder.Encode(ctx, state)),
+		lo.Must(f.Encoder.Encode(state)),
 	); err != nil {
 		f.L.Error("failed to flush", zap.Error(err))
 	}

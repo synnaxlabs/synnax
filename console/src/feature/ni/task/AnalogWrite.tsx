@@ -190,6 +190,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
   const commanded = config.channels.filter(isCommanded);
   if (commanded.length === 0) return [config, dev.rack];
@@ -280,7 +281,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     if (isGenerated(c)) return c;

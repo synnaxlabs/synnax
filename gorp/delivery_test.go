@@ -88,7 +88,6 @@ var _ = Describe("Delivery", func() {
 				Record: gorp.NewTarget("record", key),
 				Kind:   gorp.ChangeCreate,
 				Value: MustSucceed(msgpack.Codec.Encode(
-					context.Background(),
 					entry{ID: key, Data: "data"},
 				)),
 			}

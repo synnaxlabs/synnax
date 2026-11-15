@@ -12,7 +12,6 @@ package http
 import (
 	"bufio"
 	"compress/gzip"
-	"context"
 	"io"
 	"sync"
 
@@ -94,11 +93,8 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 type unaryServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	unaryServerOptions
-	// serverCtx outlives the request, so a streamed body can keep using it after the
-	// fiber context is recycled.
-	serverCtx context.Context
-	handle    freighter.UnaryHandler[RQ, RS]
-	path      string
+	handle freighter.UnaryHandler[RQ, RS]
+	path   string
 	freighter.MiddlewareCollector
 }
 
@@ -145,7 +141,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			err := decoder.Decode(ctx, fCtx.BodyRaw(), &req)
+			err := decoder.Decode(fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{
 				Protocol: ctx.Protocol,
 				Params:   make(freighter.Params),
@@ -221,7 +217,6 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 	encoder http.Encoder,
 	v any,
 ) error {
-	ctx := s.serverCtx
 	var gz *gzip.Writer
 	if s.compressed.Contains(encoder.ContentType()) && acceptsGzip(c) {
 		var err error
@@ -243,7 +238,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 			gz.Reset(w)
 			dst = gz
 		}
-		err := encoder.EncodeStream(ctx, dst, v)
+		err := encoder.EncodeStream(dst, v)
 		if gz != nil && err == nil {
 			err = gz.Close()
 		}
@@ -307,5 +302,5 @@ func acceptsGzip(c fiber.Ctx) bool {
 // encodeAndWrite encodes v straight into the response rather than into a buffer the
 // caller then copies, so a large response body is written once.
 func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
-	return encoder.EncodeStream(c.RequestCtx(), c, v)
+	return encoder.EncodeStream(c, v)
 }

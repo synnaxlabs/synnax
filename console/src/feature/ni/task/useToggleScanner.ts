@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type rack } from "@synnaxlabs/client";
+import { DisconnectedError, NotFoundError, type rack, task } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
@@ -21,23 +21,16 @@ export const useToggleScanner = (rackKey: rack.Key) => {
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const { config, payload } = await client.tasks.retrieve({
+      // A retrieve with schemas skips the cache, and a dispatch needs the cached task.
+      const scanner = await client.tasks.retrieve({
         type: SCAN_TYPE,
         rack: rackKey,
         one: true,
-        schemas: SCAN_SCHEMAS,
       });
-      // Never write the status back: the Driver owns it and this copy may be stale.
-      const {
-        config: { disabled },
-      } = await client.tasks.create(
-        {
-          ...payload,
-          config: { ...config, disabled: !config.disabled },
-          status: undefined,
-        },
-        SCAN_SCHEMAS,
-      );
+      const disabled = !SCAN_SCHEMAS.config.parse(scanner.config).disabled;
+      const set = task.set({ path: ["config", "disabled"], value: disabled });
+      if (!(await client.tasks.dispatch(scanner.key, set)))
+        throw new NotFoundError(`Task ${scanner.key} is not cached`);
       addStatus({
         variant: "success",
         message: `${disabled ? "Disabled" : "Enabled"} NI device scanning`,

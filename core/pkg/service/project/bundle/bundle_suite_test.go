@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -34,9 +35,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,6 +65,8 @@ var (
 	arcSvc      *arc.Service
 	testRack    rack.Rack
 	projectSvc  *project.Service
+	roleSvc     *role.Service
+	userSvc     *user.Service
 	tx          gorp.Tx
 )
 
@@ -90,8 +95,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
-	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
+	}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       db,
+		Password: MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db})),
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:         db,
@@ -99,7 +108,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey:    node.Identity.HostKey,
 		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     db,
+		Secret: secrettestutil.OpenService(ctx, db),
+	}))
 	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{

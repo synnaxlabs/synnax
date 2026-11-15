@@ -104,6 +104,92 @@ var _ = Describe("Batch wrapper", func() {
 		Expect(MustBeOk(mem.Read(0x8000, 3))).To(Equal([]byte{0xFF, 0, 0}))
 	})
 
+	DescribeTable(
+		"Should match a per-sample call for a narrow expression",
+		func(ctx SpecContext, source string, sample []byte, arg uint64, expected int64) {
+			mod, batch := instantiate(ctx, source, "test")
+			Expect(batch).ToNot(BeNil())
+			mem := mod.Memory()
+			Expect(mem.Write(0x8100, sample)).To(BeTrue())
+			MustSucceed(batch.Call(ctx, 1, 0x8000, 0x8100, uint64(len(sample))))
+			Expect(int64(MustBeOk(mem.ReadUint64Le(0x8000)))).To(Equal(expected))
+			results := MustSucceed(mod.ExportedFunction("test").Call(ctx, arg))
+			Expect(int64(results[0])).To(Equal(expected))
+		},
+		Entry("i8 cast of 200 is negative", `
+		func test() {x i32} i64 {
+			if i8(x) < 0 {
+				return 1
+			}
+			return 0
+		}
+		`, []byte{200, 0, 0, 0}, api.EncodeI32(200), int64(1)),
+		Entry("i8 cast of 200 is -56", `
+		func test() {x i32} i64 {
+			return i64(i8(x))
+		}
+		`, []byte{200, 0, 0, 0}, api.EncodeI32(200), int64(-56)),
+		Entry("u8 255 plus 1 divided by 2 is 0", `
+		func test() {x u8} i64 {
+			return i64((x + 1) / 2)
+		}
+		`, []byte{0xFF}, api.EncodeI32(255), int64(0)),
+		Entry("i8 minimum negated is not positive", `
+		func test() {x i8} i64 {
+			if -x > 0 {
+				return 1
+			}
+			return 0
+		}
+		`, []byte{0x80}, api.EncodeI32(-128), int64(0)),
+		Entry("i8 minimum negated is -128", `
+		func test() {x i8} i64 {
+			return i64(-x)
+		}
+		`, []byte{0x80}, api.EncodeI32(-128), int64(-128)),
+		Entry("i8 cast of an i64 511 is -1", `
+		func test() {x i64} i64 {
+			return i64(i8(x))
+		}
+		`, []byte{0xFF, 0x01, 0, 0, 0, 0, 0, 0}, api.EncodeI64(511), int64(-1)),
+		Entry("i16 cast of 40000 is negative", `
+		func test() {x i32} i64 {
+			if i16(x) < 0 {
+				return 1
+			}
+			return 0
+		}
+		`, []byte{0x40, 0x9C, 0, 0}, api.EncodeI32(40000), int64(1)),
+		Entry("i16 cast of 40000 is -25536", `
+		func test() {x i32} i64 {
+			return i64(i16(x))
+		}
+		`, []byte{0x40, 0x9C, 0, 0}, api.EncodeI32(40000), int64(-25536)),
+		Entry("u16 65535 plus 1 divided by 2 is 0", `
+		func test() {x u16} i64 {
+			return i64((x + 1) / 2)
+		}
+		`, []byte{0xFF, 0xFF}, api.EncodeI32(65535), int64(0)),
+		Entry("i16 minimum negated is not positive", `
+		func test() {x i16} i64 {
+			if -x > 0 {
+				return 1
+			}
+			return 0
+		}
+		`, []byte{0x00, 0x80}, api.EncodeI32(-32768), int64(0)),
+		Entry("i16 minimum negated is -32768", `
+		func test() {x i16} i64 {
+			return i64(-x)
+		}
+		`, []byte{0x00, 0x80}, api.EncodeI32(-32768), int64(-32768)),
+		Entry("i16 cast of an i64 131071 is -1", `
+		func test() {x i64} i64 {
+			return i64(i16(x))
+		}
+		`, []byte{0xFF, 0xFF, 0x01, 0, 0, 0, 0, 0}, api.EncodeI64(131071), int64(-1)),
+	)
+
 	DescribeTable("Should emit no wrapper for a non-vectorizable signature",
 		func(ctx SpecContext, source, key string) {
 			output := MustSucceed(compile(ctx, source, nil))

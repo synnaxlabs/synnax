@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -161,7 +163,10 @@ func createPanel(
 func moveToGroup(ctx SpecContext, l log.Log, g group.Group) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return logSvc.NewWriter(tx).SetGroup(ctx, &g.Key, l.Key)
+		_, err := logSvc.NewWriter(tx).Apply(ctx, l.Key, log.NewSetAction(
+			log.SetPayload{Path: []string{"group"}, Value: g.Key},
+		))
+		return err
 	})).To(Succeed())
 }
 
@@ -274,6 +279,30 @@ var _ = Describe("Export", func() {
 	It("Should drop a group with no exported members", func(ctx SpecContext) {
 		proj := createProject(ctx, "Sparse")
 		createGroup(ctx, "Empty Group", proj.ResourceID())
+		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		Expect(files).To(HaveLen(1))
+		Expect(members).To(BeEmpty())
+	})
+
+	It("Should leave a draft out of the export", func(ctx SpecContext) {
+		proj := createProject(ctx, "Drafts")
+		draft := panel.Panel{Name: "Scratch", Root: leaf(), Project: &proj.Key}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			r := role.Role{Name: "drafter"}
+			if err := roleSvc.NewWriter(tx, false).Create(ctx, &r); err != nil {
+				return err
+			}
+			u, err := userSvc.NewWriter(tx).Create(ctx, user.User{
+				Key:  uuid.New(),
+				Name: "drafter",
+				Role: r.Key,
+			})
+			if err != nil {
+				return err
+			}
+			draft.Owner = &u.Key
+			return panelSvc.NewWriter(tx).Create(ctx, &draft)
+		})).To(Succeed())
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())
@@ -513,12 +542,24 @@ func childOfType(
 	return resource.Resource{}
 }
 
-// Imports run on the per-spec tx so created rows roll back and the shared DB's counts
-// stay intact for the other specs.
+// importFiles decodes files and imports them on the per-spec tx, so created rows roll
+// back and the shared DB's counts stay intact for the other specs.
+func importFiles(
+	ctx SpecContext,
+	files zip.Files,
+	fileName string,
+) (project.Project, error) {
+	b, err := svc.Decode(ctx, files, fileName)
+	if err != nil {
+		return project.Project{}, err
+	}
+	return svc.Import(ctx, tx, b)
+}
+
 var _ = Describe("Import", func() {
 	importProject := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Fallback.zip"))
+		return MustSucceed(importFiles(ctx, files, "Fallback.zip"))
 	}
 
 	Describe("A whole bundle directory", func() {
@@ -710,9 +751,8 @@ var _ = Describe("Import", func() {
 		ctx SpecContext,
 	) {
 		tx = DeferClose(db.OpenTx())
-		proj := MustSucceed(svc.Import(
+		proj := MustSucceed(importFiles(
 			ctx,
-			tx,
 			zip.Files{"manifest.json": bundleManifest("")},
 			"My Project.zip",
 		))
@@ -825,7 +865,7 @@ var _ = Describe("Import", func() {
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
 		tx = DeferClose(db.OpenTx())
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+		Expect(importFiles(ctx, files, "Fallback.zip")).Error().
 			To(MatchError(ContainSubstring(`name "Startup" is already used`)))
 	})
 
@@ -852,10 +892,39 @@ var _ = Describe("Import", func() {
 		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(2))
 	})
 
+	It("Should reject a member with no registered importer", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
+		files := zip.Files{
+			"manifest.json": bundleManifest("Plots"),
+			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
+		}
+		// PathedError breaks the errors.Is chain, so the assertion matches on text.
+		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Plot.json")),
+			MatchError(ContainSubstring("no importer registered")),
+		))
+	})
+
+	It("Should reject a panel referencing a file outside the bundle", func(
+		ctx SpecContext,
+	) {
+		tx = DeferClose(db.OpenTx())
+		files := zip.Files{
+			"manifest.json": bundleManifest("Dangling"),
+			"Controls.json": bundlePanel("Controls", "Missing.json"),
+		}
+		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("Controls.json")),
+			MatchError(ContainSubstring(`"Missing.json"`)),
+		))
+	})
+})
+
+var _ = Describe("Decode", func() {
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
-			tx = DeferClose(db.OpenTx())
-			Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(reason)),
 			))
@@ -888,55 +957,67 @@ var _ = Describe("Import", func() {
 			}, "have the same file name"),
 	)
 
-	It("Should reject a member with no registered importer", func(ctx SpecContext) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{
-			"manifest.json": bundleManifest("Plots"),
-			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
-		}
-		// PathedError breaks the errors.Is chain, so the assertion matches on text.
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("Plot.json")),
-			MatchError(ContainSubstring("no importer registered")),
-		))
-	})
-
 	It("Should reject a manifest version newer than supported", func(ctx SpecContext) {
-		tx = DeferClose(db.OpenTx())
 		files := zip.Files{"manifest.json": []byte(
 			`{"version":2,"type":"project","name":"Future"}`,
 		)}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("project version 2")),
 			MatchError(ContainSubstring("newer than this Core supports")),
-		))
-	})
-
-	It("Should reject a panel referencing a file outside the bundle", func(
-		ctx SpecContext,
-	) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{
-			"manifest.json": bundleManifest("Dangling"),
-			"Controls.json": bundlePanel("Controls", "Missing.json"),
-		}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("Controls.json")),
-			MatchError(ContainSubstring(`"Missing.json"`)),
 		))
 	})
 
 	It("Should reject a member that does not decode to an envelope", func(
 		ctx SpecContext,
 	) {
-		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
 			"manifest.json": bundleManifest("Broken"),
 			"Bad.json":      []byte("not json"),
 		}
-		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().
 			To(MatchError(ContainSubstring("Bad.json")))
+	})
+
+	It("Should reject a layout whose component file is missing", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
+			"k1": {"key": "k1", "type": "log", "name": "Metrics"},
+		})}
+		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`data for layout "k1" not found`)),
+		))
+	})
+
+	It("Should reject a member at a version newer than supported", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"manifest.json": bundleManifest("Future"),
+			"Metrics.json": []byte(
+				`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+			),
+		}
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Metrics.json")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+
+	It("Should reject a legacy member at a version newer than supported", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
+				"k1": {"key": "k1", "type": "log", "name": "Metrics"},
+			}),
+			"Metrics.json": legacyLogState(map[string]any{"version": 99}),
+		}
+		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Metrics.json")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
 	})
 })
 
@@ -960,7 +1041,7 @@ func legacyLogState(extra map[string]any) []byte {
 var _ = Describe("Legacy import", func() {
 	importLegacy := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip"))
+		return MustSucceed(importFiles(ctx, files, "Legacy Project.zip"))
 	}
 	logLayout := map[string]map[string]any{
 		"k1": {"key": "k1", "type": "log", "name": "Metrics"},
@@ -1051,17 +1132,6 @@ var _ = Describe("Legacy import", func() {
 			Exec(ctx, tx)).To(Succeed())
 		Expect(tasks).To(HaveLen(2))
 	})
-
-	It("Should reject a layout whose component file is missing", func(
-		ctx SpecContext,
-	) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{"LAYOUT.json": legacyLayoutFile(logLayout)}
-		Expect(svc.Import(ctx, tx, files, "Legacy.zip")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`data for layout "k1" not found`)),
-		))
-	})
 })
 
 func legacyTilingFile(
@@ -1086,7 +1156,7 @@ var _ = Describe("Legacy tiling", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	importTiling := func(ctx SpecContext, files zip.Files) project.Project {
 		GinkgoHelper()
-		return MustSucceed(svc.Import(ctx, tx, files, "Legacy Project.zip"))
+		return MustSucceed(importFiles(ctx, files, "Legacy Project.zip"))
 	}
 	tiledLayouts := map[string]map[string]any{
 		"main": {"key": "main", "type": "main", "name": "Main"},

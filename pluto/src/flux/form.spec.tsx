@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query } from "@synnaxlabs/client";
+import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
@@ -843,13 +843,13 @@ describe("useForm", () => {
 
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -859,7 +859,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -868,13 +868,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.watch(label.key).onChange((result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -884,10 +884,10 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {
@@ -897,13 +897,13 @@ describe("useForm", () => {
     });
 
     it("should not mark form fields as touched when setting them view the listener", async () => {
-      const label = await client.labels.create({
+      const lbl = await client.labels.create({
         name: "Initial Name",
         color: color.construct("#000000"),
       });
 
       const initialValues = {
-        key: label.key.toString(),
+        key: lbl.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -913,7 +913,7 @@ describe("useForm", () => {
 
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: {
-          key: label.key.toString(),
+          key: lbl.key.toString(),
           name: "",
           age: 0,
         },
@@ -922,13 +922,13 @@ describe("useForm", () => {
         retrieve,
         update,
         mountListeners: ({ client, set }) =>
-          client.labels.watch(label.key).onChange((result) => {
+          client.labels.watch(lbl.key).onChange((result) => {
             if (query.isLive(result)) set(path.name, result.name);
           }),
       });
 
       const { result } = await renderHookSuspended(
-        () => useForm({ query: { key: label.key } }),
+        () => useForm({ query: { key: lbl.key } }),
         { wrapper: Wrapper },
       );
 
@@ -938,10 +938,10 @@ describe("useForm", () => {
       });
 
       await act(async () => {
-        await client.labels.create({
-          ...label,
-          name: "Updated Label Name",
-        });
+        await client.labels.dispatch(
+          lbl.key,
+          label.set({ path: ["name"], value: "Updated Label Name" }),
+        );
       });
 
       await waitFor(() => {
@@ -1026,6 +1026,7 @@ describe("useForm", () => {
     // whose update resets the form from the Core's response does.
     const renderInFlightForm = async () => {
       const saved: Values[] = [];
+      const stored: Array<Values | undefined> = [];
       const entered = Promise.withResolvers<void>();
       const held = Promise.withResolvers<void>();
       let listenerReset!: (values: Values) => void;
@@ -1034,9 +1035,10 @@ describe("useForm", () => {
         schema: formSchema,
         name: "test",
         retrieve: async () => INITIAL,
-        update: async ({ value, reset }) => {
+        update: async ({ value, reset, stored: read }) => {
           const sent = value();
           saved.push(sent);
+          stored.push(read);
           if (saved.length === 1) {
             entered.resolve();
             await held.promise;
@@ -1062,6 +1064,7 @@ describe("useForm", () => {
       return {
         result,
         saved,
+        stored,
         release: held.resolve,
         listenerReset: (values: Values) => listenerReset(values),
       };
@@ -1087,10 +1090,24 @@ describe("useForm", () => {
     });
 
     it("should keep the sent edit when a listener writes the pre-edit value", async () => {
-      const { result, release, listenerReset } = await renderInFlightForm();
-      act(() => listenerReset(INITIAL));
+      const { result, stored, release, listenerReset } = await renderInFlightForm();
+      // A listener gets a new object from the Core, never the one the form read.
+      act(() => listenerReset({ ...INITIAL }));
       expect(result.current.form.value().name).toEqual("First Edit");
       await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(stored[1]?.name).toEqual("First Edit");
+    });
+
+    it("should store a listener reset that lands while a save runs", async () => {
+      const { result, stored, release, listenerReset } = await renderInFlightForm();
+      const remote = { key: "1", name: "First Edit", age: 30 };
+      act(() => listenerReset(remote));
+      await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(stored).toEqual([INITIAL, remote]);
     });
 
     it("should apply a listener write once every edit is saved", async () => {

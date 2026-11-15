@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -119,7 +118,8 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. An existing snapshot keeps its range.
+// Create creates the tasks. It returns an error wrapping validate.ErrValidation when a
+// task with the key of one exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -209,28 +209,6 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// RenameRequest names the task to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the task to rename.
-	Key task.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the task and its status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	_, err := s.task.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	)
-	return struct{}{}, err
-}
-
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
@@ -273,11 +251,8 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		// Range is the range a snapshot copy sits in, if any.
-		Range    *ranger.Key `json:"range"    msgpack:"range"`
-		Name     string      `json:"name"     msgpack:"name"`
-		Key      task.Key    `json:"key"      msgpack:"key"`
-		Snapshot bool        `json:"snapshot" msgpack:"snapshot"`
+		Name string   `json:"name" msgpack:"name"`
+		Key  task.Key `json:"key"  msgpack:"key"`
 	}
 	CopyResponse struct {
 		Task task.Task `json:"task" msgpack:"task"`
@@ -289,13 +264,13 @@ func (r CopyRequest) Sources() []resource.ID {
 	return []resource.ID{task.ResourceID(r.Key)}
 }
 
-// Copy copies a task. A snapshot copy sits in req.Range, or in no range when it is nil.
+// Copy copies a task.
 func (s *Service) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CopyRequest,
 ) (CopyResponse, error) {
-	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, req.Range)
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name)
 	if err != nil {
 		return CopyResponse{}, err
 	}

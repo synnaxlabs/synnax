@@ -103,7 +103,6 @@ var _ = Describe("Provision", func() {
 					Objects: []resource.ID{{Type: t, Key: "test-key"}},
 				})).To(MatchError(access.ErrDenied))
 			},
-			Entry("range alias", resource.TypeRangeAlias),
 			Entry("label", resource.TypeLabel),
 			Entry("log", resource.TypeLog),
 			Entry("node", resource.TypeNode),

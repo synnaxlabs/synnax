@@ -37,6 +37,7 @@ SCHEMA: dict[str, Any] = {
                     "start_line": _LINE,
                     "suggestion": _TEXT,
                     "rule": _TEXT,
+                    "deferrable": {"type": "boolean"},
                 },
             },
         },
@@ -59,6 +60,13 @@ class Finding:
     """Replacement text for lines start_line through line."""
     rule: str | None = None
     """Repository path of the document that states the rule the finding enforces."""
+    deferrable: bool = False
+    """The finding can wait for a follow-up issue."""
+
+    @property
+    def blocks(self) -> bool:
+        """Whether the finding blocks merge. A P0 always does."""
+        return self.severity == "P0" or not self.deferrable
 
     @property
     def lines(self) -> range:

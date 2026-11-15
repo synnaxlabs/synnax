@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from uuid import UUID
 
 import pytest
 
@@ -125,6 +126,17 @@ def virtual_channel(client: sy.Synnax) -> sy.Channel:
 @pytest.fixture
 def task_targets(client: sy.Synnax) -> TaskTargets:
     return TaskTargets(client)
+
+
+@pytest.fixture
+def create_routing_key(client: sy.Synnax) -> Callable[[], UUID]:
+    """Returns a function that creates a secret for a PagerDuty routing key and returns
+    its key. A task config can only name a secret that exists."""
+
+    def create() -> UUID:
+        return client.secrets.set(name="PagerDuty routing key", value="1" * 32).key
+
+    return create
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

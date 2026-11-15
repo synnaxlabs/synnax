@@ -42,14 +42,11 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apitable.Service
-	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
-	// API layer binds them.
-	create     freighter.UnaryHandler[apitable.CreateRequest, apitable.CreateResponse]
-	del        freighter.UnaryHandler[apitable.DeleteRequest, struct{}]
-	dispatch   freighter.UnaryHandler[apitable.DispatchRequest, struct{}]
-	setGroup   freighter.UnaryHandler[apitable.SetGroupRequest, struct{}]
-	setProject freighter.UnaryHandler[apitable.SetProjectRequest, struct{}]
-	retrieve   freighter.UnaryHandler[
+	// create, del, dispatch, and retrieve run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apitable.CreateRequest, apitable.CreateResponse]
+	del      freighter.UnaryHandler[apitable.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apitable.DispatchRequest, apitable.DispatchResponse]
+	retrieve freighter.UnaryHandler[
 		apitable.RetrieveRequest,
 		apitable.RetrieveResponse,
 	]
@@ -74,8 +71,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
-	setProject = bind.Write(binder, apiSvc.SetProject)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	proj = project.Project{Name: "test-project"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

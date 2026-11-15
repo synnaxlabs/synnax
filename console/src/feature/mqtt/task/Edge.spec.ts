@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { mqtt, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -40,7 +40,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {
   config: MQTT.Task.EDGE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.EdgePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.EdgeConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.EDGE_SCHEMAS);
 
 const createTag = (
@@ -61,7 +61,7 @@ const retrieveTags = async (key: task.Key) =>
 const createEdgeConfig = (
   device: string,
   tags: MQTT.Task.EdgeTag[],
-): MQTT.Task.EdgePayload["config"] => ({
+): mqtt.EdgeConfig => ({
   ...MQTT.Task.EDGE_SCHEMAS.config.parse({}),
   device,
   group: "plant",
@@ -457,10 +457,13 @@ describe("MQTT Edge form", () => {
       );
       first.unmount();
       const fixed = { ...failing, commandChannelName: uniqueName("b_cmd") };
-      await client.tasks.create(
-        { ...first.draft, config: createEdgeConfig(first.dev.key, [tag, fixed]) },
-        MQTT.Task.EDGE_SCHEMAS,
-      );
+      const config = createEdgeConfig(first.dev.key, [tag, fixed]);
+      expect(
+        await client.tasks.dispatch(
+          first.draft.key,
+          task.set({ path: ["config"], value: config }),
+        ),
+      ).toBe(true);
       const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
         client,
         taskKey: first.draft.key,

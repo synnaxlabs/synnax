@@ -243,23 +243,13 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Create creates g, assigning a new key when g.Key is zero. A group with a parent takes
 // the parent's scope, and a scope that differs from the parent's is a validation error.
-// An existing group with g.Key keeps its stored parent and scope; only a set parent
-// action moves a group. The commit carries a create action that holds the stored group.
+// The commit carries a create action that holds the stored group. Create returns an
+// error wrapping validate.ErrValidation when a group with g.Key exists.
 func (w Writer) Create(ctx context.Context, g *Group) error {
 	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
-	var existing Group
-	err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Group](g.Key)).
-		Entry(&existing).
-		Exec(ctx, w.tx)
-	if errors.Skip(err, query.ErrNotFound) != nil {
-		return err
-	}
-	if err == nil {
-		g.Parent, g.Scope = existing.Parent, existing.Scope
-	} else if g.Parent != nil {
+	if g.Parent != nil {
 		scope, err := w.parentScope(ctx, *g.Parent)
 		if err != nil {
 			return err
@@ -271,10 +261,10 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 			return err
 		}
 	}
-	if err = g.Validate(); err != nil {
+	if err := g.Validate(); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(g).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(g).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, g.Key, NewCreateAction(CreatePayload{Group: *g}))

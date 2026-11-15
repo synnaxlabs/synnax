@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/compare"
 )
 
@@ -42,7 +41,6 @@ type indexes struct {
 	name            *gorp.SortedIndex[Key, Log, string]
 	group           *gorp.KeyReference[Key, Log, group.Key]
 	project         *gorp.KeyReference[Key, Log, project.Key]
-	rangeVal        *gorp.KeyReference[Key, Log, ranger.Key]
 	channelsChannel *gorp.KeyReference[Key, Log, channel.Key]
 	search          *gorp.SearchIndex[Key, Log]
 }
@@ -79,18 +77,6 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
-			},
-		}),
-		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, ranger.Key]{
-			Name:     "range",
-			Table:    "range",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Targets: func(e *Log) []ranger.Key {
-				if e.Range == nil {
-					return nil
-				}
-				return []ranger.Key{*e.Range}
 			},
 		}),
 		channelsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, channel.Key]{
@@ -138,7 +124,6 @@ func (i indexes) references() []gorp.Reference[Key, Log] {
 	return []gorp.Reference[Key, Log]{
 		i.group,
 		i.project,
-		i.rangeVal,
 		i.channelsChannel,
 	}
 }
@@ -280,23 +265,6 @@ func MatchProjects(vals ...project.Key) Filter {
 func MatchHasProject(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Log] {
 		return r.indexes.project.FilterHolding(has)
-	}
-}
-
-// MatchRanges returns a filter for logs
-// whose Range matches any of the provided
-// values.
-func MatchRanges(vals ...ranger.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Log] {
-		return r.indexes.rangeVal.Filter(vals...)
-	}
-}
-
-// MatchHasRange returns a filter for logs whose
-// Range holds a target when has is true, and holds none when has is false.
-func MatchHasRange(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Log] {
-		return r.indexes.rangeVal.FilterHolding(has)
 	}
 }
 

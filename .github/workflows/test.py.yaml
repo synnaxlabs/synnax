@@ -185,16 +185,19 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Only the newest Python measures coverage.
+      # Without a limit, a hung test run holds the job for up to 6 hours. Only the newest
+      # Python measures coverage.
       - name: Test
         if:
           inputs.test && (inputs.coverage_module == '' || matrix.python == 'oldest') &&
           (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
+        timeout-minutes: 5
         run: uv run pytest
 
       - name: Test with coverage
         if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
         shell: bash
+        timeout-minutes: 5
         env:
           COVERAGE_MODULE: ${{ inputs.coverage_module }}
         run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml

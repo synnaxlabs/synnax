@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -464,6 +464,14 @@ func (u CJC) Source() CJCType {
 		return ChanCJCType
 	}
 	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CJC) Validate() error {
+	v := validate.New("CJC")
+	v.Ternary("source", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // VelocityUnits are the engineering units for a velocity measurement.
@@ -1578,6 +1586,7 @@ func (a AIThermocoupleChannel) Validate() error {
 	v := validate.New("AIThermocoupleChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	v.Exec(func() error { return validate.PathedError(a.Cjc.Validate(), "cjc") })
 	return v.Error()
 }
 
@@ -3238,72 +3247,74 @@ func (u *AIChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AIChannel) Validate() error {
+	v := validate.New("AIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AIVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIBridgeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIMicrophoneChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIResistanceChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIRTDChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIStrainGaugeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITempBuiltinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermocoupleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVelocityIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccel4WireDCVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIFreqVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorIexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorVexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageWithExcitChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // CIEdge selects the signal edge a counter responds to.
@@ -4532,34 +4543,36 @@ func (u *CIChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u CIChannel) Validate() error {
+	v := validate.New("CIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CIFrequencyChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIEdgeCountChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPulseWidthChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CISemiPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CITwoEdgeSepChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIDutyCycleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -4937,18 +4950,20 @@ func (u *AOChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AOChannel) Validate() error {
+	v := validate.New("AOChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AOCurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOFuncGenChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -5077,6 +5092,7 @@ func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogReadConfig) Validate() error {
 	v := validate.New("AnalogReadConfig")
+	v.Exec(a.ReadConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5127,6 +5143,7 @@ func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (c CounterReadConfig) Validate() error {
 	v := validate.New("CounterReadConfig")
+	v.Exec(c.ReadConfig.Validate)
 	for i := range c.Channels {
 		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5179,6 +5196,7 @@ func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogWriteConfig) Validate() error {
 	v := validate.New("AnalogWriteConfig")
+	v.Exec(a.WriteConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5227,6 +5245,7 @@ func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (d DigitalReadConfig) Validate() error {
 	v := validate.New("DigitalReadConfig")
+	v.Exec(d.ReadConfig.Validate)
 	for i := range d.Channels {
 		v.Exec(func() error { return validate.PathedError(d.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5273,6 +5292,7 @@ func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (d DigitalWriteConfig) Validate() error {
 	v := validate.New("DigitalWriteConfig")
+	v.Exec(d.WriteConfig.Validate)
 	for i := range d.Channels {
 		v.Exec(func() error { return validate.PathedError(d.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5311,4 +5331,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

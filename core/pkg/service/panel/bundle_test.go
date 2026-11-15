@@ -199,7 +199,7 @@ var _ = Describe("DecodeBundle", func() {
 	})
 
 	It("Should keep the panel's icon and color", func(ctx SpecContext) {
-		c := MustSucceed(color.FromHex("#dc136c"))
+		c := MustSucceed(color.Parse("#dc136c"))
 		p := panel.Panel{
 			Name: "Controls", Root: leafNode(), Icon: new("valve"), Color: &c,
 		}
@@ -222,6 +222,20 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(decoded.Color).To(BeNil())
 	})
 
+	It("Should migrate the 0-1 alpha of a v2 member's color to a byte", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{Version: 2, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root":  map[string]any{"variant": "leaf", "tabs": []any{}},
+			"color": map[string]any{"r": 220, "g": 19, "b": 108, "a": 0.5},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(
+			decoded.Color,
+		).To(HaveValue(Equal(color.Color{R: 220, G: 19, B: 108, A: 128})))
+	})
+
 	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
 		view := viewTab(uuid.New(), "docs")
 		p := panel.Panel{Name: "Controls", Root: leafNode(view)}
@@ -233,6 +247,17 @@ var _ = Describe("DecodeBundle", func() {
 		v, ok := leaf.Tabs[0].Variant.(panel.ViewTab)
 		Expect(ok).To(BeTrue())
 		Expect(v.Type).To(Equal("docs"))
+	})
+
+	It("Should remove Arc explorer tabs", func(ctx SpecContext) {
+		docs := viewTab(uuid.New(), "docs")
+		p := panel.Panel{
+			Name: "Controls",
+			Root: leafNode(viewTab(uuid.New(), "arc_explorer"), docs),
+		}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Root).To(Equal(leafNode(docs)))
 	})
 
 	It("Should reject a path the reference table does not hold", func(

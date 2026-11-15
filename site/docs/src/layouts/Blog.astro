@@ -52,9 +52,7 @@ const posting = {
     headings={headings}
     article={{ publishedTime: published, authors: author == null ? [] : [author] }}
 >
-    {frontmatter.flag == null && (
-        <link slot="head" rel="alternate" type="text/markdown" href={`${route}.md`} />
-    )}
+    <link slot="head" rel="alternate" type="text/markdown" href={`${route}.md`} />
     <script
         slot="head"
         type="application/ld+json"

@@ -44,11 +44,11 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return Reporter.Report()
+	return reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return Reporter.Report()
+	return reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
@@ -109,7 +109,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			Variant:  freighter.VariantStream,
 			Role:     freighter.RoleClient,
 			Target:   target,
-			Protocol: Reporter.Protocol,
+			Protocol: reporter.Protocol,
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(

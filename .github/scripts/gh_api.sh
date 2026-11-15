@@ -13,11 +13,12 @@
 # or plain text body, an HTTP 5xx, or a network error. Every other failure, such as a
 # 404 or 422, exits at once with gh's output and exit code. A failed write can still
 # land, so only send requests that are safe to repeat.
-# GH_API_RETRY_DELAY sets the seconds before the first retry; it doubles after that.
+# GH_API_RETRY_DELAY sets the seconds before the first retry; it doubles after that. The
+# default waits 30 seconds in all, which is longer than a short GitHub fault.
 
 set -uo pipefail
 
-ATTEMPTS=3
+ATTEMPTS=5
 TRANSIENT='unexpected end of JSON input|invalid character|HTTP 5[0-9]{2}([^0-9]|$)'
 TRANSIENT+='|dial tcp|connection reset|i/o timeout|TLS handshake timeout|unexpected EOF'
 

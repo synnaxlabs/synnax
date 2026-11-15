@@ -14,6 +14,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/connection/checker.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -42,6 +43,32 @@ struct Health {
     /// @brief why, and what to do now. Empty when the Driver is healthy.
     std::string description;
 };
+
+const std::string CLOCK_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/"
+                                              "enterprise/troubleshooting"
+                                              "#clock-out-of-sync-with-the-core";
+
+/// @brief returns a warning when the clock skew in conn exceeds its threshold, and
+/// health otherwise. A health that is not a success takes precedence.
+inline Health
+with_clock_skew(const Health &health, const synnax::connection::State &conn) {
+    if (health.variant != ::synnax::status::VARIANT_SUCCESS ||
+        !conn.clock_skew_exceeded)
+        return health;
+    const auto *const direction = conn.clock_skew > x::telem::TimeSpan::ZERO()
+                                    ? "ahead of"
+                                    : "behind";
+    return Health{
+        .variant = ::synnax::status::VARIANT_WARNING,
+        .message = "Clock out of sync with the Core",
+        .description = "The clock of this host is " +
+                       conn.clock_skew.abs().to_string() + " " + direction +
+                       " the Core, more than the " +
+                       conn.clock_skew_threshold.to_string() +
+                       " limit. Synchronize both clocks with NTP. See " +
+                       CLOCK_TROUBLESHOOTING_URL + ".",
+    };
+}
 
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
@@ -75,30 +102,30 @@ public:
         ctx(ctx),
         health(std::move(health)) {}
 
-    void run() override {
-        synnax::task::Status stat{
-            .name = this->task.name,
-            .variant = ::synnax::status::VARIANT_SUCCESS,
-            .message = "Started",
-            .time = x::telem::TimeStamp::now(),
-            .details =
-                synnax::task::StatusDetails{
-                    .running = true,
-                    .config_hash = this->task.config_hash,
-                },
-            .owner = synnax::task::resource_id(this->task.key),
-        };
+    /// @brief writes the started status, then starts the heartbeat. The status is in
+    /// place when this returns, so a status that the last run left is never kept.
+    bool start() override {
+        auto stat = this->task_status("Started", true);
         this->ctx->set_status(stat);
+        return Base::start();
+    }
+
+    void run() override {
         bool resend_pending = false;
         auto last_beat = x::telem::TimeStamp::now();
         while (breaker.running()) {
             this->loop.wait(breaker);
+            const auto health = with_clock_skew(
+                this->health,
+                this->ctx->client->connectivity->state()
+            );
             synnax::rack::Status status{
                 .name = this->ctx->rack_name(),
-                .variant = this->health.variant,
-                .message = this->health.message,
-                .description = this->health.description,
+                .variant = health.variant,
+                .message = health.message,
+                .description = health.description,
                 .time = x::telem::TimeStamp::now(),
+                .details = synnax::rack::StatusDetails{.running = true},
                 .owner = synnax::rack::resource_id(this->rack_key),
             };
             if (const auto err = this->ctx->client->statuses.set(status); err) {
@@ -121,9 +148,7 @@ public:
             }
             resend_pending = false;
         }
-        stat.message = "Stopped";
-        stat.time = x::telem::TimeStamp::now();
-        stat.details.running = false;
+        auto stat = this->task_status("Stopped", false);
         this->ctx->set_status(stat);
     };
 
@@ -142,6 +167,23 @@ public:
             .owner = synnax::task::resource_id(this->task.key),
         };
         this->ctx->set_status(stat);
+    }
+
+private:
+    [[nodiscard]] synnax::task::Status
+    task_status(const std::string &message, const bool running) const {
+        return synnax::task::Status{
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_SUCCESS,
+            .message = message,
+            .time = x::telem::TimeStamp::now(),
+            .details =
+                synnax::task::StatusDetails{
+                    .running = running,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
+        };
     }
 };
 
@@ -199,7 +241,8 @@ struct Factory final : task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type == TASK_TYPE)
             return {Task::configure(ctx, task, this->health), true};
@@ -209,7 +252,8 @@ struct Factory final : task::Factory {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         common::delete_legacy_task_by_type(
             rack,
@@ -222,7 +266,8 @@ struct Factory final : task::Factory {
             rack,
             TASK_NAME,
             TASK_TYPE,
-            INTEGRATION_NAME
+            INTEGRATION_NAME,
+            cancel
         );
     }
 

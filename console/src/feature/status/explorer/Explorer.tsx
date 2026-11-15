@@ -10,6 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Flux } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
@@ -22,6 +23,11 @@ import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 
 const item = Component.renderProp(Status.List.Item);
+
+const PROPERTIES: View.Filter.Properties<status.Where> = {
+  labels: Label.Filter.createProperty(),
+  variant: Status.Filter.VARIANT,
+};
 
 export const Explorer: Panel.Content = () => (
   <View.Frame resourceType="status" icon="Status">
@@ -39,21 +45,19 @@ const Internal = () => {
   const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps} onWhereChange={setWhere}>
+    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
-        <View.FilterMenu>
-          <Label.Filter.MenuItem />
-          <Status.Filter.MenuItem />
-        </View.FilterMenu>
-        <View.Search />
-        <Label.Filter.Chips />
-        <Status.Filter.Chips />
+        <Flex.Box x align="center" gap="small" grow wrap>
+          <View.Filter.Menu properties={PROPERTIES} />
+          <View.Filter.Chips properties={PROPERTIES} />
+        </Flex.Box>
         {hasCreatePermission && (
           <Button.Button
-            onClick={handleCreate}
-            tooltipLocation={location.BOTTOM_LEFT}
+            variant="outlined"
+            size="medium"
             tooltip="Create status"
-            variant="filled"
+            tooltipLocation={location.BOTTOM_LEFT}
+            onClick={handleCreate}
           >
             <Icon.Add />
           </Button.Button>

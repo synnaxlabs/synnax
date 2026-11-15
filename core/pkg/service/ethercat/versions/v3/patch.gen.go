@@ -26,11 +26,17 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
+	case "startup_parameters":
+		return patch.Value(&rc.StartupParameters, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -46,6 +52,28 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
+	h.Len(len(rc.StartupParameters))
+	for i0 := range rc.StartupParameters {
+		rc.StartupParameters[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ssp *SlaveStartupParameters) HashContent(h *content.Hash) {
+	h.String(ssp.Device)
+	h.Len(len(ssp.Parameters))
+	for i0 := range ssp.Parameters {
+		ssp.Parameters[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (sp *StartupParameter) HashContent(h *content.Hash) {
+	h.Uint(uint64(sp.Index))
+	h.Uint(uint64(sp.SubIndex))
+	h.String(string(sp.DataType))
+	h.Float(sp.Value)
+	h.String(sp.Name)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -58,9 +86,13 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&wc.PersistConfig.DataSavingDisabled, c.Next())
 	case "state_rate":
-		return patch.Value(&wc.StateRate, c.Next())
+		return patch.Defaulted(&wc.StateRate, c.Next(), func(def *WriteConfig) {
+			wc.StateRate = def.StateRate
+		})
 	case "execution_rate":
-		return patch.Value(&wc.ExecutionRate, c.Next())
+		return patch.Defaulted(&wc.ExecutionRate, c.Next(), func(def *WriteConfig) {
+			wc.ExecutionRate = def.ExecutionRate
+		})
 	case "channels":
 		return patch.List(&wc.Channels, c.Next())
 	default:
@@ -158,9 +190,13 @@ func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&erc.SubIndex, c.Next())
 	case "data_type":
 		return patch.Value(&erc.DataType, c.Next())
+	case "calibrated":
+		return patch.Value(&erc.Calibrated, c.Next())
 	case "scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&erc.Scale, c)
+			return patch.Defaulted(&erc.Scale, c, func(def *EntryReadChannel) {
+				erc.Scale = def.Scale
+			})
 		}
 		return erc.Scale.Patch(c)
 	default:
@@ -177,6 +213,7 @@ func (erc *EntryReadChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(erc.Index))
 	h.Uint(uint64(erc.SubIndex))
 	h.String(string(erc.DataType))
+	h.Bool(erc.Calibrated)
 	erc.Scale.HashContent(h)
 }
 

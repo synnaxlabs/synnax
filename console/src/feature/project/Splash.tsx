@@ -44,8 +44,10 @@ const LogOutAction = (): ReactElement => {
   );
 };
 
+export interface SplashProps extends Pick<Shell.FrameProps, "actions"> {}
+
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = (): ReactElement => {
+export const Splash = (props: SplashProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_RESOURCE_ID);
@@ -87,6 +89,7 @@ export const Splash = (): ReactElement => {
     <Shell.Frame
       className={CSS.B("project-splash")}
       connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
+      {...props}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame

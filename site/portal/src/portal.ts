@@ -27,6 +27,11 @@ import {
 } from "astro:env/server";
 
 import { type Analytics, posthog, unconfigured } from "@/server/analytics";
+import {
+  type Audience,
+  log as logAudience,
+  resend as resendAudience,
+} from "@/server/audience";
 import { open as openStore, type Store } from "@/server/db/db";
 import { clerk, type Directory } from "@/server/directory";
 import { kms, type Signer } from "@/server/license/sign";
@@ -39,6 +44,8 @@ export interface Portal {
   store: Store;
   signer: Signer;
   mail: Mailer;
+  /** audience is the release notes list. */
+  audience: Audience;
   /** slack posts notable events to the staff channel. */
   slack: Slack;
   /** analytics reads Synnax Desktop sessions from PostHog and records events there. */
@@ -67,6 +74,17 @@ const mailer = (): Mailer => {
     from: MAIL_FROM,
     origin: import.meta.env.SITE,
   });
+};
+
+/**
+ * audience changes the release notes list only from production. Previews and local
+ * development log each change.
+ */
+const audience = (): Audience => {
+  if (VERCEL_ENV !== "production") return logAudience();
+  if (RESEND_API_KEY == null)
+    throw new Error("RESEND_API_KEY is required in production");
+  return resendAudience(RESEND_API_KEY);
 };
 
 /**
@@ -103,6 +121,7 @@ export const open = (context: APIContext): Portal => {
       kid: LICENSE_KID,
     }),
     mail: mailer(),
+    audience: audience(),
     slack: slack(),
     analytics:
       POSTHOG_API_KEY == null

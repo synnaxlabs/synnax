@@ -136,58 +136,38 @@ export const forgetCharsPayloadZ = z.object({
 
 export type ForgetCharsPayload = z.infer<typeof forgetCharsPayloadZ>;
 
-/** Set replaces the Arc's name, or the value at a path in the graph's node inputs. */
-export const setPayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  value: caseconv.preserveCase(z.unknown()),
-  guards: patch.guardZ.array().default(() => []),
+/**
+ * SetDirectory moves the Arc into the directory with the given key. The root Arcs
+ * directory holds the Arcs at the top level.
+ */
+export const setDirectoryPayloadZ = z.object({
+  directory: z.uuid(),
 });
 
-export type SetPayload = z.infer<typeof setPayloadZ>;
+export type SetDirectoryPayload = z.infer<typeof setDirectoryPayloadZ>;
+
+/** Set replaces the Arc's name, or the value at a path in the graph's node inputs. */
+export const setPayloadZ = patch.setZ;
+
+export type SetPayload = patch.Set;
 
 /**
  * Remove removes an entry from a list or a field from an object in the graph's node
  * inputs.
  */
-export const removePayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  key: z.string(),
-  guards: patch.guardZ.array().default(() => []),
-});
+export const removePayloadZ = patch.removeZ;
 
-export type RemovePayload = z.infer<typeof removePayloadZ>;
+export type RemovePayload = patch.Remove;
 
 /** Insert adds an entry to a list in the graph's node inputs. */
-export const insertPayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  value: caseconv.preserveCase(z.unknown()),
-  after: z.string().optional(),
-  guards: patch.guardZ.array().default(() => []),
-});
+export const insertPayloadZ = patch.insertZ;
 
-export type InsertPayload = z.infer<typeof insertPayloadZ>;
+export type InsertPayload = patch.Insert;
 
 /** Move moves an entry in a list in the graph's node inputs. */
-export const movePayloadZ = z.object({
-  path: z
-    .string()
-    .array()
-    .default(() => []),
-  key: z.string(),
-  after: z.string().optional(),
-  guards: patch.guardZ.array().default(() => []),
-});
+export const movePayloadZ = patch.moveZ;
 
-export type MovePayload = z.infer<typeof movePayloadZ>;
+export type MovePayload = patch.Move;
 
 export type Action =
   | { type: "create"; create: CreatePayload }
@@ -201,6 +181,7 @@ export type Action =
   | { type: "insert_char"; insertChar: InsertCharPayload }
   | { type: "delete_char"; deleteChar: DeleteCharPayload }
   | { type: "forget_chars"; forgetChars: ForgetCharsPayload }
+  | { type: "set_directory"; setDirectory: SetDirectoryPayload }
   | { type: "set"; set: SetPayload }
   | { type: "remove"; remove: RemovePayload }
   | { type: "insert"; insert: InsertPayload }
@@ -224,6 +205,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("insert_char"), insertChar: insertCharPayloadZ }),
   z.object({ type: z.literal("delete_char"), deleteChar: deleteCharPayloadZ }),
   z.object({ type: z.literal("forget_chars"), forgetChars: forgetCharsPayloadZ }),
+  z.object({ type: z.literal("set_directory"), setDirectory: setDirectoryPayloadZ }),
   z.object({ type: z.literal("set"), set: setPayloadZ }),
   z.object({ type: z.literal("remove"), remove: removePayloadZ }),
   z.object({ type: z.literal("insert"), insert: insertPayloadZ }),
@@ -313,6 +295,15 @@ export const forgetChars = (payload: z.input<typeof forgetCharsPayloadZ>): Actio
   }),
 });
 
+export const setDirectory = (
+  payload: z.input<typeof setDirectoryPayloadZ>,
+): Action => ({
+  type: "set_directory",
+  setDirectory: zod.parse(setDirectoryPayloadZ, payload, {
+    label: "Arc set_directory action payload",
+  }),
+});
+
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
   set: zod.parse(setPayloadZ, payload, {
@@ -360,6 +351,7 @@ export interface Handlers {
   insertChar: (state: Draft<Arc>, payload: InsertCharPayload) => HandlerResult;
   deleteChar: (state: Draft<Arc>, payload: DeleteCharPayload) => HandlerResult;
   forgetChars: (state: Draft<Arc>, payload: ForgetCharsPayload) => HandlerResult;
+  setDirectory: (state: Draft<Arc>, payload: SetDirectoryPayload) => HandlerResult;
   set: (state: Draft<Arc>, payload: SetPayload) => HandlerResult;
   remove: (state: Draft<Arc>, payload: RemovePayload) => HandlerResult;
   insert: (state: Draft<Arc>, payload: InsertPayload) => HandlerResult;
@@ -391,6 +383,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.deleteChar(state, action.deleteChar);
       case "forget_chars":
         return handlers.forgetChars(state, action.forgetChars);
+      case "set_directory":
+        return handlers.setDirectory(state, action.setDirectory);
       case "set":
         return handlers.set(state, action.set);
       case "remove":

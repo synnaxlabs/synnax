@@ -154,7 +154,7 @@ describe("Group queries", () => {
       expect(retrieved.name).toBe("created-group");
     });
 
-    it("should updated an existing group", async () => {
+    it("should refuse a group whose key exists", async () => {
       const parent = await client.groups.create({
         scope: "channel",
         name: "test-parent-key",
@@ -174,8 +174,12 @@ describe("Group queries", () => {
         });
       });
 
+      expect(result.current.variant).toBe("error");
+      expect(result.current.status.description).toContain(
+        `group ${g.key} already exists`,
+      );
       const retrieved = await client.groups.retrieve(g.key);
-      expect(retrieved.name).toBe("updated-name");
+      expect(retrieved.name).toBe("original-name");
     });
   });
 

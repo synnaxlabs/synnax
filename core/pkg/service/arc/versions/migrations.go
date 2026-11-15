@@ -13,6 +13,7 @@ import (
 	"slices"
 	"uuid"
 
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
@@ -21,15 +22,16 @@ import (
 )
 
 // NewMigrations returns the ordered migration chain for stored arcs. root is the
-// directory that holds each Arc stored in no directory.
-func NewMigrations(root uuid.UUID) []gorp.Migration {
+// directory that holds each Arc stored in no directory. cfg is the parser config of the
+// Core that stored the Arcs.
+func NewMigrations(root uuid.UUID, cfg parser.Config) []gorp.Migration {
 	return slices.Concat(
 		[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
 		v1.Migrations,
 		[]gorp.Migration{
 			v3.Migration,
 			v3.ModeMigration,
-			v4.Migration,
+			v4.NewMigration(cfg),
 			v4.NewRootMigration(root),
 		},
 	)

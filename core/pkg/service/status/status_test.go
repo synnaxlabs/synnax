@@ -798,6 +798,38 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("WherePrefix", func() {
+			It("Should retrieve the statuses whose key has the prefix",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							WherePrefix("retrieve-").
+							Where(status.MatchNames[any]("Status A", "Status B")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(statuses).To(ConsistOf(
+						HaveField("Key", "retrieve-a"),
+						HaveField("Key", "retrieve-b"),
+					))
+				})
+
+			It(
+				"Should retrieve nothing for a prefix no key has",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							WherePrefix("missing-").
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(statuses).To(BeEmpty())
+				},
+			)
+		})
+
 		Describe("MatchNames", func() {
 			It("Should retrieve a status with a single name", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -824,6 +856,25 @@ var _ = Describe("Status", Ordered, func() {
 					Expect(s.Name).To(SatisfyAny(Equal("Status A"), Equal("Status B")))
 				}
 			})
+
+			It(
+				"Should not match a name that differs only in case",
+				func(ctx SpecContext) {
+					lower := newStatus("retrieve-a-lower")
+					lower.Name = "status a"
+					Expect(w.Set(ctx, &lower)).To(Succeed())
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchNames[any]("Status A")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(
+						statuses,
+					).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+				},
+			)
 
 			It(
 				"Should return empty when no statuses match name",

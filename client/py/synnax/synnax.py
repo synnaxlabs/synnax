@@ -17,6 +17,7 @@ from synnax import (
     access as access_,
     arc,
     auth,
+    certificate,
     channel,
     connection,
     control as control_,
@@ -24,6 +25,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    icd,
     imex as imex_,
     label,
     license as license_,
@@ -35,6 +37,7 @@ from synnax import (
     ranger,
     resource,
     schematic,
+    secret,
     signals as signals_,
     status,
     table,
@@ -48,6 +51,7 @@ from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.exceptions import Registry
+from x.params import deprecate_positional
 
 
 class Synnax(framer.Client):
@@ -93,6 +97,9 @@ class Synnax(framer.Client):
     groups: group.Client
     labels: label.Client
     views: view.Client
+    secrets: secret.Client
+    certificates: certificate.Client
+    icds: icd.Client
     imex: imex_.Client
     projects: project.Client
     tables: table.Client
@@ -103,6 +110,20 @@ class Synnax(framer.Client):
 
     _transport: Transport
 
+    @deprecate_positional(
+        "host",
+        "port",
+        "username",
+        "password",
+        "secure",
+        "open_timeout",
+        "read_timeout",
+        "keep_alive",
+        "max_retries",
+        "instrumentation",
+        "clock_skew_threshold",
+        "ca_cert",
+    )
     def __init__(
         self,
         *,
@@ -232,6 +253,9 @@ class Synnax(framer.Client):
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
+        self.secrets = secret.Client(client=self._transport.unary)
+        self.certificates = certificate.Client(client=self._transport.unary)
+        self.icds = icd.Client(client=self._transport.unary)
         self.imex = imex_.Client(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,
@@ -255,7 +279,6 @@ class Synnax(framer.Client):
             writer=range_creator,
             retriever=range_retriever,
             signals=self.signals,
-            tasks=self.tasks,
             labels=self.labels,
         )
         self.control = control_.Client(

@@ -43,6 +43,7 @@ describe("Rack", () => {
         description: "Rack is running",
         time: TimeStamp.now(),
         labels: [],
+        details: { running: true },
       };
       const r = await client.racks.create({
         name: "rack-with-status",
@@ -73,15 +74,13 @@ describe("Rack", () => {
     });
   });
   describe("update", () => {
-    it("should update a rack if the key is provided", async () => {
+    it("should refuse a rack whose key exists and keep the stored rack", async () => {
       const r = await client.racks.create({ name: "test" });
-      const updated = await client.racks.create({
-        key: r.key,
-        name: "updated",
-      });
-      expect(updated.name).toBe("updated");
+      const create = client.racks.create({ key: r.key, name: "updated" });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`rack ${r.key} already exists`);
       const retrieved = await client.racks.retrieve(r.key);
-      expect(retrieved.name).toBe("updated");
+      expect(retrieved.name).toBe("test");
     });
   });
   describe("rename", () => {
@@ -151,6 +150,17 @@ describe("Rack", () => {
       expect((await createTestClient().racks.retrieve(r.key)).name).toBe(
         "rack-rename-empty",
       );
+    });
+  });
+  describe("dispatch", () => {
+    it("should apply the action to the rack", async () => {
+      const r = await client.racks.create({ name: `rack-${id.create()}` });
+      await client.racks.dispatch(
+        r.key,
+        rack.set({ path: ["integrations"], value: ["modbus"] }),
+      );
+      const stored = await createTestClient().racks.retrieve(r.key);
+      expect(stored.integrations).toEqual(["modbus"]);
     });
   });
   describe("retrieve", () => {
@@ -308,17 +318,16 @@ describe("Rack", () => {
       });
       expect(results.map((r) => r.key)).toEqual([r1.key]);
     });
-    it("should update integrations on upsert", async () => {
+    it("should update integrations with a dispatch", async () => {
       const r = await client.racks.create({
         name: "rack-update-integrations",
         integrations: ["ni"],
       });
-      await client.racks.create({
-        key: r.key,
-        name: "rack-update-integrations",
-        integrations: ["ni", "opc", "arc"],
-      });
-      const retrieved = await client.racks.retrieve(r.key);
+      await client.racks.dispatch(
+        r.key,
+        rack.set({ path: ["integrations"], value: ["ni", "opc", "arc"] }),
+      );
+      const retrieved = await createTestClient().racks.retrieve(r.key);
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });
@@ -448,12 +457,11 @@ describe("Rack", () => {
         const stop = local.racks.watch(r.key).onChange(() => {});
         await waitForStreamLive(local.connection);
         try {
-          // A rename would also stream the status, so this update keeps the name.
-          await client.racks.create({
-            key: r.key,
-            name: r.name,
-            integrations: ["ni"],
-          });
+          // A rename would also stream the status, so this edit keeps the name.
+          await client.racks.dispatch(
+            r.key,
+            rack.set({ path: ["integrations"], value: ["ni"] }),
+          );
           await expect
             .poll(() => {
               const cached = local.racks.watch(r.key).getCached();

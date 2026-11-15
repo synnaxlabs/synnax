@@ -108,8 +108,7 @@ func (s *Service) Get(
 }
 
 type SetRequest struct {
-	Pairs []kv.Pair  `json:"pairs" msgpack:"pairs"`
-	Range ranger.Key `json:"range" msgpack:"range"`
+	Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
 }
 
 // Set creates or updates the key-value pairs. Each pair names its own range.

@@ -1,0 +1,303 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Visualizations in code"
+description:
+  "Create projects, line plots, logs, and panels from a Python or TypeScript script, and
+  copy, find, rename, and delete visualizations."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Python and TypeScript clients create and change the same
+[projects](/reference/visualize/projects), panels, and visualizations that the Console
+shows. Use a script when you set up the same views many times, such as a project for
+each test stand or a plot for each test run. To make one view, use the Console.
+
+The examples use a client that is connected to a Synnax Core. See
+[connect to a Core](/reference/client/connect).
+
+<Divider.Divider x />
+
+## Create a project
+
+Each visualization that a script creates belongs to a project.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+project = client.projects.create(name="Stand 2 hotfire")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const project = await client.projects.create({ name: "Stand 2 hotfire" });
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The project shows in the project selector of the Console.
+
+<Divider.Divider x />
+
+## Create a line plot
+
+Set the channels of each axis and the [ranges](/reference/ranges) that the plot shows.
+The Core adds a line for each channel.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+pressures = client.channels.retrieve(["tank_pressure", "line_pressure"])
+burn = client.ranges.retrieve(name="Burn 2")
+
+plot = client.line_plots.create(
+    sy.LinePlot(
+        name="Burn 2 pressures",
+        project=project.key,
+        channels=sy.lineplot.Channels(y1=[ch.key for ch in pressures]),
+        ranges=[sy.ranger.KeyRef(key=burn.key)],
+    )
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const names = ["tank_pressure", "line_pressure"];
+const pressures = await client.channels.retrieve(names);
+const burn = await client.ranges.retrieve("Burn 2");
+
+const plot = await client.lineplots.create({
+  name: "Burn 2 pressures",
+  project: project.key,
+  channels: { y1: pressures.map((ch) => ch.key) },
+  ranges: [{ variant: "key", key: burn.key }],
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Put channels with a different unit on `y2`. The plot shows in the projects toolbar,
+under the project. To show live data, open the plot and select a span in the **Live**
+row. See [choose a time range](/reference/visualize/line-plots#choose-a-time-range).
+
+<Divider.Divider x />
+
+## Create a log
+
+Give each channel of the log a color. An alias of up to 64 characters shows in place of
+the channel name.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+notes = client.channels.retrieve("operator_notes")
+state = client.channels.retrieve("sequence_state")
+
+events = client.logs.create(
+    sy.Log(
+        name="Burn 2 events",
+        project=project.key,
+        channels=[
+            sy.log.ChannelEntry(channel=notes.key, color="#3774D0"),
+            sy.log.ChannelEntry(
+                channel=state.key, color="#E8A530", alias="State"
+            ),
+        ],
+    )
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const notes = await client.channels.retrieve("operator_notes");
+const state = await client.channels.retrieve("sequence_state");
+
+const events = await client.logs.create({
+  name: "Burn 2 events",
+  project: project.key,
+  channels: [
+    { channel: notes.key, color: "#3774D0" },
+    { channel: state.key, color: "#E8A530", alias: "State" },
+  ],
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Copy a schematic
+
+Draw a schematic in the Console, then copy it from a script. A common job is to keep a
+copy of the schematic at the end of each test.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+schematics = client.schematics.retrieve(projects=project.key)
+pid = next((s for s in schematics if s.name == "Stand 2 P&ID"), None)
+if pid is None:
+    raise ValueError("No schematic is named Stand 2 P&ID")
+
+client.schematics.copy(pid.key, name="Stand 2 P&ID (Burn 2)")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const query = { projects: [project.key] };
+const schematics = await client.schematics.retrieve(query);
+const pid = schematics.find((s) => s.name === "Stand 2 P&ID");
+if (pid == null) throw new Error("No schematic is named Stand 2 P&ID");
+
+await client.schematics.copy({ key: pid.key, name: "Stand 2 P&ID (Burn 2)" });
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The copy goes in the project of the original schematic.
+
+<Divider.Divider x />
+
+## Show visualizations in a panel
+
+A [panel](/reference/visualize/panels) arranges tabs. Give the panel one tab for each
+visualization that it shows.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+plot_tab = sy.panel.ResourceTab(resource=sy.lineplot.resource_id(plot.key))
+log_tab = sy.panel.ResourceTab(resource=sy.log.resource_id(events.key))
+
+client.panels.create(
+    sy.Panel(
+        name="Burn 2",
+        project=project.key,
+        root=sy.panel.LeafNode(tabs=[plot_tab, log_tab]),
+    )
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { lineplot, log } from "@synnaxlabs/client";
+
+await client.panels.create({
+  name: "Burn 2",
+  project: project.key,
+  root: {
+    variant: "leaf",
+    tabs: [
+      { variant: "resource", resource: lineplot.resourceID(plot.key) },
+      { variant: "resource", resource: log.resourceID(events.key) },
+    ],
+  },
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+When you open the project, the panel shows in the panel selector with a tab for each
+visualization. To put tabs side by side,
+[split a tab](/reference/visualize/panels#split-a-tab) in the Console.
+
+<Divider.Divider x />
+
+## Find, rename, and delete visualizations
+
+Each kind of visualization has its own client, with the same `retrieve`, `rename`, and
+`delete` methods:
+
+| Kind      | Python              | TypeScript          |
+| --------- | ------------------- | ------------------- |
+| Project   | `client.projects`   | `client.projects`   |
+| Panel     | `client.panels`     | `client.panels`     |
+| Line plot | `client.line_plots` | `client.lineplots`  |
+| Schematic | `client.schematics` | `client.schematics` |
+| Table     | `client.tables`     | `client.tables`     |
+| Log       | `client.logs`       | `client.logs`       |
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+plots = client.line_plots.retrieve(projects=project.key)
+for plot in plots:
+    print(plot.key, plot.name)
+
+if plots:
+    client.line_plots.rename(plots[0].key, "Burn 2 tank pressures")
+    client.line_plots.delete(plots[0].key)
+```
+
+Pass `key` to retrieve one visualization. To find a project by its name, pass
+`search_term`: `client.projects.retrieve(search_term="Stand 2")` returns the closest
+matches first.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const plots = await client.lineplots.retrieve({ projects: [project.key] });
+for (const plot of plots) console.log(plot.key, plot.name);
+
+if (plots.length > 0) {
+  await client.lineplots.rename(plots[0].key, "Burn 2 tank pressures");
+  await client.lineplots.delete(plots[0].key);
+}
+```
+
+Pass one key to retrieve one visualization. To find a project by its name, pass
+`searchTerm`: `client.projects.retrieve({ searchTerm: "Stand 2" })` returns the closest
+matches first.
+
+  </Fragment>
+
+</Client.Tabs>
+
+You cannot undo a delete. To copy a whole project to a file, see
+[copy a project to a file in code](/reference/visualize/share#copy-a-project-to-a-file-in-code).

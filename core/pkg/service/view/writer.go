@@ -35,9 +35,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates or updates a view within the DB. If the view already has a key and an
-// existing view already exists with that key, the existing view will be updated. The
-// commit carries a create action that holds the stored view.
+// Create creates a view, assigning a new key when the key of view is zero. The commit
+// carries a create action that holds the stored view. Create returns an error wrapping
+// validate.ErrValidation when a view with the key exists.
 func (w Writer) Create(ctx context.Context, view *View) error {
 	if err := w.validate(*view); err != nil {
 		return err
@@ -45,7 +45,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if view.GorpKey() == uuid.Nil() {
 		*view = view.WithKey(uuid.New())
 	}
-	if err := w.table.NewCreate().Entry(view).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(view).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -69,9 +69,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return View{}, err
 			}
-			if err = next.Validate(); err != nil {
-				return View{}, err
-			}
 			if err = w.validate(next); err != nil {
 				return View{}, err
 			}
@@ -84,8 +81,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
-// CreateMany creates or updates multiple views within the DB. If any of the views
-// already exist, they will be updated.
+// CreateMany creates the given views. It returns an error wrapping
+// validate.ErrValidation when a view with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 	for i := range *views {
 		if err := w.Create(ctx, &(*views)[i]); err != nil {
@@ -114,9 +111,11 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	vld.NotEmptyString("name", v.Base().Name)
 	vld.NotEmptyString("type", v.Type())
 	if err := vld.Error(); err != nil {
+		return err
+	}
+	if err := v.Validate(); err != nil {
 		return err
 	}
 	var err error

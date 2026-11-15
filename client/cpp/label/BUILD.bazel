@@ -8,10 +8,12 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "label",
     hdrs = [
+        "actions.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
@@ -23,8 +25,20 @@ cc_library(
         "//x/cpp/color",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/cpp/uuid",
         "//x/go/color:color_grpc",
+    ],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":label",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )
