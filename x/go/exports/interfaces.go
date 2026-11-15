@@ -37,7 +37,8 @@ type interfaces struct {
 	// embedders holds, for each named type, the named struct types that embed it.
 	embedders map[*types.TypeName][]*types.Named
 	// crossed holds the keys of the interfaces that another package's non-test code
-	// names or holds a value of, and of the interfaces they embed.
+	// names, holds a value of, or reaches through the API it uses, and of the
+	// interfaces they embed.
 	crossed set.Set[string]
 }
 
@@ -135,13 +136,27 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 				cross(named)
 			}
 		}
+		reached := set.Set[types.Type]{}
+		for id, obj := range p.TypesInfo.Uses {
+			if obj.Pkg() == nil || obj.Pkg().Path() == user ||
+				strings.HasSuffix(fset.Position(id.Pos()).Filename, "_test.go") {
+				continue
+			}
+			reach(obj.Type(), reached, func(tn *types.TypeName) {
+				named, ok := tn.Type().(*types.Named)
+				if ok && types.IsInterface(named) && tn.Pkg() != nil &&
+					tn.Pkg().Path() != user {
+					cross(named)
+				}
+			})
+		}
 	}
 	return ifaces
 }
 
 // dispatches reports whether i can call a method of package pkg from another package:
-// another package declares i, or another package's non-test code names it or holds a
-// value of it.
+// another package declares i, or another package's non-test code names it, holds a
+// value of it, or uses an API that carries it.
 func (ifaces interfaces) dispatches(i iface, pkg string) bool {
 	return i.pkg != pkg || ifaces.crossed.Contains(i.key)
 }

@@ -253,6 +253,21 @@ var _ = Describe("Check through interfaces", func() {
 			"Close", true,
 		),
 		Entry(
+			"keep one whose interface another package implements for an API of it",
+			[]edit{
+				{libGo, "func Used() {}\n", "func Used() {}\n" + closer +
+					"\nfunc Shut(c Closer) { c.Close() }\n"},
+				{userGo, "lib.Used()", "lib.Used()\n\tlib.Shut(door{})"},
+				{
+					userGo,
+					"func Run()",
+					"type door struct{}\n\nfunc (door) Close() {}\n\n" +
+						"func Run()",
+				},
+			},
+			"Close", true,
+		),
+		Entry(
 			"keep one that an unexported interface of a dependency module asserts",
 			[]edit{
 				{libGo, "type Pong struct{}", "type Named struct{}\n\n" +

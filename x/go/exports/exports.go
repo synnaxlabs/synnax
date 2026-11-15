@@ -157,8 +157,8 @@ func module(modules []string, file string) (string, error) {
 //   - an identifier that generated code or another package's non-test code uses, or
 //     that another package's tests use when it lives in a test helper package;
 //   - a method that another package can call through an interface it satisfies, one
-//     that another package declares or that another package's non-test code names or
-//     holds a value of;
+//     that another package declares, or that another package's non-test code names,
+//     holds a value of, or reaches through the API it uses;
 //   - a method that template data can reach;
 //   - a type that the API of a kept identifier carries;
 //   - every constant of a const block when one of them is kept.
