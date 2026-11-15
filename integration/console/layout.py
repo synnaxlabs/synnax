@@ -564,12 +564,10 @@ class LayoutClient:
             try:
                 item = target.first
                 item.wait_for(state="visible", timeout=5000)
-                item.click(timeout=5000)
+                click_past(item)
                 return
             except Exception:
                 try:
-                    # Toasts overlap the dropdown and swallow the click.
-                    self.notifications.close_all()
                     if reopen is not None and self.dialog.count() == 0:
                         reopen()
                         apply_search()
