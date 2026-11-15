@@ -66,6 +66,20 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 	return nil
 }
 
+// EntryFields applies the action at c to a field of one entry of a list whose entries
+// take path actions only through their fields. It returns an error wrapping
+// validate.ErrValidation for a path that ends at the list or at an entry.
+func EntryFields[T any, P Entry[T]](dst *[]T, c Cursor) error {
+	if c.Done() || c.Next().Done() {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s: the path must go into an editable field of one entry",
+			format(c.path),
+		)
+	}
+	return List[T, P](dst, c)
+}
+
 // setEntry replaces the entry at index i, whose key is key.
 func setEntry[T any](dst *[]T, i int, key string, c Cursor) error {
 	if err := c.unguarded(); err != nil {

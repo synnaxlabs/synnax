@@ -43,12 +43,14 @@ Node struct {
     }
     config   NodeConfig {
         @doc value "is the symbol the node draws and its settings."
+        @patch
     }
     parent   string?    {
         @doc value """
             is the key of the group box node that contains the node. Absent when the
             node is at the top level.
         """
+        @patch
     }
 
     @doc value  "is a diagram node representing a symbol in the schematic."
@@ -82,6 +84,7 @@ Edge struct {
     }
     config EdgeConfig {
         @doc value "is the style of the connection and the path it traces."
+        @patch
     }
 
     @doc value  "is a connection between two nodes in the schematic."
