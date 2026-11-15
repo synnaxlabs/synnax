@@ -157,8 +157,13 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 		"must be set when on_delete is Detach",
 	)
 	v.Ternary(
+		"on_delete",
+		s.onDelete == Inline && s.textKeys,
+		"cannot be Inline on a TargetReference",
+	)
+	v.Ternary(
 		"inline",
-		s.onDelete == Inline && !s.inlinable,
+		s.onDelete == Inline && !s.inlinable && !s.textKeys,
 		"must be set when on_delete is Inline",
 	)
 	v.Ternary(
@@ -296,7 +301,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Targets func(e *E) []Target
-	// OnDelete is what happens to e when one of its targets is deleted.
+	// OnDelete is what happens to e when one of its targets is deleted. It cannot be
+	// Inline.
 	//
 	// [REQUIRED]
 	OnDelete OnDelete

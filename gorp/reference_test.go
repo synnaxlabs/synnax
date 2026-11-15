@@ -87,6 +87,7 @@ func (s refSwatch) GorpKey() string { return s.Key }
 // refFill holds a swatch by key, or a value once the swatch is gone.
 type refFill struct {
 	Key    string
+	Group  string
 	Swatch string
 	Value  string
 }
@@ -1687,6 +1688,18 @@ var _ = Describe("Inline reference", func() {
 			Name: "fill",
 			References: []gorp.Reference[string, refFill]{
 				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refFill, string]{
+					Name:     "group",
+					Table:    "group",
+					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
+					Targets: func(f *refFill) []string {
+						if f.Group == "" {
+							return nil
+						}
+						return []string{f.Group}
+					},
+				}),
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refFill, string]{
 					Name:     "swatch",
 					Table:    "swatch",
 					OnDelete: gorp.Inline,
@@ -1736,6 +1749,7 @@ var _ = Describe("Inline reference", func() {
 				{Key: "a", Swatch: "red"},
 				{Key: "b", Swatch: "red"},
 				{Key: "c", Swatch: "blue"},
+				{Key: "d", Group: "g", Swatch: "red"},
 			}).
 			Exec(ctx, db)).To(Succeed())
 	})
@@ -1756,10 +1770,12 @@ var _ = Describe("Inline reference", func() {
 				refFill{Key: "a", Value: "#ff0000"},
 				refFill{Key: "b", Value: "#ff0000"},
 				refFill{Key: "c", Swatch: "blue"},
+				refFill{Key: "d", Group: "g", Value: "#ff0000"},
 			))
 			Expect(rewritten).To(ConsistOf(
 				refFill{Key: "a", Value: "#ff0000"},
 				refFill{Key: "b", Value: "#ff0000"},
+				refFill{Key: "d", Group: "g", Value: "#ff0000"},
 			))
 			Expect(MustSucceed(swatches.NewRetrieve().
 				Where(gorp.MatchKeys[string, refSwatch]("red")).
@@ -1767,16 +1783,21 @@ var _ = Describe("Inline reference", func() {
 		},
 	)
 
-	It("Should inline the targets of a cascade", func(ctx SpecContext) {
-		Expect(groups.NewDelete().
-			Where(gorp.MatchKeys[string, refGroup]("g")).
-			Exec(ctx, db)).To(Succeed())
-		Expect(retrieveFills(ctx)).To(ConsistOf(
-			refFill{Key: "a", Value: "#ff0000"},
-			refFill{Key: "b", Value: "#ff0000"},
-			refFill{Key: "c", Value: "#0000ff"},
-		))
-	})
+	It(
+		"Should inline the targets of a cascade in each holder the cascade keeps",
+		func(ctx SpecContext) {
+			Expect(groups.NewDelete().
+				Where(gorp.MatchKeys[string, refGroup]("g")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(retrieveFills(ctx)).To(ConsistOf(
+				refFill{Key: "a", Value: "#ff0000"},
+				refFill{Key: "b", Value: "#ff0000"},
+				refFill{Key: "c", Value: "#0000ff"},
+			))
+			Expect(rewritten).To(HaveLen(3))
+			Expect(rewritten).ToNot(ContainElement(HaveField("Key", "d")))
+		},
+	)
 
 	It("Should fail the delete when an Inline fails", func(ctx SpecContext) {
 		inlineErr = errors.New("inline failed")
@@ -1789,13 +1810,21 @@ var _ = Describe("Inline reference", func() {
 			Exists(ctx, db))).To(BeTrue())
 	})
 
-	It(
-		"Should not inline a target in an entry the delete removes",
-		func(ctx SpecContext) {
-			Expect(fills.NewDelete().
-				Where(gorp.MatchKeys[string, refFill]("a")).
-				Exec(ctx, db)).To(Succeed())
-			Expect(rewritten).To(BeEmpty())
-		},
-	)
+	It("Should refuse Inline on a target reference", func(ctx SpecContext) {
+		Expect(gorp.OpenTable(ctx, gorp.TableConfig[string, refStatus]{
+			DB:   db,
+			Name: "status",
+			References: []gorp.Reference[string, refStatus]{
+				gorp.NewTargetReference(gorp.TargetReferenceConfig[string, refStatus]{
+					Name:     "owner",
+					Tables:   []string{"swatch"},
+					OnDelete: gorp.Inline,
+					Kind:     gorp.Use,
+					Targets:  func(*refStatus) []gorp.Target { return nil },
+				}),
+			},
+		})).Error().To(MatchError(ContainSubstring(
+			"status.references.0.on_delete: cannot be Inline on a TargetReference",
+		)))
+	})
 })

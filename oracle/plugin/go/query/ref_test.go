@@ -60,6 +60,71 @@ var _ = Describe("@ref", func() {
 				key  string
 			}
 		`)
+		loader.Add("schemas/swatch", `
+			import "schemas/resource"
+
+			@go output "core/pkg/service/swatch"
+
+			Key = uuid
+
+			Swatch struct {
+				key   Key {
+					@key
+				}
+				value string
+				@resource type "swatch"
+			}
+
+			Ref union on type {
+				named {
+					key Key @ref on_delete inline @ref kind use
+				}
+				fixed {
+					value string
+				}
+			}
+
+			Spot union on type {
+				named {
+					key Key? @ref on_delete inline @ref kind use
+				}
+			}
+
+			Pin union on type {
+				named {
+					key Key @ref on_delete inline @ref kind use
+				}
+			}
+
+			Band union on type {
+				owned {
+					owner resource.ID {
+						@ref on_delete inline
+						@ref kind      use
+						@ref types     swatch
+					}
+				}
+			}
+		`)
+		loader.Add("schemas/gauge", `
+			@go output "core/pkg/service/gauge"
+
+			Key = uint16
+
+			Gauge struct<T> {
+				key   Key {
+					@key
+				}
+				value T?
+				@resource type "gauge"
+			}
+
+			Ref union on type {
+				named {
+					key Key @ref on_delete inline @ref kind use
+				}
+			}
+		`)
 	})
 
 	device := func(fields string) string {
@@ -671,6 +736,26 @@ var _ = Describe("@ref", func() {
 			},
 		)
 
+		It("Should import context for a reference that inlines", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/swatch"
+
+				@go output "core/pkg/service/look"
+
+				Look struct {
+					key  uuid {
+						@key
+					}
+					fill swatch.Ref?
+
+					@retrieve indexes
+				}
+			`, "look", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(`"context"`, "ctx context.Context,").
+				ToNotContain("type Retrieve struct")
+		})
+
 		It("Should accept a primitive key type", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
 				import "schemas/label"
@@ -753,63 +838,12 @@ var _ = Describe("@ref", func() {
 					@resource type "kv"
 				}
 			`)
-			loader.Add("schemas/swatch", `
-				import "schemas/resource"
-
-				@go output "core/pkg/service/swatch"
-
-				Key = uuid
-
-				Swatch struct {
-					key   Key {
-						@key
-					}
-					value string
-					@resource type "swatch"
-				}
-
-				Ref union on type {
-					named {
-						key Key @ref on_delete inline @ref kind use
-					}
-					fixed {
-						value string
-					}
-				}
-
-				Spot union on type {
-					named {
-						key Key? @ref on_delete inline @ref kind use
-					}
-				}
-
-				Pin union on type {
-					named {
-						key Key @ref on_delete inline @ref kind use
-					}
-				}
-
-				Band union on type {
-					owned {
-						owner resource.ID {
-							@ref on_delete inline
-							@ref kind      use
-							@ref types     swatch
-						}
-					}
-				}
-			`)
 		})
 
 		config := func(types, fields string) string {
 			var imports strings.Builder
 			namespaces := []string{
-				"rack",
-				"label",
-				"channel",
-				"kv",
-				"resource",
-				"swatch",
+				"rack", "label", "channel", "kv", "resource", "swatch", "gauge",
 			}
 			for _, ns := range namespaces {
 				if strings.Contains(types+fields, ns+".") {
@@ -901,6 +935,31 @@ var _ = Describe("@ref", func() {
 				).
 				ToNotContain("Detach:", `"slices"`)
 		})
+
+		It(
+			"Should write back the variant that holds a union it inlines",
+			func(ctx SpecContext) {
+				generate(ctx, `
+				Marker union on type {
+					spot {
+						fill swatch.Ref?
+					}
+					plain {}
+				}
+			`, `
+				marker Marker
+			`).
+					ToContain(
+						"switch v3 := e.Marker.Variant.(type) {",
+						"case SpotMarker:",
+						"if v3.Fill != nil {",
+						"if v4, ok := v3.Fill.Variant.(swatch.NamedRef); ok && v4.Key == t {",
+						"v3.Fill.Variant = target.Inline()",
+						"e.Marker.Variant = v3",
+					).
+					ToNotContain("case PlainMarker:")
+			},
+		)
 
 		It("Should declare the kind of a nested reference", func(ctx SpecContext) {
 			generate(ctx, `
@@ -1226,6 +1285,12 @@ var _ = Describe("@ref", func() {
 				}`,
 				`marker Marker`,
 				"@ref field marker.fill.key sits in different unions, so it cannot inline",
+			),
+			Entry(
+				"inlining a key of a generic type",
+				"",
+				`fill gauge.Ref`,
+				"@ref field fill.key cannot inline the generic type Gauge",
 			),
 			Entry(
 				"inlining an optional key",
