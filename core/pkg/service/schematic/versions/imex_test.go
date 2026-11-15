@@ -59,7 +59,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Edges[0].Config).To(Equal(versions.EdgeConfig{
 			Variant: versions.PipeEdgeConfig{
 				SegmentedEdgeConfig: versions.SegmentedEdgeConfig{
-					Segments: []versions.Segment{},
+					Segments:    []versions.Segment{},
+					StrokeWidth: 2,
 				},
 			},
 		}))

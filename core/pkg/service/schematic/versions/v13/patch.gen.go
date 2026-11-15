@@ -190,6 +190,10 @@ func (pec *PipeEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&pec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&pec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *PipeEdgeConfig) {
+			pec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -202,6 +206,10 @@ func (eec *ElectricEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&eec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&eec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&eec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *ElectricEdgeConfig) {
+			eec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -214,6 +222,10 @@ func (sec *SecondaryEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&sec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&sec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&sec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *SecondaryEdgeConfig) {
+			sec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -226,6 +238,10 @@ func (jec *JacketedEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&jec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&jec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&jec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *JacketedEdgeConfig) {
+			jec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -238,6 +254,10 @@ func (hec *HydraulicEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&hec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&hec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&hec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *HydraulicEdgeConfig) {
+			hec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -250,6 +270,10 @@ func (pec *PneumaticEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&pec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&pec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *PneumaticEdgeConfig) {
+			pec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -262,6 +286,10 @@ func (dec *DataEdgeConfig) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&dec.SegmentedEdgeConfig.StrokeColor, c.Next())
 	case "segments":
 		return patch.Value(&dec.SegmentedEdgeConfig.Segments, c.Next())
+	case "stroke_width":
+		return patch.Defaulted(&dec.SegmentedEdgeConfig.StrokeWidth, c.Next(), func(def *DataEdgeConfig) {
+			dec.SegmentedEdgeConfig.StrokeWidth = def.SegmentedEdgeConfig.StrokeWidth
+		})
 	default:
 		return c.UnknownField()
 	}

@@ -39,7 +39,8 @@ var (
 			B: 5,
 			A: 6,
 		}),
-		Segments: []v13.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+		Segments:    []v13.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+		StrokeWidth: 10,
 	}
 	fullyPopulatedStaticSymbolConfig = v13.StaticSymbolConfig{
 		Label: v13.LabelConfig{
@@ -263,7 +264,11 @@ var _ = Describe("Codec", func() {
 				Source: v13.Handle{Node: "", Param: ""},
 				Target: v13.Handle{Node: "", Param: ""},
 				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
-					SegmentedEdgeConfig: v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}},
+					SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+						StrokeColor: nil,
+						Segments:    []v13.Segment{},
+						StrokeWidth: 0,
+					},
 				}},
 			}),
 		)
@@ -409,7 +414,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 				BorderRadius: 14.5,
-				StrokeWidth:  15.5,
+				StrokeWidth:  16,
 			}}),
 			Entry("button variant", v13.NodeConfig{Variant: v13.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
@@ -447,7 +452,7 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 12,
 				}),
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("gauge variant", v13.NodeConfig{Variant: v13.GaugeNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
@@ -521,7 +526,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Start:       spatial.XY{X: 7.5, Y: 8.5},
 				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("off_page_reference variant", v13.NodeConfig{Variant: v13.OffPageReferenceNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -552,7 +557,7 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 15,
 				}),
-				StrokeWidth: 15.5,
+				StrokeWidth: 16,
 			}}),
 			Entry("select variant", v13.NodeConfig{Variant: v13.SelectNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -1079,7 +1084,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
-			Entry("zero values", v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}}),
+			Entry("zero values", v13.SegmentedEdgeConfig{
+				StrokeColor: nil,
+				Segments:    []v13.Segment{},
+				StrokeWidth: 0,
+			}),
 			Entry("empty collections", v13.SegmentedEdgeConfig{
 				StrokeColor: new(color.Color{
 					R: 3,
@@ -1087,7 +1096,8 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 6,
 				}),
-				Segments: []v13.Segment{},
+				Segments:    []v13.Segment{},
+				StrokeWidth: 8,
 			}),
 		)
 	})
@@ -1567,7 +1577,11 @@ func FuzzDecodeEdge(f *testing.F) {
 			Source: v13.Handle{Node: "", Param: ""},
 			Target: v13.Handle{Node: "", Param: ""},
 			Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
-				SegmentedEdgeConfig: v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}},
+				SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+					StrokeColor: nil,
+					Segments:    []v13.Segment{},
+					StrokeWidth: 0,
+				},
 			}},
 		}
 		w := orc.NewWriter(0)
@@ -1988,7 +2002,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 			BorderRadius: 14.5,
-			StrokeWidth:  15.5,
+			StrokeWidth:  16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2040,7 +2054,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 11,
 				A: 12,
 			}),
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2142,7 +2156,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Start:       spatial.XY{X: 7.5, Y: 8.5},
 			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2187,7 +2201,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 14,
 				A: 15,
 			}),
-			StrokeWidth: 15.5,
+			StrokeWidth: 16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3283,7 +3297,11 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}}
+		seed := v13.SegmentedEdgeConfig{
+			StrokeColor: nil,
+			Segments:    []v13.Segment{},
+			StrokeWidth: 0,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3298,7 +3316,8 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 				B: 5,
 				A: 6,
 			}),
-			Segments: []v13.Segment{},
+			Segments:    []v13.Segment{},
+			StrokeWidth: 8,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

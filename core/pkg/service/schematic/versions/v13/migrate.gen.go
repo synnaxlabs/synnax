@@ -314,7 +314,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			FillColor:     fillColor,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v12.ButtonNodeConfig:
 		var fillColor *color.Color
@@ -357,7 +356,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			Radius:        variant.Radius,
 			StrokeColor:   strokeColor,
 			FillColor:     fillColor,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v12.GaugeNodeConfig:
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
@@ -453,7 +451,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			StrokeColor: strokeColor,
 			Start:       variant.Start,
 			End:         variant.End,
-			StrokeWidth: variant.StrokeWidth,
 		}}, nil
 	case v12.OffPageReferenceNodeConfig:
 		var fillColor *color.Color
@@ -495,7 +492,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			CornerRounding: variant.CornerRounding,
 			StrokeColor:    strokeColor,
 			FillColor:      fillColor,
-			StrokeWidth:    variant.StrokeWidth,
 		}}, nil
 	case v12.SelectNodeConfig:
 		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
