@@ -31,11 +31,11 @@ state color or binds a color by position. This RFC replaces the library items se
 
 ## 2 Vocabulary
 
-- **Named color** (`swatch` in code): A Core record with a name, a light value, and an
-  optional dark value.
+- **Named color** (`color.Named` in code): A Core record with a name, a light value, and
+  an optional dark value.
 - **Palette**: A group (RFC 0100 §4.3) of named colors. It is not a record type.
 - **Enum**: A Core record with a list of entries. It is the state map of a symbol.
-- **Color reference**: A `swatch.Ref`: a swatch key or a fixed color.
+- **Color reference**: A `color.Ref`: a named color key or a fixed color.
 - **Look color**: A color that carries no state, such as a fill or a label.
 - **Mark**: A region of a drawing state that takes the entry color, as `stroke` or
   `fill`.
@@ -77,21 +77,24 @@ color (control, gauge, scale, redline, picker presets) reads the series colors.
 
 ### 4.1 The color reference
 
-`swatch.Ref` is one union, `named` (a swatch key) or `fixed` (a `color.Color`), in every
-field that takes a color. A delete of a named color that is not a built-in is never
-refused. The `named` key declares `@ref on_delete inline` once, inside the union. Before
-Gorp removes the color, a generated function for each reference sets each union that
-names it to `target.Inline()`, a hand-written method on `swatch.Swatch` that returns the
-`fixed` variant. Each holder's service sends the rewritten record to open Consoles from
-its rewrite hook, as line plots do for a detached channel
-(`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for enums uses the
-same hook.
+`color.Ref` is one union, `named` (a `color.Named` key) or `fixed` (a `color.Color` in
+its `value` field), in every field that takes a color. Both live in
+`schemas/synnax/color.oracle`, beside the value type in `schemas/x/color.oracle`.
+`client/py/synnax/color` re-exports the value type, so `sy.color`
+(`client/py/synnax/__init__.py:125`) keeps working. A delete of a named color that is
+not a built-in is never refused. The `named` key declares `@ref on_delete inline` once,
+inside the union. Before Gorp removes the color, a generated function for each reference
+sets each union that names it to `target.Inline()`, a hand-written method on
+`color.Named` that returns the `fixed` variant. Each holder's service sends the
+rewritten record to open Consoles from its rewrite hook, as line plots do for a detached
+channel (`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for enums
+uses the same hook.
 
 ### 4.2 Enums
 
 An enum is the state map. Each entry holds a generated `key`, one exact `float64`
 `value` that selects and buttons write, a `name`, an `abnormal` flag (false by default),
-and an optional `swatch.Ref`. Values are unique in an enum, and the writer refuses a
+and an optional `color.Ref`. Values are unique in an enum, and the writer refuses a
 duplicate. Two color conventions for one set of states need two enums. A site difference
 goes through the named colors that the entries reference.
 
@@ -164,7 +167,7 @@ The cutover deletes it.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
-record that moves to `swatch.Ref` (phases 25 to 31) mints a version (RFC 0053) that
+record that moves to `color.Ref` (phases 25 to 31) mints a version (RFC 0053) that
 stores each old color as `fixed`, and its hand-written client code writes the union
 (`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
 
@@ -178,49 +181,50 @@ stores each old color as `fixed`, and its hand-written client code writes the un
 
 PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`), #5622
 (color-blind simulation), #5623 (`luminance` rounding), #5624 (unused `color.Palette`),
-#5625 (WCAG contrast), #5626 (custom strokes through the band), and #5627 (table cells
-in rows) are merged. #5632 (`on_delete inline` in Oracle) is open.
+#5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
+rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
 Phases 9, 16, and 21 ship behind one flag in `console/src/flags.ts`. Phases 10 and 11
 ship in one release, and phases 19 to 22 in one release after the symbol consolidation.
 
-| Phase | Scope                                                     | Touches                                                                             | Depends on     |
-| ----- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
-| 1     | Add a Gorp retarget that rewrites every reference         | `x/go/gorp`                                                                         | -              |
-| 2     | Add the named color record and the color reference        | `schemas/synnax`, `core/pkg/service/swatch`                                         | -              |
-| 3     | Add the named color API, access, search, and signals      | `core/pkg/api/swatch`, `core/pkg/service/swatch`                                    | 2              |
-| 4     | Add built-in named colors with sparse user changes        | `core/pkg/service/swatch`                                                           | 3              |
-| 5     | Turn a deleted named color into the fixed color it showed | `schemas/synnax`, `core/pkg/service/swatch`                                         | 2              |
-| 6     | Add named colors to the clients and Pluto queries         | `client/ts/src/swatch`, `client/py/synnax/swatch`, `pluto/src/swatch`               | 3              |
-| 7     | Resolve a light and dark pair for the theme mode in Lyra  | `lyra/src/theme`, `lyra/src/color`                                                  | -              |
-| 8     | Store a color reference from the color picker             | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7              |
-| 9     | Add the Console named color toolbar and editor            | `console/src/feature/swatch`, `console/src/flags.ts`                                | 5, 6, 8        |
-| 10    | Store color references on line plot lines and rules       | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                          | 4              |
-| 11    | Resolve and write line color references in Pluto          | `pluto/src/lineplot`, `console/src/feature/lineplot`                                | 6, 7, 10       |
-| 12    | Read every data color from the series colors              | `lyra/src/theme`, `pluto/src`                                                       | 4, 6, 7, 8, 11 |
-| 13    | Add the enum record                                       | `schemas/synnax`, `core/pkg/service/enum`                                           | 2              |
-| 14    | Add the enum API, used-by list, and built-in enums        | `core/pkg/api/enum`, `core/pkg/service/enum`                                        | 4, 13          |
-| 15    | Add enums to the clients and Pluto queries                | `client/ts`, `client/py`, `pluto/src/enum`                                          | 14             |
-| 16    | Add the Console enum editor with its checks               | `console/src/feature/enum`                                                          | 9, 15          |
-| 17    | Add Replace with for enums                                | `core/pkg/api/enum`, `console/src/feature/enum`                                     | 1, 16          |
-| 18    | Add the Core-wide unknown color setting                   | `core/pkg/service`, `console/src/feature`                                           | 4              |
-| 19    | Add enum references and marks to state symbols            | `schemas/synnax`, `core/pkg/service/schematic`                                      | 13             |
-| 20    | Paint state symbols from their enum in Pluto              | `pluto/src/schematic`                                                               | 15, 19         |
-| 21    | Add the enum picker to the symbol forms                   | `console/src/feature/schematic`                                                     | 16, 19         |
-| 22    | Migrate inline state colors to enums                      | `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                      | 20, 21         |
-| 23    | Delete the named colors and enums flag                    | `console/src/flags.ts`                                                              | 22             |
-| 24    | Carry color references in multi-edit                      | `console/src/platform/multiedit`                                                    | 8              |
-| 25    | Store color references in schematic look colors           | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`            | 5, 24          |
-| 26    | Store color references in table colors                    | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                | 5, 24          |
-| 27    | Store color references in log colors                      | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                  | 5, 24          |
-| 28    | Store color references in label colors                    | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                | 5, 24          |
-| 29    | Store color references in range colors                    | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc` | 5, 24          |
-| 30    | Store color references in panel colors                    | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 5, 24          |
-| 31    | Store color references in custom symbol look colors       | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `client/ts`, `client/py`     | 5, 24          |
+| Phase | Scope                                                    | Touches                                                                             | Depends on     |
+| ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
+| 1     | Add a Gorp retarget that rewrites every reference        | `x/go/gorp`                                                                         | -              |
+| 2     | Generate two schemas that share a name                   | `oracle`                                                                            | -              |
+| 3     | Add the named color record and the color reference       | `schemas/synnax/color.oracle`, `core/pkg/service/color`                             | 2              |
+| 4     | Add the named color API, access, search, and signals     | `core/pkg/api/color`, `core/pkg/service/color`                                      | 3              |
+| 5     | Add built-in named colors with sparse user changes       | `core/pkg/service/color`                                                            | 4              |
+| 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                  | 4              |
+| 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                  | -              |
+| 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7              |
+| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`, `console/src/flags.ts`                                 | 3, 6, 8        |
+| 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                          | 5              |
+| 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                | 6, 7, 10       |
+| 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                       | 5, 6, 7, 8, 11 |
+| 13    | Add the enum record                                      | `schemas/synnax`, `core/pkg/service/enum`                                           | 3              |
+| 14    | Add the enum API, used-by list, and built-in enums       | `core/pkg/api/enum`, `core/pkg/service/enum`                                        | 5, 13          |
+| 15    | Add enums to the clients and Pluto queries               | `client/ts`, `client/py`, `pluto/src/enum`                                          | 14             |
+| 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                          | 9, 15          |
+| 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                     | 1, 16          |
+| 18    | Add the Core-wide unknown color setting                  | `core/pkg/service`, `console/src/feature`                                           | 5              |
+| 19    | Add enum references and marks to state symbols           | `schemas/synnax`, `core/pkg/service/schematic`                                      | 13             |
+| 20    | Paint state symbols from their enum in Pluto             | `pluto/src/schematic`                                                               | 15, 19         |
+| 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                     | 16, 19         |
+| 22    | Migrate inline state colors to enums                     | `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                      | 20, 21         |
+| 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                              | 22             |
+| 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                    | 8              |
+| 25    | Store color references in schematic look colors          | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`            | 3, 24          |
+| 26    | Store color references in table colors                   | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                | 3, 24          |
+| 27    | Store color references in log colors                     | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                  | 3, 24          |
+| 28    | Store color references in label colors                   | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                | 3, 24          |
+| 29    | Store color references in range colors                   | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc` | 3, 24          |
+| 30    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 3, 24          |
+| 31    | Store color references in custom symbol look colors      | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `client/ts`, `client/py`     | 3, 24          |
 
-Phases 4 and 18 are new patterns: no record stores sparse user changes, and the Core has
-no settings store. In phase 29, the Driver writes range colors
-(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
+Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phases 5 and 18
+are new patterns: no record stores sparse user changes, and the Core has no settings
+store. In phase 29, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`)
+as `fixed`.
 
 ## 7 Resolved decisions
 
@@ -271,9 +275,10 @@ no settings store. In phase 29, the Driver writes range colors
     for the same fact.
 18. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
     variant.
-19. **The code name is `swatch`**: `color` is already the value type in `x/go`, `x/ts`,
-    `x/py`, and `x/cpp`. A swatch is a saved named color in InDesign and Illustrator,
-    and a delete there offers "Unnamed Swatch", the same rule as §4.1.
+19. **The union is `color.Ref` and the record is `color.Named`**: A fixed variant is not
+    a swatch, and the `named` variant names a `color.Named`. The trade is real: the
+    Synnax `color` schema shares its name with the x value type, so Oracle aliases one
+    import where a file uses both.
 
 ## 8 Open questions
 
