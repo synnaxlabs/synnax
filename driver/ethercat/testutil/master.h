@@ -142,6 +142,8 @@ class Master final : public master::Master {
     bool recover_held{false};
     /// @brief whether a recover() waits for release_recover().
     bool recovering{false};
+    /// @brief whether the latest check() reported a slave out of OP.
+    bool checked_out{false};
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -812,20 +814,22 @@ public:
                 .startup_error = startup_failed ? startup->second : "",
             });
         }
+        this->checked_out = std::ranges::any_of(health, [](const slave::Health &h) {
+            return !h.operational();
+        });
         return health;
     }
 
     /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
     /// failed clock restore or startup, and a slave that set_slave_transition_failure()
-    /// keeps from OP. After hold_recover(), waits for release_recover() first when a
-    /// slave is out of OP.
+    /// keeps from OP. After hold_recover(), waits for release_recover() first when the
+    /// latest check() reported a slave out of OP, as a recovery step acts on the states
+    /// that check() read.
     void recover(const x::breaker::Breaker &breaker) override {
         bool out = false;
         {
             std::lock_guard lock(this->mu);
-            for (const auto &slave: this->slave_list)
-                out = out || (this->on_bus(slave.properties.position) &&
-                              slave.status.state != slave::State::OP);
+            out = this->checked_out;
         }
         if (out) {
             std::unique_lock lock(this->recover_mu);
