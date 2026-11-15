@@ -1,0 +1,1656 @@
+{
+  "burst_disc": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 38.39 31.98",
+        "handles": {
+          "1": "top 20.19 2.59"
+        },
+        "shapes": [
+          "2.73 2.6 34.93 17.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.86 26.79 6.66 4.89 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "20.2 2.6 0 24.79 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 38.39 31.98",
+        "handles": {
+          "1": "top 20.19 2.59"
+        },
+        "shapes": [
+          "2.73 2.6 34.93 17.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.86 26.79 6.66 4.89 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "20.2 2.6 0 24.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 76.8 63.98",
+        "handles": {
+          "1": "top 39.39 4.19"
+        },
+        "shapes": [
+          "4.46 4.2 69.87 35.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "32.73 52.59 13.33 9.77 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "39.4 4.2 0 49.59 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 76.8 63.98",
+        "handles": {
+          "1": "top 39.39 4.19"
+        },
+        "shapes": [
+          "4.46 4.2 69.87 35.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "32.73 52.59 13.33 9.77 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "39.4 4.2 0 49.59 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 32 38.39",
+        "handles": {
+          "1": "left 2.59 20.19"
+        },
+        "shapes": [
+          "2.6 2.73 17.6 34.94 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "26.8 16.86 4.89 6.66 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "2.6 20.2 24.79 0 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 32 38.39",
+        "handles": {
+          "1": "left 2.59 20.19"
+        },
+        "shapes": [
+          "2.6 2.73 17.6 34.94 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.8 16.86 4.89 6.66 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "2.6 20.2 24.79 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 64 76.8",
+        "handles": {
+          "1": "left 4.19 39.39"
+        },
+        "shapes": [
+          "4.2 4.45 35.2 69.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "52.6 32.73 9.78 13.33 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "4.2 39.4 49.6 0 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 64 76.8",
+        "handles": {
+          "1": "left 4.19 39.39"
+        },
+        "shapes": [
+          "4.2 4.45 35.2 69.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "52.6 32.73 9.78 13.33 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "4.2 39.4 49.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 32 38.39",
+        "handles": {
+          "1": "right 31.39 20.19"
+        },
+        "shapes": [
+          "13.8 2.73 17.6 34.94 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.32 16.86 4.89 6.66 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "6.6 20.2 24.79 0 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 32 38.39",
+        "handles": {
+          "1": "right 31.39 20.19"
+        },
+        "shapes": [
+          "13.8 2.73 17.6 34.94 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.32 16.86 4.89 6.66 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "6.6 20.2 24.79 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 64 76.8",
+        "handles": {
+          "1": "right 61.8 39.39"
+        },
+        "shapes": [
+          "26.6 4.45 35.2 69.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.62 32.73 9.78 13.33 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "12.2 39.4 49.6 0 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 64 76.8",
+        "handles": {
+          "1": "right 61.8 39.39"
+        },
+        "shapes": [
+          "26.6 4.45 35.2 69.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.62 32.73 9.78 13.33 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "12.2 39.4 49.6 0 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 38.39 31.98",
+        "handles": {
+          "1": "bottom 20.19 31.38"
+        },
+        "shapes": [
+          "2.73 13.79 34.93 17.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.86 2.31 6.66 4.89 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "20.2 6.6 0 24.79 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 38.39 31.98",
+        "handles": {
+          "1": "bottom 20.19 31.38"
+        },
+        "shapes": [
+          "2.73 13.79 34.93 17.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.86 2.31 6.66 4.89 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "20.2 6.6 0 24.79 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 76.8 63.98",
+        "handles": {
+          "1": "bottom 39.39 61.78"
+        },
+        "shapes": [
+          "4.46 26.59 69.87 35.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "32.73 3.62 13.33 9.77 | oklch(0.01 0.01 262.32) | oklch(0.01 0.01 262.32) | 2px | butt | none | non-scaling-stroke",
+          "39.4 12.2 0 49.59 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 76.8 63.98",
+        "handles": {
+          "1": "bottom 39.39 61.78"
+        },
+        "shapes": [
+          "4.46 26.59 69.87 35.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "32.73 3.62 13.33 9.77 | oklch(0.65 0.18 256.52) | oklch(0.65 0.18 256.52) | 2px | butt | none | non-scaling-stroke",
+          "39.4 12.2 0 49.59 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "path d=M24 24C24 35.1852 15.2546 44.4725 3.87626 45.8297C2.90571 45.9455 2 45.1407 2 44V4C2 2.85926 2.90571 2.0545 3.87626 2.17027C15.2546 3.52755 24 12.8148 24 24Z",
+      "path d=M37.9706 23.2076C38.4906 23.6079 38.4906 24.3921 37.9706 24.7924L33.86 27.9568C33.2024 28.463 32.25 27.9942 32.25 27.1644V20.8356C32.25 20.0058 33.2024 19.537 33.86 20.0432L37.9706 23.2076Z",
+      "path d=M33 24H2"
+    ],
+    "root": "div"
+  },
+  "flame_arrestor": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 55.19 26.39",
+        "handles": {
+          "1": "top 28.59 2.98",
+          "2": "bottom 28.59 25.39"
+        },
+        "shapes": [
+          "3 3 51.18 22.39 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 55.19 26.39",
+        "handles": {
+          "1": "top 28.59 2.98",
+          "2": "bottom 28.59 25.39"
+        },
+        "shapes": [
+          "3 3 51.18 22.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 110.39 52.78",
+        "handles": {
+          "1": "top 56.19 4.98",
+          "2": "bottom 56.19 49.78"
+        },
+        "shapes": [
+          "5.01 5 102.36 44.78 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 110.39 52.78",
+        "handles": {
+          "1": "top 56.19 4.98",
+          "2": "bottom 56.19 49.78"
+        },
+        "shapes": [
+          "5.01 5 102.36 44.78 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 26.39 55.17",
+        "handles": {
+          "1": "left 2.98 28.58",
+          "2": "right 25.39 28.58"
+        },
+        "shapes": [
+          "3 3 22.39 51.17 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 26.39 55.17",
+        "handles": {
+          "1": "left 2.98 28.58",
+          "2": "right 25.39 28.58"
+        },
+        "shapes": [
+          "3 3 22.39 51.17 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 52.8 110.39",
+        "handles": {
+          "1": "left 4.98 56.19",
+          "2": "right 49.8 56.19"
+        },
+        "shapes": [
+          "5 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 52.8 110.39",
+        "handles": {
+          "1": "left 4.98 56.19",
+          "2": "right 49.8 56.19"
+        },
+        "shapes": [
+          "5 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 26.39 55.17",
+        "handles": {
+          "1": "right 25.39 28.58",
+          "2": "left 2.98 28.58"
+        },
+        "shapes": [
+          "3 3 22.39 51.17 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 26.39 55.17",
+        "handles": {
+          "1": "right 25.39 28.58",
+          "2": "left 2.98 28.58"
+        },
+        "shapes": [
+          "3 3 22.39 51.17 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 52.8 110.39",
+        "handles": {
+          "1": "right 49.8 56.19",
+          "2": "left 4.98 56.19"
+        },
+        "shapes": [
+          "5 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 52.8 110.39",
+        "handles": {
+          "1": "right 49.8 56.19",
+          "2": "left 4.98 56.19"
+        },
+        "shapes": [
+          "5 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 55.19 26.39",
+        "handles": {
+          "1": "bottom 28.59 25.39",
+          "2": "top 28.59 2.98"
+        },
+        "shapes": [
+          "3 3 51.18 22.39 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 55.19 26.39",
+        "handles": {
+          "1": "bottom 28.59 25.39",
+          "2": "top 28.59 2.98"
+        },
+        "shapes": [
+          "3 3 51.18 22.39 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 110.39 52.78",
+        "handles": {
+          "1": "bottom 56.19 49.78",
+          "2": "top 56.19 4.98"
+        },
+        "shapes": [
+          "5.01 5 102.36 44.78 | oklch(0.01 0.01 262.32) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 110.39 52.78",
+        "handles": {
+          "1": "bottom 56.19 49.78",
+          "2": "top 56.19 4.98"
+        },
+        "shapes": [
+          "5.01 5 102.36 44.78 | oklch(0.65 0.18 256.52) | none | 2px | round | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "path d=M16.5 2.5L16.5 66.5M2.5 34.5H30.5M2.5 18.9848H30.5M2.5 50.0152H30.5M5.3 66.5H27.7C29.2464 66.5 30.5 65.1976 30.5 63.5909V5.40909C30.5 3.80244 29.2464 2.5 27.7 2.5H5.3C3.7536 2.5 2.5 3.80245 2.5 5.40909V63.5909C2.5 65.1976 3.7536 66.5 5.3 66.5Z"
+    ],
+    "root": "div"
+  },
+  "flame_arrestor_detonation": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.29 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 24.28 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.29 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 24.28 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 47.58 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 47.58 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 47.58 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 47.58 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 3.7 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 28.59 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 3.7 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 28.59 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 6.41 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 56.2 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 6.41 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 56.2 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3.7 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3.7 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 6.41 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 6.41 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 2.6 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 2.6 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 4.2 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 4.2 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2.5 width=28 height=64 rx=3",
+      "path d=M16 2.5L16 66.5",
+      "path d=M2 34.5H30",
+      "path d=M2 19H30",
+      "path d=M2 50H30",
+      "path d=M29.121 3.37903L61 34.5",
+      "path d=M29.12 65.62L61 34.5"
+    ],
+    "root": "div"
+  },
+  "flame_arrestor_explosion": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 55.19 47.98",
+        "handles": {
+          "1": "top 28.59 2.59",
+          "2": "bottom 28.59 47.38"
+        },
+        "shapes": [
+          "3 2.6 51.18 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3 24.99 51.18 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3 13.8 51.18 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 55.19 47.98",
+        "handles": {
+          "1": "top 28.59 2.59",
+          "2": "bottom 28.59 47.38"
+        },
+        "shapes": [
+          "3 2.6 51.18 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3 24.99 51.18 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3 13.8 51.18 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 110.39 95.98",
+        "handles": {
+          "1": "top 56.19 4.19",
+          "2": "bottom 56.19 93.78"
+        },
+        "shapes": [
+          "5 4.2 102.38 89.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 48.99 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 110.39 95.98",
+        "handles": {
+          "1": "top 56.19 4.19",
+          "2": "bottom 56.19 93.78"
+        },
+        "shapes": [
+          "5 4.2 102.38 89.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 48.99 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 48 55.19",
+        "handles": {
+          "1": "left 2.59 28.59",
+          "2": "right 47.39 28.59"
+        },
+        "shapes": [
+          "2.61 3 44.79 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 48 55.19",
+        "handles": {
+          "1": "left 2.59 28.59",
+          "2": "right 47.39 28.59"
+        },
+        "shapes": [
+          "2.61 3 44.79 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.61 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 96 110.39",
+        "handles": {
+          "1": "left 4.19 56.19",
+          "2": "right 93.8 56.19"
+        },
+        "shapes": [
+          "4.2 5 89.59 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "49 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 96 110.39",
+        "handles": {
+          "1": "left 4.19 56.19",
+          "2": "right 93.8 56.19"
+        },
+        "shapes": [
+          "4.2 5 89.59 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 48 55.19",
+        "handles": {
+          "1": "right 47.39 28.59",
+          "2": "left 2.59 28.59"
+        },
+        "shapes": [
+          "2.61 3 44.79 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "36.2 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 48 55.19",
+        "handles": {
+          "1": "right 47.39 28.59",
+          "2": "left 2.59 28.59"
+        },
+        "shapes": [
+          "2.61 3 44.79 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "36.2 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 96 110.39",
+        "handles": {
+          "1": "right 93.8 56.19",
+          "2": "left 4.19 56.19"
+        },
+        "shapes": [
+          "4.2 5 89.59 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "49 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "71.4 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "49 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "49 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "49 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 96 110.39",
+        "handles": {
+          "1": "right 93.8 56.19",
+          "2": "left 4.19 56.19"
+        },
+        "shapes": [
+          "4.2 5 89.59 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "71.4 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "49 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 55.19 47.98",
+        "handles": {
+          "1": "bottom 28.59 47.38",
+          "2": "top 28.59 2.59"
+        },
+        "shapes": [
+          "3 2.6 51.18 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3 24.99 51.18 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3 36.19 51.18 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.99 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 24.99 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 24.99 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 55.19 47.98",
+        "handles": {
+          "1": "bottom 28.59 47.38",
+          "2": "top 28.59 2.59"
+        },
+        "shapes": [
+          "3 2.6 51.18 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3 24.99 51.18 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3 36.19 51.18 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.99 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 24.99 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 24.99 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 110.39 95.98",
+        "handles": {
+          "1": "bottom 56.19 93.78",
+          "2": "top 56.19 4.19"
+        },
+        "shapes": [
+          "5 4.2 102.38 89.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 48.99 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 71.39 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 48.99 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 48.99 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 48.99 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 110.39 95.98",
+        "handles": {
+          "1": "bottom 56.19 93.78",
+          "2": "top 56.19 4.19"
+        },
+        "shapes": [
+          "5 4.2 102.38 89.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 48.99 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 71.39 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 48.99 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 48.99 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 48.99 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2.5 width=56 height=64 rx=3",
+      "path d=M30 2.5L30 66.5",
+      "path d=M16 2.5L16 66.5",
+      "path d=M2 34.5H30",
+      "path d=M2 19H30",
+      "path d=M2 50H30"
+    ],
+    "root": "div"
+  },
+  "flame_arrestor_fire_res": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 24.19 51.17 25.59 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "3.01 22.59 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 22.59 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 24.19 51.17 25.59 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "3.01 22.59 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 22.59 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 47.39 102.38 51.19 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "5 44.19 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 44.19 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 47.39 102.38 51.19 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "5 44.19 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 44.19 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 3 25.59 51.19 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "22.6 54.19 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 3 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 3 25.59 51.19 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "22.6 54.19 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 3 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 5 51.2 102.39 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "44.2 107.39 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 5 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 5 51.2 102.39 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "44.2 107.39 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 5 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3 25.59 51.19 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "28.19 3 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 54.19 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3 25.59 51.19 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "28.19 3 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 54.19 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 5 51.2 102.39 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "55.4 5 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 107.39 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 5 51.2 102.39 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "55.4 5 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 107.39 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 2.6 51.17 25.59 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "54.18 28.19 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 28.19 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 2.6 51.17 25.59 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "54.18 28.19 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 28.19 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 4.2 102.38 51.19 | oklch(0.01 0.01 262.32) | none | 2px | square | none | non-scaling-stroke",
+          "107.39 55.39 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 55.39 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 4.2 102.38 51.19 | oklch(0.65 0.18 256.52) | none | 2px | square | none | non-scaling-stroke",
+          "107.39 55.39 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 55.39 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2.5 width=28 height=64 rx=3",
+      "path d=M16 2.5L16 66.5",
+      "path d=M2 34.5H30",
+      "path d=M2 19H30",
+      "path d=M2 50H30",
+      "path d=M29 2.5C33.2023 2.5 37.3635 3.3277 41.2459 4.93586C45.1283 6.54401 48.656 8.90111 51.6274 11.8726C54.5989 14.8441 56.956 18.3717 58.5642 22.2541C60.1723 26.1366 61 30.2977 61 34.5C61 38.7023 60.1723 42.8635 58.5642 46.7459C56.956 50.6283 54.5989 54.1559 51.6274 57.1274C48.6559 60.0989 45.1283 62.456 41.2459 64.0641C37.3635 65.6723 33.2023 66.5 29 66.5",
+      "line x1=27 y1=66.5 x2=29 y2=66.5",
+      "line x1=27 y1=2.5 x2=29 y2=2.5"
+    ],
+    "root": "div"
+  },
+  "flame_arrestor_fire_res_detonation": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.29 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 24.28 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 24.19 51.17 25.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 22.59 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 22.59 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "top 28.59 2.67",
+          "2": "bottom 28.59 49.69"
+        },
+        "shapes": [
+          "3.01 2.6 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 13.79 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 2.6 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 24.29 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 24.28 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 24.19 51.17 25.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 22.59 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 22.59 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 47.58 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 47.58 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 47.39 102.38 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 44.19 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 44.19 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "top 56.19 4.34",
+          "2": "bottom 56.19 98.42"
+        },
+        "shapes": [
+          "5 4.2 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 26.6 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 4.2 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 47.58 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 47.58 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 47.39 102.38 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 44.19 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 44.19 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 3.7 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 28.59 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 3 25.59 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 54.19 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 3 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "left 2.67 28.59",
+          "2": "right 49.7 28.59"
+        },
+        "shapes": [
+          "2.6 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13.8 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 3.7 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.29 28.59 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "24.2 3 25.59 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 54.19 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "22.6 3 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 6.41 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 56.2 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 5 51.2 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 107.39 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 5 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "left 4.36 56.19",
+          "2": "right 98.42 56.19"
+        },
+        "shapes": [
+          "4.2 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "26.6 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 6.41 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.59 56.2 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "47.4 5 51.2 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 107.39 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "44.2 5 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3.7 25.5 24.89 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3 25.59 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 3 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 54.19 1.6 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 50.39 55.19",
+        "handles": {
+          "1": "right 49.7 28.59",
+          "2": "left 2.67 28.59"
+        },
+        "shapes": [
+          "27.4 3 22.39 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "38.59 3 0 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 28.59 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 40.99 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "27.4 16.2 22.39 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 28.59 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3.7 25.5 24.89 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "2.6 3 25.59 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 3 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.19 54.19 1.6 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 6.41 51 49.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 5 51.2 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 5 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 107.39 3.2 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 100.8 110.39",
+        "handles": {
+          "1": "right 98.42 56.19",
+          "2": "left 4.36 56.19"
+        },
+        "shapes": [
+          "53.8 5 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "76.2 5 0 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 56.2 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 80.99 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "53.8 31.4 44.8 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 56.2 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 6.41 51 49.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 5 51.2 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 5 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "55.4 107.39 3.2 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 2.6 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 24.88 25.49 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 2.6 51.17 25.59 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 28.19 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 28.19 0 1.6 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 55.19 50.38",
+        "handles": {
+          "1": "bottom 28.59 49.69",
+          "2": "top 28.59 2.67"
+        },
+        "shapes": [
+          "3.01 27.39 51.17 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 38.58 51.17 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "16.2 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "40.99 27.39 0 22.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.71 2.6 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "28.59 2.6 24.88 25.49 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 2.6 51.17 25.59 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "54.18 28.19 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "3.01 28.19 0 1.6 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 4.2 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 49.78 51 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 4.2 102.38 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 55.39 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "5 55.39 0 3.2 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 110.39 100.78",
+        "handles": {
+          "1": "bottom 56.19 98.42",
+          "2": "top 56.19 4.34"
+        },
+        "shapes": [
+          "5 53.79 102.38 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 76.19 102.38 0 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "31.4 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "80.99 53.79 0 44.79 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "6.41 4.2 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "56.2 4.2 49.78 51 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 4.2 102.38 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "107.39 55.39 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "5 55.39 0 3.2 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=2 y=2.5 width=28 height=64 rx=3",
+      "path d=M16 2.5L16 66.5",
+      "path d=M2 34.5H30",
+      "path d=M2 19H30",
+      "path d=M2 50H30",
+      "path d=M29.121 3.37903L61 34.5",
+      "path d=M29.12 65.62L61 34.5",
+      "path d=M29 2.5C33.2023 2.5 37.3635 3.3277 41.2459 4.93586C45.1283 6.54401 48.656 8.90111 51.6274 11.8726C54.5989 14.8441 56.956 18.3717 58.5642 22.2541C60.1723 26.1366 61 30.2977 61 34.5C61 38.7023 60.1723 42.8635 58.5642 46.7459C56.956 50.6283 54.5989 54.1559 51.6274 57.1274C48.6559 60.0989 45.1283 62.456 41.2459 64.0641C37.3635 65.6723 33.2023 66.5 29 66.5",
+      "line x1=27 y1=66.5 x2=29 y2=66.5",
+      "line x1=27 y1=2.5 x2=29 y2=2.5"
+    ],
+    "root": "div"
+  },
+  "iso_burst_disc": {
+    "cases": {
+      "bottom x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "top 29.8 4.19"
+        },
+        "shapes": [
+          "4.2 4.2 51.19 22.4 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 11.4 51.19 6.4 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "top 29.8 4.19"
+        },
+        "shapes": [
+          "4.2 4.2 51.19 22.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 11.4 51.19 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "top 58.59 7.39"
+        },
+        "shapes": [
+          "7.4 7.4 102.39 44.8 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 21.8 102.39 12.8 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "bottom x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "top 58.59 7.39"
+        },
+        "shapes": [
+          "7.4 7.4 102.39 44.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 21.8 102.39 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "left 4.19 29.8"
+        },
+        "shapes": [
+          "4.2 4.2 22.4 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 4.2 6.4 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "left 4.19 29.8"
+        },
+        "shapes": [
+          "4.2 4.2 22.4 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "11.4 4.2 6.4 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "left 7.39 58.59"
+        },
+        "shapes": [
+          "7.4 7.4 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 7.4 12.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "left x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "left 7.39 58.59"
+        },
+        "shapes": [
+          "7.4 7.4 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "21.8 7.4 12.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "right 26.59 29.8"
+        },
+        "shapes": [
+          "4.2 4.2 22.4 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "13 4.2 6.4 51.19 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x1 colored": {
+        "box": "1 1 28.8 57.59",
+        "handles": {
+          "1": "right 26.59 29.8"
+        },
+        "shapes": [
+          "4.2 4.2 22.4 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "13 4.2 6.4 51.19 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "right 52.19 58.59"
+        },
+        "shapes": [
+          "7.4 7.4 44.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "25 7.4 12.8 102.39 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "right x2 colored": {
+        "box": "1 1 57.59 115.19",
+        "handles": {
+          "1": "right 52.19 58.59"
+        },
+        "shapes": [
+          "7.4 7.4 44.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "25 7.4 12.8 102.39 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "bottom 29.8 26.59"
+        },
+        "shapes": [
+          "4.2 4.2 51.19 22.4 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 13 51.19 6.4 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x1 colored": {
+        "box": "1 1 57.59 28.8",
+        "handles": {
+          "1": "bottom 29.8 26.59"
+        },
+        "shapes": [
+          "4.2 4.2 51.19 22.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "4.2 13 51.19 6.4 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "bottom 58.59 52.19"
+        },
+        "shapes": [
+          "7.4 7.4 102.39 44.8 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 25 102.39 12.8 | oklch(0.01 0.01 262.32) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      },
+      "top x2 colored": {
+        "box": "1 1 115.19 57.59",
+        "handles": {
+          "1": "bottom 58.59 52.19"
+        },
+        "shapes": [
+          "7.4 7.4 102.39 44.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke",
+          "7.4 25 102.39 12.8 | oklch(0.65 0.18 256.52) | none | 2px | butt | none | non-scaling-stroke"
+        ]
+      }
+    },
+    "geometry": [
+      "rect x=4 y=4 width=28 height=64 rx=2",
+      "path d=M13 68V47C13 46.4477 13.4489 45.9892 13.9928 45.8933C16.1351 45.5152 21 43.7981 21 36C21 28.2019 16.1351 26.4848 13.9928 26.1068C13.4489 26.0108 13 25.5523 13 25V4"
+    ],
+    "root": "div"
+  }
+}

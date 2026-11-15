@@ -830,6 +830,7 @@ protected:
     }
 };
 
+/// @brief it should deploy a task on its first start and report the deployed hash.
 TEST_F(TaskManagerTest, DeployOnStart) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1378,6 +1379,7 @@ TEST_F(TaskManagerTest, TaskMovedDuringAnOutageIsRemovedAfterItsStuckWorker) {
 }
 #endif
 
+/// @brief it should not deploy a task that is created but never started.
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1389,6 +1391,7 @@ TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     expect_no_driver_status(task);
 }
 
+/// @brief it should stop a deleted task without writing a status for it.
 TEST_F(TaskManagerTest, Delete) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1416,6 +1419,8 @@ TEST_F(TaskManagerTest, Delete) {
     expect_no_driver_status(task, true);
 }
 
+/// @brief it should stop the live instance of a task moved to another rack when the new
+/// rack starts it, without a status.
 TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1451,6 +1456,7 @@ TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
     ASSERT_TRUE(state->stop_will_reconfigure.load());
 }
 
+/// @brief it should run a command on a deployed task and answer with the command key.
 TEST_F(TaskManagerTest, Command) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1478,6 +1484,7 @@ TEST_F(TaskManagerTest, Command) {
     ASSERT_EQ((s.details.data.value())["msg"], "hi");
 }
 
+/// @brief it should write no status for a start of a task on another rack.
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto other = ASSERT_NIL_P(client->racks.create("other"));
@@ -1491,6 +1498,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
     expect_no_driver_status(task);
 }
 
+/// @brief it should write no status for a start of a task that does not exist.
 TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
     start_manager(std::make_unique<EchoTaskFactory>());
     // Never created: the deploy fetch fails with NOT_FOUND, which must stay
@@ -1505,7 +1513,7 @@ TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
     expect_no_driver_status(task, true);
 }
 
-/// @brief a start for a task type no integration handles should answer with an error.
+/// @brief it should answer a start for a task type no integration runs with an error.
 TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1528,6 +1536,7 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
+/// @brief it should stop each running task when the manager stops.
 TEST_F(TaskManagerTest, StopOnShutdown) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1548,6 +1557,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
 }
 
+/// @brief it should deploy a task while the deploy of another task is blocked.
 TEST_F(TaskManagerTest, ParallelConfig) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
@@ -1580,6 +1590,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     });
 }
 
+/// @brief it should ignore a command for an unknown task and still deploy tasks.
 TEST_F(TaskManagerTest, CommandForUnconfigured) {
     start_manager(std::make_unique<EchoTaskFactory>());
 
@@ -1734,6 +1745,7 @@ TEST_F(TaskManagerTest, CommandForUndeployedTaskStaysSilent) {
     expect_no_driver_status(task);
 }
 
+/// @brief it should answer commands after a fast series of config edits and starts.
 TEST_F(TaskManagerTest, RapidReconfigure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -1763,6 +1775,8 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 }
 
+/// @brief it should run the live instance for a start with an unchanged config, and
+/// rebuild it after the config changes.
 TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1814,6 +1828,7 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
 }
 
+/// @brief it should deploy the stored config for a start that names an older hash.
 TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1858,6 +1873,8 @@ TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
 }
 
+/// @brief it should run the live instance for a start with an unknown hash when the
+/// deployed config is current.
 TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1892,7 +1909,7 @@ TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
     ASSERT_FALSE(state->stopped.load());
 }
 
-/// @brief a pinned start whose hash matches the stored config should deploy the task.
+/// @brief it should deploy a task for a pinned start that matches the stored hash.
 TEST_F(TaskManagerTest, PinnedStartWithStoredHashDeploys) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1923,8 +1940,8 @@ TEST_F(TaskManagerTest, PinnedStartWithStoredHashDeploys) {
     ASSERT_EVENTUALLY_EQ(f->task_states[0]->exec_count.load(), 1);
 }
 
-/// @brief a pinned start whose hash is stale should be refused, and should leave the
-/// live instance untouched.
+/// @brief it should refuse a pinned start whose hash is stale, and leave the live
+/// instance untouched.
 TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -1979,8 +1996,8 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     EXPECT_EQ(f->task_states.size(), 1);
 }
 
-/// @brief a refused pinned start should keep the running state and config hash of the
-/// live instance, so the task still shows as running its deployed config.
+/// @brief it should keep the running state and config hash of the live instance after
+/// it refuses a pinned start, so the task still shows its deployed config.
 TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     start_manager(std::make_unique<EchoTaskFactory>());
 
@@ -2019,8 +2036,8 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     EXPECT_EQ(s.details.config_hash, deployed_hash);
 }
 
-/// @brief a refused pinned start for a task with no stored status should claim neither
-/// a running instance nor a config hash.
+/// @brief it should claim neither a running instance nor a config hash when it refuses
+/// a pinned start for a task with no stored status.
 TEST_F(TaskManagerTest, PinnedStartWithStaleHashAndNoStatusClaimsNothing) {
     start_manager(std::make_unique<EchoTaskFactory>());
 
@@ -2051,8 +2068,8 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashAndNoStatusClaimsNothing) {
     EXPECT_TRUE(s.details.config_hash.empty());
 }
 
-/// @brief a pinned start should fetch the stored config even when the live instance was
-/// built from the pinned hash.
+/// @brief it should fetch the stored config for a pinned start, even when the live
+/// instance was built from the pinned hash.
 TEST_F(TaskManagerTest, PinnedStartOnCurrentDeployRunsLiveInstance) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -2797,6 +2814,7 @@ TEST_F(TaskManagerTest, StopAnswersASilentStartAndItsJoinOnce) {
     EXPECT_EQ(s.details.cmd, "");
 }
 
+/// @brief it should run the commands for a task in the order they arrive.
 TEST_F(TaskManagerTest, CommandFIFO) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -2837,6 +2855,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     ASSERT_EQ(state->cmd_order, expected);
 }
 
+/// @brief it should stop the old instance before it deploys a changed config.
 TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
@@ -2931,6 +2950,7 @@ public:
     }
 };
 
+/// @brief it should destroy the old instance when it deploys a changed config.
 TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto factory = std::make_unique<DestructorTrackingFactory>();
     auto *f = factory.get();
@@ -2976,6 +2996,7 @@ protected:
     }
 };
 
+/// @brief it should shut down while a task deploy is blocked.
 TEST_F(ShutdownTest, DuringConfiguration) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
@@ -3004,6 +3025,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     );
 }
 
+/// @brief it should shut down with queued operations and detach no worker.
 TEST_F(ShutdownTest, WithPendingOps) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
@@ -3088,6 +3110,7 @@ public:
     }
 };
 
+/// @brief it should detach a worker whose task stop blocks past the shutdown timeout.
 TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
     auto factory = std::make_unique<BlockingStopFactory>();
     auto *f = factory.get();
@@ -3178,6 +3201,7 @@ public:
     }
 };
 
+/// @brief it should stop tasks in parallel on shutdown.
 TEST_F(ShutdownTest, ParallelTaskStop) {
     // Each task takes 200ms to stop
     auto factory = std::make_unique<SlowStopFactory>(200 * x::telem::MILLISECOND);
@@ -3241,11 +3265,7 @@ public:
     }
 };
 
-/// @brief Regression test for stop_workers() timeout logic.
-/// Previously, stop_workers() had two bugs:
-/// 1. The polling loop had an immediate `break`, so it only waited 50ms
-/// 2. It then called join() which blocks forever if the worker is stuck
-/// This test verifies that stuck workers are properly detached after shutdown_timeout.
+/// @brief it should shut down soon after the shutdown timeout while a deploy is stuck.
 TEST_F(ShutdownTest, StuckWorkerDetach) {
     auto factory = std::make_unique<StuckWorkerFactory>();
     auto *f = factory.get();
@@ -3329,6 +3349,8 @@ TEST_F(TaskManagerTest, RackRenameUpdatesContext) {
     ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "renamed_rack");
 }
 
+/// @brief it should keep the control states in the task context current as control
+/// transfers on the Core.
 TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     auto f = std::make_unique<ContextCaptureFactory>();
     auto *factory_ptr = f.get();
@@ -3385,6 +3407,8 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     ASSERT_NIL(writer.close());
 }
 
+/// @brief it should give the task context the control states that writers held before
+/// the manager started.
 TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
     auto index_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("initial_state_idx"),

@@ -138,6 +138,7 @@ Cell struct {
     }
     config CellConfig {
         @doc value "is the content the cell draws and its settings."
+        @patch
     }
 
     @doc value  "is one cell of a row, with its key and config."
@@ -155,6 +156,7 @@ Row struct {
     }
     cells Cell[] = [] {
         @doc value "are the cells of the row, from left to right."
+        @patch
     }
 
     @doc value  "is a single row in a table, with a key, height, and cells."

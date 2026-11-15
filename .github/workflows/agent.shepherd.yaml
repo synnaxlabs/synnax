@@ -103,7 +103,6 @@ jobs:
     permissions:
       actions: write
       contents: read
-      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.shepherd.run.yaml

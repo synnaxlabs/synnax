@@ -100,7 +100,10 @@ describe("Label.Settings", () => {
       fireEvent.click(screen.getByRole("button", { name: "Create" }));
     });
     await screen.findByText(name);
-    expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", "");
+    // The list can show the label before the create resolves and remounts the item.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", ""),
+    );
   });
 
   it("should list a new label first until the page closes", async () => {

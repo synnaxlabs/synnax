@@ -199,8 +199,6 @@ class AccessClient(ResourceClient):
         The page is gated on user update, so only an Owner sees it. Leaves
         Settings closed.
         """
-        if not self.layout.command_exists("Open settings"):
-            return False
         nav = self._open_settings()
         users = nav.get_by_role("menuitem", name="Users", exact=True)
         try:

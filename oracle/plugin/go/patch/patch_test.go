@@ -435,6 +435,70 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
+			"Should edit a list entry only through its @patch fields",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/doc"
+
+				Item struct {
+					key  string
+					size float64
+					name string {
+						@patch
+					}
+				}
+
+				Doc struct {
+					items Item[] {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "doc", loader, p)
+				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.EntryFields(&d.Items, c.Next())",
+						"func (i *Item) Patch(c patch.Cursor) error {",
+						`case "name":`,
+						"func (i *Item) PatchKey() string { return i.Key }",
+					).
+					ToNotContain(`case "key":`, `case "size":`, "patch.List(")
+			},
+		)
+
+		It(
+			"Should reject a struct with @patch fields outside a list",
+			func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/doc"
+
+				Item struct {
+					name string {
+						@patch
+					}
+				}
+
+				Doc struct {
+					item Item {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "doc", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"doc.Doc.item: a struct with @patch fields must be a list entry",
+				)))
+			},
+		)
+
+		It(
 			"Should reject a document that another document reaches",
 			func(ctx SpecContext) {
 				req := MustGenerateRequest(ctx, `
