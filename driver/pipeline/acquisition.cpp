@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "absl/log/log.h"
 
 #include "driver/errors/errors.h"
@@ -70,19 +72,43 @@ Acquisition::Acquisition(
     writer_config(std::move(writer_config)),
     err_on_unauthorized(err_on_unauthorized) {}
 
+namespace {
+/// @brief sets the authorities a writer opens with to those it holds after
+/// authorities is applied.
+void apply(synnax::framer::WriterConfig &config, const Authorities &authorities) {
+    if (authorities.keys.empty()) {
+        config.authorities = authorities.authorities;
+        return;
+    }
+    if (config.authorities.size() != config.channels.size()) {
+        const auto all = config.authorities.empty() ? x::control::AUTHORITY_ABSOLUTE
+                                                    : config.authorities[0];
+        config.authorities.assign(config.channels.size(), all);
+    }
+    for (size_t i = 0; i < authorities.keys.size(); i++) {
+        const auto it = std::ranges::find(config.channels, authorities.keys[i]);
+        if (it == config.channels.end()) continue;
+        const auto at = it - config.channels.begin();
+        const auto j = authorities.authorities.size() == 1 ? 0 : i;
+        config.authorities[at] = authorities.authorities[j];
+    }
+}
+}
+
 void Acquisition::run() {
-    x::telem::Frame fr(0);
-    Authorities authorities;
-    while (this->run_once(fr, authorities)) {}
+    Run run{.config = this->writer_config};
+    run.config.err_on_unauthorized = this->err_on_unauthorized;
+    while (this->run_once(run)) {}
 }
 
 void Acquisition::stopped_with_err(const x::errors::Error &err) {
     this->source->stopped_with_err(err);
 }
 
-bool Acquisition::run_once(x::telem::Frame &fr, Authorities &authorities) {
-    this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
-    auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
+bool Acquisition::run_once(Run &run) {
+    auto &fr = run.fr;
+    auto &authorities = run.authorities;
+    auto [writer, writer_err] = this->factory->open_writer(run.config);
     if (writer_err) {
         if (this->wait_for_core(writer_err)) return true;
         LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.message();
@@ -130,14 +156,17 @@ bool Acquisition::run_once(x::telem::Frame &fr, Authorities &authorities) {
                            << err.message();
                 break;
             }
+            apply(run.config, authorities);
             authorities = Authorities{};
         }
         if (!fr.empty()) {
-            if (auto err = writer->write(fr)) {
+            if (auto err = run.rewrite ? writer->rewrite(fr) : writer->write(fr)) {
                 LOG(ERROR) << "[acquisition] failed to write frame" << err;
+                run.rewrite = true;
                 break;
             }
             fr.clear();
+            run.rewrite = false;
         }
         this->breaker.reset();
     }

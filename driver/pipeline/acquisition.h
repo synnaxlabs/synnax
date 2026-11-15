@@ -86,6 +86,13 @@ public:
     /// close the writer and conditionally trigger a retry (see the close method).
     [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
 
+    /// @brief writes a frame whose write failed on an earlier writer of the same
+    /// pipeline. A writer that delivers frames somewhere besides the Core already
+    /// delivered this one there, so it sends it to the Core only.
+    [[nodiscard]] virtual x::errors::Error rewrite(const x::telem::Frame &fr) {
+        return this->write(fr);
+    }
+
     /// @brief sets the authority for channels on this writer. If
     /// authorities.keys is empty, the authority applies to all channels.
     [[nodiscard]] virtual x::errors::Error
@@ -180,14 +187,24 @@ class Acquisition final : public Base {
 
     void interrupt() override { this->source->interrupt(); }
 
-    /// @brief runs the pipeline until it stops.
-    /// @param fr the frame read but not yet written. A run writes it before it reads
-    /// the source again, and leaves it in place when its write fails.
-    /// @param authorities the authority changes read but not yet set, held the same
-    /// way.
+    /// @brief the state one run of the pipeline hands to the next when the Core was
+    /// temporarily unavailable.
+    struct Run {
+        /// @brief the writer configuration, with the authorities last set.
+        synnax::framer::WriterConfig config;
+        /// @brief the frame read but not yet written.
+        x::telem::Frame fr{0};
+        /// @brief the authority changes read but not yet set.
+        Authorities authorities;
+        /// @brief true when a write of fr already failed.
+        bool rewrite = false;
+    };
+
+    /// @brief runs the pipeline until it stops. A run writes what run holds before
+    /// it reads the source again, and leaves it in place when its write fails.
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
-    bool run_once(x::telem::Frame &fr, Authorities &authorities);
+    bool run_once(Run &run);
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax
