@@ -12,8 +12,6 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/errors/errors.h"
-
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
@@ -96,6 +94,10 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
 }
 
 void Acquisition::run() {
+    while (this->run_once()) {}
+}
+
+bool Acquisition::run_once() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
     std::optional<x::control::Authority> pending_global_auth;
@@ -109,17 +111,16 @@ void Acquisition::run() {
         auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
         writer_err = writer_err_i;
         if (writer_err) {
-            if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-                this->breaker.wait(writer_err.message()))
-                return this->run();
+            if (this->wait_for_core(writer_err)) return true;
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
             this->breaker.stop();
-            return;
+            return false;
         }
         writer = std::move(writer_i);
         writer_opened = true;
+        this->breaker.reset_unlimited();
     }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
@@ -159,6 +160,7 @@ void Acquisition::run() {
             }
             writer = std::move(writer_i);
             writer_opened = true;
+            this->breaker.reset_unlimited();
             if (pending_global_auth.has_value()) {
                 Authorities auth{.authorities = {*pending_global_auth}};
                 if (auto err = writer->set_authority(auth)) {
@@ -215,14 +217,13 @@ void Acquisition::run() {
         this->breaker.reset();
     }
     if (writer_opened) writer_err = writer->close();
-    if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message()))
-        return this->run();
+    if (this->wait_for_core(writer_err)) return true;
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
     this->breaker.stop();
     VLOG(1) << "[acquisition] acquisition thread stopped";
+    return false;
 }
 }

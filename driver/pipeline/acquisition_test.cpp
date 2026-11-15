@@ -11,6 +11,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
@@ -129,6 +130,152 @@ TEST(AcquisitionPipeline, RetriesWriterOpenOnUnreachable) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 1);
     ASSERT_TRUE(pipeline.stop());
+}
+
+namespace {
+/// @brief asserts that the pipeline opens the writer again while the Core is
+/// unreachable, past the retry limit of the breaker.
+void assert_retries_open_past_limit(const bool open_eagerly) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        source,
+        fast_breaker(1),
+        "",
+        /* err_on_unauthorized */ true,
+        open_eagerly
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 4);
+}
+}
+
+/// @brief it should open the writer again while the Core is unreachable, past the
+/// retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
+    assert_retries_open_past_limit(false);
+}
+
+/// @brief it should open the writer eagerly again while the Core is unreachable, past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesEagerOpenWhileCoreUnreachable) {
+    assert_retries_open_past_limit(true);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<ScriptedSource>(std::vector{TEMPORARY});
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        source,
+        fast_breaker(1),
+        "",
+        /* err_on_unauthorized */ true,
+        /* open_eagerly */ true
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief a source that reads a frame, fails once with a temporary hardware error, and
+/// then reads a frame on every read.
+class HardwareErrorOnSecondReadSource final : public Source {
+    /// @brief the number of reads so far.
+    size_t reads = 0;
+
+public:
+    /// @brief the error the pipeline stopped with, or nil.
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error
+    read(x::breaker::Breaker &, x::telem::Frame &fr, Authorities &) override {
+        if (++this->reads == 2) return TEMPORARY;
+        fr.emplace(1, x::telem::Series(x::telem::TimeStamp::now()));
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should retry a hardware error during an outage of the Core longer than
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorDuringCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<HardwareErrorOnSecondReadSource>();
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+        writes,
+        std::vector{
+            synnax::errors::LICENSE_MISSING,
+            synnax::errors::LICENSE_MISSING,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        mock_factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::LICENSE_MISSING);
+    ASSERT_EQ(writes->size(), 0);
 }
 
 /// @brief it should not retry when a non-unreachable error occurs.
