@@ -17,10 +17,10 @@ import { describe, expect, it, vi } from "vitest";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-const bandSeed = (el: SVGElement): string =>
+const strokeColor = (el: SVGElement): string =>
   el.style.getPropertyValue(Primitive.SYMBOL_COLOR);
 
-const seed = (hex: string): string | undefined =>
+const rgba = (hex: string): string | undefined =>
   color.rgbaString(color.construct(hex));
 
 const path = deep.path<{ data: schematic.symbol.Spec }>();
@@ -328,7 +328,7 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
@@ -347,7 +347,7 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(bandSeed(rect)).toBe(seed("#00ff00"));
+      expect(strokeColor(rect)).toBe(rgba("#00ff00"));
       expect(rect.getAttribute("fill")).toBe("#00ff0033");
     });
 
@@ -390,13 +390,13 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
 
       rerender({ activeState: "active" });
-      expect(bandSeed(rect)).toBe(seed("#00ff00"));
+      expect(strokeColor(rect)).toBe(rgba("#00ff00"));
 
       rerender({ activeState: "inactive" });
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
     });
 
     it("should handle multiple selectors in a region", () => {
@@ -443,8 +443,8 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
-      expect(bandSeed(rect)).toBe(seed("#ff0000"));
-      expect(bandSeed(circle)).toBe(seed("#ff0000"));
+      expect(strokeColor(rect)).toBe(rgba("#ff0000"));
+      expect(strokeColor(circle)).toBe(rgba("#ff0000"));
     });
   });
 
@@ -801,11 +801,11 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      const strokeBefore = bandSeed(rect);
+      const strokeBefore = strokeColor(rect);
 
       rerender();
 
-      const strokeAfter = bandSeed(rect);
+      const strokeAfter = strokeColor(rect);
       expect(strokeBefore).toBe(strokeAfter);
     });
   });
@@ -926,7 +926,7 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("black");
-      expect(bandSeed(rect)).toBe("");
+      expect(strokeColor(rect)).toBe("");
       expect(rect.getAttribute("fill")).toBe("white");
     });
 
@@ -1020,7 +1020,7 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("black");
-      expect(bandSeed(rect)).toBe("");
+      expect(strokeColor(rect)).toBe("");
       expect(rect.getAttribute("fill")).toBe("white");
     });
 
@@ -1130,23 +1130,23 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
 
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
-      expect(bandSeed(circle)).toBe("");
+      expect(strokeColor(circle)).toBe("");
       expect(circle.getAttribute("fill")).toBe("yellow");
 
       rerender({ activeState: "active" });
-      expect(bandSeed(rect)).toBe(seed("#ff0000"));
+      expect(strokeColor(rect)).toBe(rgba("#ff0000"));
       expect(rect.getAttribute("fill")).toBe("#ff0000");
-      expect(bandSeed(circle)).toBe(seed("#ff0000"));
+      expect(strokeColor(circle)).toBe(rgba("#ff0000"));
       expect(circle.getAttribute("fill")).toBe("#ff0000");
 
       rerender({ activeState: "inactive" });
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
-      expect(bandSeed(circle)).toBe("");
+      expect(strokeColor(circle)).toBe("");
       expect(circle.getAttribute("fill")).toBe("yellow");
     });
 
@@ -1241,14 +1241,14 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(bandSeed(rect)).toBe(seed("#333333"));
+      expect(strokeColor(rect)).toBe(rgba("#333333"));
       const [inactive, active] = spec.states;
       const region = {
         ...inactive.regions[0],
         strokeColor: color.construct("#aabbcc"),
       };
       rerender({ ...spec, states: [{ ...inactive, regions: [region] }, active] });
-      expect(bandSeed(rect)).toBe(seed("#aabbcc"));
+      expect(strokeColor(rect)).toBe(rgba("#aabbcc"));
     });
 
     it("should toggle stroke scaling when strokeScaled changes", () => {
@@ -1279,8 +1279,8 @@ describe("Custom.useRender", () => {
       );
       result.current(container);
 
-      expect(bandSeed(container.querySelector(".main") as SVGRectElement)).toBe(
-        seed("#333333"),
+      expect(strokeColor(container.querySelector(".main") as SVGRectElement)).toBe(
+        rgba("#333333"),
       );
 
       rerender({
@@ -1290,7 +1290,7 @@ describe("Custom.useRender", () => {
       });
 
       const rebuilt = container.querySelector(".main") as SVGRectElement;
-      expect(bandSeed(rebuilt)).toBe(seed("#333333"));
+      expect(strokeColor(rebuilt)).toBe(rgba("#333333"));
       expect(rebuilt.getAttribute("fill")).toBe("#cccccc");
     });
 
@@ -1410,7 +1410,7 @@ describe("custom symbol editor preview", () => {
 
     const rect = container.querySelector("rect") as SVGRectElement;
     expect(rect).toBeTruthy();
-    expect(bandSeed(rect)).toBe(seed("#000000"));
+    expect(strokeColor(rect)).toBe(rgba("#000000"));
 
     // Editing the color the way RegionList does: set the keyed region path.
     act(() => {
@@ -1420,6 +1420,6 @@ describe("custom symbol editor preview", () => {
       );
     });
 
-    expect(bandSeed(rect)).toBe(seed("#ff0000"));
+    expect(strokeColor(rect)).toBe(rgba("#ff0000"));
   });
 });

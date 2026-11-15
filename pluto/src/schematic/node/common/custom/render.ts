@@ -34,14 +34,14 @@ const iterElements = (
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
 // as on the tank and the cylinder.
 const setStroke = (el: SVGElement, strokeColor: color.Color | undefined) => {
-  const seed = color.rgbaString(strokeColor);
-  if (seed == null) {
+  const rgba = color.rgbaString(strokeColor);
+  if (rgba == null) {
     el.classList.remove(CSS.symbolColored);
     el.style.removeProperty(Primitive.SYMBOL_COLOR);
     return;
   }
   el.classList.add(CSS.symbolColored);
-  el.style.setProperty(Primitive.SYMBOL_COLOR, seed);
+  el.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
 };
 
 const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {

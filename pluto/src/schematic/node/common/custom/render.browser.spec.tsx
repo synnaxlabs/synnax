@@ -45,7 +45,12 @@ const SPEC: schematic.symbol.Spec = {
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
 };
 
-const renderCustom = async (theme: Theming.ThemeSpec): Promise<Element> => {
+interface Paint {
+  stroke: string;
+  fill: string;
+}
+
+const renderCustom = async (theme: Theming.ThemeSpec): Promise<Paint> => {
   const Themed = ({ children }: PropsWithChildren): ReactElement => (
     <Theming.Provider theme={theme}>{children}</Theming.Provider>
   );
@@ -64,7 +69,9 @@ const renderCustom = async (theme: Theming.ThemeSpec): Promise<Element> => {
   result.current(container);
   const rect = container.querySelector("rect");
   if (rect == null) throw new Error("custom symbol not mounted");
-  return rect;
+  const paint = { stroke: computed(rect, "stroke"), fill: computed(rect, "fill") };
+  container.remove();
+  return paint;
 };
 
 const renderBuiltIn = async (theme: Theming.ThemeSpec): Promise<Element> => {
@@ -87,13 +94,14 @@ describe("Custom.useRender theme band", () => {
   ])("%s theme", (_, theme) => {
     it("should paint a region stroke the same as a built-in symbol stroke", async () => {
       const builtIn = computed(await renderBuiltIn(theme), "stroke");
-      const custom = computed(await renderCustom(theme), "stroke");
+      const { stroke: custom } = await renderCustom(theme);
       expect(custom).not.toBe("rgb(207, 209, 212)");
       expect(custom).toBe(builtIn);
     });
 
     it("should paint a region fill as stored", async () => {
-      expect(computed(await renderCustom(theme), "fill")).toBe("rgb(255, 255, 255)");
+      const { fill } = await renderCustom(theme);
+      expect(fill).toBe("rgb(255, 255, 255)");
     });
   });
 });
