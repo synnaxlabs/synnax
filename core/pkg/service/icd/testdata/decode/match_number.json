@@ -30,18 +30,14 @@
         "id": 7.0,
         "temp": 3
       },
-      "samples": [
-        3
-      ]
+      "samples": [3]
     },
     {
       "document": {
         "id": 7,
         "temp": 4
       },
-      "samples": [
-        4
-      ]
+      "samples": [4]
     },
     {
       "document": {

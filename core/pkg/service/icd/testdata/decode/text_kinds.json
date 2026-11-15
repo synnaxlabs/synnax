@@ -70,10 +70,7 @@
       "document": {
         "state": "run",
         "doc": {
-          "a": [
-            1,
-            2
-          ]
+          "a": [1, 2]
         },
         "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
         "blob": "AQI="
@@ -81,10 +78,7 @@
       "samples": [
         "run",
         {
-          "a": [
-            1,
-            2
-          ]
+          "a": [1, 2]
         },
         "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
         "AQI="
@@ -97,12 +91,7 @@
         "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
         "blob": ""
       },
-      "samples": [
-        "ON",
-        1,
-        "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
-        ""
-      ]
+      "samples": ["ON", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
     },
     {
       "document": {

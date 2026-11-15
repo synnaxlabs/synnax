@@ -161,15 +161,16 @@ func converts(k payload.Kind, dt telem.DataType) bool {
 	if !ok {
 		return false
 	}
-	switch {
-	case dk == k:
+	if dk == k {
 		return true
-	case dk == payload.KindFloat:
+	}
+	switch dk {
+	case payload.KindFloat:
 		return k == payload.KindInteger || k == payload.KindUnsigned ||
 			k == payload.KindBoolean
-	case dk == payload.KindInteger:
+	case payload.KindInteger:
 		return k == payload.KindUnsigned || k == payload.KindBoolean
-	case dk == payload.KindUnsigned:
+	case payload.KindUnsigned:
 		return k == payload.KindBoolean
 	}
 	return false

@@ -167,8 +167,8 @@ var _ = Describe("JSON", func() {
 		samples := make([][]byte, 1)
 		Expect(dec.Decode([]byte(`{"v": 1}`), samples)).To(BeTrue())
 		Expect(dec.Decode([]byte(`{"v": 2}`), samples)).To(BeTrue())
-		_, err := dec.Decode([]byte(`{"v": "x"}`), samples)
-		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(dec.Decode([]byte(`{"v": "x"}`), samples)).
+			Error().To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0]}).
 			To(telem.MatchSeriesDataV[float64](1, 2))
 	})
