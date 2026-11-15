@@ -13,6 +13,7 @@ from typing import Literal
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.range.explorer import Explorer
 from console.range.surface import (
     CREATE_MODAL_SELECTOR,
@@ -255,8 +256,7 @@ class Overview(Surface):
     def open_csv_download_modal(self) -> None:
         """Click the CSV download button in the range overview and wait for
         modal."""
-        csv_btn = self.layout.page.locator("button:has(svg.lyra-icon--csv)")
-        csv_btn.click(timeout=5000)
+        click_past(self.layout.page.locator("button:has(svg.lyra-icon--csv)"))
         self.layout.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
         )
@@ -276,11 +276,9 @@ class Overview(Surface):
         :param channel: The channel name to select for download.
         :returns: The CSV file contents as a string.
         """
-        self.notifications.close_all()
         self.open_csv_download_modal()
 
-        channels_dropdown = self.layout.page.get_by_text("Select channels to download")
-        channels_dropdown.click(timeout=5000)
+        click_past(self.layout.page.get_by_text("Select channels to download"))
         search_input = self.layout.page.locator("input[placeholder*='Search']")
         search_input.fill(channel)
         self.layout.select_from_dropdown(channel)
@@ -289,7 +287,7 @@ class Overview(Surface):
         download_button = self.layout.page.get_by_role("button", name="Download").last
 
         with self.layout.page.expect_download() as download_info:
-            download_button.click()
+            click_past(download_button)
 
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{range_name}.csv")
@@ -315,7 +313,7 @@ class Overview(Surface):
         line = self.layout.page.locator(self.ADD_LINE_SELECTOR).filter(
             has_text=re.compile(rf"^{re.escape(add_line)}$")
         )
-        add_btn.or_(line).visible.first.click(timeout=5000)
+        click_past(add_btn.or_(line).visible.first)
 
     # ── Metadata ─────────────────────────────────────────────────────────
 
@@ -482,6 +480,7 @@ class Overview(Surface):
 
         :param name: The name for the new child range.
         """
+        # The create modal's Save click goes through the hit test.
         self.notifications.close_all()
         self._add("Child ranges", "Child range")
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
