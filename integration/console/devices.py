@@ -18,9 +18,10 @@ from console.layout import LayoutClient
 
 
 # Device toasts land at any time and stack over the modal footer, so the click skips the
-# hit test.
+# hit test. Focus blurs the last field first, which commits a numeric field's value.
 def _click_under_toasts(target: Locator) -> None:
     expect(target).to_be_enabled(timeout=5000)
+    target.focus()
     target.dispatch_event("click")
 
 
