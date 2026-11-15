@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -197,5 +198,43 @@ var _ = Describe("JSON", func() {
 			Error().To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0]}).
 			To(telem.MatchSeriesDataV[float64](1, 2))
+	})
+
+	It("Should decode a document without allocating", func() {
+		temp, count, state := uuid.New(), uuid.New(), uuid.New()
+		p := icd.JSONPayload{
+			Match: &icd.JSONMatch{Pointer: "/type", Value: "status"},
+			Fields: []icd.JSONField{
+				{Variant: icd.FloatJSONField{
+					Key: temp, Name: "temp", Scale: 0.5, Offset: -10, Pointer: "/temp",
+				}},
+				{Variant: icd.IntegerJSONField{
+					Key: count, Name: "count", Scale: 1, Pointer: "/count",
+				}},
+				{Variant: icd.StringJSONField{
+					Key: state, Name: "state", Scale: 1, Pointer: "/state",
+				}},
+			},
+		}
+		dec := MustSucceed(codec.NewJSON(p, []codec.Binding{
+			{Field: temp, DataType: telem.Float32T},
+			{Field: count, DataType: telem.Float64T},
+			{Field: state, DataType: telem.StringT},
+		}))
+		doc := []byte(`{"type":"status","temp":40,"count":3,"state":"run"}`)
+		samples := make([][]byte, 3)
+		var (
+			ok  bool
+			err error
+		)
+		decode := func() {
+			for i := range samples {
+				samples[i] = samples[i][:0]
+			}
+			ok, err = dec.Decode(doc, samples)
+		}
+		Expect(testing.AllocsPerRun(100, decode)).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	})
 })

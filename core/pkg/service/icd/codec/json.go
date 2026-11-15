@@ -46,6 +46,8 @@ type jsonMatch struct {
 	text   string
 	number float64
 	isText bool
+	// unquoted is scratch space for the text of a string value.
+	unquoted []byte
 }
 
 type jsonField struct {
@@ -57,6 +59,8 @@ type jsonField struct {
 	scale, offset float64
 	// number reads the JSON value of a scaled field as a float64.
 	number *xjson.Decoder
+	// scratch holds a scaled value between its conversions.
+	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
 	// fallback is the sample used when a document has no value, or nil when the
@@ -199,7 +203,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, float64(e.Value)))
 		}
 		if v.Default != nil {
-			if fallback, err = floatValue(float64(*v.Default)); err != nil {
+			if fallback, err = appendFloat(nil, float64(*v.Default)); err != nil {
 				return jsonField{}, err
 			}
 		}
@@ -297,11 +301,12 @@ func boolSample(v bool) uint8 {
 	return 0
 }
 
-func floatValue(v float64) (jsontext.Value, error) {
+// appendFloat appends v to dst as a JSON number.
+func appendFloat(dst []byte, v float64) (jsontext.Value, error) {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return nil, errors.Wrapf(validate.ErrValidation, "default %v is not finite", v)
 	}
-	return strconv.AppendFloat(nil, v, 'g', -1, 64), nil
+	return strconv.AppendFloat(dst, v, 'g', -1, 64), nil
 }
 
 // decode appends the sample of raw to dst.
@@ -312,16 +317,15 @@ func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if !f.scaled {
 		return f.sample.Append(dst, raw)
 	}
-	data, err := f.number.Append(nil, raw)
-	if err != nil {
+	var err error
+	if f.scratch, err = f.number.Append(f.scratch[:0], raw); err != nil {
 		return nil, err
 	}
-	v := math.Float64frombits(telem.ByteOrder.Uint64(data))*f.scale + f.offset
-	scaled, err := floatValue(v)
-	if err != nil {
+	v := math.Float64frombits(telem.ByteOrder.Uint64(f.scratch))*f.scale + f.offset
+	if f.scratch, err = appendFloat(f.scratch[:0], v); err != nil {
 		return nil, err
 	}
-	return f.sample.Append(dst, scaled)
+	return f.sample.Append(dst, f.scratch)
 }
 
 // checkKind rejects a JSON number that the field's kind cannot hold, such as 1.5 for
@@ -403,8 +407,9 @@ func (m *jsonMatch) matches(raw jsontext.Value) bool {
 		if !m.isText {
 			return false
 		}
-		text, err := jsontext.AppendUnquote(nil, raw)
-		return err == nil && string(text) == m.text
+		var err error
+		m.unquoted, err = jsontext.AppendUnquote(m.unquoted[:0], raw)
+		return err == nil && string(m.unquoted) == m.text
 	case '0':
 		if m.isText {
 			return false
