@@ -227,10 +227,10 @@ var _ = Describe("ICD read task", func() {
 			return err
 		}
 
-		// format is an ICD message with a timestamp and two floats, and channels on two
-		// indexes to bind them to.
+		// format is an ICD of a Status message with a timestamp and two floats and an
+		// Event message with one float, and channels on two indexes to bind them to.
 		type format struct {
-			m          icd.Message
+			m, n       icd.Message
 			ic         icd.ICD
 			idx, other channel.Channel
 			data       []channel.Channel
@@ -244,11 +244,15 @@ var _ = Describe("ICD read task", func() {
 				jsonField("temp", "/temp", icd.FloatJSONField{}),
 				jsonField("pressure", "/pressure", icd.FloatJSONField{}),
 			)
+			n := jsonMessage("Event", nil,
+				jsonField("code", "/code", icd.FloatJSONField{}),
+			)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 			_, other := createIndexed(ctx, telem.Float64T)
 			return format{
 				m:     m,
-				ic:    createICD(ctx, m),
+				n:     n,
+				ic:    createICD(ctx, m, n),
 				idx:   idx,
 				other: other[0],
 				data:  data,
@@ -324,6 +328,13 @@ var _ = Describe("ICD read task", func() {
 				return []map[string]any{
 					icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
 				}
+			}, "write to the same channel"),
+			Entry("two messages on one index", func(f format) []map[string]any {
+				return []map[string]any{icdEntry(
+					"plant/status", f.ic,
+					readMessage(f.m, binding(f.m, 1, f.data[0])),
+					readMessage(f.n, binding(f.n, 0, f.data[1])),
+				)}
 			}, "write to the same channel"),
 		)
 
