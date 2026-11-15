@@ -204,7 +204,7 @@ then start the tasks again. If the error contains "Invalid DC SYNC configuration
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the network`
+### `Slave ... is left out of the network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -236,19 +236,37 @@ Create one task for each port.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the bus` or `Slave ...: expected ..., found ...`
+### `... is not on the bus` or `Slave ...: expected ..., found ...`
 
 <Problem.Body>
 <Problem.Cause>
 
-The network changed after you created the task. A module moved, or the Driver does not
-find it.
+The Driver does not find a module of the task on the network. The Driver finds a module
+with a serial number at any position. It finds a module with no serial number only at
+the position where you added it, so a move or another module at that position gives this
+error.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the cables, then edit the channels of the task to use the modules that are on the
-network now.
+Check the cables and the power of the module. If you replaced the module, edit the
+channels of the task to use the new module.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `... and ... are both saved as slave ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The task uses two modules that the Core holds at one position. This occurs when a module
+moved and the Driver has not scanned the network since.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Wait a few seconds for the next scan, then configure the task again.
 
 </Problem.Fix>
 </Problem.Body>
@@ -294,6 +312,10 @@ that is set to DC sync and also lists an SM sync mode does not start.
   a new mode after a power cycle. The
   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
   lists the modes of each model and how to set them.
+- **Switch the module to Synnax** -> if the error says that the device is set up for
+  another program, switch the device to Synnax in the Configure dialog.
+- **Restart the power of the module** -> if the error says to restart the power, the
+  module is switched to Synnax but still runs the layout of the other program.
 - **Disable the module** ->
   [disable](/reference/hardware/ethercat/configure-device#disable-a-device) it, so that
   the Driver stops trying to start it.

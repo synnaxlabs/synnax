@@ -18,6 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -29,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,6 +51,8 @@ var (
 	channelSvc *channel.Service
 	projectSvc *project.Service
 	plotSvc    *lineplot.Service
+	userSvc    *user.Service
+	rbacSvc    *rbac.Service
 	proj       project.Project
 )
 
@@ -101,7 +107,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   node.DB,
 		ImEx: imex.NewService(),
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+		DB: node.DB,
+	}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       node.DB,
+		Password: passwordSvc,
+	}))
+	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
+		DB:     node.DB,
+		User:   userSvc,
+		Status: statusSvc,
+	})).RBAC
 })
+
+// createUser stores a user that can own drafts.
+func createUser(ctx context.Context) user.User {
+	GinkgoHelper()
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+		Name: uuid.New().String(),
+	}))
+}
 
 // createPlot stores the line plot that tab(key) displays.
 func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {

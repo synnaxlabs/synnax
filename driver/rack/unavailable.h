@@ -48,7 +48,8 @@ public:
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         if (this->legacy_scanner_type.empty()) return {};
         if (const auto err = common::delete_legacy_task_by_type(
@@ -64,7 +65,8 @@ public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type != this->integration &&
             !task.type.starts_with(this->integration + "_"))
@@ -75,7 +77,8 @@ public:
             task,
             {common::ConfigureResult{.auto_start = this->reported_at_boot},
              x::errors::Error(errors::CONFIGURATION_ERROR, this->reason)},
-            cmd_key
+            cmd_key,
+            cancel
         );
     }
 

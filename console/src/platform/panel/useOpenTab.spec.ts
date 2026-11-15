@@ -16,7 +16,7 @@ import {
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Panel } from "@/platform/panel";
 import {
@@ -55,6 +55,8 @@ const viewLeaf = (key: string, type: string): panel.New["root"] => ({
 
 // A node key no tree in these specs reaches: the root's own children stop at 3.
 const STALE_LEAF = 99;
+
+const DRAFT = { name: "Drafted", icon: "gear" };
 
 const leafTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
@@ -365,6 +367,103 @@ describe("Panel.useOpenTab", () => {
       const focused = await waitForFocusedTab(store);
       expect(focused).toBe(tabKey);
       expect(Session.Panel.selectSelected(store.getState())).toBeDefined();
+    });
+  });
+
+  describe("opening in a draft", () => {
+    const setup = async () => {
+      const me = (await client.users.current.retrieve()).key;
+      const proj = await testProject();
+      const shared = await client.panels.create({
+        name: uniqueName("shared"),
+        root: viewLeaf(uuid.create(), "other"),
+        project: proj,
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        project: proj,
+        panelKey: shared.key,
+      });
+      // Stands in for the strip, which keeps the list live.
+      const visible = client.panels.watch({ where: panel.visibleTo(proj, me) });
+      onTestFinished(visible.onChange(() => {}));
+      await visible.retrieve();
+      return { me, proj, shared, wrapper, store };
+    };
+    const selected = (store: Awaited<ReturnType<typeof setup>>["store"]) => {
+      const key = Session.Panel.selectSelected(store.getState());
+      if (key == null) throw new Error("no panel selected");
+      return key;
+    };
+
+    it("creates a named draft of the user when the selected panel is shared", async () => {
+      const { me, shared, wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const tabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: tabKey, type: "drafted" },
+          { draft: DRAFT },
+        );
+      });
+      await waitFor(() => expect(selected(store)).not.toBe(shared.key));
+      const draft = await client.panels.retrieve(selected(store));
+      expect(draft).toMatchObject({ owner: me, ...DRAFT });
+      expect(panel.findTab(draft.root, tabKey)).toBeDefined();
+      const after = await client.panels.retrieve(shared.key);
+      expect(panel.findTab(after.root, tabKey)).toBeUndefined();
+    });
+
+    it("opens in the selected panel when it is a draft of the user", async () => {
+      const { me, proj } = await setup();
+      const draft = await client.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(uuid.create(), "other"),
+        project: proj,
+        owner: me,
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        project: proj,
+        panelKey: draft.key,
+      });
+      await primePanel(wrapper, draft.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const tabKey = uuid.create();
+      await act(async () => {
+        result.current(
+          { variant: "view", key: tabKey, type: "drafted" },
+          { draft: DRAFT },
+        );
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(draft.key);
+        expect(panel.findTab(doc.root, tabKey)).toBeDefined();
+      });
+      expect(selected(store)).toBe(draft.key);
+    });
+
+    it("selects the draft that already holds a singleton view", async () => {
+      const { me, proj, shared, wrapper, store } = await setup();
+      const viewKey = uuid.create();
+      const draft = await client.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(viewKey, "single"),
+        project: proj,
+        owner: me,
+      });
+      await primePanel(wrapper, draft.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "single" },
+          { singleton: true, draft: DRAFT },
+        );
+      });
+      await waitFor(() => expect(selected(store)).toBe(draft.key));
+      const doc = await client.panels.retrieve(draft.key);
+      expect(leafTabs(doc.root).map(({ key }) => key)).toEqual([viewKey]);
+      expect((await client.panels.retrieve(shared.key)).root).toEqual(shared.root);
     });
   });
 });

@@ -70,10 +70,10 @@ interface Transition {
 const TRANSITIONS: Record<ranger.Stage, Transition[]> = {
   to_do: [
     { to: "in_progress", name: "Start" },
-    { to: "completed", name: "Complete" },
+    { to: "completed", name: "Stop" },
   ],
   in_progress: [
-    { to: "completed", name: "Complete" },
+    { to: "completed", name: "Stop" },
     { to: "to_do", name: "Move to to do" },
   ],
   completed: [{ to: "in_progress", name: "Reopen" }],
@@ -135,7 +135,7 @@ interface StageButtonProps extends Input.Control<NumericTimeRange> {
 /**
  * The range's stage as a chip whose menu holds the transitions out of it. A
  * transition writes the timestamps that define the next stage: Start stamps the
- * start, Complete stamps the end, Reopen clears it. The menu says what the hovered
+ * start, Stop stamps the end, Reopen clears it. The menu says what the hovered
  * transition would change.
  */
 const StageButton = ({

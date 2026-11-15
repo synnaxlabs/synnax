@@ -181,13 +181,13 @@ describe("Select.Simple", () => {
     expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
   });
 
-  it("should show empty content when the search hides every item", () => {
+  it("should say that no item matches when the search hides every item", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "zzz" },
     });
-    expect(c.getByText("No Test Items found")).toBeTruthy();
+    expect(c.getByText('No Test Items match "zzz"')).toBeTruthy();
   });
 
   it("should name the search by searchName and the trigger by resourceName", () => {

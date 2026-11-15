@@ -67,6 +67,11 @@ export type HSVA = z.infer<typeof hsvaZ>;
  * https://www.w3.org/TR/css-color-4/#ok-lab
  */
 export type OKLCH = [number, number, number, number];
+/**
+ * A color in OKLab format: lightness 0-1, a and b about -0.4 to 0.4, alpha 0-1. See
+ * https://bottosson.github.io/posts/oklab/
+ */
+export type OKLab = [number, number, number, number];
 
 /** A zod schema for a crude color representation. */
 export const crudeZ = z.union([stringZ, rgbZ, rgbaZ]);
@@ -215,7 +220,7 @@ export const setOpacity = (color: Crude, opacity: number): Color => {
  */
 const luminance = (color: Crude): number => {
   const [r, g, b] = construct(color).map(toLinear);
-  return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 
 /** Converts an sRGB byte to a linear-light 0-1 value. */
@@ -231,19 +236,77 @@ const fromLinear = (v: number): number => {
 };
 
 /**
- * @returns the OKLCH representation of the color: lightness 0-1, chroma, hue in
- * degrees, and alpha 0-1. Values are not rounded.
+ * @returns the OKLab representation of the color: lightness 0-1, a, b, and alpha 0-1.
+ * Values are not rounded.
  */
-export const oklch = (color: Crude): OKLCH => {
+export const oklab = (color: Crude): OKLab => {
   const [r8, g8, b8, a] = construct(color);
   const [r, g, b] = [r8, g8, b8].map(toLinear);
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
   const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-  const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-  return [L, Math.hypot(A, B), (Math.atan2(B, A) * 180) / Math.PI, a / 255];
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+    a / 255,
+  ];
+};
+
+/**
+ * @returns the OKLCH representation of the color: lightness 0-1, chroma, hue in
+ * degrees, and alpha 0-1. Values are not rounded.
+ */
+export const oklch = (color: Crude): OKLCH => {
+  const [L, A, B, a] = oklab(color);
+  return [L, Math.hypot(A, B), (Math.atan2(B, A) * 180) / Math.PI, a];
+};
+
+/**
+ * @returns the perceptual distance between two colors: the Euclidean distance between
+ * them in OKLab. Alpha is ignored. Black and white are 1 apart.
+ */
+export const distance = (a: Crude, b: Crude): number => {
+  const [l1, a1, b1] = oklab(a);
+  const [l2, a2, b2] = oklab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+};
+
+/** The color vision deficiencies that {@link simulate} can simulate. */
+export const DEFICIENCIES = ["protanopia", "deuteranopia", "tritanopia"] as const;
+/** A full (dichromatic) color vision deficiency. */
+export type Deficiency = (typeof DEFICIENCIES)[number];
+
+// Machado, Oliveira, and Fernandes (2009), Table 1, severity 1.0, for linear RGB.
+const DEFICIENCY_MATRICES: Record<Deficiency, number[][]> = {
+  protanopia: [
+    [0.152286, 1.052583, -0.204868],
+    [0.114503, 0.786281, 0.099216],
+    [-0.003882, -0.048116, 1.051998],
+  ],
+  deuteranopia: [
+    [0.367322, 0.860646, -0.227968],
+    [0.280085, 0.672501, 0.047413],
+    [-0.01182, 0.04294, 0.968881],
+  ],
+  tritanopia: [
+    [1.255528, -0.076749, -0.178779],
+    [-0.078411, 0.930809, 0.147602],
+    [0.004733, 0.691367, 0.3039],
+  ],
+};
+
+/**
+ * @returns the color as a viewer with the given color vision deficiency sees it,
+ * clamped into the sRGB gamut. Alpha is kept.
+ */
+export const simulate = (color: Crude, deficiency: Deficiency): Color => {
+  const [r8, g8, b8, a] = construct(color);
+  const rgb = [r8, g8, b8].map(toLinear);
+  const [r, g, b] = DEFICIENCY_MATRICES[deficiency].map((row) =>
+    fromLinear(row[0] * rgb[0] + row[1] * rgb[1] + row[2] * rgb[2]),
+  );
+  return [r, g, b, a];
 };
 
 /** @returns the color for an OKLCH tuple, clamped into the sRGB gamut. */
@@ -274,21 +337,14 @@ export const over = (fg: Crude, bg: Crude, opacity: number): Color => {
 };
 
 /**
- * @returns the contrast ratio between this color and the given color. The contrast
- * ratio is a number between 1 and 21, where 1 is the lowest contrast and 21 is the
- * highest.
- * @param a - The first color to compare.
- * @param b - The second color to compare.
- * @returns The contrast ratio between the two colors.
- *
+ * @returns the WCAG contrast ratio between two colors, from 1 for equal luminance to 21
+ * for black and white. The order of the colors does not matter.
  * @see https://www.accessibility-developer-guide.com/knowledge/colours-and-contrast/how-to-calculate/
  */
 export const contrast = (a: Crude, b: Crude): number => {
-  const a_ = construct(a);
-  const b_ = construct(b);
-  const l1 = luminance(a_);
-  const l2 = luminance(b_);
-  return (Math.max(l1, l2) + 0.5) / (Math.min(l1, l2) + 0.5);
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 };
 
 /**

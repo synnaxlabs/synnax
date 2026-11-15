@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ethercat } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const ADDRESS = { index: z.number(), subIndex: z.number() };
@@ -104,8 +105,8 @@ export const findInput = (
   description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
 /**
- * @returns the value at the address: the one in values, else the value that the slave
- * held at the scan or the default of the first field there.
+ * @returns the value at the address: the one in values, else the shortest form of the
+ * value that the slave held at the scan, or the default of the first field there.
  * @throws {Error} if no field and no value is at the address.
  */
 export const valueAt = (fields: Field[], values: Value[], address: Address): number => {
@@ -114,7 +115,7 @@ export const valueAt = (fields: Field[], values: Value[], address: Address): num
   const field = fields.find((f) => sameAddress(f, address));
   if (field == null)
     throw new Error(`No setting is at ${ethercat.formatAddress(address)}`);
-  return field.value ?? field.default;
+  return field.value == null ? field.default : shortestValue(field, field.value);
 };
 
 const holds = (fields: Field[], values: Value[], condition: Condition): boolean => {
@@ -165,21 +166,82 @@ export const fill = (fields: Field[], values: Value[]): ethercat.StartupParamete
 };
 
 /**
+ * @returns the value with the fewest digits that the field stores as the value.
+ * @throws {RangeError} when the value is not finite.
+ */
+const shortestValue = ({ dataType }: Field, value: number): number => {
+  if (!Number.isFinite(value)) throw new RangeError(`${value} is not a finite value`);
+  if (!DataType.FLOAT32.equals(dataType)) return value;
+  // A typed value or a catalog limit is a float64 that float32 can fail to hold.
+  const stored = Math.fround(value);
+  let digits = 1;
+  while (Math.fround(Number(value.toPrecision(digits))) !== stored) digits++;
+  return Number(value.toPrecision(digits));
+};
+
+/**
+ * @returns the shortest text that reads back as the value of the field.
+ * @throws {RangeError} when the value is not finite.
+ */
+export const valueText = (field: Field, value: number): string =>
+  shortestValue(field, value).toString();
+
+/** A value that a change of another field moved, and the text that says so. */
+export interface Note extends Address {
+  message: string;
+}
+
+/** The values after a change, and a note for each value that the change moved. */
+export interface Change {
+  values: ethercat.StartupParameter[];
+  notes: Note[];
+}
+
+/**
  * @returns the values after the field at the address takes the value. The values of the
- * fields are filled as {@link fill} fills them, and the other values stay.
+ * fields are filled as {@link fill} fills them, and the other values stay. When the
+ * change shows another field at an address, as polarity picks the excitation voltage
+ * field, a value outside the limits of that field moves to the nearest limit.
  */
 export const set = (
   fields: Field[],
   values: ethercat.StartupParameter[],
   address: Address,
   value: number,
-): ethercat.StartupParameter[] => [
-  ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
-  ...fill(fields, [
+): Change => {
+  const shown = visibleFields(fields, values);
+  const filled = fill(fields, [
     { ...address, value },
     ...values.filter((v) => !sameAddress(v, address)),
-  ]),
-];
+  ]);
+  const revealed = visibleFields(fields, filled).filter(
+    (f) => !shown.includes(f) && !sameAddress(f, address),
+  );
+  const notes: Note[] = [];
+  for (const parameter of filled) {
+    const field = revealed.find((f) => sameAddress(f, parameter));
+    if (field == null) continue;
+    const { min = -Infinity, max = Infinity, unit } = field;
+    const moved = Math.min(Math.max(parameter.value, min), max);
+    if (moved === parameter.value) continue;
+    const suffix = unit === "" ? "" : ` ${unit}`;
+    const from = `${valueText(field, parameter.value)}${suffix}`;
+    const to = `${valueText(field, moved)}${suffix}`;
+    notes.push({
+      index: field.index,
+      subIndex: field.subIndex,
+      message: `${field.name} changed from ${from} to ${to}.`,
+    });
+    parameter.value = moved;
+  }
+  return {
+    values: [
+      ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
+      ...filled,
+    ],
+    notes,
+  };
+};
 
 const rangeMessage = ({ name, unit, min, max }: Field): string => {
   const suffix = unit === "" ? "" : ` ${unit}`;

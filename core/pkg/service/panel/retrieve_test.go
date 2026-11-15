@@ -15,9 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -115,5 +117,71 @@ var _ = Describe("Retrieve", func() {
 		).To(BeTrue())
 		Expect(svc.NewRetrieve().Where(panel.MatchKeys(uuid.New())).Exists(ctx, tx)).
 			To(BeFalse())
+	})
+})
+
+var _ = Describe("Drafts", func() {
+	var (
+		tx              gorp.Tx
+		mine, theirs    user.User
+		shared, myDraft panel.Panel
+		theirDraft      panel.Panel
+		drafts          project.Project
+	)
+	BeforeEach(func(ctx SpecContext) {
+		mine, theirs = createUser(ctx), createUser(ctx)
+		tx = DeferClose(db.OpenTx())
+		drafts = project.Project{Name: "drafts"}
+		Expect(projectSvc.NewWriter(tx).Create(ctx, &drafts)).To(Succeed())
+		shared = panel.Panel{Name: "shared", Project: &drafts.Key}
+		myDraft = panel.Panel{Name: "mine", Project: &drafts.Key, Owner: &mine.Key}
+		theirDraft = panel.Panel{
+			Name:    "theirs",
+			Project: &drafts.Key,
+			Owner:   &theirs.Key,
+		}
+		for _, p := range []*panel.Panel{&shared, &myDraft, &theirDraft} {
+			Expect(svc.NewWriter(tx).Create(ctx, p)).To(Succeed())
+		}
+	})
+	retrieve := func(ctx context.Context, f panel.Filter) []panel.Key {
+		GinkgoHelper()
+		var res []panel.Panel
+		Expect(svc.NewRetrieve().
+			Where(panel.And(panel.MatchProjects(drafts.Key), f)).
+			Entries(&res).
+			Exec(ctx, tx)).To(Succeed())
+		return lo.Map(res, func(p panel.Panel, _ int) panel.Key { return p.Key })
+	}
+
+	It("Should retrieve the drafts of the given owners", func(ctx SpecContext) {
+		Expect(retrieve(ctx, panel.MatchOwners(mine.Key))).
+			To(Equal([]panel.Key{myDraft.Key}))
+	})
+
+	It("Should retrieve every draft", func(ctx SpecContext) {
+		Expect(retrieve(ctx, panel.MatchOwned(true))).
+			To(ConsistOf(myDraft.Key, theirDraft.Key))
+	})
+
+	It("Should retrieve the shared panels", func(ctx SpecContext) {
+		Expect(
+			retrieve(ctx, panel.MatchOwned(false)),
+		).To(Equal([]panel.Key{shared.Key}))
+	})
+
+	It("Should retrieve the shared panels and the drafts of a user from a Where", func(
+		ctx SpecContext,
+	) {
+		f := MustSucceed(panel.MatchWhere(panel.Where{
+			Or: []panel.Where{{Owned: new(false)}, {Owners: []user.Key{mine.Key}}},
+		}))
+		Expect(retrieve(ctx, f)).To(ConsistOf(shared.Key, myDraft.Key))
+	})
+
+	It("Should delete the drafts of a deleted user", func(ctx SpecContext) {
+		Expect(userSvc.NewWriter(tx).Delete(ctx, mine.Key)).To(Succeed())
+		Expect(retrieve(ctx, panel.MatchProjects(drafts.Key))).
+			To(ConsistOf(shared.Key, theirDraft.Key))
 	})
 })

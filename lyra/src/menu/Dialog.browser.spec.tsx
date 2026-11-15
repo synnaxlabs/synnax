@@ -61,7 +61,9 @@ const openSelect = async (): Promise<HTMLElement> => {
 describe("Menu.Dialog", () => {
   it("should draw the surface of a context menu", async () => {
     const dialog = await openMenu();
-    expect(computed(dialog, "background-color")).toBe(resolve("var(--pluto-gray-l2)"));
+    expect(computed(dialog, "background-color")).toBe(
+      resolve("var(--pluto-gray-l1-l2)"),
+    );
     expect(computed(dialog, "border-top-color")).toBe(resolve("var(--pluto-gray-l6)"));
     expect(computed(dialog, "border-top-width")).toBe("1px");
     expect(computed(dialog, "border-top-left-radius")).toBe(
