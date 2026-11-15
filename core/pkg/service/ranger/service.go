@@ -105,10 +105,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 		}),
 		// A delete or retarget of a target rewrites the range, which no range write
-		// does, so the service sends the range as a create.
+		// does, so the service sends the range as a create. Clients keep their own
+		// labels on a create, so the labels follow as a set.
 		OnRewrite: func(_ context.Context, tx gorp.Tx, r Range) error {
-			s.state.Dispatcher().
-				Attach(tx, r.Key, NewCreateAction(CreatePayload{Range: r}))
+			s.state.Dispatcher().Attach(
+				tx,
+				r.Key,
+				NewCreateAction(CreatePayload{Range: r}),
+				labelsAction(r.Labels),
+			)
 			return nil
 		},
 		Instrumentation: cfg.Instrumentation,

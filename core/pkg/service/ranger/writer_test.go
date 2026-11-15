@@ -501,9 +501,13 @@ var _ = Describe("Writer broadcasts", func() {
 			})).To(Succeed())
 			frames := framesOf(rec, r.Key)
 			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].Actions).To(HaveLen(1))
+			Expect(frames[0].Actions).To(HaveLen(2))
 			Expect(frames[0].Actions[0].Create.Range.Labels).
 				To(Equal([]label.Key{kept.Key}))
+			Expect(frames[0].Actions[1]).To(Equal(ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"labels"},
+				Value: []label.Key{kept.Key},
+			})))
 		},
 	)
 
