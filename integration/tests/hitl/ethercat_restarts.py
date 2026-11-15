@@ -241,11 +241,12 @@ class EtherCATCrashWithScanTasks(_Restart):
                 expected="a status of the EtherCAT scan task",
             )
             watch.collect(_BOOT)
+        # A scan task that cannot reach a device on the station runs with a warning.
         if stopped := [
             f"{t.type}: {'no status' if t.status is None else status_text(t.status)}"
             for t in self._scan_tasks()
             if t.status is None
-            or t.status.variant != "success"
+            or t.status.variant == "error"
             or not is_running(t.status)
         ]:
             raise AssertionError(
