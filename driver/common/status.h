@@ -290,8 +290,8 @@ inline std::string config_err_description(const x::errors::Error &err) {
 /// configure with no command auto-starts the task, because a start command that drives
 /// a deploy starts the task with its own key. An auto-start first writes a loading
 /// status, which the task replaces when it answers the start. cancel is passed to the
-/// auto-start. A configure that fails with x::errors::CANCELLED after cancel stops
-/// writes no status, so the start is answered as stopped.
+/// auto-start. A configure that fails with x::errors::CANCELLED writes no status, so
+/// the start is answered as stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -300,7 +300,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     x::breaker::Breaker &cancel
 ) {
     const bool commanded = cmd_key != driver::task::NO_COMMAND;
-    if (res.second.matches(x::errors::CANCELLED) && !cancel.running())
+    if (res.second.matches(x::errors::CANCELLED))
         return {std::move(res.first.task), true};
     if (res.second) {
         synnax::task::Status status;

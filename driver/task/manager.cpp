@@ -21,6 +21,24 @@
 #include "driver/task/task.h"
 
 namespace driver::task {
+namespace {
+/// @returns the status that tells a command that a stop cancelled the start of task.
+synnax::task::Status cancelled_start_status(
+    const synnax::task::Key &task,
+    const std::string &name,
+    const std::string &config_hash
+) {
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(task);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Stopped task";
+    status.description = "The stop cancelled the start.";
+    status.details.running = false;
+    status.details.config_hash = config_hash;
+    return status;
+}
+}
 
 x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
@@ -193,6 +211,7 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
     if (this->streamer == nullptr) return x::errors::NIL;
+    if (this->boot_run == 0) this->boot_run = this->runs.load();
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -299,22 +318,74 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
             this->process_start(cmd);
             continue;
         }
+        if (cmd.type == synnax::task::STOP_CMD_TYPE) {
+            this->process_stop(cmd);
+            continue;
+        }
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
+        if (!this->entries.contains(cmd.task)) continue;
+        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+        this->cv.notify_one();
+    }
+}
+
+void Manager::process_stop(const synnax::task::Command &cmd) {
+    std::vector<synnax::task::Status> answers;
+    {
+        std::lock_guard<std::mutex> lock(this->mu);
         const auto it = this->entries.find(cmd.task);
-        if (it == this->entries.end()) continue;
+        if (it == this->entries.end()) return;
         const auto &entry = it->second;
         const auto &running = entry->op;
         std::shared_ptr<Operation> cancelled;
-        if (cmd.type == STOP_CMD_TYPE && running != nullptr &&
+        if (running != nullptr &&
             (running->cmd.type == synnax::task::START_CMD_TYPE || entry->booting) &&
             running->cancel(cmd))
             cancelled = running;
-        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
-        this->cv.notify_one();
+        bool ours = false;
+        std::string name, hash;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            ours = entry->row.rack == this->rack.key;
+            name = entry->row.name;
+            hash = entry->deployed_hash;
+        }
+        // Every Driver queues a fetch for a start of a task it does not know.
+        if (ours)
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                if (op.task_key != cmd.task ||
+                    op.cmd.type != synnax::task::START_CMD_TYPE)
+                    return false;
+                auto status = cancelled_start_status(cmd.task, name, hash);
+                status.details.cmd = op.cmd.key;
+                answers.push_back(std::move(status));
+                return true;
+            });
+        // A queued deploy with no command, such as the boot deploy, can still start the
+        // task, so the stop runs after it.
+        const bool queued = std::ranges::any_of(this->op_queue, [&](const Op &op) {
+            return op.task_key == cmd.task;
+        });
+        // No worker holds the entry, so its instance is safe to read.
+        if (!answers.empty() && !queued && running == nullptr &&
+            entry->instance == nullptr) {
+            auto status = cancelled_start_status(cmd.task, name, hash);
+            status.details.cmd = cmd.key;
+            answers.push_back(std::move(status));
+        } else {
+            VLOG(1) << "queuing stop command for task " << cmd.task;
+            this->op_queue.push_back(
+                Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled}
+            );
+            this->cv.notify_one();
+        }
     }
+    // Written here and not by a worker, because every worker may be busy.
+    for (auto &status: answers)
+        this->ctx->set_status(status);
 }
 
 void Manager::process_start(const synnax::task::Command &cmd) {
@@ -438,10 +509,10 @@ void Manager::stop_workers() {
             w.thread.join();
         else {
             // C++ cannot kill a thread, and waiting forever would hang shutdown. The
-            // worker keeps using this Manager, which must outlive it: the Rack keeps
-            // one Manager until the process exits.
+            // worker keeps using this Manager, which must outlive it.
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
+            this->detached = true;
         }
     }
     this->workers.clear();
@@ -711,6 +782,7 @@ void Manager::execute_op(
             }
             this->clear_deploy(entry);
             this->statuses->drop(op.task_key);
+            this->ctx->forget(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -761,15 +833,19 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.
-    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
-    if (!starting && !tsk.status->details.running) return;
+    const bool loading = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    if (!loading && !tsk.status->details.running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    const std::string cause = this->runs == 1
+    const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
-    if (starting) {
+    if (loading && status.message == STOPPING_MESSAGE) {
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Stopped task";
+        status.description = cause + " while the task was stopping.";
+    } else if (loading) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to start task";
         status.description = cause +
@@ -798,11 +874,10 @@ void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &oper
                              .retrieve_by_owner<synnax::task::StatusDetails>(
                                  *status.owner
                              );
-    if (err && !err.matches(x::errors::NOT_FOUND)) {
+    // A failed read claims neither, as a task with no stored status does.
+    if (err && !err.matches(x::errors::NOT_FOUND))
         LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
-        return;
-    }
-    if (!err) {
+    else if (!err) {
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }
@@ -832,15 +907,7 @@ void Manager::answer_cancelled_start(
     Operation &operation
 ) {
     const auto [name, hash] = operation.task_info();
-    synnax::task::Status status;
-    status.owner = synnax::task::resource_id(key);
-    status.name = name;
-    status.variant = synnax::status::VARIANT_SUCCESS;
-    status.message = "Stopped task";
-    status.description = "The stop cancelled the start.";
-    status.details.running = false;
-    status.details.config_hash = hash;
-    operation.answer(status);
+    operation.answer(cancelled_start_status(key, name, hash));
 }
 
 void Manager::clear_deploy(const std::shared_ptr<Entry> &entry) {
