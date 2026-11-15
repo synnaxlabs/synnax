@@ -449,6 +449,21 @@ class TestPrivateReport:
         return_logins(logins)
         assert (seat / ".credentials.json").read_text() == "other job"
 
+    def test_should_return_a_login_that_replaced_its_link(self, tmp_path: Path) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        private, logins = private_env(env, out=out)
+        link = Path(private["CLAUDE_CONFIG_DIR"]) / ".credentials.json"
+        replacement = link.with_name("new")
+        replacement.write_text("refreshed")
+        replacement.replace(link)
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "refreshed"
+
 
 class TestDelivery:
     """Tests for image storage, timeouts, and Git authentication."""
