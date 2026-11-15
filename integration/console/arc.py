@@ -175,14 +175,13 @@ class ArcClient(ResourceClient):
         """
         for attempt in range(2):
             controls = self._get_controls()
-            self.notifications.close_all()
             redeploy_btn = controls.locator(".console-task-redeploy--visible button")
             if redeploy_btn.count() > 0:
-                redeploy_btn.click()
+                click_past(redeploy_btn)
             else:
                 play_btn = controls.locator("button:has(.lyra-icon--play)")
                 play_btn.wait_for(state="visible", timeout=5000)
-                play_btn.click()
+                click_past(play_btn)
             started = controls.locator("text=Started task")
             try:
                 started.wait_for(state="visible", timeout=30000)
