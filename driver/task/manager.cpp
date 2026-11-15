@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <thread>
 #include <utility>
@@ -102,6 +103,18 @@ x::errors::Error Manager::configure_initial_tasks() {
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
+        // A task deleted or moved during a Core outage sent no event here. Its remove
+        // waits for a worker still on it, and the statuses of that worker drop now.
+        // Its ops that an earlier run queued, such as a deploy, must never run.
+        for (const auto &[key, _]: this->entries) {
+            if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
+                continue;
+            this->statuses->drop(key);
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                return op.task_key == key;
+            });
+            this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
+        }
         for (const auto &task: tasks) {
             if (task.snapshot) {
                 VLOG(1) << "ignoring snapshot task " << task;
@@ -117,7 +130,7 @@ x::errors::Error Manager::configure_initial_tasks() {
             queued++;
         }
     }
-    if (queued > 0) this->cv.notify_all();
+    this->cv.notify_all();
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     {
@@ -146,31 +159,39 @@ void Manager::stop() {
 }
 
 x::errors::Error Manager::run(const std::function<void()> &on_started) {
+    x::errors::Error err = x::errors::NIL;
+    if (!this->exit_early) {
+        ++this->runs;
+        if (!this->breaker.running()) this->start_workers();
+        err = this->serve(on_started);
+    }
+    // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
+    // the tasks run on until the next run reconciles them.
+    if (this->exit_early) this->close();
+    return err;
+}
+
+void Manager::close() {
+    if (!this->breaker.running()) return;
+    // Workers run the shutdown of each task, so they stop last.
+    this->stop_all_tasks();
+    this->stop_workers();
+}
+
+x::errors::Error Manager::serve(const std::function<void()> &on_started) {
+    if (const auto err = this->configure_initial_tasks()) return err;
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return x::errors::NIL;
     }
-    this->start_workers();
-    if (const auto err = this->configure_initial_tasks()) {
-        this->stop_workers();
-        return err;
-    }
-    if (this->exit_early) {
-        VLOG(1) << "exiting early";
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
-    if (const auto err = this->open_streamer()) {
-        this->stop_workers();
-        return err;
-    }
+    if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
-    if (this->streamer == nullptr) {
-        this->stop_workers();
-        this->stop_all_tasks();
-        return x::errors::NIL;
-    }
+    if (this->streamer == nullptr) return x::errors::NIL;
+    // An earlier run may have failed to write statuses, and the Core marks the tasks
+    // of a silent rack as stopped, which is false for the tasks that ran on.
+    if (this->runs > 1)
+        if (const auto err = this->statuses->resend())
+            LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -195,8 +216,6 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
                 this->process_rack_set(series);
         }
     } while (true);
-    this->stop_all_tasks();
-    this->stop_workers();
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
@@ -206,10 +225,11 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
 void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
-        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so a Driver with an empty mirror starts optimistic and
-        // converges as transfers arrive on the stream.
+        // The mirror of an earlier run may hold control that ended during an outage.
+        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
+        // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
+        this->control_states->set({});
         return;
     }
     this->control_states->set(states);
@@ -518,6 +538,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
+            bool silent = true;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -594,9 +615,30 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     entry->instance->exec(cmd);
                     break;
                 }
+            } else {
+                std::string deployed;
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    deployed = entry->deployed_hash;
+                }
+                // An instance that lived through a lost Core connection keeps its
+                // status too. One whose task failed on its own, such as a pipeline
+                // that gave up, deploys again. A failed command, such as a manual
+                // scan, leaves its task running.
+                const auto latest = this->statuses->latest(tsk.key);
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR &&
+                                    !latest->details.running;
+                if (entry->instance != nullptr && deployed == tsk.config_hash &&
+                    !failed)
+                    return;
+                silent = failed;
             }
             if (entry->instance != nullptr) {
-                entry->instance->stop(true);
+                // A start follows a deploy for a command. At boot, a live instance
+                // reports its own stop, and a failed one keeps the error that says
+                // why.
+                entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;

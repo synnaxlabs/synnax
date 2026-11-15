@@ -8,17 +8,28 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <functional>
 #include <future>
 #include <unordered_map>
 #include <utility>
 
+#ifndef _WIN32
+#include <csignal>
+
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -334,6 +345,106 @@ synnax::task::Status wait_for_task_status(
         __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
     )
 
+#ifndef _WIN32
+/// @brief forwards local TCP connections to the Core. cut drops every open
+/// connection, as a short Core outage does. Later connections still go through.
+class CorePipe {
+    int listener = -1;
+    sockaddr_in core{};
+    std::atomic<bool> open{true};
+    std::atomic<bool> paused{false};
+    std::mutex mu;
+    std::vector<int> sockets;
+    std::vector<std::thread> pumps;
+    std::thread acceptor;
+
+    static sockaddr_in loopback(const uint16_t port) {
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        return addr;
+    }
+
+    static void pump(const int from, const int to) {
+        std::array<char, 16384> buf{};
+        ssize_t n = 0;
+        while ((n = recv(from, buf.data(), buf.size(), 0)) > 0)
+            if (send(to, buf.data(), n, 0) != n) break;
+        shutdown(to, SHUT_RDWR);
+    }
+
+    void accept_loop() {
+        while (this->open) {
+            pollfd fd{.fd = this->listener, .events = POLLIN, .revents = 0};
+            if (poll(&fd, 1, 50) <= 0) continue;
+            const int client = accept(this->listener, nullptr, nullptr);
+            if (client < 0) continue;
+            if (this->paused) {
+                close(client);
+                continue;
+            }
+            const int upstream = socket(AF_INET, SOCK_STREAM, 0);
+            const auto *addr = reinterpret_cast<sockaddr *>(&this->core);
+            if (connect(upstream, addr, sizeof(this->core)) != 0) {
+                close(client);
+                close(upstream);
+                continue;
+            }
+            std::lock_guard lock{this->mu};
+            this->sockets.insert(this->sockets.end(), {client, upstream});
+            this->pumps.emplace_back(pump, client, upstream);
+            this->pumps.emplace_back(pump, upstream, client);
+        }
+    }
+
+public:
+    uint16_t port = 0;
+
+    explicit CorePipe(const uint16_t core_port):
+        listener(socket(AF_INET, SOCK_STREAM, 0)), core(loopback(core_port)) {
+        // A pump writes to a socket that the other side closed.
+        signal(SIGPIPE, SIG_IGN);
+        auto addr = loopback(0);
+        socklen_t len = sizeof(addr);
+        auto *sock_addr = reinterpret_cast<sockaddr *>(&addr);
+        EXPECT_EQ(bind(this->listener, sock_addr, len), 0);
+        EXPECT_EQ(listen(this->listener, 16), 0);
+        EXPECT_EQ(getsockname(this->listener, sock_addr, &len), 0);
+        this->port = ntohs(addr.sin_port);
+        this->acceptor = std::thread([this] { this->accept_loop(); });
+    }
+
+    CorePipe(const CorePipe &) = delete;
+    CorePipe &operator=(const CorePipe &) = delete;
+
+    void cut() {
+        std::lock_guard lock{this->mu};
+        for (const int s: this->sockets)
+            shutdown(s, SHUT_RDWR);
+    }
+
+    /// @brief cuts every connection and refuses new ones until resume.
+    void pause() {
+        this->paused = true;
+        this->cut();
+    }
+
+    void resume() { this->paused = false; }
+
+    ~CorePipe() {
+        this->open = false;
+        this->acceptor.join();
+        this->cut();
+        for (auto &t: this->pumps)
+            t.join();
+        for (const int s: this->sockets)
+            close(s);
+        close(this->listener);
+    }
+};
+#endif
+
 class TaskManagerTest : public testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -342,6 +453,49 @@ protected:
     std::thread thread;
     synnax::framer::Streamer streamer;
     bool setup_succeeded = false;
+#ifndef _WIN32
+    std::unique_ptr<CorePipe> pipe;
+    std::mutex runs_mu;
+    std::condition_variable runs_cv;
+    int runs = 0;
+
+    /// @brief creates a manager that reaches the Core through pipe.
+    void
+    create_piped_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
+        pipe = std::make_unique<CorePipe>(test_client_config().port);
+        auto conn = test_client_config();
+        conn.host = "127.0.0.1";
+        conn.port = pipe->port;
+        const auto piped = std::make_shared<synnax::Synnax>(conn);
+        const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
+        manager = std::make_unique<Manager>(piped_rack, piped, std::move(factory), cfg);
+    }
+
+    /// @brief starts a manager that reaches the Core through pipe, and runs it again
+    /// after each error, as the rack does.
+    void start_piped_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
+        create_piped_manager(std::move(factory), cfg);
+        thread = std::thread([this] {
+            const auto started = [this] {
+                {
+                    std::lock_guard lock{this->runs_mu};
+                    this->runs++;
+                }
+                this->runs_cv.notify_all();
+            };
+            while (this->manager->run(started))
+                std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
+        });
+    }
+
+    /// @returns true once n runs of the manager have started.
+    bool wait_for_run(const int n) {
+        std::unique_lock lock{this->runs_mu};
+        return this->runs_cv.wait_for(lock, (10 * x::telem::SECOND).chrono(), [&] {
+            return this->runs >= n;
+        });
+    }
+#endif
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -368,10 +522,12 @@ protected:
     /// @brief asserts that no status for task is reported by a driver on this rack.
     /// The Core writes placeholder statuses on create with no rack stamped, so the
     /// rack key is what separates them from driver reports. Pass any_rack = true for
-    /// a task never created, where every status is a defect. Watches for wait.
+    /// a task never created, where every status is a defect. Watches for wait, and
+    /// counts only statuses stamped at or after since.
     void expect_no_driver_status(
         const synnax::task::Task &task,
         const bool any_rack = false,
+        const x::telem::TimeStamp since = x::telem::TimeStamp(0),
         const x::telem::TimeSpan wait = 300 * x::telem::MILLISECOND
     ) {
         std::atomic<bool> received = false;
@@ -383,7 +539,7 @@ protected:
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
                     if (s.owner == synnax::task::resource_id(task.key) &&
-                        (any_rack || s.details.rack == rack.key))
+                        (any_rack || s.details.rack == rack.key) && s.time >= since)
                         received = true;
                 }
             }
@@ -432,6 +588,19 @@ protected:
         reader.join();
         if (!read_all.get()) ADD_FAILURE() << "Timed out waiting for task statuses";
         return statuses;
+    }
+
+    /// @brief returns the statuses of task up to the answer of a command sent now. The
+    /// Manager runs the command after every earlier op of the task.
+    std::vector<synnax::task::Status>
+    statuses_until_command(const synnax::task::Task &task) {
+        send_cmd(client, {.task = task.key, .type = "test", .key = "marker"});
+        std::vector<synnax::task::Status> got;
+        WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+            got.push_back(s);
+            return s.details.cmd == "marker";
+        });
+        return got;
     }
 
     void TearDown() override {
@@ -1252,7 +1421,7 @@ TEST_F(TaskManagerTest, TimeoutForTaskOnOtherRackStaysSilent) {
         task,
         {synnax::task::set({.path = {"rack"}, .value = other.key})}
     );
-    expect_no_driver_status(task, false, 2 * x::telem::SECOND);
+    expect_no_driver_status(task, false, x::telem::TimeStamp(0), 2 * x::telem::SECOND);
     f->release_all();
 }
 
@@ -2072,4 +2241,569 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
     EXPECT_FALSE(statuses.contains(synnax::task::resource_id(deleted.key)));
     expect_no_driver_status(deleted, true);
 }
+
+#ifndef _WIN32
+/// @returns the states of the instances that f built, in build order.
+template<typename F>
+std::vector<std::shared_ptr<TrackingTaskState>> built(F &f) {
+    std::lock_guard lock(f.mu);
+    return f.task_states;
+}
+
+/// @brief writes a status of task as the task does, answering cmd when it is set.
+void report(
+    const std::shared_ptr<Context> &ctx,
+    const synnax::task::Key &task,
+    const bool running,
+    const std::string &cmd = "",
+    const std::string &variant = synnax::status::VARIANT_SUCCESS,
+    const std::string &message = ""
+) {
+    synnax::task::Status status{
+        .variant = variant,
+        .message = message,
+        .details = {.running = running, .cmd = cmd},
+        .owner = synnax::task::resource_id(task),
+    };
+    ctx->set_status(status);
+}
+
+/// @brief writes a status of task to the Core, as the Core does for a silent rack.
+void store_status(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::task::Task &task,
+    const std::string &variant,
+    const std::string &message,
+    const bool running
+) {
+    synnax::task::Status status;
+    status.key = "stored-" + task.key.to_string();
+    status.owner = synnax::task::resource_id(task.key);
+    status.name = task.name;
+    status.variant = variant;
+    status.message = message;
+    status.description = "stored";
+    status.time = x::telem::TimeStamp::now();
+    status.details.running = running;
+    status.details.rack = task.rack;
+    status.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set<synnax::task::StatusDetails>(status));
+}
+
+/// @brief a factory whose first configure blocks until released.
+class StuckTaskFactory final : public Factory {
+    class Instance final : public Task {
+        const std::shared_ptr<Context> ctx;
+        const synnax::task::Key key;
+
+    public:
+        Instance(std::shared_ptr<Context> ctx, const synnax::task::Key &key):
+            ctx(std::move(ctx)), key(key) {}
+
+        [[nodiscard]] std::string name() const override { return "stuck"; }
+
+        void exec(synnax::task::Command &cmd) override {
+            report(this->ctx, this->key, true, cmd.key);
+        }
+
+        void stop(bool) override {}
+    };
+
+public:
+    std::atomic<bool> stuck{false};
+    std::atomic<bool> released{false};
+    std::atomic<int> configures{0};
+    std::mutex mu;
+    /// @brief the keys of the configured tasks, in configure order.
+    std::vector<synnax::task::Key> keys;
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        {
+            std::lock_guard lock(this->mu);
+            this->keys.push_back(task.key);
+        }
+        if (++this->configures == 1) {
+            this->stuck = true;
+            while (!this->released)
+                std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        }
+        return {std::make_unique<Instance>(ctx, task.key), true};
+    }
+};
+
+/// @brief it should never run an op that an earlier run queued for a task deleted
+/// during a Core outage, such as a deploy left behind a busy worker.
+TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageSkipsItsQueuedDeploy) {
+    std::vector<synnax::task::Task> tasks;
+    for (const auto &name: {"a", "b"}) {
+        auto task = synnax::task::Task{
+            .rack = rack.key,
+            .name = name,
+            .type = SYNTHETIC_TASK_TYPE,
+        };
+        ASSERT_NIL(rack.tasks.create(task));
+        tasks.push_back(task);
+    }
+    auto factory = std::make_unique<StuckTaskFactory>();
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_piped_manager(std::move(factory), {.worker_count = 1});
+    ASSERT_TRUE(wait_for_run(1));
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    synnax::task::Key stuck_key;
+    {
+        std::lock_guard lock(f->mu);
+        stuck_key = f->keys[0];
+    }
+    const auto &stuck = tasks[0].key == stuck_key ? tasks[0] : tasks[1];
+    const auto &queued = tasks[0].key == stuck_key ? tasks[1] : tasks[0];
+    pipe->pause();
+    ASSERT_NIL(rack.tasks.del(queued.key));
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    f->released = true;
+    statuses_until_command(stuck);
+    EXPECT_EQ(f->configures.load(), 1);
+}
+
+/// @brief builds tasks that report running when they start and stopped when they stop,
+/// as a real task does. Each command answers with the running state.
+class RunningTaskFactory final : public Factory {
+    class Instance final : public Task {
+        const std::shared_ptr<Context> ctx;
+        const synnax::task::Key key;
+        const std::shared_ptr<TrackingTaskState> state;
+        bool running = false;
+
+    public:
+        Instance(
+            std::shared_ptr<Context> ctx,
+            const synnax::task::Key &key,
+            std::shared_ptr<TrackingTaskState> state,
+            const bool auto_start
+        ):
+            ctx(std::move(ctx)), key(key), state(std::move(state)) {
+            if (!auto_start) return;
+            this->running = true;
+            report(
+                this->ctx,
+                this->key,
+                true,
+                "",
+                synnax::status::VARIANT_SUCCESS,
+                "Started task"
+            );
+        }
+
+        [[nodiscard]] std::string name() const override { return "running"; }
+
+        void exec(synnax::task::Command &cmd) override {
+            ++this->state->exec_count;
+            if (cmd.type == synnax::task::START_CMD_TYPE) this->running = true;
+            if (cmd.type == synnax::task::STOP_CMD_TYPE) this->running = false;
+            report(this->ctx, this->key, this->running, cmd.key);
+        }
+
+        void stop(const bool will_reconfigure) override {
+            this->state->stop_will_reconfigure = will_reconfigure;
+            this->state->stopped = true;
+        }
+    };
+
+    const bool auto_start;
+
+public:
+    std::mutex mu;
+    std::vector<std::shared_ptr<TrackingTaskState>> task_states;
+    /// @brief the context of the last build.
+    std::shared_ptr<Context> ctx;
+
+    /// @param auto_start true for tasks that start when built.
+    explicit RunningTaskFactory(const bool auto_start = false):
+        auto_start(auto_start) {}
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        auto state = std::make_shared<TrackingTaskState>();
+        std::lock_guard lock(this->mu);
+        this->task_states.push_back(state);
+        this->ctx = ctx;
+        return {
+            std::make_unique<Instance>(ctx, task.key, state, this->auto_start),
+            true
+        };
+    }
+};
+
+/// @brief it should keep a running task alive through a lost Core connection, with no
+/// stop and no second configure.
+TEST_F(TaskManagerTest, RunningTaskKeepsItsInstanceAcrossALostConnection) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    // The start runs after the reconcile of the task.
+    send_start(client, task, "start-2");
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
+    EXPECT_EQ(built(*f).size(), 1);
+    EXPECT_FALSE(state->stopped.load());
+}
+
+/// @brief it should configure a task again when it failed on its own during a Core
+/// outage, as a task whose pipeline gave up does.
+TEST_F(TaskManagerTest, TaskStoppedDuringAnOutageIsConfiguredAgain) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    pipe->pause();
+    std::shared_ptr<Context> ctx;
+    {
+        std::lock_guard lock(f->mu);
+        ctx = f->ctx;
+    }
+    report(
+        ctx,
+        task.key,
+        false,
+        "",
+        synnax::status::VARIANT_ERROR,
+        "Failed to read data"
+    );
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    EXPECT_TRUE(state->stopped.load());
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+}
+
+/// @brief it should keep a task that an operator stopped stopped through a lost Core
+/// connection, even one that starts when built.
+TEST_F(TaskManagerTest, OperatorStoppedTaskStaysStoppedAcrossALostConnection) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<RunningTaskFactory>(true);
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    send_cmd(
+        client,
+        {.task = task.key, .type = synnax::task::STOP_CMD_TYPE, .key = "stop-cmd"}
+    );
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "stop-cmd";
+    });
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    for (const auto &s: statuses_until_command(task))
+        EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(built(*f).size(), 1);
+    EXPECT_FALSE(built(*f)[0]->stopped.load());
+}
+
+/// @brief it should keep a task that never started through a lost Core connection,
+/// configured once.
+TEST_F(TaskManagerTest, UnstartedTaskKeepsItsInstanceAcrossALostConnection) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    statuses_until_command(task);
+    EXPECT_EQ(built(*f).size(), 1);
+    EXPECT_FALSE(built(*f)[0]->stopped.load());
+}
+
+/// @brief it should keep a running task whose last command failed through a lost Core
+/// connection, as a failed manual scan leaves a scanner running.
+TEST_F(TaskManagerTest, TaskWithAFailedCommandKeepsItsInstanceAcrossALostConnection) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    std::shared_ptr<Context> ctx;
+    {
+        std::lock_guard lock(f->mu);
+        ctx = f->ctx;
+    }
+    report(ctx, task.key, true, "", synnax::status::VARIANT_ERROR, "Failed to scan");
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    statuses_until_command(task);
+    EXPECT_EQ(built(*f).size(), 1);
+    EXPECT_FALSE(state->stopped.load());
+}
+
+/// @brief it should stop the tasks that a run which lost the Core left running on
+/// close.
+TEST_F(TaskManagerTest, CloseStopsTheTasksOfARunThatLostTheCore) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    create_piped_manager(std::move(factory));
+    std::promise<void> started;
+    thread = std::thread([&] { manager->run([&] { started.set_value(); }); });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    pipe->cut();
+    thread.join();
+    EXPECT_FALSE(state->stopped.load());
+    manager->close();
+    EXPECT_TRUE(state->stopped.load());
+    EXPECT_FALSE(state->stop_will_reconfigure.load());
+}
+
+/// @brief it should deploy a task again when its config changed during a Core outage,
+/// and let the old instance report its stop.
+TEST_F(TaskManagerTest, TaskChangedDuringAnOutageIsDeployedAgain) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    ASSERT_EVENTUALLY_EQ(built(*f)[0]->exec_count.load(), 1);
+    pipe->pause();
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    const auto states = built(*f);
+    EXPECT_TRUE(states[0]->stopped.load());
+    EXPECT_FALSE(states[0]->stop_will_reconfigure.load());
+    EXPECT_FALSE(states[1]->stopped.load());
+}
+
+/// @brief it should stop a task deleted during a Core outage silently, so no status
+/// recreates the one the delete removed.
+TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageIsRemoved) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    pipe->pause();
+    const auto deleted_at = x::telem::TimeStamp::now();
+    ASSERT_NIL(rack.tasks.del(task.key));
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+    EXPECT_EQ(built(*f).size(), 1);
+    expect_no_driver_status(task, true, deleted_at);
+}
+
+/// @brief it should send the status of a task that ran on through a Core outage again,
+/// so a stop that the Core wrote during the outage does not stay.
+TEST_F(TaskManagerTest, RunAfterACoreOutageSendsCachedStatusesAgain) {
+    start_piped_manager(std::make_unique<EchoTaskFactory>());
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.running;
+    });
+    pipe->pause();
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_WARNING,
+        "Task stopped responding",
+        false
+    );
+    const auto since = x::telem::TimeStamp::now();
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [&](const synnax::task::Status &s) {
+            return s.details.rack == rack.key && s.time >= since;
+        }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(s.details.running);
+    EXPECT_TRUE(s.details.cmd.empty());
+}
+
+/// @brief a factory that creates one task on its rack at its first boot, as the factory
+/// of the Rack Status task does. The task reports running once built. The factory
+/// counts the instances that live at once.
+class InitialTaskFactory final : public Factory {
+    class Instance final : public Task {
+        InitialTaskFactory &factory;
+        const std::shared_ptr<Context> ctx;
+        const synnax::task::Key key;
+
+    public:
+        Instance(
+            InitialTaskFactory &factory,
+            std::shared_ptr<Context> ctx,
+            const synnax::task::Key &key
+        ):
+            factory(factory), ctx(std::move(ctx)), key(key) {
+            ++factory.live;
+            report(
+                this->ctx,
+                this->key,
+                true,
+                "",
+                synnax::status::VARIANT_SUCCESS,
+                "Started"
+            );
+        }
+
+        ~Instance() override { --this->factory.live; }
+
+        [[nodiscard]] std::string name() const override { return "initial"; }
+
+        void exec(synnax::task::Command &cmd) override {
+            report(this->ctx, this->key, true, cmd.key);
+        }
+
+        void stop(bool) override {}
+    };
+
+    std::atomic<bool> created{false};
+
+public:
+    std::atomic<int> configures{0};
+    std::atomic<int> live{0};
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::rack::Rack &rack
+    ) override {
+        if (this->created.exchange(true)) return {};
+        synnax::task::Task task{
+            .rack = rack.key,
+            .name = "initial",
+            .type = ALT_SYNTHETIC_TASK_TYPE,
+            .internal = true,
+        };
+        EXPECT_NIL(rack.tasks.create(task));
+        auto [instance, _] = this->configure_task(ctx, task, NO_COMMAND);
+        std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
+        tasks.emplace_back(task, std::move(instance));
+        return tasks;
+    }
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != ALT_SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        ++this->configures;
+        return {std::make_unique<Instance>(*this, ctx, task.key), true};
+    }
+};
+
+/// @brief it should keep the one instance of a task that a factory created at boot
+/// through a lost Core connection.
+TEST_F(TaskManagerTest, InitialTaskKeepsOneInstanceAcrossALostConnection) {
+    auto factory = std::make_unique<InitialTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    const auto tasks = ASSERT_NIL_P(
+        rack.tasks.retrieve(synnax::task::Where{.type = ALT_SYNTHETIC_TASK_TYPE})
+    );
+    ASSERT_EQ(tasks.size(), 1);
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    statuses_until_command(tasks[0]);
+    EXPECT_EQ(f->configures.load(), 1);
+    EXPECT_EQ(f->live.load(), 1);
+}
+#endif
 }
