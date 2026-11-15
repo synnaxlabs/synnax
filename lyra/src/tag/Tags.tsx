@@ -31,9 +31,8 @@ import { Tooltip } from "@/tooltip";
 
 export interface TagsProps extends Button.ButtonProps<"div"> {
   /**
-   * Called on a click on the count. With it, the group is a row of buttons: only its
-   * tags, count, and buttons take the pointer, and each tag and the count takes the
-   * outlined button's hover and press.
+   * Called on a click on the count. With it, only the group's tags, count, and buttons
+   * take the pointer, and each tag and the count lights on hover and press.
    */
   onCountClick?: (e: MouseEvent<HTMLElement>) => void;
 }

@@ -184,7 +184,7 @@ beforeAll(() => {
           removeListener: () => {},
         }),
     });
-  // jsdom has no font set. Fonts never load, so Lyra's tag fold sees no load event.
+  // jsdom has no font set. Fonts never load, so Lyra's tag step sees no load event.
   Object.defineProperty(document, "fonts", {
     value: new EventTarget(),
     configurable: true,

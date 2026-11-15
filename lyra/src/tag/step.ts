@@ -22,6 +22,7 @@ const LIFTED = "data-lifted";
 const HIDDEN = "data-hidden";
 const FULL = "--lyra-tags-full";
 const STACKED = "data-stacked";
+const ALONE = "data-alone";
 // The room the count takes with its dots, in rem. Fixed, so the step never chases the
 // count's width.
 const COUNT = 12;
@@ -31,7 +32,6 @@ const ALONE_COUNT = 17;
 const DOTS = 3;
 // How much of its name, in rem, a stacked tag shows past its icon before it folds.
 const SLIVER = 0.5;
-const ALONE = "data-alone";
 
 /** A tag's full width, and the width before its name: padding, icon, and gap. */
 interface Measure {
@@ -457,8 +457,6 @@ const write = (
   const tags = tagsOf(el);
   const shown = Math.min(step, tags.length);
   const overlap = shown > 0 && full(f, shown, count) > room;
-  // With no tags shown, the count names the total where it has room, else shows "+N".
-  const total = shown === 0 && f.frame + alone <= room;
   el.toggleAttribute(STACKED, overlap);
   el.toggleAttribute(EMPTY, shown === 0 && f.frame + count > room);
   set(el, "--lyra-tags-gap", `${f.gap}px`);
@@ -471,7 +469,8 @@ const write = (
   });
   const more = moreOf(el);
   if (more == null) return;
-  more.toggleAttribute(ALONE, total);
+  // With no tags shown, the count names the total where it has room, else shows "+N".
+  more.toggleAttribute(ALONE, shown === 0 && f.frame + alone <= room);
   const hidden = shown < tags.length ? String(tags.length - shown) : undefined;
   if (more.dataset.count === hidden) return;
   if (hidden == null) delete more.dataset.count;

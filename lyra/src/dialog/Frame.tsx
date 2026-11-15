@@ -92,10 +92,9 @@ export interface ContextValue {
   open: () => void;
   toggle: () => void;
   /**
-   * Opens the dialog against `target`, a part of the trigger such as one of its tags,
-   * or closes it when it is already open there. While open, the dialog keeps the x of
-   * its first placement until the window resizes, so a change to the tags does not
-   * move it sideways.
+   * Opens the dialog at `target`, a part of the trigger such as a tag, or closes it if
+   * it is open there. While open, the dialog keeps its first x until the window
+   * resizes, so a change to the tags never moves it sideways.
    */
   toggleAt: (target: HTMLElement) => void;
   visible: boolean;

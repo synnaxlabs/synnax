@@ -117,10 +117,10 @@ const PLACEHOLDER_CLASS = CSS.B("select-multiple-trigger-placeholder");
 
 /**
  * The button of a {@link Multiple} selection, showing one removable tag per entry. A
- * shadow or text trigger reads as its tags: each tag, the count, and the placeholder
- * of an empty trigger opens the dialog beside itself, and the room around them takes
- * no clicks. A shadow trigger's tags have no remove buttons. In a list item, an empty
- * shadow trigger shows its placeholder on hover only.
+ * shadow or text trigger reads as its tags: each tag, the count, and the placeholder of
+ * an empty trigger opens the dialog beside itself. The room around them takes no
+ * clicks. A shadow trigger's tags have no remove buttons, and in a list item, its
+ * placeholder shows on hover only.
  */
 export const MultipleTrigger = <
   K extends record.Key,

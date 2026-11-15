@@ -32,17 +32,6 @@ beforeAll(() => {
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
   Element.prototype.scrollIntoView = () => {};
-  // jsdom does not implement matchMedia. Every query reports no match and never
-  // changes.
-  vi.stubGlobal("matchMedia", (media: string): MediaQueryList =>
-    Object.assign(new EventTarget(), {
-      media,
-      matches: false,
-      onchange: null,
-      addListener: () => {},
-      removeListener: () => {},
-    }),
-  );
   // jsdom has no font set. Fonts never load, so no load event fires.
   Object.defineProperty(document, "fonts", {
     value: new EventTarget(),

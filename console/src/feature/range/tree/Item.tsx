@@ -249,12 +249,10 @@ export const Lead = ({
 const compactStart = (start: TimeStamp, now: TimeStamp): string => {
   if (Telem.Text.describeDay(start, now) === "Today")
     return Telem.Text.formatTime(start, TimeSpan.MINUTE);
-  const date = start.date();
-  const thisYear = date.getFullYear() === now.date().getFullYear();
-  return date.toLocaleDateString("en-US", {
+  return start.date().toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    year: thisYear ? undefined : "numeric",
+    year: start.localYear === now.localYear ? undefined : "numeric",
   });
 };
 
@@ -308,10 +306,10 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
         {start.span(end).toString("semantic")}
       </Text.Text>
     );
-  const startable = scheduled(range.timeRange);
+  const hasStart = scheduled(range.timeRange);
   return (
     // Once the start column hides, the cell shows the start on hover.
-    <Tooltip.Dialog hide={(when) => !startable || startShown(when)}>
+    <Tooltip.Dialog hide={(when) => !hasStart || startShown(when)}>
       {`Starts ${full}`}
       <Flex.Box
         x
@@ -323,7 +321,7 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
       >
         {/* A range with no start keeps the empty column, so the columns line up. */}
         <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
-          {startable && (
+          {hasStart && (
             <>
               <span className={CSS.BE("range-item", "start-full")}>{full}</span>
               <span className={CSS.BE("range-item", "start-compact")}>
