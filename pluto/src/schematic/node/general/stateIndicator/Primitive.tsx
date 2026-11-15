@@ -23,7 +23,7 @@ import { SIZE_LEVELS } from "@/schematic/node/common/size";
 interface RenderProps extends Partial<
   Pick<
     schematic.StateIndicatorNodeConfig,
-    "strokeColor" | "orientation" | "inlineSize" | "size"
+    "strokeColor" | "orientation" | "inlineSize" | "size" | "level"
   >
 > {
   options: schematic.StateIndicatorNodeConfig["options"];
@@ -41,6 +41,7 @@ export const StateIndicator = ({
   strokeColor,
   inlineSize,
   size = "medium",
+  level = SIZE_LEVELS.medium,
   staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
@@ -72,11 +73,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text
-          level={SIZE_LEVELS[size]}
-          color={color.cssString(staleColor)}
-          variant="code"
-        >
+        <Text.Text level={level} color={color.cssString(staleColor)} variant="code">
           {label}
         </Text.Text>
       </div>

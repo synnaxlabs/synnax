@@ -10,7 +10,7 @@
 import { type channel, type schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, type xy } from "@synnaxlabs/x";
+import { type color, type text, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -29,6 +29,7 @@ interface ReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
+  level: text.Level;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
 }
@@ -38,6 +39,7 @@ const Readback = ({
   position,
   channel,
   size,
+  level,
   stalenessColor,
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
@@ -47,12 +49,12 @@ const Readback = ({
     aetherKey: `${nodeKey}-readback`,
     box: cell.box,
     telem: telem.streamChannelStringValue({ channel }),
-    level: Primitive.readoutLevel(size),
+    level: Primitive.readoutLevel(size, level),
     color: theme.colors.gray.l10,
     stalenessColor,
     stalenessTimeout,
   });
-  return <Primitive.Readout size={size} valueRef={cell.ref} />;
+  return <Primitive.Readout size={size} level={level} valueRef={cell.ref} />;
 };
 
 export const Symbol = ({
@@ -68,6 +70,7 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
     size,
+    level,
     inlineSize,
     ...rest
   },
@@ -90,6 +93,7 @@ export const Symbol = ({
         onSend={set}
         value={value}
         size={size}
+        level={level}
         inlineSize={inlineSize}
         readback={
           stateChannel != null &&
@@ -99,6 +103,7 @@ export const Symbol = ({
               position={position}
               channel={stateChannel}
               size={size}
+              level={level}
               stalenessColor={stalenessColor}
               stalenessTimeout={stalenessTimeout}
             />

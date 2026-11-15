@@ -20,12 +20,14 @@ const Preview = ({
   fillColor,
   orientation,
   size,
+  level,
 }: schematic.InputNodeConfig): ReactElement => (
   <Input
     value="send message"
     fillColor={fillColor}
     orientation={orientation}
     size={size}
+    level={level}
     disabled
     className={CSS.BM("input-symbol", "preview")}
   />

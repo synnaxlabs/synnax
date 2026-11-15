@@ -46,6 +46,7 @@ export const Setpoint = ({
   fillColor,
   onSend,
   size = "small",
+  level,
   disabled,
   onClickDelay,
   value = null,
@@ -112,6 +113,7 @@ export const Setpoint = ({
         <BaseInput.Numeric
           ref={inputRef}
           size={size}
+          level={level}
           className={CSS.BE("symbol-field", "control")}
           value={shown ?? NaN}
           emptyValue={NaN}
@@ -129,6 +131,7 @@ export const Setpoint = ({
         >
           <BaseButton.Button
             size={size}
+            level={level}
             variant="filled"
             onClick={() => {
               if (shown == null) return;

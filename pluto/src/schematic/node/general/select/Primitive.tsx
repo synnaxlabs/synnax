@@ -24,7 +24,13 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.SelectNodeConfig,
-    "fillColor" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
+    | "fillColor"
+    | "orientation"
+    | "size"
+    | "level"
+    | "disabled"
+    | "inlineSize"
+    | "onClickDelay"
   >
 > {
   options: schematic.SelectNodeConfig["options"];
@@ -53,6 +59,7 @@ export const Select = ({
   onSend,
   options,
   size,
+  level,
   disabled,
   inlineSize,
   onClickDelay,
@@ -114,7 +121,7 @@ export const Select = ({
             onChange={draft.edit}
             disabled={disabled}
             resourceName="option"
-            triggerProps={{ size, className: CSS.BE("symbol-field", "control") }}
+            triggerProps={{ size, level, className: CSS.BE("symbol-field", "control") }}
             dialogProps={DIALOG_PROPS}
           >
             {options.map((o) => (
@@ -126,6 +133,7 @@ export const Select = ({
           <BaseButton.Button
             variant="filled"
             size={size}
+            level={level}
             onClick={() => {
               if (matched == null) return;
               onSend(matched.value);
