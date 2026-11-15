@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -931,6 +932,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
+				LoopBudget: 1000,
 			}
 		}
 
@@ -976,6 +978,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.Ranger = nil },
 					"ranger",
 				),
+				Entry(
+					"loop_budget",
+					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
+					"loop_budget",
+				),
 			)
 		})
 
@@ -989,6 +996,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
+				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -3665,6 +3673,54 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		DescribeTable("Should stop a task whose cycle uses its whole loop budget", func(
+			ctx SpecContext,
+			source string,
+		) {
+			prog := arc.Text{Raw: source}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-tick-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			factory := newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{LoopBudget: 1000},
+			)
+			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).Should(Succeed())
+			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+		},
+			Entry("one looping node", `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`),
+			Entry("two looping nodes on one trigger", `
+				func spin() {
+					for {}
+				}
+				func spin_again() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+				interval(period=10ms) -> spin_again()
+			`),
+		)
+
 		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
 			prog := arc.Text{Raw: `
 				func grow() {

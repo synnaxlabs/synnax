@@ -23,6 +23,7 @@ const (
 	sectionImport = 0x02
 	sectionFunc   = 0x03
 	sectionMemory = 0x05
+	sectionGlobal = 0x06
 	sectionExport = 0x07
 	sectionCode   = 0x0a
 	sectionData   = 0x0b
