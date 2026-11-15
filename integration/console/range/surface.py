@@ -21,7 +21,7 @@ _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
 _STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
     "To do": ("Move to to do",),
     "In progress": ("Start", "Reopen"),
-    "Completed": ("Complete",),
+    "Completed": ("Stop",),
 }
 _STAGE_ICONS: dict[str, str] = {
     "To do": "lyra-icon--to-do",
