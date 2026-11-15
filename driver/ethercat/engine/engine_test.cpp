@@ -3125,6 +3125,28 @@ TEST_F(EngineTest, ShortCycleOfARecoveredSlaveKeepsTheOtherReaders) {
     EXPECT_EQ(kept->warning(), "");
 }
 
+/// @brief it should publish the state of a slave that left OP before the slave
+/// recovers, so the other readers keep their samples while it recovers.
+TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileASlaveRecovers) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->wait_until_recovering();
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+}
+
 /// @brief it should tell a writer once when its slave leaves OP and once when it
 /// returns, and end the return warning at the next transaction.
 TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {

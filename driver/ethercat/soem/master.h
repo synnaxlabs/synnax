@@ -200,6 +200,8 @@ public:
     /// @brief shares only atomics with receive() and send().
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    void recover(const x::breaker::Breaker &breaker) override;
+
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -425,7 +427,7 @@ private:
     /// restore, the next one waits from 100 ms, twice as long after each failure up to
     /// 10 s, and the wait starts again at 100 ms once the slave reaches OP. A wait for
     /// the clock of a DC slave ends once breaker stops.
-    void recover(uint16_t pos, const x::breaker::Breaker &breaker);
+    void recover_slave(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
