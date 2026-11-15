@@ -793,9 +793,8 @@ describe("wrapForm", () => {
           taskKey: draft.key,
         });
         await reportTaskRunning(client, draft, "stale");
-        await act(async () =>
-          fireEvent.click(await screen.findByRole("button", { name: "Redeploy" })),
-        );
+        const redeploy = await screen.findByRole("button", { name: "Redeploy" });
+        await act(async () => fireEvent.click(redeploy));
         await screen.findByText("Configuring task");
         fireEvent.click(await findIconButton(container, "stop"));
         expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
