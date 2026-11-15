@@ -18,13 +18,7 @@ import { Filtered, useFilter } from "@/menu/filter";
 import { SubContext } from "@/menu/submenus";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends Base.DialogProps {
-  /**
-   * Takes the focus when it opens, moves it over the items with the arrow keys, and
-   * filters the items as the user types, as a context menu does. A submenu ignores it.
-   */
-  filterable?: boolean;
-}
+export interface DialogProps extends Base.DialogProps {}
 
 /** Props that give a dialog the surface of a menu. */
 export type SurfaceProps = Required<
@@ -61,7 +55,7 @@ export const useSurface = (
   };
 };
 
-// The surface of an open menu that filters its items. It mounts only while open.
+// The surface of an open menu that is not a submenu. It mounts only while open.
 const Filtering = ({
   ref,
   onKeyDown,
@@ -88,7 +82,9 @@ const Filtering = ({
  * A menu that opens in a dialog, on the surface of a context menu. It holds menu items,
  * or the search and options of a selection: the search is a line of text over a
  * hairline, and the options are menu items. As the content of a {@link Sub}, it opens
- * beside the menu with its first item level with the item of the submenu.
+ * beside the menu with its first item level with the item of the submenu. Otherwise it
+ * takes the focus when it opens, unless a field in it has it, and filters its items as
+ * the user types, as a context menu does.
  *
  * @example
  * <Dialog.Frame>
@@ -102,15 +98,14 @@ export const Dialog = ({
   ref,
   className,
   children,
-  filterable = false,
   ...rest
 }: DialogProps): ReactNode => {
   const sub = use(SubContext);
   const { visible } = Base.useContext();
-  const props: Base.DialogProps = { ...useSurface(ref, className), ...rest };
+  const surface = useSurface(ref, className);
+  const props: Base.DialogProps = { ...surface, ...rest };
   const content = <SubContext value={undefined}>{children}</SubContext>;
-  if (!filterable || sub != null)
-    return <Base.Dialog {...props}>{content}</Base.Dialog>;
+  if (sub != null) return <Base.Dialog {...props}>{content}</Base.Dialog>;
   if (!visible) return null;
   return <Filtering {...props}>{content}</Filtering>;
 };

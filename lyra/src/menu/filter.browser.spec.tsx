@@ -183,9 +183,7 @@ describe("menu filter", () => {
         <Triggers.Provider>
           <Dialog.Frame initialVisible>
             <Dialog.Trigger>Filter</Dialog.Trigger>
-            <Menu.Dialog aria-label="Filter" filterable>
-              {items(() => {})}
-            </Menu.Dialog>
+            <Menu.Dialog aria-label="Filter">{items(() => {})}</Menu.Dialog>
           </Dialog.Frame>
         </Triggers.Provider>,
       );

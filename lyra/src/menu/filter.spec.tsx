@@ -262,27 +262,35 @@ describe("menu filter", () => {
   });
 
   describe("menu dialog", () => {
-    const renderDialog = (filterable: boolean): void => {
+    const renderDialog = (children: ReactElement): void => {
       render(
         <Triggers.Provider>
           <Dialog.Frame visible>
-            <Menu.Dialog filterable={filterable}>{ITEMS}</Menu.Dialog>
+            <Menu.Dialog>{children}</Menu.Dialog>
           </Dialog.Frame>
         </Triggers.Provider>,
       );
     };
 
-    it("should take the focus and filter its items when filterable", () => {
-      renderDialog(true);
+    it("should take the focus and filter its items", () => {
+      renderDialog(ITEMS);
       expect(document.activeElement?.classList.contains("lyra-menu-dialog")).toBe(true);
       type("rem");
       expect(shown()).toEqual(["Remove"]);
     });
 
-    it("should leave its items and the focus alone when not filterable", () => {
-      renderDialog(false);
-      expect(document.activeElement).toBe(document.body);
+    it("should leave the focus and the keys to a field that takes the focus", () => {
+      renderDialog(
+        <>
+          <input aria-label="Search" autoFocus />
+          {ITEMS}
+        </>,
+      );
+      const search = screen.getByLabelText("Search");
+      expect(document.activeElement).toBe(search);
+      type("rem");
       expect(shown()).toHaveLength(5);
+      expect(document.querySelector(".lyra-menu-filter")).toBeNull();
     });
   });
 });
