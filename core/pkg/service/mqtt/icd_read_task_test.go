@@ -32,10 +32,7 @@ import (
 
 // jsonField returns a JSON field of an ICD message.
 func jsonField(name, pointer string, v icd.JSONFieldVariant) icd.JSONField {
-	base := icd.JSONBaseField{
-		BaseField: icd.BaseField{Key: uuid.New(), Name: name, Scale: 1},
-		Pointer:   pointer,
-	}
+	base := icd.JSONBaseField{Key: uuid.New(), Name: name, Scale: 1, Pointer: pointer}
 	switch f := v.(type) {
 	case icd.FloatJSONField:
 		f.JSONBaseField = base
