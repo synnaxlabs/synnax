@@ -170,15 +170,9 @@ class LayoutClient:
         )
         return self.page.locator(".lyra-form-section").filter(has=header)
 
-    def command_palette(self, command: str, *, retries: int = 3) -> None:
+    def command_palette(self, command: str) -> None:
         """Execute a command via the command palette."""
-        self._palette(
-            query=command,
-            input_text=f">{command}",
-            empty_message="No commands found",
-            error_prefix="Command palette",
-            retries=retries,
-        )
+        self._palette(query=command, input_text=f">{command}")
 
     def choose_import_file(self, path: str | list[str]) -> None:
         """Send ``path`` through the "Import components" palette file chooser.
@@ -192,85 +186,32 @@ class LayoutClient:
             self.command_palette("Import components")
         fc_info.value.set_files(path)
 
-    def search_palette(self, query: str, *, retries: int = 3) -> None:
+    def search_palette(self, query: str) -> None:
         """Search for a resource via the command palette (without > prefix)."""
-        self._palette(
-            query=query,
-            input_text=query,
-            empty_message="No results found",
-            error_prefix="Search palette",
-            retries=retries,
+        self._palette(query=query, input_text=query)
+
+    def _palette(self, *, query: str, input_text: str) -> None:
+        palette_btn = self.page.locator(".console-palette button").first
+        palette_btn.wait_for(state="visible", timeout=5000)
+        palette_btn.click(timeout=5000)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
         )
-
-    def _palette(
-        self,
-        *,
-        query: str,
-        input_text: str,
-        empty_message: str,
-        error_prefix: str,
-        retries: int,
-    ) -> None:
-        """Internal palette implementation used by command_palette and
-        search_palette.
-        """
-        for attempt in range(retries):
-            palette_btn = self.page.locator(".console-palette button").first
-            palette_btn.wait_for(state="visible", timeout=5000)
-            palette_btn.click(timeout=5000)
-
-            palette_input = self.page.locator(
-                ".console-palette__input input[role='textbox']"
-            )
-            palette_input.wait_for(state="visible", timeout=5000)
-            palette_input.press("ControlOrMeta+a")
-            palette_input.type(input_text, timeout=5000)
-
-            try:
-                self.dialog.get_by_role("option").first.wait_for(
-                    state="attached", timeout=10000
-                )
-            except PlaywrightTimeoutError as e:
-                no_results = self.page.get_by_text(empty_message).is_visible()
-                if no_results and attempt < retries - 1:
-                    self.page.keyboard.press("Escape")
-                    sy.sleep(2)
-                    continue
-
-                input_value = palette_input.input_value()
-                palette_open = self.page.locator(
-                    ".console-palette__content"
-                ).is_visible()
-                list_container = self.page.locator(".console-palette__list")
-                list_visible = list_container.is_visible()
-                list_html = ""
-                try:
-                    list_html = list_container.inner_html(timeout=5000)[:1000]
-                except Exception:
-                    list_html = "<failed to get>"
-                raise RuntimeError(
-                    f"{error_prefix} list items not appearing. "
-                    f"Input: '{input_value}'. "
-                    f"Palette open: {palette_open}. "
-                    f"List visible: {list_visible}. "
-                    f"List HTML: {list_html}"
-                ) from e
-
-            target_result = (
-                self.dialog.get_by_role("option").filter(has_text=query).first
-            )
-            try:
-                target_result.wait_for(state="visible", timeout=5000)
-            except PlaywrightTimeoutError as e:
-                input_value = palette_input.input_value()
-                options = self.dialog.get_by_role("option").all_text_contents()
-                raise RuntimeError(
-                    f"{error_prefix}: Could not find '{query}'. "
-                    f"Input value: '{input_value}'. "
-                    f"Available options: {options}"
-                ) from e
-            target_result.click(timeout=5000)
-            return
+        palette_input.wait_for(state="visible", timeout=5000)
+        palette_input.press("ControlOrMeta+a")
+        palette_input.type(input_text, timeout=5000)
+        # A command shows once its visibility query answers, without a new search.
+        target = self.dialog.get_by_role("option").filter(has_text=query).first
+        try:
+            target.wait_for(state="visible", timeout=10000)
+        except PlaywrightTimeoutError as e:
+            options = self.dialog.get_by_role("option").all_text_contents()
+            raise RuntimeError(
+                f"Palette: could not find '{query}'. "
+                f"Input value: '{palette_input.input_value()}'. "
+                f"Available options: {options}"
+            ) from e
+        target.click(timeout=5000)
 
     def command_exists(self, command: str) -> bool:
         """Report whether the command palette offers ``command``.
