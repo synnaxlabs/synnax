@@ -79,15 +79,25 @@ std::shared_ptr<Manager::Entry> Manager::entry_for(const synnax::task::Key &key)
     return entry;
 }
 
-void Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
+bool Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
     const auto it = this->entries.find(key);
-    if (it == this->entries.end()) return;
+    if (it == this->entries.end()) return false;
     // A claimed entry stays: its worker may act on a stale fetch and install a
     // running instance, which the not-ours start path releases later. This also
     // keeps relevant()'s instance read claim-free.
-    if (!even_if_processing && it->second->processing) return;
-    if (it->second->relevant(this->rack.key)) return;
+    if (!even_if_processing && it->second->processing) return false;
+    if (it->second->relevant(this->rack.key)) return false;
     this->entries.erase(it);
+    return true;
+}
+
+void Manager::forget(const synnax::task::Key &key, const bool even_if_processing) {
+    bool removed = false;
+    {
+        std::lock_guard lock{this->mu};
+        removed = this->remove(key, even_if_processing);
+    }
+    if (removed) this->ctx->drop(key);
 }
 
 x::errors::Error Manager::configure_initial_tasks() {
@@ -96,6 +106,7 @@ x::errors::Error Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
+    std::vector<synnax::task::Key> gone;
     {
         std::lock_guard<std::mutex> lock(this->mu);
         // A task deleted or moved during a Core outage sent no event here. Its ops
@@ -105,7 +116,7 @@ x::errors::Error Manager::configure_initial_tasks() {
                     return t.key == key && !t.snapshot;
                 }))
                 continue;
-            this->ctx->drop(key);
+            gone.push_back(key);
             std::erase_if(this->op_queue, [&](const Op &op) {
                 return op.task_key == key;
             });
@@ -127,6 +138,8 @@ x::errors::Error Manager::configure_initial_tasks() {
         }
     }
     this->cv.notify_all();
+    for (const auto &key: gone)
+        this->ctx->drop(key);
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     {
@@ -138,6 +151,7 @@ x::errors::Error Manager::configure_initial_tasks() {
                              << sy_task;
             else {
                 const auto entry = this->entry_for(sy_task.key);
+                this->ctx->hold(sy_task.key);
                 entry->instance = std::move(driver_task);
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = sy_task;
@@ -243,13 +257,13 @@ void Manager::process_task_set(const x::telem::Series &series) {
             continue;
         }
         if (snapshot) continue;
-        std::lock_guard<std::mutex> lock(this->mu);
-        // An untracked task becomes ours only when its row lands on this rack.
-        if (this->entries.find(task_key) == this->entries.end() &&
-            rack_key != this->rack.key)
-            continue;
-        const auto entry = this->entry_for(task_key);
         {
+            std::lock_guard<std::mutex> lock(this->mu);
+            // An untracked task becomes ours only when its row lands on this rack.
+            if (this->entries.find(task_key) == this->entries.end() &&
+                rack_key != this->rack.key)
+                continue;
+            const auto entry = this->entry_for(task_key);
             std::lock_guard entry_lock{entry->mu};
             entry->row.key = task_key;
             entry->row.rack = rack_key;
@@ -257,7 +271,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
             entry->row.type = type;
             entry->row.config_hash = config_hash;
         }
-        this->remove(task_key);
+        this->forget(task_key);
     }
 }
 
@@ -499,8 +513,10 @@ void Manager::monitor_loop() {
                 }
             }
         }
+        // A timed out op may still finish, so its status is not the latest of the
+        // task.
         for (auto &status: timed_out)
-            this->ctx->set_status(status);
+            this->ctx->send(status);
     }
 }
 
@@ -532,15 +548,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         }
                         this->ctx->set_status(status);
                     }
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 tsk = std::move(fetched);
                 if (tsk.snapshot) {
                     VLOG(1) << "ignoring start for snapshot task " << tsk;
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 if (tsk.rack != this->rack.key) {
@@ -554,8 +568,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     }
                     this->clear_deploy(entry);
                     this->ctx->drop(op.task_key);
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->forget(op.task_key, true);
                     break;
                 }
                 std::string deployed;
@@ -598,6 +611,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     break;
                 silent = failed;
             }
+            this->ctx->hold(tsk.key);
             if (entry->instance != nullptr) {
                 // A start follows a deploy for a command. At boot, a live instance
                 // reports its own stop, and a failed one keeps the error that says

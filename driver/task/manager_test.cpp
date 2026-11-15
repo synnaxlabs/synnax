@@ -1546,8 +1546,9 @@ void report(
 }
 
 /// @brief builds tasks that report running when they start and stopped when they stop,
-/// as a real task does. Each command answers with the running state. The first
-/// configure blocks until released.
+/// as a real task does. Each command answers with the running state, except "slow",
+/// which takes a second and answers nothing. The first configure blocks until
+/// released, and the configure of a task named "broken" fails.
 class RunningTaskFactory final : public Factory {
     class Instance final : public Task {
         const std::shared_ptr<Context> ctx;
@@ -1570,6 +1571,10 @@ class RunningTaskFactory final : public Factory {
 
         void exec(synnax::task::Command &cmd) override {
             ++this->state->exec_count;
+            if (cmd.type == "slow") {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                return;
+            }
             if (cmd.type == synnax::task::START_CMD_TYPE) this->running = true;
             if (cmd.type == "stop") this->running = false;
             report(this->ctx, this->key, this->running, cmd.key);
@@ -1602,6 +1607,10 @@ public:
         const std::string &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (task.name == "broken") {
+            report(ctx, task.key, false, "", synnax::status::VARIANT_ERROR, "broken");
+            return {nullptr, true};
+        }
         auto state = std::make_shared<TrackingTaskState>();
         bool first = false;
         {
@@ -1697,6 +1706,32 @@ protected:
         ASSERT_EVENTUALLY_EQ(f->built()[0]->exec_count.load(), 1);
     }
 
+    /// @brief asserts that no Driver on this rack writes a status of t stamped at or
+    /// after since.
+    void expect_no_status_since(
+        const synnax::task::Task &t,
+        const x::telem::TimeStamp since
+    ) {
+        std::atomic<bool> received = false;
+        std::thread reader([&] {
+            while (true) {
+                auto [frame, err] = streamer.read();
+                if (err) return;
+                for (const auto &j: frame.series->at(0).json_values()) {
+                    auto parser = x::json::Parser(j);
+                    const auto s = synnax::task::Status::parse(parser);
+                    if (s.details.task == t.key && s.details.rack == rack.key &&
+                        s.time >= since)
+                        received = true;
+                }
+            }
+        });
+        std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
+        streamer.close_send();
+        reader.join();
+        ASSERT_FALSE(received);
+    }
+
     /// @returns the statuses of t up to the answer of a command sent now. The Manager
     /// runs the command after every earlier op of t.
     std::vector<synnax::task::Status>
@@ -1723,6 +1758,46 @@ TEST_F(ReconnectTest, RunningTaskKeepsItsInstance) {
     EXPECT_TRUE(statuses_until_command(task).back().details.running);
     EXPECT_EQ(f->built().size(), 1);
     EXPECT_FALSE(f->built()[0]->stopped.load());
+}
+
+/// @brief it should keep a running task whose command ran past its limit, since the
+/// timeout does not say that the task failed.
+TEST_F(ReconnectTest, TimedOutCommandKeepsItsInstance) {
+    start_piped_manager(
+        std::make_unique<RunningTaskFactory>(),
+        {.op_timeout = 200 * x::telem::MILLISECOND,
+         .poll_interval = 50 * x::telem::MILLISECOND}
+    );
+    ASSERT_TRUE(wait_for_run(1));
+    create_task();
+    start_task();
+    send_cmd(client, {.task = task.key, .type = "slow", .key = "slow-cmd"});
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "operation timed out";
+    });
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    statuses_until_command(task);
+    EXPECT_EQ(f->built().size(), 1);
+}
+
+/// @brief it should never send the status of a task that left this Driver again.
+TEST_F(ReconnectTest, StatusOfATaskThatMovedIsNotSentAgain) {
+    start_piped_manager(std::make_unique<RunningTaskFactory>());
+    ASSERT_TRUE(wait_for_run(1));
+    create_task("broken");
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        return s.message == "broken" && s.details.rack == rack.key;
+    });
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    task.rack = other.key;
+    ASSERT_NIL(other.tasks.create(task));
+    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+    const auto since = x::telem::TimeStamp::now();
+    pipe->cut();
+    ASSERT_TRUE(wait_for_run(2));
+    expect_no_status_since(task, since);
 }
 
 /// @brief it should configure a task again when it failed on its own during a Core
