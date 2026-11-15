@@ -45,9 +45,9 @@ class ConnectOPCUA(OPCUACase):
         # thumbprint.
         modal.get_by_text("Thumbprint", exact=True).wait_for(timeout=TIMEOUT)
         click_past(modal.get_by_role("button", name="Connect", exact=True))
-        modal.get_by_role("button", name="Trust and connect", exact=True).click(
-            timeout=TIMEOUT
-        )
+        trust = modal.get_by_role("button", name="Trust and connect", exact=True)
+        trust.wait_for(state="visible", timeout=TIMEOUT)
+        click_past(trust)
         modal.wait_for(state="hidden", timeout=TIMEOUT)
 
         dev = self.client.devices.retrieve(name=name)
