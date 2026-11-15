@@ -98,13 +98,13 @@ func (p *Plugin) generateFile(
 	mgr.AddInternal(cppjson.IncludeFor(jsonPaths, outputPath))
 	mgr.AddInternal("x/cpp/json/json.h")
 	types := &cpptypes.FieldProcessor{
-		Includes:  mgr,
-		Namespace: typ.Namespace,
-		Table:     req.Resolutions,
+		Includes: mgr,
+		FilePath: typ.FilePath,
+		Table:    req.Resolutions,
 	}
 	codecs := &cppjson.FieldProcessor{
 		Includes:   mgr,
-		Namespace:  typ.Namespace,
+		FilePath:   typ.FilePath,
 		OutputPath: outputPath,
 		Table:      req.Resolutions,
 		JSONPaths:  jsonPaths,
@@ -123,7 +123,11 @@ func (p *Plugin) generateFile(
 			Doc:     doc.Get(action.Domains),
 		}
 		// The payload is not in the resolution table, so no field refers to it.
-		parent := resolution.Type{Name: a.Payload, Namespace: typ.Namespace}
+		parent := resolution.Type{
+			Name:      a.Payload,
+			Namespace: typ.Namespace,
+			FilePath:  typ.FilePath,
+		}
 		if action.IsAlias() {
 			target := resolution.Field{Type: action.Alias}
 			a.Target = types.ProcessField(target, parent).CppType
