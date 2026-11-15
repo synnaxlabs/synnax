@@ -59,18 +59,14 @@ const clearState = (el: SVGElement) => {
   setFill(el, undefined);
 };
 
-// A symbol color, such as the stale color, replaces each region stroke the drawing
-// shows. A region with no stroke stays without one.
 const applyState = (
   svgElement: Element,
   state: schematic.symbol.State,
-  symbolColor: color.Crude | undefined,
   prevState?: schematic.symbol.State | null,
 ) => {
   if (prevState != null) iterElements(prevState, svgElement, clearState);
   iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
-    const shown = strokeColor != null && color.opacity(strokeColor) > 0;
-    setStroke(el, symbolColor != null && shown ? symbolColor : strokeColor);
+    setStroke(el, strokeColor);
     setFill(el, fillColor);
   });
 };
@@ -78,10 +74,39 @@ const applyState = (
 // The root carries the band class as on built-in symbols, so rules that read the
 // display color, such as the toggle states, apply to the drawing.
 const applySymbolColor = (svgElement: SVGSVGElement, symbolColor?: color.Crude) => {
-  svgElement.classList.add(CSS.symbolColored);
+  svgElement.classList.add(CSS.symbolColored, CSS.B("custom-drawing"));
   const rgba = color.rgbaString(symbolColor);
   if (rgba == null) svgElement.style.removeProperty(Primitive.SYMBOL_COLOR);
   else svgElement.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
+};
+
+const isStoredStrokeShown = (el: Element): boolean => {
+  const stroke = el.getAttribute("stroke");
+  if (stroke == null || stroke === "none") return false;
+  const parsed = color.colorZ.safeParse(stroke);
+  return !parsed.success || color.opacity(parsed.data) > 0;
+};
+
+// A symbol color, such as the stale color, replaces each stroke the drawing shows: the
+// stroke of the shape's region, or its stored stroke when no region sets one. It runs
+// after applyState and overrides it.
+const applySymbolStrokes = (
+  svgElement: Element,
+  state: schematic.symbol.State | undefined,
+  symbolColor: color.Crude | undefined,
+) => {
+  const regionStrokes = new Map<Element, color.Color>();
+  if (state != null)
+    iterElements(state, svgElement, (el, { strokeColor }) => {
+      if (strokeColor != null) regionStrokes.set(el, strokeColor);
+    });
+  Region.collectVisualElements(svgElement).forEach((el) => {
+    const regionStroke = regionStrokes.get(el);
+    const shown =
+      regionStroke != null ? color.opacity(regionStroke) > 0 : isStoredStrokeShown(el);
+    if (symbolColor != null && shown) setStroke(el, symbolColor);
+    else if (regionStroke == null) setStroke(el, undefined);
+  });
 };
 
 export interface UseRenderParams {
@@ -223,9 +248,10 @@ const runRender = (
   applySymbolColor(state.svgElement, strokeColor);
   const currState = selectState(params);
   if (currState != null) {
-    applyState(state.svgElement, currState, strokeColor, state.prevState);
+    applyState(state.svgElement, currState, state.prevState);
     state.prevState = currState;
   }
+  applySymbolStrokes(state.svgElement, currState, strokeColor);
   applyScale(state, orientation, spec.scale, externalScale);
   applyOrientation(state.svgElement, orientation);
   applyStrokeScaled(state, spec.strokeScaled);

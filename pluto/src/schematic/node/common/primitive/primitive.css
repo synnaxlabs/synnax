@@ -77,6 +77,12 @@
     }
 }
 
+/* The band class on the root of a custom drawing only derives the display color. Each
+   shape keeps its own stroke, so a shape without one stays without one. */
+.pluto-custom-drawing {
+    stroke: inherit;
+}
+
 /* Alpha, so a stroke-only symbol masks along its lines and a closed one masks its
    interior, whatever color the symbol paints. */
 .pluto-symbol-hold__mask {
