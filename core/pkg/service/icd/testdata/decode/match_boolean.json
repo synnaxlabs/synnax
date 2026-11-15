@@ -1,0 +1,28 @@
+{
+  "description": "A match value is a string or a number.",
+  "payload": {
+    "format": "json",
+    "fields": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "v",
+        "scale": 1,
+        "offset": 0,
+        "units": "",
+        "pointer": "/v",
+        "type": "float"
+      }
+    ],
+    "match": {
+      "pointer": "/type",
+      "value": true
+    }
+  },
+  "bindings": [
+    {
+      "field": "00000000-0000-4000-8000-000000000001",
+      "data_type": "float64"
+    }
+  ],
+  "error": "match value must be a string or a number"
+}
