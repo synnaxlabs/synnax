@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -37,6 +38,13 @@ Named struct {
     dark  color.Color? {
         @doc value "is the color in the dark theme. When absent, the theme derives it."
         @patch
+    }
+    group group.Key?   {
+        @doc value     "is the palette that holds the color, if any."
+        @group scope   color
+        @patch
+        @ref kind      place
+        @ref on_delete detach
     }
 
     action Create {

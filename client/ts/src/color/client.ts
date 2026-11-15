@@ -38,6 +38,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/color/where.gen";
+import { group } from "@/group";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_color_action_set";
@@ -76,6 +77,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
   readonly store: query.Table<Key, Named>;
   private readonly unary: UnaryClient;
   private readonly dispatcher: actions.Controller<Key, Named, Action>;
+  /** Builds requests that move named colors between palettes. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor({ unary, cache }: ClientConfig) {
     const store = cache.createTable<Key, Named>({
@@ -111,6 +114,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
     this.unary = unary;
     this.store = store;
     this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest("/color/dispatch", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async create(named: New, opts?: query.WriteOptions<Named[]>): Promise<Named>;

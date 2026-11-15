@@ -403,6 +403,7 @@ export default class Synnax extends framer.Client {
       batch: this.batch,
       setGroup: {
         channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        color: (keys, to) => this.colors.setGroupRequest(keys, to),
         device: (keys, to) => this.devices.setGroupRequest(keys, to),
         lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
         log: (keys, to) => this.logs.setGroupRequest(keys, to),

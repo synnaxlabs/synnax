@@ -12,6 +12,7 @@
 import { color, filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const ORDER_FIELDS = ["name"] as const;
@@ -43,6 +44,8 @@ export const namedZ = z.object({
   light: color.colorZ,
   /** dark is the color in the dark theme. When absent, the theme derives it. */
   dark: color.colorZ.optional(),
+  /** group is the palette that holds the color, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Named extends z.infer<typeof namedZ> {}
 
