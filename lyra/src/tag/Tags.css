@@ -101,10 +101,8 @@
         order: -1;
     }
 
-    /* A step change snaps, so a tag never animates its face. */
     & > .lyra-flex.lyra-btn.lyra-tag {
         flex: 0 0 auto;
-        transition: none;
         min-width: 0;
 
         & > .lyra-text:not(.lyra-btn) {

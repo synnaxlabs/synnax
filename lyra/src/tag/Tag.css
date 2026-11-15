@@ -14,7 +14,8 @@
     --lyra-tag-dot: 1.5rem;
 }
 
-/* A tag rests on the surface, and keeps that face on hover and press. */
+/* A tag rests on the surface, and keeps that face on hover and press unless its group
+   gives it a click. Its face snaps, so a step of its group never animates it. */
 .lyra-flex.lyra-btn.lyra-tag {
     --pluto-bg: var(--pluto-gray-l0);
     --pluto-hover-bg: var(--pluto-gray-l0);
@@ -34,6 +35,7 @@
     white-space: nowrap;
     box-shadow: var(--pluto-shadow-lift);
     position: relative;
+    transition: none;
 
     & > .lyra-icon--dot {
         width: var(--lyra-tag-dot);
@@ -41,20 +43,12 @@
         margin-right: calc(var(--lyra-tag-dot) / 4);
     }
 
-    /* The close overlays the leading icon, so it paints the tag's face to mask
-       it, outranking the glyph default's transparent fill. It fades on the tag's
-       clock, not the reveal's, so the mask never leads or trails the face. */
+    /* The close overlays the leading icon, so it paints the tag's face to mask it,
+       outranking the glyph default's transparent fill. Only its opacity fades, so it
+       cross-fades with the icon while its mask snaps with the face. */
     .lyra-btn.lyra-tag__close {
         --pluto-bg: var(--lyra-tag-face);
         --pluto-hover-bg: var(--lyra-tag-face);
         --pluto-active-bg: var(--lyra-tag-face);
-
-        transition: var(--pluto-btn-transition);
-
-        & svg {
-            transition:
-                transform 0.15s ease-in-out,
-                fill 0.15s ease-in-out;
-        }
     }
 }
