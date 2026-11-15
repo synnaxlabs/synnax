@@ -153,13 +153,39 @@ var _ = Describe("JSON", func() {
 		}
 	}, decodeEntries())
 
+	DescribeTable("Should match a number of any Go numeric type", func(value any) {
+		key := uuid.New()
+		p := icd.JSONPayload{
+			Match: &icd.JSONMatch{Pointer: "/type", Value: value},
+			Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
+				Key: key, Name: "v", Scale: 1, Pointer: "/v",
+			}}},
+		}
+		dec := MustSucceed(codec.NewJSON(
+			p, []codec.Binding{{Field: key, DataType: telem.Float64T}},
+		))
+		samples := make([][]byte, 1)
+		Expect(dec.Decode([]byte(`{"type": 3, "v": 1}`), samples)).To(BeTrue())
+		Expect(dec.Decode([]byte(`{"type": 4, "v": 1}`), samples)).To(BeFalse())
+	},
+		Entry("float64", float64(3)),
+		Entry("float32", float32(3)),
+		Entry("int", 3),
+		Entry("int8", int8(3)),
+		Entry("int16", int16(3)),
+		Entry("int32", int32(3)),
+		Entry("int64", int64(3)),
+		Entry("uint", uint(3)),
+		Entry("uint8", uint8(3)),
+		Entry("uint16", uint16(3)),
+		Entry("uint32", uint32(3)),
+		Entry("uint64", uint64(3)),
+	)
+
 	It("Should append to the samples of earlier documents", func() {
 		key := uuid.New()
 		p := icd.JSONPayload{Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
-			JSONBaseField: icd.JSONBaseField{
-				BaseField: icd.BaseField{Key: key, Name: "v", Scale: 1},
-				Pointer:   "/v",
-			},
+			Key: key, Name: "v", Scale: 1, Pointer: "/v",
 		}}}}
 		dec := MustSucceed(codec.NewJSON(
 			p, []codec.Binding{{Field: key, DataType: telem.Float64T}},
