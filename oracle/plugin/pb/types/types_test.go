@@ -967,6 +967,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Helper",
 					Namespace:     "shared",
 					QualifiedName: "shared.Helper",
+					FilePath:      "shared.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{Name: "dummy", Type: resolution.TypeRef{Name: "string"}},
@@ -978,6 +979,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Priority",
 					Namespace:     "shared",
 					QualifiedName: "shared.Priority",
+					FilePath:      "shared.oracle",
 					Form: resolution.EnumForm{
 						Values: []resolution.EnumValue{{Name: "low"}, {Name: "high"}},
 					},
@@ -989,6 +991,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Task",
 					Namespace:     "task",
 					QualifiedName: "task.Task",
+					FilePath:      "task.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{
